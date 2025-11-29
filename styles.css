@@ -20,43 +20,37 @@ body {
     text-align: center;
 }
 
-header h1 {
-    font-size: 3rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    margin-bottom: 8px;
+header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
 }
 
-.tagline {
+.logo {
+    width: 550px;
+    height: auto;
+    margin-bottom: 16px;
+    display: block;
+}
+
+.subtitle {
     font-size: 1.25rem;
     color: #888;
     margin-bottom: 48px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.tagline {
+    font-size: 1.5rem;
+    color: #fff;
+    font-weight: 500;
+    margin-bottom: 32px;
 }
 
 .hero {
     margin-bottom: 48px;
-}
-
-.description {
-    font-size: 1.125rem;
-    line-height: 1.6;
-    color: #ccc;
-    margin-bottom: 32px;
-}
-
-.stations {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 12px;
-}
-
-.station {
-    background: #1a1a1a;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 0.875rem;
-    color: #888;
 }
 
 .download-section {
@@ -89,6 +83,19 @@ header h1 {
 footer {
     color: #444;
     font-size: 0.875rem;
+}
+
+footer .contact {
+    margin-top: 8px;
+}
+
+footer .contact a {
+    color: #666;
+    text-decoration: none;
+}
+
+footer .contact a:hover {
+    color: #fff;
 }
 
 /* Deep link page styles */
