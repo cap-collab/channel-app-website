@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "KX3KJLA7ZP.ChannelMedia.Channel",
+        "paths": ["/listen/*"]
+      }
+    ]
+  }
+}
