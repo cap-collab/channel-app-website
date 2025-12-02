@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#000"/>
+
+  <defs>
+    <pattern id="dots" patternUnits="userSpaceOnUse" width="8" height="8">
+      <circle cx="4" cy="4" r="3" fill="white"/>
+    </pattern>
+    <mask id="textMask">
+      <text x="600" y="280" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif" font-size="120" font-weight="900" letter-spacing="-4" fill="white">CHANNEL</text>
+    </mask>
+  </defs>
+
+  <rect x="100" y="180" width="1000" height="150" fill="url(#dots)" mask="url(#textMask)"/>
+
+  <text x="600" y="380" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif" font-size="24" fill="#888" text-transform="uppercase" letter-spacing="4">COMMUNITY-LED MEDIA</text>
+
+  <text x="600" y="480" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif" font-size="36" fill="#fff" font-weight="500">Meet your people. Shape your culture.</text>
+</svg>
