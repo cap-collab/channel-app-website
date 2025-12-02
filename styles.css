@@ -85,6 +85,24 @@ footer {
     font-size: 0.875rem;
 }
 
+footer .legal-links {
+    margin-bottom: 12px;
+}
+
+footer .legal-links a {
+    color: #666;
+    text-decoration: none;
+}
+
+footer .legal-links a:hover {
+    color: #fff;
+}
+
+footer .legal-links span {
+    color: #444;
+    margin: 0 8px;
+}
+
 footer .contact {
     margin-top: 8px;
 }
