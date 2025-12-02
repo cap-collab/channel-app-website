@@ -140,3 +140,98 @@ footer .contact a:hover {
 .manual-link:hover {
     color: #fff;
 }
+
+/* Legal pages styles */
+.legal-container {
+    max-width: 700px;
+    padding: 60px 24px;
+    margin: 0 auto;
+}
+
+.legal-container h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.legal-container .last-updated {
+    color: #666;
+    font-size: 0.875rem;
+    margin-bottom: 48px;
+}
+
+.legal-container h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-top: 40px;
+    margin-bottom: 16px;
+    color: #fff;
+}
+
+.legal-container h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-top: 24px;
+    margin-bottom: 12px;
+    color: #ccc;
+}
+
+.legal-container p {
+    color: #aaa;
+    line-height: 1.7;
+    margin-bottom: 16px;
+}
+
+.legal-container ul {
+    color: #aaa;
+    line-height: 1.7;
+    margin-bottom: 16px;
+    padding-left: 24px;
+}
+
+.legal-container li {
+    margin-bottom: 8px;
+}
+
+.legal-container a {
+    color: #fff;
+    text-decoration: underline;
+}
+
+.legal-container a:hover {
+    color: #888;
+}
+
+.legal-container .highlight {
+    color: #fff;
+    font-weight: 500;
+}
+
+.legal-back-link {
+    display: inline-block;
+    color: #666;
+    text-decoration: none;
+    font-size: 0.875rem;
+    margin-bottom: 32px;
+}
+
+.legal-back-link:hover {
+    color: #fff;
+}
+
+.legal-footer {
+    margin-top: 64px;
+    padding-top: 32px;
+    border-top: 1px solid #222;
+    color: #444;
+    font-size: 0.875rem;
+}
+
+.legal-footer a {
+    color: #666;
+    text-decoration: none;
+}
+
+.legal-footer a:hover {
+    color: #fff;
+}
