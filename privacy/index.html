@@ -16,11 +16,44 @@
     <meta name="twitter:title" content="Privacy Policy - Channel">
     <meta name="twitter:description" content="Privacy Policy for Channel - Community-Led Media">
 
-    <link rel="stylesheet" href="../styles.css?v=2">
+    <link rel="stylesheet" href="../styles.css?v=3">
+
+    <!-- Smart App Banner for iOS Safari -->
+    <meta name="apple-itunes-app" content="app-id=6745279954">
 </head>
 <body>
     <div class="legal-container">
-        <a href="../" class="legal-back-link">&larr; Back to Channel</a>
+        <a href="#" class="legal-back-link" id="back-link">&larr; Back to Channel</a>
+
+        <script>
+            (function() {
+                var link = document.getElementById('back-link');
+                var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                var appStoreUrl = 'https://apps.apple.com/app/id6745279954';
+
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+
+                    if (isIOS) {
+                        // Try to open the app
+                        var appUrl = 'channel://';
+                        var start = Date.now();
+
+                        window.location.href = appUrl;
+
+                        // If app didn't open after 1.5s, go to App Store
+                        setTimeout(function() {
+                            if (Date.now() - start < 2000) {
+                                window.location.href = appStoreUrl;
+                            }
+                        }, 1500);
+                    } else {
+                        // Desktop or Android - go to main website
+                        window.location.href = '../';
+                    }
+                });
+            })();
+        </script>
 
         <h1>Privacy Policy</h1>
         <p class="last-updated">Last updated: December 2025<br>Channel Media, Inc.</p>
