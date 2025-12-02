@@ -28,14 +28,15 @@ header {
 }
 
 .logo {
-    width: 550px;
+    width: 100%;
+    max-width: 550px;
     height: auto;
     margin-bottom: 16px;
     display: block;
 }
 
 .subtitle {
-    font-size: 1.25rem;
+    font-size: clamp(0.875rem, 3vw, 1.25rem);
     color: #888;
     margin-bottom: 48px;
     text-transform: uppercase;
@@ -43,10 +44,11 @@ header {
 }
 
 .tagline {
-    font-size: 1.5rem;
+    font-size: clamp(1.125rem, 4vw, 1.5rem);
     color: #fff;
     font-weight: 500;
     margin-bottom: 32px;
+    padding: 0 16px;
 }
 
 .hero {
