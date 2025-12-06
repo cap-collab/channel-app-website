@@ -88,12 +88,29 @@ function ShowBlockComponent({
       style={{
         top,
         height: Math.max(height, minHeight),
-        backgroundColor: "#1a1a1a",
-        borderLeft: `3px solid ${accentColor}`,
+        backgroundColor: `${accentColor}15`,
+        borderBottom: `1px solid ${accentColor}30`,
       }}
       onClick={() => setIsExpanded(!isExpanded)}
     >
-      <div className="px-2 py-1.5 h-full flex flex-col">
+      {/* Star icon for quick favorite */}
+      <button
+        onClick={handleFavoriteClick}
+        className="absolute top-1 right-1 p-0.5 text-white/60 hover:text-white transition-colors z-10"
+        aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}
+      >
+        <svg
+          className="w-3.5 h-3.5"
+          viewBox="0 0 24 24"
+          fill={isFavorited ? "currentColor" : "none"}
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+        </svg>
+      </button>
+
+      <div className="px-2 py-1.5 h-full flex flex-col pr-6">
         <p
           className="font-medium text-white text-xs leading-tight truncate"
           title={show.name}
