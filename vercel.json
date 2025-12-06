@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/show-reminders",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/watchlist-digest",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-tokens",
+      "schedule": "*/30 * * * *"
+    }
+  ]
+}

@@ -1,0 +1,144 @@
+import Link from "next/link";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Terms of Use - Channel",
+  description: "Terms of Use for Channel - Community-Led Media",
+};
+
+export default function TermsPage() {
+  return (
+    <div className="legal-container">
+      <Link href="/" className="inline-block text-gray-500 text-sm mb-8 hover:text-white">
+        &larr; Back to Channel
+      </Link>
+
+      <h1>Terms of Use</h1>
+      <p className="last-updated">
+        Last updated: December 2025<br />
+        Channel Media, Inc.
+      </p>
+
+      <h2>1. Acceptance of Terms</h2>
+      <p>By downloading or using Channel, you agree to these Terms of Use.</p>
+      <p>If you do not agree, do not use the app.</p>
+
+      <h2>2. Eligibility</h2>
+      <p>You must be 13 years or older to use Channel.</p>
+
+      <h2>3. Description of Service</h2>
+      <p>Channel provides:</p>
+      <ul>
+        <li>Live audio streams from third-party radio stations</li>
+        <li>Public chat rooms</li>
+        <li>Show schedules</li>
+        <li>Optional local notifications</li>
+        <li>BPM information</li>
+      </ul>
+      <p>We do not own or control station content.</p>
+
+      <h2>4. User Conduct</h2>
+      <p>You agree not to post:</p>
+      <ul>
+        <li>Harassment or threats</li>
+        <li>Hate speech (racism, sexism, homophobia, transphobia, etc.)</li>
+        <li>Illegal content</li>
+        <li>Sexual or explicit content</li>
+        <li>Spam, ads, or self-promotion</li>
+        <li>Someone else&apos;s personal information</li>
+      </ul>
+      <p>Violations may result in message removal or access restriction.</p>
+
+      <h2>5. User-Generated Content</h2>
+      <p>By posting chat messages, you understand:</p>
+      <ul>
+        <li>Messages are public</li>
+        <li>Anyone tuned to the station may see them</li>
+        <li>You are responsible for what you post</li>
+        <li>We may remove content or restrict access to protect the community</li>
+      </ul>
+
+      <h3>Optional Automatic Messages</h3>
+      <p>
+        The app may generate short public messages based on your listening activity (for example,
+        when you &quot;love&quot; a show or listen for an extended period). These messages are part of the
+        community experience and:
+      </p>
+      <ul>
+        <li>are optional</li>
+        <li>can be disabled at any time in Settings</li>
+        <li>do not include personal data beyond your username</li>
+        <li>appear in the station&apos;s public chat like any normal user message</li>
+      </ul>
+      <p>
+        By using the chat feature, you acknowledge that enabling this setting will allow these
+        optional activity messages to appear publicly.
+      </p>
+
+      <h2>6. External Radio Streams</h2>
+      <p>Channel streams content from:</p>
+      <ul>
+        <li>Subtle Radio</li>
+        <li>Dublab</li>
+        <li>Rinse FM (UK)</li>
+        <li>Rinse FR</li>
+        <li>NTS 1</li>
+        <li>NTS 2</li>
+      </ul>
+      <p>We are not responsible for:</p>
+      <ul>
+        <li>Stream interruptions</li>
+        <li>Copyright issues related to broadcast content</li>
+        <li>Schedule accuracy</li>
+        <li>Content quality or appropriateness</li>
+      </ul>
+
+      <h2>7. Disclaimers</h2>
+      <p>
+        Channel is provided &quot;as is.&quot; We do not guarantee availability, uninterrupted service, or
+        error-free performance.
+      </p>
+
+      <h2>8. Limitation of Liability</h2>
+      <p>To the maximum extent allowed by law, Channel Media, Inc. is not liable for:</p>
+      <ul>
+        <li>Service interruptions</li>
+        <li>Data loss</li>
+        <li>User interactions in chat</li>
+        <li>Third-party station content</li>
+        <li>Device issues or app crashes</li>
+      </ul>
+
+      <h2>9. Reporting Issues</h2>
+      <p>You may report:</p>
+      <ul>
+        <li>Bugs</li>
+        <li>Abuse</li>
+        <li>Community guideline violations</li>
+      </ul>
+      <p>
+        By shaking your device or emailing{" "}
+        <a href="mailto:support@channel-app.com">support@channel-app.com</a>.
+      </p>
+
+      <h2>10. Governing Law</h2>
+      <p>These terms are governed by U.S. and California law.</p>
+
+      <h2>11. Contact</h2>
+      <p>
+        Channel Media, Inc.
+        <br />
+        General contact: <a href="mailto:info@channel-app.com">info@channel-app.com</a>
+        <br />
+        Safety contact: <a href="mailto:support@channel-app.com">support@channel-app.com</a>
+      </p>
+
+      <footer className="legal-footer">
+        <p>&copy; 2025 Channel Media, Inc.</p>
+        <p>
+          <a href="mailto:info@channel-app.com">info@channel-app.com</a>
+        </p>
+      </footer>
+    </div>
+  );
+}
