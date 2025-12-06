@@ -7,27 +7,28 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const {
-      stationName,
+      firstName,
+      lastName,
+      radioUrl,
       streamUrl,
       scheduleUrl,
-      contactEmail,
+      socialMedia,
+      plays24_7,
       message,
-      accentColor,
-      logoUrl,
     } = body;
 
     const { data, error } = await resend.emails.send({
       from: "Channel <noreply@channel-app.com>",
       to: ["djradio@channel-app.com"],
-      subject: `New Station Application: ${stationName}`,
+      subject: `New Station Application: ${radioUrl}`,
       html: `
         <h2>New Station Application</h2>
-        <p><strong>Station Name:</strong> ${stationName}</p>
-        <p><strong>Contact Email:</strong> <a href="mailto:${contactEmail}">${contactEmail}</a></p>
-        <p><strong>Stream URL:</strong> <a href="${streamUrl}">${streamUrl}</a></p>
-        <p><strong>Schedule URL:</strong> <a href="${scheduleUrl}">${scheduleUrl}</a></p>
-        <p><strong>Accent Color:</strong> <span style="background-color: ${accentColor}; padding: 2px 8px; color: white;">${accentColor}</span></p>
-        ${logoUrl ? `<p><strong>Logo:</strong> <a href="${logoUrl}">View Logo</a></p>` : "<p><strong>Logo:</strong> Not provided</p>"}
+        <p><strong>Contact:</strong> ${firstName} ${lastName}</p>
+        <p><strong>Radio Website:</strong> <a href="${radioUrl}">${radioUrl}</a></p>
+        ${streamUrl ? `<p><strong>Stream URL:</strong> <a href="${streamUrl}">${streamUrl}</a></p>` : ""}
+        ${scheduleUrl ? `<p><strong>Schedule URL:</strong> <a href="${scheduleUrl}">${scheduleUrl}</a></p>` : ""}
+        ${socialMedia ? `<p><strong>Social Media:</strong> ${socialMedia}</p>` : ""}
+        <p><strong>Plays 24/7:</strong> ${plays24_7 ? "Yes" : "No"}</p>
         ${message ? `<p><strong>Message:</strong></p><p>${message}</p>` : ""}
         <hr />
         <p style="color: #666; font-size: 12px;">This application was submitted via channel-app.com</p>
