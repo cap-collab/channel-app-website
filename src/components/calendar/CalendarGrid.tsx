@@ -356,7 +356,7 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
       />
 
       {/* Persistent station headers - stays fixed at top when scrolling */}
-      <div className="sticky top-0 z-40 bg-black flex border-b border-gray-800">
+      <div className="sticky top-0 z-50 bg-black flex border-b border-gray-800">
         {/* Time axis spacer (left) */}
         <div className="w-14 flex-shrink-0" />
 
