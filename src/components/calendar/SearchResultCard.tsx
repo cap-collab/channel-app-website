@@ -29,7 +29,6 @@ function SearchResultCardComponent({ show, station }: SearchResultCardProps) {
   };
 
   const showStart = new Date(show.startTime);
-  const showEnd = new Date(show.endTime);
 
   // Format day (Today, Tomorrow, or weekday)
   const formatDay = (date: Date) => {

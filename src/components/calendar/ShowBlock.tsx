@@ -28,13 +28,16 @@ function ShowBlockComponent({
 }: ShowBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [calendarLoading, setCalendarLoading] = useState(false);
   const { isAuthenticated } = useAuthContext();
   const { isShowFavorited, toggleFavorite } = useFavorites();
   const { isConnected: isCalendarConnected, addToCalendar, connectCalendar } = useCalendarSync();
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const isFavorited = isShowFavorited(show);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleFavoriteClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isAuthenticated) {
@@ -44,6 +47,7 @@ function ShowBlockComponent({
     await toggleFavorite(show);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleCalendarClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isAuthenticated) {

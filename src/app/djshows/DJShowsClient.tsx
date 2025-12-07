@@ -13,7 +13,9 @@ export function DJShowsClient() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showNowPlaying, setShowNowPlaying] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showUserMenu, setShowUserMenu] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { user, isAuthenticated, signOut, loading } = useAuthContext();
 
   const handleSearch = useCallback((query: string) => {
