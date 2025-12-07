@@ -13,9 +13,7 @@ export function DJShowsClient() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showNowPlaying, setShowNowPlaying] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showUserMenu, setShowUserMenu] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { user, isAuthenticated, signOut, loading } = useAuthContext();
 
   const handleSearch = useCallback((query: string) => {
@@ -81,8 +79,7 @@ export function DJShowsClient() {
                 Feature Your Station
               </Link>
 
-            {/* User menu - hidden until Google OAuth is set up for production */}
-            {/* <div className="relative">
+            <div className="relative">
               {loading ? (
                 <div className="w-8 h-8 rounded-full bg-gray-800 animate-pulse" />
               ) : isAuthenticated && user ? (
@@ -152,7 +149,7 @@ export function DJShowsClient() {
                   </div>
                 </>
               )}
-            </div> */}
+            </div>
             </div>
           </div>
 
@@ -180,7 +177,7 @@ export function DJShowsClient() {
       </main>
 
       {/* Get Involved Section */}
-      <section id="get-involved" className="py-24 px-6 bg-gray-950 border-t border-gray-800">
+      <section id="get-involved" className="py-24 px-6 bg-black border-t border-gray-800">
         <div className="max-w-3xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-8 text-center">
             Get Involved
@@ -226,6 +223,28 @@ export function DJShowsClient() {
           </div>
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="py-12 px-6 border-t border-gray-800">
+        <div className="max-w-3xl mx-auto text-center">
+          <div className="text-sm text-gray-600 space-y-3">
+            <p>
+              <Link href="/privacy" className="text-gray-500 hover:text-white transition-colors">
+                Privacy Policy
+              </Link>
+              <span className="text-gray-700 mx-3">·</span>
+              <Link href="/terms" className="text-gray-500 hover:text-white transition-colors">
+                Terms & Conditions
+              </Link>
+              <span className="text-gray-700 mx-3">·</span>
+              <Link href="/guidelines" className="text-gray-500 hover:text-white transition-colors">
+                Community Guidelines
+              </Link>
+            </p>
+            <p>&copy; 2025 Channel Media, Inc. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
 
       {/* Browsing Mode Popup */}
       {showNowPlaying && (

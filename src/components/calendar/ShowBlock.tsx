@@ -4,7 +4,6 @@ import { memo, useState } from "react";
 import { Show } from "@/types";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
-import { useCalendarSync } from "@/hooks/useCalendarSync";
 import { AuthModal } from "@/components/AuthModal";
 
 interface ShowBlockProps {
@@ -23,21 +22,17 @@ function ShowBlockComponent({
   accentColor,
   dayStart,
   stationName,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   stationUrl,
   isHighlighted = false,
 }: ShowBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [calendarLoading, setCalendarLoading] = useState(false);
   const { isAuthenticated } = useAuthContext();
   const { isShowFavorited, toggleFavorite } = useFavorites();
-  const { isConnected: isCalendarConnected, addToCalendar, connectCalendar } = useCalendarSync();
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const isFavorited = isShowFavorited(show);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleFavoriteClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isAuthenticated) {
@@ -45,22 +40,6 @@ function ShowBlockComponent({
       return;
     }
     await toggleFavorite(show);
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleCalendarClick = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!isAuthenticated) {
-      setShowAuthModal(true);
-      return;
-    }
-    if (!isCalendarConnected) {
-      await connectCalendar();
-      return;
-    }
-    setCalendarLoading(true);
-    await addToCalendar(show, stationName, stationUrl);
-    setCalendarLoading(false);
   };
 
   const showStart = new Date(show.startTime);
@@ -89,6 +68,21 @@ function ShowBlockComponent({
 
   const minHeight = 36; // Minimum height for readability
 
+  // Format day (Today, Tomorrow, or weekday)
+  const formatDay = (date: Date) => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return "Today";
+    } else if (date.toDateString() === tomorrow.toDateString()) {
+      return "Tomorrow";
+    } else {
+      return date.toLocaleDateString([], { weekday: "short" });
+    }
+  };
+
   return (
     <>
       <div
@@ -103,8 +97,8 @@ function ShowBlockComponent({
         }}
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        {/* Star icon for quick favorite - hidden until auth is set up for production */}
-        {/* <button
+        {/* Star icon for quick favorite */}
+        <button
           onClick={handleFavoriteClick}
           className="absolute top-1 right-1 p-0.5 transition-colors z-10"
           style={{ color: accentColor }}
@@ -119,7 +113,7 @@ function ShowBlockComponent({
           >
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
           </svg>
-        </button> */}
+        </button>
 
         <div className="px-2 py-1.5 h-full flex flex-col pr-6 overflow-hidden">
           <p
@@ -131,10 +125,13 @@ function ShowBlockComponent({
           {show.dj && height > 50 && (
             <p className="text-gray-500 text-[10px] truncate mt-0.5">{show.dj}</p>
           )}
+          {show.description && height > 80 && (
+            <p className="text-gray-600 text-[10px] line-clamp-2 mt-1">{show.description}</p>
+          )}
         </div>
       </div>
 
-      {/* Expanded overlay - outside the card */}
+      {/* Expanded overlay - styled like SearchResultCard */}
       {isExpanded && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90"
@@ -144,104 +141,86 @@ function ShowBlockComponent({
           }}
         >
           <div
-            className="bg-black border border-gray-800 rounded-xl p-6 max-w-md w-full max-h-[80vh] overflow-y-auto"
+            className="bg-black border border-gray-800 rounded-xl max-w-md w-full max-h-[80vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Accent bar */}
-            <div
-              className="h-1 w-12 rounded-full mb-5"
-              style={{ backgroundColor: accentColor }}
-            />
+            {/* Card styled like SearchResultCard */}
+            <div className="flex">
+              {/* Left accent bar */}
+              <div
+                className="w-1.5 flex-shrink-0 rounded-l-xl"
+                style={{ backgroundColor: accentColor }}
+              />
 
-            <h3 className="text-xl font-bold text-white mb-1">{show.name}</h3>
-            {show.dj && (
-              <p className="text-gray-500 text-sm mb-4">{show.dj}</p>
-            )}
+              <div className="flex-1 p-4">
+                {/* Station name */}
+                <div className="mb-2">
+                  <span
+                    className="text-xs font-semibold uppercase tracking-wide"
+                    style={{ color: accentColor }}
+                  >
+                    {stationName}
+                  </span>
+                </div>
 
-            <div className="text-gray-400 text-sm mb-4 flex items-center gap-2">
-              <span>
-                {showStart.toLocaleDateString([], {
-                  weekday: "short",
-                  month: "short",
-                  day: "numeric",
-                })}
-              </span>
-              <span className="text-gray-700">·</span>
-              <span>
-                {showStart.toLocaleTimeString([], {
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}{" "}
-                –{" "}
-                {showEnd.toLocaleTimeString([], {
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
-              </span>
-            </div>
+                {/* Show name */}
+                <h3 className="font-semibold text-white text-lg leading-snug mb-1">
+                  {show.name}
+                </h3>
 
-            {show.description && (
-              <p className="text-gray-400 text-sm mb-6 leading-relaxed">
-                {show.description}
-              </p>
-            )}
+                {/* DJ + Time */}
+                <div className="flex items-center gap-1.5 text-sm text-gray-500 mb-3">
+                  {show.dj && (
+                    <>
+                      <span>{show.dj}</span>
+                      <span className="text-gray-700">·</span>
+                    </>
+                  )}
+                  <span>
+                    {formatDay(showStart)} at{" "}
+                    {showStart.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                    {" – "}
+                    {showEnd.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                  </span>
+                </div>
 
-            {/* Save and Calendar buttons - hidden until auth is set up for production */}
-            {/* <div className="flex gap-3">
-              <button
-                onClick={handleFavoriteClick}
-                className={`flex-1 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
-                  isFavorited
-                    ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                    : "bg-gray-900 text-white border border-gray-800 hover:bg-gray-800"
-                }`}
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill={isFavorited ? "currentColor" : "none"}
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+                {/* Description */}
+                {show.description && (
+                  <p className="text-gray-400 text-sm leading-relaxed mb-4">
+                    {show.description}
+                  </p>
+                )}
+
+                {/* Save button */}
+                <button
+                  onClick={handleFavoriteClick}
+                  className={`w-full py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                    isFavorited
+                      ? "bg-white/20 text-white border border-white/30"
+                      : "bg-gray-900 text-white border border-gray-800 hover:bg-gray-800"
+                  }`}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                  />
-                </svg>
-                {isFavorited ? "Saved" : "Save"}
-              </button>
-              <button
-                onClick={handleCalendarClick}
-                disabled={calendarLoading}
-                className="flex-1 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 bg-gray-900 text-white border border-gray-800 hover:bg-gray-800 disabled:opacity-50"
-              >
-                {calendarLoading ? (
-                  <div className="w-5 h-5 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
-                ) : (
                   <svg
                     className="w-5 h-5"
-                    fill="none"
+                    fill={isFavorited ? "currentColor" : "none"}
                     stroke="currentColor"
                     viewBox="0 0 24 24"
+                    strokeWidth={2}
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                   </svg>
-                )}
-                {isCalendarConnected ? "Add to Cal" : "Connect Cal"}
-              </button>
-            </div> */}
-            <button
-              className="w-full mt-3 py-2 text-gray-500 text-sm hover:text-white transition-colors"
-              onClick={() => setIsExpanded(false)}
-            >
-              Close
-            </button>
+                  {isFavorited ? "Saved" : "Save"}
+                </button>
+
+                {/* Close button */}
+                <button
+                  className="w-full mt-2 py-2 text-gray-500 text-sm hover:text-white transition-colors"
+                  onClick={() => setIsExpanded(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

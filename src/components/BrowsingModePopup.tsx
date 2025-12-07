@@ -5,6 +5,9 @@ import Image from "next/image";
 import { STATIONS } from "@/lib/stations";
 import { getCurrentShows } from "@/lib/metadata";
 import { Show } from "@/types";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { useFavorites } from "@/hooks/useFavorites";
+import { AuthModal } from "@/components/AuthModal";
 
 interface BrowsingModePopupProps {
   onClose: () => void;
@@ -54,6 +57,11 @@ export function BrowsingModePopup({ onClose }: BrowsingModePopupProps) {
   const [cardOpacity, setCardOpacity] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [confettiParticles, setConfettiParticles] = useState<ConfettiParticle[]>([]);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // Auth and favorites
+  const { isAuthenticated } = useAuthContext();
+  const { isShowFavorited, toggleFavorite } = useFavorites();
 
   // Refs
   const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
@@ -408,19 +416,78 @@ export function BrowsingModePopup({ onClose }: BrowsingModePopupProps) {
                 </div>
               </div>
 
-              {/* Station info */}
-              <div className="text-center mb-6">
-                <h2 className="text-xl font-bold text-white">{currentStation.name}</h2>
-                {currentShow ? (
-                  <>
-                    <p className="text-white/80 text-sm mt-1">{currentShow.name}</p>
-                    {currentShow.dj && (
-                      <p className="text-white/50 text-xs mt-0.5">{currentShow.dj}</p>
+              {/* Show card - styled like SearchResultCard */}
+              <div className="mb-6">
+                <div className="flex rounded-xl overflow-hidden bg-black/40 border border-white/10">
+                  {/* Left accent bar */}
+                  <div
+                    className="w-1 flex-shrink-0"
+                    style={{ backgroundColor: currentStation.accentColor }}
+                  />
+
+                  <div className="flex-1 px-3 py-2.5">
+                    {/* Station name + star button */}
+                    <div className="flex items-center justify-between mb-1">
+                      <span
+                        className="text-[10px] font-semibold uppercase tracking-wide"
+                        style={{ color: currentStation.accentColor }}
+                      >
+                        {currentStation.name}
+                      </span>
+                      {currentShow && (
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (!isAuthenticated) {
+                              setShowAuthModal(true);
+                              return;
+                            }
+                            await toggleFavorite(currentShow);
+                          }}
+                          className="p-0.5 transition-colors"
+                          style={{ color: currentStation.accentColor }}
+                          aria-label={isShowFavorited(currentShow) ? "Remove from favorites" : "Add to favorites"}
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            viewBox="0 0 24 24"
+                            fill={isShowFavorited(currentShow) ? "currentColor" : "none"}
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Show name */}
+                    {currentShow ? (
+                      <>
+                        <p className="font-medium text-white text-sm leading-snug line-clamp-2">
+                          {currentShow.name}
+                        </p>
+
+                        {/* DJ + Time */}
+                        <div className="flex items-center gap-1 mt-1 text-xs text-white/50">
+                          {currentShow.dj && (
+                            <>
+                              <span className="truncate max-w-[100px]">{currentShow.dj}</span>
+                              <span className="text-white/30">·</span>
+                            </>
+                          )}
+                          <span>
+                            {new Date(currentShow.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                            {" – "}
+                            {new Date(currentShow.endTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="font-medium text-white/60 text-sm">Live broadcast</p>
                     )}
-                  </>
-                ) : (
-                  <p className="text-white/50 text-sm mt-1">Live</p>
-                )}
+                  </div>
+                </div>
               </div>
 
               {/* Countdown bar */}
@@ -504,6 +571,13 @@ export function BrowsingModePopup({ onClose }: BrowsingModePopupProps) {
           </div>
         )}
       </div>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        message="Sign in to save this show and get alerts"
+      />
     </div>
   );
 }

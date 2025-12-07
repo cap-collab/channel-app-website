@@ -213,8 +213,8 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
     <div ref={scrollContainerRef} id="calendar-scroll-container" className="h-full overflow-auto">
       {/* Search Results Section */}
       {searchQuery.trim() && totalSearchResults > 0 && (
-        <div className="bg-gray-950 border-b border-gray-800">
-          <div className="sticky top-0 z-30 bg-gray-950 border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+        <div className="bg-black border-b border-gray-800">
+          <div className="sticky top-0 z-30 bg-black border-b border-gray-800 px-4 py-3 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-white">
               Search Results ({totalSearchResults})
             </h2>
@@ -274,7 +274,7 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
 
       {/* No results message with watchlist option */}
       {searchQuery.trim() && totalSearchResults === 0 && !loading && (
-        <div className="bg-gray-950 border-b border-gray-800 px-4 py-8 text-center">
+        <div className="bg-black border-b border-gray-800 px-4 py-8 text-center">
           <p className="text-gray-400 mb-4">No shows found for &quot;{searchQuery}&quot;</p>
 
           {/* Watchlist option */}

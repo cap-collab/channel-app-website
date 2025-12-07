@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useAuthContext } from "@/contexts/AuthContext";
 
 interface AuthModalProps {
@@ -73,6 +74,17 @@ export function AuthModal({
             </>
           )}
         </button>
+
+        <p className="mt-4 text-xs text-gray-500 text-center">
+          By signing in, you agree to our{" "}
+          <Link href="/terms" className="text-gray-400 hover:text-white underline">
+            Terms of Use
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="text-gray-400 hover:text-white underline">
+            Privacy Policy
+          </Link>
+        </p>
 
         <button
           onClick={onClose}
