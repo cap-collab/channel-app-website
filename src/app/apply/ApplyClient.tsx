@@ -6,6 +6,7 @@ import Link from "next/link";
 interface FormData {
   firstName: string;
   lastName: string;
+  email: string;
   radioUrl: string;
   streamUrl: string;
   scheduleUrl: string;
@@ -20,6 +21,7 @@ export function ApplyClient() {
   const [formData, setFormData] = useState<FormData>({
     firstName: "",
     lastName: "",
+    email: "",
     radioUrl: "",
     streamUrl: "",
     scheduleUrl: "",
@@ -44,6 +46,16 @@ export function ApplyClient() {
     }
     if (!formData.lastName.trim()) {
       setErrorMessage("Last name is required");
+      return false;
+    }
+    if (!formData.email.trim()) {
+      setErrorMessage("Email is required");
+      return false;
+    }
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setErrorMessage("Please enter a valid email address");
       return false;
     }
     if (!formData.radioUrl.trim()) {
@@ -104,6 +116,7 @@ export function ApplyClient() {
       await addDoc(collection(db, "station-applications"), {
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
+        email: formData.email.trim(),
         radioUrl: formData.radioUrl.trim(),
         streamUrl: formData.streamUrl.trim() || null,
         scheduleUrl: formData.scheduleUrl.trim() || null,
@@ -122,6 +135,7 @@ export function ApplyClient() {
           body: JSON.stringify({
             firstName: formData.firstName.trim(),
             lastName: formData.lastName.trim(),
+            email: formData.email.trim(),
             radioUrl: formData.radioUrl.trim(),
             streamUrl: formData.streamUrl.trim() || null,
             scheduleUrl: formData.scheduleUrl.trim() || null,
@@ -235,6 +249,25 @@ export function ApplyClient() {
                 className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-500 transition-colors"
               />
             </div>
+          </div>
+
+          {/* Email */}
+          <div>
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-300 mb-2"
+            >
+              Email *
+            </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              placeholder="john@example.com"
+              className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-500 transition-colors"
+            />
           </div>
 
           {/* Radio URL */}

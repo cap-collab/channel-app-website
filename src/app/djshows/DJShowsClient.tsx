@@ -83,6 +83,13 @@ export function DJShowsClient() {
                         {user?.email}
                       </p>
                     </div>
+                    <Link
+                      href="/settings"
+                      onClick={() => setShowUserMenu(false)}
+                      className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-gray-900 transition-colors"
+                    >
+                      Settings
+                    </Link>
                     <button
                       onClick={() => {
                         signOut();

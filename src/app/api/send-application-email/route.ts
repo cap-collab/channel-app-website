@@ -9,6 +9,7 @@ export async function POST(request: Request) {
     const {
       firstName,
       lastName,
+      email,
       radioUrl,
       streamUrl,
       scheduleUrl,
@@ -24,6 +25,7 @@ export async function POST(request: Request) {
       html: `
         <h2>New Station Application</h2>
         <p><strong>Contact:</strong> ${firstName} ${lastName}</p>
+        <p><strong>Email:</strong> <a href="mailto:${email}">${email}</a></p>
         <p><strong>Radio Website:</strong> <a href="${radioUrl}">${radioUrl}</a></p>
         ${streamUrl ? `<p><strong>Stream URL:</strong> <a href="${streamUrl}">${streamUrl}</a></p>` : ""}
         ${scheduleUrl ? `<p><strong>Schedule URL:</strong> <a href="${scheduleUrl}">${scheduleUrl}</a></p>` : ""}

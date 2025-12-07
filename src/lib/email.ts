@@ -33,7 +33,7 @@ export async function sendShowStartingEmail({
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to,
-      subject: `${displayName} is live now on ${stationName}`,
+      subject: `${displayName} is live on ${stationName}`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -58,14 +58,14 @@ export async function sendShowStartingEmail({
               <div class="logo">Channel</div>
             </div>
             <div class="content">
-              <h1>${displayName} is live now</h1>
+              <h1>${displayName} is live</h1>
               <p class="station">${stationName}</p>
               ${djName ? `<p class="show-name">${showName}</p>` : ""}
               <a href="${listenUrl}" class="listen-btn">Listen Now</a>
             </div>
             <div class="footer">
               <p>You're receiving this because you saved this show.</p>
-              <a href="${process.env.NEXT_PUBLIC_APP_URL}/settings" class="unsubscribe">Manage notifications</a>
+              <a href="${process.env.NEXT_PUBLIC_APP_URL}/settings" class="unsubscribe">Unsubscribe</a>
             </div>
           </div>
         </body>
@@ -152,7 +152,7 @@ export async function sendWatchlistDigestEmail({
             </div>
             <div class="footer">
               <p>You're receiving this because you have watchlist email notifications enabled.</p>
-              <a href="${process.env.NEXT_PUBLIC_APP_URL}/settings" class="unsubscribe">Manage notifications</a>
+              <a href="${process.env.NEXT_PUBLIC_APP_URL}/settings" class="unsubscribe">Unsubscribe</a>
             </div>
           </div>
         </body>
