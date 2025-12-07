@@ -50,27 +50,27 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
 
   // Auto-scroll to current time on initial load
   useEffect(() => {
-    if (!loading && !hasScrolledRef.current && scrollContainerRef.current) {
-      // Use requestAnimationFrame to ensure DOM is fully rendered
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (scrollContainerRef.current) {
-            const now = new Date();
-            const currentHour = now.getHours();
-            const currentMinute = now.getMinutes();
-            // Date header is ~52px (sticky), station header is 48px (h-12)
-            // Time grid starts after station header
-            // We want the current time line to be visible near top of viewport
-            const timePosition = (currentHour + currentMinute / 60) * PIXELS_PER_HOUR;
-            // Add station header height (48px), subtract viewport offset to show line near top
-            const scrollPosition = timePosition + 48 - 80;
-            scrollContainerRef.current.scrollTop = Math.max(0, scrollPosition);
-            hasScrolledRef.current = true;
-          }
-        });
-      });
+    // Wait until we have shows loaded and haven't scrolled yet
+    if (!loading && shows.length > 0 && !hasScrolledRef.current && scrollContainerRef.current) {
+      // Use setTimeout to ensure DOM is fully rendered after data loads
+      const timeoutId = setTimeout(() => {
+        if (scrollContainerRef.current && !hasScrolledRef.current) {
+          const now = new Date();
+          const currentHour = now.getHours();
+          const currentMinute = now.getMinutes();
+          // Date header is ~52px (sticky), station header is 48px (h-12)
+          // Time grid starts after station header
+          // We want the current time line to be visible near top of viewport
+          const timePosition = (currentHour + currentMinute / 60) * PIXELS_PER_HOUR;
+          // Add station header height (48px), subtract viewport offset to show line near top
+          const scrollPosition = timePosition + 48 - 80;
+          scrollContainerRef.current.scrollTop = Math.max(0, scrollPosition);
+          hasScrolledRef.current = true;
+        }
+      }, 150);
+      return () => clearTimeout(timeoutId);
     }
-  }, [loading]);
+  }, [loading, shows.length]);
 
   // Get unique future dates from shows (today onwards)
   const futureDates = useMemo(() => {
@@ -354,7 +354,7 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
 
             {/* Calendar grid for this day */}
             <div className="flex relative">
-              {/* Time axis */}
+              {/* Time axis (left) */}
               <TimeAxis pixelsPerHour={PIXELS_PER_HOUR} startHour={startHour} />
 
               {/* Station columns */}
@@ -370,6 +370,9 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
                   startHour={startHour}
                 />
               ))}
+
+              {/* Time axis (right) */}
+              <TimeAxis pixelsPerHour={PIXELS_PER_HOUR} startHour={startHour} position="right" />
 
               {/* Current time indicator (only for today) */}
               {isTodayDate && (

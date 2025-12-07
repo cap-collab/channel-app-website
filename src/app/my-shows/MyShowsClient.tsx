@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useFavorites, Favorite } from "@/hooks/useFavorites";
 import { AuthModal } from "@/components/AuthModal";
+import { getStationById } from "@/lib/stations";
 
 export function MyShowsClient() {
   const { isAuthenticated, loading: authLoading } = useAuthContext();
@@ -104,39 +105,57 @@ export function MyShowsClient() {
                   Saved Shows ({shows.length})
                 </h2>
                 <div className="space-y-2">
-                  {shows.map((favorite) => (
-                    <div
-                      key={favorite.id}
-                      className="bg-gray-900/50 rounded-lg p-4 flex items-center justify-between"
-                    >
-                      <div>
-                        <p className="text-white font-medium">
-                          {favorite.showName || favorite.term}
-                        </p>
-                        {favorite.djName && (
-                          <p className="text-gray-500 text-sm">{favorite.djName}</p>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => handleRemove(favorite)}
-                        disabled={removing === favorite.id}
-                        className="text-gray-600 hover:text-red-400 transition-colors disabled:opacity-50"
+                  {shows.map((favorite) => {
+                    const station = favorite.stationId ? getStationById(favorite.stationId) : undefined;
+                    const accentColor = station?.accentColor || "#fff";
+                    return (
+                      <div
+                        key={favorite.id}
+                        className="flex rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50"
                       >
-                        {removing === favorite.id ? (
-                          <div className="w-5 h-5 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
-                        ) : (
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            />
-                          </svg>
-                        )}
-                      </button>
-                    </div>
-                  ))}
+                        {/* Left accent bar */}
+                        <div
+                          className="w-1 flex-shrink-0"
+                          style={{ backgroundColor: accentColor }}
+                        />
+                        <div className="flex-1 px-3 py-2.5">
+                          {/* Station name + remove button */}
+                          <div className="flex items-center justify-between mb-1">
+                            <span
+                              className="text-[10px] font-semibold uppercase tracking-wide"
+                              style={{ color: accentColor }}
+                            >
+                              {station?.name || favorite.stationId || "CHANNEL"}
+                            </span>
+                            <button
+                              onClick={() => handleRemove(favorite)}
+                              disabled={removing === favorite.id}
+                              className="p-0.5 transition-colors text-gray-600 hover:text-red-400 disabled:opacity-50"
+                              aria-label="Remove from favorites"
+                            >
+                              {removing === favorite.id ? (
+                                <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
+                              ) : (
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+                          {/* Show name */}
+                          <p className="font-medium text-white text-sm leading-snug line-clamp-2">
+                            {favorite.showName || favorite.term}
+                          </p>
+                          {/* DJ */}
+                          {favorite.djName && (
+                            <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
+                              <span className="truncate">{favorite.djName}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
             )}
@@ -154,37 +173,43 @@ export function MyShowsClient() {
                   {watchlist.map((favorite) => (
                     <div
                       key={favorite.id}
-                      className="bg-gray-900/50 rounded-lg p-4 flex items-center justify-between"
+                      className="flex rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50"
                     >
-                      <div className="flex items-center gap-2">
-                        <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                          />
-                        </svg>
-                        <p className="text-white">{favorite.term}</p>
-                      </div>
-                      <button
-                        onClick={() => handleRemove(favorite)}
-                        disabled={removing === favorite.id}
-                        className="text-gray-600 hover:text-red-400 transition-colors disabled:opacity-50"
-                      >
-                        {removing === favorite.id ? (
-                          <div className="w-5 h-5 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
-                        ) : (
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M6 18L18 6M6 6l12 12"
-                            />
+                      {/* Left accent bar - black for watchlist */}
+                      <div className="w-1 flex-shrink-0 bg-white" />
+                      <div className="flex-1 px-3 py-2.5">
+                        {/* Station name + remove button */}
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-white">
+                            CHANNEL
+                          </span>
+                          <button
+                            onClick={() => handleRemove(favorite)}
+                            disabled={removing === favorite.id}
+                            className="p-0.5 transition-colors text-gray-600 hover:text-red-400 disabled:opacity-50"
+                            aria-label="Remove from watchlist"
+                          >
+                            {removing === favorite.id ? (
+                              <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
+                            ) : (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+                        {/* Search term */}
+                        <p className="font-medium text-white text-sm leading-snug line-clamp-2">
+                          {favorite.term}
+                        </p>
+                        {/* Search icon indicator */}
+                        <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                           </svg>
-                        )}
-                      </button>
+                          <span>Search keyword</span>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>

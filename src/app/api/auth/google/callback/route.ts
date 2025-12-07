@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTokensFromCode, createChannelCalendar } from "@/lib/google-calendar";
-import { getAdminDb } from "@/lib/firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,20 +11,13 @@ export async function GET(request: NextRequest) {
     if (error) {
       // User cancelled or error occurred
       return NextResponse.redirect(
-        new URL("/djshows?calendar_error=cancelled", request.url)
+        new URL("/settings?calendar_error=cancelled", request.url)
       );
     }
 
     if (!code || !state) {
       return NextResponse.redirect(
-        new URL("/djshows?calendar_error=missing_params", request.url)
-      );
-    }
-
-    const adminDb = getAdminDb();
-    if (!adminDb) {
-      return NextResponse.redirect(
-        new URL("/djshows?calendar_error=server_error", request.url)
+        new URL("/settings?calendar_error=missing_params", request.url)
       );
     }
 
@@ -37,29 +28,24 @@ export async function GET(request: NextRequest) {
     // Create or get Channel Shows calendar
     const calendarId = await createChannelCalendar(accessToken);
 
-    // Store tokens in Firestore (in production, encrypt these)
-    const userRef = adminDb.collection("users").doc(state);
-    await userRef.set(
-      {
-        googleCalendar: {
-          accessToken, // TODO: Encrypt in production
-          refreshToken, // TODO: Encrypt in production
-          expiresAt,
-          calendarId,
-          connectedAt: FieldValue.serverTimestamp(),
-        },
-      },
-      { merge: true }
-    );
+    // Redirect to a page that will store the tokens client-side
+    // Pass tokens via URL fragment (not query params) for security - fragments aren't sent to server
+    const redirectUrl = new URL("/settings", request.url);
+    redirectUrl.hash = `calendar_data=${encodeURIComponent(
+      JSON.stringify({
+        userId: state,
+        accessToken,
+        refreshToken,
+        expiresAt: expiresAt.toISOString(),
+        calendarId,
+      })
+    )}`;
 
-    // Redirect back to the app
-    return NextResponse.redirect(
-      new URL("/djshows?calendar_connected=true", request.url)
-    );
+    return NextResponse.redirect(redirectUrl);
   } catch (error) {
     console.error("Error in Google callback:", error);
     return NextResponse.redirect(
-      new URL("/djshows?calendar_error=auth_failed", request.url)
+      new URL("/settings?calendar_error=auth_failed", request.url)
     );
   }
 }

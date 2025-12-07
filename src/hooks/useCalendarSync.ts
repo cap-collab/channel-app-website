@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Show } from "@/types";
@@ -12,6 +12,14 @@ interface CalendarState {
   error: string | null;
 }
 
+interface CalendarData {
+  userId: string;
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: string;
+  calendarId: string;
+}
+
 export function useCalendarSync() {
   const { user } = useAuthContext();
   const [state, setState] = useState<CalendarState>({
@@ -19,6 +27,46 @@ export function useCalendarSync() {
     loading: true,
     error: null,
   });
+
+  // Handle calendar data from URL hash (after OAuth callback)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const hash = window.location.hash;
+    if (hash.startsWith("#calendar_data=")) {
+      const dataStr = decodeURIComponent(hash.replace("#calendar_data=", ""));
+      try {
+        const data: CalendarData = JSON.parse(dataStr);
+
+        // Verify this is for the current user
+        if (user && data.userId === user.uid && db) {
+          // Store tokens in Firestore
+          const userRef = doc(db, "users", user.uid);
+          setDoc(
+            userRef,
+            {
+              googleCalendar: {
+                accessToken: data.accessToken,
+                refreshToken: data.refreshToken,
+                expiresAt: new Date(data.expiresAt),
+                calendarId: data.calendarId,
+                connectedAt: serverTimestamp(),
+              },
+            },
+            { merge: true }
+          ).then(() => {
+            // Clear the hash from URL
+            window.history.replaceState(null, "", window.location.pathname);
+            setState({ isConnected: true, loading: false, error: null });
+          });
+        }
+      } catch (e) {
+        console.error("Error parsing calendar data:", e);
+      }
+      // Clear hash regardless
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [user]);
 
   // Listen for calendar connection status
   useEffect(() => {
@@ -57,13 +105,9 @@ export function useCalendarSync() {
     try {
       setState((prev) => ({ ...prev, loading: true, error: null }));
 
-      const idToken = await auth.currentUser.getIdToken();
+      const userId = auth.currentUser.uid;
 
-      const response = await fetch("/api/auth/google", {
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-        },
-      });
+      const response = await fetch(`/api/auth/google?userId=${encodeURIComponent(userId)}`);
 
       if (!response.ok) {
         throw new Error("Failed to get auth URL");
@@ -71,16 +115,8 @@ export function useCalendarSync() {
 
       const { authUrl } = await response.json();
 
-      // Open Google OAuth in a popup
-      const popup = window.open(authUrl, "Google Calendar", "width=500,height=600");
-
-      // Poll for popup close
-      const checkClosed = setInterval(() => {
-        if (popup?.closed) {
-          clearInterval(checkClosed);
-          setState((prev) => ({ ...prev, loading: false }));
-        }
-      }, 500);
+      // Redirect to Google OAuth (will redirect back to /settings with data)
+      window.location.href = authUrl;
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to connect calendar";
@@ -90,23 +126,20 @@ export function useCalendarSync() {
 
   // Disconnect calendar
   const disconnectCalendar = useCallback(async () => {
-    if (!auth?.currentUser) return;
+    if (!auth?.currentUser || !db) return;
 
     try {
       setState((prev) => ({ ...prev, loading: true, error: null }));
 
-      const idToken = await auth.currentUser.getIdToken();
-
-      const response = await fetch("/api/calendar/disconnect", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${idToken}`,
+      // Remove Google Calendar data from user document client-side
+      const userRef = doc(db, "users", auth.currentUser.uid);
+      await setDoc(
+        userRef,
+        {
+          googleCalendar: null,
         },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to disconnect calendar");
-      }
+        { merge: true }
+      );
 
       setState({ isConnected: false, loading: false, error: null });
     } catch (error) {

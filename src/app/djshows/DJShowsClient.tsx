@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { SearchBar } from "@/components/SearchBar";
 import { CalendarGrid } from "@/components/calendar/CalendarGrid";
 import { NowPlayingGrid } from "@/components/calendar/NowPlayingGrid";
@@ -29,13 +30,16 @@ export function DJShowsClient() {
       <header className="bg-black p-4 border-b border-gray-900">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-4">
-            <Link
-              href="/"
-              className="text-gray-600 hover:text-white text-sm transition-colors"
-            >
-              ← Back
+            <Link href="/">
+              <Image
+                src="/logo-white.svg"
+                alt="CHANNEL"
+                width={120}
+                height={24}
+                className="h-6 w-auto"
+                priority
+              />
             </Link>
-            <h1 className="text-lg font-medium text-white">DJ Shows</h1>
 
             {/* User menu */}
             <div className="relative">
@@ -83,6 +87,13 @@ export function DJShowsClient() {
                         {user?.email}
                       </p>
                     </div>
+                    <Link
+                      href="/my-shows"
+                      onClick={() => setShowUserMenu(false)}
+                      className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-gray-900 transition-colors"
+                    >
+                      My Shows
+                    </Link>
                     <Link
                       href="/settings"
                       onClick={() => setShowUserMenu(false)}

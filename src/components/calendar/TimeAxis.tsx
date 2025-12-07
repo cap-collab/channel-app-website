@@ -5,9 +5,10 @@ import { memo } from "react";
 interface TimeAxisProps {
   pixelsPerHour: number;
   startHour: number;
+  position?: "left" | "right";
 }
 
-function TimeAxisComponent({ pixelsPerHour, startHour }: TimeAxisProps) {
+function TimeAxisComponent({ pixelsPerHour, startHour, position = "left" }: TimeAxisProps) {
   // Only show hours from startHour to 24
   const hours = Array.from({ length: 24 - startHour }, (_, i) => startHour + i);
 
@@ -18,14 +19,16 @@ function TimeAxisComponent({ pixelsPerHour, startHour }: TimeAxisProps) {
     return `${hour - 12}p`;
   };
 
+  const isRight = position === "right";
+
   return (
-    <div className="sticky left-0 z-10 bg-black w-14 flex-shrink-0 border-r border-gray-900">
+    <div className={`${isRight ? "sticky right-0" : "sticky left-0"} z-10 bg-black w-14 flex-shrink-0 ${isRight ? "border-l" : "border-r"} border-gray-900`}>
       <div className="h-12" /> {/* Header spacer */}
       <div className="relative">
         {hours.map((hour, index) => (
           <div
             key={hour}
-            className="absolute w-full text-right pr-2 text-[11px] text-gray-600 font-light"
+            className={`absolute w-full ${isRight ? "text-left pl-2" : "text-right pr-2"} text-[11px] text-gray-600 font-light`}
             style={{ top: index * pixelsPerHour - 6 }}
           >
             {formatHour(hour)}
