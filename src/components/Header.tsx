@@ -6,11 +6,7 @@ import Image from "next/image";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/AuthModal";
 
-interface HeaderProps {
-  variant?: "home" | "page";
-}
-
-export function Header({ variant = "home" }: HeaderProps) {
+export function Header() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { user, isAuthenticated, signOut, loading } = useAuthContext();

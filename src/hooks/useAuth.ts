@@ -35,8 +35,12 @@ export function useAuth() {
   useEffect(() => {
     if (!auth || !db) return;
 
+    // Capture non-null values for TypeScript
+    const authInstance = auth;
+    const dbInstance = db;
+
     const handleEmailLinkSignIn = async () => {
-      if (isSignInWithEmailLink(auth, window.location.href)) {
+      if (isSignInWithEmailLink(authInstance, window.location.href)) {
         let email = window.localStorage.getItem(EMAIL_FOR_SIGN_IN_KEY);
         const enableNotifications = window.localStorage.getItem(NOTIFICATIONS_PREF_KEY) === "true";
 
@@ -48,11 +52,11 @@ export function useAuth() {
         if (email) {
           try {
             setState((prev) => ({ ...prev, loading: true }));
-            const result = await signInWithEmailLink(auth, email, window.location.href);
+            const result = await signInWithEmailLink(authInstance, email, window.location.href);
             const user = result.user;
 
             // Create or update user document
-            const userRef = doc(db, "users", user.uid);
+            const userRef = doc(dbInstance, "users", user.uid);
             const userSnap = await getDoc(userRef);
 
             if (!userSnap.exists()) {
