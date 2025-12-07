@@ -56,18 +56,18 @@ export default function Home() {
             priority
           />
           <nav className="flex items-center gap-3 md:gap-4">
+            <Link
+              href="/djshows"
+              className="bg-white text-black px-4 md:px-6 py-2 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all"
+            >
+              Browse DJ Shows
+            </Link>
             <a
               href="#get-involved"
-              className="bg-white text-black px-4 md:px-6 py-2 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all"
+              className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
             >
               Get Involved
             </a>
-            <Link
-              href="/apply"
-              className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
-            >
-              Feature Your Station
-            </Link>
           </nav>
         </div>
       </header>
@@ -83,12 +83,12 @@ export default function Home() {
             Turn every listen into real support for independent culture.
           </p>
 
-          <a
-            href="#get-involved"
+          <Link
+            href="/djshows"
             className="inline-block bg-white text-black px-10 py-4 rounded-xl text-lg font-semibold hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(255,255,255,0.15)] transition-all"
           >
-            Get Involved
-          </a>
+            Browse DJ Shows
+          </Link>
 
           <p className="mt-6 text-sm text-gray-600">Coming soon to iOS</p>
         </div>

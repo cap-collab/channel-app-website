@@ -99,8 +99,8 @@ function ShowBlockComponent({
         }}
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        {/* Star icon for quick favorite */}
-        <button
+        {/* Star icon for quick favorite - hidden until auth is set up for production */}
+        {/* <button
           onClick={handleFavoriteClick}
           className="absolute top-1 right-1 p-0.5 transition-colors z-10"
           style={{ color: accentColor }}
@@ -115,7 +115,7 @@ function ShowBlockComponent({
           >
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
           </svg>
-        </button>
+        </button> */}
 
         <div className="px-2 py-1.5 h-full flex flex-col pr-6 overflow-hidden">
           <p
@@ -182,7 +182,8 @@ function ShowBlockComponent({
               </p>
             )}
 
-            <div className="flex gap-3">
+            {/* Save and Calendar buttons - hidden until auth is set up for production */}
+            {/* <div className="flex gap-3">
               <button
                 onClick={handleFavoriteClick}
                 className={`flex-1 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
@@ -230,7 +231,7 @@ function ShowBlockComponent({
                 )}
                 {isCalendarConnected ? "Add to Cal" : "Connect Cal"}
               </button>
-            </div>
+            </div> */}
             <button
               className="w-full mt-3 py-2 text-gray-500 text-sm hover:text-white transition-colors"
               onClick={() => setIsExpanded(false)}

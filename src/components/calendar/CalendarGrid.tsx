@@ -51,10 +51,10 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
   // Auto-scroll to current time on initial load
   useEffect(() => {
     // Wait until we have shows loaded and haven't scrolled yet
-    if (!loading && shows.length > 0 && !hasScrolledRef.current && scrollContainerRef.current) {
-      // Use setTimeout to ensure DOM is fully rendered after data loads
-      const timeoutId = setTimeout(() => {
-        if (scrollContainerRef.current && !hasScrolledRef.current) {
+    if (!loading && shows.length > 0 && !hasScrolledRef.current) {
+      const scrollToCurrentTime = () => {
+        const container = document.getElementById('calendar-scroll-container');
+        if (container && !hasScrolledRef.current) {
           const now = new Date();
           const currentHour = now.getHours();
           const currentMinute = now.getMinutes();
@@ -64,11 +64,20 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
           const timePosition = (currentHour + currentMinute / 60) * PIXELS_PER_HOUR;
           // Add station header height (48px), subtract viewport offset to show line near top
           const scrollPosition = timePosition + 48 - 80;
-          scrollContainerRef.current.scrollTop = Math.max(0, scrollPosition);
+          container.scrollTop = Math.max(0, scrollPosition);
           hasScrolledRef.current = true;
         }
-      }, 150);
-      return () => clearTimeout(timeoutId);
+      };
+
+      // Try immediately, then with delays as fallback
+      scrollToCurrentTime();
+      const timeoutId1 = setTimeout(scrollToCurrentTime, 100);
+      const timeoutId2 = setTimeout(scrollToCurrentTime, 300);
+
+      return () => {
+        clearTimeout(timeoutId1);
+        clearTimeout(timeoutId2);
+      };
     }
   }, [loading, shows.length]);
 
@@ -90,11 +99,11 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
       }
     });
 
-    // Convert to sorted array of dates, limit to 5 days
+    // Convert to sorted array of dates, limit to 2 days (today and tomorrow)
     return Array.from(dateSet)
       .map((dateStr) => new Date(dateStr))
       .sort((a, b) => a.getTime() - b.getTime())
-      .slice(0, 5);
+      .slice(0, 2);
   }, [shows]);
 
   // Get shows for a specific station
@@ -193,7 +202,7 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
   }
 
   return (
-    <div ref={scrollContainerRef} className="h-full overflow-auto">
+    <div ref={scrollContainerRef} id="calendar-scroll-container" className="h-full overflow-auto">
       {/* Search Results Section */}
       {searchQuery.trim() && totalSearchResults > 0 && (
         <div className="bg-gray-950 border-b border-gray-800">
