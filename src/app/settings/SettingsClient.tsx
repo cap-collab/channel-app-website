@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useCalendarSync } from "@/hooks/useCalendarSync";
@@ -14,7 +14,7 @@ interface NotificationSettings {
 }
 
 export function SettingsClient() {
-  const { user, isAuthenticated, loading: authLoading } = useAuthContext();
+  const { user, isAuthenticated, loading: authLoading, signOut } = useAuthContext();
   const {
     isConnected: isCalendarConnected,
     loading: calendarLoading,
@@ -27,6 +27,8 @@ export function SettingsClient() {
     watchlistMatch: false,
   });
   const [saving, setSaving] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Load user's notification settings
   useEffect(() => {
@@ -62,6 +64,27 @@ export function SettingsClient() {
       console.error("Error updating notification setting:", error);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!user || !db) return;
+
+    setDeleting(true);
+    try {
+      // Delete user document from Firestore
+      const userRef = doc(db, "users", user.uid);
+      await deleteDoc(userRef);
+
+      // Sign out the user
+      await signOut();
+
+      // Redirect to home
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      setDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -244,6 +267,29 @@ export function SettingsClient() {
                 </div>
               </Link>
             </section>
+
+            {/* Delete account section */}
+            <section>
+              <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+                Danger Zone
+              </h2>
+              <div className="bg-gray-900/50 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-medium">Delete my account</p>
+                    <p className="text-gray-500 text-sm">
+                      Permanently delete your account and all data
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="px-4 py-2 rounded-lg text-sm font-medium bg-red-900/50 text-red-400 hover:bg-red-900 hover:text-red-300 transition-colors"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </section>
           </div>
         )}
       </main>
@@ -252,6 +298,38 @@ export function SettingsClient() {
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
       />
+
+      {/* Delete confirmation modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-semibold text-white mb-2">
+              Delete your account?
+            </h3>
+            <p className="text-gray-400 mb-6">
+              This will permanently delete your account and all associated data,
+              including your email, favorites, watchlist, saved searches, and
+              calendar sync settings. This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="flex-1 px-4 py-3 rounded-lg font-medium bg-gray-800 text-white hover:bg-gray-700 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="flex-1 px-4 py-3 rounded-lg font-medium bg-red-600 text-white hover:bg-red-500 transition-colors disabled:opacity-50"
+              >
+                {deleting ? "Deleting..." : "Delete Account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
