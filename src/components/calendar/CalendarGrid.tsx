@@ -32,7 +32,7 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
 
   const { isAuthenticated } = useAuthContext();
   const { addToWatchlist, removeFromWatchlist, isInWatchlist } = useFavorites();
-  const { hasNotificationsEnabled } = useUserPreferences();
+  const { hasWatchlistNotificationsEnabled } = useUserPreferences();
 
   useEffect(() => {
     async function loadShows() {
@@ -293,8 +293,8 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
                   setWatchlistLoading(true);
                   await addToWatchlist(searchQuery);
                   setWatchlistLoading(false);
-                  // Show notification prompt if user hasn't enabled notifications
-                  if (!hasNotificationsEnabled) {
+                  // Show notification prompt if user hasn't enabled watchlist notifications
+                  if (!hasWatchlistNotificationsEnabled) {
                     setShowNotificationPrompt(true);
                   }
                 }}
@@ -367,6 +367,7 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
       <NotificationPrompt
         isOpen={showNotificationPrompt}
         onClose={() => setShowNotificationPrompt(false)}
+        type="watchlist"
       />
 
       {/* Persistent station headers - stays fixed below main header when scrolling */}

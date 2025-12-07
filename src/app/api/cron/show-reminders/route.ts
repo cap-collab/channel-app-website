@@ -12,6 +12,41 @@ function verifyCronSecret(request: NextRequest): boolean {
   return true;
 }
 
+interface Show {
+  id: string;
+  name: string;
+  dj?: string;
+  startTime: string;
+  endTime: string;
+  stationId: string;
+}
+
+interface StationMetadata {
+  shows: Show[];
+}
+
+interface Metadata {
+  [stationKey: string]: StationMetadata;
+}
+
+const STATION_NAMES: Record<string, string> = {
+  nts1: "NTS 1",
+  nts2: "NTS 2",
+  rinse: "Rinse FM",
+  rinsefr: "Rinse FR",
+  dublab: "dublab",
+  subtle: "Subtle Radio",
+};
+
+const STATION_URLS: Record<string, string> = {
+  nts1: "https://www.nts.live/1",
+  nts2: "https://www.nts.live/2",
+  rinse: "https://rinse.fm/player",
+  rinsefr: "https://rinse.fm/player",
+  dublab: "https://dublab.com/listen",
+  subtle: "https://subtleradio.com",
+};
+
 export async function GET(request: NextRequest) {
   // Verify this is from Vercel Cron
   if (!verifyCronSecret(request)) {
@@ -28,13 +63,111 @@ export async function GET(request: NextRequest) {
 
   try {
     const now = new Date();
+    let notificationsCreated = 0;
 
-    // Get all pending notifications that should be sent now
+    // Step 1: Scan schedule and create notifications for shows starting soon
+    try {
+      const metadataResponse = await fetch(
+        "https://cap-collab.github.io/channel-metadata/metadata.json",
+        { next: { revalidate: 0 } }
+      );
+
+      if (metadataResponse.ok) {
+        const metadata: Metadata = await metadataResponse.json();
+
+        // Find shows starting in the next 65 minutes (to account for cron timing)
+        const windowStart = now;
+        const windowEnd = new Date(now.getTime() + 65 * 60 * 1000);
+
+        const upcomingShows: Array<Show & { stationName: string; stationUrl: string }> = [];
+        for (const [stationKey, stationData] of Object.entries(metadata)) {
+          if (stationData.shows) {
+            for (const show of stationData.shows) {
+              const showStart = new Date(show.startTime);
+              if (showStart >= windowStart && showStart <= windowEnd) {
+                upcomingShows.push({
+                  ...show,
+                  stationId: stationKey,
+                  stationName: STATION_NAMES[stationKey] || stationKey,
+                  stationUrl: STATION_URLS[stationKey] || `${process.env.NEXT_PUBLIC_APP_URL}/djshows`,
+                });
+              }
+            }
+          }
+        }
+
+        if (upcomingShows.length > 0) {
+          // Get all users with show notifications enabled
+          const usersSnapshot = await adminDb
+            .collection("users")
+            .where("emailNotifications.showStarting", "==", true)
+            .get();
+
+          for (const userDoc of usersSnapshot.docs) {
+            const userId = userDoc.id;
+
+            // Get user's favorited shows
+            const favoritesSnapshot = await adminDb
+              .collection("users")
+              .doc(userId)
+              .collection("favorites")
+              .where("type", "==", "show")
+              .get();
+
+            const favoritedTerms = favoritesSnapshot.docs.map(
+              (doc) => doc.data().term?.toLowerCase()
+            ).filter(Boolean);
+
+            if (favoritedTerms.length === 0) continue;
+
+            // Check which upcoming shows match user's favorites
+            for (const show of upcomingShows) {
+              const showNameLower = show.name.toLowerCase();
+              const djNameLower = show.dj?.toLowerCase();
+
+              const isMatch = favoritedTerms.some(
+                (term) => term === showNameLower || (djNameLower && term === djNameLower)
+              );
+
+              if (isMatch) {
+                // Check if notification already exists for this user/show/time
+                const existingNotification = await adminDb
+                  .collection("scheduledNotifications")
+                  .where("userId", "==", userId)
+                  .where("showName", "==", show.name)
+                  .where("notifyAt", "==", new Date(show.startTime))
+                  .limit(1)
+                  .get();
+
+                if (existingNotification.empty) {
+                  await adminDb.collection("scheduledNotifications").add({
+                    userId,
+                    showName: show.name,
+                    djName: show.dj || null,
+                    stationName: show.stationName,
+                    stationUrl: show.stationUrl,
+                    notifyAt: new Date(show.startTime),
+                    sent: false,
+                    createdAt: FieldValue.serverTimestamp(),
+                  });
+                  notificationsCreated++;
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (scheduleError) {
+      console.error("Error scanning schedule:", scheduleError);
+      // Continue to process existing notifications even if schedule scan fails
+    }
+
+    // Step 2: Send pending notifications
     const pendingNotifications = await adminDb
       .collection("scheduledNotifications")
       .where("sent", "==", false)
       .where("notifyAt", "<=", now)
-      .limit(100) // Process in batches
+      .limit(100)
       .get();
 
     let sentCount = 0;
@@ -52,7 +185,6 @@ export async function GET(request: NextRequest) {
         const userData = userDoc.data();
 
         if (!userData) {
-          // User deleted, mark notification as sent
           await doc.ref.update({ sent: true, error: "user_not_found" });
           continue;
         }
@@ -90,6 +222,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
+      notificationsCreated,
       processed: pendingNotifications.size,
       sent: sentCount,
       errors: errorCount,

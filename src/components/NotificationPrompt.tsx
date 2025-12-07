@@ -3,21 +3,38 @@
 import { useState } from "react";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 
+type PromptType = "favorite" | "watchlist";
+
 interface NotificationPromptProps {
   isOpen: boolean;
   onClose: () => void;
   onEnabled?: () => void;
+  type?: PromptType;
 }
+
+const PROMPT_CONTENT: Record<PromptType, { title: string; description: string }> = {
+  favorite: {
+    title: "Get Notified",
+    description: "Want to receive email alerts when your favorite shows are starting?",
+  },
+  watchlist: {
+    title: "Get Notified",
+    description: "Want to receive an email when we find shows matching your watch list?",
+  },
+};
 
 export function NotificationPrompt({
   isOpen,
   onClose,
   onEnabled,
+  type = "favorite",
 }: NotificationPromptProps) {
   const { enableNotifications } = useUserPreferences();
   const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
+
+  const content = PROMPT_CONTENT[type];
 
   const handleEnable = async () => {
     setLoading(true);
@@ -47,10 +64,10 @@ export function NotificationPrompt({
         </div>
 
         <h2 className="text-xl font-bold text-white mb-2 text-center">
-          Get Notified
+          {content.title}
         </h2>
         <p className="text-gray-400 text-sm mb-6 text-center">
-          Want to receive email alerts when your favorite DJs or shows are scheduled?
+          {content.description}
         </p>
 
         <div className="space-y-3">

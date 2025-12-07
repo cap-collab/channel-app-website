@@ -33,7 +33,7 @@ function ShowBlockComponent({
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
   const { isAuthenticated } = useAuthContext();
   const { isShowFavorited, toggleFavorite } = useFavorites();
-  const { hasNotificationsEnabled } = useUserPreferences();
+  const { hasFavoriteNotificationsEnabled } = useUserPreferences();
 
   const isFavorited = isShowFavorited(show);
 
@@ -45,8 +45,8 @@ function ShowBlockComponent({
     }
     const wasNotFavorited = !isFavorited;
     await toggleFavorite(show);
-    // Show notification prompt if user just favorited and hasn't enabled notifications
-    if (wasNotFavorited && !hasNotificationsEnabled) {
+    // Show notification prompt if user just favorited and hasn't enabled favorite notifications
+    if (wasNotFavorited && !hasFavoriteNotificationsEnabled) {
       setShowNotificationPrompt(true);
     }
   };

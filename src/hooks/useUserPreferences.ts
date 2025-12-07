@@ -57,6 +57,10 @@ export function useUserPreferences() {
   const hasNotificationsEnabled = preferences.emailNotifications.showStarting ||
     preferences.emailNotifications.watchlistMatch;
 
+  // Check individual notification toggles
+  const hasFavoriteNotificationsEnabled = preferences.emailNotifications.showStarting;
+  const hasWatchlistNotificationsEnabled = preferences.emailNotifications.watchlistMatch;
+
   // Enable email notifications
   const enableNotifications = useCallback(async (): Promise<boolean> => {
     if (!user || !db) return false;
@@ -107,6 +111,8 @@ export function useUserPreferences() {
     preferences,
     loading,
     hasNotificationsEnabled,
+    hasFavoriteNotificationsEnabled,
+    hasWatchlistNotificationsEnabled,
     enableNotifications,
     disableNotifications,
   };
