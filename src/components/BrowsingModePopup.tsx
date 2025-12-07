@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { STATIONS } from "@/lib/stations";
 import { getCurrentShows } from "@/lib/metadata";
-import { Show, Station } from "@/types";
+import { Show } from "@/types";
 
 interface BrowsingModePopupProps {
   onClose: () => void;
@@ -45,7 +45,7 @@ export function BrowsingModePopup({ onClose }: BrowsingModePopupProps) {
   // State
   const [currentIndex, setCurrentIndex] = useState(0);
   const [countdown, setCountdown] = useState(3);
-  const [isLoading, setIsLoading] = useState(true);
+  const [, setIsLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
   const [currentShows, setCurrentShows] = useState<Show[]>([]);
   const [isStreamReady, setIsStreamReady] = useState(false);
@@ -135,7 +135,8 @@ export function BrowsingModePopup({ onClose }: BrowsingModePopupProps) {
     }
   }, []);
 
-  // Pause all stations
+  // Pause all stations (used by cleanup)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const pauseAll = useCallback(() => {
     audioRefs.current.forEach((audio) => {
       audio.pause();
