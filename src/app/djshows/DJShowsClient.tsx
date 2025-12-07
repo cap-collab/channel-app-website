@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { SearchBar } from "@/components/SearchBar";
 import { CalendarGrid } from "@/components/calendar/CalendarGrid";
-import { NowPlayingGrid } from "@/components/calendar/NowPlayingGrid";
+import { BrowsingModePopup } from "@/components/BrowsingModePopup";
 import { AuthModal } from "@/components/AuthModal";
 import { useAuthContext } from "@/contexts/AuthContext";
 
@@ -48,18 +48,27 @@ export function DJShowsClient() {
               <button
                 onClick={() => {
                   // Scroll to current time in the calendar
+                  const todaySection = document.querySelector('[data-date-section="today"]');
+                  if (!todaySection) return;
+
                   const now = new Date();
                   const currentHour = now.getHours();
                   const currentMinute = now.getMinutes();
                   const PIXELS_PER_HOUR = 80;
                   const timePosition = (currentHour + currentMinute / 60) * PIXELS_PER_HOUR;
-                  const scrollPosition = timePosition + 48 - 80;
 
-                  // Find the calendar scroll container by ID and scroll it
-                  const calendarContainer = document.getElementById('calendar-scroll-container');
-                  if (calendarContainer) {
-                    calendarContainer.scrollTo({ top: Math.max(0, scrollPosition), behavior: 'smooth' });
-                  }
+                  // Get the Today section's position and add the time offset
+                  const sectionTop = todaySection.getBoundingClientRect().top + window.scrollY;
+                  const headerOffset = 120; // sticky header height
+                  const dateHeaderHeight = 52; // "Today" header
+                  const stationHeaderHeight = 48; // station names row
+
+                  const scrollPosition = sectionTop + dateHeaderHeight + stationHeaderHeight + timePosition - headerOffset - 80;
+
+                  window.scrollTo({
+                    top: Math.max(0, scrollPosition),
+                    behavior: 'smooth'
+                  });
                 }}
                 className="hidden sm:inline-block bg-white text-black px-4 md:px-6 py-2 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all cursor-pointer"
               >
@@ -224,9 +233,9 @@ export function DJShowsClient() {
         </div>
       </section>
 
-      {/* Now Playing Overlay */}
+      {/* Browsing Mode Popup */}
       {showNowPlaying && (
-        <NowPlayingGrid onClose={() => setShowNowPlaying(false)} />
+        <BrowsingModePopup onClose={() => setShowNowPlaying(false)} />
       )}
 
       {/* Auth Modal */}

@@ -53,20 +53,33 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
     // Wait until we have shows loaded and haven't scrolled yet
     if (!loading && shows.length > 0 && !hasScrolledRef.current) {
       const scrollToCurrentTime = () => {
-        const container = document.getElementById('calendar-scroll-container');
-        if (container && !hasScrolledRef.current) {
-          const now = new Date();
-          const currentHour = now.getHours();
-          const currentMinute = now.getMinutes();
-          // Date header is ~52px (sticky), station header is 48px (h-12)
-          // Time grid starts after station header
-          // We want the current time line to be visible near top of viewport
-          const timePosition = (currentHour + currentMinute / 60) * PIXELS_PER_HOUR;
-          // Add station header height (48px), subtract viewport offset to show line near top
-          const scrollPosition = timePosition + 48 - 80;
-          container.scrollTop = Math.max(0, scrollPosition);
-          hasScrolledRef.current = true;
-        }
+        if (hasScrolledRef.current) return;
+
+        // Find the "Today" section to get its position on the page
+        const todaySection = document.querySelector('[data-date-section="today"]');
+        if (!todaySection) return;
+
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+
+        // Calculate position within the day grid
+        const timePosition = (currentHour + currentMinute / 60) * PIXELS_PER_HOUR;
+
+        // Get the Today section's position and add the time offset
+        // Account for: sticky header (~120px) + date header (~52px) + station header (48px)
+        const sectionTop = todaySection.getBoundingClientRect().top + window.scrollY;
+        const headerOffset = 120; // sticky header height
+        const dateHeaderHeight = 52; // "Today" header
+        const stationHeaderHeight = 48; // station names row
+
+        const scrollPosition = sectionTop + dateHeaderHeight + stationHeaderHeight + timePosition - headerOffset - 80;
+
+        window.scrollTo({
+          top: Math.max(0, scrollPosition),
+          behavior: 'instant'
+        });
+        hasScrolledRef.current = true;
       };
 
       // Try immediately, then with delays as fallback
@@ -354,7 +367,11 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
         const startHour = 0;
 
         return (
-          <div key={date.toISOString()} className="border-b border-gray-800">
+          <div
+            key={date.toISOString()}
+            className="border-b border-gray-800"
+            data-date-section={isTodayDate ? "today" : "future"}
+          >
             {/* Date header */}
             <div className="sticky top-0 z-30 bg-black border-b border-gray-800 px-4 py-3">
               <h2 className="text-lg font-semibold text-white">

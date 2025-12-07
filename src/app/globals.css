@@ -96,3 +96,23 @@ a {
 .legal-footer a:hover {
   color: #fff;
 }
+
+/* Confetti animation for browsing mode */
+@keyframes confetti {
+  0% {
+    transform: translate(0, 0) rotate(var(--rotation, 0deg));
+    opacity: 1;
+  }
+  30% {
+    transform: translate(calc(var(--vx, 0px) * 0.3), calc(var(--vy, 0px) * 0.3)) rotate(calc(var(--rotation, 0deg) + 180deg));
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--vx, 0px), 400px) rotate(calc(var(--rotation, 0deg) + 540deg));
+    opacity: 0;
+  }
+}
+
+.animate-confetti {
+  animation: confetti 1.6s ease-out forwards;
+}
