@@ -19,6 +19,10 @@ export function DJShowsClient() {
     setSearchQuery(query);
   }, []);
 
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery("");
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-black">
       {/* Header */}
@@ -113,8 +117,8 @@ export function DJShowsClient() {
       </header>
 
       {/* Calendar Grid */}
-      <main className="flex-1 overflow-hidden">
-        <CalendarGrid searchQuery={searchQuery} />
+      <main className="flex-1 min-h-0">
+        <CalendarGrid searchQuery={searchQuery} onClearSearch={handleClearSearch} />
       </main>
 
       {/* Now Playing Overlay */}

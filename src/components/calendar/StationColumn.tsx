@@ -11,6 +11,7 @@ interface StationColumnProps {
   selectedDate: Date;
   searchQuery?: string;
   isLast?: boolean;
+  startHour: number;
 }
 
 function StationColumnComponent({
@@ -20,15 +21,16 @@ function StationColumnComponent({
   selectedDate,
   searchQuery = "",
   isLast = false,
+  startHour,
 }: StationColumnProps) {
-  // Day boundaries
+  // Day boundaries - start from startHour instead of midnight
   const dayStart = new Date(selectedDate);
-  dayStart.setHours(0, 0, 0, 0);
+  dayStart.setHours(startHour, 0, 0, 0);
 
   const dayEnd = new Date(selectedDate);
   dayEnd.setHours(23, 59, 59, 999);
 
-  // Filter shows for this day
+  // Filter shows that are visible (end after startHour)
   const dayShows = shows.filter((show) => {
     const showStart = new Date(show.startTime);
     const showEnd = new Date(show.endTime);
@@ -45,11 +47,12 @@ function StationColumnComponent({
     );
   };
 
-  const totalHeight = 24 * pixelsPerHour;
+  // Total height based on remaining hours in the day
+  const totalHeight = (24 - startHour) * pixelsPerHour;
 
   return (
     <div
-      className={`flex-shrink-0 w-44 ${!isLast ? "border-r border-gray-800/50" : ""}`}
+      className={`flex-1 min-w-[140px] ${!isLast ? "border-r border-gray-800/50" : ""}`}
     >
       {/* Station header - minimal with accent underline */}
       <div className="h-12 flex flex-col justify-center px-3 sticky top-0 z-10 bg-black">
@@ -65,7 +68,7 @@ function StationColumnComponent({
       {/* Timeline */}
       <div className="relative" style={{ height: totalHeight }}>
         {/* Hour grid lines - very subtle */}
-        {Array.from({ length: 24 }, (_, i) => (
+        {Array.from({ length: 24 - startHour }, (_, i) => (
           <div
             key={i}
             className="absolute left-0 right-0 border-t border-gray-900"

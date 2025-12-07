@@ -146,6 +146,77 @@ export function useFavorites() {
     [isShowFavorited, addFavorite, removeFavorite]
   );
 
+  // Add a search term to watchlist
+  const addToWatchlist = useCallback(
+    async (term: string): Promise<boolean> => {
+      if (!user || !db) return false;
+
+      try {
+        const favoritesRef = collection(db, "users", user.uid, "favorites");
+
+        // Check if already exists
+        const q = query(
+          favoritesRef,
+          where("term", "==", term.toLowerCase())
+        );
+        const existing = await getDocs(q);
+        if (!existing.empty) return true;
+
+        await addDoc(favoritesRef, {
+          term: term.toLowerCase(),
+          type: "search",
+          showName: null,
+          djName: null,
+          stationId: null,
+          createdAt: serverTimestamp(),
+          createdBy: "web",
+        });
+
+        return true;
+      } catch (error) {
+        console.error("Error adding to watchlist:", error);
+        return false;
+      }
+    },
+    [user]
+  );
+
+  // Remove a term from watchlist
+  const removeFromWatchlist = useCallback(
+    async (term: string): Promise<boolean> => {
+      if (!user || !db) return false;
+
+      try {
+        const favoritesRef = collection(db, "users", user.uid, "favorites");
+        const q = query(
+          favoritesRef,
+          where("term", "==", term.toLowerCase())
+        );
+        const snapshot = await getDocs(q);
+
+        for (const d of snapshot.docs) {
+          await deleteDoc(doc(db, "users", user.uid, "favorites", d.id));
+        }
+
+        return true;
+      } catch (error) {
+        console.error("Error removing from watchlist:", error);
+        return false;
+      }
+    },
+    [user]
+  );
+
+  // Check if a term is in watchlist
+  const isInWatchlist = useCallback(
+    (term: string): boolean => {
+      return favorites.some(
+        (fav) => fav.term.toLowerCase() === term.toLowerCase()
+      );
+    },
+    [favorites]
+  );
+
   return {
     favorites,
     loading,
@@ -153,5 +224,8 @@ export function useFavorites() {
     addFavorite,
     removeFavorite,
     toggleFavorite,
+    addToWatchlist,
+    removeFromWatchlist,
+    isInWatchlist,
   };
 }
