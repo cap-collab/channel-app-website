@@ -482,9 +482,9 @@ function CurrentTimeLine({
       style={{ top: position }}
     >
       <div className="w-14 flex justify-end pr-1">
-        <div className="w-3 h-3 rounded-full bg-red-500" />
+        <div className="w-1.5 h-1.5 rounded-full bg-gray-500" />
       </div>
-      <div className="flex-1 h-[2px] bg-red-500" />
+      <div className="flex-1 h-px bg-gray-600" />
     </div>
   );
 }

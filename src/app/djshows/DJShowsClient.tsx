@@ -8,6 +8,7 @@ import { CalendarGrid } from "@/components/calendar/CalendarGrid";
 import { BrowsingModePopup } from "@/components/BrowsingModePopup";
 import { AuthModal } from "@/components/AuthModal";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { BPMProvider } from "@/contexts/BPMContext";
 
 export function DJShowsClient() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -25,6 +26,7 @@ export function DJShowsClient() {
   }, []);
 
   return (
+    <BPMProvider>
     <div className="min-h-screen bg-black">
       {/* Header - Logo and nav only (sticky) */}
       <header className="sticky top-0 z-50 bg-black/95 backdrop-blur-md border-b border-gray-900">
@@ -258,5 +260,6 @@ export function DJShowsClient() {
         onClose={() => setShowAuthModal(false)}
       />
     </div>
+    </BPMProvider>
   );
 }

@@ -15,7 +15,7 @@ export const STATIONS: Station[] = [
     id: "rinse-fm",
     name: "Rinse FM",
     metadataKey: "rinse",
-    streamUrl: "https://streamer.radio.co/sb437c8d0f/listen",
+    streamUrl: "https://admin.stream.rinse.fm/proxy/rinse_uk/stream",
     websiteUrl: "https://www.rinse.fm/",
     backgroundColor: "#000000",
     textColor: "#FFFFFF",
@@ -25,7 +25,7 @@ export const STATIONS: Station[] = [
     id: "subtle",
     name: "Subtle Radio",
     metadataKey: "subtle",
-    streamUrl: "https://subtle.airtime.pro/subtle_a",
+    streamUrl: "https://subtle.out.airtime.pro/subtle_a",
     websiteUrl: "https://www.subtleradio.com/",
     backgroundColor: "#000000",
     textColor: "#FFFFFF",
@@ -45,7 +45,7 @@ export const STATIONS: Station[] = [
     id: "rinse-fr",
     name: "Rinse FR",
     metadataKey: "rinsefr",
-    streamUrl: "https://stream.rfrfr.fm/rinsefr",
+    streamUrl: "https://radio10.pro-fhi.net/flux-trmqtiat/stream",
     websiteUrl: "https://www.rinse.fm/channels/france",
     backgroundColor: "#000000",
     textColor: "#FFFFFF",
@@ -55,7 +55,7 @@ export const STATIONS: Station[] = [
     id: "dublab",
     name: "dublab",
     metadataKey: "dublab",
-    streamUrl: "https://dublab.airtime.pro/dublab_a",
+    streamUrl: "https://dublab.out.airtime.pro/dublab_a",
     websiteUrl: "https://www.dublab.com/",
     backgroundColor: "#000000",
     textColor: "#FFFFFF",
@@ -69,4 +69,8 @@ export function getStationById(id: string): Station | undefined {
 
 export function getStationByMetadataKey(key: string): Station | undefined {
   return STATIONS.find((s) => s.metadataKey === key);
+}
+
+export function getMetadataKeyByStationId(stationId: string): string | undefined {
+  return STATIONS.find((s) => s.id === stationId)?.metadataKey;
 }

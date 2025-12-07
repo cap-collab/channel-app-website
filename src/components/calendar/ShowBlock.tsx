@@ -3,10 +3,12 @@
 import { memo, useState } from "react";
 import { Show } from "@/types";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useBPM } from "@/contexts/BPMContext";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { AuthModal } from "@/components/AuthModal";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
+import { getMetadataKeyByStationId } from "@/lib/stations";
 
 interface ShowBlockProps {
   show: Show;
@@ -24,7 +26,6 @@ function ShowBlockComponent({
   accentColor,
   dayStart,
   stationName,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   stationUrl,
   isHighlighted = false,
 }: ShowBlockProps) {
@@ -34,8 +35,89 @@ function ShowBlockComponent({
   const { isAuthenticated } = useAuthContext();
   const { isShowFavorited, toggleFavorite } = useFavorites();
   const { hasFavoriteNotificationsEnabled } = useUserPreferences();
+  const { stationBPM } = useBPM();
 
   const isFavorited = isShowFavorited(show);
+
+  // Check if this show is currently playing
+  const now = new Date();
+  const showStart = new Date(show.startTime);
+  const showEnd = new Date(show.endTime);
+  const isCurrentlyPlaying = showStart <= now && showEnd > now;
+
+  // Get audio info for this station if the show is currently playing
+  const metadataKey = getMetadataKeyByStationId(show.stationId);
+  const audioInfo = isCurrentlyPlaying && metadataKey ? stationBPM[metadataKey] : undefined;
+
+  // Get badge content based on audio info (matching mobile app icons)
+  const getBadgeContent = (): { icon: React.ReactNode; text: string } | null => {
+    if (!audioInfo) return null;
+
+    const genre = audioInfo.genre || audioInfo.type;
+
+    // Waveform icon for BPM
+    const waveformIcon = (
+      <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 3v18M6 7v10M18 7v10M3 10v4M21 10v4M9 5v14M15 5v14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
+      </svg>
+    );
+
+    // Music note icon
+    const musicNoteIcon = (
+      <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M9 18V5l12-2v13M9 18c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3zM21 16c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3z" />
+      </svg>
+    );
+
+    // Mic icon for talk
+    const micIcon = (
+      <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      </svg>
+    );
+
+    // Wind icon for ambient
+    const windIcon = (
+      <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2M9.6 4.6A2 2 0 1 1 11 8H2M12.6 19.4A2 2 0 1 0 14 16H2" />
+      </svg>
+    );
+
+    // Speaker off icon for not playing
+    const speakerOffIcon = (
+      <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" />
+        <line x1="23" y1="9" x2="17" y2="15" />
+        <line x1="17" y1="9" x2="23" y2="15" />
+      </svg>
+    );
+
+    if (genre === "electronic" || genre === "bpm") {
+      if (audioInfo.bpm) {
+        return { icon: waveformIcon, text: `${audioInfo.bpm} BPM` };
+      }
+      return null;
+    }
+
+    switch (genre) {
+      case "rock":
+        return { icon: musicNoteIcon, text: "Rock" };
+      case "classical":
+        return { icon: musicNoteIcon, text: "Classical" };
+      case "jazz":
+        return { icon: musicNoteIcon, text: "Jazz" };
+      case "talk":
+        return { icon: micIcon, text: "Talk" };
+      case "ambient":
+        return { icon: windIcon, text: "Ambient" };
+      case "notPlaying":
+        return { icon: speakerOffIcon, text: "Not playing" };
+      default:
+        return { icon: musicNoteIcon, text: "Other" };
+    }
+  };
+
+  const badgeContent = getBadgeContent();
 
   const handleFavoriteClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -50,9 +132,6 @@ function ShowBlockComponent({
       setShowNotificationPrompt(true);
     }
   };
-
-  const showStart = new Date(show.startTime);
-  const showEnd = new Date(show.endTime);
 
   // Calculate position relative to day start
   const startMinutes =
@@ -95,7 +174,7 @@ function ShowBlockComponent({
   return (
     <>
       <div
-        className={`absolute left-1 right-1 rounded cursor-pointer transition-all hover:brightness-110 ${
+        className={`absolute left-1 right-1 rounded cursor-pointer transition-all hover:brightness-110 overflow-hidden ${
           isHighlighted ? "ring-2 ring-white" : ""
         }`}
         style={{
@@ -106,6 +185,16 @@ function ShowBlockComponent({
         }}
         onClick={() => setIsExpanded(!isExpanded)}
       >
+        {/* Gradient overlay for currently playing shows */}
+        {isCurrentlyPlaying && (
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: `linear-gradient(180deg, ${accentColor}25 0%, transparent 60%)`,
+            }}
+          />
+        )}
+
         {/* Star icon for quick favorite */}
         <button
           onClick={handleFavoriteClick}
@@ -124,7 +213,7 @@ function ShowBlockComponent({
           </svg>
         </button>
 
-        <div className="px-2 py-1.5 h-full flex flex-col pr-6 overflow-hidden">
+        <div className="px-2 py-1.5 h-full flex flex-col pr-6 overflow-hidden relative">
           <p
             className="font-medium text-white text-xs leading-tight truncate"
             title={show.name}
@@ -138,6 +227,14 @@ function ShowBlockComponent({
             <p className="text-gray-600 text-[10px] line-clamp-2 mt-1">{show.description}</p>
           )}
         </div>
+
+        {/* Audio badge for currently playing shows */}
+        {badgeContent && (
+          <div className="absolute bottom-1 right-1 text-[10px] text-gray-400 bg-gray-800/80 px-1.5 py-0.5 rounded flex items-center gap-1">
+            <span>{badgeContent.icon}</span>
+            <span>{badgeContent.text}</span>
+          </div>
+        )}
       </div>
 
       {/* Expanded overlay - styled like SearchResultCard */}
@@ -198,6 +295,18 @@ function ShowBlockComponent({
                   <p className="text-gray-400 text-sm leading-relaxed mb-4">
                     {show.description}
                   </p>
+                )}
+
+                {/* Stream Now button - only for currently playing shows */}
+                {isCurrentlyPlaying && stationUrl && (
+                  <a
+                    href={stationUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 mb-2 bg-white text-black hover:bg-gray-100"
+                  >
+                    Stream Now
+                  </a>
                 )}
 
                 {/* Save button */}

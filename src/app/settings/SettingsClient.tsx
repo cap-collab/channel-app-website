@@ -125,7 +125,7 @@ export function SettingsClient() {
               <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
                 Account
               </h2>
-              <div className="bg-gray-900/50 rounded-lg p-4">
+              <div className="bg-[#1a1a1a] rounded-lg p-4">
                 <div className="flex items-center gap-3">
                   {user?.photoURL ? (
                     <img
@@ -151,7 +151,7 @@ export function SettingsClient() {
               <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
                 Email Notifications
               </h2>
-              <div className="bg-gray-900/50 rounded-lg divide-y divide-gray-800">
+              <div className="bg-[#1a1a1a] rounded-lg divide-y divide-gray-800">
                 <div className="p-4 flex items-center justify-between">
                   <div>
                     <p className="text-white font-medium">Show starting alerts</p>
@@ -201,7 +201,7 @@ export function SettingsClient() {
             <section>
               <Link
                 href="/my-shows"
-                className="block bg-gray-900/50 rounded-lg p-4 hover:bg-gray-800/50 transition-colors"
+                className="block bg-[#1a1a1a] rounded-lg p-4 hover:bg-[#252525] transition-colors"
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -232,7 +232,7 @@ export function SettingsClient() {
               <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
                 Danger Zone
               </h2>
-              <div className="bg-gray-900/50 rounded-lg p-4">
+              <div className="bg-[#1a1a1a] rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-white font-medium">Delete my account</p>
@@ -261,7 +261,7 @@ export function SettingsClient() {
       {/* Delete confirmation modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 rounded-xl max-w-md w-full p-6">
+          <div className="bg-[#1a1a1a] rounded-xl max-w-md w-full p-6">
             <h3 className="text-xl font-semibold text-white mb-2">
               Delete your account?
             </h3>
