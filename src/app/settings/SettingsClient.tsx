@@ -5,7 +5,6 @@ import Link from "next/link";
 import { doc, onSnapshot, updateDoc, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { useCalendarSync } from "@/hooks/useCalendarSync";
 import { AuthModal } from "@/components/AuthModal";
 
 interface NotificationSettings {
@@ -15,12 +14,6 @@ interface NotificationSettings {
 
 export function SettingsClient() {
   const { user, isAuthenticated, loading: authLoading, signOut } = useAuthContext();
-  const {
-    isConnected: isCalendarConnected,
-    loading: calendarLoading,
-    connectCalendar,
-    disconnectCalendar,
-  } = useCalendarSync();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [notifications, setNotifications] = useState<NotificationSettings>({
     showStarting: false,
@@ -149,40 +142,6 @@ export function SettingsClient() {
                     <p className="text-white font-medium">{user?.displayName}</p>
                     <p className="text-gray-500 text-sm">{user?.email}</p>
                   </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Calendar section */}
-            <section>
-              <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-                Calendar Sync
-              </h2>
-              <div className="bg-gray-900/50 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-white font-medium">Google Calendar</p>
-                    <p className="text-gray-500 text-sm">
-                      {isCalendarConnected
-                        ? "Connected - shows sync to \"Channel Shows\" calendar"
-                        : "Add shows to your Google Calendar"}
-                    </p>
-                  </div>
-                  <button
-                    onClick={isCalendarConnected ? disconnectCalendar : connectCalendar}
-                    disabled={calendarLoading}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isCalendarConnected
-                        ? "bg-gray-800 text-gray-400 hover:text-white"
-                        : "bg-white text-black hover:bg-gray-100"
-                    } disabled:opacity-50`}
-                  >
-                    {calendarLoading
-                      ? "..."
-                      : isCalendarConnected
-                        ? "Disconnect"
-                        : "Connect"}
-                  </button>
                 </div>
               </div>
             </section>
