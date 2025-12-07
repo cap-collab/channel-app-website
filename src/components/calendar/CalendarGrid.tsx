@@ -63,7 +63,7 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
         // Grid's position in document
         const gridTop = todayGrid.getBoundingClientRect().top + window.scrollY;
 
-        // Sticky headers: main (~120px) + date (52px) + station (48px) = 220px
+        // Sticky headers: main header (~120px) + station (48px) + date (52px) = 220px
         const totalStickyHeight = 220;
 
         // Position current time ~60px below sticky headers
@@ -355,6 +355,33 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
         message="Sign in to add to your Watch List"
       />
 
+      {/* Persistent station headers - stays fixed at top when scrolling */}
+      <div className="sticky top-0 z-40 bg-black flex border-b border-gray-800">
+        {/* Time axis spacer (left) */}
+        <div className="w-14 flex-shrink-0" />
+
+        {/* Station headers */}
+        {STATIONS.map((station, index) => (
+          <div
+            key={station.id}
+            className={`flex-1 min-w-[140px] h-12 flex flex-col justify-center px-3 ${
+              index !== STATIONS.length - 1 ? "border-r border-gray-800/50" : ""
+            }`}
+          >
+            <span className="font-medium text-white text-sm truncate">
+              {station.name}
+            </span>
+            <div
+              className="h-[2px] w-8 mt-1 rounded-full"
+              style={{ backgroundColor: station.accentColor }}
+            />
+          </div>
+        ))}
+
+        {/* Time axis spacer (right) */}
+        <div className="w-14 flex-shrink-0" />
+      </div>
+
       {futureDates.map((date) => {
         const isTodayDate = isToday(date);
         // Always show full day from midnight
@@ -366,38 +393,11 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
             className="border-b border-gray-800"
             data-date-section={isTodayDate ? "today" : "future"}
           >
-            {/* Date header */}
-            <div className="sticky top-0 z-30 bg-black border-b border-gray-800 px-4 py-3">
+            {/* Date header - sticky below the station headers */}
+            <div className="sticky top-[48px] z-30 bg-black border-b border-gray-800 px-4 py-3">
               <h2 className="text-lg font-semibold text-white">
                 {formatDateHeader(date)}
               </h2>
-            </div>
-
-            {/* Sticky station headers row */}
-            <div className="sticky top-[52px] z-20 bg-black flex border-b border-gray-800">
-              {/* Time axis spacer (left) */}
-              <div className="w-14 flex-shrink-0" />
-
-              {/* Station headers */}
-              {STATIONS.map((station, index) => (
-                <div
-                  key={station.id}
-                  className={`flex-1 min-w-[140px] h-12 flex flex-col justify-center px-3 ${
-                    index !== STATIONS.length - 1 ? "border-r border-gray-800/50" : ""
-                  }`}
-                >
-                  <span className="font-medium text-white text-sm truncate">
-                    {station.name}
-                  </span>
-                  <div
-                    className="h-[2px] w-8 mt-1 rounded-full"
-                    style={{ backgroundColor: station.accentColor }}
-                  />
-                </div>
-              ))}
-
-              {/* Time axis spacer (right) */}
-              <div className="w-14 flex-shrink-0" />
             </div>
 
             {/* Calendar grid for this day */}
