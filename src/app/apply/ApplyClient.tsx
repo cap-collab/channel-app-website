@@ -229,7 +229,7 @@ export function ApplyClient() {
                 value={formData.firstName}
                 onChange={handleInputChange}
                 placeholder="John"
-                className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-500 transition-colors"
+                className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
               />
             </div>
             <div>
@@ -246,7 +246,7 @@ export function ApplyClient() {
                 value={formData.lastName}
                 onChange={handleInputChange}
                 placeholder="Doe"
-                className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-500 transition-colors"
+                className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
               />
             </div>
           </div>
@@ -266,7 +266,7 @@ export function ApplyClient() {
               value={formData.email}
               onChange={handleInputChange}
               placeholder="john@example.com"
-              className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-500 transition-colors"
+              className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
             />
           </div>
 
@@ -285,7 +285,7 @@ export function ApplyClient() {
               value={formData.radioUrl}
               onChange={handleInputChange}
               placeholder="https://yourradio.com"
-              className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-500 transition-colors"
+              className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
             />
           </div>
 
@@ -304,7 +304,7 @@ export function ApplyClient() {
               value={formData.streamUrl}
               onChange={handleInputChange}
               placeholder="https://stream.yourradio.com/live"
-              className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-500 transition-colors"
+              className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
             />
           </div>
 
@@ -323,7 +323,7 @@ export function ApplyClient() {
               value={formData.scheduleUrl}
               onChange={handleInputChange}
               placeholder="https://yourradio.com/schedule"
-              className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-500 transition-colors"
+              className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
             />
           </div>
 
@@ -342,7 +342,7 @@ export function ApplyClient() {
               value={formData.socialMedia}
               onChange={handleInputChange}
               placeholder="@yourradio or https://instagram.com/yourradio"
-              className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-500 transition-colors"
+              className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
             />
           </div>
 
@@ -358,7 +358,7 @@ export function ApplyClient() {
                 className={`flex-1 py-3 px-4 rounded-xl border transition-colors ${
                   formData.plays24_7 === true
                     ? "bg-white text-black border-white"
-                    : "bg-gray-900 text-gray-300 border-gray-700 hover:border-gray-500"
+                    : "bg-[#1a1a1a] text-gray-300 border-gray-800 hover:border-gray-600"
                 }`}
               >
                 Yes
@@ -369,7 +369,7 @@ export function ApplyClient() {
                 className={`flex-1 py-3 px-4 rounded-xl border transition-colors ${
                   formData.plays24_7 === false
                     ? "bg-white text-black border-white"
-                    : "bg-gray-900 text-gray-300 border-gray-700 hover:border-gray-500"
+                    : "bg-[#1a1a1a] text-gray-300 border-gray-800 hover:border-gray-600"
                 }`}
               >
                 No
@@ -392,7 +392,7 @@ export function ApplyClient() {
               onChange={handleInputChange}
               rows={4}
               placeholder="Tell us about your station..."
-              className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-500 transition-colors resize-none"
+              className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors resize-none"
             />
           </div>
 
