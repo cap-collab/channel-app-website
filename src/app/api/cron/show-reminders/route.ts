@@ -75,9 +75,9 @@ export async function GET(request: NextRequest) {
       if (metadataResponse.ok) {
         const metadata: Metadata = await metadataResponse.json();
 
-        // Find shows starting in the next 65 minutes (to account for cron timing)
-        const windowStart = now;
-        const windowEnd = new Date(now.getTime() + 65 * 60 * 1000);
+        // Find shows that started in the last 5 minutes (to catch shows starting NOW)
+        const windowStart = new Date(now.getTime() - 5 * 60 * 1000);
+        const windowEnd = new Date(now.getTime() + 5 * 60 * 1000);
 
         const upcomingShows: Array<Show & { stationName: string; stationUrl: string }> = [];
         for (const [stationKey, stationData] of Object.entries(metadata)) {

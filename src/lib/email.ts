@@ -107,23 +107,47 @@ export async function sendWatchlistDigestEmail({
 
   if (matches.length === 0) return false;
 
-  const matchesHtml = matches
-    .map(
-      (match) => `
-      <div style="background: #1a1a1a; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-        <div style="font-weight: 600; margin-bottom: 4px;">${match.djName || match.showName}</div>
-        <div style="color: #888; font-size: 13px;">${match.stationName} · ${new Date(match.startTime).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })} at ${new Date(match.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</div>
-        <div style="color: #666; font-size: 12px; margin-top: 8px;">Matched: "${match.searchTerm}"</div>
-      </div>
-    `
-    )
+  // Group matches by search term
+  const matchesByTerm: Record<string, typeof matches> = {};
+  for (const match of matches) {
+    if (!matchesByTerm[match.searchTerm]) {
+      matchesByTerm[match.searchTerm] = [];
+    }
+    matchesByTerm[match.searchTerm].push(match);
+  }
+
+  // Build HTML for each search term group
+  const groupsHtml = Object.entries(matchesByTerm)
+    .map(([term, termMatches]) => {
+      const showsHtml = termMatches
+        .map(
+          (match) => `
+          <div style="background: #1a1a1a; border-radius: 8px; padding: 16px; margin-bottom: 8px;">
+            <div style="font-weight: 600; margin-bottom: 4px;">${match.djName || match.showName}</div>
+            <div style="color: #888; font-size: 13px;">${match.stationName} · ${new Date(match.startTime).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })} at ${new Date(match.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</div>
+          </div>
+        `
+        )
+        .join("");
+
+      return `
+        <div style="margin-bottom: 24px;">
+          <p style="color: #aaa; font-size: 14px; margin-bottom: 12px;">We found shows matching your "<strong style="color: #fff;">${term}</strong>" alert and added them to your favorites:</p>
+          ${showsHtml}
+        </div>
+      `;
+    })
     .join("");
+
+  // Create URL with search query for first term
+  const firstTerm = Object.keys(matchesByTerm)[0];
+  const searchUrl = `${process.env.NEXT_PUBLIC_APP_URL}/djshows?search=${encodeURIComponent(firstTerm)}`;
 
   try {
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to,
-      subject: `${matches.length} new show${matches.length > 1 ? "s" : ""} match your watchlist`,
+      subject: `We found ${matches.length} show${matches.length > 1 ? "s" : ""} matching your alerts`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -134,8 +158,8 @@ export async function sendWatchlistDigestEmail({
             .header { margin-bottom: 30px; }
             .logo { font-size: 24px; font-weight: bold; color: #fff; }
             .content { margin-bottom: 20px; }
-            h1 { margin: 0 0 20px; font-size: 20px; }
-            .browse-btn { display: inline-block; background: #fff; color: #000; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 20px; }
+            h1 { margin: 0 0 24px; font-size: 20px; }
+            .browse-btn { display: inline-block; background: #fff; color: #000; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 16px; }
             .footer { color: #666; font-size: 12px; text-align: center; margin-top: 30px; }
             .unsubscribe { color: #666; text-decoration: underline; }
           </style>
@@ -146,13 +170,13 @@ export async function sendWatchlistDigestEmail({
               <div class="logo">Channel</div>
             </div>
             <div class="content">
-              <h1>New shows matching your watchlist</h1>
-              ${matchesHtml}
-              <a href="${process.env.NEXT_PUBLIC_APP_URL}/djshows" class="browse-btn">Browse Shows</a>
+              <h1>New shows added to your favorites</h1>
+              ${groupsHtml}
+              <a href="${searchUrl}" class="browse-btn">View Shows</a>
             </div>
             <div class="footer">
-              <p>You're receiving this because you have watchlist email notifications enabled.</p>
-              <a href="${process.env.NEXT_PUBLIC_APP_URL}/settings" class="unsubscribe">Unsubscribe</a>
+              <p>These shows have been added to your favorites.</p>
+              <a href="${process.env.NEXT_PUBLIC_APP_URL}/settings" class="unsubscribe">Manage notifications</a>
             </div>
           </div>
         </body>

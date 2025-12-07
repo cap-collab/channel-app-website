@@ -112,11 +112,12 @@ export async function GET(request: NextRequest) {
         .where("type", "==", "search")
         .get();
 
-      const watchlistTerms = favoritesSnapshot.docs.map(
-        (doc) => doc.data().term
-      );
+      const watchlistDocs = favoritesSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        term: doc.data().term,
+      }));
 
-      if (watchlistTerms.length === 0) {
+      if (watchlistDocs.length === 0) {
         continue;
       }
 
@@ -126,8 +127,10 @@ export async function GET(request: NextRequest) {
         showName: string;
         djName?: string;
         stationName: string;
+        stationId: string;
         startTime: Date;
         searchTerm: string;
+        watchlistDocId: string;
       }> = [];
 
       for (const show of allShows) {
@@ -136,8 +139,8 @@ export async function GET(request: NextRequest) {
         // Only include future shows or shows from since last email
         if (showStart < since) continue;
 
-        for (const term of watchlistTerms) {
-          const termLower = term.toLowerCase();
+        for (const watchlistDoc of watchlistDocs) {
+          const termLower = watchlistDoc.term.toLowerCase();
           if (
             show.name.toLowerCase().includes(termLower) ||
             show.dj?.toLowerCase().includes(termLower)
@@ -146,8 +149,10 @@ export async function GET(request: NextRequest) {
               showName: show.name,
               djName: show.dj,
               stationName: show.stationName,
+              stationId: show.stationId,
               startTime: showStart,
-              searchTerm: term,
+              searchTerm: watchlistDoc.term,
+              watchlistDocId: watchlistDoc.id,
             });
             break; // Don't add same show multiple times
           }
@@ -158,10 +163,48 @@ export async function GET(request: NextRequest) {
         // Sort by start time
         matches.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
+        // Deduplicate shows by name (keep first occurrence)
+        const uniqueMatches = matches.filter(
+          (match, index, self) =>
+            index === self.findIndex((m) => m.showName.toLowerCase() === match.showName.toLowerCase())
+        );
+
+        // Add matched shows to favorites (as type "show")
+        const addedShows: string[] = [];
+        for (const match of uniqueMatches) {
+          // Check if show already favorited
+          const existingFavorite = await adminDb
+            .collection("users")
+            .doc(userId)
+            .collection("favorites")
+            .where("term", "==", match.showName.toLowerCase())
+            .where("type", "==", "show")
+            .limit(1)
+            .get();
+
+          if (existingFavorite.empty) {
+            await adminDb
+              .collection("users")
+              .doc(userId)
+              .collection("favorites")
+              .add({
+                term: match.showName.toLowerCase(),
+                type: "show",
+                showName: match.showName,
+                djName: match.djName || null,
+                stationId: match.stationId,
+                createdAt: FieldValue.serverTimestamp(),
+                createdBy: "system",
+                matchedFromWatchlist: match.searchTerm,
+              });
+            addedShows.push(match.showName);
+          }
+        }
+
         // Send digest email (max 10 matches)
         const success = await sendWatchlistDigestEmail({
           to: userData.email,
-          matches: matches.slice(0, 10),
+          matches: uniqueMatches.slice(0, 10),
         });
 
         if (success) {
