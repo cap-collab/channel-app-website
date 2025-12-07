@@ -8,7 +8,10 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   error: string | null;
+  emailSent: boolean;
   signInWithGoogle: (enableNotifications?: boolean) => Promise<User | null>;
+  sendEmailLink: (email: string, enableNotifications?: boolean) => Promise<boolean>;
+  resetEmailSent: () => void;
   signOut: () => Promise<void>;
   isAuthenticated: boolean;
 }

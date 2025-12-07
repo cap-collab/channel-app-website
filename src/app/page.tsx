@@ -1,11 +1,11 @@
 import Link from "next/link";
-import Image from "next/image";
 import ScrollReveal from "@/components/ScrollReveal";
 import FAQAccordion from "@/components/FAQAccordion";
 import PhoneMockup from "@/components/PhoneMockup";
 import HomeScreen from "@/components/mockups/HomeScreen";
 import MyShowsScreen from "@/components/mockups/MyShowsScreen";
 import ChatScreen from "@/components/mockups/ChatScreen";
+import { Header } from "@/components/Header";
 
 const faqItems = [
   {
@@ -44,33 +44,7 @@ const faqItems = [
 export default function Home() {
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-md border-b border-gray-900">
-        <div className="max-w-7xl mx-auto px-6 py-2 flex items-center justify-between">
-          <Image
-            src="/logo-white.svg"
-            alt="CHANNEL"
-            width={160}
-            height={32}
-            className="h-8 md:h-9 w-auto"
-            priority
-          />
-          <nav className="flex items-center gap-3 md:gap-4">
-            <Link
-              href="/djshows"
-              className="bg-white text-black px-4 md:px-6 py-2 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all"
-            >
-              Browse DJ Shows
-            </Link>
-            <a
-              href="#get-involved"
-              className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
-            >
-              Get Involved
-            </a>
-          </nav>
-        </div>
-      </header>
+      <Header />
 
       {/* Hero Section */}
       <section className="min-h-screen flex flex-col justify-center items-center px-6 pt-24 pb-20 relative bg-[#1a1a1a]">
