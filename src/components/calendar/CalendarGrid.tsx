@@ -50,30 +50,24 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
 
   // Auto-scroll to current time on initial load
   useEffect(() => {
-    // Wait until we have shows loaded and haven't scrolled yet
     if (!loading && shows.length > 0 && !hasScrolledRef.current) {
       const scrollToCurrentTime = () => {
         if (hasScrolledRef.current) return;
 
-        // Find the "Today" section to get its position on the page
-        const todaySection = document.querySelector('[data-date-section="today"]');
-        if (!todaySection) return;
+        const todayGrid = document.querySelector('[data-time-grid="today"]');
+        if (!todayGrid) return;
 
         const now = new Date();
-        const currentHour = now.getHours();
-        const currentMinute = now.getMinutes();
+        const timePosition = (now.getHours() + now.getMinutes() / 60) * PIXELS_PER_HOUR;
 
-        // Calculate position within the day grid
-        const timePosition = (currentHour + currentMinute / 60) * PIXELS_PER_HOUR;
+        // Grid's position in document
+        const gridTop = todayGrid.getBoundingClientRect().top + window.scrollY;
 
-        // Get the Today section's position and add the time offset
-        // Account for: sticky header (~120px) + date header (~52px) + station header (48px)
-        const sectionTop = todaySection.getBoundingClientRect().top + window.scrollY;
-        const headerOffset = 120; // sticky header height
-        const dateHeaderHeight = 52; // "Today" header
-        const stationHeaderHeight = 48; // station names row
+        // Sticky headers: main (~120px) + date (52px) + station (48px) = 220px
+        const totalStickyHeight = 220;
 
-        const scrollPosition = sectionTop + dateHeaderHeight + stationHeaderHeight + timePosition - headerOffset - 80;
+        // Position current time ~60px below sticky headers
+        const scrollPosition = gridTop + timePosition - totalStickyHeight - 60;
 
         window.scrollTo({
           top: Math.max(0, scrollPosition),
@@ -82,7 +76,7 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
         hasScrolledRef.current = true;
       };
 
-      // Try immediately, then with delays as fallback
+      // Try immediately, then with delays as fallback for layout settling
       scrollToCurrentTime();
       const timeoutId1 = setTimeout(scrollToCurrentTime, 100);
       const timeoutId2 = setTimeout(scrollToCurrentTime, 300);
@@ -407,7 +401,7 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
             </div>
 
             {/* Calendar grid for this day */}
-            <div className="flex relative">
+            <div className="flex relative" data-time-grid={isTodayDate ? "today" : undefined}>
               {/* Time axis (left) */}
               <TimeAxis pixelsPerHour={PIXELS_PER_HOUR} startHour={startHour} />
 

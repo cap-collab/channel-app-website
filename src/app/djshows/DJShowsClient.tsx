@@ -47,23 +47,17 @@ export function DJShowsClient() {
             <div className="flex items-center gap-3 md:gap-4">
               <button
                 onClick={() => {
-                  // Scroll to current time in the calendar
-                  const todaySection = document.querySelector('[data-date-section="today"]');
-                  if (!todaySection) return;
+                  const todayGrid = document.querySelector('[data-time-grid="today"]');
+                  if (!todayGrid) return;
 
                   const now = new Date();
-                  const currentHour = now.getHours();
-                  const currentMinute = now.getMinutes();
                   const PIXELS_PER_HOUR = 80;
-                  const timePosition = (currentHour + currentMinute / 60) * PIXELS_PER_HOUR;
+                  const timePosition = (now.getHours() + now.getMinutes() / 60) * PIXELS_PER_HOUR;
 
-                  // Get the Today section's position and add the time offset
-                  const sectionTop = todaySection.getBoundingClientRect().top + window.scrollY;
-                  const headerOffset = 120; // sticky header height
-                  const dateHeaderHeight = 52; // "Today" header
-                  const stationHeaderHeight = 48; // station names row
+                  const gridTop = todayGrid.getBoundingClientRect().top + window.scrollY;
+                  const totalStickyHeight = 220;
 
-                  const scrollPosition = sectionTop + dateHeaderHeight + stationHeaderHeight + timePosition - headerOffset - 80;
+                  const scrollPosition = gridTop + timePosition - totalStickyHeight - 60;
 
                   window.scrollTo({
                     top: Math.max(0, scrollPosition),
