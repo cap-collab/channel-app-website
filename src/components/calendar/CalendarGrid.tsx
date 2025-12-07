@@ -379,6 +379,33 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
               </h2>
             </div>
 
+            {/* Sticky station headers row */}
+            <div className="sticky top-[52px] z-20 bg-black flex border-b border-gray-800">
+              {/* Time axis spacer (left) */}
+              <div className="w-14 flex-shrink-0" />
+
+              {/* Station headers */}
+              {STATIONS.map((station, index) => (
+                <div
+                  key={station.id}
+                  className={`flex-1 min-w-[140px] h-12 flex flex-col justify-center px-3 ${
+                    index !== STATIONS.length - 1 ? "border-r border-gray-800/50" : ""
+                  }`}
+                >
+                  <span className="font-medium text-white text-sm truncate">
+                    {station.name}
+                  </span>
+                  <div
+                    className="h-[2px] w-8 mt-1 rounded-full"
+                    style={{ backgroundColor: station.accentColor }}
+                  />
+                </div>
+              ))}
+
+              {/* Time axis spacer (right) */}
+              <div className="w-14 flex-shrink-0" />
+            </div>
+
             {/* Calendar grid for this day */}
             <div className="flex relative">
               {/* Time axis (left) */}
@@ -395,6 +422,7 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
                   searchQuery={searchQuery}
                   isLast={index === STATIONS.length - 1}
                   startHour={startHour}
+                  hideHeader
                 />
               ))}
 
@@ -429,9 +457,9 @@ function CurrentTimeLine({
       const hours = now.getHours();
       const minutes = now.getMinutes();
       // Calculate position: hours * pixels per hour
-      // Add 48px for the station header height (h-12 = 48px)
+      // Station header is now separate, so no need to add 48px offset
       const totalHours = hours + minutes / 60;
-      setPosition(totalHours * pixelsPerHour + 48);
+      setPosition(totalHours * pixelsPerHour);
     };
 
     updatePosition();

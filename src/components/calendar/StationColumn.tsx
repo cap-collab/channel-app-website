@@ -12,6 +12,7 @@ interface StationColumnProps {
   searchQuery?: string;
   isLast?: boolean;
   startHour: number;
+  hideHeader?: boolean;
 }
 
 function StationColumnComponent({
@@ -22,6 +23,7 @@ function StationColumnComponent({
   searchQuery = "",
   isLast = false,
   startHour,
+  hideHeader = false,
 }: StationColumnProps) {
   // Day boundaries - start from startHour instead of midnight
   const dayStart = new Date(selectedDate);
@@ -55,15 +57,17 @@ function StationColumnComponent({
       className={`flex-1 min-w-[140px] ${!isLast ? "border-r border-gray-800/50" : ""}`}
     >
       {/* Station header - minimal with accent underline */}
-      <div className="h-12 flex flex-col justify-center px-3 sticky top-0 z-10 bg-black">
-        <span className="font-medium text-white text-sm truncate">
-          {station.name}
-        </span>
-        <div
-          className="h-[2px] w-8 mt-1 rounded-full"
-          style={{ backgroundColor: station.accentColor }}
-        />
-      </div>
+      {!hideHeader && (
+        <div className="h-12 flex flex-col justify-center px-3 sticky top-0 z-10 bg-black">
+          <span className="font-medium text-white text-sm truncate">
+            {station.name}
+          </span>
+          <div
+            className="h-[2px] w-8 mt-1 rounded-full"
+            style={{ backgroundColor: station.accentColor }}
+          />
+        </div>
+      )}
 
       {/* Timeline */}
       <div className="relative" style={{ height: totalHeight }}>
