@@ -210,7 +210,7 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
   }
 
   return (
-    <div ref={scrollContainerRef} id="calendar-scroll-container" className="h-full overflow-auto">
+    <div ref={scrollContainerRef} id="calendar-scroll-container">
       {/* Search Results Section */}
       {searchQuery.trim() && totalSearchResults > 0 && (
         <div className="bg-black border-b border-gray-800">

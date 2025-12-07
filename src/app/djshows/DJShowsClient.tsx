@@ -25,7 +25,7 @@ export function DJShowsClient() {
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col bg-black">
+    <div className="min-h-screen bg-black">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-black/80 backdrop-blur-md border-b border-gray-900">
         <div className="max-w-7xl mx-auto px-6 py-2">
@@ -172,7 +172,7 @@ export function DJShowsClient() {
       </header>
 
       {/* Calendar Grid */}
-      <main className="flex-1 min-h-0">
+      <main>
         <CalendarGrid searchQuery={searchQuery} onClearSearch={handleClearSearch} />
       </main>
 
