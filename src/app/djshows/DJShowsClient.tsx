@@ -26,58 +26,57 @@ export function DJShowsClient() {
 
   return (
     <div className="min-h-screen bg-black">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-black/80 backdrop-blur-md border-b border-gray-900">
-        <div className="max-w-7xl mx-auto px-6 py-2">
-          <div className="flex items-center justify-between mb-4">
-            <Link href="/">
-              <Image
-                src="/logo-white.svg"
-                alt="CHANNEL"
-                width={160}
-                height={32}
-                className="h-8 md:h-9 w-auto"
-                priority
-              />
+      {/* Header - Logo and nav only (sticky) */}
+      <header className="sticky top-0 z-50 bg-black/95 backdrop-blur-md border-b border-gray-900">
+        <div className="px-4 py-3 flex items-center justify-between">
+          <Link href="/">
+            <Image
+              src="/logo-white.svg"
+              alt="CHANNEL"
+              width={140}
+              height={28}
+              className="h-7 w-auto"
+              priority
+            />
+          </Link>
+
+          {/* Nav buttons and user menu */}
+          <div className="flex items-center gap-3 md:gap-4">
+            <button
+              onClick={() => {
+                const todayGrid = document.querySelector('[data-time-grid="today"]');
+                if (!todayGrid) return;
+
+                const now = new Date();
+                const PIXELS_PER_HOUR = 80;
+                const timePosition = (now.getHours() + now.getMinutes() / 60) * PIXELS_PER_HOUR;
+
+                const gridTop = todayGrid.getBoundingClientRect().top + window.scrollY;
+                const totalStickyHeight = 100;
+
+                const scrollPosition = gridTop + timePosition - totalStickyHeight - 60;
+
+                window.scrollTo({
+                  top: Math.max(0, scrollPosition),
+                  behavior: 'smooth'
+                });
+              }}
+              className="hidden sm:inline-block bg-white text-black px-4 py-1.5 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all cursor-pointer"
+            >
+              Browse DJ Shows
+            </button>
+            <a
+              href="#get-involved"
+              className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
+            >
+              Get Involved
+            </a>
+            <Link
+              href="/apply"
+              className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
+            >
+              Feature Your Station
             </Link>
-
-            {/* Nav buttons and user menu */}
-            <div className="flex items-center gap-3 md:gap-4">
-              <button
-                onClick={() => {
-                  const todayGrid = document.querySelector('[data-time-grid="today"]');
-                  if (!todayGrid) return;
-
-                  const now = new Date();
-                  const PIXELS_PER_HOUR = 80;
-                  const timePosition = (now.getHours() + now.getMinutes() / 60) * PIXELS_PER_HOUR;
-
-                  const gridTop = todayGrid.getBoundingClientRect().top + window.scrollY;
-                  const totalStickyHeight = 220;
-
-                  const scrollPosition = gridTop + timePosition - totalStickyHeight - 60;
-
-                  window.scrollTo({
-                    top: Math.max(0, scrollPosition),
-                    behavior: 'smooth'
-                  });
-                }}
-                className="hidden sm:inline-block bg-white text-black px-4 md:px-6 py-2 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all cursor-pointer"
-              >
-                Browse DJ Shows
-              </button>
-              <a
-                href="#get-involved"
-                className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
-              >
-                Get Involved
-              </a>
-              <Link
-                href="/apply"
-                className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
-              >
-                Feature Your Station
-              </Link>
 
             <div className="relative">
               {loading ? (
@@ -150,26 +149,28 @@ export function DJShowsClient() {
                 </>
               )}
             </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1">
-              <SearchBar
-                onSearch={handleSearch}
-                placeholder="Search shows or DJs..."
-              />
-            </div>
-            <button
-              onClick={() => setShowNowPlaying(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors whitespace-nowrap text-sm"
-            >
-              <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-              Live Now
-            </button>
           </div>
         </div>
       </header>
+
+      {/* Search bar section (not sticky - scrolls away) */}
+      <div className="px-4 py-3 bg-black border-b border-gray-900">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1">
+            <SearchBar
+              onSearch={handleSearch}
+              placeholder="Search shows or DJs..."
+            />
+          </div>
+          <button
+            onClick={() => setShowNowPlaying(true)}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors whitespace-nowrap text-sm"
+          >
+            <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+            Live Now
+          </button>
+        </div>
+      </div>
 
       {/* Calendar Grid */}
       <main>
@@ -177,7 +178,7 @@ export function DJShowsClient() {
       </main>
 
       {/* Get Involved Section */}
-      <section id="get-involved" className="py-24 px-6 bg-black border-t border-gray-800">
+      <section id="get-involved" className="py-16 px-6 bg-[#1a1a1a]">
         <div className="max-w-3xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-8 text-center">
             Get Involved
@@ -225,7 +226,7 @@ export function DJShowsClient() {
       </section>
 
       {/* Footer */}
-      <footer className="py-12 px-6 border-t border-gray-800">
+      <footer className="py-10 px-6 bg-black">
         <div className="max-w-3xl mx-auto text-center">
           <div className="text-sm text-gray-600 space-y-3">
             <p>

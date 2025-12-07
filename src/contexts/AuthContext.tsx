@@ -8,7 +8,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   error: string | null;
-  signInWithGoogle: () => Promise<User | null>;
+  signInWithGoogle: (enableNotifications?: boolean) => Promise<User | null>;
   signOut: () => Promise<void>;
   isAuthenticated: boolean;
 }

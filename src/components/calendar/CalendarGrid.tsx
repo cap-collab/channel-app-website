@@ -9,7 +9,9 @@ import { StationColumn } from "./StationColumn";
 import { SearchResultCard } from "./SearchResultCard";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { AuthModal } from "@/components/AuthModal";
+import { NotificationPrompt } from "@/components/NotificationPrompt";
 
 const PIXELS_PER_HOUR = 80;
 
@@ -23,12 +25,14 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const hasScrolledRef = useRef(false);
 
   const { isAuthenticated } = useAuthContext();
   const { addToWatchlist, removeFromWatchlist, isInWatchlist } = useFavorites();
+  const { hasNotificationsEnabled } = useUserPreferences();
 
   useEffect(() => {
     async function loadShows() {
@@ -63,8 +67,8 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
         // Grid's position in document
         const gridTop = todayGrid.getBoundingClientRect().top + window.scrollY;
 
-        // Sticky headers: main header (~120px) + station (48px) + date (52px) = 220px
-        const totalStickyHeight = 220;
+        // Sticky headers: main header (~52px) + station (48px) + date (52px) = 152px
+        const totalStickyHeight = 152;
 
         // Position current time ~60px below sticky headers
         const scrollPosition = gridTop + timePosition - totalStickyHeight - 60;
@@ -289,6 +293,10 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
                   setWatchlistLoading(true);
                   await addToWatchlist(searchQuery);
                   setWatchlistLoading(false);
+                  // Show notification prompt if user hasn't enabled notifications
+                  if (!hasNotificationsEnabled) {
+                    setShowNotificationPrompt(true);
+                  }
                 }}
                 disabled={watchlistLoading}
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/15 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
@@ -355,8 +363,14 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
         message="Sign in to add to your Watch List"
       />
 
-      {/* Persistent station headers - stays fixed at top when scrolling */}
-      <div className="sticky top-0 z-50 bg-black flex border-b border-gray-800">
+      {/* Notification Prompt */}
+      <NotificationPrompt
+        isOpen={showNotificationPrompt}
+        onClose={() => setShowNotificationPrompt(false)}
+      />
+
+      {/* Persistent station headers - stays fixed below main header when scrolling */}
+      <div className="sticky top-[52px] z-40 bg-black flex border-b border-gray-800">
         {/* Time axis spacer (left) */}
         <div className="w-14 flex-shrink-0" />
 
@@ -393,8 +407,8 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
             className="border-b border-gray-800"
             data-date-section={isTodayDate ? "today" : "future"}
           >
-            {/* Date header - sticky below the station headers */}
-            <div className="sticky top-[48px] z-30 bg-black border-b border-gray-800 px-4 py-3">
+            {/* Date header - sticky below main header (52px) + station headers (48px) */}
+            <div className="sticky top-[100px] z-30 bg-black border-b border-gray-800 px-4 py-3">
               <h2 className="text-lg font-semibold text-white">
                 {formatDateHeader(date)}
               </h2>

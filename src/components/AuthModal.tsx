@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useAuthContext } from "@/contexts/AuthContext";
 
@@ -15,11 +16,12 @@ export function AuthModal({
   message = "Sign in to save favorites and get alerts",
 }: AuthModalProps) {
   const { signInWithGoogle, loading, error } = useAuthContext();
+  const [enableNotifications, setEnableNotifications] = useState(true);
 
   if (!isOpen) return null;
 
   const handleSignIn = async () => {
-    const user = await signInWithGoogle();
+    const user = await signInWithGoogle(enableNotifications);
     if (user) {
       onClose();
     }
@@ -42,6 +44,30 @@ export function AuthModal({
             {error}
           </div>
         )}
+
+        {/* Email notifications opt-in */}
+        <label className="flex items-start gap-3 mb-6 cursor-pointer group">
+          <div className="relative flex-shrink-0 mt-0.5">
+            <input
+              type="checkbox"
+              checked={enableNotifications}
+              onChange={(e) => setEnableNotifications(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-5 h-5 border border-gray-600 rounded bg-transparent peer-checked:bg-white peer-checked:border-white transition-colors" />
+            <svg
+              className="absolute top-0.5 left-0.5 w-4 h-4 text-black opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">
+            Email me when my favorite DJs or shows are scheduled
+          </span>
+        </label>
 
         <button
           onClick={handleSignIn}

@@ -4,7 +4,9 @@ import { memo, useState } from "react";
 import { Show, Station } from "@/types";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
+import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { AuthModal } from "@/components/AuthModal";
+import { NotificationPrompt } from "@/components/NotificationPrompt";
 
 interface SearchResultCardProps {
   show: Show;
@@ -13,8 +15,10 @@ interface SearchResultCardProps {
 
 function SearchResultCardComponent({ show, station }: SearchResultCardProps) {
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
   const { isAuthenticated } = useAuthContext();
   const { isShowFavorited, toggleFavorite } = useFavorites();
+  const { hasNotificationsEnabled } = useUserPreferences();
 
   const isFavorited = isShowFavorited(show);
   const accentColor = station?.accentColor || "#fff";
@@ -25,7 +29,12 @@ function SearchResultCardComponent({ show, station }: SearchResultCardProps) {
       setShowAuthModal(true);
       return;
     }
+    const wasNotFavorited = !isFavorited;
     await toggleFavorite(show);
+    // Show notification prompt if user just favorited and hasn't enabled notifications
+    if (wasNotFavorited && !hasNotificationsEnabled) {
+      setShowNotificationPrompt(true);
+    }
   };
 
   const showStart = new Date(show.startTime);
@@ -107,6 +116,12 @@ function SearchResultCardComponent({ show, station }: SearchResultCardProps) {
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         message="Sign in to save this show and get alerts"
+      />
+
+      {/* Notification Prompt */}
+      <NotificationPrompt
+        isOpen={showNotificationPrompt}
+        onClose={() => setShowNotificationPrompt(false)}
       />
     </>
   );

@@ -43,7 +43,7 @@ export function useAuth() {
     return () => unsubscribe();
   }, []);
 
-  const signInWithGoogle = useCallback(async () => {
+  const signInWithGoogle = useCallback(async (enableNotifications = false) => {
     if (!auth || !googleProvider || !db) {
       setState((prev) => ({
         ...prev,
@@ -62,7 +62,7 @@ export function useAuth() {
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
-        // New user - create document
+        // New user - create document with notification preference
         await setDoc(userRef, {
           email: user.email,
           displayName: user.displayName,
@@ -71,19 +71,23 @@ export function useAuth() {
           lastSeenAt: serverTimestamp(),
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           emailNotifications: {
-            showStarting: false,
-            watchlistMatch: false,
+            showStarting: enableNotifications,
+            watchlistMatch: enableNotifications,
           },
         });
       } else {
         // Existing user - update last seen
-        await setDoc(
-          userRef,
-          {
-            lastSeenAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
+        // If they opted in during this sign-in, enable notifications
+        const updateData: Record<string, unknown> = {
+          lastSeenAt: serverTimestamp(),
+        };
+        if (enableNotifications) {
+          updateData.emailNotifications = {
+            showStarting: true,
+            watchlistMatch: true,
+          };
+        }
+        await setDoc(userRef, updateData, { merge: true });
       }
 
       setState({ user, loading: false, error: null });
