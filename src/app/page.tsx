@@ -73,7 +73,7 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      <section className="min-h-screen flex flex-col justify-center items-center px-6 pt-24 pb-20 relative">
+      <section className="min-h-screen flex flex-col justify-center items-center px-6 pt-24 pb-20 relative bg-[#1a1a1a]">
         <div className="max-w-3xl text-center">
           <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
             The live-streaming app<br />for DJ shows.
@@ -112,7 +112,7 @@ export default function Home() {
       </section>
 
       {/* Values Section - 3 columns with mockups below */}
-      <section className="py-24 px-6">
+      <section className="py-24 px-6 bg-black">
         <ScrollReveal>
           <div className="max-w-6xl mx-auto">
             <div className="flex flex-col md:flex-row md:divide-x divide-gray-800">
@@ -173,7 +173,7 @@ export default function Home() {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-24 px-6">
+      <section className="py-24 px-6 bg-[#1a1a1a]">
         <ScrollReveal>
           <div className="max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-12 text-center">
@@ -185,7 +185,7 @@ export default function Home() {
       </section>
 
       {/* Get Involved Section */}
-      <section id="get-involved" className="py-24 px-6 bg-[#1a1a1a]">
+      <section id="get-involved" className="py-24 px-6 bg-black">
         <ScrollReveal>
           <div className="max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-8 text-center">
@@ -235,7 +235,7 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="py-24 px-6 border-t border-gray-900">
+      <footer className="py-24 px-6 bg-[#1a1a1a]">
         <div className="max-w-3xl mx-auto text-center">
           <ScrollReveal>
             <h3 className="text-2xl md:text-3xl font-semibold text-white mb-4">
