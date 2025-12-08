@@ -6,9 +6,10 @@ interface TimeAxisProps {
   pixelsPerHour: number;
   startHour: number;
   position?: "left" | "right";
+  className?: string;
 }
 
-function TimeAxisComponent({ pixelsPerHour, startHour, position = "left" }: TimeAxisProps) {
+function TimeAxisComponent({ pixelsPerHour, startHour, position = "left", className = "" }: TimeAxisProps) {
   // Only show hours from startHour to 24
   const hours = Array.from({ length: 24 - startHour }, (_, i) => startHour + i);
 
@@ -22,7 +23,7 @@ function TimeAxisComponent({ pixelsPerHour, startHour, position = "left" }: Time
   const isRight = position === "right";
 
   return (
-    <div className={`${isRight ? "sticky right-0" : "sticky left-0"} z-10 bg-black w-14 flex-shrink-0 ${isRight ? "border-l" : "border-r"} border-gray-900`}>
+    <div className={`${isRight ? "sticky right-0" : "sticky left-0"} z-10 bg-black w-14 flex-shrink-0 ${isRight ? "border-l" : "border-r"} border-gray-900 ${className}`}>
       <div className="h-12" /> {/* Header spacer */}
       <div className="relative">
         {hours.map((hour, index) => (

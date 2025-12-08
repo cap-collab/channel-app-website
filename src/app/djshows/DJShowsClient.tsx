@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { SearchBar } from "@/components/SearchBar";
@@ -15,7 +15,34 @@ export function DJShowsClient() {
   const [showNowPlaying, setShowNowPlaying] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [isSearchBarSticky, setIsSearchBarSticky] = useState(true);
   const { user, isAuthenticated, signOut, loading } = useAuthContext();
+
+  // Track scroll position to make search bar non-sticky after scrolling past current time
+  useEffect(() => {
+    const handleScroll = () => {
+      const todayGrid = document.querySelector('[data-time-grid="today"]');
+      if (!todayGrid) return;
+
+      const now = new Date();
+      const PIXELS_PER_HOUR = 80;
+      const timePosition = (now.getHours() + now.getMinutes() / 60) * PIXELS_PER_HOUR;
+
+      const gridTop = todayGrid.getBoundingClientRect().top;
+      // Current time position relative to viewport
+      const currentTimeViewportPosition = gridTop + timePosition;
+
+      // Search bar height + header height = ~52 + ~60 = 112px
+      // If current time line is above the sticky area, make search bar non-sticky
+      const stickyThreshold = 120;
+      setIsSearchBarSticky(currentTimeViewportPosition > stickyThreshold);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // Check on mount
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
@@ -63,9 +90,10 @@ export function DJShowsClient() {
                   behavior: 'smooth'
                 });
               }}
-              className="hidden sm:inline-block bg-white text-black px-4 py-1.5 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all cursor-pointer"
+              className="bg-white text-black px-3 sm:px-4 py-1.5 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all cursor-pointer"
             >
-              Browse DJ Shows
+              <span className="sm:hidden">DJ Shows</span>
+              <span className="hidden sm:inline">Browse DJ Shows</span>
             </button>
             <a
               href="#get-involved"
@@ -155,8 +183,8 @@ export function DJShowsClient() {
         </div>
       </header>
 
-      {/* Search bar section (not sticky - scrolls away) */}
-      <div className="px-4 py-3 bg-black border-b border-gray-900">
+      {/* Search bar section - sticky until scrolled past current time */}
+      <div className={`${isSearchBarSticky ? 'sticky top-[52px] z-[45]' : ''} px-4 py-3 bg-black border-b border-gray-900`}>
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1">
             <SearchBar
@@ -176,7 +204,7 @@ export function DJShowsClient() {
 
       {/* Calendar Grid */}
       <main>
-        <CalendarGrid searchQuery={searchQuery} onClearSearch={handleClearSearch} />
+        <CalendarGrid searchQuery={searchQuery} onClearSearch={handleClearSearch} isSearchBarSticky={isSearchBarSticky} />
       </main>
 
       {/* Get Involved Section */}

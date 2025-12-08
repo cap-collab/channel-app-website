@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Show } from "@/types";
 import { STATIONS } from "@/lib/stations";
 import { getAllShows } from "@/lib/metadata";
@@ -18,9 +18,10 @@ const PIXELS_PER_HOUR = 80;
 interface CalendarGridProps {
   searchQuery?: string;
   onClearSearch?: () => void;
+  isSearchBarSticky?: boolean;
 }
 
-export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridProps) {
+export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarSticky = false }: CalendarGridProps) {
   const [shows, setShows] = useState<Show[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,10 +30,37 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
   const [watchlistLoading, setWatchlistLoading] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const hasScrolledRef = useRef(false);
+  const headerScrollRef = useRef<HTMLDivElement>(null);
+  const gridScrollRefs = useRef<HTMLDivElement[]>([]);
 
   const { isAuthenticated } = useAuthContext();
   const { addToWatchlist, removeFromWatchlist, isInWatchlist } = useFavorites();
   const { hasWatchlistNotificationsEnabled } = useUserPreferences();
+
+  // Sync horizontal scroll across all scrollable containers
+  const isScrollSyncing = useRef(false);
+  const syncScroll = useCallback((sourceElement: HTMLElement) => {
+    if (isScrollSyncing.current) return;
+    isScrollSyncing.current = true;
+
+    const scrollLeft = sourceElement.scrollLeft;
+
+    // Sync header
+    if (headerScrollRef.current && headerScrollRef.current !== sourceElement) {
+      headerScrollRef.current.scrollLeft = scrollLeft;
+    }
+
+    // Sync all grid containers
+    gridScrollRefs.current.forEach((ref) => {
+      if (ref && ref !== sourceElement) {
+        ref.scrollLeft = scrollLeft;
+      }
+    });
+
+    requestAnimationFrame(() => {
+      isScrollSyncing.current = false;
+    });
+  }, []);
 
   useEffect(() => {
     async function loadShows() {
@@ -370,34 +398,40 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
         type="watchlist"
       />
 
-      {/* Persistent station headers - stays fixed below main header when scrolling */}
-      <div className="sticky top-[52px] z-40 bg-black flex border-b border-gray-800">
-        {/* Time axis spacer (left) */}
-        <div className="w-14 flex-shrink-0" />
+      {/* Persistent station headers - stays fixed below main header (and search bar when sticky) */}
+      <div
+        ref={headerScrollRef}
+        onScroll={(e) => syncScroll(e.currentTarget)}
+        className={`sticky ${isSearchBarSticky ? 'top-[112px]' : 'top-[52px]'} z-40 bg-black border-b border-gray-800 overflow-x-auto scrollbar-hide`}
+      >
+        <div className="flex min-w-max">
+          {/* Time axis spacer (left) - sticky on mobile */}
+          <div className="w-14 flex-shrink-0 sticky left-0 z-10 bg-black" />
 
-        {/* Station headers */}
-        {STATIONS.map((station, index) => (
-          <div
-            key={station.id}
-            className={`flex-1 min-w-[140px] h-12 flex flex-col justify-center px-3 ${
-              index !== STATIONS.length - 1 ? "border-r border-gray-800/50" : ""
-            }`}
-          >
-            <span className="font-medium text-white text-sm truncate">
-              {station.name}
-            </span>
+          {/* Station headers */}
+          {STATIONS.map((station, index) => (
             <div
-              className="h-[2px] w-8 mt-1 rounded-full"
-              style={{ backgroundColor: station.accentColor }}
-            />
-          </div>
-        ))}
+              key={station.id}
+              className={`flex-1 min-w-[140px] h-12 flex flex-col justify-center px-3 ${
+                index !== STATIONS.length - 1 ? "border-r border-gray-800/50" : ""
+              }`}
+            >
+              <span className="font-medium text-white text-sm truncate">
+                {station.name}
+              </span>
+              <div
+                className="h-[2px] w-8 mt-1 rounded-full"
+                style={{ backgroundColor: station.accentColor }}
+              />
+            </div>
+          ))}
 
-        {/* Time axis spacer (right) */}
-        <div className="w-14 flex-shrink-0" />
+          {/* Time axis spacer (right) - hidden on mobile */}
+          <div className="w-14 flex-shrink-0 hidden md:block" />
+        </div>
       </div>
 
-      {futureDates.map((date) => {
+      {futureDates.map((date, dateIndex) => {
         const isTodayDate = isToday(date);
         // Always show full day from midnight
         const startHour = 0;
@@ -408,42 +442,50 @@ export function CalendarGrid({ searchQuery = "", onClearSearch }: CalendarGridPr
             className="border-b border-gray-800"
             data-date-section={isTodayDate ? "today" : "future"}
           >
-            {/* Date header - sticky below main header (52px) + station headers (48px) */}
-            <div className="sticky top-[100px] z-30 bg-black border-b border-gray-800 px-4 py-3">
+            {/* Date header - sticky below main header (52px) + search bar when sticky (60px) + station headers (48px) */}
+            <div className={`sticky ${isSearchBarSticky ? 'top-[160px]' : 'top-[100px]'} z-30 bg-black border-b border-gray-800 px-4 py-3`}>
               <h2 className="text-lg font-semibold text-white">
                 {formatDateHeader(date)}
               </h2>
             </div>
 
-            {/* Calendar grid for this day */}
-            <div className="flex relative" data-time-grid={isTodayDate ? "today" : undefined}>
-              {/* Time axis (left) */}
-              <TimeAxis pixelsPerHour={PIXELS_PER_HOUR} startHour={startHour} />
+            {/* Calendar grid for this day - horizontally scrollable on mobile */}
+            <div
+              ref={(el) => {
+                if (el) gridScrollRefs.current[dateIndex] = el;
+              }}
+              onScroll={(e) => syncScroll(e.currentTarget)}
+              className="overflow-x-auto scrollbar-hide"
+            >
+              <div className="flex relative min-w-max" data-time-grid={isTodayDate ? "today" : undefined}>
+                {/* Time axis (left) - sticky when scrolling horizontally */}
+                <TimeAxis pixelsPerHour={PIXELS_PER_HOUR} startHour={startHour} />
 
-              {/* Station columns */}
-              {STATIONS.map((station, index) => (
-                <StationColumn
-                  key={station.id}
-                  station={station}
-                  shows={getShowsForStation(station.id)}
-                  pixelsPerHour={PIXELS_PER_HOUR}
-                  selectedDate={date}
-                  searchQuery={searchQuery}
-                  isLast={index === STATIONS.length - 1}
-                  startHour={startHour}
-                  hideHeader
-                />
-              ))}
+                {/* Station columns */}
+                {STATIONS.map((station, index) => (
+                  <StationColumn
+                    key={station.id}
+                    station={station}
+                    shows={getShowsForStation(station.id)}
+                    pixelsPerHour={PIXELS_PER_HOUR}
+                    selectedDate={date}
+                    searchQuery={searchQuery}
+                    isLast={index === STATIONS.length - 1}
+                    startHour={startHour}
+                    hideHeader
+                  />
+                ))}
 
-              {/* Time axis (right) */}
-              <TimeAxis pixelsPerHour={PIXELS_PER_HOUR} startHour={startHour} position="right" />
+                {/* Time axis (right) - hidden on mobile */}
+                <TimeAxis pixelsPerHour={PIXELS_PER_HOUR} startHour={startHour} position="right" className="hidden md:block" />
 
-              {/* Current time indicator (only for today) */}
-              {isTodayDate && (
-                <CurrentTimeLine
-                  pixelsPerHour={PIXELS_PER_HOUR}
-                />
-              )}
+                {/* Current time indicator (only for today) */}
+                {isTodayDate && (
+                  <CurrentTimeLine
+                    pixelsPerHour={PIXELS_PER_HOUR}
+                  />
+                )}
+              </div>
             </div>
           </div>
         );

@@ -116,3 +116,13 @@ a {
 .animate-confetti {
   animation: confetti 1.6s ease-out forwards;
 }
+
+/* Hide scrollbar but allow scrolling */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
