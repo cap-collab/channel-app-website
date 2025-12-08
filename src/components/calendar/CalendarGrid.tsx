@@ -306,7 +306,7 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
     <div ref={scrollContainerRef} id="calendar-scroll-container">
       {/* Search Results Section - sticky below header and search bar when active */}
       {searchQuery.trim() && totalSearchResults > 0 && (
-        <div className={`bg-black border-b border-gray-800 ${isSearchBarSticky ? 'sticky top-[104px] z-[42]' : ''}`}>
+        <div className={`bg-black border-b border-gray-800 ${isSearchBarSticky ? 'sticky top-[112px] z-[42]' : ''}`}>
           <div className="bg-black border-b border-gray-800 px-4 py-3 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-white">
               Search Results ({totalSearchResults})
@@ -469,11 +469,11 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
       />
 
       {/* Persistent station headers - stays fixed below main header (and search bar when sticky) */}
-      {/* Header (52px) + search bar section (py-3=24px + input ~44px = ~68px) = ~120px */}
+      {/* Header (52px) + search bar section (py-3 + input) = ~112px */}
       <div
         ref={headerScrollRef}
         onScroll={(e) => syncScroll(e.currentTarget)}
-        className={`sticky ${isSearchBarSticky ? 'top-[104px]' : 'top-[52px]'} z-40 bg-black border-b border-gray-800 overflow-x-auto scrollbar-hide`}
+        className={`sticky ${isSearchBarSticky ? 'top-[112px]' : 'top-[52px]'} z-40 bg-black border-b border-gray-800 overflow-x-auto scrollbar-hide`}
       >
         <div className="flex min-w-max">
           {/* Time axis spacer (left) - sticky on mobile */}
@@ -483,7 +483,7 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
           {STATIONS.map((station, index) => (
             <div
               key={station.id}
-              className={`flex-1 min-w-[140px] h-12 flex flex-col justify-center px-3 ${
+              className={`flex-1 min-w-[140px] py-2 flex flex-col justify-center px-3 ${
                 index !== STATIONS.length - 1 ? "border-r border-gray-800/50" : ""
               }`}
             >
@@ -513,9 +513,9 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
             className="border-b border-gray-800"
             data-date-section={isTodayDate ? "today" : "future"}
           >
-            {/* Date header - sticky below main header + search bar when sticky + station headers (48px) */}
-            {/* 104px (header+search) + 48px (station headers) = 152px */}
-            <div className={`sticky ${isSearchBarSticky ? 'top-[152px]' : 'top-[100px]'} z-30 bg-black border-b border-gray-800 px-4 py-3`}>
+            {/* Date header - sticky below main header + search bar when sticky + station headers (~44px) */}
+            {/* 112px (header+search) + ~44px (station headers) = ~156px */}
+            <div className={`sticky ${isSearchBarSticky ? 'top-[156px]' : 'top-[96px]'} z-30 bg-black border-b border-gray-800 px-4 py-3`}>
               <h2 className="text-lg font-semibold text-white">
                 {formatDateHeader(date)}
               </h2>
