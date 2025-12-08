@@ -15,14 +15,14 @@ export function Header() {
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-md border-b border-gray-900">
-        <div className="max-w-7xl mx-auto px-6 py-2 flex items-center justify-between">
+        <div className="px-4 py-3 flex items-center justify-between">
           <Link href="/">
             <Image
               src="/logo-white.svg"
               alt="CHANNEL"
-              width={160}
-              height={32}
-              className="h-8 md:h-9 w-auto"
+              width={168}
+              height={34}
+              className="h-[33.6px] w-auto"
               priority
             />
           </Link>

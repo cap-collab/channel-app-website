@@ -5,7 +5,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { SearchBar } from "@/components/SearchBar";
 import { CalendarGrid } from "@/components/calendar/CalendarGrid";
-import { BrowsingModePopup } from "@/components/BrowsingModePopup";
 import { AuthModal } from "@/components/AuthModal";
 import { MobileMenu } from "@/components/MobileMenu";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -13,15 +12,21 @@ import { BPMProvider } from "@/contexts/BPMContext";
 
 export function DJShowsClient() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [showNowPlaying, setShowNowPlaying] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isSearchBarSticky, setIsSearchBarSticky] = useState(true);
   const { user, isAuthenticated, signOut, loading } = useAuthContext();
 
   // Track scroll position to make search bar non-sticky after scrolling past current time
+  // BUT always keep it sticky when there's an active search
   useEffect(() => {
     const handleScroll = () => {
+      // Always keep sticky when search is active
+      if (searchQuery.trim()) {
+        setIsSearchBarSticky(true);
+        return;
+      }
+
       const todayGrid = document.querySelector('[data-time-grid="today"]');
       if (!todayGrid) return;
 
@@ -43,7 +48,7 @@ export function DJShowsClient() {
     handleScroll(); // Check on mount
 
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [searchQuery]);
 
   const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
@@ -196,21 +201,10 @@ export function DJShowsClient() {
 
       {/* Search bar section - sticky until scrolled past current time */}
       <div className={`${isSearchBarSticky ? 'sticky top-[52px] z-[45]' : ''} px-4 py-3 bg-black border-b border-gray-900`}>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1">
-            <SearchBar
-              onSearch={handleSearch}
-              placeholder="Search shows or DJs..."
-            />
-          </div>
-          <button
-            onClick={() => setShowNowPlaying(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors whitespace-nowrap text-sm"
-          >
-            <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-            Live Now
-          </button>
-        </div>
+        <SearchBar
+          onSearch={handleSearch}
+          placeholder="Search shows or DJs..."
+        />
       </div>
 
       {/* Calendar Grid */}
@@ -287,11 +281,6 @@ export function DJShowsClient() {
           </div>
         </div>
       </footer>
-
-      {/* Browsing Mode Popup */}
-      {showNowPlaying && (
-        <BrowsingModePopup onClose={() => setShowNowPlaying(false)} />
-      )}
 
       {/* Auth Modal */}
       <AuthModal

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
@@ -12,6 +12,7 @@ export function SearchBar({
   placeholder = "Search shows or DJs...",
 }: SearchBarProps) {
   const [query, setQuery] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Debounce search
   useEffect(() => {
@@ -26,6 +27,14 @@ export function SearchBar({
     setQuery("");
     onSearch("");
   }, [onSearch]);
+
+  // Dismiss keyboard on Enter
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      inputRef.current?.blur();
+    }
+  }, []);
 
   return (
     <div className="relative">
@@ -45,9 +54,11 @@ export function SearchBar({
         </svg>
       </div>
       <input
+        ref={inputRef}
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className="w-full pl-10 pr-10 py-2.5 bg-black border border-gray-800 rounded-lg text-white text-base sm:text-sm placeholder-gray-600 focus:outline-none focus:border-gray-700 transition-colors"
       />

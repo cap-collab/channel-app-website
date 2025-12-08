@@ -508,7 +508,7 @@ export function BrowsingModePopup({ onClose }: BrowsingModePopupProps) {
                 onClick={pickThis}
                 className="w-full py-3.5 bg-white text-black font-semibold rounded-xl hover:bg-gray-100 transition-colors mb-3"
               >
-                PICK THIS
+                STREAM THIS
               </button>
 
               {/* PREV and NEXT buttons */}

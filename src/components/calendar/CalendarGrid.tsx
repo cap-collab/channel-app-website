@@ -14,6 +14,8 @@ import { AuthModal } from "@/components/AuthModal";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
 
 const PIXELS_PER_HOUR = 80;
+const STATION_COLUMN_MIN_WIDTH = 140;
+const TIME_AXIS_WIDTH = 56; // w-14 = 56px
 
 interface CalendarGridProps {
   searchQuery?: string;
@@ -32,6 +34,7 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
   const hasScrolledRef = useRef(false);
   const headerScrollRef = useRef<HTMLDivElement>(null);
   const gridScrollRefs = useRef<HTMLDivElement[]>([]);
+  const searchResultsScrollRef = useRef<HTMLDivElement>(null);
 
   const { isAuthenticated } = useAuthContext();
   const { addToWatchlist, removeFromWatchlist, isInWatchlist } = useFavorites();
@@ -48,6 +51,11 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
     // Sync header
     if (headerScrollRef.current && headerScrollRef.current !== sourceElement) {
       headerScrollRef.current.scrollLeft = scrollLeft;
+    }
+
+    // Sync search results
+    if (searchResultsScrollRef.current && searchResultsScrollRef.current !== sourceElement) {
+      searchResultsScrollRef.current.scrollLeft = scrollLeft;
     }
 
     // Sync all grid containers
@@ -192,6 +200,38 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
     return count;
   }, [searchResultsByStation]);
 
+  // Find first station index with search results (for auto-scroll)
+  const firstStationWithResults = useMemo(() => {
+    if (!searchQuery.trim() || totalSearchResults === 0) return -1;
+    return STATIONS.findIndex(station => {
+      const results = searchResultsByStation.get(station.id);
+      return results && results.length > 0;
+    });
+  }, [searchResultsByStation, searchQuery, totalSearchResults]);
+
+  // Auto-scroll horizontally to show first station with search results
+  useEffect(() => {
+    if (firstStationWithResults <= 0) return; // No need to scroll if first station or no results
+
+    // Calculate scroll position to center the station with results
+    const scrollTarget = TIME_AXIS_WIDTH + (firstStationWithResults * STATION_COLUMN_MIN_WIDTH);
+    const viewportWidth = window.innerWidth;
+    // Center the results in the viewport, accounting for time axis
+    const scrollPosition = Math.max(0, scrollTarget - viewportWidth / 3);
+
+    // Small delay to ensure DOM is updated
+    const timeoutId = setTimeout(() => {
+      // Scroll all synchronized containers
+      [headerScrollRef.current, searchResultsScrollRef.current, ...gridScrollRefs.current].forEach(ref => {
+        if (ref) {
+          ref.scrollTo({ left: scrollPosition, behavior: 'smooth' });
+        }
+      });
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [firstStationWithResults]);
+
   // Get station info for a show (used in search results)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getStationForShow = (stationId: string) => {
@@ -247,10 +287,10 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
 
   return (
     <div ref={scrollContainerRef} id="calendar-scroll-container">
-      {/* Search Results Section */}
+      {/* Search Results Section - sticky below header and search bar when active */}
       {searchQuery.trim() && totalSearchResults > 0 && (
-        <div className="bg-black border-b border-gray-800">
-          <div className="sticky top-0 z-30 bg-black border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+        <div className={`bg-black border-b border-gray-800 ${isSearchBarSticky ? 'sticky top-[180px] sm:top-[112px] z-[42]' : ''}`}>
+          <div className="bg-black border-b border-gray-800 px-4 py-3 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-white">
               Search Results ({totalSearchResults})
             </h2>
@@ -266,44 +306,50 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
               </button>
             )}
           </div>
-          {/* Station columns with search results */}
-          <div className="flex">
-            {/* Time axis spacer */}
-            <div className="w-14 flex-shrink-0 border-r border-gray-900" />
-            {/* Station columns */}
-            {STATIONS.map((station, index) => {
-              const stationResults = searchResultsByStation.get(station.id) || [];
-              return (
-                <div
-                  key={station.id}
-                  className={`flex-1 min-w-[140px] p-2 ${index !== STATIONS.length - 1 ? "border-r border-gray-800/50" : ""}`}
-                >
-                  {/* Station header */}
-                  <div className="mb-2">
-                    <span
-                      className="text-[10px] font-semibold uppercase tracking-wide"
-                      style={{ color: station.accentColor }}
-                    >
-                      {station.name}
-                    </span>
+          {/* Station columns with search results - horizontally scrollable */}
+          <div
+            ref={searchResultsScrollRef}
+            onScroll={(e) => syncScroll(e.currentTarget)}
+            className="overflow-x-auto scrollbar-hide max-h-[40vh] overflow-y-auto"
+          >
+            <div className="flex min-w-max">
+              {/* Time axis spacer */}
+              <div className="w-14 flex-shrink-0 sticky left-0 z-10 bg-black border-r border-gray-900" />
+              {/* Station columns */}
+              {STATIONS.map((station, index) => {
+                const stationResults = searchResultsByStation.get(station.id) || [];
+                return (
+                  <div
+                    key={station.id}
+                    className={`flex-1 min-w-[140px] p-2 ${index !== STATIONS.length - 1 ? "border-r border-gray-800/50" : ""}`}
+                  >
+                    {/* Station header */}
+                    <div className="mb-2">
+                      <span
+                        className="text-[10px] font-semibold uppercase tracking-wide"
+                        style={{ color: station.accentColor }}
+                      >
+                        {station.name}
+                      </span>
+                    </div>
+                    {/* Results for this station */}
+                    <div className="space-y-2">
+                      {stationResults.length > 0 ? (
+                        stationResults.map((show) => (
+                          <SearchResultCard
+                            key={show.id}
+                            show={show}
+                            station={station}
+                          />
+                        ))
+                      ) : (
+                        <p className="text-gray-600 text-xs italic">No matches</p>
+                      )}
+                    </div>
                   </div>
-                  {/* Results for this station */}
-                  <div className="space-y-2">
-                    {stationResults.length > 0 ? (
-                      stationResults.map((show) => (
-                        <SearchResultCard
-                          key={show.id}
-                          show={show}
-                          station={station}
-                        />
-                      ))
-                    ) : (
-                      <p className="text-gray-600 text-xs italic">No matches</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
