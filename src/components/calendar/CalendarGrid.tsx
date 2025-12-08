@@ -219,17 +219,34 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
     // Center the results in the viewport, accounting for time axis
     const scrollPosition = Math.max(0, scrollTarget - viewportWidth / 3);
 
-    // Small delay to ensure DOM is updated
-    const timeoutId = setTimeout(() => {
-      // Scroll all synchronized containers
-      [headerScrollRef.current, searchResultsScrollRef.current, ...gridScrollRefs.current].forEach(ref => {
+    // Function to scroll all containers
+    const scrollToResults = () => {
+      // On mobile, searchResultsScrollRef might not be mounted yet when effect first runs
+      // Also scroll the search results container directly if available
+      if (searchResultsScrollRef.current) {
+        searchResultsScrollRef.current.scrollLeft = scrollPosition;
+      }
+      if (headerScrollRef.current) {
+        headerScrollRef.current.scrollLeft = scrollPosition;
+      }
+      gridScrollRefs.current.forEach(ref => {
         if (ref) {
-          ref.scrollTo({ left: scrollPosition, behavior: 'smooth' });
+          ref.scrollLeft = scrollPosition;
         }
       });
-    }, 100);
+    };
 
-    return () => clearTimeout(timeoutId);
+    // Run immediately and with delays to catch when DOM mounts
+    scrollToResults();
+    const timeoutId1 = setTimeout(scrollToResults, 100);
+    const timeoutId2 = setTimeout(scrollToResults, 300);
+    const timeoutId3 = setTimeout(scrollToResults, 500);
+
+    return () => {
+      clearTimeout(timeoutId1);
+      clearTimeout(timeoutId2);
+      clearTimeout(timeoutId3);
+    };
   }, [firstStationWithResults]);
 
   // Get station info for a show (used in search results)
@@ -297,12 +314,12 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
             {onClearSearch && (
               <button
                 onClick={onClearSearch}
-                className="text-gray-400 hover:text-white text-sm flex items-center gap-1 transition-colors"
+                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm font-medium rounded-lg flex items-center gap-2 transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                Close
+                Clear Search
               </button>
             )}
           </div>
@@ -426,9 +443,12 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
           {onClearSearch && (
             <button
               onClick={onClearSearch}
-              className="mt-4 text-gray-500 hover:text-white text-sm transition-colors"
+              className="mt-4 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm font-medium rounded-lg flex items-center gap-2 transition-colors"
             >
-              Clear search
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Clear Search
             </button>
           )}
         </div>
