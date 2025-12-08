@@ -69,7 +69,7 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
             {currentPage === "djshows" && !isAuthenticated && !loading && (
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="hidden sm:block bg-white text-black px-3 sm:px-4 py-1.5 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all"
+                className="bg-white text-black px-3 sm:px-4 py-1.5 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all whitespace-nowrap"
               >
                 Sign In
               </button>
