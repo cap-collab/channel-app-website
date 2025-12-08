@@ -502,9 +502,8 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
             className="border-b border-gray-800"
             data-date-section={isTodayDate ? "today" : "future"}
           >
-            {/* Date header - sticky below main header + search bar when sticky + station headers (~44px) */}
-            {/* 112px (header+search) + ~44px (station headers) = ~156px */}
-            <div className={`sticky ${isSearchBarSticky ? 'top-[156px]' : 'top-[96px]'} z-30 bg-black border-b border-gray-800 px-4 py-3`}>
+            {/* Date header - sticky below station headers, no gap */}
+            <div className={`sticky ${isSearchBarSticky ? 'top-[152px]' : 'top-[92px]'} z-30 bg-black border-b border-gray-800 px-4 py-3`}>
               <h2 className="text-lg font-semibold text-white">
                 {formatDateHeader(date)}
               </h2>
