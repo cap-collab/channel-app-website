@@ -373,84 +373,92 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
 
       {/* No results message with watchlist option */}
       {searchQuery.trim() && totalSearchResults === 0 && !loading && (
-        <div className="bg-black border-b border-gray-800 px-4 py-8 text-center">
-          <p className="text-gray-400 mb-4">No shows found for &quot;{searchQuery}&quot;</p>
-
-          {/* Watchlist option */}
-          {!isInWatchlist(searchQuery) ? (
-            <div className="space-y-3">
+        <div className={`bg-black border-b border-gray-800 ${isSearchBarSticky ? 'sticky top-[104px] z-[42]' : ''}`}>
+          {/* Header with Clear Search button - same as results section */}
+          <div className="bg-black border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">
+              No Results
+            </h2>
+            {onClearSearch && (
               <button
-                onClick={async () => {
-                  if (!isAuthenticated) {
-                    setShowAuthModal(true);
-                    return;
-                  }
-                  setWatchlistLoading(true);
-                  await addToWatchlist(searchQuery);
-                  setWatchlistLoading(false);
-                  // Show notification prompt if user hasn't enabled watchlist notifications
-                  if (!hasWatchlistNotificationsEnabled) {
-                    setShowNotificationPrompt(true);
-                  }
-                }}
-                disabled={watchlistLoading}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/15 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                onClick={onClearSearch}
+                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm font-medium rounded-lg flex items-center gap-2 transition-colors"
               >
-                {watchlistLoading ? (
-                  <div className="w-4 h-4 border-2 border-gray-500 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
-                )}
-                Add &quot;{searchQuery}&quot; to Watch List
-              </button>
-              <p className="text-gray-600 text-xs">
-                We&apos;ll notify you when this DJ or show appears in a schedule
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 text-white">
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth={2}>
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                <span>&quot;{searchQuery}&quot; added to Watch List</span>
-              </div>
-              <div>
+                Clear Search
+              </button>
+            )}
+          </div>
+          {/* Content */}
+          <div className="px-4 py-6 text-center">
+            <p className="text-gray-400 mb-4">No shows found for &quot;{searchQuery}&quot;</p>
+
+            {/* Watchlist option */}
+            {!isInWatchlist(searchQuery) ? (
+              <div className="space-y-3">
                 <button
                   onClick={async () => {
+                    if (!isAuthenticated) {
+                      setShowAuthModal(true);
+                      return;
+                    }
                     setWatchlistLoading(true);
-                    await removeFromWatchlist(searchQuery);
+                    await addToWatchlist(searchQuery);
                     setWatchlistLoading(false);
+                    // Show notification prompt if user hasn't enabled watchlist notifications
+                    if (!hasWatchlistNotificationsEnabled) {
+                      setShowNotificationPrompt(true);
+                    }
                   }}
                   disabled={watchlistLoading}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/15 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
                 >
                   {watchlistLoading ? (
-                    <div className="w-4 h-4 border-2 border-red-500/30 border-t-red-400 rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-gray-500 border-t-white rounded-full animate-spin" />
                   ) : (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                     </svg>
                   )}
-                  Remove from Watch List
+                  Add &quot;{searchQuery}&quot; to Watch List
                 </button>
+                <p className="text-gray-600 text-xs">
+                  We&apos;ll notify you when this DJ or show appears in a schedule
+                </p>
               </div>
-            </div>
-          )}
-
-          {onClearSearch && (
-            <button
-              onClick={onClearSearch}
-              className="mt-4 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm font-medium rounded-lg flex items-center gap-2 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              Clear Search
-            </button>
-          )}
+            ) : (
+              <div className="space-y-4">
+                <div className="inline-flex items-center gap-2 text-white">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth={2}>
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                  <span>&quot;{searchQuery}&quot; added to Watch List</span>
+                </div>
+                <div>
+                  <button
+                    onClick={async () => {
+                      setWatchlistLoading(true);
+                      await removeFromWatchlist(searchQuery);
+                      setWatchlistLoading(false);
+                    }}
+                    disabled={watchlistLoading}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    {watchlistLoading ? (
+                      <div className="w-4 h-4 border-2 border-red-500/30 border-t-red-400 rounded-full animate-spin" />
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    )}
+                    Remove from Watch List
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
