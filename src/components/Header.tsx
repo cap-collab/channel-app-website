@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/AuthModal";
+import { MobileMenu } from "@/components/MobileMenu";
 
 export function Header() {
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -30,7 +31,8 @@ export function Header() {
               href="/djshows"
               className="bg-white text-black px-4 md:px-6 py-2 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all"
             >
-              Browse DJ Shows
+              <span className="sm:hidden">DJ Shows</span>
+              <span className="hidden sm:inline">Browse DJ Shows</span>
             </Link>
             <a
               href="#get-involved"
@@ -45,8 +47,8 @@ export function Header() {
               Feature Your Station
             </Link>
 
-            {/* User menu / Sign In */}
-            <div className="relative">
+            {/* User menu / Sign In - hidden on mobile, shown in hamburger */}
+            <div className="relative hidden sm:block">
               {loading ? (
                 <div className="w-8 h-8 rounded-full bg-gray-800 animate-pulse" />
               ) : isAuthenticated && user ? (
@@ -117,6 +119,16 @@ export function Header() {
                 </>
               )}
             </div>
+
+            {/* Mobile hamburger menu */}
+            <MobileMenu
+              items={[
+                { label: "Get Involved", href: "#get-involved" },
+                { label: "Feature Your Station", href: "/apply" },
+                { type: "auth" },
+              ]}
+              onSignInClick={() => setShowAuthModal(true)}
+            />
           </nav>
         </div>
       </header>

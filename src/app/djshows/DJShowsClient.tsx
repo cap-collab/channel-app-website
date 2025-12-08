@@ -7,6 +7,7 @@ import { SearchBar } from "@/components/SearchBar";
 import { CalendarGrid } from "@/components/calendar/CalendarGrid";
 import { BrowsingModePopup } from "@/components/BrowsingModePopup";
 import { AuthModal } from "@/components/AuthModal";
+import { MobileMenu } from "@/components/MobileMenu";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { BPMProvider } from "@/contexts/BPMContext";
 
@@ -71,6 +72,7 @@ export function DJShowsClient() {
 
           {/* Nav buttons and user menu */}
           <div className="flex items-center gap-3 md:gap-4">
+            {/* Browse DJ Shows button - hidden on mobile */}
             <button
               onClick={() => {
                 const todayGrid = document.querySelector('[data-time-grid="today"]');
@@ -90,10 +92,9 @@ export function DJShowsClient() {
                   behavior: 'smooth'
                 });
               }}
-              className="bg-white text-black px-3 sm:px-4 py-1.5 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all cursor-pointer"
+              className="hidden sm:block bg-white text-black px-3 sm:px-4 py-1.5 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all cursor-pointer"
             >
-              <span className="sm:hidden">DJ Shows</span>
-              <span className="hidden sm:inline">Browse DJ Shows</span>
+              Browse DJ Shows
             </button>
             <a
               href="#get-involved"
@@ -108,6 +109,7 @@ export function DJShowsClient() {
               Feature Your Station
             </Link>
 
+            {/* User menu - visible on all screens */}
             <div className="relative">
               {loading ? (
                 <div className="w-8 h-8 rounded-full bg-gray-800 animate-pulse" />
@@ -179,6 +181,15 @@ export function DJShowsClient() {
                 </>
               )}
             </div>
+
+            {/* Mobile hamburger menu */}
+            <MobileMenu
+              items={[
+                { label: "Get Involved", href: "#get-involved" },
+                { label: "Feature Your Station", href: "/apply" },
+              ]}
+              onSignInClick={() => setShowAuthModal(true)}
+            />
           </div>
         </div>
       </header>

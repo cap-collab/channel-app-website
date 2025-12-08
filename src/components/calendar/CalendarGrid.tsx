@@ -80,7 +80,7 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
     loadShows();
   }, []);
 
-  // Auto-scroll to current time on initial load
+  // Auto-scroll to 2 hours before current time on initial load
   useEffect(() => {
     if (!loading && shows.length > 0 && !hasScrolledRef.current) {
       const scrollToCurrentTime = () => {
@@ -90,7 +90,11 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
         if (!todayGrid) return;
 
         const now = new Date();
-        const timePosition = (now.getHours() + now.getMinutes() / 60) * PIXELS_PER_HOUR;
+        // Calculate time position for 2 hours before current time
+        // Handle midnight case: if current time is before 2am, scroll to top (0)
+        const currentHours = now.getHours() + now.getMinutes() / 60;
+        const targetHours = Math.max(0, currentHours - 2);
+        const timePosition = targetHours * PIXELS_PER_HOUR;
 
         // Grid's position in document
         const gridTop = todayGrid.getBoundingClientRect().top + window.scrollY;
@@ -98,7 +102,7 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
         // Sticky headers: main header (~52px) + station (48px) + date (52px) = 152px
         const totalStickyHeight = 152;
 
-        // Position current time ~60px below sticky headers
+        // Position target time ~60px below sticky headers
         const scrollPosition = gridTop + timePosition - totalStickyHeight - 60;
 
         window.scrollTo({
@@ -399,10 +403,11 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
       />
 
       {/* Persistent station headers - stays fixed below main header (and search bar when sticky) */}
+      {/* Mobile: header (52px) + search bar stacked (~130px) = ~182px; Desktop: header (52px) + search bar row (~60px) = ~112px */}
       <div
         ref={headerScrollRef}
         onScroll={(e) => syncScroll(e.currentTarget)}
-        className={`sticky ${isSearchBarSticky ? 'top-[112px]' : 'top-[52px]'} z-40 bg-black border-b border-gray-800 overflow-x-auto scrollbar-hide`}
+        className={`sticky ${isSearchBarSticky ? 'top-[180px] sm:top-[112px]' : 'top-[52px]'} z-40 bg-black border-b border-gray-800 overflow-x-auto scrollbar-hide`}
       >
         <div className="flex min-w-max">
           {/* Time axis spacer (left) - sticky on mobile */}
@@ -442,8 +447,9 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
             className="border-b border-gray-800"
             data-date-section={isTodayDate ? "today" : "future"}
           >
-            {/* Date header - sticky below main header (52px) + search bar when sticky (60px) + station headers (48px) */}
-            <div className={`sticky ${isSearchBarSticky ? 'top-[160px]' : 'top-[100px]'} z-30 bg-black border-b border-gray-800 px-4 py-3`}>
+            {/* Date header - sticky below main header + search bar when sticky + station headers (48px) */}
+            {/* Mobile: 180px + 48px = 228px; Desktop: 112px + 48px = 160px */}
+            <div className={`sticky ${isSearchBarSticky ? 'top-[228px] sm:top-[160px]' : 'top-[100px]'} z-30 bg-black border-b border-gray-800 px-4 py-3`}>
               <h2 className="text-lg font-semibold text-white">
                 {formatDateHeader(date)}
               </h2>
