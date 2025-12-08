@@ -20,19 +20,18 @@ export function Header() {
             <Image
               src="/logo-white.svg"
               alt="CHANNEL"
-              width={168}
-              height={34}
-              className="h-[33.6px] w-auto"
+              width={140}
+              height={28}
+              className="h-7 w-auto"
               priority
             />
           </Link>
-          <nav className="flex items-center gap-3 md:gap-4">
+          <div className="flex items-center gap-3 md:gap-4">
             <Link
               href="/djshows"
-              className="bg-white text-black px-4 md:px-6 py-2 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all"
+              className="hidden sm:block bg-white text-black px-3 sm:px-4 py-1.5 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all"
             >
-              <span className="sm:hidden">DJ Shows</span>
-              <span className="hidden sm:inline">Browse DJ Shows</span>
+              Browse DJ Shows
             </Link>
             <a
               href="#get-involved"
@@ -47,8 +46,8 @@ export function Header() {
               Feature Your Station
             </Link>
 
-            {/* User menu / Sign In - hidden on mobile, shown in hamburger */}
-            <div className="relative hidden sm:block">
+            {/* User menu - visible on all screens */}
+            <div className="relative">
               {loading ? (
                 <div className="w-8 h-8 rounded-full bg-gray-800 animate-pulse" />
               ) : isAuthenticated && user ? (
@@ -129,7 +128,7 @@ export function Header() {
               ]}
               onSignInClick={() => setShowAuthModal(true)}
             />
-          </nav>
+          </div>
         </div>
       </header>
 

@@ -289,7 +289,7 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
     <div ref={scrollContainerRef} id="calendar-scroll-container">
       {/* Search Results Section - sticky below header and search bar when active */}
       {searchQuery.trim() && totalSearchResults > 0 && (
-        <div className={`bg-black border-b border-gray-800 ${isSearchBarSticky ? 'sticky top-[180px] sm:top-[112px] z-[42]' : ''}`}>
+        <div className={`bg-black border-b border-gray-800 ${isSearchBarSticky ? 'sticky top-[104px] z-[42]' : ''}`}>
           <div className="bg-black border-b border-gray-800 px-4 py-3 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-white">
               Search Results ({totalSearchResults})
@@ -449,11 +449,11 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
       />
 
       {/* Persistent station headers - stays fixed below main header (and search bar when sticky) */}
-      {/* Mobile: header (52px) + search bar stacked (~130px) = ~182px; Desktop: header (52px) + search bar row (~60px) = ~112px */}
+      {/* Header (52px) + search bar section (py-3=24px + input ~44px = ~68px) = ~120px */}
       <div
         ref={headerScrollRef}
         onScroll={(e) => syncScroll(e.currentTarget)}
-        className={`sticky ${isSearchBarSticky ? 'top-[180px] sm:top-[112px]' : 'top-[52px]'} z-40 bg-black border-b border-gray-800 overflow-x-auto scrollbar-hide`}
+        className={`sticky ${isSearchBarSticky ? 'top-[104px]' : 'top-[52px]'} z-40 bg-black border-b border-gray-800 overflow-x-auto scrollbar-hide`}
       >
         <div className="flex min-w-max">
           {/* Time axis spacer (left) - sticky on mobile */}
@@ -494,8 +494,8 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
             data-date-section={isTodayDate ? "today" : "future"}
           >
             {/* Date header - sticky below main header + search bar when sticky + station headers (48px) */}
-            {/* Mobile: 180px + 48px = 228px; Desktop: 112px + 48px = 160px */}
-            <div className={`sticky ${isSearchBarSticky ? 'top-[228px] sm:top-[160px]' : 'top-[100px]'} z-30 bg-black border-b border-gray-800 px-4 py-3`}>
+            {/* 104px (header+search) + 48px (station headers) = 152px */}
+            <div className={`sticky ${isSearchBarSticky ? 'top-[152px]' : 'top-[100px]'} z-30 bg-black border-b border-gray-800 px-4 py-3`}>
               <h2 className="text-lg font-semibold text-white">
                 {formatDateHeader(date)}
               </h2>
