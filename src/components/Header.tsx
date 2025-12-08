@@ -26,9 +26,9 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
     if (currentPage !== "djshows") {
       items.push({ label: "Browse DJ Shows", href: "/djshows" });
     }
-    if (currentPage === "home") {
-      items.push({ label: "Get Involved", href: "#get-involved" });
-    }
+    // Get Involved - anchor on home/djshows (both have the section), full URL on apply
+    const getInvolvedHref = currentPage === "apply" ? "/#get-involved" : "#get-involved";
+    items.push({ label: "Get Involved", href: getInvolvedHref });
     if (currentPage !== "apply") {
       items.push({ label: "Feature Your Station", href: "/apply" });
     }
@@ -60,9 +60,10 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
             {currentPage === "home" && (
               <Link
                 href="/djshows"
-                className="hidden sm:block bg-white text-black px-3 sm:px-4 py-1.5 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all"
+                className="bg-white text-black px-3 sm:px-4 py-1.5 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all whitespace-nowrap"
               >
-                Browse DJ Shows
+                <span className="sm:hidden">DJ Shows</span>
+                <span className="hidden sm:inline">Browse DJ Shows</span>
               </Link>
             )}
             {currentPage === "djshows" && !isAuthenticated && !loading && (
@@ -101,12 +102,20 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
               </>
             )}
             {currentPage === "djshows" && (
-              <Link
-                href="/apply"
-                className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
-              >
-                Feature Your Station
-              </Link>
+              <>
+                <a
+                  href="#get-involved"
+                  className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
+                >
+                  Get Involved
+                </a>
+                <Link
+                  href="/apply"
+                  className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
+                >
+                  Feature Your Station
+                </Link>
+              </>
             )}
 
             {/* User menu - show if authenticated OR if not on djshows page (where Sign In is main button) */}
