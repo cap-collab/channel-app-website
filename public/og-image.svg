@@ -6,13 +6,13 @@
       <circle cx="4" cy="4" r="3" fill="white"/>
     </pattern>
     <mask id="textMask">
-      <text x="600" y="280" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif" font-size="120" font-weight="900" letter-spacing="-4" fill="white">CHANNEL</text>
+      <text x="600" y="280" text-anchor="middle" font-family="Arial Black, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif" font-size="140" font-weight="900" letter-spacing="-6" fill="white" stroke="white" stroke-width="4">CHANNEL</text>
     </mask>
   </defs>
 
-  <rect x="100" y="180" width="1000" height="150" fill="url(#dots)" mask="url(#textMask)"/>
+  <rect x="50" y="160" width="1100" height="180" fill="url(#dots)" mask="url(#textMask)"/>
 
-  <text x="600" y="380" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif" font-size="24" fill="#888" text-transform="uppercase" letter-spacing="4">COMMUNITY-LED MEDIA</text>
+  <text x="600" y="390" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif" font-size="24" fill="#888" text-transform="uppercase" letter-spacing="4">COMMUNITY-LED MEDIA</text>
 
-  <text x="600" y="480" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif" font-size="36" fill="#fff" font-weight="500">Meet your people. Shape your culture.</text>
+  <text x="600" y="490" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif" font-size="36" fill="#fff" font-weight="500">Meet your people. Shape your culture.</text>
 </svg>
