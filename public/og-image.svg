@@ -6,9 +6,9 @@
       <circle cx="4" cy="4" r="3" fill="white"/>
     </pattern>
     <mask id="textMask">
-      <text x="600" y="355" text-anchor="middle" font-family="Arial Black, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif" font-size="160" font-weight="900" letter-spacing="-6" fill="white" stroke="white" stroke-width="4">CHANNEL</text>
+      <text x="600" y="370" text-anchor="middle" font-family="SF Pro Text, SF Pro, Helvetica, Arial, sans-serif" font-size="180" font-weight="900" letter-spacing="-8" fill="white" stroke="white" stroke-width="12">CHANNEL</text>
     </mask>
   </defs>
 
-  <rect x="50" y="220" width="1100" height="200" fill="url(#dots)" mask="url(#textMask)"/>
+  <rect x="20" y="200" width="1160" height="240" fill="url(#dots)" mask="url(#textMask)"/>
 </svg>
