@@ -39,6 +39,9 @@ function ShowBlockComponent({
 
   const isFavorited = isShowFavorited(show);
 
+  // Show needs red dot if NOT playlist or restream (i.e., "live" shows)
+  const needsRedDot = !show.type || (show.type !== 'playlist' && show.type !== 'restream');
+
   // Check if this show is currently playing
   const now = new Date();
   const showStart = new Date(show.startTime);
@@ -185,6 +188,16 @@ function ShowBlockComponent({
         }}
         onClick={() => setIsExpanded(!isExpanded)}
       >
+        {/* Live indicator - top-left corner for live shows */}
+        {needsRedDot && (
+          <div className="absolute -top-1 -left-1 z-20">
+            <div className="relative w-2.5 h-2.5">
+              <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75" />
+              <div className="absolute inset-0 bg-red-500 rounded-full" />
+            </div>
+          </div>
+        )}
+
         {/* Gradient overlay for currently playing shows */}
         {isCurrentlyPlaying && (
           <div
@@ -228,13 +241,29 @@ function ShowBlockComponent({
           )}
         </div>
 
-        {/* Audio badge for currently playing shows */}
-        {badgeContent && (
-          <div className="absolute bottom-1 right-1 text-[10px] text-gray-400 bg-gray-800/80 px-1.5 py-0.5 rounded flex items-center gap-1">
-            <span>{badgeContent.icon}</span>
-            <span>{badgeContent.text}</span>
-          </div>
-        )}
+        {/* Bottom badges row: type badge and audio/BPM badge */}
+        <div className="absolute bottom-1 right-1 flex items-center gap-1">
+          {/* Type badge */}
+          {show.type && (
+            <span
+              className="text-[9px] px-1.5 py-0.5 rounded-full"
+              style={
+                show.type === 'restream' || show.type === 'playlist'
+                  ? { backgroundColor: '#000', color: '#9ca3af' }
+                  : { backgroundColor: `${accentColor}20`, color: accentColor }
+              }
+            >
+              {show.type}
+            </span>
+          )}
+          {/* Audio badge for currently playing shows */}
+          {badgeContent && (
+            <div className="text-[10px] text-gray-400 bg-gray-800/80 px-1.5 py-0.5 rounded flex items-center gap-1">
+              <span>{badgeContent.icon}</span>
+              <span>{badgeContent.text}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Expanded overlay - styled like SearchResultCard */}

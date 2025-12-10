@@ -6,6 +6,7 @@ export interface ShowV2 {
   d?: string | null; // description
   j?: string | null; // dj/host
   u?: string | null; // image url
+  t?: string | null; // type (weekly, monthly, restream, playlist)
 }
 
 // Expanded show with station info
@@ -18,6 +19,7 @@ export interface Show {
   dj?: string;
   imageUrl?: string;
   stationId: string;
+  type?: string; // weekly, monthly, restream, playlist
 }
 
 // Metadata response from GitHub

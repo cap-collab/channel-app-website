@@ -23,6 +23,9 @@ function SearchResultCardComponent({ show, station }: SearchResultCardProps) {
   const isFavorited = isShowFavorited(show);
   const accentColor = station?.accentColor || "#fff";
 
+  // Show needs red dot if NOT playlist or restream (i.e., "live" shows)
+  const needsRedDot = !show.type || (show.type !== 'playlist' && show.type !== 'restream');
+
   const handleFavoriteClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isAuthenticated) {
@@ -56,7 +59,17 @@ function SearchResultCardComponent({ show, station }: SearchResultCardProps) {
 
   return (
     <>
-      <div className="flex rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50">
+      <div className="relative flex rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50">
+        {/* Live indicator - top-left corner for live shows */}
+        {needsRedDot && (
+          <div className="absolute -top-1 -left-1 z-10">
+            <div className="relative w-2.5 h-2.5">
+              <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75" />
+              <div className="absolute inset-0 bg-red-500 rounded-full" />
+            </div>
+          </div>
+        )}
+
         {/* Left accent bar */}
         <div
           className="w-1 flex-shrink-0"
@@ -108,6 +121,22 @@ function SearchResultCardComponent({ show, station }: SearchResultCardProps) {
               {showStart.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
             </span>
           </div>
+
+          {/* Type badge */}
+          {show.type && (
+            <div className="mt-1.5">
+              <span
+                className="text-[9px] px-1.5 py-0.5 rounded-full"
+                style={
+                  show.type === 'restream' || show.type === 'playlist'
+                    ? { backgroundColor: '#000', color: '#9ca3af' }
+                    : { backgroundColor: `${accentColor}20`, color: accentColor }
+                }
+              >
+                {show.type}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

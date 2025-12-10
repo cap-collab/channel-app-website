@@ -54,6 +54,7 @@ function expandShow(show: ShowV2, stationMetadataKey: string): Show {
     dj: show.j || undefined,
     imageUrl: show.u || undefined,
     stationId,
+    type: show.t || undefined,
   };
 }
 
