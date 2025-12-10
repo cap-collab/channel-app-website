@@ -40,23 +40,18 @@ export async function sendShowStartingEmail({
         <head>
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #000; color: #fff; margin: 0; padding: 40px 20px; }
-            .container { max-width: 500px; margin: 0 auto; }
-            .header { margin-bottom: 30px; text-align: center; }
-            .logo { width: 60px; height: 60px; }
-            .content { background: #111; border-radius: 12px; padding: 30px; margin-bottom: 20px; }
+            .container { max-width: 500px; margin: 0 auto; text-align: center; }
+            .content { background: #111; border-radius: 12px; padding: 30px; margin-bottom: 20px; text-align: center; }
             h1 { margin: 0 0 8px; font-size: 22px; color: #fff; }
             .station { color: #888; font-size: 14px; margin-bottom: 20px; }
             .show-name { color: #aaa; font-size: 14px; margin-bottom: 24px; }
-            .listen-btn { display: inline-block; background: #fff; color: #000; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; }
+            .listen-btn { display: inline-block; background: #fff; color: #000 !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; }
             .footer { color: #666; font-size: 12px; text-align: center; margin-top: 30px; }
             .unsubscribe { color: #666; text-decoration: underline; }
           </style>
         </head>
         <body>
           <div class="container">
-            <div class="header">
-              <img src="https://channel-app.com/icon-512.png" alt="Channel" class="logo" />
-            </div>
             <div class="content">
               <h1>${displayName} <span style="color: #888;">is live</span></h1>
               <p class="station">on ${stationName}</p>
@@ -154,21 +149,16 @@ export async function sendWatchlistDigestEmail({
         <head>
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #000; color: #fff; margin: 0; padding: 40px 20px; }
-            .container { max-width: 500px; margin: 0 auto; }
-            .header { margin-bottom: 30px; text-align: center; }
-            .logo { width: 60px; height: 60px; }
-            .content { background: #111; border-radius: 12px; padding: 30px; margin-bottom: 20px; }
+            .container { max-width: 500px; margin: 0 auto; text-align: center; }
+            .content { background: #111; border-radius: 12px; padding: 30px; margin-bottom: 20px; text-align: center; }
             h1 { margin: 0 0 24px; font-size: 20px; color: #fff; }
-            .browse-btn { display: inline-block; background: #fff; color: #000; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 16px; }
+            .browse-btn { display: inline-block; background: #fff; color: #000 !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 16px; }
             .footer { color: #666; font-size: 12px; text-align: center; margin-top: 30px; }
             .unsubscribe { color: #666; text-decoration: underline; }
           </style>
         </head>
         <body>
           <div class="container">
-            <div class="header">
-              <img src="https://channel-app.com/icon-512.png" alt="Channel" class="logo" />
-            </div>
             <div class="content">
               <h1>New shows <span style="color: #888;">added to your favorites</span></h1>
               ${groupsHtml}

@@ -190,12 +190,7 @@ function ShowBlockComponent({
       >
         {/* Live indicator - top-left corner for live shows */}
         {needsRedDot && (
-          <div className="absolute -top-1 -left-1 z-20">
-            <div className="relative w-2.5 h-2.5">
-              <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75" />
-              <div className="absolute inset-0 bg-red-500 rounded-full" />
-            </div>
-          </div>
+          <div className="absolute -top-0.5 -left-0.5 w-2 h-2 bg-red-500 rounded-full z-20 animate-pulse" />
         )}
 
         {/* Gradient overlay for currently playing shows */}
