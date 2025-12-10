@@ -62,7 +62,10 @@ function SearchResultCardComponent({ show, station }: SearchResultCardProps) {
       <div className="relative flex rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50">
         {/* Live indicator - top-left corner for live shows */}
         {needsRedDot && (
-          <div className="absolute -top-0.5 -left-0.5 w-2 h-2 bg-red-500 rounded-full z-10 animate-pulse" />
+          <div
+            className="absolute -top-0.5 -left-0.5 bg-red-500 rounded-full z-10 animate-pulse"
+            style={{ width: '8px', height: '8px', aspectRatio: '1' }}
+          />
         )}
 
         {/* Left accent bar */}
