@@ -191,8 +191,8 @@ function ShowBlockComponent({
         {/* Live indicator - top-left corner for live shows */}
         {needsRedDot && (
           <div
-            className="absolute -top-0.5 -left-0.5 bg-red-500 rounded-full z-20 animate-pulse"
-            style={{ width: '8px', height: '8px', aspectRatio: '1' }}
+            className="absolute top-1 left-1 bg-red-500 rounded-full z-20 animate-pulse"
+            style={{ width: '8px', height: '8px' }}
           />
         )}
 
