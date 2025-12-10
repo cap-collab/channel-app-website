@@ -3,18 +3,21 @@ import { getAdminDb } from "@/lib/firebase-admin";
 import { refreshAccessToken } from "@/lib/google-calendar";
 import { Timestamp } from "firebase-admin/firestore";
 
-// Verify cron secret for security
-function verifyCronSecret(request: NextRequest): boolean {
+// Verify request is from Vercel Cron
+function verifyCronRequest(request: NextRequest): boolean {
+  // Vercel Cron sends this header automatically
+  const isVercelCron = request.headers.get("x-vercel-cron") === "1";
+
+  // Also allow manual trigger with CRON_SECRET for testing
   const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return false;
-  }
-  return true;
+  const hasValidSecret = authHeader === `Bearer ${process.env.CRON_SECRET}`;
+
+  return isVercelCron || hasValidSecret;
 }
 
 export async function GET(request: NextRequest) {
   // Verify this is from Vercel Cron
-  if (!verifyCronSecret(request)) {
+  if (!verifyCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
