@@ -12,21 +12,22 @@ function verifyCronSecret(request: NextRequest): boolean {
   return true;
 }
 
-interface Show {
-  id: string;
-  name: string;
-  dj?: string;
-  startTime: string;
-  endTime: string;
-  stationId: string;
-}
-
-interface StationMetadata {
-  shows: Show[];
+// Metadata uses short keys: n=name, s=startTime, e=endTime, j=dj, d=description
+interface MetadataShow {
+  n: string;      // name
+  s: string;      // startTime (ISO string)
+  e: string;      // endTime (ISO string)
+  j?: string | null;  // dj name
+  d?: string | null;  // description
+  u?: string | null;  // episode url
 }
 
 interface Metadata {
-  [stationKey: string]: StationMetadata;
+  v: number;
+  updated: string;
+  stations: {
+    [stationKey: string]: MetadataShow[];
+  };
 }
 
 const STATION_NAMES: Record<string, string> = {
@@ -79,14 +80,16 @@ export async function GET(request: NextRequest) {
         const windowStart = new Date(now.getTime() - 5 * 60 * 1000);
         const windowEnd = new Date(now.getTime() + 5 * 60 * 1000);
 
-        const upcomingShows: Array<Show & { stationName: string; stationUrl: string }> = [];
-        for (const [stationKey, stationData] of Object.entries(metadata)) {
-          if (stationData.shows) {
-            for (const show of stationData.shows) {
-              const showStart = new Date(show.startTime);
+        const upcomingShows: Array<{ name: string; dj?: string; startTime: string; stationId: string; stationName: string; stationUrl: string }> = [];
+        for (const [stationKey, shows] of Object.entries(metadata.stations)) {
+          if (Array.isArray(shows)) {
+            for (const show of shows) {
+              const showStart = new Date(show.s);
               if (showStart >= windowStart && showStart <= windowEnd) {
                 upcomingShows.push({
-                  ...show,
+                  name: show.n,
+                  dj: show.j || undefined,
+                  startTime: show.s,
                   stationId: stationKey,
                   stationName: STATION_NAMES[stationKey] || stationKey,
                   stationUrl: STATION_URLS[stationKey] || `${process.env.NEXT_PUBLIC_APP_URL}/djshows`,

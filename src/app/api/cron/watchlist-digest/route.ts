@@ -12,21 +12,30 @@ function verifyCronSecret(request: NextRequest): boolean {
   return true;
 }
 
-interface Show {
-  id: string;
-  name: string;
-  dj?: string;
-  startTime: string;
-  endTime: string;
-  stationId: string;
-}
-
-interface StationMetadata {
-  shows: Show[];
+// Metadata uses short keys: n=name, s=startTime, e=endTime, j=dj, d=description
+interface MetadataShow {
+  n: string;      // name
+  s: string;      // startTime (ISO string)
+  e: string;      // endTime (ISO string)
+  j?: string | null;  // dj name
+  d?: string | null;  // description
+  u?: string | null;  // episode url
 }
 
 interface Metadata {
-  [stationKey: string]: StationMetadata;
+  v: number;
+  updated: string;
+  stations: {
+    [stationKey: string]: MetadataShow[];
+  };
+}
+
+interface Show {
+  name: string;
+  dj?: string;
+  startTime: string;
+  stationId: string;
+  stationName: string;
 }
 
 const STATION_NAMES: Record<string, string> = {
@@ -69,12 +78,14 @@ export async function GET(request: NextRequest) {
     const metadata: Metadata = await metadataResponse.json();
 
     // Get all shows from all stations
-    const allShows: Array<Show & { stationName: string }> = [];
-    for (const [stationKey, stationData] of Object.entries(metadata)) {
-      if (stationData.shows) {
-        for (const show of stationData.shows) {
+    const allShows: Show[] = [];
+    for (const [stationKey, shows] of Object.entries(metadata.stations)) {
+      if (Array.isArray(shows)) {
+        for (const show of shows) {
           allShows.push({
-            ...show,
+            name: show.n,
+            dj: show.j || undefined,
+            startTime: show.s,
             stationId: stationKey,
             stationName: STATION_NAMES[stationKey] || stationKey,
           });
