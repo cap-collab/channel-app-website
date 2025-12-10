@@ -41,10 +41,10 @@ export async function sendShowStartingEmail({
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #000; color: #fff; margin: 0; padding: 40px 20px; }
             .container { max-width: 500px; margin: 0 auto; }
-            .header { margin-bottom: 30px; }
-            .logo { font-size: 24px; font-weight: bold; color: #fff; }
+            .header { margin-bottom: 30px; text-align: center; }
+            .logo { width: 60px; height: 60px; }
             .content { background: #111; border-radius: 12px; padding: 30px; margin-bottom: 20px; }
-            h1 { margin: 0 0 8px; font-size: 22px; }
+            h1 { margin: 0 0 8px; font-size: 22px; color: #fff; }
             .station { color: #888; font-size: 14px; margin-bottom: 20px; }
             .show-name { color: #aaa; font-size: 14px; margin-bottom: 24px; }
             .listen-btn { display: inline-block; background: #fff; color: #000; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; }
@@ -55,13 +55,13 @@ export async function sendShowStartingEmail({
         <body>
           <div class="container">
             <div class="header">
-              <div class="logo">Channel</div>
+              <img src="https://channel-app.com/icon-512.png" alt="Channel" class="logo" />
             </div>
             <div class="content">
-              <h1>${displayName} is live</h1>
-              <p class="station">${stationName}</p>
+              <h1>${displayName} <span style="color: #888;">is live</span></h1>
+              <p class="station">on ${stationName}</p>
               ${djName ? `<p class="show-name">${showName}</p>` : ""}
-              <a href="${listenUrl}" class="listen-btn">Listen Now</a>
+              <a href="${listenUrl}" class="listen-btn">Tune In</a>
             </div>
             <div class="footer">
               <p>You're receiving this because you saved this show.</p>
@@ -155,10 +155,10 @@ export async function sendWatchlistDigestEmail({
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #000; color: #fff; margin: 0; padding: 40px 20px; }
             .container { max-width: 500px; margin: 0 auto; }
-            .header { margin-bottom: 30px; }
-            .logo { font-size: 24px; font-weight: bold; color: #fff; }
-            .content { margin-bottom: 20px; }
-            h1 { margin: 0 0 24px; font-size: 20px; }
+            .header { margin-bottom: 30px; text-align: center; }
+            .logo { width: 60px; height: 60px; }
+            .content { background: #111; border-radius: 12px; padding: 30px; margin-bottom: 20px; }
+            h1 { margin: 0 0 24px; font-size: 20px; color: #fff; }
             .browse-btn { display: inline-block; background: #fff; color: #000; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 16px; }
             .footer { color: #666; font-size: 12px; text-align: center; margin-top: 30px; }
             .unsubscribe { color: #666; text-decoration: underline; }
@@ -167,10 +167,10 @@ export async function sendWatchlistDigestEmail({
         <body>
           <div class="container">
             <div class="header">
-              <div class="logo">Channel</div>
+              <img src="https://channel-app.com/icon-512.png" alt="Channel" class="logo" />
             </div>
             <div class="content">
-              <h1>New shows added to your favorites</h1>
+              <h1>New shows <span style="color: #888;">added to your favorites</span></h1>
               ${groupsHtml}
               <a href="${searchUrl}" class="browse-btn">View Shows</a>
             </div>
