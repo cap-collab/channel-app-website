@@ -1,28 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminDb } from "@/lib/firebase-admin";
 import { sendWatchlistDigestEmail } from "@/lib/email";
-import { FieldValue } from "firebase-admin/firestore";
+import {
+  queryUsersWhere,
+  getUserFavorites,
+  getUser,
+  updateUser,
+  addUserFavorite,
+  isRestApiConfigured,
+} from "@/lib/firebase-rest";
 
 // Verify request is from Vercel Cron
 function verifyCronRequest(request: NextRequest): boolean {
-  // Vercel Cron sends this header automatically
   const isVercelCron = request.headers.get("x-vercel-cron") === "1";
-
-  // Also allow manual trigger with CRON_SECRET for testing
   const authHeader = request.headers.get("authorization");
   const hasValidSecret = authHeader === `Bearer ${process.env.CRON_SECRET}`;
-
   return isVercelCron || hasValidSecret;
 }
 
-// Metadata uses short keys: n=name, s=startTime, e=endTime, j=dj, d=description
+// Metadata uses short keys
 interface MetadataShow {
-  n: string;      // name
-  s: string;      // startTime (ISO string)
-  e: string;      // endTime (ISO string)
-  j?: string | null;  // dj name
-  d?: string | null;  // description
-  u?: string | null;  // episode url
+  n: string;
+  s: string;
+  e: string;
+  j?: string | null;
 }
 
 interface Metadata {
@@ -51,15 +51,13 @@ const STATION_NAMES: Record<string, string> = {
 };
 
 export async function GET(request: NextRequest) {
-  // Verify this is from Vercel Cron
   if (!verifyCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const adminDb = getAdminDb();
-  if (!adminDb) {
+  if (!isRestApiConfigured()) {
     return NextResponse.json(
-      { error: "Database not configured" },
+      { error: "Firebase REST API not configured" },
       { status: 500 }
     );
   }
@@ -68,7 +66,7 @@ export async function GET(request: NextRequest) {
     // Fetch current metadata
     const metadataResponse = await fetch(
       "https://cap-collab.github.io/channel-metadata/metadata.json",
-      { next: { revalidate: 0 } }
+      { cache: "no-store" }
     );
 
     if (!metadataResponse.ok) {
@@ -97,10 +95,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all users with watchlist notifications enabled
-    const usersSnapshot = await adminDb
-      .collection("users")
-      .where("emailNotifications.watchlistMatch", "==", true)
-      .get();
+    const users = await queryUsersWhere("emailNotifications.watchlistMatch", "EQUAL", true);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -108,27 +103,21 @@ export async function GET(request: NextRequest) {
     let emailsSent = 0;
     let usersProcessed = 0;
 
-    for (const userDoc of usersSnapshot.docs) {
-      const userData = userDoc.data();
-      const userId = userDoc.id;
+    for (const user of users) {
+      const userData = await getUser(user.id);
+      if (!userData) continue;
 
       // Check if we already sent a digest today
-      const lastEmailAt = userData.lastWatchlistEmailAt?.toDate();
-      if (lastEmailAt && lastEmailAt >= today) {
+      const lastEmailAt = userData.lastWatchlistEmailAt as Date | string | undefined;
+      if (lastEmailAt && new Date(lastEmailAt) >= today) {
         continue; // Already sent today
       }
 
       // Get user's watchlist (search type favorites)
-      const favoritesSnapshot = await adminDb
-        .collection("users")
-        .doc(userId)
-        .collection("favorites")
-        .where("type", "==", "search")
-        .get();
-
-      const watchlistDocs = favoritesSnapshot.docs.map((doc) => ({
+      const favorites = await getUserFavorites(user.id, "search");
+      const watchlistDocs = favorites.map((doc) => ({
         id: doc.id,
-        term: doc.data().term,
+        term: doc.data.term as string,
       }));
 
       if (watchlistDocs.length === 0) {
@@ -136,7 +125,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Find matching shows
-      const since = userData.lastWatchlistEmailAt?.toDate() || new Date(0);
+      const since = lastEmailAt ? new Date(lastEmailAt) : new Date(0);
       const matches: Array<{
         showName: string;
         djName?: string;
@@ -184,46 +173,36 @@ export async function GET(request: NextRequest) {
         );
 
         // Add matched shows to favorites (as type "show")
-        const addedShows: string[] = [];
         for (const match of uniqueMatches) {
           // Check if show already favorited
-          const existingFavorite = await adminDb
-            .collection("users")
-            .doc(userId)
-            .collection("favorites")
-            .where("term", "==", match.showName.toLowerCase())
-            .where("type", "==", "show")
-            .limit(1)
-            .get();
+          const existingFavorites = await getUserFavorites(user.id, "show");
+          const alreadyFavorited = existingFavorites.some(
+            (f) => (f.data.term as string)?.toLowerCase() === match.showName.toLowerCase()
+          );
 
-          if (existingFavorite.empty) {
-            await adminDb
-              .collection("users")
-              .doc(userId)
-              .collection("favorites")
-              .add({
-                term: match.showName.toLowerCase(),
-                type: "show",
-                showName: match.showName,
-                djName: match.djName || null,
-                stationId: match.stationId,
-                createdAt: FieldValue.serverTimestamp(),
-                createdBy: "system",
-                matchedFromWatchlist: match.searchTerm,
-              });
-            addedShows.push(match.showName);
+          if (!alreadyFavorited) {
+            await addUserFavorite(user.id, {
+              term: match.showName.toLowerCase(),
+              type: "show",
+              showName: match.showName,
+              djName: match.djName || null,
+              stationId: match.stationId,
+              createdAt: new Date(),
+              createdBy: "system",
+              matchedFromWatchlist: match.searchTerm,
+            });
           }
         }
 
         // Send digest email (max 10 matches)
         const success = await sendWatchlistDigestEmail({
-          to: userData.email,
+          to: userData.email as string,
           matches: uniqueMatches.slice(0, 10),
         });
 
         if (success) {
-          await userDoc.ref.update({
-            lastWatchlistEmailAt: FieldValue.serverTimestamp(),
+          await updateUser(user.id, {
+            lastWatchlistEmailAt: new Date(),
           });
           emailsSent++;
         }

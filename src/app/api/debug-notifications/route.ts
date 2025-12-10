@@ -1,60 +1,48 @@
 import { NextResponse } from "next/server";
-import { getAdminDb } from "@/lib/firebase-admin";
+import {
+  queryUsersWhere,
+  getUserFavorites,
+  queryScheduledNotifications,
+  isRestApiConfigured,
+} from "@/lib/firebase-rest";
 
-// Debug endpoint to check notification setup - remove in production
+// Debug endpoint to check notification setup
 export async function GET() {
-  const adminDb = getAdminDb();
-  if (!adminDb) {
-    return NextResponse.json({ error: "Database not configured" }, { status: 500 });
+  if (!isRestApiConfigured()) {
+    return NextResponse.json({
+      error: "Firebase REST API not configured",
+      hint: "Set CRON_SERVICE_EMAIL and CRON_SERVICE_PASSWORD in Vercel environment variables",
+    }, { status: 500 });
   }
 
   try {
     // 1. Check users with notifications enabled
-    const usersSnapshot = await adminDb
-      .collection("users")
-      .where("emailNotifications.showStarting", "==", true)
-      .get();
+    const usersWithNotifications = await queryUsersWhere(
+      "emailNotifications.showStarting",
+      "EQUAL",
+      true
+    );
 
-    const usersWithNotifications = [];
-
-    for (const userDoc of usersSnapshot.docs) {
-      const userData = userDoc.data();
-
-      // Get their favorites
-      const favoritesSnapshot = await adminDb
-        .collection("users")
-        .doc(userDoc.id)
-        .collection("favorites")
-        .get();
-
-      const favorites = favoritesSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
-      usersWithNotifications.push({
-        id: userDoc.id,
-        email: userData.email,
-        emailNotifications: userData.emailNotifications,
+    const usersData = [];
+    for (const user of usersWithNotifications.slice(0, 5)) { // Limit to 5 users
+      const favorites = await getUserFavorites(user.id);
+      usersData.push({
+        id: user.id,
+        email: user.data.email,
+        emailNotifications: user.data.emailNotifications,
         favoritesCount: favorites.length,
-        favorites: favorites.slice(0, 10), // First 10
+        favorites: favorites.slice(0, 10).map(f => ({
+          id: f.id,
+          term: f.data.term,
+          type: f.data.type,
+        })),
       });
     }
 
     // 2. Check scheduled notifications
-    const notificationsSnapshot = await adminDb
-      .collection("scheduledNotifications")
-      .orderBy("createdAt", "desc")
-      .limit(20)
-      .get();
-
-    const scheduledNotifications = notificationsSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      notifyAt: doc.data().notifyAt?.toDate?.()?.toISOString(),
-      createdAt: doc.data().createdAt?.toDate?.()?.toISOString(),
-      sentAt: doc.data().sentAt?.toDate?.()?.toISOString(),
-    }));
+    const scheduledNotifications = await queryScheduledNotifications([
+      { field: "sent", op: "EQUAL", value: false },
+    ]);
 
     // 3. Check current shows in the window
     const now = new Date();
@@ -67,15 +55,23 @@ export async function GET() {
     );
     const metadata = await metadataResponse.json();
 
-    const showsInWindow = [];
-    for (const [stationKey, shows] of Object.entries(metadata.stations as Record<string, Array<{n: string; s: string; j?: string}>>)) {
+    const showsInWindow: Array<{
+      station: string;
+      name: string;
+      dj?: string;
+      startTime: string;
+    }> = [];
+
+    for (const [stationKey, shows] of Object.entries(
+      metadata.stations as Record<string, Array<{ n: string; s: string; j?: string }>>
+    )) {
       for (const show of shows) {
         const showStart = new Date(show.s);
         if (showStart >= windowStart && showStart <= windowEnd) {
           showsInWindow.push({
             station: stationKey,
             name: show.n,
-            dj: show.j,
+            dj: show.j || undefined,
             startTime: show.s,
           });
         }
@@ -83,13 +79,17 @@ export async function GET() {
     }
 
     return NextResponse.json({
+      status: "ok",
       currentTime: now.toISOString(),
       window: {
         start: windowStart.toISOString(),
         end: windowEnd.toISOString(),
       },
-      usersWithNotificationsEnabled: usersWithNotifications,
-      scheduledNotifications,
+      usersWithNotificationsEnabled: usersData,
+      pendingNotifications: scheduledNotifications.slice(0, 20).map(n => ({
+        id: n.id,
+        ...n.data,
+      })),
       showsCurrentlyInWindow: showsInWindow,
     });
   } catch (error) {

@@ -1,28 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminDb } from "@/lib/firebase-admin";
 import { sendShowStartingEmail } from "@/lib/email";
-import { FieldValue } from "firebase-admin/firestore";
+import {
+  queryUsersWhere,
+  getUserFavorites,
+  getUser,
+  createScheduledNotification,
+  queryScheduledNotifications,
+  updateDocument,
+  isRestApiConfigured,
+} from "@/lib/firebase-rest";
 
 // Verify request is from Vercel Cron
 function verifyCronRequest(request: NextRequest): boolean {
-  // Vercel Cron sends this header automatically
   const isVercelCron = request.headers.get("x-vercel-cron") === "1";
-
-  // Also allow manual trigger with CRON_SECRET for testing
   const authHeader = request.headers.get("authorization");
   const hasValidSecret = authHeader === `Bearer ${process.env.CRON_SECRET}`;
-
   return isVercelCron || hasValidSecret;
 }
 
-// Metadata uses short keys: n=name, s=startTime, e=endTime, j=dj, d=description
+// Metadata uses short keys: n=name, s=startTime, e=endTime, j=dj
 interface MetadataShow {
-  n: string;      // name
-  s: string;      // startTime (ISO string)
-  e: string;      // endTime (ISO string)
-  j?: string | null;  // dj name
-  d?: string | null;  // description
-  u?: string | null;  // episode url
+  n: string;
+  s: string;
+  e: string;
+  j?: string | null;
 }
 
 interface Metadata {
@@ -52,15 +53,13 @@ const STATION_URLS: Record<string, string> = {
 };
 
 export async function GET(request: NextRequest) {
-  // Verify this is from Vercel Cron
   if (!verifyCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const adminDb = getAdminDb();
-  if (!adminDb) {
+  if (!isRestApiConfigured()) {
     return NextResponse.json(
-      { error: "Database not configured" },
+      { error: "Firebase REST API not configured" },
       { status: 500 }
     );
   }
@@ -73,7 +72,7 @@ export async function GET(request: NextRequest) {
     try {
       const metadataResponse = await fetch(
         "https://cap-collab.github.io/channel-metadata/metadata.json",
-        { next: { revalidate: 0 } }
+        { cache: "no-store" }
       );
 
       if (metadataResponse.ok) {
@@ -83,7 +82,15 @@ export async function GET(request: NextRequest) {
         const windowStart = new Date(now.getTime() - 5 * 60 * 1000);
         const windowEnd = new Date(now.getTime() + 5 * 60 * 1000);
 
-        const upcomingShows: Array<{ name: string; dj?: string; startTime: string; stationId: string; stationName: string; stationUrl: string }> = [];
+        const upcomingShows: Array<{
+          name: string;
+          dj?: string;
+          startTime: string;
+          stationId: string;
+          stationName: string;
+          stationUrl: string;
+        }> = [];
+
         for (const [stationKey, shows] of Object.entries(metadata.stations)) {
           if (Array.isArray(shows)) {
             for (const show of shows) {
@@ -104,25 +111,16 @@ export async function GET(request: NextRequest) {
 
         if (upcomingShows.length > 0) {
           // Get all users with show notifications enabled
-          const usersSnapshot = await adminDb
-            .collection("users")
-            .where("emailNotifications.showStarting", "==", true)
-            .get();
+          const users = await queryUsersWhere("emailNotifications.showStarting", "EQUAL", true);
 
-          for (const userDoc of usersSnapshot.docs) {
-            const userId = userDoc.id;
+          for (const user of users) {
+            const userId = user.id;
 
             // Get user's favorited shows
-            const favoritesSnapshot = await adminDb
-              .collection("users")
-              .doc(userId)
-              .collection("favorites")
-              .where("type", "==", "show")
-              .get();
-
-            const favoritedTerms = favoritesSnapshot.docs.map(
-              (doc) => doc.data().term?.toLowerCase()
-            ).filter(Boolean);
+            const favorites = await getUserFavorites(userId, "show");
+            const favoritedTerms = favorites
+              .map((f) => (f.data.term as string)?.toLowerCase())
+              .filter(Boolean);
 
             if (favoritedTerms.length === 0) continue;
 
@@ -137,16 +135,17 @@ export async function GET(request: NextRequest) {
 
               if (isMatch) {
                 // Check if notification already exists for this user/show/time
-                const existingNotification = await adminDb
-                  .collection("scheduledNotifications")
-                  .where("userId", "==", userId)
-                  .where("showName", "==", show.name)
-                  .where("notifyAt", "==", new Date(show.startTime))
-                  .limit(1)
-                  .get();
+                const existing = await queryScheduledNotifications([
+                  { field: "userId", op: "EQUAL", value: userId },
+                  { field: "showName", op: "EQUAL", value: show.name },
+                ]);
 
-                if (existingNotification.empty) {
-                  await adminDb.collection("scheduledNotifications").add({
+                const alreadyExists = existing.some(
+                  (n) => new Date(n.data.notifyAt as string).getTime() === new Date(show.startTime).getTime()
+                );
+
+                if (!alreadyExists) {
+                  await createScheduledNotification({
                     userId,
                     showName: show.name,
                     djName: show.dj || null,
@@ -154,7 +153,7 @@ export async function GET(request: NextRequest) {
                     stationUrl: show.stationUrl,
                     notifyAt: new Date(show.startTime),
                     sent: false,
-                    createdAt: FieldValue.serverTimestamp(),
+                    createdAt: new Date(),
                   });
                   notificationsCreated++;
                 }
@@ -165,71 +164,77 @@ export async function GET(request: NextRequest) {
       }
     } catch (scheduleError) {
       console.error("Error scanning schedule:", scheduleError);
-      // Continue to process existing notifications even if schedule scan fails
     }
 
     // Step 2: Send pending notifications
-    const pendingNotifications = await adminDb
-      .collection("scheduledNotifications")
-      .where("sent", "==", false)
-      .where("notifyAt", "<=", now)
-      .limit(100)
-      .get();
+    const pendingNotifications = await queryScheduledNotifications([
+      { field: "sent", op: "EQUAL", value: false },
+    ]);
+
+    // Filter to only those where notifyAt <= now
+    const readyToSend = pendingNotifications.filter((n) => {
+      const notifyAt = n.data.notifyAt as Date | string;
+      return new Date(notifyAt) <= now;
+    });
 
     let sentCount = 0;
     let errorCount = 0;
 
-    for (const doc of pendingNotifications.docs) {
-      const notification = doc.data();
-
+    for (const notification of readyToSend) {
       try {
-        // Get user data
-        const userDoc = await adminDb
-          .collection("users")
-          .doc(notification.userId)
-          .get();
-        const userData = userDoc.data();
+        const userData = await getUser(notification.data.userId as string);
 
         if (!userData) {
-          await doc.ref.update({ sent: true, error: "user_not_found" });
+          await updateDocument("scheduledNotifications", notification.id, {
+            sent: true,
+            error: "user_not_found",
+          });
           continue;
         }
 
         // Check if user has show notifications enabled
-        if (!userData.emailNotifications?.showStarting) {
-          await doc.ref.update({ sent: true, skipped: true });
+        const emailNotifications = userData.emailNotifications as Record<string, boolean> | undefined;
+        if (!emailNotifications?.showStarting) {
+          await updateDocument("scheduledNotifications", notification.id, {
+            sent: true,
+            skipped: true,
+          });
           continue;
         }
 
         // Send email
         const success = await sendShowStartingEmail({
-          to: userData.email,
-          showName: notification.showName,
-          djName: notification.djName,
-          stationName: notification.stationName,
-          listenUrl: notification.stationUrl || `${process.env.NEXT_PUBLIC_APP_URL}/djshows`,
+          to: userData.email as string,
+          showName: notification.data.showName as string,
+          djName: notification.data.djName as string | undefined,
+          stationName: notification.data.stationName as string,
+          listenUrl: (notification.data.stationUrl as string) || `${process.env.NEXT_PUBLIC_APP_URL}/djshows`,
         });
 
         if (success) {
-          await doc.ref.update({
+          await updateDocument("scheduledNotifications", notification.id, {
             sent: true,
-            sentAt: FieldValue.serverTimestamp(),
+            sentAt: new Date(),
           });
           sentCount++;
         } else {
-          await doc.ref.update({ error: "send_failed", retryCount: FieldValue.increment(1) });
+          await updateDocument("scheduledNotifications", notification.id, {
+            error: "send_failed",
+          });
           errorCount++;
         }
       } catch (error) {
-        console.error("Error processing notification:", doc.id, error);
-        await doc.ref.update({ error: String(error) });
+        console.error("Error processing notification:", notification.id, error);
+        await updateDocument("scheduledNotifications", notification.id, {
+          error: String(error),
+        });
         errorCount++;
       }
     }
 
     return NextResponse.json({
       notificationsCreated,
-      processed: pendingNotifications.size,
+      processed: readyToSend.length,
       sent: sentCount,
       errors: errorCount,
     });
