@@ -23,8 +23,14 @@ function SearchResultCardComponent({ show, station }: SearchResultCardProps) {
   const isFavorited = isShowFavorited(show);
   const accentColor = station?.accentColor || "#fff";
 
-  // Show needs red dot if NOT playlist or restream (i.e., "live" shows)
-  const needsRedDot = !show.type || (show.type !== 'playlist' && show.type !== 'restream');
+  // Check if this show is currently playing
+  const now = new Date();
+  const showStart = new Date(show.startTime);
+  const showEnd = new Date(show.endTime);
+  const isCurrentlyPlaying = showStart <= now && showEnd > now;
+
+  // Show live dot only for currently playing shows that are NOT playlist or restream
+  const needsRedDot = isCurrentlyPlaying && (!show.type || (show.type !== 'playlist' && show.type !== 'restream'));
 
   const handleFavoriteClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -39,8 +45,6 @@ function SearchResultCardComponent({ show, station }: SearchResultCardProps) {
       setShowNotificationPrompt(true);
     }
   };
-
-  const showStart = new Date(show.startTime);
 
   // Format day (Today, Tomorrow, or weekday)
   const formatDay = (date: Date) => {

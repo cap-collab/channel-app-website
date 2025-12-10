@@ -39,14 +39,14 @@ function ShowBlockComponent({
 
   const isFavorited = isShowFavorited(show);
 
-  // Show needs red dot if NOT playlist or restream (i.e., "live" shows)
-  const needsRedDot = !show.type || (show.type !== 'playlist' && show.type !== 'restream');
-
   // Check if this show is currently playing
   const now = new Date();
   const showStart = new Date(show.startTime);
   const showEnd = new Date(show.endTime);
   const isCurrentlyPlaying = showStart <= now && showEnd > now;
+
+  // Show live dot only for currently playing shows that are NOT playlist or restream
+  const needsRedDot = isCurrentlyPlaying && (!show.type || (show.type !== 'playlist' && show.type !== 'restream'));
 
   // Get audio info for this station if the show is currently playing
   const metadataKey = getMetadataKeyByStationId(show.stationId);
