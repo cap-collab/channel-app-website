@@ -11,7 +11,7 @@ import {
   signInWithEmailLink,
 } from "firebase/auth";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
-import { auth, db, googleProvider } from "@/lib/firebase";
+import { auth, db, googleProvider, appleProvider } from "@/lib/firebase";
 
 const EMAIL_FOR_SIGN_IN_KEY = "emailForSignIn";
 const NOTIFICATIONS_PREF_KEY = "notificationsPref";
@@ -186,6 +186,63 @@ export function useAuth() {
     }
   }, []);
 
+  const signInWithApple = useCallback(async (enableNotifications = false) => {
+    if (!auth || !appleProvider || !db) {
+      setState((prev) => ({
+        ...prev,
+        error: "Authentication not configured",
+      }));
+      return null;
+    }
+
+    try {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+      const result = await signInWithPopup(auth, appleProvider);
+      const user = result.user;
+
+      // Create or update user document in Firestore
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        // New user - create document with notification preference
+        await setDoc(userRef, {
+          email: user.email,
+          displayName: user.displayName || user.email?.split("@")[0] || "User",
+          photoURL: user.photoURL,
+          createdAt: serverTimestamp(),
+          lastSeenAt: serverTimestamp(),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          emailNotifications: {
+            showStarting: enableNotifications,
+            watchlistMatch: enableNotifications,
+          },
+        });
+      } else {
+        // Existing user - update last seen
+        const updateData: Record<string, unknown> = {
+          lastSeenAt: serverTimestamp(),
+        };
+        if (enableNotifications) {
+          updateData.emailNotifications = {
+            showStarting: true,
+            watchlistMatch: true,
+          };
+        }
+        await setDoc(userRef, updateData, { merge: true });
+      }
+
+      setState({ user, loading: false, error: null, emailSent: false });
+      return user;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to sign in with Apple";
+      console.error("Apple sign in error:", error);
+      setState((prev) => ({ ...prev, loading: false, error: message }));
+      return null;
+    }
+  }, []);
+
   const sendEmailLink = useCallback(async (email: string, enableNotifications = false) => {
     if (!auth) {
       setState((prev) => ({
@@ -243,6 +300,7 @@ export function useAuth() {
     error: state.error,
     emailSent: state.emailSent,
     signInWithGoogle,
+    signInWithApple,
     sendEmailLink,
     resetEmailSent,
     signOut,

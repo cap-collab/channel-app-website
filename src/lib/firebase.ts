@@ -1,5 +1,5 @@
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, Auth } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, OAuthProvider, Auth } from "firebase/auth";
 import { getFirestore, Firestore } from "firebase/firestore";
 import { getStorage, FirebaseStorage } from "firebase/storage";
 
@@ -21,6 +21,7 @@ let auth: Auth | null = null;
 let db: Firestore | null = null;
 let storage: FirebaseStorage | null = null;
 let googleProvider: GoogleAuthProvider | null = null;
+let appleProvider: OAuthProvider | null = null;
 
 if (isConfigured) {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
@@ -28,7 +29,10 @@ if (isConfigured) {
   db = getFirestore(app);
   storage = getStorage(app);
   googleProvider = new GoogleAuthProvider();
+  appleProvider = new OAuthProvider("apple.com");
+  appleProvider.addScope("email");
+  appleProvider.addScope("name");
 }
 
-export { auth, db, storage, googleProvider };
+export { auth, db, storage, googleProvider, appleProvider };
 export default app;
