@@ -45,8 +45,8 @@ function ShowBlockComponent({
   const showEnd = new Date(show.endTime);
   const isCurrentlyPlaying = showStart <= now && showEnd > now;
 
-  // Show live dot only for currently playing shows that are NOT playlist or restream
-  const needsRedDot = isCurrentlyPlaying && (!show.type || (show.type !== 'playlist' && show.type !== 'restream'));
+  // Check if this is a restream or playlist show (needs replay icon instead of red dot)
+  const isRestreamOrPlaylist = show.type === 'playlist' || show.type === 'restream';
 
   // Get audio info for this station if the show is currently playing
   const metadataKey = getMetadataKeyByStationId(show.stationId);
@@ -188,13 +188,6 @@ function ShowBlockComponent({
         }}
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        {/* Live indicator - top-left corner for live shows */}
-        {needsRedDot && (
-          <div
-            className="absolute top-1 left-1 bg-red-500 rounded-full z-20 animate-pulse"
-            style={{ width: '8px', height: '8px' }}
-          />
-        )}
 
         {/* Gradient overlay for currently playing shows */}
         {isCurrentlyPlaying && (
@@ -226,11 +219,37 @@ function ShowBlockComponent({
 
         <div className="px-2 py-1.5 h-full flex flex-col pr-6 overflow-hidden relative">
           <p
-            className="font-medium text-white text-xs leading-tight truncate"
+            className="font-medium text-white text-xs leading-tight line-clamp-2"
             title={show.name}
           >
             {show.name}
+            {/* Replay icon for restream/playlist shows */}
+            {isRestreamOrPlaylist && (
+              <svg
+                className="w-2.5 h-2.5 inline-block ml-1 align-middle"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#9ca3af"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+            )}
           </p>
+          {/* Badges row: only show for weekly/monthly types (restream/playlist have icon instead) */}
+          {show.type && height > 40 && (show.type === 'weekly' || show.type === 'monthly') && (
+            <div className="flex items-center gap-1.5 mt-1">
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded"
+                style={{ backgroundColor: accentColor, color: ['#fff', '#ffffff', '#FFFFFF', '#FFF'].includes(accentColor) ? '#000' : '#fff' }}
+              >
+                {show.type}
+              </span>
+            </div>
+          )}
           {show.dj && height > 50 && (
             <p className="text-gray-500 text-[10px] truncate mt-0.5">{show.dj}</p>
           )}
@@ -239,29 +258,13 @@ function ShowBlockComponent({
           )}
         </div>
 
-        {/* Bottom badges row: type badge and audio/BPM badge */}
-        <div className="absolute bottom-1 right-1 flex items-center gap-1">
-          {/* Type badge */}
-          {show.type && (
-            <span
-              className="text-[9px] px-1.5 py-0.5 rounded-full"
-              style={
-                show.type === 'restream' || show.type === 'playlist'
-                  ? { backgroundColor: '#000', color: '#9ca3af' }
-                  : { backgroundColor: `${accentColor}20`, color: accentColor }
-              }
-            >
-              {show.type}
-            </span>
-          )}
-          {/* Audio badge for currently playing shows */}
-          {badgeContent && (
-            <div className="text-[10px] text-gray-400 bg-gray-800/80 px-1.5 py-0.5 rounded flex items-center gap-1">
-              <span>{badgeContent.icon}</span>
-              <span>{badgeContent.text}</span>
-            </div>
-          )}
-        </div>
+        {/* BPM badge in bottom right corner */}
+        {badgeContent && (
+          <div className="absolute bottom-1 right-1 text-[10px] text-gray-400 bg-gray-800/80 px-1.5 py-0.5 rounded flex items-center gap-1">
+            <span>{badgeContent.icon}</span>
+            <span>{badgeContent.text}</span>
+          </div>
+        )}
       </div>
 
       {/* Expanded overlay - styled like SearchResultCard */}
