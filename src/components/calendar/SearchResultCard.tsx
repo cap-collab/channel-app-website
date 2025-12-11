@@ -23,11 +23,7 @@ function SearchResultCardComponent({ show, station }: SearchResultCardProps) {
   const isFavorited = isShowFavorited(show);
   const accentColor = station?.accentColor || "#fff";
 
-  // Check if this show is currently playing
-  const now = new Date();
   const showStart = new Date(show.startTime);
-  const showEnd = new Date(show.endTime);
-  const isCurrentlyPlaying = showStart <= now && showEnd > now;
 
   // Check if this is a restream or playlist show (needs replay icon instead of red dot)
   const isRestreamOrPlaylist = show.type === 'playlist' || show.type === 'restream';
