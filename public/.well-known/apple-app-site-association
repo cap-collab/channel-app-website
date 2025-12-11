@@ -4,7 +4,7 @@
     "details": [
       {
         "appID": "KX3KJLA7ZP.ChannelMedia.Channel",
-        "paths": ["/listen/*"]
+        "paths": ["/listen/*", "/emailSignIn*"]
       }
     ]
   }

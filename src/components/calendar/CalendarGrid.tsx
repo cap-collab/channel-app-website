@@ -162,6 +162,19 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
     return shows.filter((show) => show.stationId === stationId);
   };
 
+  // Check if a station has a currently playing show that needs a red dot
+  const stationHasLiveShow = (stationId: string): boolean => {
+    const now = new Date();
+    return shows.some((show) => {
+      if (show.stationId !== stationId) return false;
+      const showStart = new Date(show.startTime);
+      const showEnd = new Date(show.endTime);
+      const isCurrentlyPlaying = showStart <= now && showEnd > now;
+      // Red dot only for live shows that are NOT playlist or restream
+      return isCurrentlyPlaying && (!show.type || (show.type !== 'playlist' && show.type !== 'restream'));
+    });
+  };
+
   // Get search results grouped by station
   const searchResultsByStation = useMemo(() => {
     if (!searchQuery.trim()) return new Map<string, Show[]>();
@@ -476,8 +489,14 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
                 index !== STATIONS.length - 1 ? "border-r border-gray-800/50" : ""
               }`}
             >
-              <span className="font-medium text-white text-sm truncate">
+              <span className="font-medium text-white text-sm truncate flex items-center gap-1.5">
                 {station.name}
+                {stationHasLiveShow(station.id) && (
+                  <span
+                    className="bg-red-500 rounded-full flex-shrink-0 animate-pulse"
+                    style={{ width: '6px', height: '6px' }}
+                  />
+                )}
               </span>
               <div
                 className="h-[2px] w-8 mt-1 rounded-full"
