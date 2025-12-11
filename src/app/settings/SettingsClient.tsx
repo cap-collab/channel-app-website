@@ -10,6 +10,8 @@ import { AuthModal } from "@/components/AuthModal";
 interface NotificationSettings {
   showStarting: boolean;
   watchlistMatch: boolean;
+  mentions: boolean;
+  popularity: boolean;
 }
 
 export function SettingsClient() {
@@ -18,6 +20,8 @@ export function SettingsClient() {
   const [notifications, setNotifications] = useState<NotificationSettings>({
     showStarting: false,
     watchlistMatch: false,
+    mentions: false,
+    popularity: false,
   });
   const [saving, setSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -34,6 +38,8 @@ export function SettingsClient() {
         setNotifications({
           showStarting: data.emailNotifications.showStarting || false,
           watchlistMatch: data.emailNotifications.watchlistMatch || false,
+          mentions: data.emailNotifications.mentions || false,
+          popularity: data.emailNotifications.popularity || false,
         });
       }
     });
@@ -154,7 +160,7 @@ export function SettingsClient() {
               <div className="bg-[#1a1a1a] rounded-lg divide-y divide-gray-800">
                 <div className="p-4 flex items-center justify-between">
                   <div>
-                    <p className="text-white font-medium">Show starting alerts</p>
+                    <p className="text-white font-medium">Show going live</p>
                     <p className="text-gray-500 text-sm">
                       Email when your saved shows go live
                     </p>
@@ -175,9 +181,9 @@ export function SettingsClient() {
                 </div>
                 <div className="p-4 flex items-center justify-between">
                   <div>
-                    <p className="text-white font-medium">Watchlist digest</p>
+                    <p className="text-white font-medium">DJ show match</p>
                     <p className="text-gray-500 text-sm">
-                      Daily email when new shows match your searches
+                      Daily email when new shows match your watchlist
                     </p>
                   </div>
                   <button
@@ -194,7 +200,52 @@ export function SettingsClient() {
                     />
                   </button>
                 </div>
+                <div className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-medium">Chat mentions</p>
+                    <p className="text-gray-500 text-sm">
+                      Email when someone @mentions you in chat
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleToggle("mentions")}
+                    disabled={saving}
+                    className={`w-12 h-7 rounded-full transition-colors ${
+                      notifications.mentions ? "bg-white" : "bg-gray-700"
+                    }`}
+                  >
+                    <div
+                      className={`w-5 h-5 rounded-full bg-black transition-transform mx-1 ${
+                        notifications.mentions ? "translate-x-5" : ""
+                      }`}
+                    />
+                  </button>
+                </div>
+                <div className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-medium">Popularity alerts</p>
+                    <p className="text-gray-500 text-sm">
+                      Email when shows get lots of hearts or chat activity
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleToggle("popularity")}
+                    disabled={saving}
+                    className={`w-12 h-7 rounded-full transition-colors ${
+                      notifications.popularity ? "bg-white" : "bg-gray-700"
+                    }`}
+                  >
+                    <div
+                      className={`w-5 h-5 rounded-full bg-black transition-transform mx-1 ${
+                        notifications.popularity ? "translate-x-5" : ""
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
+              <p className="text-gray-600 text-xs mt-2 px-1">
+                Push notifications can be managed in the Channel app
+              </p>
             </section>
 
             {/* My Shows link */}
