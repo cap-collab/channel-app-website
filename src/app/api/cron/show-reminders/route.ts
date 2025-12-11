@@ -43,15 +43,6 @@ const STATION_NAMES: Record<string, string> = {
   subtle: "Subtle Radio",
 };
 
-const STATION_URLS: Record<string, string> = {
-  nts1: "https://www.nts.live/1",
-  nts2: "https://www.nts.live/2",
-  rinse: "https://rinse.fm/player",
-  rinsefr: "https://rinse.fm/player",
-  dublab: "https://dublab.com/listen",
-  subtle: "https://subtleradio.com",
-};
-
 export async function GET(request: NextRequest) {
   if (!verifyCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -88,7 +79,6 @@ export async function GET(request: NextRequest) {
           startTime: string;
           stationId: string;
           stationName: string;
-          stationUrl: string;
         }> = [];
 
         for (const [stationKey, shows] of Object.entries(metadata.stations)) {
@@ -102,7 +92,6 @@ export async function GET(request: NextRequest) {
                   startTime: show.s,
                   stationId: stationKey,
                   stationName: STATION_NAMES[stationKey] || stationKey,
-                  stationUrl: STATION_URLS[stationKey] || `${process.env.NEXT_PUBLIC_APP_URL}/djshows`,
                 });
               }
             }
@@ -150,7 +139,7 @@ export async function GET(request: NextRequest) {
                     showName: show.name,
                     djName: show.dj || null,
                     stationName: show.stationName,
-                    stationUrl: show.stationUrl,
+                    stationId: show.stationId,
                     notifyAt: new Date(show.startTime),
                     sent: false,
                     createdAt: new Date(),
@@ -208,7 +197,7 @@ export async function GET(request: NextRequest) {
           showName: notification.data.showName as string,
           djName: notification.data.djName as string | undefined,
           stationName: notification.data.stationName as string,
-          listenUrl: (notification.data.stationUrl as string) || `${process.env.NEXT_PUBLIC_APP_URL}/djshows`,
+          stationId: notification.data.stationId as string,
         });
 
         if (success) {

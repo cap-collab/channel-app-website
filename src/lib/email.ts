@@ -7,12 +7,34 @@ const resend = process.env.RESEND_API_KEY
 
 const FROM_EMAIL = "Channel <djshows@channel-app.com>";
 
+// Map backend metadata station IDs to iOS app station IDs for deep links
+function getDeepLinkStationId(metadataStationId: string): string {
+  const mapping: Record<string, string> = {
+    nts1: "nts-1",
+    nts2: "nts-2",
+    rinse: "rinse-fm",
+    rinsefr: "rinse-fr",
+    dublab: "dublab",
+    subtle: "subtle",
+  };
+  return mapping[metadataStationId] || metadataStationId;
+}
+
+// Generate deep link URL for a station (opens app if installed, falls back to website)
+function getStationDeepLink(metadataStationId: string): string {
+  const appStationId = getDeepLinkStationId(metadataStationId);
+  return `https://channel-app.com/listen/${appStationId}`;
+}
+
+// Settings deep link (opens app settings if installed, falls back to website)
+const SETTINGS_DEEP_LINK = "https://channel-app.com/settings";
+
 interface ShowStartingEmailParams {
   to: string;
   showName: string;
   djName?: string;
   stationName: string;
-  listenUrl: string;
+  stationId: string;
 }
 
 export async function sendShowStartingEmail({
@@ -20,8 +42,9 @@ export async function sendShowStartingEmail({
   showName,
   djName,
   stationName,
-  listenUrl,
+  stationId,
 }: ShowStartingEmailParams) {
+  const listenUrl = getStationDeepLink(stationId);
   if (!resend) {
     console.warn("Email service not configured - skipping email");
     return false;
@@ -60,7 +83,7 @@ export async function sendShowStartingEmail({
             </div>
             <div class="footer">
               <p>You're receiving this because you saved this show.</p>
-              <a href="${process.env.NEXT_PUBLIC_APP_URL}/settings" class="unsubscribe">Unsubscribe</a>
+              <a href="${SETTINGS_DEEP_LINK}" class="unsubscribe">Unsubscribe</a>
             </div>
           </div>
         </body>
@@ -86,6 +109,7 @@ interface WatchlistDigestEmailParams {
     showName: string;
     djName?: string;
     stationName: string;
+    stationId: string;
     startTime: Date;
     searchTerm: string;
   }>;
@@ -134,10 +158,6 @@ export async function sendWatchlistDigestEmail({
     })
     .join("");
 
-  // Create URL with search query for first term
-  const firstTerm = Object.keys(matchesByTerm)[0];
-  const searchUrl = `${process.env.NEXT_PUBLIC_APP_URL}/djshows?search=${encodeURIComponent(firstTerm)}`;
-
   try {
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
@@ -152,7 +172,7 @@ export async function sendWatchlistDigestEmail({
             .container { max-width: 500px; margin: 0 auto; text-align: center; }
             .content { background: #111; border-radius: 12px; padding: 30px; margin-bottom: 20px; text-align: center; }
             h1 { margin: 0 0 24px; font-size: 20px; color: #fff; }
-            .browse-btn { display: inline-block; background: #fff; color: #000 !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 16px; }
+            .stream-btn { display: inline-block; background: #fff; color: #000 !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 16px; }
             .footer { color: #666; font-size: 12px; text-align: center; margin-top: 30px; }
             .unsubscribe { color: #666; text-decoration: underline; }
           </style>
@@ -162,11 +182,11 @@ export async function sendWatchlistDigestEmail({
             <div class="content">
               <h1>New shows <span style="color: #888;">added to your favorites</span></h1>
               ${groupsHtml}
-              <a href="${searchUrl}" class="browse-btn">View Shows</a>
+              <a href="https://channel-app.com" class="stream-btn">Stream on Channel</a>
             </div>
             <div class="footer">
               <p>These shows have been added to your favorites.</p>
-              <a href="${process.env.NEXT_PUBLIC_APP_URL}/settings" class="unsubscribe">Manage notifications</a>
+              <a href="${SETTINGS_DEEP_LINK}" class="unsubscribe">Unsubscribe</a>
             </div>
           </div>
         </body>
