@@ -1,4 +1,9 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import ScrollReveal from "@/components/ScrollReveal";
 import FAQAccordion from "@/components/FAQAccordion";
 import PhoneMockup from "@/components/PhoneMockup";
@@ -42,6 +47,28 @@ const faqItems = [
 ];
 
 export default function Home() {
+  const [showEmailInput, setShowEmailInput] = useState(false);
+  const [email, setEmail] = useState("");
+  const [emailStatus, setEmailStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || emailStatus === "submitting" || !db) return;
+
+    setEmailStatus("submitting");
+    try {
+      await addDoc(collection(db, "beta-waitlist"), {
+        email,
+        platform: "android",
+        submittedAt: serverTimestamp(),
+      });
+      setEmailStatus("success");
+      setEmail("");
+    } catch {
+      setEmailStatus("error");
+    }
+  };
+
   return (
     <div className="min-h-screen">
       <Header />
@@ -57,14 +84,51 @@ export default function Home() {
             Turn every listen into real support for independent culture.
           </p>
 
-          <Link
-            href="/djshows"
+          <a
+            href="https://testflight.apple.com/join/HcKTJ1nH"
+            target="_blank"
+            rel="noopener noreferrer"
             className="inline-block bg-white text-black px-10 py-4 rounded-xl text-lg font-semibold hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(255,255,255,0.15)] transition-all"
           >
-            Browse DJ Shows
-          </Link>
+            Become a Beta Tester
+          </a>
 
-          <p className="mt-6 text-sm text-gray-600">Coming soon to iOS</p>
+          {/* Not on iOS - Email capture */}
+          <div className="mt-6">
+            {!showEmailInput ? (
+              <button
+                onClick={() => setShowEmailInput(true)}
+                className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
+              >
+                Not on iOS? Get notified
+              </button>
+            ) : emailStatus === "success" ? (
+              <p className="text-sm text-green-400">Thanks! We&apos;ll notify you when Android is available.</p>
+            ) : (
+              <form onSubmit={handleEmailSubmit} className="flex flex-col items-center gap-2">
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    required
+                    className="px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-gray-500 w-56"
+                  />
+                  <button
+                    type="submit"
+                    disabled={emailStatus === "submitting"}
+                    className="px-4 py-2 rounded-lg bg-gray-700 text-white text-sm font-medium hover:bg-gray-600 transition-colors disabled:opacity-50"
+                  >
+                    {emailStatus === "submitting" ? "..." : "Notify me"}
+                  </button>
+                </div>
+                {emailStatus === "error" && (
+                  <p className="text-sm text-red-400">Something went wrong. Try again.</p>
+                )}
+              </form>
+            )}
+          </div>
         </div>
 
         {/* Scroll indicator */}
