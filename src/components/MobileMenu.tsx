@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useAuthContext } from "@/contexts/AuthContext";
 
 export type MobileMenuItem =
-  | { label: string; href?: string; onClick?: () => void; type?: "link" }
-  | { type: "auth"; label?: never; href?: never; onClick?: never };
+  | { label: string; href?: string; onClick?: () => void; type?: "link"; external?: boolean }
+  | { type: "auth"; label?: never; href?: never; onClick?: never; external?: never };
 
 interface MobileMenuProps {
   items: MobileMenuItem[];
@@ -124,13 +124,16 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
 
               // Regular link or button item
               if (item.href) {
-                const isExternal = item.href.startsWith("#");
-                if (isExternal) {
+                const isAnchor = item.href.startsWith("#");
+                const isExternal = item.external || item.href.startsWith("http");
+                if (isAnchor || isExternal) {
                   return (
                     <a
                       key={index}
                       href={item.href}
                       onClick={() => handleItemClick(item)}
+                      target={isExternal ? "_blank" : undefined}
+                      rel={isExternal ? "noopener noreferrer" : undefined}
                       className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-gray-900 transition-colors"
                     >
                       {item.label}

@@ -23,6 +23,9 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
   const getMobileMenuItems = (): MobileMenuItem[] => {
     const items: MobileMenuItem[] = [];
 
+    // iOS Beta always first
+    items.push({ label: "iOS Beta", href: "https://testflight.apple.com/join/HcKTJ1nH", external: true });
+
     if (currentPage !== "djshows") {
       items.push({ label: "Browse DJ Shows", href: "/djshows" });
     }
@@ -32,7 +35,10 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
     if (currentPage !== "apply") {
       items.push({ label: "Feature Your Station", href: "/apply" });
     }
-    items.push({ type: "auth" });
+    // Only show auth on non-home pages
+    if (currentPage !== "home") {
+      items.push({ type: "auth" });
+    }
 
     return items;
   };
@@ -56,37 +62,15 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
             />
           </Link>
           <div className="flex items-center gap-3 md:gap-4">
-            {/* Visible button - changes based on page */}
-            {currentPage === "home" && (
-              <Link
-                href="/djshows"
-                className="bg-white text-black px-3 sm:px-4 py-1.5 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all whitespace-nowrap"
-              >
-                <span className="sm:hidden">DJ Shows</span>
-                <span className="hidden sm:inline">Browse DJ Shows</span>
-              </Link>
-            )}
-            {currentPage === "djshows" && !isAuthenticated && !loading && (
-              <button
-                onClick={() => setShowAuthModal(true)}
-                className="bg-white text-black px-3 sm:px-4 py-1.5 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all whitespace-nowrap"
-              >
-                Sign In
-              </button>
-            )}
-            {currentPage === "apply" && (
-              <Link
-                href="/djshows"
-                className="bg-white text-black px-3 sm:px-4 py-1.5 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all whitespace-nowrap"
-              >
-                <span className="sm:hidden">DJ Shows</span>
-                <span className="hidden sm:inline">Browse DJ Shows</span>
-              </Link>
-            )}
-
             {/* Secondary links - vary by page */}
             {currentPage === "home" && (
               <>
+                <Link
+                  href="/djshows"
+                  className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
+                >
+                  Browse DJ Shows
+                </Link>
                 <a
                   href="#get-involved"
                   className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
@@ -118,8 +102,18 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
               </>
             )}
 
-            {/* User menu - show if authenticated OR if not on djshows page (where Sign In is main button) */}
-            {(currentPage !== "djshows" || isAuthenticated || loading) && (
+            {/* Main CTA button - iOS Beta on all pages */}
+            <a
+              href="https://testflight.apple.com/join/HcKTJ1nH"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-white text-black px-3 sm:px-4 py-1.5 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all whitespace-nowrap"
+            >
+              iOS Beta
+            </a>
+
+            {/* User menu - only show on non-home pages when authenticated */}
+            {currentPage !== "home" && (
               <div className="relative">
                 {loading ? (
                   <div className="w-8 h-8 rounded-full bg-gray-800 animate-pulse" />
@@ -140,7 +134,7 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
                       </div>
                     )}
                   </button>
-                ) : (
+                ) : currentPage === "djshows" ? null : (
                   <button
                     onClick={() => setShowAuthModal(true)}
                     className="hidden sm:block text-gray-500 hover:text-white text-sm transition-colors"
