@@ -18,12 +18,13 @@ function verifyCronRequest(request: NextRequest): boolean {
   return isVercelCron || hasValidSecret;
 }
 
-// Metadata uses short keys: n=name, s=startTime, e=endTime, j=dj
+// Metadata uses short keys: n=name, s=startTime, e=endTime, j=dj, t=type
 interface MetadataShow {
   n: string;
   s: string;
   e: string;
   j?: string | null;
+  t?: string | null; // type: weekly, monthly, restream, playlist
 }
 
 interface Metadata {
@@ -84,6 +85,9 @@ export async function GET(request: NextRequest) {
         for (const [stationKey, shows] of Object.entries(metadata.stations)) {
           if (Array.isArray(shows)) {
             for (const show of shows) {
+              // Skip playlist shows - don't send notifications for automated playlists
+              if (show.t === "playlist") continue;
+
               const showStart = new Date(show.s);
               if (showStart >= windowStart && showStart <= windowEnd) {
                 upcomingShows.push({

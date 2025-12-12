@@ -40,7 +40,6 @@ export default function TermsPage() {
         <li>Optional local/mobile notifications</li>
         <li>Optional web email alerts (show reminders, digests)</li>
         <li>Optional watchlists and favorites</li>
-        <li>Optional Google Calendar sync</li>
         <li>BPM and metadata information</li>
       </ul>
       <p>We do not own or control any station content.</p>
@@ -49,16 +48,16 @@ export default function TermsPage() {
 
       <h3>4.1 Mobile App</h3>
       <p>Mobile use is anonymous by default. No account is required.</p>
+      <p>You may optionally sign in via Google, Apple, or email Magic Link to sync your favorites and chat username across devices.</p>
 
       <h3>4.2 Web App</h3>
-      <p>The web app requires sign-in via Google OAuth.</p>
-      <p>When you sign in, we receive:</p>
+      <p>The web app requires sign-in via Google OAuth, Apple Sign-In, or email Magic Link.</p>
+      <p>When you sign in, we may receive (depending on method):</p>
       <ul>
         <li>Email</li>
         <li>Display name</li>
         <li>Profile photo</li>
         <li>Timezone</li>
-        <li>Google Calendar ID (if syncing)</li>
       </ul>
       <p>You agree to keep your account secure and not share access.</p>
 
@@ -75,11 +74,18 @@ export default function TermsPage() {
       <p>Violations may result in message removal or access restriction.</p>
 
       <h2>6. User-Generated Content</h2>
+
+      <h3>6.1 Chat Messages</h3>
       <p>
-        Chat messages and activity posts are public and visible to anyone tuned into that station.
+        Chat messages are public and visible to anyone tuned into that station.
       </p>
 
-      <h3>Optional Automatic Activity Messages</h3>
+      <h3>6.2 @Channel Mentions</h3>
+      <p>
+        Messages that mention &quot;@Channel&quot; are logged separately for developer review and abuse detection.
+      </p>
+
+      <h3>6.3 Automatic Activity Messages</h3>
       <p>
         Channel may post short activity-based messages (ex: &quot;username is loving this
         show&quot;).
@@ -93,6 +99,14 @@ export default function TermsPage() {
       </ul>
       <p>By enabling this option, you acknowledge these messages may appear publicly.</p>
 
+      <h3>6.4 Favorites and Watchlist</h3>
+      <p>
+        You may optionally save favorite shows and add search terms or DJ names to your watchlist.
+      </p>
+      <p>
+        This data is stored in Firestore under your user account and synced across devices.
+      </p>
+
       <h2>7. External Radio Streams</h2>
       <p>Channel streams content from third-party broadcasters such as:</p>
       <p>NTS, Subtle Radio, Dublab, Rinse FM, and others.</p>
@@ -104,7 +118,29 @@ export default function TermsPage() {
         <li>Content quality or appropriateness</li>
       </ul>
 
-      <h2>8. Disclaimers</h2>
+      <h2>8. Notifications</h2>
+
+      <h3>8.1 Push Notifications (Mobile)</h3>
+      <p>You may optionally enable push notifications for:</p>
+      <ul>
+        <li>Show starting alerts (for favorited shows)</li>
+        <li>Watchlist matches (when a DJ or search term you follow is playing)</li>
+        <li>Popularity alerts (when a station crosses listener thresholds)</li>
+        <li>Chat mentions (when someone @mentions you)</li>
+      </ul>
+      <p>These can be disabled at any time in Settings.</p>
+
+      <h3>8.2 Email Notifications (Web)</h3>
+      <p>You may optionally enable email notifications for:</p>
+      <ul>
+        <li>Show reminders</li>
+        <li>Watchlist matches</li>
+        <li>Mention alerts</li>
+        <li>Popularity alerts</li>
+      </ul>
+      <p>These can be disabled at any time in your account settings.</p>
+
+      <h2>9. Disclaimers</h2>
       <p>Channel is provided &quot;as is&quot; without warranties of any kind.</p>
       <p>We do not guarantee:</p>
       <ul>
@@ -113,7 +149,7 @@ export default function TermsPage() {
         <li>Accuracy of schedules or metadata</li>
       </ul>
 
-      <h2>9. Limitation of Liability</h2>
+      <h2>10. Limitation of Liability</h2>
       <p>To the maximum extent permitted by law, Channel Media, Inc. is not liable for:</p>
       <ul>
         <li>Service interruptions</li>
@@ -124,7 +160,7 @@ export default function TermsPage() {
         <li>Unauthorized account access</li>
       </ul>
 
-      <h2>10. Reporting Issues</h2>
+      <h2>11. Reporting Issues</h2>
       <p>You may report:</p>
       <ul>
         <li>Bugs</li>
@@ -136,12 +172,22 @@ export default function TermsPage() {
         <a href="mailto:support@channel-app.com">support@channel-app.com</a>.
       </p>
 
-      <h2>11. Governing Law</h2>
+      <h2>12. Governing Law</h2>
       <p>
         These Terms are governed by U.S. federal law and the laws of the State of California.
       </p>
 
-      <h2>12. Contact</h2>
+      <h2>13. Account Deletion</h2>
+      <p>You may delete your account at any time:</p>
+      <ul>
+        <li>On web: via account settings</li>
+        <li>On mobile: via Settings &rarr; Delete My Account</li>
+      </ul>
+      <p>
+        Account deletion removes your user record, favorites, watchlist, username, and all associated data from our systems.
+      </p>
+
+      <h2>14. Contact</h2>
       <p>
         Channel Media, Inc.
         <br />
