@@ -96,11 +96,13 @@ export function DJShowsClient() {
             </p>
 
             <ul className="list-disc list-inside space-y-2 text-gray-300 pl-4">
-              <li>Fundraising</li>
+              <li>DJ show curation (ambient, dub, electronic, techno, minimal, house, ...)</li>
               <li>Product & website design</li>
-              <li>DJ & radio monetization strategy</li>
-              <li>Marketing & community building</li>
+              <li>Fan & community monetization</li>
+              <li>DJ relationship and insights</li>
+              <li>DJ radio relationship and insights</li>
               <li>Partnerships & licensing</li>
+              <li>Fundraising</li>
             </ul>
 
             <p>
