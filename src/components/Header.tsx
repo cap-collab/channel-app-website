@@ -62,44 +62,38 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
             />
           </Link>
           <div className="flex items-center gap-3 md:gap-4">
-            {/* Secondary links - vary by page */}
-            {currentPage === "home" && (
-              <>
-                <Link
-                  href="/djshows"
-                  className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
-                >
-                  Browse DJ Shows
-                </Link>
-                <a
-                  href="#get-involved"
-                  className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
-                >
-                  Get Involved
-                </a>
-                <Link
-                  href="/apply"
-                  className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
-                >
-                  Feature Your Station
-                </Link>
-              </>
+            {/* Navigation links - same on all pages, hide link to current page */}
+            {currentPage !== "djshows" && (
+              <Link
+                href="/djshows"
+                className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
+              >
+                Browse DJ Shows
+              </Link>
             )}
-            {currentPage === "djshows" && (
-              <>
-                <a
-                  href="#get-involved"
-                  className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
-                >
-                  Get Involved
-                </a>
-                <Link
-                  href="/apply"
-                  className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
-                >
-                  Feature Your Station
-                </Link>
-              </>
+            <a
+              href={currentPage === "apply" ? "/#get-involved" : "#get-involved"}
+              className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
+            >
+              Get Involved
+            </a>
+            {currentPage !== "apply" && (
+              <Link
+                href="/apply"
+                className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
+              >
+                Feature Your Station
+              </Link>
+            )}
+
+            {/* Sign In - only on non-home pages when not authenticated */}
+            {currentPage !== "home" && !isAuthenticated && !loading && (
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
+              >
+                Sign In
+              </button>
             )}
 
             {/* Main CTA button - iOS Beta on all pages */}
@@ -113,11 +107,11 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
             </a>
 
             {/* User menu - only show on non-home pages when authenticated */}
-            {currentPage !== "home" && (
+            {currentPage !== "home" && isAuthenticated && (
               <div className="relative">
                 {loading ? (
                   <div className="w-8 h-8 rounded-full bg-gray-800 animate-pulse" />
-                ) : isAuthenticated && user ? (
+                ) : user ? (
                   <button
                     onClick={() => setShowUserMenu(!showUserMenu)}
                     className="w-8 h-8 rounded-full overflow-hidden border border-gray-800 hover:border-gray-600 transition-colors"
@@ -134,16 +128,9 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
                       </div>
                     )}
                   </button>
-                ) : currentPage === "djshows" ? null : (
-                  <button
-                    onClick={() => setShowAuthModal(true)}
-                    className="hidden sm:block text-gray-500 hover:text-white text-sm transition-colors"
-                  >
-                    Sign In
-                  </button>
-                )}
+                ) : null}
 
-                {showUserMenu && isAuthenticated && (
+                {showUserMenu && (
                   <>
                     <div
                       className="fixed inset-0 z-40"
