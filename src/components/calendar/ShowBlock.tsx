@@ -20,6 +20,31 @@ interface ShowBlockProps {
   isHighlighted?: boolean;
 }
 
+/**
+ * Calculate relative luminance of a hex color
+ * Returns value between 0 (black) and 1 (white)
+ */
+function getLuminance(hexColor: string): number {
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.substr(0, 2), 16) / 255;
+  const g = parseInt(hex.substr(2, 2), 16) / 255;
+  const b = parseInt(hex.substr(4, 2), 16) / 255;
+
+  // Convert to linear RGB
+  const toLinear = (c: number) => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+
+  return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+}
+
+/**
+ * Get contrasting text color (black or white) for a given background color
+ */
+function getContrastTextColor(backgroundColor: string): string {
+  const luminance = getLuminance(backgroundColor);
+  // Use black text for light backgrounds (luminance > 0.5)
+  return luminance > 0.5 ? '#000000' : '#ffffff';
+}
+
 function ShowBlockComponent({
   show,
   pixelsPerHour,
@@ -239,12 +264,12 @@ function ShowBlockComponent({
               </svg>
             )}
           </p>
-          {/* Badges row: only show for weekly/monthly types (restream/playlist have icon instead) */}
-          {show.type && height > 40 && (show.type === 'weekly' || show.type === 'monthly') && (
+          {/* Badges row: only show for weekly/biweekly/monthly types (restream/playlist have icon instead) */}
+          {show.type && height > 40 && (show.type === 'weekly' || show.type === 'biweekly' || show.type === 'monthly') && (
             <div className="flex items-center gap-1.5 mt-1">
               <span
                 className="text-[10px] px-1.5 py-0.5 rounded"
-                style={{ backgroundColor: accentColor, color: ['#fff', '#ffffff', '#FFFFFF', '#FFF'].includes(accentColor) ? '#000' : '#fff' }}
+                style={{ backgroundColor: accentColor, color: getContrastTextColor(accentColor) }}
               >
                 {show.type}
               </span>
