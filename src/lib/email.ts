@@ -103,6 +103,152 @@ export async function sendShowStartingEmail({
   }
 }
 
+interface MentionEmailParams {
+  to: string;
+  mentionerUsername: string;
+  stationName: string;
+  stationId: string;
+  messagePreview?: string;
+}
+
+export async function sendMentionEmail({
+  to,
+  mentionerUsername,
+  stationName,
+  stationId,
+  messagePreview,
+}: MentionEmailParams) {
+  if (!resend) {
+    console.warn("Email service not configured - skipping email");
+    return false;
+  }
+
+  const chatUrl = getStationDeepLink(stationId);
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject: `${mentionerUsername} mentioned you in ${stationName} chat`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #000; color: #fff; margin: 0; padding: 40px 20px; }
+            .container { max-width: 500px; margin: 0 auto; text-align: center; }
+            .content { background: #111; border-radius: 12px; padding: 30px; margin-bottom: 20px; text-align: center; }
+            h1 { margin: 0 0 8px; font-size: 22px; color: #fff; }
+            .station { color: #888; font-size: 14px; margin-bottom: 20px; }
+            .message-preview { background: #1a1a1a; border-radius: 8px; padding: 16px; margin-bottom: 24px; font-style: italic; color: #aaa; text-align: left; }
+            .join-btn { display: inline-block; background: #fff; color: #000 !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; }
+            .footer { color: #666; font-size: 12px; text-align: center; margin-top: 30px; }
+            .unsubscribe { color: #666; text-decoration: underline; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="content">
+              <h1>@${mentionerUsername} <span style="color: #888;">mentioned you</span></h1>
+              <p class="station">in ${stationName} chat</p>
+              ${messagePreview ? `<div class="message-preview">"${messagePreview}"</div>` : ""}
+              <a href="${chatUrl}" class="join-btn">Join Chat</a>
+            </div>
+            <div class="footer">
+              <p>You're receiving this because someone mentioned you.</p>
+              <a href="${SETTINGS_DEEP_LINK}" class="unsubscribe">Unsubscribe</a>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    });
+
+    if (error) {
+      console.error("Error sending mention email:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error sending mention email:", error);
+    return false;
+  }
+}
+
+interface PopularityAlertEmailParams {
+  to: string;
+  showName: string;
+  stationName: string;
+  stationId: string;
+  loveCount: number;
+}
+
+export async function sendPopularityAlertEmail({
+  to,
+  showName,
+  stationName,
+  stationId,
+  loveCount,
+}: PopularityAlertEmailParams) {
+  if (!resend) {
+    console.warn("Email service not configured - skipping email");
+    return false;
+  }
+
+  const listenUrl = getStationDeepLink(stationId);
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject: `${showName} is getting a lot of love on ${stationName}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #000; color: #fff; margin: 0; padding: 40px 20px; }
+            .container { max-width: 500px; margin: 0 auto; text-align: center; }
+            .content { background: #111; border-radius: 12px; padding: 30px; margin-bottom: 20px; text-align: center; }
+            h1 { margin: 0 0 8px; font-size: 22px; color: #fff; }
+            .station { color: #888; font-size: 14px; margin-bottom: 12px; }
+            .love-count { font-size: 32px; margin-bottom: 24px; }
+            .listen-btn { display: inline-block; background: #fff; color: #000 !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; }
+            .footer { color: #666; font-size: 12px; text-align: center; margin-top: 30px; }
+            .unsubscribe { color: #666; text-decoration: underline; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="content">
+              <h1>${showName}</h1>
+              <p class="station">is trending on ${stationName}</p>
+              <div class="love-count">${loveCount} ❤️</div>
+              <a href="${listenUrl}" class="listen-btn">Tune In</a>
+            </div>
+            <div class="footer">
+              <p>You're receiving this because you enabled popularity alerts.</p>
+              <a href="${SETTINGS_DEEP_LINK}" class="unsubscribe">Unsubscribe</a>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    });
+
+    if (error) {
+      console.error("Error sending popularity alert email:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error sending popularity alert email:", error);
+    return false;
+  }
+}
+
 interface WatchlistDigestEmailParams {
   to: string;
   matches: Array<{

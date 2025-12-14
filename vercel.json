@@ -11,6 +11,14 @@
     {
       "path": "/api/cron/refresh-tokens",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/mention-emails",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/popularity-emails",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

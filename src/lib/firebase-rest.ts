@@ -420,6 +420,105 @@ export async function addUserFavorite(userId: string, data: Record<string, unkno
   }
 }
 
+// Query a collection with filters
+export async function queryCollection(
+  collection: string,
+  filters: Array<{ field: string; op: string; value: unknown }>,
+  limit = 100
+): Promise<Array<{ id: string; data: Record<string, unknown> }>> {
+  const token = await getAuthToken();
+  if (!token) return [];
+
+  const where = filters.length === 1
+    ? {
+        fieldFilter: {
+          field: { fieldPath: filters[0].field },
+          op: filters[0].op,
+          value: jsValueToFirestore(filters[0].value),
+        },
+      }
+    : {
+        compositeFilter: {
+          op: "AND",
+          filters: filters.map(f => ({
+            fieldFilter: {
+              field: { fieldPath: f.field },
+              op: f.op,
+              value: jsValueToFirestore(f.value),
+            },
+          })),
+        },
+      };
+
+  const query = {
+    structuredQuery: {
+      from: [{ collectionId: collection }],
+      where,
+      limit,
+    },
+  };
+
+  try {
+    const response = await fetch(
+      `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(query),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error(`Query ${collection} error:`, error);
+      return [];
+    }
+
+    const results = await response.json();
+    return results
+      .filter((r: Record<string, unknown>) => r.document)
+      .map((r: Record<string, unknown>) => {
+        const doc = r.document as { name: string; fields: Record<string, unknown> };
+        const pathParts = doc.name.split("/");
+        return {
+          id: pathParts[pathParts.length - 1],
+          data: firestoreDocToObject(doc),
+        };
+      });
+  } catch (error) {
+    console.error(`Query ${collection} failed:`, error);
+    return [];
+  }
+}
+
+// Delete a document
+export async function deleteDocument(
+  collection: string,
+  docId: string
+): Promise<boolean> {
+  const token = await getAuthToken();
+  if (!token) return false;
+
+  try {
+    const response = await fetch(
+      `${FIRESTORE_BASE_URL}/${collection}/${docId}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 // Check if REST API is configured
 export function isRestApiConfigured(): boolean {
   return !!(
