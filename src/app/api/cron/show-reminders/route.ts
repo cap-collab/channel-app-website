@@ -127,17 +127,17 @@ export async function GET(request: NextRequest) {
               );
 
               if (isMatch) {
-                // Check if notification already exists for this user/show/time
+                // Check if notification already exists for this user/show/station/time
+                // Include stationId and notifyAt in the query to prevent duplicates
                 const existing = await queryScheduledNotifications([
                   { field: "userId", op: "EQUAL", value: userId },
                   { field: "showName", op: "EQUAL", value: show.name },
+                  { field: "stationId", op: "EQUAL", value: show.stationId },
+                  { field: "notifyAt", op: "EQUAL", value: new Date(show.startTime) },
                 ]);
 
-                const alreadyExists = existing.some(
-                  (n) => new Date(n.data.notifyAt as string).getTime() === new Date(show.startTime).getTime()
-                );
-
-                if (!alreadyExists) {
+                // If no exact match exists, create the notification
+                if (existing.length === 0) {
                   await createScheduledNotification({
                     userId,
                     showName: show.name,
