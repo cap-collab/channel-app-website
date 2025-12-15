@@ -181,12 +181,15 @@ export default function EmailSignInPage() {
             <div className="text-red-500 text-6xl">✕</div>
             <h1 className="text-2xl font-bold text-white">Sign In Failed</h1>
             <p className="text-gray-400">{errorMessage}</p>
-            <a
-              href="/djshows"
-              className="inline-block mt-4 px-6 py-3 rounded-lg bg-white text-black font-semibold"
-            >
-              Go to DJ Shows
-            </a>
+            {/* Go to DJ Shows button hidden */}
+            {false && (
+              <a
+                href="/djshows"
+                className="inline-block mt-4 px-6 py-3 rounded-lg bg-white text-black font-semibold"
+              >
+                Go to DJ Shows
+              </a>
+            )}
           </div>
         )}
       </div>

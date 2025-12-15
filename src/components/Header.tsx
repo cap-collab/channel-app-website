@@ -26,7 +26,8 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
     // iOS Beta always first
     items.push({ label: "iOS Beta", href: "https://testflight.apple.com/join/HcKTJ1nH", external: true });
 
-    if (currentPage !== "djshows") {
+    // Browse DJ Shows button hidden
+    if (false && currentPage !== "djshows") {
       items.push({ label: "Browse DJ Shows", href: "/djshows" });
     }
     // Get Involved - anchor on home/djshows (both have the section), full URL on apply
@@ -63,7 +64,8 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
           </Link>
           <div className="flex items-center gap-3 md:gap-4">
             {/* Navigation links - same on all pages, hide link to current page */}
-            {currentPage !== "djshows" && (
+            {/* Browse DJ Shows button hidden */}
+            {false && currentPage !== "djshows" && (
               <Link
                 href="/djshows"
                 className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
@@ -87,7 +89,8 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
             )}
 
             {/* Sign In - only on non-home pages when not authenticated */}
-            {currentPage !== "home" && !isAuthenticated && !loading && (
+            {/* Sign In button hidden */}
+            {false && currentPage !== "home" && !isAuthenticated && !loading && (
               <button
                 onClick={() => setShowAuthModal(true)}
                 className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"

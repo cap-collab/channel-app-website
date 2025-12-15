@@ -79,22 +79,28 @@ export function MyShowsClient() {
             <p className="text-gray-500 mb-6">
               Sign in to see your saved shows
             </p>
-            <button
-              onClick={() => setShowAuthModal(true)}
-              className="bg-white text-black px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors"
-            >
-              Sign In
-            </button>
+            {/* Sign In button hidden */}
+            {false && (
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="bg-white text-black px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+              >
+                Sign In
+              </button>
+            )}
           </div>
         ) : favorites.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-500 mb-4">No saved shows yet</p>
-            <Link
-              href="/djshows"
-              className="text-white hover:underline"
-            >
-              Browse shows →
-            </Link>
+            {/* Browse shows button hidden */}
+            {false && (
+              <Link
+                href="/djshows"
+                className="text-white hover:underline"
+              >
+                Browse shows →
+              </Link>
+            )}
           </div>
         ) : (
           <div className="space-y-8">
