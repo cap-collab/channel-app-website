@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
   const room = request.nextUrl.searchParams.get('room') || 'test-room';
   const username = request.nextUrl.searchParams.get('username') || 'test-user';
+  // Allow listener-only tokens (canPublish=false for iOS app listeners)
+  const canPublish = request.nextUrl.searchParams.get('canPublish') !== 'false';
 
   const apiKey = process.env.LIVEKIT_API_KEY;
   const apiSecret = process.env.LIVEKIT_API_SECRET;
@@ -23,7 +25,7 @@ export async function GET(request: NextRequest) {
   at.addGrant({
     room,
     roomJoin: true,
-    canPublish: true,
+    canPublish,
     canSubscribe: true,
   });
 
