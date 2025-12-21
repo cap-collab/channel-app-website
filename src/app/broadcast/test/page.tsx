@@ -77,9 +77,10 @@ export default function BroadcastTestPage() {
     if (!roomRef.current) return;
 
     try {
-      await roomRef.current.localParticipant.unpublishTrack(
-        roomRef.current.localParticipant.audioTrackPublications.values().next().value?.track!
-      );
+      const publication = roomRef.current.localParticipant.audioTrackPublications.values().next().value;
+      if (publication?.track) {
+        await roomRef.current.localParticipant.unpublishTrack(publication.track);
+      }
       setStatus('Stopped streaming');
       setIsStreaming(false);
     } catch (error) {
@@ -224,9 +225,9 @@ export default function BroadcastTestPage() {
 
       <div className="mt-8 text-gray-500 text-sm">
         <p>This page tests the LiveKit connection.</p>
-        <p>1. Click "Connect" to join a LiveKit room</p>
-        <p>2. Click "Start Streaming" to broadcast your microphone</p>
-        <p>3. Click "Start HLS Egress" to create an HLS stream</p>
+        <p>1. Click &quot;Connect&quot; to join a LiveKit room</p>
+        <p>2. Click &quot;Start Streaming&quot; to broadcast your microphone</p>
+        <p>3. Click &quot;Start HLS Egress&quot; to create an HLS stream</p>
         <p>4. Check the LiveKit dashboard to see the active room and egress</p>
       </div>
     </div>
