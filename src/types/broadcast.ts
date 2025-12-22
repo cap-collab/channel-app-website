@@ -7,6 +7,20 @@ export type BroadcastSlotStatus = 'scheduled' | 'live' | 'completed' | 'missed';
 // Broadcast type - venue uses permanent URL, remote gets unique token
 export type BroadcastType = 'venue' | 'remote';
 
+// DJ slot within a venue show
+export interface DJSlot {
+  id: string;
+  djName?: string;           // Optional - can be TBD
+  startTime: number;         // Unix timestamp ms
+  endTime: number;           // Unix timestamp ms
+}
+
+// Broadcaster account settings (stored in users collection)
+export interface BroadcasterSettings {
+  venueName: string;         // Display name: "Better Tomorrow"
+  venueSlug: string;         // URL slug: "bettertomorrow"
+}
+
 // Generic timestamp interface that works with both Admin and Client SDK
 export interface FirestoreTimestamp {
   toMillis(): number;
@@ -17,8 +31,9 @@ export interface FirestoreTimestamp {
 export interface BroadcastSlot {
   id: string;
   stationId: string;           // For multi-station future
-  djName: string;              // Display name (e.g., "DJ Shadow")
-  showName?: string;           // Optional show title
+  showName: string;            // Show title (REQUIRED)
+  djName?: string;             // Single DJ for remote broadcasts (optional)
+  djSlots?: DJSlot[];          // Multiple DJ slots for venue broadcasts (optional)
   startTime: FirestoreTimestamp;  // Scheduled start
   endTime: FirestoreTimestamp;    // Scheduled end
   broadcastToken: string;      // Unique token for the broadcast link (only used for 'remote' type)
@@ -27,14 +42,16 @@ export interface BroadcastSlot {
   createdBy: string;           // Owner's UID
   status: BroadcastSlotStatus;
   broadcastType: BroadcastType; // 'venue' = permanent URL, 'remote' = unique token
+  venueSlug?: string;          // URL slug for venue broadcast page
 }
 
 // Serialized version for API responses (timestamps as numbers)
 export interface BroadcastSlotSerialized {
   id: string;
   stationId: string;
-  djName: string;
-  showName?: string;
+  showName: string;            // Show title (REQUIRED)
+  djName?: string;             // Single DJ for remote broadcasts (optional)
+  djSlots?: DJSlot[];          // Multiple DJ slots for venue broadcasts (optional)
   startTime: number;           // Unix timestamp ms
   endTime: number;
   broadcastToken: string;
@@ -43,6 +60,7 @@ export interface BroadcastSlotSerialized {
   createdBy: string;
   status: BroadcastSlotStatus;
   broadcastType: BroadcastType;
+  venueSlug?: string;          // URL slug for venue broadcast page
 }
 
 // State for the broadcast hook

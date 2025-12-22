@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
-import { BroadcastSlotSerialized, RoomStatus, BroadcastType } from '@/types/broadcast';
+import { useBroadcasterSettings } from '@/hooks/useBroadcasterSettings';
+import { BroadcastSlotSerialized, RoomStatus, BroadcastType, DJSlot } from '@/types/broadcast';
 import { WeeklyCalendar } from '@/components/broadcast/admin/WeeklyCalendar';
 import { SlotModal } from '@/components/broadcast/admin/SlotModal';
-import { getSlots, createSlot, deleteSlot as deleteSlotFromDb } from '@/lib/broadcast-slots';
+import { getSlots, createSlot, deleteSlot as deleteSlotFromDb, updateSlot } from '@/lib/broadcast-slots';
 
 // Get start of current week (Sunday)
 function getWeekStart(date: Date = new Date()): Date {
@@ -18,8 +19,10 @@ function getWeekStart(date: Date = new Date()): Date {
 }
 
 export function AdminDashboard() {
-  const { user, isAuthenticated, loading: authLoading, signInWithGoogle, signInWithApple, sendEmailLink, emailSent, resetEmailSent } = useAuthContext();
+  const { user, isAuthenticated, loading: authLoading, signInWithGoogle, signInWithApple, sendEmailLink, emailSent, resetEmailSent, signOut } = useAuthContext();
   const { role, loading: roleLoading } = useUserRole(user);
+  const { settings: broadcasterSettings, loading: settingsLoading } = useBroadcasterSettings(user);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   const [slots, setSlots] = useState<BroadcastSlotSerialized[]>([]);
   const [roomStatus, setRoomStatus] = useState<RoomStatus | null>(null);
@@ -86,7 +89,14 @@ export function AdminDashboard() {
   };
 
   // Save slot (create or update) - directly to Firestore
-  const handleSaveSlot = async (data: { djName: string; showName?: string; startTime: number; endTime: number; broadcastType: BroadcastType }) => {
+  const handleSaveSlot = async (data: {
+    showName: string;
+    djName?: string;
+    djSlots?: DJSlot[];
+    startTime: number;
+    endTime: number;
+    broadcastType: BroadcastType;
+  }) => {
     if (!user) return;
 
     if (selectedSlot) {
@@ -98,6 +108,7 @@ export function AdminDashboard() {
     await createSlot({
       ...data,
       createdBy: user.uid,
+      venueSlug: broadcasterSettings.venueSlug,
     });
 
     await fetchSlots();
@@ -106,6 +117,12 @@ export function AdminDashboard() {
   // Delete slot - directly from Firestore
   const handleDeleteSlot = async (slotId: string) => {
     await deleteSlotFromDb(slotId);
+    await fetchSlots();
+  };
+
+  // Update slot times (for drag-to-resize)
+  const handleUpdateSlotTimes = async (slotId: string, updates: { startTime?: number; endTime?: number }) => {
+    await updateSlot(slotId, updates);
     await fetchSlots();
   };
 
@@ -125,7 +142,7 @@ export function AdminDashboard() {
   };
 
   // Auth or role loading
-  if (authLoading || roleLoading) {
+  if (authLoading || roleLoading || settingsLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
@@ -248,19 +265,69 @@ export function AdminDashboard() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl md:text-3xl font-bold">Broadcast Schedule</h1>
 
-          {/* Live status */}
-          {roomStatus && (
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
-              roomStatus.isLive ? 'bg-red-900/50' : 'bg-gray-800'
-            }`}>
-              <div className={`w-2 h-2 rounded-full ${
-                roomStatus.isLive ? 'bg-red-500 animate-pulse' : 'bg-gray-500'
-              }`}></div>
-              <span className={roomStatus.isLive ? 'text-red-400' : 'text-gray-400'}>
-                {roomStatus.isLive ? `Live: ${roomStatus.currentDJ}` : 'Off Air'}
-              </span>
+          <div className="flex items-center gap-4">
+            {/* Live status */}
+            {roomStatus && (
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
+                roomStatus.isLive ? 'bg-red-900/50' : 'bg-gray-800'
+              }`}>
+                <div className={`w-2 h-2 rounded-full ${
+                  roomStatus.isLive ? 'bg-red-500 animate-pulse' : 'bg-gray-500'
+                }`}></div>
+                <span className={roomStatus.isLive ? 'text-red-400' : 'text-gray-400'}>
+                  {roomStatus.isLive ? `Live: ${roomStatus.currentDJ}` : 'Off Air'}
+                </span>
+              </div>
+            )}
+
+            {/* Profile menu */}
+            <div className="relative">
+              <button
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors"
+              >
+                {user?.photoURL ? (
+                  <img
+                    src={user.photoURL}
+                    alt="Profile"
+                    className="w-10 h-10 rounded-full"
+                  />
+                ) : (
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                )}
+              </button>
+
+              {showProfileMenu && (
+                <>
+                  {/* Backdrop to close menu */}
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowProfileMenu(false)}
+                  />
+                  {/* Dropdown menu */}
+                  <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-lg border border-gray-700 z-50">
+                    <div className="px-4 py-3 border-b border-gray-700">
+                      <p className="text-sm text-white truncate">{user?.email}</p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        await signOut();
+                        window.location.href = '/';
+                      }}
+                      className="w-full px-4 py-3 text-left text-red-400 hover:bg-gray-700 rounded-b-lg transition-colors flex items-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      Sign Out
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Loading */}
@@ -274,14 +341,16 @@ export function AdminDashboard() {
             slots={slots}
             onSlotClick={handleSlotClick}
             onCreateSlot={handleCreateSlot}
+            onUpdateSlot={handleUpdateSlotTimes}
             currentWeekStart={currentWeekStart}
             onWeekChange={setCurrentWeekStart}
+            venueName={broadcasterSettings.venueName}
           />
         )}
 
         {/* Quick tip */}
         <div className="mt-4 text-center text-sm text-gray-500">
-          Tip: Click on a slot to edit or copy the broadcast link
+          Tip: Click on a slot to edit or copy the broadcast link. Drag the edges to resize.
         </div>
       </div>
 
@@ -294,6 +363,8 @@ export function AdminDashboard() {
         onDelete={handleDeleteSlot}
         initialStartTime={newSlotTimes?.start}
         initialEndTime={newSlotTimes?.end}
+        venueName={broadcasterSettings.venueName}
+        venueSlug={broadcasterSettings.venueSlug}
       />
     </div>
   );

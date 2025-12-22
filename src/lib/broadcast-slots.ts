@@ -11,7 +11,7 @@ import {
   orderBy,
   Timestamp,
 } from 'firebase/firestore';
-import { BroadcastSlotSerialized, BroadcastType, STATION_ID } from '@/types/broadcast';
+import { BroadcastSlotSerialized, BroadcastType, DJSlot, STATION_ID } from '@/types/broadcast';
 
 const COLLECTION = 'broadcast-slots';
 
@@ -28,6 +28,26 @@ function generateToken(): string {
     .replace(/=/g, '');
 }
 
+// Helper to serialize a slot from Firestore data
+function serializeSlot(docId: string, data: Record<string, unknown>): BroadcastSlotSerialized {
+  return {
+    id: docId,
+    stationId: data.stationId as string,
+    showName: data.showName as string,
+    djName: data.djName as string | undefined,
+    djSlots: data.djSlots as DJSlot[] | undefined,
+    startTime: (data.startTime as { toMillis: () => number })?.toMillis() || 0,
+    endTime: (data.endTime as { toMillis: () => number })?.toMillis() || 0,
+    broadcastToken: data.broadcastToken as string,
+    tokenExpiresAt: (data.tokenExpiresAt as { toMillis: () => number })?.toMillis() || 0,
+    createdAt: (data.createdAt as { toMillis: () => number })?.toMillis() || 0,
+    createdBy: data.createdBy as string,
+    status: data.status as BroadcastSlotSerialized['status'],
+    broadcastType: (data.broadcastType as BroadcastType) || 'venue',
+    venueSlug: data.venueSlug as string | undefined,
+  };
+}
+
 export async function getSlots(stationId: string = STATION_ID): Promise<BroadcastSlotSerialized[]> {
   if (!db) throw new Error('Firestore not initialized');
 
@@ -41,33 +61,21 @@ export async function getSlots(stationId: string = STATION_ID): Promise<Broadcas
   const slots: BroadcastSlotSerialized[] = [];
 
   snapshot.forEach((doc) => {
-    const data = doc.data();
-    slots.push({
-      id: doc.id,
-      stationId: data.stationId,
-      djName: data.djName,
-      showName: data.showName,
-      startTime: data.startTime?.toMillis() || 0,
-      endTime: data.endTime?.toMillis() || 0,
-      broadcastToken: data.broadcastToken,
-      tokenExpiresAt: data.tokenExpiresAt?.toMillis() || 0,
-      createdAt: data.createdAt?.toMillis() || 0,
-      createdBy: data.createdBy,
-      status: data.status,
-      broadcastType: data.broadcastType || 'venue', // Default to venue for existing slots
-    });
+    slots.push(serializeSlot(doc.id, doc.data()));
   });
 
   return slots;
 }
 
 export async function createSlot(data: {
-  djName: string;
-  showName?: string;
+  showName: string;
+  djName?: string;
+  djSlots?: DJSlot[];
   startTime: number;
   endTime: number;
   createdBy: string;
   broadcastType?: BroadcastType;
+  venueSlug?: string;
 }): Promise<{ slot: BroadcastSlotSerialized; broadcastUrl: string }> {
   if (!db) throw new Error('Firestore not initialized');
 
@@ -76,11 +84,13 @@ export async function createSlot(data: {
   const endTimestamp = Timestamp.fromMillis(data.endTime);
   const tokenExpiresAt = Timestamp.fromMillis(data.endTime + 60 * 60 * 1000);
   const broadcastToken = generateToken();
+  const venueSlug = data.venueSlug || 'venue';
 
-  const slotData = {
+  const slotData: Record<string, unknown> = {
     stationId: STATION_ID,
-    djName: data.djName,
-    showName: data.showName || null,
+    showName: data.showName,
+    djName: data.djName || null,
+    djSlots: data.djSlots || null,
     startTime: startTimestamp,
     endTime: endTimestamp,
     broadcastToken,
@@ -89,6 +99,7 @@ export async function createSlot(data: {
     createdBy: data.createdBy,
     status: 'scheduled',
     broadcastType,
+    venueSlug,
   };
 
   const docRef = await addDoc(collection(db, COLLECTION), slotData);
@@ -96,8 +107,9 @@ export async function createSlot(data: {
   const slot: BroadcastSlotSerialized = {
     id: docRef.id,
     stationId: STATION_ID,
-    djName: data.djName,
     showName: data.showName,
+    djName: data.djName,
+    djSlots: data.djSlots,
     startTime: data.startTime,
     endTime: data.endTime,
     broadcastToken,
@@ -106,11 +118,12 @@ export async function createSlot(data: {
     createdBy: data.createdBy,
     status: 'scheduled',
     broadcastType,
+    venueSlug,
   };
 
   // Venue slots use permanent URL, remote slots get unique token URL
   const broadcastUrl = broadcastType === 'venue'
-    ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com'}/broadcast/bettertomorrow`
+    ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com'}/broadcast/${venueSlug}`
     : `${process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com'}/broadcast/live?token=${broadcastToken}`;
 
   return { slot, broadcastUrl };
@@ -118,10 +131,35 @@ export async function createSlot(data: {
 
 export async function updateSlot(
   slotId: string,
-  updates: Partial<{ status: string; djName: string; showName: string }>
+  updates: Partial<{
+    status: string;
+    showName: string;
+    djName: string;
+    djSlots: DJSlot[];
+    startTime: number;
+    endTime: number;
+  }>
 ): Promise<void> {
   if (!db) throw new Error('Firestore not initialized');
-  await updateDoc(doc(db, COLLECTION, slotId), updates);
+
+  const updateData: Record<string, unknown> = {};
+
+  if (updates.status !== undefined) updateData.status = updates.status;
+  if (updates.showName !== undefined) updateData.showName = updates.showName;
+  if (updates.djName !== undefined) updateData.djName = updates.djName || null;
+  if (updates.djSlots !== undefined) updateData.djSlots = updates.djSlots || null;
+
+  // Handle time updates - convert to Firestore Timestamps
+  if (updates.startTime !== undefined) {
+    updateData.startTime = Timestamp.fromMillis(updates.startTime);
+  }
+  if (updates.endTime !== undefined) {
+    updateData.endTime = Timestamp.fromMillis(updates.endTime);
+    // Also update token expiry (end time + 1 hour)
+    updateData.tokenExpiresAt = Timestamp.fromMillis(updates.endTime + 60 * 60 * 1000);
+  }
+
+  await updateDoc(doc(db, COLLECTION, slotId), updateData);
 }
 
 export async function deleteSlot(slotId: string): Promise<void> {
@@ -151,22 +189,7 @@ export async function validateToken(token: string): Promise<{
   }
 
   const docSnap = snapshot.docs[0];
-  const data = docSnap.data();
-
-  const slot: BroadcastSlotSerialized = {
-    id: docSnap.id,
-    stationId: data.stationId,
-    djName: data.djName,
-    showName: data.showName,
-    startTime: data.startTime?.toMillis() || 0,
-    endTime: data.endTime?.toMillis() || 0,
-    broadcastToken: data.broadcastToken,
-    tokenExpiresAt: data.tokenExpiresAt?.toMillis() || 0,
-    createdAt: data.createdAt?.toMillis() || 0,
-    createdBy: data.createdBy,
-    status: data.status,
-    broadcastType: data.broadcastType || 'venue',
-  };
+  const slot = serializeSlot(docSnap.id, docSnap.data());
 
   // Check if token has expired
   const now = Date.now();
@@ -225,20 +248,7 @@ export async function getVenueSlots(stationId: string = STATION_ID): Promise<{
     const broadcastType = data.broadcastType || 'venue';
     if (broadcastType !== 'venue') return; // Skip remote slots
 
-    slots.push({
-      id: doc.id,
-      stationId: data.stationId,
-      djName: data.djName,
-      showName: data.showName,
-      startTime: data.startTime?.toMillis() || 0,
-      endTime: data.endTime?.toMillis() || 0,
-      broadcastToken: data.broadcastToken,
-      tokenExpiresAt: data.tokenExpiresAt?.toMillis() || 0,
-      createdAt: data.createdAt?.toMillis() || 0,
-      createdBy: data.createdBy,
-      status: data.status,
-      broadcastType,
-    });
+    slots.push(serializeSlot(doc.id, data));
   });
 
   // Sort ascending for finding current/next (query returns desc)

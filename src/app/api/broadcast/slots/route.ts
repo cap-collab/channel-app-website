@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { randomBytes } from 'crypto';
-import { BroadcastSlot, BroadcastSlotSerialized, STATION_ID } from '@/types/broadcast';
+import { BroadcastSlot, BroadcastSlotSerialized, DJSlot, STATION_ID } from '@/types/broadcast';
 
 // Hardcoded owner UID for now - replace with proper auth later
 const OWNER_UID = process.env.BROADCAST_OWNER_UID || '';
@@ -13,12 +13,20 @@ function generateToken(): string {
 
 function serializeSlot(slot: BroadcastSlot): BroadcastSlotSerialized {
   return {
-    ...slot,
+    id: slot.id,
+    stationId: slot.stationId,
+    showName: slot.showName,
+    djName: slot.djName,
+    djSlots: slot.djSlots,
     startTime: slot.startTime.toMillis(),
     endTime: slot.endTime.toMillis(),
+    broadcastToken: slot.broadcastToken,
     tokenExpiresAt: slot.tokenExpiresAt.toMillis(),
     createdAt: slot.createdAt.toMillis(),
-    broadcastType: slot.broadcastType || 'venue', // Default to venue for existing slots
+    createdBy: slot.createdBy,
+    status: slot.status,
+    broadcastType: slot.broadcastType || 'venue',
+    venueSlug: slot.venueSlug,
   };
 }
 
@@ -75,11 +83,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { djName, showName, startTime, endTime, broadcastType = 'venue' } = await request.json();
+    const { showName, djName, djSlots, startTime, endTime, broadcastType = 'venue', venueSlug = 'venue' } = await request.json();
 
-    if (!djName || !startTime || !endTime) {
+    if (!showName || !startTime || !endTime) {
       return NextResponse.json(
-        { error: 'Missing required fields: djName, startTime, endTime' },
+        { error: 'Missing required fields: showName, startTime, endTime' },
         { status: 400 }
       );
     }
@@ -92,8 +100,9 @@ export async function POST(request: NextRequest) {
 
     const slot: Omit<BroadcastSlot, 'id'> = {
       stationId: STATION_ID,
-      djName,
-      showName: showName || undefined,
+      showName,
+      djName: djName || undefined,
+      djSlots: djSlots || undefined,
       startTime: startTimestamp,
       endTime: endTimestamp,
       broadcastToken: generateToken(),
@@ -102,6 +111,7 @@ export async function POST(request: NextRequest) {
       createdBy: OWNER_UID, // TODO: Get from verified token
       status: 'scheduled',
       broadcastType,
+      venueSlug,
     };
 
     const docRef = await db.collection('broadcast-slots').add(slot);
@@ -109,7 +119,7 @@ export async function POST(request: NextRequest) {
     const createdSlot: BroadcastSlot = { id: docRef.id, ...slot };
     // Venue slots use permanent URL, remote slots get unique token URL
     const broadcastUrl = broadcastType === 'venue'
-      ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com'}/broadcast/bettertomorrow`
+      ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com'}/broadcast/${venueSlug}`
       : `${process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com'}/broadcast/live?token=${slot.broadcastToken}`;
 
     return NextResponse.json({
@@ -122,7 +132,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PATCH - Update a slot (status, etc.)
+// PATCH - Update a slot (status, times, DJ slots, etc.)
 export async function PATCH(request: NextRequest) {
   try {
     const db = getAdminDb();
@@ -130,14 +140,27 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
     }
 
-    const { slotId, status } = await request.json();
+    const { slotId, status, showName, djName, djSlots, startTime, endTime } = await request.json();
 
     if (!slotId) {
       return NextResponse.json({ error: 'Missing slotId' }, { status: 400 });
     }
 
-    const updates: Partial<BroadcastSlot> = {};
-    if (status) updates.status = status;
+    const updates: Record<string, unknown> = {};
+    if (status !== undefined) updates.status = status;
+    if (showName !== undefined) updates.showName = showName;
+    if (djName !== undefined) updates.djName = djName || null;
+    if (djSlots !== undefined) updates.djSlots = djSlots as DJSlot[] || null;
+
+    // Handle time updates - convert to Firestore Timestamps
+    if (startTime !== undefined) {
+      updates.startTime = Timestamp.fromMillis(startTime);
+    }
+    if (endTime !== undefined) {
+      updates.endTime = Timestamp.fromMillis(endTime);
+      // Also update token expiry (end time + 1 hour)
+      updates.tokenExpiresAt = Timestamp.fromMillis(endTime + 60 * 60 * 1000);
+    }
 
     await db.collection('broadcast-slots').doc(slotId).update(updates);
 

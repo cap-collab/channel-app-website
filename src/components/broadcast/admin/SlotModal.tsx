@@ -1,17 +1,60 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BroadcastSlotSerialized, BroadcastType } from '@/types/broadcast';
+import { BroadcastSlotSerialized, BroadcastType, DJSlot } from '@/types/broadcast';
 
 interface SlotModalProps {
   slot?: BroadcastSlotSerialized | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: { djName: string; showName?: string; startTime: number; endTime: number; broadcastType: BroadcastType }) => Promise<void>;
+  onSave: (data: {
+    showName: string;
+    djName?: string;
+    djSlots?: DJSlot[];
+    startTime: number;
+    endTime: number;
+    broadcastType: BroadcastType;
+  }) => Promise<void>;
   onDelete?: (slotId: string) => Promise<void>;
-  // For creating new slots
   initialStartTime?: Date;
   initialEndTime?: Date;
+  venueName: string;
+  venueSlug: string;
+}
+
+interface LocalDJSlot {
+  id: string;
+  djName: string;
+  startTime: string; // HH:mm format
+  endTime: string;   // HH:mm format
+}
+
+// Generate time options in 30-minute increments with simple labels
+function generateTimeOptions(): { value: string; label: string }[] {
+  const options: { value: string; label: string }[] = [];
+  for (let hour = 0; hour < 24; hour++) {
+    for (let minute = 0; minute < 60; minute += 30) {
+      const value = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+      const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+      const ampm = hour < 12 ? 'am' : 'pm';
+      // Simpler format: "8pm" or "8:30pm"
+      const label = minute === 0 ? `${hour12}${ampm}` : `${hour12}:${minute}${ampm}`;
+      options.push({ value, label });
+    }
+  }
+  return options;
+}
+
+const TIME_OPTIONS = generateTimeOptions();
+
+// Snap time string to nearest 30-minute increment
+function snapToHalfHour(timeStr: string): string {
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  const snappedMinutes = Math.round(minutes / 30) * 30;
+  if (snappedMinutes === 60) {
+    return `${((hours + 1) % 24).toString().padStart(2, '0')}:00`;
+  }
+  return `${hours.toString().padStart(2, '0')}:${snappedMinutes.toString().padStart(2, '0')}`;
 }
 
 export function SlotModal({
@@ -22,17 +65,24 @@ export function SlotModal({
   onDelete,
   initialStartTime,
   initialEndTime,
+  venueName,
+  venueSlug,
 }: SlotModalProps) {
-  const [djName, setDjName] = useState('');
   const [showName, setShowName] = useState('');
-  const [date, setDate] = useState('');
+  const [djName, setDjName] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [broadcastType, setBroadcastType] = useState<BroadcastType>('venue');
+  const [djSlots, setDjSlots] = useState<LocalDJSlot[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const isEditing = !!slot;
+
+  // Check if this is an overnight show
+  const isOvernight = startDate && endDate && endDate > startDate;
 
   // Initialize form when modal opens
   useEffect(() => {
@@ -41,40 +91,93 @@ export function SlotModal({
         // Editing existing slot
         const start = new Date(slot.startTime);
         const end = new Date(slot.endTime);
-        setDjName(slot.djName);
         setShowName(slot.showName || '');
-        setDate(start.toISOString().split('T')[0]);
-        setStartTime(start.toTimeString().slice(0, 5));
-        setEndTime(end.toTimeString().slice(0, 5));
+        setDjName(slot.djName || '');
+        setStartDate(start.toISOString().split('T')[0]);
+        setEndDate(end.toISOString().split('T')[0]);
+        setStartTime(snapToHalfHour(start.toTimeString().slice(0, 5)));
+        setEndTime(snapToHalfHour(end.toTimeString().slice(0, 5)));
         setBroadcastType(slot.broadcastType || 'venue');
+
+        // Convert DJ slots to local format
+        if (slot.djSlots && slot.djSlots.length > 0) {
+          setDjSlots(slot.djSlots.map(dj => ({
+            id: dj.id,
+            djName: dj.djName || '',
+            startTime: snapToHalfHour(new Date(dj.startTime).toTimeString().slice(0, 5)),
+            endTime: snapToHalfHour(new Date(dj.endTime).toTimeString().slice(0, 5)),
+          })));
+        } else {
+          setDjSlots([]);
+        }
       } else if (initialStartTime && initialEndTime) {
         // Creating new slot from calendar drag
-        setDjName('');
         setShowName('');
-        setDate(initialStartTime.toISOString().split('T')[0]);
-        setStartTime(initialStartTime.toTimeString().slice(0, 5));
-        setEndTime(initialEndTime.toTimeString().slice(0, 5));
-        setBroadcastType('venue'); // Default to venue for new slots
+        setDjName('');
+        setStartDate(initialStartTime.toISOString().split('T')[0]);
+        setEndDate(initialEndTime.toISOString().split('T')[0]);
+        setStartTime(snapToHalfHour(initialStartTime.toTimeString().slice(0, 5)));
+        setEndTime(snapToHalfHour(initialEndTime.toTimeString().slice(0, 5)));
+        setBroadcastType('venue');
+        setDjSlots([]);
       }
     }
   }, [isOpen, slot, initialStartTime, initialEndTime]);
 
+  // Auto-set end date when start date changes (if not overnight)
+  useEffect(() => {
+    if (startDate && !endDate) {
+      setEndDate(startDate);
+    }
+  }, [startDate, endDate]);
+
+  // Auto-detect overnight when end time is before start time on same date
+  useEffect(() => {
+    if (startDate && startTime && endTime && startDate === endDate) {
+      const startMinutes = parseInt(startTime.split(':')[0]) * 60 + parseInt(startTime.split(':')[1]);
+      const endMinutes = parseInt(endTime.split(':')[0]) * 60 + parseInt(endTime.split(':')[1]);
+      if (endMinutes <= startMinutes) {
+        // End time is before start time, assume overnight
+        const nextDay = new Date(startDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        setEndDate(nextDay.toISOString().split('T')[0]);
+      }
+    }
+  }, [startDate, endDate, startTime, endTime]);
+
   const handleSave = async () => {
-    if (!djName || !date || !startTime || !endTime) return;
+    if (!showName || !startDate || !endDate || !startTime || !endTime) return;
 
     setIsSaving(true);
     try {
-      const startDateTime = new Date(`${date}T${startTime}`).getTime();
-      let endDateTime = new Date(`${date}T${endTime}`).getTime();
+      const startDateTime = new Date(`${startDate}T${startTime}`).getTime();
+      const endDateTime = new Date(`${endDate}T${endTime}`).getTime();
 
-      // Handle overnight slots
-      if (endDateTime <= startDateTime) {
-        endDateTime += 24 * 60 * 60 * 1000;
-      }
+      // Convert local DJ slots to timestamps
+      const convertedDjSlots: DJSlot[] | undefined = broadcastType === 'venue' && djSlots.length > 0
+        ? djSlots.map(dj => {
+            // Determine which date to use for this DJ slot
+            const djStartMinutes = parseInt(dj.startTime.split(':')[0]) * 60 + parseInt(dj.startTime.split(':')[1]);
+            const showStartMinutes = parseInt(startTime.split(':')[0]) * 60 + parseInt(startTime.split(':')[1]);
+
+            // If DJ start time is before show start time, it's on the next day
+            const djStartDate = djStartMinutes < showStartMinutes ? endDate : startDate;
+            const djEndMinutes = parseInt(dj.endTime.split(':')[0]) * 60 + parseInt(dj.endTime.split(':')[1]);
+            const djEndDate = djEndMinutes <= djStartMinutes || djEndMinutes < showStartMinutes ? endDate : djStartDate;
+
+            return {
+              id: dj.id,
+              djName: dj.djName || undefined,
+              startTime: new Date(`${djStartDate}T${dj.startTime}`).getTime(),
+              endTime: new Date(`${djEndDate}T${dj.endTime}`).getTime(),
+            };
+          })
+        : undefined;
 
       await onSave({
-        djName,
-        showName: showName || undefined,
+        showName,
+        djName: broadcastType === 'remote' ? (djName || undefined) : undefined,
+        djSlots: convertedDjSlots,
         startTime: startDateTime,
         endTime: endDateTime,
         broadcastType,
@@ -89,7 +192,7 @@ export function SlotModal({
 
   const handleDelete = async () => {
     if (!slot || !onDelete) return;
-    if (!confirm('Delete this broadcast slot?')) return;
+    if (!confirm('Delete this show?')) return;
 
     setIsSaving(true);
     try {
@@ -105,7 +208,7 @@ export function SlotModal({
   const copyBroadcastLink = async () => {
     if (!slot) return;
     const url = slot.broadcastType === 'venue'
-      ? `${window.location.origin}/broadcast/bettertomorrow`
+      ? `${window.location.origin}/broadcast/${venueSlug}`
       : `${window.location.origin}/broadcast/live?token=${slot.broadcastToken}`;
     try {
       await navigator.clipboard.writeText(url);
@@ -116,11 +219,32 @@ export function SlotModal({
     }
   };
 
+  const addDjSlot = () => {
+    const newId = `dj-${Date.now()}`;
+    // Default to show start/end times for new DJ slot
+    setDjSlots([...djSlots, {
+      id: newId,
+      djName: '',
+      startTime: djSlots.length > 0 ? djSlots[djSlots.length - 1].endTime : startTime,
+      endTime: endTime,
+    }]);
+  };
+
+  const updateDjSlot = (id: string, field: keyof LocalDJSlot, value: string) => {
+    setDjSlots(djSlots.map(dj =>
+      dj.id === id ? { ...dj, [field]: value } : dj
+    ));
+  };
+
+  const removeDjSlot = (id: string) => {
+    setDjSlots(djSlots.filter(dj => dj.id !== id));
+  };
+
   if (!isOpen) return null;
 
   const broadcastUrl = slot
     ? slot.broadcastType === 'venue'
-      ? `${typeof window !== 'undefined' ? window.location.origin : ''}/broadcast/bettertomorrow`
+      ? `${typeof window !== 'undefined' ? window.location.origin : ''}/broadcast/${venueSlug}`
       : `${typeof window !== 'undefined' ? window.location.origin : ''}/broadcast/live?token=${slot.broadcastToken}`
     : '';
 
@@ -130,11 +254,11 @@ export function SlotModal({
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-gray-900 rounded-xl w-full max-w-md mx-4 shadow-2xl">
+      <div className="relative bg-gray-900 rounded-xl w-full max-w-lg mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-800">
+        <div className="flex items-center justify-between p-4 border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
           <h2 className="text-lg font-semibold text-white">
-            {isEditing ? 'Edit Broadcast Slot' : 'New Broadcast Slot'}
+            {isEditing ? 'Edit Show' : 'New Show'}
           </h2>
           <button
             onClick={onClose}
@@ -170,28 +294,82 @@ export function SlotModal({
             </div>
           )}
 
-          {/* DJ Name */}
+          {/* Show Name (REQUIRED) */}
           <div>
-            <label className="block text-sm text-gray-400 mb-1">DJ Name *</label>
-            <input
-              type="text"
-              value={djName}
-              onChange={(e) => setDjName(e.target.value)}
-              placeholder="e.g., DJ Shadow"
-              className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
-            />
-          </div>
-
-          {/* Show Name */}
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Show Name (optional)</label>
+            <label className="block text-sm text-gray-400 mb-1">Show Name *</label>
             <input
               type="text"
               value={showName}
               onChange={(e) => setShowName(e.target.value)}
-              placeholder="e.g., Late Night Sessions"
+              placeholder="e.g., Sunday Sessions"
               className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
             />
+          </div>
+
+          {/* Date & Time */}
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Start Date *</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">End Date *</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  min={startDate}
+                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Start Time *</label>
+                <select
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                >
+                  {TIME_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">End Time *</label>
+                <select
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                >
+                  {TIME_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Overnight indicator */}
+            {isOvernight && (
+              <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3 text-sm">
+                <div className="flex items-center gap-2 text-blue-300">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                  <span>Overnight show</span>
+                </div>
+                <p className="text-blue-400/70 text-xs mt-1">
+                  Ends {new Date(endDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at {endTime}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Broadcast Type */}
@@ -212,7 +390,7 @@ export function SlotModal({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  <span className="font-medium">bettertomorrow</span>
+                  <span className="font-medium">{venueName}</span>
                 </div>
                 <p className="text-xs mt-1 opacity-70">At the venue CDJs</p>
               </button>
@@ -236,36 +414,79 @@ export function SlotModal({
             </div>
           </div>
 
-          {/* Date & Time */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* DJ Lineup (venue only) */}
+          {broadcastType === 'venue' && (
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Date *</label>
+              <label className="block text-sm text-gray-400 mb-2">DJ Lineup</label>
+              <div className="space-y-2">
+                {djSlots.map((dj, index) => (
+                  <div key={dj.id} className="bg-gray-800 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs text-gray-500 w-6">#{index + 1}</span>
+                      <input
+                        type="text"
+                        value={dj.djName}
+                        onChange={(e) => updateDjSlot(dj.id, 'djName', e.target.value)}
+                        placeholder="DJ Name (optional)"
+                        className="flex-1 bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeDjSlot(dj.id)}
+                        className="p-1 text-gray-500 hover:text-red-400 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2 ml-6">
+                      <select
+                        value={dj.startTime}
+                        onChange={(e) => updateDjSlot(dj.id, 'startTime', e.target.value)}
+                        className="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500"
+                      >
+                        {TIME_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                      <span className="text-gray-500">-</span>
+                      <select
+                        value={dj.endTime}
+                        onChange={(e) => updateDjSlot(dj.id, 'endTime', e.target.value)}
+                        className="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500"
+                      >
+                        {TIME_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addDjSlot}
+                  className="w-full py-2 border border-dashed border-gray-700 rounded-lg text-gray-400 hover:border-gray-600 hover:text-gray-300 transition-colors text-sm"
+                >
+                  + Add DJ Slot
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* DJ Name (remote only) */}
+          {broadcastType === 'remote' && (
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">DJ Name</label>
               <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
+                type="text"
+                value={djName}
+                onChange={(e) => setDjName(e.target.value)}
+                placeholder="e.g., DJ Shadow (optional)"
                 className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
               />
             </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Start *</label>
-              <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">End *</label>
-              <input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
-              />
-            </div>
-          </div>
+          )}
 
           {/* Status badge (for existing slots) */}
           {isEditing && (
@@ -284,7 +505,7 @@ export function SlotModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-4 border-t border-gray-800">
+        <div className="flex items-center justify-between p-4 border-t border-gray-800 sticky bottom-0 bg-gray-900">
           {isEditing && onDelete ? (
             <button
               onClick={handleDelete}
@@ -306,10 +527,10 @@ export function SlotModal({
             </button>
             <button
               onClick={handleSave}
-              disabled={isSaving || !djName || !date || !startTime || !endTime}
+              disabled={isSaving || !showName || !startDate || !endDate || !startTime || !endTime}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors"
             >
-              {isSaving ? 'Saving...' : isEditing ? 'Save Changes' : 'Create Slot'}
+              {isSaving ? 'Saving...' : isEditing ? 'Save Changes' : 'Create Show'}
             </button>
           </div>
         </div>

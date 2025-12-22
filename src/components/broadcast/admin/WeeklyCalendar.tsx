@@ -7,8 +7,21 @@ interface WeeklyCalendarProps {
   slots: BroadcastSlotSerialized[];
   onSlotClick: (slot: BroadcastSlotSerialized) => void;
   onCreateSlot: (startTime: Date, endTime: Date) => void;
+  onUpdateSlot?: (slotId: string, updates: { startTime?: number; endTime?: number }) => Promise<void>;
   currentWeekStart: Date;
   onWeekChange: (newStart: Date) => void;
+  venueName: string;
+}
+
+// Segment of a slot for rendering (handles overnight shows)
+interface SlotSegment {
+  slot: BroadcastSlotSerialized;
+  dayIndex: number;
+  startHour: number;
+  endHour: number;
+  isFirstSegment: boolean;
+  isLastSegment: boolean;
+  segmentIndex: number;
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -18,12 +31,20 @@ export function WeeklyCalendar({
   slots,
   onSlotClick,
   onCreateSlot,
+  onUpdateSlot,
   currentWeekStart,
   onWeekChange,
+  venueName,
 }: WeeklyCalendarProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ day: number; hour: number } | null>(null);
   const [dragEnd, setDragEnd] = useState<{ day: number; hour: number } | null>(null);
+
+  // Resize state
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeSlot, setResizeSlot] = useState<BroadcastSlotSerialized | null>(null);
+  const [resizeEdge, setResizeEdge] = useState<'top' | 'bottom' | null>(null);
+  const [resizeHour, setResizeHour] = useState<number | null>(null);
 
   // Get days of the week
   const weekDays = useMemo(() => {
@@ -36,20 +57,102 @@ export function WeeklyCalendar({
     return days;
   }, [currentWeekStart]);
 
-  // Group slots by day
-  const slotsByDay = useMemo(() => {
-    const grouped: Record<number, BroadcastSlotSerialized[]> = {};
-    slots.forEach(slot => {
-      const slotDate = new Date(slot.startTime);
-      const dayIndex = weekDays.findIndex(d =>
-        d.toDateString() === slotDate.toDateString()
-      );
-      if (dayIndex >= 0) {
-        if (!grouped[dayIndex]) grouped[dayIndex] = [];
-        grouped[dayIndex].push(slot);
+  // Calculate slot segments for overnight shows
+  const calculateSlotSegments = (slot: BroadcastSlotSerialized): SlotSegment[] => {
+    const startDate = new Date(slot.startTime);
+    const endDate = new Date(slot.endTime);
+    const segments: SlotSegment[] = [];
+
+    const startDayIndex = weekDays.findIndex(d =>
+      d.toDateString() === startDate.toDateString()
+    );
+
+    const endDayIndex = weekDays.findIndex(d =>
+      d.toDateString() === endDate.toDateString()
+    );
+
+    if (startDayIndex < 0 && endDayIndex < 0) return segments;
+
+    const startHour = startDate.getHours() + startDate.getMinutes() / 60;
+    const endHour = endDate.getHours() + endDate.getMinutes() / 60;
+
+    // Same day slot
+    if (startDayIndex === endDayIndex) {
+      if (startDayIndex >= 0) {
+        segments.push({
+          slot,
+          dayIndex: startDayIndex,
+          startHour,
+          endHour,
+          isFirstSegment: true,
+          isLastSegment: true,
+          segmentIndex: 0,
+        });
       }
+      return segments;
+    }
+
+    // Overnight or multi-day slot
+    // First segment: start day, startHour to midnight
+    if (startDayIndex >= 0) {
+      segments.push({
+        slot,
+        dayIndex: startDayIndex,
+        startHour,
+        endHour: 24,
+        isFirstSegment: true,
+        isLastSegment: false,
+        segmentIndex: 0,
+      });
+    }
+
+    // Middle segments (full days)
+    const actualStartDay = startDayIndex >= 0 ? startDayIndex : 0;
+    const actualEndDay = endDayIndex >= 0 ? endDayIndex : 6;
+    for (let day = actualStartDay + 1; day < actualEndDay; day++) {
+      if (day >= 0 && day < 7) {
+        segments.push({
+          slot,
+          dayIndex: day,
+          startHour: 0,
+          endHour: 24,
+          isFirstSegment: false,
+          isLastSegment: false,
+          segmentIndex: segments.length,
+        });
+      }
+    }
+
+    // Last segment: end day, midnight to endHour
+    if (endDayIndex >= 0 && endDayIndex < 7 && endHour > 0) {
+      segments.push({
+        slot,
+        dayIndex: endDayIndex,
+        startHour: 0,
+        endHour,
+        isFirstSegment: startDayIndex < 0,
+        isLastSegment: true,
+        segmentIndex: segments.length,
+      });
+    }
+
+    return segments;
+  };
+
+  // Group slot segments by day
+  const segmentsByDay = useMemo(() => {
+    const grouped: Record<number, SlotSegment[]> = {};
+
+    slots.forEach(slot => {
+      const segments = calculateSlotSegments(slot);
+      segments.forEach(segment => {
+        if (!grouped[segment.dayIndex]) grouped[segment.dayIndex] = [];
+        grouped[segment.dayIndex].push(segment);
+      });
     });
+
     return grouped;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slots, weekDays]);
 
   // Navigate weeks
@@ -76,19 +179,31 @@ export function WeeklyCalendar({
 
   // Handle drag to create
   const handleMouseDown = (dayIndex: number, hour: number) => {
+    if (isResizing) return;
     setIsDragging(true);
     setDragStart({ day: dayIndex, hour });
     setDragEnd({ day: dayIndex, hour: hour + 1 });
   };
 
-  const handleMouseMove = (dayIndex: number, hour: number) => {
-    if (isDragging && dragStart && dragStart.day === dayIndex) {
+  const handleMouseMove = (dayIndex: number, hour: number, e?: React.MouseEvent) => {
+    if (isResizing && resizeSlot) {
+      // Calculate fractional position within the hour cell for precise resizing
+      let fractionalOffset = 0;
+      if (e) {
+        const target = e.currentTarget as HTMLElement;
+        const rect = target.getBoundingClientRect();
+        fractionalOffset = (e.clientY - rect.top) / rect.height;
+      }
+      handleResizeMove(hour, fractionalOffset);
+    } else if (isDragging && dragStart && dragStart.day === dayIndex) {
       setDragEnd({ day: dayIndex, hour: Math.max(hour + 1, dragStart.hour + 1) });
     }
   };
 
-  const handleMouseUp = () => {
-    if (isDragging && dragStart && dragEnd) {
+  const handleMouseUp = async () => {
+    if (isResizing) {
+      await handleResizeEnd();
+    } else if (isDragging && dragStart && dragEnd) {
       const startDate = new Date(weekDays[dragStart.day]);
       startDate.setHours(dragStart.hour, 0, 0, 0);
 
@@ -104,65 +219,224 @@ export function WeeklyCalendar({
     setDragEnd(null);
   };
 
-  // Render a slot on the calendar
-  const renderSlot = (slot: BroadcastSlotSerialized) => {
+  // Resize handlers
+  const handleResizeStart = (
+    e: React.MouseEvent,
+    slot: BroadcastSlotSerialized,
+    edge: 'top' | 'bottom'
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsResizing(true);
+    setResizeSlot(slot);
+    setResizeEdge(edge);
+
     const startDate = new Date(slot.startTime);
     const endDate = new Date(slot.endTime);
+    setResizeHour(edge === 'top'
+      ? startDate.getHours() + startDate.getMinutes() / 60
+      : endDate.getHours() + endDate.getMinutes() / 60
+    );
+  };
 
+  const handleResizeMove = (hour: number, fractionalOffset: number = 0) => {
+    if (!isResizing || !resizeSlot) return;
+
+    // Calculate precise hour with fractional offset from mouse position
+    const preciseHour = hour + fractionalOffset;
+
+    // Snap to 30-minute increments
+    const snappedHour = Math.round(preciseHour * 2) / 2;
+
+    const startDate = new Date(resizeSlot.startTime);
+    const endDate = new Date(resizeSlot.endTime);
     const startHour = startDate.getHours() + startDate.getMinutes() / 60;
     const endHour = endDate.getHours() + endDate.getMinutes() / 60;
-    const duration = endHour - startHour;
 
-    const top = startHour * HOUR_HEIGHT;
+    if (resizeEdge === 'top') {
+      // Allow moving start time both earlier and later (minimum 30 min slot)
+      if (snappedHour < endHour - 0.5 && snappedHour >= 0) {
+        setResizeHour(snappedHour);
+      }
+    } else {
+      // Allow moving end time both earlier and later (minimum 30 min slot)
+      if (snappedHour > startHour + 0.5 && snappedHour <= 24) {
+        setResizeHour(snappedHour);
+      }
+    }
+  };
+
+  const handleResizeEnd = async () => {
+    if (!isResizing || !resizeSlot || resizeHour === null || !onUpdateSlot) {
+      setIsResizing(false);
+      setResizeSlot(null);
+      setResizeEdge(null);
+      setResizeHour(null);
+      return;
+    }
+
+    const startDate = new Date(resizeSlot.startTime);
+    const endDate = new Date(resizeSlot.endTime);
+
+    let newStartTime = resizeSlot.startTime;
+    let newEndTime = resizeSlot.endTime;
+
+    if (resizeEdge === 'top') {
+      const newStart = new Date(startDate);
+      newStart.setHours(Math.floor(resizeHour), Math.round((resizeHour % 1) * 60), 0, 0);
+      newStartTime = newStart.getTime();
+    } else {
+      const newEnd = new Date(endDate);
+      newEnd.setHours(Math.floor(resizeHour), Math.round((resizeHour % 1) * 60), 0, 0);
+      newEndTime = newEnd.getTime();
+    }
+
+    if (newStartTime !== resizeSlot.startTime || newEndTime !== resizeSlot.endTime) {
+      await onUpdateSlot(resizeSlot.id, {
+        startTime: newStartTime,
+        endTime: newEndTime,
+      });
+    }
+
+    setIsResizing(false);
+    setResizeSlot(null);
+    setResizeEdge(null);
+    setResizeHour(null);
+  };
+
+  // Render a slot segment on the calendar
+  const renderSlotSegment = (segment: SlotSegment) => {
+    const { slot, startHour, endHour, isFirstSegment, isLastSegment } = segment;
+
+    // Calculate display position (may be overridden during resize)
+    let displayStartHour = startHour;
+    let displayEndHour = endHour;
+
+    if (isResizing && resizeSlot?.id === slot.id && resizeHour !== null) {
+      if (resizeEdge === 'top' && isFirstSegment) {
+        displayStartHour = resizeHour;
+      } else if (resizeEdge === 'bottom' && isLastSegment) {
+        displayEndHour = resizeHour;
+      }
+    }
+
+    const duration = displayEndHour - displayStartHour;
+    const top = displayStartHour * HOUR_HEIGHT;
     const height = Math.max(duration * HOUR_HEIGHT, 24);
 
     const isLive = slot.status === 'live';
-    const isPast = endDate < new Date();
+    const isPast = new Date(slot.endTime) < new Date();
     const isRemote = slot.broadcastType === 'remote';
 
-    // Color based on broadcast type: blue for venue, purple for remote
     const getSlotColors = () => {
       if (isLive) return 'bg-red-600 border-2 border-red-400';
       if (isPast) return 'bg-gray-700 opacity-60';
       if (isRemote) return 'bg-purple-600 hover:bg-purple-500';
-      return 'bg-blue-600 hover:bg-blue-500'; // venue
+      return 'bg-blue-600 hover:bg-blue-500';
     };
+
+    // Border radius based on segment position
+    const borderRadius = isFirstSegment && isLastSegment
+      ? 'rounded-lg'
+      : isFirstSegment
+        ? 'rounded-t-lg rounded-b-none'
+        : isLastSegment
+          ? 'rounded-t-none rounded-b-lg'
+          : 'rounded-none';
+
+    // Get DJ info for display
+    const getDJInfo = () => {
+      if (slot.djSlots && slot.djSlots.length > 0) {
+        const djNames = slot.djSlots
+          .filter(dj => dj.djName)
+          .map(dj => dj.djName)
+          .join(', ');
+        return djNames || null;
+      }
+      return slot.djName || null;
+    };
+
+    const djInfo = getDJInfo();
 
     return (
       <div
-        key={slot.id}
-        onClick={(e) => {
-          e.stopPropagation();
-          onSlotClick(slot);
-        }}
-        className={`absolute left-1 right-1 rounded-lg px-2 py-1 cursor-pointer overflow-hidden transition-all hover:brightness-110 ${getSlotColors()}`}
+        key={`${slot.id}-${segment.segmentIndex}`}
+        className={`absolute left-1 right-1 ${borderRadius} cursor-pointer overflow-visible transition-all hover:brightness-110 ${getSlotColors()}`}
         style={{ top: `${top}px`, height: `${height}px` }}
       >
-        <div className="text-white text-xs font-medium truncate flex items-center gap-1">
-          {isRemote && (
-            <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          )}
-          {slot.djName}
-        </div>
-        {height > 30 && (
-          <div className="text-white/70 text-xs truncate">
-            {slot.showName || formatTime(startDate)}
+        {/* Top resize handle */}
+        {isFirstSegment && !isPast && onUpdateSlot && (
+          <div
+            className="absolute -top-1 left-0 right-0 h-3 cursor-ns-resize group z-10"
+            onMouseDown={(e) => handleResizeStart(e, slot, 'top')}
+          >
+            <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-1 bg-white/0 group-hover:bg-white/50 rounded-full transition-colors" />
           </div>
         )}
-        {isLive && (
-          <div className="absolute top-1 right-1 w-2 h-2 bg-red-400 rounded-full animate-pulse" />
+
+        {/* Content */}
+        <div
+          className="px-2 py-1 h-full overflow-hidden"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!isResizing) onSlotClick(slot);
+          }}
+        >
+          {/* Continuation indicator at top */}
+          {!isFirstSegment && (
+            <div className="text-white/50 text-xs italic mb-0.5">...continued</div>
+          )}
+
+          {/* Show name (primary) */}
+          {isFirstSegment && (
+            <div className="text-white text-xs font-medium truncate flex items-center gap-1">
+              {isRemote && (
+                <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+              {slot.showName}
+            </div>
+          )}
+
+          {/* DJ info (secondary) */}
+          {height > 30 && isFirstSegment && djInfo && (
+            <div className="text-white/70 text-xs truncate">
+              {djInfo}
+            </div>
+          )}
+
+          {/* Multiple DJs indicator */}
+          {height > 50 && isFirstSegment && slot.djSlots && slot.djSlots.length > 1 && (
+            <div className="text-white/50 text-xs mt-0.5">
+              {slot.djSlots.length} DJs
+            </div>
+          )}
+
+          {/* Continuation indicator at bottom */}
+          {!isLastSegment && (
+            <div className="absolute bottom-1 left-2 text-white/50 text-xs italic">continues...</div>
+          )}
+
+          {isLive && (
+            <div className="absolute top-1 right-1 w-2 h-2 bg-red-400 rounded-full animate-pulse" />
+          )}
+        </div>
+
+        {/* Bottom resize handle */}
+        {isLastSegment && !isPast && onUpdateSlot && (
+          <div
+            className="absolute -bottom-1 left-0 right-0 h-3 cursor-ns-resize group z-10"
+            onMouseDown={(e) => handleResizeStart(e, slot, 'bottom')}
+          >
+            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-8 h-1 bg-white/0 group-hover:bg-white/50 rounded-full transition-colors" />
+          </div>
         )}
       </div>
     );
   };
 
   // Format helpers
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  };
-
   const formatDayHeader = (date: Date) => {
     const isToday = date.toDateString() === new Date().toDateString();
     return (
@@ -232,7 +506,7 @@ export function WeeklyCalendar({
           <div className="flex items-center gap-3 text-xs">
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded bg-blue-600"></div>
-              <span className="text-gray-400">bettertomorrow</span>
+              <span className="text-gray-400">{venueName}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded bg-purple-600"></div>
@@ -275,12 +549,12 @@ export function WeeklyCalendar({
                     className="border-t border-gray-800/50 cursor-crosshair"
                     style={{ height: `${HOUR_HEIGHT}px` }}
                     onMouseDown={() => handleMouseDown(dayIndex, hour)}
-                    onMouseMove={() => handleMouseMove(dayIndex, hour)}
+                    onMouseMove={(e) => handleMouseMove(dayIndex, hour, e)}
                   />
                 ))}
 
-                {/* Slots */}
-                {slotsByDay[dayIndex]?.map(renderSlot)}
+                {/* Slot segments */}
+                {segmentsByDay[dayIndex]?.map(renderSlotSegment)}
 
                 {/* Drag selection */}
                 {renderDragSelection(dayIndex)}
