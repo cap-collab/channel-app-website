@@ -1,4 +1,4 @@
-import { initializeApp, getApps, cert, App } from "firebase-admin/app";
+import { initializeApp, getApps, cert, App, applicationDefault } from "firebase-admin/app";
 import { getFirestore, Firestore } from "firebase-admin/firestore";
 import { getAuth, Auth } from "firebase-admin/auth";
 
@@ -13,12 +13,13 @@ function initializeAdminApp() {
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
 
-  if (!privateKey || !projectId || !clientEmail) {
-    console.warn("Firebase Admin SDK not configured");
-    return null;
+  if (getApps().length > 0) {
+    adminApp = getApps()[0];
+    return adminApp;
   }
 
-  if (getApps().length === 0) {
+  // Try service account credentials first
+  if (privateKey && projectId && clientEmail) {
     adminApp = initializeApp({
       credential: cert({
         projectId,
@@ -26,11 +27,26 @@ function initializeAdminApp() {
         privateKey: privateKey.replace(/\\n/g, "\n"),
       }),
     });
-  } else {
-    adminApp = getApps()[0];
+    return adminApp;
   }
 
-  return adminApp;
+  // Fall back to Application Default Credentials (ADC)
+  // Works with: gcloud auth application-default login
+  // Or on GCP/Vercel with workload identity
+  if (projectId) {
+    try {
+      adminApp = initializeApp({
+        credential: applicationDefault(),
+        projectId,
+      });
+      return adminApp;
+    } catch (e) {
+      console.warn("Failed to initialize with ADC:", e);
+    }
+  }
+
+  console.warn("Firebase Admin SDK not configured - run: gcloud auth application-default login");
+  return null;
 }
 
 export function getAdminDb(): Firestore | null {
