@@ -1,8 +1,9 @@
 import { AccessToken } from 'livekit-server-sdk';
 import { NextRequest, NextResponse } from 'next/server';
+import { ROOM_NAME } from '@/types/broadcast';
 
 export async function GET(request: NextRequest) {
-  const room = request.nextUrl.searchParams.get('room') || 'test-room';
+  const room = request.nextUrl.searchParams.get('room') || ROOM_NAME;
   const username = request.nextUrl.searchParams.get('username') || 'test-user';
   // Allow listener-only tokens (canPublish=false for iOS app listeners)
   const canPublish = request.nextUrl.searchParams.get('canPublish') !== 'false';
