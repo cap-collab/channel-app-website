@@ -4,6 +4,9 @@ export type AudioInputMethod = 'system' | 'device' | 'rtmp';
 // Broadcast slot status
 export type BroadcastSlotStatus = 'scheduled' | 'live' | 'completed' | 'missed';
 
+// Broadcast type - venue uses permanent URL, remote gets unique token
+export type BroadcastType = 'venue' | 'remote';
+
 // Generic timestamp interface that works with both Admin and Client SDK
 export interface FirestoreTimestamp {
   toMillis(): number;
@@ -18,11 +21,12 @@ export interface BroadcastSlot {
   showName?: string;           // Optional show title
   startTime: FirestoreTimestamp;  // Scheduled start
   endTime: FirestoreTimestamp;    // Scheduled end
-  broadcastToken: string;      // Unique token for the broadcast link
+  broadcastToken: string;      // Unique token for the broadcast link (only used for 'remote' type)
   tokenExpiresAt: FirestoreTimestamp; // Link expiration (end time + buffer)
   createdAt: FirestoreTimestamp;
   createdBy: string;           // Owner's UID
   status: BroadcastSlotStatus;
+  broadcastType: BroadcastType; // 'venue' = permanent URL, 'remote' = unique token
 }
 
 // Serialized version for API responses (timestamps as numbers)
@@ -38,6 +42,7 @@ export interface BroadcastSlotSerialized {
   createdAt: number;
   createdBy: string;
   status: BroadcastSlotStatus;
+  broadcastType: BroadcastType;
 }
 
 // State for the broadcast hook

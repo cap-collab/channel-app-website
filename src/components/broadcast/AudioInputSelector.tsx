@@ -46,7 +46,10 @@ const inputMethods = [
 export function AudioInputSelector({ onSelect, disabled }: AudioInputSelectorProps) {
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold text-white mb-4">How do you want to broadcast?</h2>
+      <h2 className="text-xl font-semibold text-white mb-2">How do you want to broadcast?</h2>
+      <p className="text-gray-400 text-sm mb-4">
+        Select how you want to connect your audio. This will NOT start your broadcast &mdash; you&apos;ll have a chance to test your audio levels first.
+      </p>
 
       <div className="grid gap-4">
         {inputMethods.map((method) => (

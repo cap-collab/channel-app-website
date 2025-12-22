@@ -18,6 +18,7 @@ function serializeSlot(slot: BroadcastSlot): BroadcastSlotSerialized {
     endTime: slot.endTime.toMillis(),
     tokenExpiresAt: slot.tokenExpiresAt.toMillis(),
     createdAt: slot.createdAt.toMillis(),
+    broadcastType: slot.broadcastType || 'venue', // Default to venue for existing slots
   };
 }
 
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { djName, showName, startTime, endTime } = await request.json();
+    const { djName, showName, startTime, endTime, broadcastType = 'venue' } = await request.json();
 
     if (!djName || !startTime || !endTime) {
       return NextResponse.json(
@@ -100,12 +101,16 @@ export async function POST(request: NextRequest) {
       createdAt: Timestamp.now(),
       createdBy: OWNER_UID, // TODO: Get from verified token
       status: 'scheduled',
+      broadcastType,
     };
 
     const docRef = await db.collection('broadcast-slots').add(slot);
 
     const createdSlot: BroadcastSlot = { id: docRef.id, ...slot };
-    const broadcastUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com'}/broadcast/live?token=${slot.broadcastToken}`;
+    // Venue slots use permanent URL, remote slots get unique token URL
+    const broadcastUrl = broadcastType === 'venue'
+      ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com'}/broadcast/bettertomorrow`
+      : `${process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com'}/broadcast/live?token=${slot.broadcastToken}`;
 
     return NextResponse.json({
       slot: serializeSlot(createdSlot),

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
-import { BroadcastSlotSerialized, RoomStatus } from '@/types/broadcast';
+import { BroadcastSlotSerialized, RoomStatus, BroadcastType } from '@/types/broadcast';
 import { WeeklyCalendar } from '@/components/broadcast/admin/WeeklyCalendar';
 import { SlotModal } from '@/components/broadcast/admin/SlotModal';
 import { getSlots, createSlot, deleteSlot as deleteSlotFromDb } from '@/lib/broadcast-slots';
@@ -86,7 +86,7 @@ export function AdminDashboard() {
   };
 
   // Save slot (create or update) - directly to Firestore
-  const handleSaveSlot = async (data: { djName: string; showName?: string; startTime: number; endTime: number }) => {
+  const handleSaveSlot = async (data: { djName: string; showName?: string; startTime: number; endTime: number; broadcastType: BroadcastType }) => {
     if (!user) return;
 
     if (selectedSlot) {

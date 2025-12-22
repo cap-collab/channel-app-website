@@ -24,7 +24,10 @@ function initializeAdminApp() {
       credential: cert({
         projectId,
         clientEmail,
-        privateKey: privateKey.replace(/\\n/g, "\n"),
+        // Handle both formats: literal \n chars or actual newlines
+        privateKey: privateKey.includes('\\n')
+          ? privateKey.replace(/\\n/g, "\n")
+          : privateKey,
       }),
     });
     return adminApp;

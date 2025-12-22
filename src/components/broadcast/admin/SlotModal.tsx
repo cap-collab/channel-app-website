@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BroadcastSlotSerialized } from '@/types/broadcast';
+import { BroadcastSlotSerialized, BroadcastType } from '@/types/broadcast';
 
 interface SlotModalProps {
   slot?: BroadcastSlotSerialized | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: { djName: string; showName?: string; startTime: number; endTime: number }) => Promise<void>;
+  onSave: (data: { djName: string; showName?: string; startTime: number; endTime: number; broadcastType: BroadcastType }) => Promise<void>;
   onDelete?: (slotId: string) => Promise<void>;
   // For creating new slots
   initialStartTime?: Date;
@@ -28,6 +28,7 @@ export function SlotModal({
   const [date, setDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [broadcastType, setBroadcastType] = useState<BroadcastType>('venue');
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -45,6 +46,7 @@ export function SlotModal({
         setDate(start.toISOString().split('T')[0]);
         setStartTime(start.toTimeString().slice(0, 5));
         setEndTime(end.toTimeString().slice(0, 5));
+        setBroadcastType(slot.broadcastType || 'venue');
       } else if (initialStartTime && initialEndTime) {
         // Creating new slot from calendar drag
         setDjName('');
@@ -52,6 +54,7 @@ export function SlotModal({
         setDate(initialStartTime.toISOString().split('T')[0]);
         setStartTime(initialStartTime.toTimeString().slice(0, 5));
         setEndTime(initialEndTime.toTimeString().slice(0, 5));
+        setBroadcastType('venue'); // Default to venue for new slots
       }
     }
   }, [isOpen, slot, initialStartTime, initialEndTime]);
@@ -74,6 +77,7 @@ export function SlotModal({
         showName: showName || undefined,
         startTime: startDateTime,
         endTime: endDateTime,
+        broadcastType,
       });
       onClose();
     } catch (error) {
@@ -100,7 +104,9 @@ export function SlotModal({
 
   const copyBroadcastLink = async () => {
     if (!slot) return;
-    const url = `${window.location.origin}/broadcast/live?token=${slot.broadcastToken}`;
+    const url = slot.broadcastType === 'venue'
+      ? `${window.location.origin}/broadcast/bettertomorrow`
+      : `${window.location.origin}/broadcast/live?token=${slot.broadcastToken}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
@@ -113,7 +119,9 @@ export function SlotModal({
   if (!isOpen) return null;
 
   const broadcastUrl = slot
-    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/broadcast/live?token=${slot.broadcastToken}`
+    ? slot.broadcastType === 'venue'
+      ? `${typeof window !== 'undefined' ? window.location.origin : ''}/broadcast/bettertomorrow`
+      : `${typeof window !== 'undefined' ? window.location.origin : ''}/broadcast/live?token=${slot.broadcastToken}`
     : '';
 
   return (
@@ -184,6 +192,48 @@ export function SlotModal({
               placeholder="e.g., Late Night Sessions"
               className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
             />
+          </div>
+
+          {/* Broadcast Type */}
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">Broadcast Location</label>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setBroadcastType('venue')}
+                className={`flex-1 p-3 rounded-lg border transition-colors ${
+                  broadcastType === 'venue'
+                    ? 'bg-blue-600/20 border-blue-500 text-white'
+                    : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600'
+                }`}
+              >
+                <div className="flex items-center gap-2 justify-center">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="font-medium">bettertomorrow</span>
+                </div>
+                <p className="text-xs mt-1 opacity-70">At the venue CDJs</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setBroadcastType('remote')}
+                className={`flex-1 p-3 rounded-lg border transition-colors ${
+                  broadcastType === 'remote'
+                    ? 'bg-purple-600/20 border-purple-500 text-white'
+                    : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600'
+                }`}
+              >
+                <div className="flex items-center gap-2 justify-center">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="font-medium">Remote</span>
+                </div>
+                <p className="text-xs mt-1 opacity-70">Unique link for DJ</p>
+              </button>
+            </div>
           </div>
 
           {/* Date & Time */}

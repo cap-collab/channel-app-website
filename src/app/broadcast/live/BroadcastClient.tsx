@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useBroadcastToken } from '@/hooks/useBroadcastToken';
 import { useBroadcast } from '@/hooks/useBroadcast';
@@ -24,6 +24,34 @@ export function BroadcastClient() {
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [dismissedWarning, setDismissedWarning] = useState(false);
   const [isGoingLive, setIsGoingLive] = useState(false);
+  const [canGoLive, setCanGoLive] = useState(false);
+  const [goLiveMessage, setGoLiveMessage] = useState('');
+
+  // Check Go Live availability based on slot timing
+  useEffect(() => {
+    if (!slot) return;
+
+    const checkGoLiveAvailability = () => {
+      const now = Date.now();
+      const oneMinuteBefore = slot.startTime - 60 * 1000;
+
+      if (now >= oneMinuteBefore && now <= slot.endTime) {
+        setCanGoLive(true);
+        setGoLiveMessage('');
+      } else if (now < oneMinuteBefore) {
+        setCanGoLive(false);
+        const availableTime = new Date(oneMinuteBefore).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        setGoLiveMessage(`GO LIVE will be available at ${availableTime}`);
+      } else {
+        setCanGoLive(false);
+        setGoLiveMessage('Your slot has ended');
+      }
+    };
+
+    checkGoLiveAvailability();
+    const interval = setInterval(checkGoLiveAvailability, 1000);
+    return () => clearInterval(interval);
+  }, [slot]);
 
   const handleInputSelect = useCallback((method: AudioInputMethod) => {
     broadcast.setInputMethod(method);
@@ -125,18 +153,29 @@ export function BroadcastClient() {
     );
   }
 
-  // Schedule warning (early or late)
+  // Schedule info screen (early or late)
   if ((scheduleStatus === 'early' || scheduleStatus === 'late') && !dismissedWarning) {
+    const isEarly = scheduleStatus === 'early';
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-8">
         <div className="bg-gray-900 rounded-xl p-8 max-w-md">
-          <div className="w-16 h-16 bg-yellow-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </div>
+          {isEarly ? (
+            // Info icon (blue) for early - informational, not alarming
+            <div className="w-16 h-16 bg-blue-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          ) : (
+            // Warning icon (yellow) for late - show has started
+            <div className="w-16 h-16 bg-yellow-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+          )}
           <h1 className="text-xl font-bold text-white mb-2 text-center">
-            {scheduleStatus === 'early' ? "You're Early" : "You're Late"}
+            {isEarly ? "Your Show Time" : "Your Show Has Started"}
           </h1>
           <p className="text-gray-400 text-center mb-2">
             {message}
@@ -150,13 +189,10 @@ export function BroadcastClient() {
           <div className="space-y-3">
             <button
               onClick={() => setDismissedWarning(true)}
-              className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+              className={`w-full ${isEarly ? 'bg-blue-600 hover:bg-blue-700' : 'bg-yellow-600 hover:bg-yellow-700'} text-white font-bold py-3 px-6 rounded-lg transition-colors`}
             >
-              Continue Anyway
+              {isEarly ? "Set Up Audio" : "Continue to Setup"}
             </button>
-            <p className="text-gray-500 text-xs text-center">
-              You can still broadcast, but it may overlap with other programming.
-            </p>
           </div>
         </div>
       </div>
@@ -265,21 +301,38 @@ export function BroadcastClient() {
               Back
             </button>
 
+            {/* Show slot timing info */}
+            {slot && (
+              <div className="bg-gray-800 rounded-lg p-4 text-center">
+                <p className="text-gray-400 text-sm">Your show</p>
+                <p className="text-white font-medium">{slot.showName || slot.djName}</p>
+                <p className="text-gray-400 text-sm">
+                  {new Date(slot.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} - {new Date(slot.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                </p>
+              </div>
+            )}
+
             <AudioLevelMeter stream={audioStream} />
 
             <div className="bg-gray-900 rounded-xl p-4">
               <p className="text-gray-400 text-sm mb-4">
-                Audio is being captured. When you&apos;re ready, click the button below to go live.
-                Your audio will be streamed to all Channel listeners.
+                Check your audio levels above to make sure sound is coming through.
+                You can test as long as you need &mdash; your broadcast won&apos;t start until you click GO LIVE.
               </p>
 
-              <button
-                onClick={handleGoLive}
-                disabled={isGoingLive}
-                className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg text-xl transition-colors"
-              >
-                {isGoingLive ? 'Going live...' : 'GO LIVE'}
-              </button>
+              {canGoLive ? (
+                <button
+                  onClick={handleGoLive}
+                  disabled={isGoingLive}
+                  className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg text-xl transition-colors"
+                >
+                  {isGoingLive ? 'Going live...' : 'GO LIVE'}
+                </button>
+              ) : (
+                <p className="text-center text-gray-500 py-4 font-medium">
+                  {goLiveMessage}
+                </p>
+              )}
             </div>
           </div>
         )}

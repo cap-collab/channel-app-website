@@ -118,6 +118,15 @@ export function WeeklyCalendar({
 
     const isLive = slot.status === 'live';
     const isPast = endDate < new Date();
+    const isRemote = slot.broadcastType === 'remote';
+
+    // Color based on broadcast type: blue for venue, purple for remote
+    const getSlotColors = () => {
+      if (isLive) return 'bg-red-600 border-2 border-red-400';
+      if (isPast) return 'bg-gray-700 opacity-60';
+      if (isRemote) return 'bg-purple-600 hover:bg-purple-500';
+      return 'bg-blue-600 hover:bg-blue-500'; // venue
+    };
 
     return (
       <div
@@ -126,16 +135,15 @@ export function WeeklyCalendar({
           e.stopPropagation();
           onSlotClick(slot);
         }}
-        className={`absolute left-1 right-1 rounded-lg px-2 py-1 cursor-pointer overflow-hidden transition-all hover:brightness-110 ${
-          isLive
-            ? 'bg-red-600 border-2 border-red-400'
-            : isPast
-              ? 'bg-gray-700 opacity-60'
-              : 'bg-blue-600 hover:bg-blue-500'
-        }`}
+        className={`absolute left-1 right-1 rounded-lg px-2 py-1 cursor-pointer overflow-hidden transition-all hover:brightness-110 ${getSlotColors()}`}
         style={{ top: `${top}px`, height: `${height}px` }}
       >
-        <div className="text-white text-xs font-medium truncate">
+        <div className="text-white text-xs font-medium truncate flex items-center gap-1">
+          {isRemote && (
+            <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
           {slot.djName}
         </div>
         {height > 30 && (
@@ -219,8 +227,22 @@ export function WeeklyCalendar({
           {weekDays[0].toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
         </h2>
 
-        <div className="text-sm text-gray-400">
-          Click &amp; drag to create a slot
+        <div className="flex items-center gap-4">
+          {/* Legend */}
+          <div className="flex items-center gap-3 text-xs">
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded bg-blue-600"></div>
+              <span className="text-gray-400">bettertomorrow</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded bg-purple-600"></div>
+              <span className="text-gray-400">Remote</span>
+            </div>
+          </div>
+          <div className="text-sm text-gray-500">|</div>
+          <div className="text-sm text-gray-400">
+            Click &amp; drag to create a slot
+          </div>
         </div>
       </div>
 
