@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="211 13 50 50">
+  <rect x="211" y="13" width="50" height="50" fill="black"/>
+  <defs>
+    <pattern id="dots" patternUnits="userSpaceOnUse" width="4" height="4">
+      <circle cx="2" cy="2" r="1.5" fill="white"/>
+    </pattern>
+    <mask id="textMask">
+      <text x="200" y="60" text-anchor="middle" font-family="SF Pro Text, SF Pro, Helvetica, Arial, sans-serif" font-size="68" font-weight="900" letter-spacing="-3" fill="white" stroke="white" stroke-width="6">CHANNEL</text>
+    </mask>
+  </defs>
+  <rect x="211" y="13" width="50" height="50" fill="url(#dots)" mask="url(#textMask)"/>
+</svg>

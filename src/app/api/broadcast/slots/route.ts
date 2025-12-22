@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .get();
 
-    let slots: BroadcastSlotSerialized[] = [];
+    const slots: BroadcastSlotSerialized[] = [];
 
     snapshot.forEach(doc => {
       const data = doc.data() as Omit<BroadcastSlot, 'id'>;

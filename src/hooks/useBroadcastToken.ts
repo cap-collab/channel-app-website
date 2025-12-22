@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
+import { validateToken } from '@/lib/broadcast-slots';
 
 interface TokenValidationResult {
   slot: BroadcastSlotSerialized | null;
@@ -25,21 +26,21 @@ export function useBroadcastToken(token: string | null): TokenValidationResult {
       return;
     }
 
-    const validateToken = async () => {
+    const validate = async () => {
       try {
-        const res = await fetch(`/api/broadcast/validate-token?token=${encodeURIComponent(token)}`);
-        const data = await res.json();
+        const result = await validateToken(token);
 
-        if (!res.ok) {
-          setError(data.error || 'Invalid token');
+        if (!result.valid) {
+          setError(result.error || 'Invalid token');
           setSlot(null);
         } else {
-          setSlot(data.slot);
-          setScheduleStatus(data.scheduleStatus);
-          setMessage(data.message);
+          setSlot(result.slot || null);
+          setScheduleStatus(result.scheduleStatus || null);
+          setMessage(result.message || null);
           setError(null);
         }
-      } catch {
+      } catch (err) {
+        console.error('Token validation error:', err);
         setError('Failed to validate token');
         setSlot(null);
       } finally {
@@ -47,7 +48,7 @@ export function useBroadcastToken(token: string | null): TokenValidationResult {
       }
     };
 
-    validateToken();
+    validate();
   }, [token]);
 
   return { slot, error, loading, scheduleStatus, message };

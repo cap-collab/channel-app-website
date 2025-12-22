@@ -1,0 +1,97 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if user is a broadcaster or admin
+    function isBroadcaster() {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['broadcaster', 'admin'];
+    }
+
+    // Chat messages (mobile app)
+    match /chats/{stationId}/messages/{messageId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.message is string
+        && request.resource.data.message.size() <= 280
+        && request.resource.data.username is string
+        && request.resource.data.username.size() <= 20;
+      // Allow updating only heartCount and timestamp (for amplified love feature)
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['heartCount', 'timestamp']);
+      allow delete: if false;
+    }
+
+    // Username registration (mobile app)
+    match /usernames/{username} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() <= 20;
+      // Allow users to delete their own username (for account deletion)
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow update: if false;
+    }
+
+    // @Channel mentions log (mobile app)
+    match /channel-mentions/{mentionId} {
+      allow read: if false;
+      allow create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    // Pending popularity emails (for account deletion)
+    match /pendingPopularityEmails/{docId} {
+      allow read, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create, update: if false;
+    }
+
+    // Pending mention emails (for account deletion)
+    match /pendingMentionEmails/{docId} {
+      allow read, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create, update: if false;
+    }
+
+    // User profiles and favorites (web app + cron)
+    match /users/{userId} {
+      // Users can read/write their own data
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Cron service can read all users (for notification queries)
+      allow read: if request.auth != null && request.auth.token.email == 'cron@channel-app.com';
+      // Cron can update lastWatchlistEmailAt
+      allow update: if request.auth != null && request.auth.token.email == 'cron@channel-app.com';
+
+      match /favorites/{favoriteId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        // Cron can read all favorites and create system favorites
+        allow read, create: if request.auth != null && request.auth.token.email == 'cron@channel-app.com';
+      }
+    }
+
+    // Broadcast slots
+    // - Anyone can read (DJs validate their token without login)
+    // - Only broadcasters can write (create/update/delete slots)
+    match /broadcast-slots/{slotId} {
+      allow read: if true;
+      allow write: if isBroadcaster();
+    }
+
+    // Scheduled notifications (cron job)
+    match /scheduledNotifications/{notificationId} {
+      allow read, write: if request.auth != null && request.auth.token.email == 'cron@channel-app.com';
+    }
+
+    // Station applications (web app)
+    match /station-applications/{docId} {
+      allow create: if true;
+      allow read, update, delete: if false;
+    }
+
+    // Beta waitlist - Android email capture (web app)
+    match /beta-waitlist/{docId} {
+      allow create: if true;
+      allow read, update, delete: if false;
+    }
+  }
+}

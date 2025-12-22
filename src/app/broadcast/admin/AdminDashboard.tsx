@@ -2,12 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
 import { BroadcastSlotSerialized, RoomStatus } from '@/types/broadcast';
 import { WeeklyCalendar } from '@/components/broadcast/admin/WeeklyCalendar';
 import { SlotModal } from '@/components/broadcast/admin/SlotModal';
-
-// Hardcoded owner UID - in production, check against a list or Firestore
-const OWNER_UID = process.env.NEXT_PUBLIC_BROADCAST_OWNER_UID || '';
+import { getSlots, createSlot, deleteSlot as deleteSlotFromDb } from '@/lib/broadcast-slots';
 
 // Get start of current week (Sunday)
 function getWeekStart(date: Date = new Date()): Date {
@@ -19,11 +18,13 @@ function getWeekStart(date: Date = new Date()): Date {
 }
 
 export function AdminDashboard() {
-  const { user, isAuthenticated, loading: authLoading, signInWithGoogle } = useAuthContext();
+  const { user, isAuthenticated, loading: authLoading, signInWithGoogle, signInWithApple, sendEmailLink, emailSent, resetEmailSent } = useAuthContext();
+  const { role, loading: roleLoading } = useUserRole(user);
 
   const [slots, setSlots] = useState<BroadcastSlotSerialized[]>([]);
   const [roomStatus, setRoomStatus] = useState<RoomStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [email, setEmail] = useState('');
 
   // Calendar state
   const [currentWeekStart, setCurrentWeekStart] = useState(getWeekStart());
@@ -33,17 +34,16 @@ export function AdminDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newSlotTimes, setNewSlotTimes] = useState<{ start: Date; end: Date } | null>(null);
 
-  // Check if user is owner
-  const isOwner = user?.uid === OWNER_UID || OWNER_UID === '';
+  // Check if user has broadcaster access
+  const hasBroadcasterAccess = isBroadcaster(role);
 
-  // Fetch slots
+  // Fetch slots from Firestore directly
   const fetchSlots = useCallback(async () => {
     try {
-      const res = await fetch('/api/broadcast/slots');
-      const data = await res.json();
-      setSlots(data.slots || []);
-    } catch {
-      console.error('Failed to fetch slots');
+      const slotsData = await getSlots();
+      setSlots(slotsData);
+    } catch (error) {
+      console.error('Failed to fetch slots:', error);
     }
   }, []);
 
@@ -60,7 +60,7 @@ export function AdminDashboard() {
 
   // Initial load
   useEffect(() => {
-    if (isAuthenticated && isOwner) {
+    if (isAuthenticated && hasBroadcasterAccess) {
       Promise.all([fetchSlots(), fetchRoomStatus()]).finally(() => setIsLoading(false));
 
       // Poll room status every 10 seconds
@@ -69,7 +69,7 @@ export function AdminDashboard() {
     } else {
       setIsLoading(false);
     }
-  }, [isAuthenticated, isOwner, fetchSlots, fetchRoomStatus]);
+  }, [isAuthenticated, hasBroadcasterAccess, fetchSlots, fetchRoomStatus]);
 
   // Handle slot click (edit)
   const handleSlotClick = (slot: BroadcastSlotSerialized) => {
@@ -85,38 +85,27 @@ export function AdminDashboard() {
     setIsModalOpen(true);
   };
 
-  // Save slot (create or update)
+  // Save slot (create or update) - directly to Firestore
   const handleSaveSlot = async (data: { djName: string; showName?: string; startTime: number; endTime: number }) => {
+    if (!user) return;
+
     if (selectedSlot) {
-      // Update existing slot - for now just delete and recreate
-      // TODO: Add proper PATCH support
-      await fetch('/api/broadcast/slots', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slotId: selectedSlot.id }),
-      });
+      // Update existing slot - delete and recreate
+      await deleteSlotFromDb(selectedSlot.id);
     }
 
     // Create new slot
-    await fetch('/api/broadcast/slots', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${await user?.getIdToken()}`,
-      },
-      body: JSON.stringify(data),
+    await createSlot({
+      ...data,
+      createdBy: user.uid,
     });
 
     await fetchSlots();
   };
 
-  // Delete slot
+  // Delete slot - directly from Firestore
   const handleDeleteSlot = async (slotId: string) => {
-    await fetch('/api/broadcast/slots', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slotId }),
-    });
+    await deleteSlotFromDb(slotId);
     await fetchSlots();
   };
 
@@ -127,8 +116,16 @@ export function AdminDashboard() {
     setNewSlotTimes(null);
   };
 
-  // Auth loading
-  if (authLoading) {
+  // Handle email sign in
+  const handleEmailSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email) {
+      await sendEmailLink(email);
+    }
+  };
+
+  // Auth or role loading
+  if (authLoading || roleLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
@@ -136,45 +133,108 @@ export function AdminDashboard() {
     );
   }
 
-  // Not authenticated
+  // Not authenticated - show sign in options
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-8">
-        <div className="bg-gray-900 rounded-xl p-8 max-w-md text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">Broadcast Admin</h1>
-          <p className="text-gray-400 mb-6">
+        <div className="bg-gray-900 rounded-xl p-8 max-w-md w-full">
+          <h1 className="text-2xl font-bold text-white mb-2 text-center">Broadcast Admin</h1>
+          <p className="text-gray-400 mb-6 text-center">
             Sign in to manage your radio station broadcasts.
           </p>
-          <button
-            onClick={() => signInWithGoogle()}
-            className="w-full bg-white hover:bg-gray-100 text-black font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-3"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-            </svg>
-            Sign in with Google
-          </button>
+
+          {emailSent ? (
+            <div className="text-center">
+              <div className="w-16 h-16 bg-green-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <p className="text-white mb-2">Check your email</p>
+              <p className="text-gray-400 text-sm mb-4">We sent a sign-in link to your email address.</p>
+              <button
+                onClick={resetEmailSent}
+                className="text-blue-400 hover:text-blue-300 text-sm"
+              >
+                Use a different method
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Google Sign In */}
+              <button
+                onClick={() => signInWithGoogle()}
+                className="w-full bg-white hover:bg-gray-100 text-black font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-3"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                Continue with Google
+              </button>
+
+              {/* Apple Sign In */}
+              <button
+                onClick={() => signInWithApple()}
+                className="w-full bg-white hover:bg-gray-100 text-black font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-3"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+                </svg>
+                Continue with Apple
+              </button>
+
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-700"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-gray-900 text-gray-500">or</span>
+                </div>
+              </div>
+
+              {/* Email Sign In */}
+              <form onSubmit={handleEmailSignIn} className="space-y-3">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                  required
+                />
+                <button
+                  type="submit"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
+                >
+                  Continue with Email
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
-  // Not owner
-  if (!isOwner) {
+  // Not a broadcaster
+  if (!hasBroadcasterAccess) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-8">
         <div className="bg-gray-900 rounded-xl p-8 max-w-md text-center">
           <div className="w-16 h-16 bg-red-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H9m3-3V8m0 0V6m0 2h2m-2 0H9" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
           <h1 className="text-xl font-bold text-white mb-2">Access Denied</h1>
-          <p className="text-gray-400">
-            You don&apos;t have permission to access this page.
+          <p className="text-gray-400 mb-4">
+            You don&apos;t have broadcaster permissions.
+          </p>
+          <p className="text-gray-500 text-sm">
+            Signed in as: {user?.email}
           </p>
         </div>
       </div>

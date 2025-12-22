@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 80">
+  <rect width="100%" height="100%" fill="black"/>
+  <defs>
+    <pattern id="dots" patternUnits="userSpaceOnUse" width="4" height="4">
+      <circle cx="2" cy="2" r="1.5" fill="white"/>
+    </pattern>
+    <mask id="textMask">
+      <text x="50%" y="60" text-anchor="middle" font-family="SF Pro Text, SF Pro, Helvetica, Arial, sans-serif" font-size="68" font-weight="900" letter-spacing="-3" fill="white" stroke="white" stroke-width="6">CHANNEL</text>
+    </mask>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#dots)" mask="url(#textMask)"/>
+  <!-- Debug: center line -->
+  <line x1="200" y1="0" x2="200" y2="80" stroke="red" stroke-width="1"/>
+  <!-- Debug: approximate letter positions for CHANNEL (7 letters, ~45px each with tight spacing) -->
+  <!-- C starts ~42, H ~82, A ~122, N ~162, N ~202, E ~242, L ~282 -->
+  <!-- Center between the two N's would be around x=182 (between N at 162 and N at 202) -->
+  <line x1="182" y1="0" x2="182" y2="80" stroke="green" stroke-width="1"/>
+</svg>
