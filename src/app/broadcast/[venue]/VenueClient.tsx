@@ -157,6 +157,8 @@ export function VenueClient({ venueSlug }: VenueClientProps) {
   const [isGoingLive, setIsGoingLive] = useState(false);
   const [canGoLive, setCanGoLive] = useState(false);
   const [goLiveMessage, setGoLiveMessage] = useState('');
+  const [autoGoLive, setAutoGoLive] = useState(false);
+  const [autoGoLiveTriggered, setAutoGoLiveTriggered] = useState(false);
 
   // DJ change warning state
   const [djChangeWarning, setDjChangeWarning] = useState<{
@@ -174,6 +176,7 @@ export function VenueClient({ venueSlug }: VenueClientProps) {
 
       // Check if slot has started (allow GO LIVE 1 minute before start)
       const oneMinuteBefore = currentSlot.startTime - 60 * 1000;
+
       if (now >= oneMinuteBefore && now <= currentSlot.endTime) {
         setCanGoLive(true);
         setGoLiveMessage('');
@@ -312,6 +315,14 @@ export function VenueClient({ venueSlug }: VenueClientProps) {
       console.error('Failed to go live:', broadcast.error);
     }
   }, [audioStream, broadcast]);
+
+  // Auto go-live: trigger when canGoLive becomes true and autoGoLive is enabled
+  useEffect(() => {
+    if (autoGoLive && canGoLive && !autoGoLiveTriggered && audioStream && !broadcast.isLive && !isGoingLive) {
+      setAutoGoLiveTriggered(true);
+      handleGoLive();
+    }
+  }, [autoGoLive, canGoLive, autoGoLiveTriggered, audioStream, broadcast.isLive, isGoingLive, handleGoLive]);
 
   const handleRtmpReady = useCallback(async () => {
     setIsGoingLive(true);
@@ -513,9 +524,39 @@ export function VenueClient({ venueSlug }: VenueClientProps) {
                   {isGoingLive ? 'Going live...' : 'GO LIVE'}
                 </button>
               ) : (
-                <p className="text-center text-gray-500 py-4 font-medium">
-                  {goLiveMessage}
-                </p>
+                <div className="space-y-3">
+                  <p className="text-center text-gray-500 font-medium">
+                    {goLiveMessage}
+                  </p>
+
+                  {/* Auto go-live option */}
+                  {!autoGoLive ? (
+                    <button
+                      onClick={() => setAutoGoLive(true)}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+                    >
+                      Go live automatically at {new Date(currentSlot.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                    </button>
+                  ) : (
+                    <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3 text-center">
+                      <p className="text-blue-400 font-medium flex items-center justify-center gap-2">
+                        <svg className="w-5 h-5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Auto go-live enabled
+                      </p>
+                      <p className="text-blue-300 text-sm mt-1">
+                        Will start at {new Date(currentSlot.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                      </p>
+                      <button
+                        onClick={() => setAutoGoLive(false)}
+                        className="text-blue-400 text-sm underline mt-2"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
