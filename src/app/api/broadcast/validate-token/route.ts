@@ -67,9 +67,9 @@ export async function GET(request: NextRequest) {
       slot: serializeSlot(slot),
       scheduleStatus,
       message: scheduleStatus === 'early'
-        ? `Your slot starts at ${new Date(startTime).toLocaleTimeString()}`
+        ? `Your slot starts at ${new Date(startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
         : scheduleStatus === 'late'
-        ? `Your slot ended at ${new Date(endTime).toLocaleTimeString()}`
+        ? `Your slot ended at ${new Date(endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
         : 'You are on schedule',
     });
   } catch (error) {

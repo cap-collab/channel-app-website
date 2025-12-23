@@ -350,7 +350,7 @@ export function VenueClient({ venueSlug }: VenueClientProps) {
               <p className="text-gray-400 text-sm">Next up</p>
               <p className="text-white font-medium">{getDisplayName(nextSlot)}</p>
               <p className="text-gray-500 text-sm">
-                {new Date(nextSlot.startTime).toLocaleString()}
+                {new Date(nextSlot.startTime).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })} · {new Date(nextSlot.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
               </p>
             </div>
           )}

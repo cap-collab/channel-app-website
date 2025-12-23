@@ -211,11 +211,11 @@ export async function validateToken(token: string): Promise<{
   if (now < slot.startTime - fifteenMinutes) {
     // More than 15 minutes before start
     scheduleStatus = 'early';
-    message = `Your show starts at ${new Date(slot.startTime).toLocaleTimeString()}`;
+    message = `Your show starts at ${new Date(slot.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
   } else if (now > slot.startTime && now < slot.endTime) {
     // Show has already started but not ended - they're late joining
     scheduleStatus = 'late';
-    message = `Your show started at ${new Date(slot.startTime).toLocaleTimeString()}`;
+    message = `Your show started at ${new Date(slot.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
   }
   // Otherwise on-time: within 15 min before start, or after end (token will expire anyway)
 

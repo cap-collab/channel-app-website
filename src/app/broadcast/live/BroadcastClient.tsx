@@ -183,7 +183,7 @@ export function BroadcastClient() {
           <div className="text-center mb-6">
             <p className="text-white font-medium">{slot.showName || slot.djName}</p>
             <p className="text-gray-500 text-sm">
-              {new Date(slot.startTime).toLocaleString()} - {new Date(slot.endTime).toLocaleTimeString()}
+              {new Date(slot.startTime).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })} · {new Date(slot.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} – {new Date(slot.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
             </p>
           </div>
           <div className="space-y-3">
@@ -233,7 +233,7 @@ export function BroadcastClient() {
                 )}
               </p>
               <p className="text-gray-500 text-sm">
-                {new Date(slot.startTime).toLocaleString()} - {new Date(slot.endTime).toLocaleTimeString()}
+                {new Date(slot.startTime).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })} · {new Date(slot.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} – {new Date(slot.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
               </p>
             </div>
           )}
