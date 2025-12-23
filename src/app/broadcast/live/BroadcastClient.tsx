@@ -219,7 +219,7 @@ export function BroadcastClient() {
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold">Go Live</h1>
+          <h1 className="text-3xl font-bold">Livestream Setup</h1>
           {slot && (
             <div className="mt-2">
               <p className="text-gray-400">
