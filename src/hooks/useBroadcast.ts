@@ -2,11 +2,13 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { Room, RoomEvent, Track, LocalTrack } from 'livekit-client';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { BroadcastState, ROOM_NAME, RoomStatus } from '@/types/broadcast';
 
 const r2PublicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
 
-export function useBroadcast(participantIdentity: string) {
+export function useBroadcast(participantIdentity: string, slotId?: string) {
   const [state, setState] = useState<BroadcastState>({
     inputMethod: null,
     isConnected: false,
@@ -127,6 +129,18 @@ export function useBroadcast(participantIdentity: string) {
 
       const hlsUrl = data.hlsUrl || `${r2PublicUrl}/${ROOM_NAME}/live.m3u8`;
 
+      // Update Firestore slot status to 'live'
+      if (slotId) {
+        try {
+          const slotRef = doc(db, 'broadcast-slots', slotId);
+          await updateDoc(slotRef, { status: 'live' });
+          console.log('📡 Updated slot status to live:', slotId);
+        } catch (firestoreError) {
+          console.error('Failed to update slot status:', firestoreError);
+          // Don't fail the broadcast if Firestore update fails
+        }
+      }
+
       setState(prev => ({
         ...prev,
         isLive: true,
@@ -140,7 +154,7 @@ export function useBroadcast(participantIdentity: string) {
       setState(prev => ({ ...prev, error: message }));
       return false;
     }
-  }, []);
+  }, [slotId]);
 
   // Go live - connect, publish, and start egress
   const goLive = useCallback(async (stream: MediaStream) => {
@@ -170,6 +184,17 @@ export function useBroadcast(participantIdentity: string) {
         body: JSON.stringify({ egressId: state.egressId }),
       });
 
+      // Update Firestore slot status to 'completed'
+      if (slotId) {
+        try {
+          const slotRef = doc(db, 'broadcast-slots', slotId);
+          await updateDoc(slotRef, { status: 'completed' });
+          console.log('📡 Updated slot status to completed:', slotId);
+        } catch (firestoreError) {
+          console.error('Failed to update slot status:', firestoreError);
+        }
+      }
+
       setState(prev => ({
         ...prev,
         isLive: false,
@@ -178,7 +203,7 @@ export function useBroadcast(participantIdentity: string) {
     } catch (error) {
       console.error('Failed to stop egress:', error);
     }
-  }, [state.egressId]);
+  }, [state.egressId, slotId]);
 
   // Unpublish audio
   const unpublishAudio = useCallback(async () => {

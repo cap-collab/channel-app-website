@@ -19,7 +19,7 @@ export function BroadcastClient() {
   const { slot, error: tokenError, loading: tokenLoading, scheduleStatus, message } = useBroadcastToken(token);
 
   const participantIdentity = slot?.djName || 'DJ';
-  const broadcast = useBroadcast(participantIdentity);
+  const broadcast = useBroadcast(participantIdentity, slot?.id);
 
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [dismissedWarning, setDismissedWarning] = useState(false);

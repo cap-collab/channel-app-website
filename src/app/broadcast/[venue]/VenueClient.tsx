@@ -86,7 +86,7 @@ export function VenueClient({ venueSlug }: VenueClientProps) {
   const { currentSlot, nextSlot, loading, refetch } = useVenueSlots();
 
   const participantIdentity = currentSlot ? getCurrentDJ(currentSlot) : 'Venue DJ';
-  const broadcast = useBroadcast(participantIdentity);
+  const broadcast = useBroadcast(participantIdentity, currentSlot?.id);
 
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [isGoingLive, setIsGoingLive] = useState(false);
