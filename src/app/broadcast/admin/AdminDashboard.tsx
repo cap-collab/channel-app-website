@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
 import { useBroadcasterSettings } from '@/hooks/useBroadcasterSettings';
@@ -155,7 +156,17 @@ export function AdminDashboard() {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-8">
         <div className="bg-gray-900 rounded-xl p-8 max-w-md w-full">
-          <h1 className="text-2xl font-bold text-white mb-2 text-center">Broadcast Admin</h1>
+          <div className="flex justify-center mb-6">
+            <Image
+              src="/logo-white.svg"
+              alt="CHANNEL"
+              width={140}
+              height={28}
+              className="h-7 w-auto"
+              priority
+            />
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-2 text-center">Channel Broadcast</h1>
           <p className="text-gray-400 mb-6 text-center">
             Sign in to manage your radio station broadcasts.
           </p>
@@ -231,6 +242,14 @@ export function AdminDashboard() {
               </form>
             </div>
           )}
+          <div className="mt-6 pt-6 border-t border-gray-700 text-center">
+            <p className="text-gray-400 text-sm">
+              Not on Channel yet?{' '}
+              <a href="/apply" className="text-blue-400 hover:text-blue-300">
+                Fill out this form to feature your station
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -250,9 +269,21 @@ export function AdminDashboard() {
           <p className="text-gray-400 mb-4">
             You don&apos;t have broadcaster permissions.
           </p>
-          <p className="text-gray-500 text-sm">
+          <p className="text-gray-500 text-sm mb-4">
             Signed in as: {user?.email}
           </p>
+          <div className="pt-4 border-t border-gray-700">
+            <p className="text-gray-400 text-sm">
+              <a href="/apply" className="text-blue-400 hover:text-blue-300">
+                Fill out this form to feature your station
+              </a>
+              {' '}or contact{' '}
+              <a href="mailto:info@channel-app.com" className="text-blue-400 hover:text-blue-300">
+                info@channel-app.com
+              </a>
+              {' '}for more info.
+            </p>
+          </div>
         </div>
       </div>
     );
