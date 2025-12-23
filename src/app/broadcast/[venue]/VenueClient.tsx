@@ -108,10 +108,54 @@ export function VenueClient({ venueSlug }: VenueClientProps) {
       const fifteenMin = 15 * 60 * 1000;
       const oneMin = 60 * 1000;
 
+      // Check for DJ change within current slot's djSlots
+      let currentDjSlot: { djName?: string; endTime: number } | null = null;
+      let nextDjSlot: { djName?: string; startTime: number } | null = null;
+
+      if (currentSlot.djSlots && currentSlot.djSlots.length > 1) {
+        // Find current DJ slot
+        currentDjSlot = currentSlot.djSlots.find(
+          dj => dj.startTime <= now && dj.endTime > now
+        ) || null;
+
+        // Find next DJ slot (after current one)
+        if (currentDjSlot) {
+          nextDjSlot = currentSlot.djSlots.find(
+            dj => dj.startTime >= currentDjSlot!.endTime
+          ) || null;
+        }
+      }
+
+      // Calculate time until current DJ's set ends (if within a multi-DJ slot)
+      const djTimeLeft = currentDjSlot ? currentDjSlot.endTime - now : timeLeft;
+      const hasNextDjInSlot = currentDjSlot && nextDjSlot;
+
       // Only show DJ change warning if next slot starts within 5 minutes of current slot ending
       const hasImmediateNextSlot = nextSlot && (nextSlot.startTime - currentSlot.endTime) < 5 * 60 * 1000;
 
-      if (timeLeft <= 0) {
+      // Priority: Check DJ change within slot first, then slot change
+      if (hasNextDjInSlot && djTimeLeft <= 0) {
+        // Current DJ's time ended, but show continues with next DJ
+        setDjChangeWarning(null); // Will naturally update on next tick
+      } else if (hasNextDjInSlot && djTimeLeft <= oneMin) {
+        // Less than 1 minute until DJ change within slot
+        const seconds = Math.ceil(djTimeLeft / 1000);
+        setDjChangeWarning({
+          type: 'urgent',
+          message: `DJ change in ${seconds} second${seconds !== 1 ? 's' : ''}`,
+          subMessage: nextDjSlot?.djName ? `${nextDjSlot.djName} is up next` : undefined,
+        });
+      } else if (hasNextDjInSlot && djTimeLeft <= fifteenMin) {
+        // Less than 15 minutes until DJ change within slot
+        const minutes = Math.ceil(djTimeLeft / 60000);
+        setDjChangeWarning({
+          type: 'warning',
+          message: 'DJ Change Coming Up',
+          subMessage: nextDjSlot?.djName
+            ? `${nextDjSlot.djName} takes over in ${minutes} minute${minutes !== 1 ? 's' : ''}`
+            : `Your set ends in ${minutes} minute${minutes !== 1 ? 's' : ''}`,
+        });
+      } else if (timeLeft <= 0) {
         // Slot has ended
         if (nextSlot && nextSlot.broadcastType === 'venue' && hasImmediateNextSlot) {
           // Next DJ is also venue and starts immediately, auto-refresh
