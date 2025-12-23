@@ -155,6 +155,8 @@ export function VenueClient({ venueSlug }: VenueClientProps) {
 
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [isGoingLive, setIsGoingLive] = useState(false);
+  const [canGoLive, setCanGoLive] = useState(false);
+  const [goLiveMessage, setGoLiveMessage] = useState('');
 
   // DJ change warning state
   const [djChangeWarning, setDjChangeWarning] = useState<{
@@ -169,6 +171,21 @@ export function VenueClient({ venueSlug }: VenueClientProps) {
 
     const check = () => {
       const now = Date.now();
+
+      // Check if slot has started (allow GO LIVE 1 minute before start)
+      const oneMinuteBefore = currentSlot.startTime - 60 * 1000;
+      if (now >= oneMinuteBefore && now <= currentSlot.endTime) {
+        setCanGoLive(true);
+        setGoLiveMessage('');
+      } else if (now < oneMinuteBefore) {
+        setCanGoLive(false);
+        const availableTime = new Date(oneMinuteBefore).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        setGoLiveMessage(`GO LIVE will be available at ${availableTime}`);
+      } else {
+        setCanGoLive(false);
+        setGoLiveMessage('Your slot has ended');
+      }
+
       const timeLeft = currentSlot.endTime - now;
       const fifteenMin = 15 * 60 * 1000;
       const oneMin = 60 * 1000;
@@ -487,13 +504,19 @@ export function VenueClient({ venueSlug }: VenueClientProps) {
                 You can test as long as you need &mdash; your broadcast won&apos;t start until you click GO LIVE.
               </p>
 
-              <button
-                onClick={handleGoLive}
-                disabled={isGoingLive || djChangeWarning?.type === 'ended'}
-                className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg text-xl transition-colors"
-              >
-                {isGoingLive ? 'Going live...' : 'GO LIVE'}
-              </button>
+              {canGoLive ? (
+                <button
+                  onClick={handleGoLive}
+                  disabled={isGoingLive || djChangeWarning?.type === 'ended'}
+                  className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg text-xl transition-colors"
+                >
+                  {isGoingLive ? 'Going live...' : 'GO LIVE'}
+                </button>
+              ) : (
+                <p className="text-center text-gray-500 py-4 font-medium">
+                  {goLiveMessage}
+                </p>
+              )}
             </div>
           </div>
         )}

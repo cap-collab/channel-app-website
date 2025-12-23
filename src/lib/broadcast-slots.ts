@@ -254,15 +254,26 @@ export async function getVenueSlots(stationId: string = STATION_ID): Promise<{
   // Sort ascending for finding current/next (query returns desc)
   slots.sort((a, b) => a.startTime - b.startTime);
 
-  // Find current slot (now is between start and end)
-  const currentSlot = slots.find(
+  // Find active slot (now is between start and end)
+  const activeSlot = slots.find(
     (slot) => slot.startTime <= now && slot.endTime > now
   ) || null;
 
-  // Find next slot (starts after now)
-  const nextSlot = slots.find(
+  // Find next upcoming slot (starts after now)
+  const upcomingSlot = slots.find(
     (slot) => slot.startTime > now
   ) || null;
+
+  // For setup purposes: allow DJs to set up anytime before their slot
+  // If there's an active slot, use that. Otherwise, use the next upcoming slot.
+  // This lets DJs prepare their audio before their scheduled time.
+  const currentSlot = activeSlot || upcomingSlot;
+
+  // Next slot is the one after current (if current is active, next is upcoming)
+  // If current is an upcoming slot, next is the slot after that
+  const nextSlot = activeSlot
+    ? upcomingSlot
+    : slots.find((slot) => slot.startTime > (upcomingSlot?.startTime || now)) || null;
 
   return { currentSlot, nextSlot };
 }
