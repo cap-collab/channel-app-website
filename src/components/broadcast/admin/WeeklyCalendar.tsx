@@ -362,7 +362,7 @@ export function WeeklyCalendar({
       <div
         key={`${slot.id}-${segment.segmentIndex}`}
         className={`absolute left-1 right-1 ${borderRadius} cursor-pointer overflow-visible transition-all hover:brightness-110 ${getSlotColors()}`}
-        style={{ top: `${top}px`, height: `${height}px` }}
+        style={{ top: `${top}px`, height: `${height}px`, pointerEvents: isResizing ? 'none' : 'auto' }}
       >
         {/* Top resize handle */}
         {isFirstSegment && !isPast && onUpdateSlot && (
@@ -542,12 +542,16 @@ export function WeeklyCalendar({
             <div key={dayIndex} className="flex-1 border-r border-gray-800 last:border-r-0">
               {formatDayHeader(day)}
               <div className="relative" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
-                {/* Hour grid lines */}
+                {/* Hour grid lines - during resize, render on top to capture mouse events */}
                 {HOURS.map(hour => (
                   <div
                     key={hour}
-                    className="border-t border-gray-800/50 cursor-crosshair"
-                    style={{ height: `${HOUR_HEIGHT}px` }}
+                    className={`border-t border-gray-800/50 ${isResizing ? 'cursor-ns-resize' : 'cursor-crosshair'}`}
+                    style={{
+                      height: `${HOUR_HEIGHT}px`,
+                      position: isResizing ? 'relative' : undefined,
+                      zIndex: isResizing ? 20 : undefined,
+                    }}
                     onMouseDown={() => handleMouseDown(dayIndex, hour)}
                     onMouseMove={(e) => handleMouseMove(dayIndex, hour, e)}
                   />
