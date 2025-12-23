@@ -108,32 +108,35 @@ export function VenueClient({ venueSlug }: VenueClientProps) {
       const fifteenMin = 15 * 60 * 1000;
       const oneMin = 60 * 1000;
 
+      // Only show DJ change warning if next slot starts within 5 minutes of current slot ending
+      const hasImmediateNextSlot = nextSlot && (nextSlot.startTime - currentSlot.endTime) < 5 * 60 * 1000;
+
       if (timeLeft <= 0) {
         // Slot has ended
-        if (nextSlot && nextSlot.broadcastType === 'venue') {
-          // Next DJ is also venue, auto-refresh
+        if (nextSlot && nextSlot.broadcastType === 'venue' && hasImmediateNextSlot) {
+          // Next DJ is also venue and starts immediately, auto-refresh
           refetch();
           setDjChangeWarning(null);
         } else {
-          // No more venue slots
+          // No more venue slots or next slot is not immediate
           setDjChangeWarning({
             type: 'ended',
             message: 'Your slot has ended',
-            subMessage: nextSlot
+            subMessage: hasImmediateNextSlot && nextSlot
               ? `${getDisplayName(nextSlot)} is broadcasting remotely`
-              : 'No more venue slots scheduled',
+              : undefined,
           });
         }
-      } else if (timeLeft <= oneMin) {
-        // Less than 1 minute
+      } else if (hasImmediateNextSlot && timeLeft <= oneMin) {
+        // Less than 1 minute and there's an immediate next slot
         const seconds = Math.ceil(timeLeft / 1000);
         setDjChangeWarning({
           type: 'urgent',
           message: `DJ change in ${seconds} second${seconds !== 1 ? 's' : ''}`,
           subMessage: nextSlot ? `${getDisplayName(nextSlot)} is up next` : undefined,
         });
-      } else if (timeLeft <= fifteenMin) {
-        // Less than 15 minutes
+      } else if (hasImmediateNextSlot && timeLeft <= fifteenMin) {
+        // Less than 15 minutes and there's an immediate next slot
         const minutes = Math.ceil(timeLeft / 60000);
         setDjChangeWarning({
           type: 'warning',
