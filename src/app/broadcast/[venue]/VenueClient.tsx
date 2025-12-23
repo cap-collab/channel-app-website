@@ -49,6 +49,16 @@ function useVenueSlots() {
   return { ...data, loading, error, refetch: fetchSlots };
 }
 
+// Helper to format time
+function formatTime(timestamp: number): string {
+  return new Date(timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+// Helper to format date
+function formatDate(timestamp: number): string {
+  return new Date(timestamp).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
 // Helper to get display name for show/DJ
 function getDisplayName(slot: BroadcastSlotSerialized): string {
   if (slot.showName) return slot.showName;
@@ -57,6 +67,61 @@ function getDisplayName(slot: BroadcastSlotSerialized): string {
     return firstDj?.djName || 'Venue Broadcast';
   }
   return slot.djName || 'Venue Broadcast';
+}
+
+// Show Schedule Header Component
+function ShowScheduleHeader({ slot }: { slot: BroadcastSlotSerialized }) {
+  const now = Date.now();
+  const fifteenMin = 15 * 60 * 1000;
+
+  return (
+    <div className="bg-gray-900 rounded-xl p-4 mb-6">
+      <h2 className="text-white font-bold text-lg mb-1">{slot.showName || 'Venue Broadcast'}</h2>
+      <p className="text-gray-500 text-sm mb-4">
+        {formatDate(slot.startTime)} · {formatTime(slot.startTime)} – {formatTime(slot.endTime)}
+      </p>
+
+      {slot.djSlots && slot.djSlots.length > 0 ? (
+        <div className="space-y-2">
+          {slot.djSlots.map((dj, i) => {
+            const isOnNow = dj.startTime <= now && dj.endTime > now;
+            const isUpSoon = !isOnNow && dj.startTime > now && (dj.startTime - now) < fifteenMin;
+            const minutesUntil = Math.ceil((dj.startTime - now) / 60000);
+
+            return (
+              <div key={i} className="flex items-center justify-between py-1">
+                <div className="flex items-center gap-3">
+                  <span className="text-white">{dj.djName || 'TBD'}</span>
+                  <span className="text-gray-500 text-sm">
+                    {formatTime(dj.startTime)} – {formatTime(dj.endTime)}
+                  </span>
+                </div>
+                {isOnNow && (
+                  <span className="text-xs bg-red-600 text-white px-2 py-0.5 rounded-full font-medium">
+                    ON NOW
+                  </span>
+                )}
+                {isUpSoon && (
+                  <span className="text-xs bg-yellow-600 text-white px-2 py-0.5 rounded-full font-medium">
+                    UP IN {minutesUntil} MIN
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : slot.djName ? (
+        <div className="flex items-center justify-between py-1">
+          <span className="text-white">{slot.djName}</span>
+          {slot.startTime <= now && slot.endTime > now && (
+            <span className="text-xs bg-red-600 text-white px-2 py-0.5 rounded-full font-medium">
+              ON NOW
+            </span>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 // Helper to get current DJ from slot
@@ -295,7 +360,6 @@ export function VenueClient({ venueSlug }: VenueClientProps) {
   }
 
   const displayName = getDisplayName(currentSlot);
-  const currentDJ = getCurrentDJ(currentSlot);
 
   // Live state
   if (broadcast.isLive) {
@@ -319,8 +383,8 @@ export function VenueClient({ venueSlug }: VenueClientProps) {
   return (
     <div className="min-h-screen bg-black text-white p-8">
       <div className="max-w-lg mx-auto">
-        {/* Header with current slot info */}
-        <div className="mb-8">
+        {/* Header */}
+        <div className="mb-6">
           <div className="flex items-center gap-2 text-blue-400 text-sm mb-2">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -328,19 +392,11 @@ export function VenueClient({ venueSlug }: VenueClientProps) {
             </svg>
             {venueSlug.charAt(0).toUpperCase() + venueSlug.slice(1)} Broadcast
           </div>
-          <h1 className="text-3xl font-bold">Go Live</h1>
-          <div className="mt-2">
-            <p className="text-gray-400">
-              <span className="text-white font-medium">{displayName}</span>
-              {currentSlot.showName && currentDJ && currentDJ !== displayName && (
-                <span> &bull; {currentDJ}</span>
-              )}
-            </p>
-            <p className="text-gray-500 text-sm">
-              {new Date(currentSlot.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} - {new Date(currentSlot.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-            </p>
-          </div>
+          <h1 className="text-3xl font-bold">Livestream Setup</h1>
         </div>
+
+        {/* Show Schedule */}
+        <ShowScheduleHeader slot={currentSlot} />
 
         {/* DJ Change Warning Banner */}
         {djChangeWarning && djChangeWarning.type !== 'ended' && (
