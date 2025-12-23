@@ -130,7 +130,7 @@ export function useBroadcast(participantIdentity: string, slotId?: string) {
       const hlsUrl = data.hlsUrl || `${r2PublicUrl}/${ROOM_NAME}/live.m3u8`;
 
       // Update Firestore slot status to 'live'
-      if (slotId) {
+      if (slotId && db) {
         try {
           const slotRef = doc(db, 'broadcast-slots', slotId);
           await updateDoc(slotRef, { status: 'live' });
@@ -185,7 +185,7 @@ export function useBroadcast(participantIdentity: string, slotId?: string) {
       });
 
       // Update Firestore slot status to 'completed'
-      if (slotId) {
+      if (slotId && db) {
         try {
           const slotRef = doc(db, 'broadcast-slots', slotId);
           await updateDoc(slotRef, { status: 'completed' });
