@@ -316,13 +316,23 @@ export function VenueClient({ venueSlug }: VenueClientProps) {
     }
   }, [audioStream, broadcast]);
 
-  // Auto go-live: trigger when canGoLive becomes true and autoGoLive is enabled
+  // Auto go-live: trigger when slot start time arrives and autoGoLive is enabled
   useEffect(() => {
-    if (autoGoLive && canGoLive && !autoGoLiveTriggered && audioStream && !broadcast.isLive && !isGoingLive) {
-      setAutoGoLiveTriggered(true);
-      handleGoLive();
-    }
-  }, [autoGoLive, canGoLive, autoGoLiveTriggered, audioStream, broadcast.isLive, isGoingLive, handleGoLive]);
+    if (!currentSlot || !autoGoLive || autoGoLiveTriggered || !audioStream || broadcast.isLive || isGoingLive) return;
+
+    const checkAutoGoLive = () => {
+      const now = Date.now();
+      // Trigger exactly at slot start time (not 1 minute before)
+      if (now >= currentSlot.startTime && now <= currentSlot.endTime) {
+        setAutoGoLiveTriggered(true);
+        handleGoLive();
+      }
+    };
+
+    checkAutoGoLive();
+    const interval = setInterval(checkAutoGoLive, 1000);
+    return () => clearInterval(interval);
+  }, [currentSlot, autoGoLive, autoGoLiveTriggered, audioStream, broadcast.isLive, isGoingLive, handleGoLive]);
 
   const handleRtmpReady = useCallback(async () => {
     setIsGoingLive(true);
