@@ -9,14 +9,20 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['broadcaster', 'admin'];
     }
 
-    // Chat messages (mobile app)
+    // Chat messages (mobile app + DJ chat)
     match /chats/{stationId}/messages/{messageId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
         && request.resource.data.message is string
         && request.resource.data.message.size() <= 280
         && request.resource.data.username is string
-        && request.resource.data.username.size() <= 20;
+        && request.resource.data.username.size() <= 20
+        // DJ-specific fields are optional
+        && (request.resource.data.isDJ == null || request.resource.data.isDJ is bool)
+        && (request.resource.data.djSlotId == null || request.resource.data.djSlotId is string)
+        && (request.resource.data.messageType == null || request.resource.data.messageType in ['chat', 'promo'])
+        && (request.resource.data.promoUrl == null || (request.resource.data.promoUrl is string && request.resource.data.promoUrl.size() <= 500))
+        && (request.resource.data.promoTitle == null || (request.resource.data.promoTitle is string && request.resource.data.promoTitle.size() <= 100));
       // Allow updating only heartCount and timestamp (for amplified love feature)
       allow update: if request.auth != null
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['heartCount', 'timestamp']);

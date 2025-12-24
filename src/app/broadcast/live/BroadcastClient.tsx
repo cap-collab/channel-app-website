@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useBroadcastToken } from '@/hooks/useBroadcastToken';
 import { useBroadcast } from '@/hooks/useBroadcast';
@@ -10,16 +10,78 @@ import { DeviceAudioCapture } from '@/components/broadcast/DeviceAudioCapture';
 import { RtmpIngressPanel } from '@/components/broadcast/RtmpIngressPanel';
 import { AudioLevelMeter } from '@/components/broadcast/AudioLevelMeter';
 import { LiveIndicator } from '@/components/broadcast/LiveIndicator';
+import { DJAccountPrompt } from '@/components/broadcast/DJAccountPrompt';
+import { DJProfileSetup } from '@/components/broadcast/DJProfileSetup';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { AudioInputMethod } from '@/types/broadcast';
+
+type OnboardingStep = 'account' | 'profile' | 'audio';
+
+// Channel app deep link for the broadcast station
+const CHANNEL_BROADCAST_URL = 'https://channel-app.com/listen/broadcast';
+
+// Channel App URL Section Component
+function ChannelAppUrlSection() {
+  const [copied, setCopied] = useState(false);
+
+  const copyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(CHANNEL_BROADCAST_URL);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      console.error('Failed to copy');
+    }
+  };
+
+  return (
+    <div className="bg-gray-900 rounded-xl p-4">
+      <label className="block text-gray-400 text-sm mb-2">Listen in Channel</label>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          readOnly
+          value={CHANNEL_BROADCAST_URL}
+          className="flex-1 bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 font-mono text-sm"
+        />
+        <button
+          onClick={copyUrl}
+          className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-3 rounded-lg transition-colors"
+        >
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+      </div>
+      <p className="text-gray-500 text-xs mt-2">
+        Share this link to open your broadcast in the Channel app
+      </p>
+    </div>
+  );
+}
 
 export function BroadcastClient() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
+  const { isAuthenticated, user } = useAuthContext();
 
   const { slot, error: tokenError, loading: tokenLoading, scheduleStatus, message } = useBroadcastToken(token);
 
+  // DJ onboarding state - declared early so djInfo can use it
+  const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>('account');
+  const [djUsername, setDjUsername] = useState<string>('');
+  const [initialPromoUrl, setInitialPromoUrl] = useState<string | undefined>();
+  const [initialPromoTitle, setInitialPromoTitle] = useState<string | undefined>();
+
+  // Create DJ info object for useBroadcast
+  const djInfo = useMemo(() => {
+    if (!djUsername) return undefined;
+    return {
+      username: djUsername,
+      userId: user?.uid,
+    };
+  }, [djUsername, user?.uid]);
+
   const participantIdentity = slot?.djName || 'DJ';
-  const broadcast = useBroadcast(participantIdentity, slot?.id);
+  const broadcast = useBroadcast(participantIdentity, slot?.id, djInfo);
 
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [dismissedWarning, setDismissedWarning] = useState(false);
@@ -28,6 +90,13 @@ export function BroadcastClient() {
   const [goLiveMessage, setGoLiveMessage] = useState('');
   const [autoGoLive, setAutoGoLive] = useState(false);
   const [autoGoLiveTriggered, setAutoGoLiveTriggered] = useState(false);
+
+  // Skip account step if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && onboardingStep === 'account') {
+      setOnboardingStep('profile');
+    }
+  }, [isAuthenticated, onboardingStep]);
 
   // Check Go Live availability based on slot timing
   useEffect(() => {
@@ -52,6 +121,33 @@ export function BroadcastClient() {
 
     checkGoLiveAvailability();
     const interval = setInterval(checkGoLiveAvailability, 1000);
+    return () => clearInterval(interval);
+  }, [slot]);
+
+  // Auto-complete slot when end time passes
+  useEffect(() => {
+    if (!slot) return;
+
+    const checkSlotCompletion = async () => {
+      const now = Date.now();
+      // If slot end time has passed and slot is still live/paused/scheduled, mark as completed
+      if (now > slot.endTime && (slot.status === 'live' || slot.status === 'paused' || slot.status === 'scheduled')) {
+        try {
+          await fetch('/api/broadcast/complete-slot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ slotId: slot.id }),
+          });
+          console.log('Slot auto-completed due to end time');
+        } catch (err) {
+          console.error('Failed to auto-complete slot:', err);
+        }
+      }
+    };
+
+    // Check immediately and then every 10 seconds
+    checkSlotCompletion();
+    const interval = setInterval(checkSlotCompletion, 10000);
     return () => clearInterval(interval);
   }, [slot]);
 
@@ -82,12 +178,31 @@ export function BroadcastClient() {
 
     setIsGoingLive(true);
     const success = await broadcast.goLive(audioStream);
+
+    // If we have an initial promo from onboarding, submit it now
+    if (success && initialPromoUrl && token) {
+      try {
+        await fetch('/api/broadcast/dj-promo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            broadcastToken: token,
+            promoUrl: initialPromoUrl,
+            promoTitle: initialPromoTitle,
+            username: djUsername,
+          }),
+        });
+      } catch (err) {
+        console.error('Failed to submit initial promo:', err);
+      }
+    }
+
     setIsGoingLive(false);
 
     if (!success) {
       console.error('Failed to go live:', broadcast.error);
     }
-  }, [audioStream, broadcast]);
+  }, [audioStream, broadcast, initialPromoUrl, initialPromoTitle, token, djUsername]);
 
   // Auto go-live: trigger when slot start time arrives and autoGoLive is enabled
   useEffect(() => {
@@ -139,6 +254,24 @@ export function BroadcastClient() {
     broadcast.setInputMethod(null);
   }, [audioStream, broadcast]);
 
+  // DJ onboarding handlers
+  const handleAccountComplete = useCallback(() => {
+    // Move to profile step
+    setOnboardingStep('profile');
+  }, []);
+
+  const handleAccountSkip = useCallback(() => {
+    // Continue as guest
+    setOnboardingStep('profile');
+  }, []);
+
+  const handleProfileComplete = useCallback((username: string, promoUrl?: string, promoTitle?: string) => {
+    setDjUsername(username);
+    setInitialPromoUrl(promoUrl);
+    setInitialPromoTitle(promoTitle);
+    setOnboardingStep('audio');
+  }, []);
+
   // Loading state
   if (tokenLoading) {
     return (
@@ -168,6 +301,41 @@ export function BroadcastClient() {
           <p className="text-gray-500 text-sm mt-4">
             Please contact the station owner for a new link.
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Paused state - DJ disconnected, can resume
+  if (slot.status === 'paused' && !dismissedWarning) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center p-8">
+        <div className="bg-gray-900 rounded-xl p-8 max-w-md">
+          <div className="w-16 h-16 bg-orange-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h1 className="text-xl font-bold text-white mb-2 text-center">
+            Broadcast Paused
+          </h1>
+          <p className="text-gray-400 text-center mb-2">
+            Your broadcast was interrupted. You can resume where you left off.
+          </p>
+          <div className="text-center mb-6">
+            <p className="text-white font-medium">{slot.showName || slot.djName}</p>
+            <p className="text-gray-500 text-sm">
+              {new Date(slot.startTime).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })} · {new Date(slot.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} – {new Date(slot.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+            </p>
+          </div>
+          <div className="space-y-3">
+            <button
+              onClick={() => setDismissedWarning(true)}
+              className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+            >
+              Resume Broadcast
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -228,8 +396,34 @@ export function BroadcastClient() {
             slot={slot}
             hlsUrl={broadcast.hlsUrl}
             onEndBroadcast={handleEndBroadcast}
+            broadcastToken={token || undefined}
+            djUsername={djUsername}
           />
         </div>
+      </div>
+    );
+  }
+
+  // DJ Onboarding - Account prompt (for guests)
+  if (onboardingStep === 'account') {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center p-8">
+        <DJAccountPrompt
+          onComplete={handleAccountComplete}
+          onSkip={handleAccountSkip}
+        />
+      </div>
+    );
+  }
+
+  // DJ Onboarding - Profile setup
+  if (onboardingStep === 'profile') {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center p-8">
+        <DJProfileSetup
+          defaultUsername={slot?.djName}
+          onComplete={handleProfileComplete}
+        />
       </div>
     );
   }
@@ -321,18 +515,10 @@ export function BroadcastClient() {
               Back
             </button>
 
-            {/* Show slot timing info */}
-            {slot && (
-              <div className="bg-gray-800 rounded-lg p-4 text-center">
-                <p className="text-gray-400 text-sm">Your show</p>
-                <p className="text-white font-medium">{slot.showName || slot.djName}</p>
-                <p className="text-gray-400 text-sm">
-                  {new Date(slot.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} - {new Date(slot.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                </p>
-              </div>
-            )}
+<AudioLevelMeter stream={audioStream} />
 
-            <AudioLevelMeter stream={audioStream} />
+            {/* Channel App URL */}
+            <ChannelAppUrlSection />
 
             <div className="bg-gray-900 rounded-xl p-4">
               <p className="text-gray-400 text-sm mb-4">

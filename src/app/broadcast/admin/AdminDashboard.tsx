@@ -10,6 +10,49 @@ import { WeeklyCalendar } from '@/components/broadcast/admin/WeeklyCalendar';
 import { SlotModal } from '@/components/broadcast/admin/SlotModal';
 import { getSlots, createSlot, deleteSlot as deleteSlotFromDb, updateSlot } from '@/lib/broadcast-slots';
 
+// Channel app deep link for the broadcast station
+const CHANNEL_BROADCAST_URL = 'https://channel-app.com/listen/broadcast';
+
+// Channel App URL Section Component
+function ChannelAppUrlSection() {
+  const [copied, setCopied] = useState(false);
+
+  const copyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(CHANNEL_BROADCAST_URL);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      console.error('Failed to copy');
+    }
+  };
+
+  return (
+    <div className="bg-gray-900 rounded-xl p-4 mb-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <label className="block text-gray-400 text-sm mb-1">Channel Broadcast URL</label>
+          <p className="text-gray-500 text-xs">Share this link to listen in the Channel app</p>
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            readOnly
+            value={CHANNEL_BROADCAST_URL}
+            className="w-80 bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 font-mono text-sm"
+          />
+          <button
+            onClick={copyUrl}
+            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors text-sm"
+          >
+            {copied ? 'Copied!' : 'Copy'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Get start of current week (Sunday)
 function getWeekStart(date: Date = new Date()): Date {
   const d = new Date(date);
@@ -360,6 +403,9 @@ export function AdminDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Channel App URL */}
+        <ChannelAppUrlSection />
 
         {/* Loading */}
         {isLoading ? (

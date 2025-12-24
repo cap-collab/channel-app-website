@@ -167,6 +167,89 @@ channel-app-website/
 
 ---
 
+## DJ Chat Feature (NEW)
+
+Enable DJs to chat with iOS listeners during their broadcast, with visual DJ identification and promo links.
+
+### Summary
+- **Web (no login required):** DJ goes live → auto-assigned username (editable) → can chat immediately
+- **iOS (login required):** DJ must log into Channel on web to link their account → then can chat as DJ on iOS too
+- DJ messages show a vinyl record icon badge to identify them as the playing DJ
+- One promo link per set (pinned at top of chat + shown in timeline)
+
+### DJ Onboarding Flow
+1. **Account Prompt** - Login with Google/Apple or continue as guest
+2. **Audio Setup** - Existing flow (system audio / device / RTMP)
+3. **DJ Profile Setup** - Username + optional promo link
+4. **Go Live** - Chat panel visible, can edit promo if not posted
+
+### Multi-DJ Shows (Handoff)
+- When DJ slot changes, new DJ sees "Claim your slot" prompt
+- Each DJ can update the promo link once during their slot
+- Previous DJ loses DJ badge, new DJ gains it
+
+### Data Model Changes
+
+**BroadcastSlot (add fields):**
+```typescript
+liveDjUserId?: string;        // Firebase UID
+liveDjUsername?: string;      // Chat username
+showPromoUrl?: string;        // Default promo for show
+showPromoTitle?: string;
+
+// For multi-DJ, extend djSlots:
+djSlots?: {
+  ...existing fields,
+  liveDjUserId?: string;
+  liveDjUsername?: string;
+  promoUrl?: string;          // DJ-specific promo
+  promoTitle?: string;
+}[]
+```
+
+**ChatMessage (add fields):**
+```typescript
+isDJ?: boolean;
+djSlotId?: string;
+messageType?: 'chat' | 'promo';
+promoUrl?: string;
+promoTitle?: string;
+```
+
+### New Files (Web)
+- `src/components/broadcast/DJAccountPrompt.tsx`
+- `src/components/broadcast/DJProfileSetup.tsx`
+- `src/components/broadcast/DJSlotClaim.tsx`
+- `src/components/broadcast/DJChatPanel.tsx`
+- `src/hooks/useDJChat.ts`
+- `src/app/api/broadcast/dj-username/route.ts`
+- `src/app/api/broadcast/dj-promo/route.ts`
+
+### New Files (iOS)
+- `Channel/Views/DJBadge.swift`
+- `Channel/Views/PromoLinkCard.swift`
+
+### Updated Files
+- `firestore.rules`
+- `src/components/broadcast/LiveIndicator.tsx`
+- `src/app/broadcast/live/BroadcastClient.tsx`
+- `src/app/broadcast/[venue]/VenueClient.tsx`
+- `Channel/Models/ChatMessage.swift`
+- `Channel/Views/ChatMessageRow.swift`
+- `Channel/Views/ChatRoomView.swift`
+- `Channel/Services/ChatService.swift`
+
+### Implementation Order
+1. Data model - Add fields to BroadcastSlot and ChatMessage
+2. Firestore rules - Allow new fields
+3. Backend APIs - dj-username and dj-promo routes
+4. Web onboarding - DJAccountPrompt, DJProfileSetup
+5. Web DJ chat - DJChatPanel, useDJChat hook
+6. iOS display - DJBadge, PromoLinkCard
+7. iOS DJ detection - ChatService checks if user is DJ
+
+---
+
 ## Architecture
 
 ```

@@ -2,7 +2,12 @@
 export type AudioInputMethod = 'system' | 'device' | 'rtmp';
 
 // Broadcast slot status
-export type BroadcastSlotStatus = 'scheduled' | 'live' | 'completed' | 'missed';
+// - scheduled: slot created, waiting for DJ to go live
+// - live: DJ is currently broadcasting
+// - paused: DJ disconnected (browser closed, network failure) - can resume with same token
+// - completed: slot ended (DJ clicked end, or slot time passed)
+// - missed: slot time passed without ever going live
+export type BroadcastSlotStatus = 'scheduled' | 'live' | 'paused' | 'completed' | 'missed';
 
 // Broadcast type - venue uses permanent URL, remote gets unique token
 export type BroadcastType = 'venue' | 'remote';
@@ -13,6 +18,11 @@ export interface DJSlot {
   djName?: string;           // Optional - can be TBD
   startTime: number;         // Unix timestamp ms
   endTime: number;           // Unix timestamp ms
+  // Live DJ info (filled when DJ claims slot)
+  liveDjUserId?: string;     // Firebase UID of DJ who claimed this slot
+  liveDjUsername?: string;   // Their chat username
+  promoUrl?: string;         // DJ-specific promo link (overrides show promo)
+  promoTitle?: string;       // Optional title for promo
 }
 
 // Broadcaster account settings (stored in users collection)
@@ -43,6 +53,12 @@ export interface BroadcastSlot {
   status: BroadcastSlotStatus;
   broadcastType: BroadcastType; // 'venue' = permanent URL, 'remote' = unique token
   venueSlug?: string;          // URL slug for venue broadcast page
+  // Live DJ info (for single-DJ broadcasts)
+  liveDjUserId?: string;       // Firebase UID of the DJ who went live
+  liveDjUsername?: string;     // Their chat username
+  // Show-level promo (default for all DJs)
+  showPromoUrl?: string;
+  showPromoTitle?: string;
 }
 
 // Serialized version for API responses (timestamps as numbers)
@@ -61,6 +77,12 @@ export interface BroadcastSlotSerialized {
   status: BroadcastSlotStatus;
   broadcastType: BroadcastType;
   venueSlug?: string;          // URL slug for venue broadcast page
+  // Live DJ info (for single-DJ broadcasts)
+  liveDjUserId?: string;
+  liveDjUsername?: string;
+  // Show-level promo
+  showPromoUrl?: string;
+  showPromoTitle?: string;
 }
 
 // State for the broadcast hook
@@ -94,6 +116,38 @@ export interface RoomStatus {
 export interface AudioDevice {
   deviceId: string;
   label: string;
+}
+
+// Chat message types for DJ chat
+export type ChatMessageType = 'chat' | 'promo';
+
+export interface ChatMessage {
+  id?: string;
+  stationId: string;
+  username: string;
+  message: string;
+  timestamp: FirestoreTimestamp | Date;
+  heartCount?: number;
+  // DJ-specific fields
+  isDJ?: boolean;              // true if sender is current DJ
+  djSlotId?: string;           // broadcast-slot ID for validation
+  messageType?: ChatMessageType;
+  promoUrl?: string;           // only for messageType: 'promo'
+  promoTitle?: string;         // optional display title
+}
+
+export interface ChatMessageSerialized {
+  id?: string;
+  stationId: string;
+  username: string;
+  message: string;
+  timestamp: number;
+  heartCount?: number;
+  isDJ?: boolean;
+  djSlotId?: string;
+  messageType?: ChatMessageType;
+  promoUrl?: string;
+  promoTitle?: string;
 }
 
 // Constants

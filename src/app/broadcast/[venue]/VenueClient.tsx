@@ -11,6 +11,9 @@ import { LiveIndicator } from '@/components/broadcast/LiveIndicator';
 import { AudioInputMethod, BroadcastSlotSerialized } from '@/types/broadcast';
 import { getVenueSlots } from '@/lib/broadcast-slots';
 
+// Channel app deep link for the broadcast station
+const CHANNEL_BROADCAST_URL = 'https://channel-app.com/listen/broadcast';
+
 interface VenueSlotsResponse {
   currentSlot: BroadcastSlotSerialized | null;
   nextSlot: BroadcastSlotSerialized | null;
@@ -120,6 +123,44 @@ function ShowScheduleHeader({ slot }: { slot: BroadcastSlotSerialized }) {
           )}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+// Channel App URL Section Component
+function ChannelAppUrlSection() {
+  const [copied, setCopied] = useState(false);
+
+  const copyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(CHANNEL_BROADCAST_URL);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      console.error('Failed to copy');
+    }
+  };
+
+  return (
+    <div className="bg-gray-900 rounded-xl p-4">
+      <label className="block text-gray-400 text-sm mb-2">Listen in Channel</label>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          readOnly
+          value={CHANNEL_BROADCAST_URL}
+          className="flex-1 bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 font-mono text-sm"
+        />
+        <button
+          onClick={copyUrl}
+          className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-3 rounded-lg transition-colors"
+        >
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+      </div>
+      <p className="text-gray-500 text-xs mt-2">
+        Share this link to open your broadcast in the Channel app
+      </p>
     </div>
   );
 }
@@ -397,8 +438,6 @@ export function VenueClient({ venueSlug }: VenueClientProps) {
     );
   }
 
-  const displayName = getDisplayName(currentSlot);
-
   // Live state
   if (broadcast.isLive) {
     return (
@@ -503,21 +542,15 @@ export function VenueClient({ venueSlug }: VenueClientProps) {
               Back
             </button>
 
-            {/* Show slot timing info */}
-            <div className="bg-gray-800 rounded-lg p-4 text-center">
-              <p className="text-gray-400 text-sm">Your show</p>
-              <p className="text-white font-medium">{displayName}</p>
-              <p className="text-gray-400 text-sm">
-                {new Date(currentSlot.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} - {new Date(currentSlot.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-              </p>
-            </div>
-
-            {/* DJ Change Warning */}
+{/* DJ Change Warning */}
             {djChangeWarning && (
               <DjChangeWarningBanner warning={djChangeWarning} onEndBroadcast={djChangeWarning.type === 'ended' ? handleEndBroadcast : undefined} />
             )}
 
             <AudioLevelMeter stream={audioStream} />
+
+            {/* Channel App URL */}
+            <ChannelAppUrlSection />
 
             <div className="bg-gray-900 rounded-xl p-4">
               <p className="text-gray-400 text-sm mb-4">

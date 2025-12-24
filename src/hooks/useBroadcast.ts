@@ -1,14 +1,19 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
-import { Room, RoomEvent, Track, LocalTrack } from 'livekit-client';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { Room, RoomEvent, Track, LocalTrack, DisconnectReason } from 'livekit-client';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { BroadcastState, ROOM_NAME, RoomStatus } from '@/types/broadcast';
 
 const r2PublicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
 
-export function useBroadcast(participantIdentity: string, slotId?: string) {
+interface DJInfo {
+  username: string;
+  userId?: string;
+}
+
+export function useBroadcast(participantIdentity: string, slotId?: string, djInfo?: DJInfo) {
   const [state, setState] = useState<BroadcastState>({
     inputMethod: null,
     isConnected: false,
@@ -63,7 +68,24 @@ export function useBroadcast(participantIdentity: string, slotId?: string) {
         setState(prev => ({ ...prev, isConnected: true }));
       });
 
-      room.on(RoomEvent.Disconnected, () => {
+      room.on(RoomEvent.Disconnected, async (reason?: DisconnectReason) => {
+        console.log('📡 Disconnected from room, reason:', reason);
+
+        // If we were live and got disconnected unexpectedly, mark as paused
+        // (not if DJ explicitly ended the broadcast)
+        const wasLive = state.isLive;
+        const isUnexpectedDisconnect = reason !== DisconnectReason.CLIENT_INITIATED;
+
+        if (wasLive && isUnexpectedDisconnect && slotId && db) {
+          try {
+            const slotRef = doc(db, 'broadcast-slots', slotId);
+            await updateDoc(slotRef, { status: 'paused' });
+            console.log('📡 Updated slot status to paused (unexpected disconnect):', slotId);
+          } catch (firestoreError) {
+            console.error('Failed to update slot status to paused:', firestoreError);
+          }
+        }
+
         setState(prev => ({
           ...prev,
           isConnected: false,
@@ -129,12 +151,22 @@ export function useBroadcast(participantIdentity: string, slotId?: string) {
 
       const hlsUrl = data.hlsUrl || `${r2PublicUrl}/${ROOM_NAME}/live.m3u8`;
 
-      // Update Firestore slot status to 'live'
+      // Update Firestore slot status to 'live' and save DJ info
       if (slotId && db) {
         try {
           const slotRef = doc(db, 'broadcast-slots', slotId);
-          await updateDoc(slotRef, { status: 'live' });
-          console.log('📡 Updated slot status to live:', slotId);
+          const updateData: Record<string, string> = { status: 'live' };
+
+          // Save DJ info when going live
+          if (djInfo?.username) {
+            updateData.liveDjUsername = djInfo.username;
+          }
+          if (djInfo?.userId) {
+            updateData.liveDjUserId = djInfo.userId;
+          }
+
+          await updateDoc(slotRef, updateData);
+          console.log('📡 Updated slot status to live with DJ info:', slotId, djInfo?.username);
         } catch (firestoreError) {
           console.error('Failed to update slot status:', firestoreError);
           // Don't fail the broadcast if Firestore update fails
@@ -154,7 +186,7 @@ export function useBroadcast(participantIdentity: string, slotId?: string) {
       setState(prev => ({ ...prev, error: message }));
       return false;
     }
-  }, [slotId]);
+  }, [slotId, djInfo]);
 
   // Go live - connect, publish, and start egress
   const goLive = useCallback(async (stream: MediaStream) => {
@@ -256,6 +288,22 @@ export function useBroadcast(participantIdentity: string, slotId?: string) {
   const clearError = useCallback(() => {
     setState(prev => ({ ...prev, error: null }));
   }, []);
+
+  // Handle browser close/tab close - mark as paused
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Use sendBeacon for reliable delivery on page unload
+      if (state.isLive && slotId) {
+        navigator.sendBeacon(
+          '/api/broadcast/pause-slot',
+          JSON.stringify({ slotId })
+        );
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [state.isLive, slotId]);
 
   return {
     ...state,

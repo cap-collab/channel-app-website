@@ -57,6 +57,81 @@ function snapToHalfHour(timeStr: string): string {
   return `${hours.toString().padStart(2, '0')}:${snappedMinutes.toString().padStart(2, '0')}`;
 }
 
+// Convert time string to minutes since midnight
+function timeToMinutes(timeStr: string): number {
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
+// Convert minutes since midnight to time string
+function minutesToTime(minutes: number): string {
+  // Handle overnight (minutes can be > 1440 for next day)
+  const normalizedMinutes = ((minutes % 1440) + 1440) % 1440;
+  const hours = Math.floor(normalizedMinutes / 60);
+  const mins = normalizedMinutes % 60;
+  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+}
+
+// Adjust DJ slots to fit within show boundaries
+function adjustDjSlotsToShowBounds(
+  djSlots: LocalDJSlot[],
+  showStartTime: string,
+  showEndTime: string,
+  isOvernight: boolean
+): LocalDJSlot[] {
+  if (djSlots.length === 0) return djSlots;
+
+  const showStartMins = timeToMinutes(showStartTime);
+  let showEndMins = timeToMinutes(showEndTime);
+
+  // For overnight shows, end time is on next day
+  if (isOvernight || showEndMins <= showStartMins) {
+    showEndMins += 1440; // Add 24 hours
+  }
+
+  return djSlots.map(dj => {
+    let djStartMins = timeToMinutes(dj.startTime);
+    let djEndMins = timeToMinutes(dj.endTime);
+
+    // Handle overnight DJ slots
+    if (djStartMins < showStartMins && !isOvernight) {
+      djStartMins += 1440;
+    }
+    if (djEndMins <= djStartMins) {
+      djEndMins += 1440;
+    }
+
+    // Clamp DJ start time to show bounds
+    if (djStartMins < showStartMins) {
+      djStartMins = showStartMins;
+    }
+    if (djStartMins > showEndMins) {
+      djStartMins = showEndMins;
+    }
+
+    // Clamp DJ end time to show bounds
+    if (djEndMins < showStartMins) {
+      djEndMins = showStartMins;
+    }
+    if (djEndMins > showEndMins) {
+      djEndMins = showEndMins;
+    }
+
+    // If DJ slot is completely squeezed (start >= end after clamping),
+    // set both to show start time as a placeholder
+    if (djStartMins >= djEndMins) {
+      djStartMins = showStartMins;
+      djEndMins = showStartMins;
+    }
+
+    return {
+      ...dj,
+      startTime: minutesToTime(djStartMins),
+      endTime: minutesToTime(djEndMins),
+    };
+  });
+}
+
 export function SlotModal({
   slot,
   isOpen,
@@ -84,6 +159,14 @@ export function SlotModal({
   // Check if this is an overnight show
   const isOvernight = startDate && endDate && endDate > startDate;
 
+  // Helper to format date as YYYY-MM-DD in local timezone
+  const formatLocalDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Initialize form when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -93,8 +176,9 @@ export function SlotModal({
         const end = new Date(slot.endTime);
         setShowName(slot.showName || '');
         setDjName(slot.djName || '');
-        setStartDate(start.toISOString().split('T')[0]);
-        setEndDate(end.toISOString().split('T')[0]);
+        // Use local date formatting to avoid timezone issues
+        setStartDate(formatLocalDate(start));
+        setEndDate(formatLocalDate(end));
         setStartTime(snapToHalfHour(start.toTimeString().slice(0, 5)));
         setEndTime(snapToHalfHour(end.toTimeString().slice(0, 5)));
         setBroadcastType(slot.broadcastType || 'venue');
@@ -114,8 +198,9 @@ export function SlotModal({
         // Creating new slot from calendar drag
         setShowName('');
         setDjName('');
-        setStartDate(initialStartTime.toISOString().split('T')[0]);
-        setEndDate(initialEndTime.toISOString().split('T')[0]);
+        // Use local date formatting to avoid timezone issues
+        setStartDate(formatLocalDate(initialStartTime));
+        setEndDate(formatLocalDate(initialEndTime));
         setStartTime(snapToHalfHour(initialStartTime.toTimeString().slice(0, 5)));
         setEndTime(snapToHalfHour(initialEndTime.toTimeString().slice(0, 5)));
         setBroadcastType('venue');
@@ -144,6 +229,25 @@ export function SlotModal({
       }
     }
   }, [startDate, endDate, startTime, endTime]);
+
+  // Adjust DJ slots when show times change to keep them within bounds
+  useEffect(() => {
+    if (djSlots.length > 0 && startTime && endTime && startDate && endDate) {
+      const isOvernightShow = endDate > startDate;
+      const adjustedSlots = adjustDjSlotsToShowBounds(djSlots, startTime, endTime, isOvernightShow);
+
+      // Only update if there are actual changes to avoid infinite loops
+      const hasChanges = adjustedSlots.some((adjusted, i) =>
+        adjusted.startTime !== djSlots[i].startTime ||
+        adjusted.endTime !== djSlots[i].endTime
+      );
+
+      if (hasChanges) {
+        setDjSlots(adjustedSlots);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startTime, endTime, startDate, endDate]);
 
   const handleSave = async () => {
     if (!showName || !startDate || !endDate || !startTime || !endTime) return;
@@ -231,9 +335,20 @@ export function SlotModal({
   };
 
   const updateDjSlot = (id: string, field: keyof LocalDJSlot, value: string) => {
-    setDjSlots(djSlots.map(dj =>
-      dj.id === id ? { ...dj, [field]: value } : dj
-    ));
+    setDjSlots(djSlots.map(dj => {
+      if (dj.id !== id) return dj;
+
+      const updatedDj = { ...dj, [field]: value };
+
+      // If updating time fields, clamp to show bounds
+      if (field === 'startTime' || field === 'endTime') {
+        const isOvernightShow = endDate > startDate;
+        const [adjusted] = adjustDjSlotsToShowBounds([updatedDj], startTime, endTime, isOvernightShow);
+        return adjusted;
+      }
+
+      return updatedDj;
+    }));
   };
 
   const removeDjSlot = (id: string) => {
@@ -495,6 +610,7 @@ export function SlotModal({
               <span className={`text-xs px-2 py-0.5 rounded-full ${
                 slot?.status === 'live' ? 'bg-red-600 text-white' :
                 slot?.status === 'scheduled' ? 'bg-blue-600 text-white' :
+                slot?.status === 'paused' ? 'bg-orange-600 text-white' :
                 slot?.status === 'completed' ? 'bg-green-600 text-white' :
                 'bg-gray-600 text-gray-300'
               }`}>
