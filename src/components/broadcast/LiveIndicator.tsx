@@ -114,9 +114,9 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
   const fifteenMin = 15 * 60 * 1000;
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+    <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 lg:h-[calc(100vh-4rem)]">
       {/* Left Column - Show info and controls */}
-      <div className="flex-1 space-y-4">
+      <div className="flex-1 space-y-4 lg:overflow-y-auto">
         {/* Show Schedule Header */}
         {slot && (
           <div className="bg-gray-900 rounded-xl p-4">
@@ -277,9 +277,9 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
         )}
       </div>
 
-      {/* Right Column - Chat (on desktop, takes fixed width) */}
+      {/* Right Column - Chat (on desktop, takes fixed width and full height) */}
       {broadcastToken && djUsername && slot && (
-        <div className="lg:w-96 lg:flex-shrink-0">
+        <div className="lg:w-96 lg:flex-shrink-0 lg:h-full flex flex-col">
           <DJChatPanel
             broadcastToken={broadcastToken}
             slotId={slot.id}
