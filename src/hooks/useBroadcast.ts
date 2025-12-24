@@ -136,8 +136,6 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
 
   // Start egress (go live)
   const startEgress = useCallback(async () => {
-    console.log('🚀 startEgress called!');
-    alert('startEgress called - token: ' + (broadcastToken ? 'YES' : 'NO'));
     try {
       const res = await fetch('/api/livekit/egress', {
         method: 'POST',
