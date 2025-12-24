@@ -14,6 +14,7 @@ interface LiveIndicatorProps {
   onEndBroadcast: () => void;
   broadcastToken?: string;
   djUsername?: string;
+  initialPromoSubmitted?: boolean;
 }
 
 // Helper to format time
@@ -26,7 +27,7 @@ function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername }: LiveIndicatorProps) {
+export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername, initialPromoSubmitted }: LiveIndicatorProps) {
   const { user, isAuthenticated } = useAuthContext();
   const [copied, setCopied] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -210,6 +211,7 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
           userId={user?.uid}
           isCollapsed={isChatCollapsed}
           onToggleCollapse={() => setIsChatCollapsed(!isChatCollapsed)}
+          initialPromoSubmitted={initialPromoSubmitted}
         />
       )}
     </div>

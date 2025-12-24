@@ -81,7 +81,7 @@ export function BroadcastClient() {
   }, [djUsername, user?.uid]);
 
   const participantIdentity = slot?.djName || 'DJ';
-  const broadcast = useBroadcast(participantIdentity, slot?.id, djInfo);
+  const broadcast = useBroadcast(participantIdentity, slot?.id, djInfo, token || undefined);
 
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [dismissedWarning, setDismissedWarning] = useState(false);
@@ -90,6 +90,8 @@ export function BroadcastClient() {
   const [goLiveMessage, setGoLiveMessage] = useState('');
   const [autoGoLive, setAutoGoLive] = useState(false);
   const [autoGoLiveTriggered, setAutoGoLiveTriggered] = useState(false);
+  const [initialPromoSubmitted, setInitialPromoSubmitted] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
 
   // Skip account step if already authenticated
   useEffect(() => {
@@ -177,12 +179,13 @@ export function BroadcastClient() {
     if (!audioStream) return;
 
     setIsGoingLive(true);
+    setPromoError(null);
     const success = await broadcast.goLive(audioStream);
 
     // If we have an initial promo from onboarding, submit it now
     if (success && initialPromoUrl && token) {
       try {
-        await fetch('/api/broadcast/dj-promo', {
+        const promoRes = await fetch('/api/broadcast/dj-promo', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -192,8 +195,17 @@ export function BroadcastClient() {
             username: djUsername,
           }),
         });
+
+        if (promoRes.ok) {
+          setInitialPromoSubmitted(true);
+        } else {
+          const errorData = await promoRes.json();
+          console.error('Failed to submit initial promo:', errorData.error);
+          setPromoError(errorData.error || 'Failed to post promo link');
+        }
       } catch (err) {
         console.error('Failed to submit initial promo:', err);
+        setPromoError('Failed to post promo link');
       }
     }
 
@@ -392,12 +404,25 @@ export function BroadcastClient() {
     return (
       <div className="min-h-screen bg-black p-8">
         <div className="max-w-lg mx-auto">
+          {/* Show promo error if initial promo failed */}
+          {promoError && (
+            <div className="bg-red-900/30 border border-red-800 rounded-lg p-4 mb-4">
+              <p className="text-red-400">Promo link failed: {promoError}</p>
+              <button
+                onClick={() => setPromoError(null)}
+                className="text-red-300 text-sm underline mt-2"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
           <LiveIndicator
             slot={slot}
             hlsUrl={broadcast.hlsUrl}
             onEndBroadcast={handleEndBroadcast}
             broadcastToken={token || undefined}
             djUsername={djUsername}
+            initialPromoSubmitted={initialPromoSubmitted}
           />
         </div>
       </div>

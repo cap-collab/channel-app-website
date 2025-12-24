@@ -11,6 +11,7 @@ interface DJChatPanelProps {
   userId?: string;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  initialPromoSubmitted?: boolean;
 }
 
 // Vinyl record icon component
@@ -99,6 +100,7 @@ export function DJChatPanel({
   userId,
   isCollapsed = false,
   onToggleCollapse,
+  initialPromoSubmitted = false,
 }: DJChatPanelProps) {
   const { messages, isConnected, error, sendMessage, sendPromo, promoUsed } = useDJChat({
     broadcastToken,
@@ -241,8 +243,8 @@ export function DJChatPanel({
               </button>
             </form>
 
-            {/* Promo button */}
-            {!promoUsed && (
+            {/* Promo button - hide if already submitted during onboarding or via chat */}
+            {!promoUsed && !initialPromoSubmitted && (
               <button
                 onClick={() => setShowPromoModal(true)}
                 className="mt-3 w-full flex items-center justify-center gap-2 text-blue-400 hover:text-blue-300 text-sm py-2"

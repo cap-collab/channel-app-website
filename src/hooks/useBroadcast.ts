@@ -2,8 +2,6 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Room, RoomEvent, Track, LocalTrack, DisconnectReason } from 'livekit-client';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { BroadcastState, ROOM_NAME, RoomStatus } from '@/types/broadcast';
 
 const r2PublicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
@@ -13,7 +11,7 @@ interface DJInfo {
   userId?: string;
 }
 
-export function useBroadcast(participantIdentity: string, slotId?: string, djInfo?: DJInfo) {
+export function useBroadcast(participantIdentity: string, slotId?: string, djInfo?: DJInfo, broadcastToken?: string) {
   const [state, setState] = useState<BroadcastState>({
     inputMethod: null,
     isConnected: false,
@@ -76,13 +74,16 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
         const wasLive = state.isLive;
         const isUnexpectedDisconnect = reason !== DisconnectReason.CLIENT_INITIATED;
 
-        if (wasLive && isUnexpectedDisconnect && slotId && db) {
+        if (wasLive && isUnexpectedDisconnect && slotId) {
           try {
-            const slotRef = doc(db, 'broadcast-slots', slotId);
-            await updateDoc(slotRef, { status: 'paused' });
+            await fetch('/api/broadcast/pause-slot', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ slotId }),
+            });
             console.log('📡 Updated slot status to paused (unexpected disconnect):', slotId);
-          } catch (firestoreError) {
-            console.error('Failed to update slot status to paused:', firestoreError);
+          } catch (apiError) {
+            console.error('Failed to update slot status to paused:', apiError);
           }
         }
 
@@ -135,6 +136,8 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
 
   // Start egress (go live)
   const startEgress = useCallback(async () => {
+    console.log('🚀 startEgress called!');
+    alert('startEgress called - token: ' + (broadcastToken ? 'YES' : 'NO'));
     try {
       const res = await fetch('/api/livekit/egress', {
         method: 'POST',
@@ -151,26 +154,33 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
 
       const hlsUrl = data.hlsUrl || `${r2PublicUrl}/${ROOM_NAME}/live.m3u8`;
 
-      // Update Firestore slot status to 'live' and save DJ info
-      if (slotId && db) {
+      // Update Firestore slot status to 'live' via API (uses Admin SDK, no auth required)
+      console.log('📡 broadcastToken value:', broadcastToken);
+      if (broadcastToken) {
         try {
-          const slotRef = doc(db, 'broadcast-slots', slotId);
-          const updateData: Record<string, string> = { status: 'live' };
+          console.log('📡 Calling go-live API...');
+          const goLiveRes = await fetch('/api/broadcast/go-live', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              broadcastToken,
+              djUsername: djInfo?.username,
+              djUserId: djInfo?.userId,
+            }),
+          });
 
-          // Save DJ info when going live
-          if (djInfo?.username) {
-            updateData.liveDjUsername = djInfo.username;
+          if (goLiveRes.ok) {
+            console.log('📡 Updated slot status to live with DJ info:', djInfo?.username);
+          } else {
+            const errorData = await goLiveRes.json();
+            console.error('📡 Failed to update slot status:', errorData.error);
           }
-          if (djInfo?.userId) {
-            updateData.liveDjUserId = djInfo.userId;
-          }
-
-          await updateDoc(slotRef, updateData);
-          console.log('📡 Updated slot status to live with DJ info:', slotId, djInfo?.username);
-        } catch (firestoreError) {
-          console.error('Failed to update slot status:', firestoreError);
-          // Don't fail the broadcast if Firestore update fails
+        } catch (apiError) {
+          console.error('📡 Failed to update slot status:', apiError);
+          // Don't fail the broadcast if status update fails
         }
+      } else {
+        console.warn('📡 No broadcastToken provided - slot status will NOT be updated to live!');
       }
 
       setState(prev => ({
@@ -186,7 +196,7 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
       setState(prev => ({ ...prev, error: message }));
       return false;
     }
-  }, [slotId, djInfo]);
+  }, [broadcastToken, djInfo]);
 
   // Go live - connect, publish, and start egress
   const goLive = useCallback(async (stream: MediaStream) => {
@@ -216,14 +226,17 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
         body: JSON.stringify({ egressId: state.egressId }),
       });
 
-      // Update Firestore slot status to 'completed'
-      if (slotId && db) {
+      // Update Firestore slot status to 'completed' via API
+      if (slotId) {
         try {
-          const slotRef = doc(db, 'broadcast-slots', slotId);
-          await updateDoc(slotRef, { status: 'completed' });
+          await fetch('/api/broadcast/complete-slot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ slotId }),
+          });
           console.log('📡 Updated slot status to completed:', slotId);
-        } catch (firestoreError) {
-          console.error('Failed to update slot status:', firestoreError);
+        } catch (apiError) {
+          console.error('Failed to update slot status:', apiError);
         }
       }
 

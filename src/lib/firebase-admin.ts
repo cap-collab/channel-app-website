@@ -19,7 +19,9 @@ function initializeAdminApp() {
   }
 
   // Try service account credentials first
-  if (privateKey && projectId && clientEmail) {
+  // Only use if privateKey actually looks like a real PEM key
+  const hasValidKey = privateKey && privateKey.includes('BEGIN PRIVATE KEY');
+  if (hasValidKey && projectId && clientEmail) {
     adminApp = initializeApp({
       credential: cert({
         projectId,
