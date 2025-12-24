@@ -128,7 +128,7 @@ export function useAuth() {
     return () => unsubscribe();
   }, []);
 
-  const signInWithGoogle = useCallback(async (enableNotifications = false) => {
+  const signInWithGoogle = useCallback(async (enableNotifications = false, djUsername?: string) => {
     if (!auth || !googleProvider || !db) {
       setState((prev) => ({
         ...prev,
@@ -147,7 +147,7 @@ export function useAuth() {
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
-        // New user - create document with notification preference
+        // New user - create document with notification preference and DJ username if provided
         await setDoc(userRef, {
           email: user.email,
           displayName: user.displayName,
@@ -159,6 +159,8 @@ export function useAuth() {
             showStarting: enableNotifications,
             watchlistMatch: enableNotifications,
           },
+          // Set chatUsername from DJ broadcast flow if provided (matches iOS app field name)
+          ...(djUsername && { chatUsername: djUsername }),
         });
       } else {
         // Existing user - update last seen
@@ -171,6 +173,11 @@ export function useAuth() {
             showStarting: true,
             watchlistMatch: true,
           };
+        }
+        // Set chatUsername if provided and user doesn't already have one
+        const existingData = userSnap.data();
+        if (djUsername && !existingData.chatUsername) {
+          updateData.chatUsername = djUsername;
         }
         await setDoc(userRef, updateData, { merge: true });
       }
@@ -186,7 +193,7 @@ export function useAuth() {
     }
   }, []);
 
-  const signInWithApple = useCallback(async (enableNotifications = false) => {
+  const signInWithApple = useCallback(async (enableNotifications = false, djUsername?: string) => {
     if (!auth || !appleProvider || !db) {
       setState((prev) => ({
         ...prev,
@@ -205,7 +212,7 @@ export function useAuth() {
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
-        // New user - create document with notification preference
+        // New user - create document with notification preference and DJ username if provided
         await setDoc(userRef, {
           email: user.email,
           displayName: user.displayName || user.email?.split("@")[0] || "User",
@@ -217,6 +224,8 @@ export function useAuth() {
             showStarting: enableNotifications,
             watchlistMatch: enableNotifications,
           },
+          // Set chatUsername from DJ broadcast flow if provided (matches iOS app field name)
+          ...(djUsername && { chatUsername: djUsername }),
         });
       } else {
         // Existing user - update last seen
@@ -228,6 +237,11 @@ export function useAuth() {
             showStarting: true,
             watchlistMatch: true,
           };
+        }
+        // Set chatUsername if provided and user doesn't already have one
+        const existingData = userSnap.data();
+        if (djUsername && !existingData.chatUsername) {
+          updateData.chatUsername = djUsername;
         }
         await setDoc(userRef, updateData, { merge: true });
       }

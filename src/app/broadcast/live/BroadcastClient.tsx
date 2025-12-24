@@ -10,12 +10,11 @@ import { DeviceAudioCapture } from '@/components/broadcast/DeviceAudioCapture';
 import { RtmpIngressPanel } from '@/components/broadcast/RtmpIngressPanel';
 import { AudioLevelMeter } from '@/components/broadcast/AudioLevelMeter';
 import { LiveIndicator } from '@/components/broadcast/LiveIndicator';
-import { DJAccountPrompt } from '@/components/broadcast/DJAccountPrompt';
 import { DJProfileSetup } from '@/components/broadcast/DJProfileSetup';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { AudioInputMethod } from '@/types/broadcast';
 
-type OnboardingStep = 'account' | 'profile' | 'audio';
+type OnboardingStep = 'profile' | 'audio';
 
 // Channel app deep link for the broadcast station
 const CHANNEL_BROADCAST_URL = 'https://channel-app.com/listen/broadcast';
@@ -61,12 +60,13 @@ function ChannelAppUrlSection() {
 export function BroadcastClient() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
-  const { isAuthenticated, user } = useAuthContext();
+  const { user } = useAuthContext();
 
   const { slot, error: tokenError, loading: tokenLoading, scheduleStatus, message } = useBroadcastToken(token);
 
   // DJ onboarding state - declared early so djInfo can use it
-  const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>('account');
+  // Start directly at profile step (non-blocking login is inline in DJProfileSetup)
+  const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>('profile');
   const [djUsername, setDjUsername] = useState<string>('');
   const [initialPromoUrl, setInitialPromoUrl] = useState<string | undefined>();
   const [initialPromoTitle, setInitialPromoTitle] = useState<string | undefined>();
@@ -93,12 +93,6 @@ export function BroadcastClient() {
   const [initialPromoSubmitted, setInitialPromoSubmitted] = useState(false);
   const [promoError, setPromoError] = useState<string | null>(null);
 
-  // Skip account step if already authenticated
-  useEffect(() => {
-    if (isAuthenticated && onboardingStep === 'account') {
-      setOnboardingStep('profile');
-    }
-  }, [isAuthenticated, onboardingStep]);
 
   // Check Go Live availability based on slot timing
   useEffect(() => {
@@ -152,6 +146,32 @@ export function BroadcastClient() {
     const interval = setInterval(checkSlotCompletion, 10000);
     return () => clearInterval(interval);
   }, [slot]);
+
+  // Update liveDjUserId on the broadcast slot when user logs in while already live
+  // This enables the iOS app to recognize them as the DJ for chat
+  useEffect(() => {
+    if (!broadcast.isLive || !user?.uid || !token || !slot?.id) return;
+
+    const updateDjUserId = async () => {
+      try {
+        const response = await fetch('/api/broadcast/update-dj-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            broadcastToken: token,
+            djUserId: user.uid,
+          }),
+        });
+        if (response.ok) {
+          console.log('Updated liveDjUserId on slot after login');
+        }
+      } catch (err) {
+        console.error('Failed to update DJ user ID:', err);
+      }
+    };
+
+    updateDjUserId();
+  }, [broadcast.isLive, user?.uid, token, slot?.id]);
 
   const handleInputSelect = useCallback((method: AudioInputMethod) => {
     broadcast.setInputMethod(method);
@@ -266,17 +286,7 @@ export function BroadcastClient() {
     broadcast.setInputMethod(null);
   }, [audioStream, broadcast]);
 
-  // DJ onboarding handlers
-  const handleAccountComplete = useCallback(() => {
-    // Move to profile step
-    setOnboardingStep('profile');
-  }, []);
-
-  const handleAccountSkip = useCallback(() => {
-    // Continue as guest
-    setOnboardingStep('profile');
-  }, []);
-
+  // DJ onboarding handler
   const handleProfileComplete = useCallback((username: string, promoUrl?: string, promoTitle?: string) => {
     setDjUsername(username);
     setInitialPromoUrl(promoUrl);
@@ -429,19 +439,7 @@ export function BroadcastClient() {
     );
   }
 
-  // DJ Onboarding - Account prompt (for guests)
-  if (onboardingStep === 'account') {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-8">
-        <DJAccountPrompt
-          onComplete={handleAccountComplete}
-          onSkip={handleAccountSkip}
-        />
-      </div>
-    );
-  }
-
-  // DJ Onboarding - Profile setup
+  // DJ Onboarding - Profile setup (with non-blocking inline login prompt)
   if (onboardingStep === 'profile') {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-8">

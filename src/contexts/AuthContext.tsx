@@ -9,8 +9,8 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
   emailSent: boolean;
-  signInWithGoogle: (enableNotifications?: boolean) => Promise<User | null>;
-  signInWithApple: (enableNotifications?: boolean) => Promise<User | null>;
+  signInWithGoogle: (enableNotifications?: boolean, djUsername?: string) => Promise<User | null>;
+  signInWithApple: (enableNotifications?: boolean, djUsername?: string) => Promise<User | null>;
   sendEmailLink: (email: string, enableNotifications?: boolean) => Promise<boolean>;
   resetEmailSent: () => void;
   signOut: () => Promise<void>;
