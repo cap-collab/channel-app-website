@@ -117,11 +117,50 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
     <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 lg:h-[calc(100vh-4rem)]">
       {/* Left Column - Show info and controls */}
       <div className="flex-1 space-y-4 lg:overflow-y-auto">
-        {/* Show Schedule Header */}
-        {slot && (
+        {/* Station Header (like iOS NowPlayingBar) */}
+        <div className="bg-gray-900 rounded-xl p-4">
+          <div className="flex items-center gap-3">
+            {/* Station logo */}
+            <div className="w-12 h-12 bg-black rounded-lg flex items-center justify-center flex-shrink-0">
+              <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+                {/* Channel logo dots pattern */}
+                <circle cx="4" cy="4" r="1.5" />
+                <circle cx="8" cy="4" r="1.5" />
+                <circle cx="12" cy="4" r="1.5" />
+                <circle cx="4" cy="8" r="1.5" />
+                <circle cx="8" cy="8" r="1.5" />
+                <circle cx="12" cy="8" r="1.5" />
+                <circle cx="16" cy="8" r="1.5" />
+                <circle cx="4" cy="12" r="1.5" />
+                <circle cx="8" cy="12" r="1.5" />
+                <circle cx="12" cy="12" r="1.5" />
+                <circle cx="16" cy="12" r="1.5" />
+                <circle cx="4" cy="16" r="1.5" />
+                <circle cx="8" cy="16" r="1.5" />
+                <circle cx="12" cy="16" r="1.5" />
+                <circle cx="16" cy="16" r="1.5" />
+                <circle cx="20" cy="16" r="1.5" />
+                <circle cx="4" cy="20" r="1.5" />
+                <circle cx="8" cy="20" r="1.5" />
+                <circle cx="12" cy="20" r="1.5" />
+                <circle cx="16" cy="20" r="1.5" />
+                <circle cx="20" cy="20" r="1.5" />
+              </svg>
+            </div>
+            {/* Station and show info */}
+            <div className="flex-1 min-w-0">
+              <h2 className="text-white font-semibold text-base">Channel Broadcast</h2>
+              {slot && (
+                <p className="text-gray-400 text-sm truncate">{slot.showName || 'Live'}</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Show Schedule */}
+        {slot && (slot.djSlots?.length || slot.djName) && (
           <div className="bg-gray-900 rounded-xl p-4">
-            <h2 className="text-white font-bold text-lg mb-1">{slot.showName || 'Broadcast'}</h2>
-            <p className="text-gray-500 text-sm mb-4">
+            <p className="text-gray-500 text-sm mb-3">
               {formatDate(slot.startTime)} · {formatTime(slot.startTime)} – {formatTime(slot.endTime)}
             </p>
 
