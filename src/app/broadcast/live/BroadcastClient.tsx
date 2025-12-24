@@ -412,8 +412,8 @@ export function BroadcastClient() {
   // Live state
   if (broadcast.isLive) {
     return (
-      <div className="min-h-screen bg-black p-8">
-        <div className="max-w-lg mx-auto">
+      <div className="min-h-screen bg-black p-4 lg:p-8">
+        <div className="max-w-6xl mx-auto">
           {/* Show promo error if initial promo failed */}
           {promoError && (
             <div className="bg-red-900/30 border border-red-800 rounded-lg p-4 mb-4">
