@@ -71,6 +71,50 @@ export function BroadcastClient() {
   const [initialPromoUrl, setInitialPromoUrl] = useState<string | undefined>();
   const [initialPromoTitle, setInitialPromoTitle] = useState<string | undefined>();
 
+  // Multi-DJ show: track current DJ slot to detect DJ changes
+  const [currentDjSlotId, setCurrentDjSlotId] = useState<string | null>(null);
+
+  // Get current DJ slot based on current time (for multi-DJ shows)
+  const getCurrentDjSlot = useCallback(() => {
+    if (!slot?.djSlots || slot.djSlots.length === 0) return null;
+    const now = Date.now();
+    return slot.djSlots.find(dj => now >= dj.startTime && now < dj.endTime) || null;
+  }, [slot?.djSlots]);
+
+  // Detect DJ slot changes and reset profile state for new DJ
+  useEffect(() => {
+    if (!slot?.djSlots || slot.djSlots.length === 0) return;
+
+    const checkDjSlotChange = () => {
+      const activeDjSlot = getCurrentDjSlot();
+      const newSlotId = activeDjSlot?.id || null;
+
+      // If DJ slot changed and we have a username set (meaning previous DJ completed profile)
+      if (newSlotId !== currentDjSlotId && currentDjSlotId !== null && djUsername) {
+        // New DJ slot started - reset profile for the new DJ
+        setDjUsername('');
+        setInitialPromoUrl(undefined);
+        setInitialPromoTitle(undefined);
+        setInitialPromoSubmitted(false);
+        setOnboardingStep('profile');
+        console.log('DJ slot changed, prompting new DJ for profile');
+      }
+
+      setCurrentDjSlotId(newSlotId);
+    };
+
+    checkDjSlotChange();
+    const interval = setInterval(checkDjSlotChange, 1000);
+    return () => clearInterval(interval);
+  }, [slot?.djSlots, currentDjSlotId, djUsername, getCurrentDjSlot]);
+
+  // Get the default DJ name for current slot (either from djSlot or single djName)
+  const getDefaultDjName = useCallback(() => {
+    const activeDjSlot = getCurrentDjSlot();
+    if (activeDjSlot?.djName) return activeDjSlot.djName;
+    return slot?.djName;
+  }, [getCurrentDjSlot, slot?.djName]);
+
   // Create DJ info object for useBroadcast
   const djInfo = useMemo(() => {
     if (!djUsername) return undefined;
@@ -411,8 +455,11 @@ export function BroadcastClient() {
 
   // Live state
   if (broadcast.isLive) {
+    // If djUsername is empty (new DJ slot started), show profile overlay
+    const needsNewDjProfile = !djUsername && slot?.djSlots && slot.djSlots.length > 0;
+
     return (
-      <div className="min-h-screen bg-black p-4 lg:p-8">
+      <div className="min-h-screen bg-black p-4 lg:p-8 relative">
         <div className="max-w-6xl mx-auto">
           {/* Show promo error if initial promo failed */}
           {promoError && (
@@ -435,6 +482,24 @@ export function BroadcastClient() {
             initialPromoSubmitted={initialPromoSubmitted}
           />
         </div>
+
+        {/* New DJ profile overlay for multi-DJ shows */}
+        {needsNewDjProfile && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="relative">
+              <div className="absolute -top-12 left-0 right-0 text-center">
+                <span className="inline-flex items-center gap-2 bg-red-600 text-white text-sm font-medium px-3 py-1 rounded-full">
+                  <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+                  Broadcast is live
+                </span>
+              </div>
+              <DJProfileSetup
+                defaultUsername={getDefaultDjName()}
+                onComplete={handleProfileComplete}
+              />
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -444,7 +509,7 @@ export function BroadcastClient() {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-8">
         <DJProfileSetup
-          defaultUsername={slot?.djName}
+          defaultUsername={getDefaultDjName()}
           onComplete={handleProfileComplete}
         />
       </div>
