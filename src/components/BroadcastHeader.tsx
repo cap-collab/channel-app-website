@@ -72,13 +72,6 @@ export function BroadcastHeader({ stationName = "Channel Broadcast" }: Broadcast
                         </p>
                       </div>
                       <Link
-                        href="/my-shows"
-                        onClick={() => setShowUserMenu(false)}
-                        className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-gray-900 transition-colors"
-                      >
-                        My Shows
-                      </Link>
-                      <Link
                         href="/settings"
                         onClick={() => setShowUserMenu(false)}
                         className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-gray-900 transition-colors"
