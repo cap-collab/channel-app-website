@@ -3,10 +3,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Hls from 'hls.js';
 import { getFirestore, collection, query, where, orderBy, limit, onSnapshot, Timestamp } from 'firebase/firestore';
+import { getDatabase, ref, set, remove, onValue, onDisconnect } from 'firebase/database';
 import { getApps, initializeApp } from 'firebase/app';
 import { BroadcastSlotSerialized, ROOM_NAME, RoomStatus } from '@/types/broadcast';
 
-const r2PublicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
+// Hardcoded HLS URL - same as iOS app uses for Channel Broadcast station
+const BROADCAST_HLS_URL = 'https://pub-de855cd714814c9eaedcfcc2db1880ed.r2.dev/channel-radio/live.m3u8';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -22,6 +24,17 @@ function getFirebaseApp() {
     return initializeApp(firebaseConfig);
   }
   return getApps()[0];
+}
+
+// Generate a unique session ID for presence tracking (matches iOS ListenerCountService)
+function getSessionId(): string | null {
+  if (typeof window === 'undefined') return null;
+  let sessionId = sessionStorage.getItem('channelSessionId');
+  if (!sessionId) {
+    sessionId = crypto.randomUUID();
+    sessionStorage.setItem('channelSessionId', sessionId);
+  }
+  return sessionId;
 }
 
 interface UseBroadcastStreamReturn {
@@ -55,23 +68,18 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
 
-  // Check room status and get HLS URL
-  // Note: This only updates HLS URL and currentDJ, NOT isLive
+  // Check room status to get currentDJ info
+  // Note: hlsUrl is now set by Firestore subscription, NOT this function
   // isLive is determined by Firestore broadcast-slots status (matching iOS app behavior)
   const checkRoomStatus = useCallback(async () => {
     try {
       const res = await fetch(`/api/livekit/room-status?room=${ROOM_NAME}`);
       const data: RoomStatus = await res.json();
 
-      if (data.isLive) {
-        setCurrentDJ(data.currentDJ || null);
-        // Use the HLS URL from R2
-        const streamUrl = `${r2PublicUrl}/${ROOM_NAME}/live.m3u8`;
-        setHlsUrl(streamUrl);
-      } else {
-        // Don't clear currentDJ here - let Firestore be the source of truth
-        setHlsUrl(null);
+      if (data.isLive && data.currentDJ) {
+        setCurrentDJ(data.currentDJ);
       }
+      // Don't set hlsUrl here - Firestore subscription handles it
     } catch (err) {
       console.error('Failed to check room status:', err);
     }
@@ -120,9 +128,12 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
           setCurrentShow(slot);
           setCurrentDJ(slot.liveDjUsername || slot.djName || null);
           setIsLive(true);
+          // Set HLS URL immediately when live (same URL as iOS app)
+          setHlsUrl(BROADCAST_HLS_URL);
         } else {
           setCurrentShow(null);
           setIsLive(false);
+          setHlsUrl(null);
         }
       },
       (err) => {
@@ -169,6 +180,13 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = '';
+      }
+      // Clean up presence on unmount
+      const sessionId = getSessionId();
+      if (sessionId) {
+        const db = getDatabase(getFirebaseApp());
+        const presenceRef = ref(db, `presence/broadcast/${sessionId}`);
+        remove(presenceRef);
       }
     };
   }, []);
@@ -219,6 +237,18 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
 
     setIsLoading(true);
     setError(null);
+
+    // Register presence in Firebase (matches iOS ListenerCountService)
+    const sessionId = getSessionId();
+    if (sessionId) {
+      const db = getDatabase(getFirebaseApp());
+      const presenceRef = ref(db, `presence/broadcast/${sessionId}`);
+      // Set onDisconnect to remove presence on crash/close
+      onDisconnect(presenceRef).remove();
+      // Register presence
+      set(presenceRef, true);
+    }
+
     audioRef.current.play().catch((err) => {
       console.error('Play error:', err);
       setError('Failed to play');
@@ -229,6 +259,14 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
   const pause = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
+    }
+
+    // Remove presence from Firebase (matches iOS ListenerCountService)
+    const sessionId = getSessionId();
+    if (sessionId) {
+      const db = getDatabase(getFirebaseApp());
+      const presenceRef = ref(db, `presence/broadcast/${sessionId}`);
+      remove(presenceRef);
     }
   }, []);
 
@@ -276,21 +314,19 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
     return () => unsubMessages();
   }, []);
 
-  // Poll for listener count
+  // Subscribe to listener count from Firebase Realtime Database (matches iOS ListenerCountService)
   useEffect(() => {
-    const fetchListenerCount = async () => {
-      try {
-        const res = await fetch(`/api/livekit/room-status?room=${ROOM_NAME}`);
-        const data: RoomStatus = await res.json();
-        setListenerCount(data.participantCount || 0);
-      } catch (err) {
-        console.error('Failed to fetch listener count:', err);
-      }
-    };
+    const app = getFirebaseApp();
+    const db = getDatabase(app);
+    const presenceRef = ref(db, 'presence/broadcast');
 
-    fetchListenerCount();
-    const interval = setInterval(fetchListenerCount, 15000); // Every 15 seconds
-    return () => clearInterval(interval);
+    const unsubscribe = onValue(presenceRef, (snapshot) => {
+      // Count children = number of active listeners (matches iOS exactly)
+      const count = snapshot.size || 0;
+      setListenerCount(count);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   return {
