@@ -86,6 +86,7 @@ export function NowPlayingPanel({
             username={username}
             showName={showName}
             compact
+            disabled={!isLive}
           />
 
           {/* Play/Pause */}
@@ -189,6 +190,7 @@ export function NowPlayingPanel({
             isAuthenticated={isAuthenticated}
             username={username}
             showName={showName}
+            disabled={!isLive}
           />
 
           {/* Play/Pause button */}

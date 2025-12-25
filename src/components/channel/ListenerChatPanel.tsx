@@ -9,6 +9,7 @@ interface ListenerChatPanelProps {
   isAuthenticated: boolean;
   username?: string;
   currentDJ?: string | null;
+  isLive?: boolean;
 }
 
 function formatTimeAgo(timestamp: number): string {
@@ -230,6 +231,7 @@ export function ListenerChatPanel({
   isAuthenticated,
   username,
   currentDJ,
+  isLive = false,
 }: ListenerChatPanelProps) {
   const { messages, isConnected, error, currentPromo, sendMessage, sendLove } = useListenerChat({
     username,
@@ -309,8 +311,8 @@ export function ListenerChatPanel({
         </div>
       )}
 
-      {/* Pinned promo bar */}
-      {currentPromo && currentPromo.promoUrl && (
+      {/* Pinned promo bar - only show when live */}
+      {isLive && currentPromo && currentPromo.promoUrl && (
         <a
           href={currentPromo.promoUrl}
           target="_blank"
@@ -362,7 +364,8 @@ export function ListenerChatPanel({
           <button
             type="button"
             onClick={handleSendLove}
-            className="text-accent hover:text-accent-hover transition-colors"
+            disabled={!isLive}
+            className={`transition-colors ${isLive ? 'text-accent hover:text-accent-hover' : 'text-gray-600 cursor-not-allowed'}`}
           >
             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
@@ -374,16 +377,16 @@ export function ListenerChatPanel({
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Type a message..."
-            className="flex-1 bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500"
+            placeholder={isLive ? "Type a message..." : "Chat available when live"}
+            className="flex-1 bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500 disabled:text-gray-500 disabled:cursor-not-allowed"
             maxLength={280}
-            disabled={isSending}
+            disabled={isSending || !isLive}
           />
 
           {/* Send button */}
           <button
             type="submit"
-            disabled={!inputValue.trim() || isSending}
+            disabled={!inputValue.trim() || isSending || !isLive}
             className="bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

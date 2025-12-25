@@ -9,6 +9,7 @@ interface LoveButtonProps {
   username?: string;
   showName?: string;
   compact?: boolean;
+  disabled?: boolean;
   onRequireAuth?: () => void;
 }
 
@@ -17,6 +18,7 @@ export function LoveButton({
   username,
   showName,
   compact = false,
+  disabled = false,
   onRequireAuth,
 }: LoveButtonProps) {
   const [trigger, setTrigger] = useState(0);
@@ -25,6 +27,8 @@ export function LoveButton({
   const { sendLove } = useListenerChat({ username });
 
   const handleClick = useCallback(async () => {
+    if (disabled) return;
+
     if (!isAuthenticated) {
       onRequireAuth?.();
       return;
@@ -43,7 +47,7 @@ export function LoveButton({
 
     // Reset animation
     setTimeout(() => setIsAnimating(false), 300);
-  }, [isAuthenticated, onRequireAuth, sendLove, showName]);
+  }, [disabled, isAuthenticated, onRequireAuth, sendLove, showName]);
 
   const buttonSize = compact ? 'w-10 h-10' : 'w-12 h-12';
   const iconSize = compact ? 'w-5 h-5' : 'w-6 h-6';
@@ -52,9 +56,12 @@ export function LoveButton({
     <div className="relative">
       <button
         onClick={handleClick}
-        className={`${buttonSize} flex items-center justify-center text-accent hover:text-accent-hover transition-all ${
-          isAnimating ? 'scale-125' : 'scale-100'
-        }`}
+        disabled={disabled}
+        className={`${buttonSize} flex items-center justify-center transition-all ${
+          disabled
+            ? 'text-gray-600 cursor-not-allowed'
+            : 'text-accent hover:text-accent-hover'
+        } ${isAnimating ? 'scale-125' : 'scale-100'}`}
       >
         <svg
           className={iconSize}

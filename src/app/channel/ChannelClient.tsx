@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import { Header } from '@/components/Header';
 import { NowPlayingPanel } from '@/components/channel/NowPlayingPanel';
 import { ListenerChatPanel } from '@/components/channel/ListenerChatPanel';
@@ -11,7 +12,11 @@ import { useBroadcastSchedule } from '@/hooks/useBroadcastSchedule';
 
 export function ChannelClient() {
   const { user, isAuthenticated } = useAuthContext();
+  const { chatUsername } = useUserProfile(user?.uid);
   const [activeTab, setActiveTab] = useState<'chat' | 'schedule'>('chat');
+
+  // Use chatUsername from Firestore profile (set in iOS app) if available
+  const username = chatUsername || user?.displayName || undefined;
 
   const {
     isPlaying,
@@ -57,7 +62,7 @@ export function ChannelClient() {
                 listenerCount={listenerCount}
                 messageCount={messageCount}
                 isAuthenticated={isAuthenticated}
-                username={user?.displayName || undefined}
+                username={username}
                 error={error}
               />
             </div>
@@ -78,8 +83,9 @@ export function ChannelClient() {
           <div className="w-96 border-l border-gray-800 flex flex-col">
             <ListenerChatPanel
               isAuthenticated={isAuthenticated}
-              username={user?.displayName || undefined}
+              username={username}
               currentDJ={currentDJ}
+              isLive={isLive}
             />
           </div>
         </div>
@@ -99,7 +105,7 @@ export function ChannelClient() {
               listenerCount={listenerCount}
               messageCount={messageCount}
               isAuthenticated={isAuthenticated}
-              username={user?.displayName || undefined}
+              username={username}
               compact
               error={error}
             />
@@ -134,8 +140,9 @@ export function ChannelClient() {
             {activeTab === 'chat' ? (
               <ListenerChatPanel
                 isAuthenticated={isAuthenticated}
-                username={user?.displayName || undefined}
+                username={username}
                 currentDJ={currentDJ}
+                isLive={isLive}
               />
             ) : (
               <div className="h-full overflow-y-auto p-4">
