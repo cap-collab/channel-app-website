@@ -19,6 +19,8 @@ export function ChannelClient() {
     isLive,
     currentShow,
     currentDJ,
+    hlsUrl,
+    error,
     toggle,
     loveCount,
     listenerCount,
@@ -57,6 +59,8 @@ export function ChannelClient() {
                 messageCount={messageCount}
                 isAuthenticated={isAuthenticated}
                 username={user?.displayName || undefined}
+                hlsUrl={hlsUrl}
+                error={error}
               />
             </div>
 
@@ -99,6 +103,8 @@ export function ChannelClient() {
               isAuthenticated={isAuthenticated}
               username={user?.displayName || undefined}
               compact
+              hlsUrl={hlsUrl}
+              error={error}
             />
           </div>
 

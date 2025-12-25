@@ -19,6 +19,8 @@ interface NowPlayingPanelProps {
   isAuthenticated: boolean;
   username?: string;
   compact?: boolean;
+  hlsUrl?: string | null;
+  error?: string | null;
 }
 
 function formatTime(timestamp: number): string {
@@ -38,6 +40,8 @@ export function NowPlayingPanel({
   isAuthenticated,
   username,
   compact = false,
+  hlsUrl,
+  error,
 }: NowPlayingPanelProps) {
   // Station name is always "Channel Broadcast"
   const stationName = 'Channel Broadcast';
@@ -51,6 +55,9 @@ export function NowPlayingPanel({
   const progress = currentShow
     ? Math.min(Math.max((now - currentShow.startTime) / (currentShow.endTime - currentShow.startTime), 0), 1)
     : 0;
+
+  // Stream is available if we have an HLS URL
+  const streamAvailable = !!hlsUrl;
 
   if (compact) {
     return (
@@ -203,10 +210,20 @@ export function NowPlayingPanel({
           </button>
         </div>
 
-        {/* Not live message */}
-        {!isLive && (
+        {/* Status messages */}
+        {error && (
+          <p className="text-center text-red-400 text-sm mt-4">
+            {error}
+          </p>
+        )}
+        {!isLive && !error && (
           <p className="text-center text-gray-500 text-sm mt-4">
             No broadcast currently live. Check the schedule below.
+          </p>
+        )}
+        {isLive && !streamAvailable && !error && !isLoading && (
+          <p className="text-center text-yellow-500 text-sm mt-4">
+            Stream starting soon...
           </p>
         )}
       </div>

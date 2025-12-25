@@ -56,19 +56,20 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
   const hlsRef = useRef<Hls | null>(null);
 
   // Check room status and get HLS URL
+  // Note: This only updates HLS URL and currentDJ, NOT isLive
+  // isLive is determined by Firestore broadcast-slots status (matching iOS app behavior)
   const checkRoomStatus = useCallback(async () => {
     try {
       const res = await fetch(`/api/livekit/room-status?room=${ROOM_NAME}`);
       const data: RoomStatus = await res.json();
 
-      setIsLive(data.isLive);
       if (data.isLive) {
         setCurrentDJ(data.currentDJ || null);
         // Use the HLS URL from R2
         const streamUrl = `${r2PublicUrl}/${ROOM_NAME}/live.m3u8`;
         setHlsUrl(streamUrl);
       } else {
-        setCurrentDJ(null);
+        // Don't clear currentDJ here - let Firestore be the source of truth
         setHlsUrl(null);
       }
     } catch (err) {
