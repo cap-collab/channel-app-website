@@ -57,6 +57,76 @@ function ChannelAppUrlSection() {
   );
 }
 
+// Profile button component - shows user's profile picture/initial when logged in, or user icon when logged out
+function ProfileButton() {
+  const { user, isAuthenticated, signOut } = useAuthContext();
+  const [showMenu, setShowMenu] = useState(false);
+
+  const handleSignOut = async () => {
+    setShowMenu(false);
+    await signOut();
+  };
+
+  // Not logged in - show a user icon with "Guest" indicator
+  if (!isAuthenticated || !user) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 bg-gray-800 rounded-lg border border-gray-700">
+        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+        <span className="text-gray-400 text-sm">Guest</span>
+      </div>
+    );
+  }
+
+  const displayName = user.displayName || user.email?.split('@')[0] || 'User';
+  const initial = displayName.charAt(0).toUpperCase();
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setShowMenu(!showMenu)}
+        className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-700 hover:border-gray-500 transition-colors flex items-center justify-center bg-gray-800"
+      >
+        {user.photoURL ? (
+          <img
+            src={user.photoURL}
+            alt={displayName}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <span className="text-white font-medium">{initial}</span>
+        )}
+      </button>
+
+      {showMenu && (
+        <>
+          {/* Backdrop to close menu */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setShowMenu(false)}
+          />
+          {/* Menu dropdown */}
+          <div className="absolute right-0 top-12 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-50 min-w-[200px]">
+            <div className="px-4 py-3 border-b border-gray-700">
+              <p className="text-white font-medium truncate">{displayName}</p>
+              {user.email && (
+                <p className="text-gray-500 text-sm truncate">{user.email}</p>
+              )}
+            </div>
+            <button
+              onClick={handleSignOut}
+              className="w-full px-4 py-3 text-left text-red-400 hover:bg-gray-800 transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function BroadcastClient() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -460,6 +530,11 @@ export function BroadcastClient() {
 
     return (
       <div className="min-h-screen bg-black p-4 lg:p-8 relative">
+        {/* Profile button - top right */}
+        <div className="absolute top-4 right-4 lg:top-8 lg:right-8 z-30">
+          <ProfileButton />
+        </div>
+
         <div className="max-w-6xl mx-auto">
           {/* Show promo error if initial promo failed */}
           {promoError && (
@@ -480,6 +555,8 @@ export function BroadcastClient() {
             broadcastToken={token || undefined}
             djUsername={djUsername}
             initialPromoSubmitted={initialPromoSubmitted}
+            isVenue={slot?.broadcastType === 'venue'}
+            onChangeUsername={slot?.broadcastType === 'venue' ? setDjUsername : undefined}
           />
         </div>
 
@@ -507,7 +584,12 @@ export function BroadcastClient() {
   // DJ Onboarding - Profile setup (with non-blocking inline login prompt)
   if (onboardingStep === 'profile') {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-8">
+      <div className="min-h-screen bg-black flex items-center justify-center p-8 relative">
+        {/* Profile button - top right */}
+        <div className="absolute top-4 right-4 lg:top-8 lg:right-8 z-30">
+          <ProfileButton />
+        </div>
+
         <DJProfileSetup
           defaultUsername={getDefaultDjName()}
           onComplete={handleProfileComplete}
@@ -517,7 +599,12 @@ export function BroadcastClient() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white p-8">
+    <div className="min-h-screen bg-black text-white p-8 relative">
+      {/* Profile button - top right */}
+      <div className="absolute top-4 right-4 lg:top-8 lg:right-8 z-30">
+        <ProfileButton />
+      </div>
+
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="mb-8">

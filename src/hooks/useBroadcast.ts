@@ -225,12 +225,13 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
       });
 
       // Update Firestore slot status to 'completed' via API
+      // force: true allows completing before scheduled end time (DJ ended early)
       if (slotId) {
         try {
           await fetch('/api/broadcast/complete-slot', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ slotId }),
+            body: JSON.stringify({ slotId, force: true }),
           });
           console.log('📡 Updated slot status to completed:', slotId);
         } catch (apiError) {

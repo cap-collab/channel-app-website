@@ -67,17 +67,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'This broadcast slot has ended' }, { status: 410 });
     }
 
-    // Check if promo has already been set (one-and-done for single DJ)
-    // For multi-DJ, we check the current DJ slot instead
+    // Update promo link (can be changed multiple times during broadcast)
     if (slot.djSlots && slot.djSlots.length > 0) {
-      // Multi-DJ: find current DJ slot and check their promo
-      const currentDjSlot = slot.djSlots.find(
-        dj => dj.startTime <= now && dj.endTime > now
-      );
-      if (currentDjSlot?.promoUrl) {
-        return NextResponse.json({ error: 'Promo link already set for this DJ slot' }, { status: 409 });
-      }
-      // Update the specific DJ slot's promo
+      // Multi-DJ: update the specific DJ slot's promo
       const djSlotIndex = slot.djSlots.findIndex(
         dj => dj.startTime <= now && dj.endTime > now
       );
@@ -91,11 +83,7 @@ export async function POST(request: NextRequest) {
         await doc.ref.update({ djSlots: updatedDjSlots });
       }
     } else {
-      // Single DJ: check show-level promo
-      if (slot.showPromoUrl) {
-        return NextResponse.json({ error: 'Promo link already set for this broadcast' }, { status: 409 });
-      }
-      // Update show-level promo
+      // Single DJ: update show-level promo
       await doc.ref.update({
         showPromoUrl: promoUrl,
         showPromoTitle: promoTitle || null,

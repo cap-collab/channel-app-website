@@ -11,6 +11,13 @@ interface WeeklyCalendarProps {
   currentWeekStart: Date;
   onWeekChange: (newStart: Date) => void;
   venueName: string;
+  venueSlug: string;
+}
+
+interface ContextMenuState {
+  slot: BroadcastSlotSerialized;
+  x: number;
+  y: number;
 }
 
 // Segment of a slot for rendering (handles overnight shows)
@@ -35,6 +42,7 @@ export function WeeklyCalendar({
   currentWeekStart,
   onWeekChange,
   venueName,
+  venueSlug,
 }: WeeklyCalendarProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ day: number; hour: number } | null>(null);
@@ -45,6 +53,10 @@ export function WeeklyCalendar({
   const [resizeSlot, setResizeSlot] = useState<BroadcastSlotSerialized | null>(null);
   const [resizeEdge, setResizeEdge] = useState<'top' | 'bottom' | null>(null);
   const [resizeHour, setResizeHour] = useState<number | null>(null);
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Get days of the week
   const weekDays = useMemo(() => {
@@ -381,6 +393,11 @@ export function WeeklyCalendar({
             e.stopPropagation();
             if (!isResizing) onSlotClick(slot);
           }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setContextMenu({ slot, x: e.clientX, y: e.clientY });
+          }}
         >
           {/* Continuation indicator at top */}
           {!isFirstSegment && (
@@ -466,6 +483,33 @@ export function WeeklyCalendar({
         style={{ top: `${top}px`, height: `${height}px` }}
       />
     );
+  };
+
+  // Context menu handlers
+  const getBroadcastUrl = (slot: BroadcastSlotSerialized) => {
+    return slot.broadcastType === 'venue'
+      ? `${window.location.origin}/broadcast/${venueSlug}`
+      : `${window.location.origin}/broadcast/live?token=${slot.broadcastToken}`;
+  };
+
+  const handleCopyLink = async () => {
+    if (!contextMenu) return;
+    try {
+      await navigator.clipboard.writeText(getBroadcastUrl(contextMenu.slot));
+      setCopied(true);
+      setTimeout(() => {
+        setCopied(false);
+        setContextMenu(null);
+      }, 1500);
+    } catch (error) {
+      console.error('Failed to copy:', error);
+      setContextMenu(null);
+    }
+  };
+
+  const handleCloseContextMenu = () => {
+    setContextMenu(null);
+    setCopied(false);
   };
 
   return (
@@ -567,6 +611,61 @@ export function WeeklyCalendar({
           ))}
         </div>
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <>
+          {/* Backdrop to close menu */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={handleCloseContextMenu}
+          />
+          {/* Menu */}
+          <div
+            className="fixed z-50 bg-gray-800 rounded-lg shadow-xl border border-gray-700 py-1 min-w-[180px]"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+          >
+            <div className="px-3 py-2 border-b border-gray-700">
+              <p className="text-white text-sm font-medium truncate">{contextMenu.slot.showName}</p>
+              <p className="text-gray-400 text-xs">
+                {new Date(contextMenu.slot.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              </p>
+            </div>
+            <button
+              onClick={handleCopyLink}
+              className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-700 flex items-center gap-2"
+            >
+              {copied ? (
+                <>
+                  <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-green-400">Copied!</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Copy Broadcast Link
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => {
+                onSlotClick(contextMenu.slot);
+                setContextMenu(null);
+              }}
+              className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-700 flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Edit Show
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

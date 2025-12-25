@@ -84,6 +84,15 @@ export function AdminDashboard() {
   // Check if user has broadcaster access
   const hasBroadcasterAccess = isBroadcaster(role);
 
+  // Complete any expired slots (runs on load)
+  const completeExpiredSlots = useCallback(async () => {
+    try {
+      await fetch('/api/broadcast/complete-expired', { method: 'POST' });
+    } catch (error) {
+      console.error('Failed to complete expired slots:', error);
+    }
+  }, []);
+
   // Fetch slots from Firestore directly
   const fetchSlots = useCallback(async () => {
     try {
@@ -108,7 +117,10 @@ export function AdminDashboard() {
   // Initial load
   useEffect(() => {
     if (isAuthenticated && hasBroadcasterAccess) {
-      Promise.all([fetchSlots(), fetchRoomStatus()]).finally(() => setIsLoading(false));
+      // First complete any expired slots, then fetch fresh data
+      completeExpiredSlots()
+        .then(() => Promise.all([fetchSlots(), fetchRoomStatus()]))
+        .finally(() => setIsLoading(false));
 
       // Poll room status every 10 seconds
       const interval = setInterval(fetchRoomStatus, 10000);
@@ -116,7 +128,7 @@ export function AdminDashboard() {
     } else {
       setIsLoading(false);
     }
-  }, [isAuthenticated, hasBroadcasterAccess, fetchSlots, fetchRoomStatus]);
+  }, [isAuthenticated, hasBroadcasterAccess, completeExpiredSlots, fetchSlots, fetchRoomStatus]);
 
   // Handle slot click (edit)
   const handleSlotClick = (slot: BroadcastSlotSerialized) => {
@@ -144,16 +156,35 @@ export function AdminDashboard() {
     if (!user) return;
 
     if (selectedSlot) {
-      // Update existing slot - delete and recreate
-      await deleteSlotFromDb(selectedSlot.id);
-    }
+      // Check if broadcast type changed - if so, need to recreate to get new token
+      const typeChanged = selectedSlot.broadcastType !== data.broadcastType;
 
-    // Create new slot
-    await createSlot({
-      ...data,
-      createdBy: user.uid,
-      venueSlug: broadcasterSettings.venueSlug,
-    });
+      if (typeChanged) {
+        // Delete old slot and create new one (new type needs new token)
+        await deleteSlotFromDb(selectedSlot.id);
+        await createSlot({
+          ...data,
+          createdBy: user.uid,
+          venueSlug: broadcasterSettings.venueSlug,
+        });
+      } else {
+        // Update existing slot - preserve the token by using updateSlot
+        await updateSlot(selectedSlot.id, {
+          showName: data.showName,
+          djName: data.djName,
+          djSlots: data.djSlots,
+          startTime: data.startTime,
+          endTime: data.endTime,
+        });
+      }
+    } else {
+      // Create new slot
+      await createSlot({
+        ...data,
+        createdBy: user.uid,
+        venueSlug: broadcasterSettings.venueSlug,
+      });
+    }
 
     await fetchSlots();
   };
@@ -422,12 +453,13 @@ export function AdminDashboard() {
             currentWeekStart={currentWeekStart}
             onWeekChange={setCurrentWeekStart}
             venueName={broadcasterSettings.venueName}
+            venueSlug={broadcasterSettings.venueSlug}
           />
         )}
 
         {/* Quick tip */}
         <div className="mt-4 text-center text-sm text-gray-500">
-          Tip: Click on a slot to edit or copy the broadcast link. Drag the edges to resize.
+          Tip: Click to edit, right-click to copy link. Drag edges to resize.
         </div>
       </div>
 

@@ -46,14 +46,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Token has expired' }, { status: 410 });
     }
 
-    // Check if slot is still valid (not completed/missed)
-    if (slot.status === 'completed' || slot.status === 'missed') {
-      return NextResponse.json({ error: 'This broadcast slot has ended' }, { status: 410 });
-    }
-
     // Determine if outside scheduled time
     const startTime = slot.startTime.toMillis();
     const endTime = slot.endTime.toMillis();
+
+    // Check if slot is still valid (not completed/missed)
+    // But allow if we're still within the scheduled time window (status may be stale)
+    if ((slot.status === 'completed' || slot.status === 'missed') && now > endTime) {
+      return NextResponse.json({ error: 'This broadcast slot has ended' }, { status: 410 });
+    }
 
     let scheduleStatus: 'early' | 'on-time' | 'late' = 'on-time';
     if (now < startTime) {

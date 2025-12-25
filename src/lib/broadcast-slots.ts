@@ -197,8 +197,8 @@ export async function validateToken(token: string): Promise<{
     return { valid: false, error: 'Token has expired' };
   }
 
-  // Check if slot is still valid
-  if (slot.status === 'completed' || slot.status === 'missed') {
+  // Check if slot is still valid (but allow if we're still within scheduled time - status may be stale)
+  if ((slot.status === 'completed' || slot.status === 'missed') && now > slot.endTime) {
     return { valid: false, error: 'This broadcast slot has ended' };
   }
 

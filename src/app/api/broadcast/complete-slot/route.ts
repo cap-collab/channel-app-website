@@ -26,12 +26,15 @@ export async function POST(request: NextRequest) {
     }
 
     const slot = slotDoc.data() as Omit<BroadcastSlot, 'id'>;
-    const now = Date.now();
-    const endTime = slot.endTime.toMillis();
+    const { force } = body;  // Allow force completion when DJ ends broadcast early
 
-    // Only complete if end time has passed
-    if (now <= endTime) {
-      return NextResponse.json({ error: 'Slot has not ended yet' }, { status: 400 });
+    // If not forced, only complete if end time has passed
+    if (!force) {
+      const now = Date.now();
+      const endTime = slot.endTime.toMillis();
+      if (now <= endTime) {
+        return NextResponse.json({ error: 'Slot has not ended yet' }, { status: 400 });
+      }
     }
 
     // Determine final status based on current status

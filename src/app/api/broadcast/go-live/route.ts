@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { BroadcastSlot } from '@/types/broadcast';
+import { FieldValue } from 'firebase-admin/firestore';
 
 // POST - Mark a broadcast slot as live and save DJ info
 export async function POST(request: NextRequest) {
@@ -61,6 +62,22 @@ export async function POST(request: NextRequest) {
 
     await doc.ref.update(updateData);
     console.log('[go-live] ✅ Slot updated to live:', { slotId: doc.id, updateData });
+
+    // If DJ is logged in, save their DJ username to their user profile as chatUsername
+    // This ensures their chat identity matches their live DJ name
+    if (djUserId && djUsername) {
+      try {
+        const userRef = db.collection('users').doc(djUserId);
+        await userRef.set({
+          chatUsername: djUsername,
+          lastSeenAt: FieldValue.serverTimestamp(),
+        }, { merge: true });
+        console.log('[go-live] ✅ Saved chatUsername to user profile:', { djUserId, chatUsername: djUsername });
+      } catch (userError) {
+        // Don't fail the go-live if user profile update fails
+        console.error('[go-live] Failed to update user profile (non-fatal):', userError);
+      }
+    }
 
     return NextResponse.json({
       success: true,

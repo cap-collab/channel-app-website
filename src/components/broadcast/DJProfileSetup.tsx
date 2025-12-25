@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useUserProfile } from '@/hooks/useUserProfile';
 
 interface DJProfileSetupProps {
   defaultUsername?: string;
@@ -10,11 +11,20 @@ interface DJProfileSetupProps {
 
 export function DJProfileSetup({ defaultUsername, onComplete }: DJProfileSetupProps) {
   const { user, isAuthenticated, signInWithGoogle, signInWithApple, loading: authLoading } = useAuthContext();
+  const { chatUsername: savedUsername, loading: profileLoading } = useUserProfile(user?.uid);
   const [username, setUsername] = useState(defaultUsername || '');
   const [promoUrl, setPromoUrl] = useState('');
   const [promoTitle, setPromoTitle] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
+
+  // Pre-fill username from saved chatUsername - this takes PRIORITY over defaultUsername
+  // When a logged-in DJ goes live, their chatUsername becomes their DJ username
+  useEffect(() => {
+    if (savedUsername) {
+      setUsername(savedUsername);
+    }
+  }, [savedUsername]);
 
   // Get valid username for saving during sign-in (if valid)
   const getValidUsername = (): string | undefined => {
@@ -46,8 +56,11 @@ export function DJProfileSetup({ defaultUsername, onComplete }: DJProfileSetupPr
     }
   };
 
-  // Auto-fill username from user's display name or email
+  // Auto-fill username from user's display name or email (only if no saved username)
   useEffect(() => {
+    // Don't auto-fill if user has a saved chatUsername or we're still loading
+    if (savedUsername || profileLoading) return;
+
     if (user && !username) {
       // Try to get a good default username
       const displayName = user.displayName;
@@ -70,7 +83,7 @@ export function DJProfileSetup({ defaultUsername, onComplete }: DJProfileSetupPr
         }
       }
     }
-  }, [user, username]);
+  }, [user, username, savedUsername, profileLoading]);
 
   const validateUsername = (value: string): string | null => {
     const trimmed = value.trim();
@@ -134,6 +147,18 @@ export function DJProfileSetup({ defaultUsername, onComplete }: DJProfileSetupPr
     // This allows the flow to work without Firebase Admin SDK
     onComplete(username.trim(), promoUrl || undefined, promoTitle || undefined);
   };
+
+  // Show loading state while fetching user profile
+  if (isAuthenticated && profileLoading) {
+    return (
+      <div className="bg-gray-900 rounded-xl p-8 max-w-md mx-auto">
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+          <span className="ml-3 text-gray-400">Loading your profile...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-900 rounded-xl p-8 max-w-md mx-auto">
