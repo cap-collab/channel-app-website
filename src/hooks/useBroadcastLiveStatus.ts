@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getFirestore, collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { getFirestore, collection, query, where, limit, onSnapshot } from 'firebase/firestore';
 import { getApps, initializeApp } from 'firebase/app';
 
 const firebaseConfig = {
@@ -34,10 +34,11 @@ export function useBroadcastLiveStatus(): UseBroadcastLiveStatusReturn {
     const db = getFirestore(app);
 
     const slotsRef = collection(db, 'broadcast-slots');
+    // Simple query - just check if any live slot exists
+    // No orderBy to avoid needing a composite index
     const q = query(
       slotsRef,
       where('status', '==', 'live'),
-      orderBy('startTime', 'desc'),
       limit(1)
     );
 

@@ -83,11 +83,11 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
     const db = getFirestore(app);
 
     // Query for live broadcast slots
+    // No orderBy to avoid needing a composite index - there should only be one live slot at a time
     const slotsRef = collection(db, 'broadcast-slots');
     const q = query(
       slotsRef,
       where('status', '==', 'live'),
-      orderBy('startTime', 'desc'),
       limit(1)
     );
 
