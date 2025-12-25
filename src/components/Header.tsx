@@ -6,8 +6,9 @@ import Image from "next/image";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/AuthModal";
 import { MobileMenu, MobileMenuItem } from "@/components/MobileMenu";
+import { useBroadcastLiveStatus } from "@/hooks/useBroadcastLiveStatus";
 
-type CurrentPage = "home" | "djshows" | "apply";
+type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel";
 
 interface HeaderProps {
   currentPage?: CurrentPage;
@@ -18,12 +19,18 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { user, isAuthenticated, signOut, loading } = useAuthContext();
+  const { isLive } = useBroadcastLiveStatus();
 
   // Build mobile menu items based on current page
   const getMobileMenuItems = (): MobileMenuItem[] => {
     const items: MobileMenuItem[] = [];
 
-    // iOS Beta always first
+    // Live Now button - first when live and not on /channel
+    if (isLive && currentPage !== "channel") {
+      items.push({ label: "🔴 Live Now", href: "/channel" });
+    }
+
+    // iOS Beta always first (after Live Now if present)
     items.push({ label: "iOS Beta", href: "https://testflight.apple.com/join/HcKTJ1nH", external: true });
 
     // Browse DJ Shows button hidden
@@ -33,8 +40,8 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
     // Get Involved - anchor on home/djshows (both have the section), full URL on apply
     const getInvolvedHref = currentPage === "apply" ? "/#get-involved" : "#get-involved";
     items.push({ label: "Get Involved", href: getInvolvedHref });
-    if (currentPage !== "apply") {
-      items.push({ label: "Feature Your Station", href: "/apply" });
+    if (currentPage !== "broadcast-admin") {
+      items.push({ label: "Radio Portal", href: "/broadcast/admin" });
     }
     // Only show auth on non-home pages
     if (currentPage !== "home") {
@@ -79,12 +86,12 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
             >
               Get Involved
             </a>
-            {currentPage !== "apply" && (
+            {currentPage !== "broadcast-admin" && (
               <Link
-                href="/apply"
+                href="/broadcast/admin"
                 className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
               >
-                Feature Your Station
+                Radio Portal
               </Link>
             )}
 
@@ -97,6 +104,17 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
               >
                 Sign In
               </button>
+            )}
+
+            {/* Live Now button - only show when broadcast is live and not on /channel */}
+            {isLive && currentPage !== "channel" && (
+              <Link
+                href="/channel"
+                className="hidden sm:inline-flex items-center gap-1.5 bg-red-600 text-white px-3 sm:px-4 py-1.5 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(239,68,68,0.4)] transition-all whitespace-nowrap animate-pulse"
+              >
+                <span className="w-2 h-2 bg-white rounded-full" />
+                Live Now
+              </Link>
             )}
 
             {/* Main CTA button - iOS Beta on all pages */}

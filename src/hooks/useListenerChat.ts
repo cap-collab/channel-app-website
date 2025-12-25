@@ -1,0 +1,159 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { getFirestore, collection, query, orderBy, limit, onSnapshot, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { getApps, initializeApp } from 'firebase/app';
+import { ChatMessageSerialized } from '@/types/broadcast';
+
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
+
+function getFirebaseApp() {
+  if (getApps().length === 0) {
+    return initializeApp(firebaseConfig);
+  }
+  return getApps()[0];
+}
+
+interface UseListenerChatOptions {
+  username?: string;
+}
+
+interface UseListenerChatReturn {
+  messages: ChatMessageSerialized[];
+  isConnected: boolean;
+  error: string | null;
+  currentPromo: ChatMessageSerialized | null;
+  sendMessage: (text: string) => Promise<void>;
+  sendLove: (showName?: string) => Promise<void>;
+}
+
+export function useListenerChat({ username }: UseListenerChatOptions): UseListenerChatReturn {
+  const [messages, setMessages] = useState<ChatMessageSerialized[]>([]);
+  const [isConnected, setIsConnected] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [currentPromo, setCurrentPromo] = useState<ChatMessageSerialized | null>(null);
+
+  // Subscribe to chat messages
+  useEffect(() => {
+    const app = getFirebaseApp();
+    const db = getFirestore(app);
+
+    const messagesRef = collection(db, 'chats', 'broadcast', 'messages');
+    const q = query(
+      messagesRef,
+      orderBy('timestamp', 'desc'),
+      limit(100)
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const newMessages: ChatMessageSerialized[] = [];
+        let latestPromo: ChatMessageSerialized | null = null;
+
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          const timestamp = data.timestamp as Timestamp | null;
+          const msg: ChatMessageSerialized = {
+            id: doc.id,
+            stationId: data.stationId || 'broadcast',
+            username: data.username,
+            message: data.message,
+            timestamp: timestamp ? timestamp.toMillis() : Date.now(),
+            heartCount: data.heartCount || 1,
+            isDJ: data.isDJ || false,
+            djSlotId: data.djSlotId,
+            messageType: data.messageType || 'chat',
+            promoUrl: data.promoUrl,
+            promoTitle: data.promoTitle,
+          };
+          newMessages.push(msg);
+
+          // Track the most recent promo from the current DJ
+          if (data.messageType === 'promo' && !latestPromo) {
+            latestPromo = msg;
+          }
+        });
+
+        // Reverse to show oldest first
+        setMessages(newMessages.reverse());
+        setCurrentPromo(latestPromo);
+        setIsConnected(true);
+        setError(null);
+      },
+      (err) => {
+        console.error('Chat subscription error:', err);
+        setError('Failed to connect to chat');
+        setIsConnected(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  // Send a regular chat message
+  const sendMessage = useCallback(async (text: string) => {
+    if (!text.trim() || !username) return;
+
+    const app = getFirebaseApp();
+    const db = getFirestore(app);
+
+    try {
+      const messagesRef = collection(db, 'chats', 'broadcast', 'messages');
+      await addDoc(messagesRef, {
+        stationId: 'broadcast',
+        username,
+        message: text.trim(),
+        timestamp: serverTimestamp(),
+        isDJ: false,
+        messageType: 'chat',
+      });
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      throw new Error('Failed to send message');
+    }
+  }, [username]);
+
+  // Send a love reaction
+  const sendLove = useCallback(async (showName?: string) => {
+    if (!username) return;
+
+    const app = getFirebaseApp();
+    const db = getFirestore(app);
+
+    try {
+      const messagesRef = collection(db, 'chats', 'broadcast', 'messages');
+      const message = showName
+        ? `${username} is ❤️ ${showName}`
+        : `${username} is ❤️ the broadcast`;
+
+      await addDoc(messagesRef, {
+        stationId: 'broadcast',
+        username,
+        message,
+        timestamp: serverTimestamp(),
+        isDJ: false,
+        messageType: 'love',
+      });
+    } catch (err) {
+      console.error('Failed to send love:', err);
+      throw new Error('Failed to send love');
+    }
+  }, [username]);
+
+  return {
+    messages,
+    isConnected,
+    error,
+    currentPromo,
+    sendMessage,
+    sendLove,
+  };
+}
