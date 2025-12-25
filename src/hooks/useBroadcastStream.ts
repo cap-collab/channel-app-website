@@ -1,14 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import Hls from 'hls.js';
+import { Room, RoomEvent, Track, RemoteTrack, RemoteTrackPublication, RemoteParticipant } from 'livekit-client';
 import { getFirestore, collection, query, where, orderBy, limit, onSnapshot, Timestamp } from 'firebase/firestore';
 import { getDatabase, ref, set, remove, onValue, onDisconnect } from 'firebase/database';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getApps, initializeApp } from 'firebase/app';
-import { BroadcastSlotSerialized, ROOM_NAME, RoomStatus } from '@/types/broadcast';
-
-// Hardcoded HLS URL - same as iOS app uses for Channel Broadcast station
-const BROADCAST_HLS_URL = 'https://pub-de855cd714814c9eaedcfcc2db1880ed.r2.dev/channel-radio/live.m3u8';
+import { BroadcastSlotSerialized, ROOM_NAME } from '@/types/broadcast';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -37,13 +35,32 @@ function getSessionId(): string | null {
   return sessionId;
 }
 
+// Ensure user is signed in (anonymously if needed) before writing to Firebase
+// Matches iOS ListenerCountService.ensureAuthAndExecute()
+async function ensureAuthAndExecute(action: () => void): Promise<void> {
+  const app = getFirebaseApp();
+  const auth = getAuth(app);
+
+  if (auth.currentUser) {
+    action();
+    return;
+  }
+
+  try {
+    await signInAnonymously(auth);
+    action();
+  } catch (err) {
+    console.error('Firebase anonymous auth failed:', err);
+    // Graceful degradation - don't write presence if auth fails
+  }
+}
+
 interface UseBroadcastStreamReturn {
   isPlaying: boolean;
   isLoading: boolean;
   isLive: boolean;
   currentShow: BroadcastSlotSerialized | null;
   currentDJ: string | null;
-  hlsUrl: string | null;
   error: string | null;
   play: () => void;
   pause: () => void;
@@ -59,31 +76,13 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
   const [isLive, setIsLive] = useState(false);
   const [currentShow, setCurrentShow] = useState<BroadcastSlotSerialized | null>(null);
   const [currentDJ, setCurrentDJ] = useState<string | null>(null);
-  const [hlsUrl, setHlsUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loveCount, setLoveCount] = useState(0);
   const [listenerCount, setListenerCount] = useState(0);
   const [messageCount, setMessageCount] = useState(0);
 
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const hlsRef = useRef<Hls | null>(null);
-
-  // Check room status to get currentDJ info
-  // Note: hlsUrl is now set by Firestore subscription, NOT this function
-  // isLive is determined by Firestore broadcast-slots status (matching iOS app behavior)
-  const checkRoomStatus = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/livekit/room-status?room=${ROOM_NAME}`);
-      const data: RoomStatus = await res.json();
-
-      if (data.isLive && data.currentDJ) {
-        setCurrentDJ(data.currentDJ);
-      }
-      // Don't set hlsUrl here - Firestore subscription handles it
-    } catch (err) {
-      console.error('Failed to check room status:', err);
-    }
-  }, []);
+  const roomRef = useRef<Room | null>(null);
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
 
   // Subscribe to current live slot from Firestore
   useEffect(() => {
@@ -128,12 +127,16 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
           setCurrentShow(slot);
           setCurrentDJ(slot.liveDjUsername || slot.djName || null);
           setIsLive(true);
-          // Set HLS URL immediately when live (same URL as iOS app)
-          setHlsUrl(BROADCAST_HLS_URL);
         } else {
           setCurrentShow(null);
+          setCurrentDJ(null);
           setIsLive(false);
-          setHlsUrl(null);
+          // If we were connected to LiveKit, disconnect when broadcast ends
+          if (roomRef.current) {
+            roomRef.current.disconnect();
+            roomRef.current = null;
+            setIsPlaying(false);
+          }
         }
       },
       (err) => {
@@ -144,93 +147,75 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
     return () => unsubscribe();
   }, []);
 
-  // Check room status periodically
+  // Clean up on unmount
   useEffect(() => {
-    checkRoomStatus();
-    const interval = setInterval(checkRoomStatus, 30000); // Every 30 seconds
-    return () => clearInterval(interval);
-  }, [checkRoomStatus]);
-
-  // Initialize audio element
-  useEffect(() => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio();
-      audioRef.current.addEventListener('playing', () => {
-        setIsPlaying(true);
-        setIsLoading(false);
-      });
-      audioRef.current.addEventListener('pause', () => {
-        setIsPlaying(false);
-      });
-      audioRef.current.addEventListener('waiting', () => {
-        setIsLoading(true);
-      });
-      audioRef.current.addEventListener('error', (e) => {
-        console.error('Audio error:', e);
-        setError('Failed to play stream');
-        setIsLoading(false);
-        setIsPlaying(false);
-      });
-    }
-
     return () => {
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
+      if (roomRef.current) {
+        roomRef.current.disconnect();
+        roomRef.current = null;
       }
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
+      if (audioElementRef.current) {
+        audioElementRef.current.pause();
+        audioElementRef.current.srcObject = null;
       }
       // Clean up presence on unmount
       const sessionId = getSessionId();
       if (sessionId) {
-        const db = getDatabase(getFirebaseApp());
-        const presenceRef = ref(db, `presence/broadcast/${sessionId}`);
-        remove(presenceRef);
+        const app = getFirebaseApp();
+        const auth = getAuth(app);
+        if (auth.currentUser) {
+          const db = getDatabase(app);
+          const presenceRef = ref(db, `presence/broadcast/${sessionId}`);
+          remove(presenceRef);
+        }
       }
     };
   }, []);
 
-  // Set up HLS when URL changes
-  useEffect(() => {
-    if (!hlsUrl || !audioRef.current) return;
+  // Handle track subscription - play audio when we get a remote track
+  const handleTrackSubscribed = useCallback(
+    (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
+      console.log('🎵 Track subscribed:', track.kind, 'from', participant.identity);
 
-    // Clean up previous HLS instance
-    if (hlsRef.current) {
-      hlsRef.current.destroy();
-      hlsRef.current = null;
-    }
-
-    if (Hls.isSupported()) {
-      const hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
-      });
-      hlsRef.current = hls;
-
-      hls.loadSource(hlsUrl);
-      hls.attachMedia(audioRef.current);
-
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        setError(null);
-      });
-
-      hls.on(Hls.Events.ERROR, (event, data) => {
-        if (data.fatal) {
-          console.error('HLS fatal error:', data);
-          setError('Stream connection lost');
-          setIsPlaying(false);
-          setIsLoading(false);
+      if (track.kind === Track.Kind.Audio) {
+        // Create audio element if needed
+        if (!audioElementRef.current) {
+          audioElementRef.current = new Audio();
         }
-      });
-    } else if (audioRef.current.canPlayType('application/vnd.apple.mpegurl')) {
-      // Safari native HLS support
-      audioRef.current.src = hlsUrl;
-    }
-  }, [hlsUrl]);
 
-  const play = useCallback(() => {
-    if (!audioRef.current || !hlsUrl) {
+        // Attach the track to the audio element
+        track.attach(audioElementRef.current);
+
+        audioElementRef.current.play()
+          .then(() => {
+            console.log('🎵 Audio playing');
+            setIsPlaying(true);
+            setIsLoading(false);
+            setError(null);
+          })
+          .catch((err) => {
+            console.error('🎵 Audio play error:', err);
+            setError('Failed to play audio. Click to try again.');
+            setIsLoading(false);
+          });
+      }
+    },
+    []
+  );
+
+  const handleTrackUnsubscribed = useCallback(
+    (track: RemoteTrack) => {
+      console.log('🎵 Track unsubscribed:', track.kind);
+      if (track.kind === Track.Kind.Audio && audioElementRef.current) {
+        track.detach(audioElementRef.current);
+        setIsPlaying(false);
+      }
+    },
+    []
+  );
+
+  const play = useCallback(async () => {
+    if (!isLive) {
       setError('Stream not available');
       return;
     }
@@ -238,35 +223,101 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
     setIsLoading(true);
     setError(null);
 
-    // Register presence in Firebase (matches iOS ListenerCountService)
-    const sessionId = getSessionId();
-    if (sessionId) {
-      const db = getDatabase(getFirebaseApp());
-      const presenceRef = ref(db, `presence/broadcast/${sessionId}`);
-      // Set onDisconnect to remove presence on crash/close
-      onDisconnect(presenceRef).remove();
-      // Register presence
-      set(presenceRef, true);
-    }
+    try {
+      // Get a listener token (canPublish=false)
+      const res = await fetch(
+        `/api/livekit/token?room=${ROOM_NAME}&username=web-listener-${Date.now()}&canPublish=false`
+      );
+      const data = await res.json();
 
-    audioRef.current.play().catch((err) => {
-      console.error('Play error:', err);
-      setError('Failed to play');
+      if (data.error) {
+        setError(data.error);
+        setIsLoading(false);
+        return;
+      }
+
+      // Create and connect to the room
+      const room = new Room();
+      roomRef.current = room;
+
+      // Set up event handlers
+      room.on(RoomEvent.TrackSubscribed, handleTrackSubscribed);
+      room.on(RoomEvent.TrackUnsubscribed, handleTrackUnsubscribed);
+
+      room.on(RoomEvent.Disconnected, () => {
+        console.log('🎵 Disconnected from LiveKit room');
+        setIsPlaying(false);
+        setIsLoading(false);
+        roomRef.current = null;
+      });
+
+      room.on(RoomEvent.ParticipantConnected, (participant) => {
+        console.log('🎵 Participant connected:', participant.identity);
+      });
+
+      room.on(RoomEvent.ParticipantDisconnected, (participant) => {
+        console.log('🎵 Participant disconnected:', participant.identity);
+      });
+
+      // Connect to the room
+      await room.connect(data.url, data.token);
+      console.log('🎵 Connected to LiveKit room:', ROOM_NAME);
+
+      // Check if there are already tracks to subscribe to
+      room.remoteParticipants.forEach((participant) => {
+        participant.trackPublications.forEach((publication) => {
+          if (publication.track && publication.kind === Track.Kind.Audio) {
+            handleTrackSubscribed(
+              publication.track as RemoteTrack,
+              publication as RemoteTrackPublication,
+              participant
+            );
+          }
+        });
+      });
+
+      // Register presence in Firebase
+      const sessionId = getSessionId();
+      if (sessionId) {
+        ensureAuthAndExecute(() => {
+          const db = getDatabase(getFirebaseApp());
+          const presenceRef = ref(db, `presence/broadcast/${sessionId}`);
+          onDisconnect(presenceRef).remove();
+          set(presenceRef, true);
+        });
+      }
+
+      // If no tracks yet, we're waiting for the DJ to start streaming
+      if (room.remoteParticipants.size === 0) {
+        console.log('🎵 No participants yet, waiting for DJ...');
+        // Keep loading state until we get a track
+      }
+
+    } catch (err) {
+      console.error('🎵 LiveKit connection error:', err);
+      setError('Failed to connect to stream');
       setIsLoading(false);
-    });
-  }, [hlsUrl]);
+    }
+  }, [isLive, handleTrackSubscribed, handleTrackUnsubscribed]);
 
   const pause = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
+    if (roomRef.current) {
+      roomRef.current.disconnect();
+      roomRef.current = null;
     }
+    if (audioElementRef.current) {
+      audioElementRef.current.pause();
+    }
+    setIsPlaying(false);
 
-    // Remove presence from Firebase (matches iOS ListenerCountService)
+    // Remove presence from Firebase
     const sessionId = getSessionId();
     if (sessionId) {
-      const db = getDatabase(getFirebaseApp());
-      const presenceRef = ref(db, `presence/broadcast/${sessionId}`);
-      remove(presenceRef);
+      ensureAuthAndExecute(() => {
+        const db = getDatabase(getFirebaseApp());
+        const presenceRef = ref(db, `presence/broadcast/${sessionId}`);
+        remove(presenceRef);
+      });
     }
   }, []);
 
@@ -335,7 +386,6 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
     isLive,
     currentShow,
     currentDJ,
-    hlsUrl,
     error,
     play,
     pause,

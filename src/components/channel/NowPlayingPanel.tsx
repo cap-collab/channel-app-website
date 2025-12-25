@@ -5,6 +5,8 @@ import { BroadcastSlotSerialized } from '@/types/broadcast';
 import { LoveButton } from './LoveButton';
 import { ActivityBadges } from './ActivityBadges';
 import { ProgressBar } from './ProgressBar';
+import { BPMBadge } from './BPMBadge';
+import { useBPM } from '@/contexts/BPMContext';
 
 interface NowPlayingPanelProps {
   isPlaying: boolean;
@@ -19,7 +21,6 @@ interface NowPlayingPanelProps {
   isAuthenticated: boolean;
   username?: string;
   compact?: boolean;
-  hlsUrl?: string | null;
   error?: string | null;
 }
 
@@ -40,9 +41,12 @@ export function NowPlayingPanel({
   isAuthenticated,
   username,
   compact = false,
-  hlsUrl,
   error,
 }: NowPlayingPanelProps) {
+  // Get BPM data for broadcast station
+  const { stationBPM } = useBPM();
+  const broadcastBPM = stationBPM['broadcast']?.bpm || null;
+
   // Station name is always "Channel Broadcast"
   const stationName = 'Channel Broadcast';
   // Show name from current show, or fallback when no show
@@ -55,9 +59,6 @@ export function NowPlayingPanel({
   const progress = currentShow
     ? Math.min(Math.max((now - currentShow.startTime) / (currentShow.endTime - currentShow.startTime), 0), 1)
     : 0;
-
-  // Stream is available if we have an HLS URL
-  const streamAvailable = !!hlsUrl;
 
   if (compact) {
     return (
@@ -146,12 +147,15 @@ export function NowPlayingPanel({
             )}
           </div>
 
-          {/* Activity badges */}
-          <ActivityBadges
-            listenerCount={listenerCount}
-            loveCount={loveCount}
-            messageCount={messageCount}
-          />
+          {/* Activity badges and BPM */}
+          <div className="flex flex-col items-end gap-2">
+            <ActivityBadges
+              listenerCount={listenerCount}
+              loveCount={loveCount}
+              messageCount={messageCount}
+            />
+            {isLive && <BPMBadge bpm={broadcastBPM} />}
+          </div>
         </div>
 
         {/* Time range */}
@@ -219,11 +223,6 @@ export function NowPlayingPanel({
         {!isLive && !error && (
           <p className="text-center text-gray-500 text-sm mt-4">
             No broadcast currently live. Check the schedule below.
-          </p>
-        )}
-        {isLive && !streamAvailable && !error && !isLoading && (
-          <p className="text-center text-yellow-500 text-sm mt-4">
-            Stream starting soon...
           </p>
         )}
       </div>
