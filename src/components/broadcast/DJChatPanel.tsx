@@ -12,34 +12,27 @@ interface DJChatPanelProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   initialPromoSubmitted?: boolean;
+  isVenue?: boolean;
+  onChangeUsername?: (newUsername: string) => void;
 }
 
-// Vinyl record icon component
-function VinylIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.9"/>
-      <circle cx="12" cy="12" r="4" fill="currentColor"/>
-      <circle cx="12" cy="12" r="1.5" fill="white"/>
-      <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.5"/>
-      <circle cx="12" cy="12" r="7" fill="none" stroke="white" strokeWidth="0.3" opacity="0.3"/>
-      <circle cx="12" cy="12" r="5.5" fill="none" stroke="white" strokeWidth="0.3" opacity="0.3"/>
-    </svg>
-  );
-}
-
-function ChatMessage({ message, isOwnMessage }: { message: ChatMessageSerialized; isOwnMessage: boolean }) {
+function ChatMessage({ message, isOwnMessage, currentLiveSlotId }: {
+  message: ChatMessageSerialized;
+  isOwnMessage: boolean;
+  currentLiveSlotId?: string;
+}) {
   const timeAgo = formatTimeAgo(message.timestamp);
+  // Only show DJ badge if this message is from the CURRENTLY live DJ (not past DJs)
+  const isCurrentlyLiveDJ = message.djSlotId && currentLiveSlotId && message.djSlotId === currentLiveSlotId;
 
   if (message.messageType === 'promo') {
     return (
       <div className="bg-blue-900/30 border border-blue-500/30 rounded-lg p-4 my-2">
         <div className="flex items-center gap-2 mb-2">
-          <span className="flex items-center gap-1 bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-            <VinylIcon className="w-3 h-3" />
-            DJ
-          </span>
-          <span className="text-blue-400 font-medium">{message.username}</span>
+          <span className="text-white font-medium">{message.username}</span>
+          {isCurrentlyLiveDJ && (
+            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title="Live DJ"></span>
+          )}
           <span className="text-gray-500 text-xs ml-auto">{timeAgo}</span>
         </div>
         {message.promoTitle && (
@@ -65,15 +58,12 @@ function ChatMessage({ message, isOwnMessage }: { message: ChatMessageSerialized
       <div className="flex items-start gap-2">
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            {message.isDJ && (
-              <span className="flex items-center gap-1 bg-purple-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                <VinylIcon className="w-3 h-3" />
-                DJ
-              </span>
-            )}
-            <span className={`font-medium ${message.isDJ ? 'text-purple-400' : 'text-gray-400'}`}>
+            <span className={`font-medium ${isCurrentlyLiveDJ ? 'text-white' : 'text-gray-400'}`}>
               {message.username}
             </span>
+            {isCurrentlyLiveDJ && (
+              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title="Live DJ"></span>
+            )}
             <span className="text-gray-600 text-xs">{timeAgo}</span>
           </div>
           <p className="text-white mt-1">{message.message}</p>
@@ -115,6 +105,8 @@ export function DJChatPanel({
   isCollapsed = false,
   onToggleCollapse,
   initialPromoSubmitted = false,
+  isVenue = false,
+  onChangeUsername,
 }: DJChatPanelProps) {
   const { messages, isConnected, error, sendMessage, sendPromo, promoUsed } = useDJChat({
     broadcastToken,
@@ -129,7 +121,12 @@ export function DJChatPanel({
   const [promoUrl, setPromoUrl] = useState('');
   const [promoTitle, setPromoTitle] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
+  const [showUsernameModal, setShowUsernameModal] = useState(false);
+  const [newUsername, setNewUsername] = useState(djUsername);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Check if promo has been posted (either during onboarding or in chat)
+  const hasPostedPromo = promoUsed || initialPromoSubmitted;
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -218,9 +215,9 @@ export function DJChatPanel({
             </div>
           )}
 
-          {/* Pinned Promo Bar (like iOS) - shows most recent promo */}
+          {/* Pinned Promo Bar (like iOS) - shows most recent promo from current DJ only */}
           {(() => {
-            const latestPromo = [...messages].reverse().find(m => m.messageType === 'promo');
+            const latestPromo = [...messages].reverse().find(m => m.messageType === 'promo' && m.djSlotId === slotId);
             if (!latestPromo) return null;
             return (
               <a
@@ -229,11 +226,8 @@ export function DJChatPanel({
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-3 py-2.5 bg-blue-500/10 hover:bg-blue-500/20 border-b border-gray-800 transition-colors flex-shrink-0"
               >
-                <span className="flex items-center gap-1 bg-purple-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
-                  <VinylIcon className="w-2.5 h-2.5" />
-                  DJ
-                </span>
-                <span className="text-purple-400 font-semibold text-sm">{latestPromo.username}</span>
+                <span className="text-white font-semibold text-sm">{latestPromo.username}</span>
+                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0" title="Live DJ"></span>
                 {latestPromo.promoTitle && (
                   <>
                     <span className="text-gray-500">·</span>
@@ -264,6 +258,7 @@ export function DJChatPanel({
                     key={msg.id}
                     message={msg}
                     isOwnMessage={msg.username === djUsername}
+                    currentLiveSlotId={slotId}
                   />
                 ))
             )}
@@ -291,17 +286,33 @@ export function DJChatPanel({
               </button>
             </form>
 
-            {/* Promo button - hide if already submitted during onboarding or via chat */}
-            {!promoUsed && !initialPromoSubmitted && (
-              <button
-                onClick={() => setShowPromoModal(true)}
-                className="mt-3 w-full flex items-center justify-center gap-2 text-blue-400 hover:text-blue-300 text-sm py-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                </svg>
-                Share a promo link
-              </button>
+            {/* Promo button - always visible, text changes based on state */}
+            <button
+              onClick={() => setShowPromoModal(true)}
+              className="mt-3 w-full flex items-center justify-center gap-2 text-blue-400 hover:text-blue-300 text-sm py-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+              {hasPostedPromo ? 'Update promo link' : 'Share a promo link'}
+            </button>
+
+            {/* Chatting as section - for venue DJs */}
+            {isVenue && onChangeUsername && (
+              <div className="mt-3 pt-3 border-t border-gray-800 flex items-center justify-between">
+                <span className="text-gray-400 text-sm">
+                  Chatting as <span className="text-white font-medium">{djUsername}</span>
+                </span>
+                <button
+                  onClick={() => {
+                    setNewUsername(djUsername);
+                    setShowUsernameModal(true);
+                  }}
+                  className="text-blue-400 hover:text-blue-300 text-sm"
+                >
+                  Edit
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -352,7 +363,58 @@ export function DJChatPanel({
                   disabled={!promoUrl.trim() || isSending}
                   className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white py-3 rounded-lg transition-colors"
                 >
-                  {isSending ? 'Posting...' : 'Post'}
+                  {isSending ? 'Posting...' : hasPostedPromo ? 'Update' : 'Post'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Username Edit Modal - for venue DJs */}
+      {showUsernameModal && onChangeUsername && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-xl p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold text-white mb-4">Change chat username</h3>
+            <p className="text-gray-400 text-sm mb-4">
+              This will update your name in the chat.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-gray-400 text-sm mb-1">Username</label>
+                <input
+                  type="text"
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
+                  placeholder="YourDJName"
+                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500"
+                  maxLength={20}
+                />
+                <p className="text-gray-500 text-xs mt-1">
+                  2-20 characters, letters and numbers only
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowUsernameModal(false)}
+                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    const trimmed = newUsername.trim();
+                    if (trimmed.length >= 2 && trimmed.length <= 20 && /^[A-Za-z0-9]+$/.test(trimmed)) {
+                      onChangeUsername(trimmed);
+                      setShowUsernameModal(false);
+                    }
+                  }}
+                  disabled={!newUsername.trim() || newUsername.trim().length < 2 || !/^[A-Za-z0-9]+$/.test(newUsername.trim())}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white py-3 rounded-lg transition-colors"
+                >
+                  Save
                 </button>
               </div>
             </div>

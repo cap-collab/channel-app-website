@@ -122,12 +122,8 @@ export function useDJChat({ broadcastToken, slotId, djUsername }: UseDJChatOptio
     }
   }, [djUsername, slotId]);
 
-  // Send a promo message
+  // Send a promo message (can be called multiple times to update)
   const sendPromo = useCallback(async (url: string, title?: string) => {
-    if (promoUsed) {
-      throw new Error('Promo link already used');
-    }
-
     try {
       const response = await fetch('/api/broadcast/dj-promo', {
         method: 'POST',
@@ -150,7 +146,7 @@ export function useDJChat({ broadcastToken, slotId, djUsername }: UseDJChatOptio
       console.error('Failed to send promo:', err);
       throw err;
     }
-  }, [broadcastToken, djUsername, promoUsed]);
+  }, [broadcastToken, djUsername]);
 
   return {
     messages,
