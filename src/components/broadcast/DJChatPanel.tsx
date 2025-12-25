@@ -16,14 +16,14 @@ interface DJChatPanelProps {
   onChangeUsername?: (newUsername: string) => void;
 }
 
-function ChatMessage({ message, isOwnMessage, currentLiveSlotId }: {
+function ChatMessage({ message, isOwnMessage, currentLiveDjUsername }: {
   message: ChatMessageSerialized;
   isOwnMessage: boolean;
-  currentLiveSlotId?: string;
+  currentLiveDjUsername?: string;
 }) {
   const timeAgo = formatTimeAgo(message.timestamp);
-  // Only show DJ badge if this message is from the CURRENTLY live DJ (not past DJs)
-  const isCurrentlyLiveDJ = message.djSlotId && currentLiveSlotId && message.djSlotId === currentLiveSlotId;
+  // Only show DJ badge if this message is from the CURRENTLY live DJ (match by username, same as iOS)
+  const isCurrentlyLiveDJ = message.isDJ && currentLiveDjUsername && message.username === currentLiveDjUsername;
 
   if (message.messageType === 'promo') {
     return (
@@ -258,7 +258,7 @@ export function DJChatPanel({
                     key={msg.id}
                     message={msg}
                     isOwnMessage={msg.username === djUsername}
-                    currentLiveSlotId={slotId}
+                    currentLiveDjUsername={djUsername}
                   />
                 ))
             )}

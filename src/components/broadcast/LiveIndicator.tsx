@@ -8,8 +8,6 @@ import { useAuthContext } from '@/contexts/AuthContext';
 
 // Channel app deep link for the broadcast station
 const CHANNEL_BROADCAST_URL = 'https://channel-app.com/listen/broadcast';
-// Channel app download URL
-const CHANNEL_APP_DOWNLOAD_URL = 'https://channel-app.com/download';
 
 interface LiveIndicatorProps {
   slot: BroadcastSlotSerialized | null;
@@ -354,14 +352,6 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
                     </svg>
                     Email
                   </button>
-                  <a
-                    href={CHANNEL_APP_DOWNLOAD_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium py-1.5 px-3 rounded-lg transition-colors"
-                  >
-                    Get the app
-                  </a>
                 </div>
               </div>
             )}
