@@ -11,6 +11,7 @@ import { RtmpIngressPanel } from '@/components/broadcast/RtmpIngressPanel';
 import { AudioLevelMeter } from '@/components/broadcast/AudioLevelMeter';
 import { LiveIndicator } from '@/components/broadcast/LiveIndicator';
 import { DJProfileSetup } from '@/components/broadcast/DJProfileSetup';
+import { AuthModal } from '@/components/AuthModal';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { AudioInputMethod } from '@/types/broadcast';
 
@@ -61,21 +62,32 @@ function ChannelAppUrlSection() {
 function ProfileButton() {
   const { user, isAuthenticated, signOut } = useAuthContext();
   const [showMenu, setShowMenu] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const handleSignOut = async () => {
     setShowMenu(false);
     await signOut();
   };
 
-  // Not logged in - show a user icon with "Guest" indicator
+  // Not logged in - show a clickable "Guest" button that opens sign-in modal
   if (!isAuthenticated || !user) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 bg-gray-800 rounded-lg border border-gray-700">
-        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-        </svg>
-        <span className="text-gray-400 text-sm">Guest</span>
-      </div>
+      <>
+        <button
+          onClick={() => setShowAuthModal(true)}
+          className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 transition-colors"
+        >
+          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+          <span className="text-gray-400 text-sm">Guest</span>
+        </button>
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          message="Sign in to save your DJ settings and chat on mobile"
+        />
+      </>
     );
   }
 
@@ -485,8 +497,8 @@ export function BroadcastClient() {
         <div className="bg-gray-900 rounded-xl p-8 max-w-md">
           {isEarly ? (
             // Info icon (blue) for early - informational, not alarming
-            <div className="w-16 h-16 bg-blue-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
@@ -513,7 +525,7 @@ export function BroadcastClient() {
           <div className="space-y-3">
             <button
               onClick={() => setDismissedWarning(true)}
-              className={`w-full ${isEarly ? 'bg-blue-600 hover:bg-blue-700' : 'bg-yellow-600 hover:bg-yellow-700'} text-white font-bold py-3 px-6 rounded-lg transition-colors`}
+              className={`w-full ${isEarly ? 'bg-accent hover:bg-accent-hover' : 'bg-yellow-600 hover:bg-yellow-700'} text-white font-bold py-3 px-6 rounded-lg transition-colors`}
             >
               {isEarly ? "Set Up Audio" : "Continue to Setup"}
             </button>
@@ -719,24 +731,24 @@ export function BroadcastClient() {
                   {slot && !autoGoLive ? (
                     <button
                       onClick={() => setAutoGoLive(true)}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+                      className="w-full bg-accent hover:bg-accent-hover text-white font-bold py-3 px-6 rounded-lg transition-colors"
                     >
                       Go live automatically at {new Date(slot.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                     </button>
                   ) : slot && autoGoLive ? (
-                    <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3 text-center">
-                      <p className="text-blue-400 font-medium flex items-center justify-center gap-2">
+                    <div className="bg-accent/10 border border-accent/30 rounded-lg p-3 text-center">
+                      <p className="text-accent font-medium flex items-center justify-center gap-2">
                         <svg className="w-5 h-5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         Auto go-live enabled
                       </p>
-                      <p className="text-blue-300 text-sm mt-1">
+                      <p className="text-accent/70 text-sm mt-1">
                         Will start at {new Date(slot.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                       </p>
                       <button
                         onClick={() => setAutoGoLive(false)}
-                        className="text-blue-400 text-sm underline mt-2"
+                        className="text-accent text-sm underline mt-2"
                       >
                         Cancel
                       </button>

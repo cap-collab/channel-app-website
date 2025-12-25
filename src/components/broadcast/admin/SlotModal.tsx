@@ -397,7 +397,7 @@ export function SlotModal({
                   className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
                     copied
                       ? 'bg-green-600 text-white'
-                      : 'bg-blue-600 hover:bg-blue-500 text-white'
+                      : 'bg-accent hover:bg-accent-hover text-white'
                   }`}
                 >
                   {copied ? 'Copied!' : 'Copy Link'}
@@ -417,7 +417,7 @@ export function SlotModal({
               value={showName}
               onChange={(e) => setShowName(e.target.value)}
               placeholder="e.g., Sunday Sessions"
-              className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+              className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
             />
           </div>
 
@@ -430,7 +430,7 @@ export function SlotModal({
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
                 />
               </div>
               <div>
@@ -440,7 +440,7 @@ export function SlotModal({
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   min={startDate}
-                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
                 />
               </div>
             </div>
@@ -450,7 +450,7 @@ export function SlotModal({
                 <select
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
                 >
                   {TIME_OPTIONS.map(opt => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -462,7 +462,7 @@ export function SlotModal({
                 <select
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
                 >
                   {TIME_OPTIONS.map(opt => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -473,14 +473,14 @@ export function SlotModal({
 
             {/* Overnight indicator */}
             {isOvernight && (
-              <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3 text-sm">
-                <div className="flex items-center gap-2 text-blue-300">
+              <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 text-sm">
+                <div className="flex items-center gap-2 text-gray-300">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                   </svg>
                   <span>Overnight show</span>
                 </div>
-                <p className="text-blue-400/70 text-xs mt-1">
+                <p className="text-gray-400 text-xs mt-1">
                   Ends {new Date(endDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at {endTime}
                 </p>
               </div>
@@ -496,7 +496,7 @@ export function SlotModal({
                 onClick={() => setBroadcastType('venue')}
                 className={`flex-1 p-3 rounded-lg border transition-colors ${
                   broadcastType === 'venue'
-                    ? 'bg-blue-600/20 border-blue-500 text-white'
+                    ? 'bg-accent/20 border-accent text-white'
                     : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600'
                 }`}
               >
@@ -514,7 +514,7 @@ export function SlotModal({
                 onClick={() => setBroadcastType('remote')}
                 className={`flex-1 p-3 rounded-lg border transition-colors ${
                   broadcastType === 'remote'
-                    ? 'bg-purple-600/20 border-purple-500 text-white'
+                    ? 'bg-blue-600/20 border-blue-500 text-white'
                     : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600'
                 }`}
               >
@@ -543,7 +543,7 @@ export function SlotModal({
                         value={dj.djName}
                         onChange={(e) => updateDjSlot(dj.id, 'djName', e.target.value)}
                         placeholder="DJ Name (optional)"
-                        className="flex-1 bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500"
+                        className="flex-1 bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:border-gray-500"
                       />
                       <button
                         type="button"
@@ -559,7 +559,7 @@ export function SlotModal({
                       <select
                         value={dj.startTime}
                         onChange={(e) => updateDjSlot(dj.id, 'startTime', e.target.value)}
-                        className="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500"
+                        className="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:border-gray-500"
                       >
                         {TIME_OPTIONS.map(opt => (
                           <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -569,7 +569,7 @@ export function SlotModal({
                       <select
                         value={dj.endTime}
                         onChange={(e) => updateDjSlot(dj.id, 'endTime', e.target.value)}
-                        className="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500"
+                        className="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:border-gray-500"
                       >
                         {TIME_OPTIONS.map(opt => (
                           <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -598,7 +598,7 @@ export function SlotModal({
                 value={djName}
                 onChange={(e) => setDjName(e.target.value)}
                 placeholder="e.g., DJ Shadow (optional)"
-                className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
               />
             </div>
           )}
@@ -609,9 +609,9 @@ export function SlotModal({
               <span className="text-sm text-gray-400">Status:</span>
               <span className={`text-xs px-2 py-0.5 rounded-full ${
                 slot?.status === 'live' ? 'bg-red-600 text-white' :
-                slot?.status === 'scheduled' ? 'bg-blue-600 text-white' :
+                slot?.status === 'scheduled' ? 'bg-accent text-white' :
                 slot?.status === 'paused' ? 'bg-orange-600 text-white' :
-                slot?.status === 'completed' ? 'bg-green-600 text-white' :
+                slot?.status === 'completed' ? 'bg-gray-600 text-white' :
                 'bg-gray-600 text-gray-300'
               }`}>
                 {slot?.status}
@@ -644,7 +644,7 @@ export function SlotModal({
             <button
               onClick={handleSave}
               disabled={isSaving || !showName || !startDate || !endDate || !startTime || !endTime}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors"
+              className="px-4 py-2 bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors"
             >
               {isSaving ? 'Saving...' : isEditing ? 'Save Changes' : 'Create Show'}
             </button>

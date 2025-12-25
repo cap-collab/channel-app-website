@@ -134,7 +134,7 @@ export function DeviceAudioCapture({ onStream, onError, onBack }: DeviceAudioCap
                 <select
                   value={selectedDeviceId}
                   onChange={(e) => setSelectedDeviceId(e.target.value)}
-                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-gray-500"
                 >
                   {devices.map((device) => (
                     <option key={device.deviceId} value={device.deviceId}>
@@ -144,7 +144,7 @@ export function DeviceAudioCapture({ onStream, onError, onBack }: DeviceAudioCap
                 </select>
               </div>
 
-              <div className="bg-blue-900/30 border border-blue-800 rounded-lg p-4">
+              <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
                 <p className="text-gray-300 text-sm">
                   Make sure your DJ mixer, audio interface, or USB device is connected and selected above.
                   The audio will be captured in stereo at 48kHz.
@@ -154,7 +154,7 @@ export function DeviceAudioCapture({ onStream, onError, onBack }: DeviceAudioCap
               <button
                 onClick={captureDeviceAudio}
                 disabled={isCapturing || !selectedDeviceId}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg transition-colors"
+                className="w-full bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg transition-colors"
               >
                 {isCapturing ? 'Connecting...' : 'Connect Device'}
               </button>

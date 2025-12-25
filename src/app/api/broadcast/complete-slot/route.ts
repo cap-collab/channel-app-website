@@ -27,25 +27,34 @@ export async function POST(request: NextRequest) {
 
     const slot = slotDoc.data() as Omit<BroadcastSlot, 'id'>;
     const { force } = body;  // Allow force completion when DJ ends broadcast early
+    const now = Date.now();
+    const endTime = slot.endTime.toMillis();
 
     // If not forced, only complete if end time has passed
-    if (!force) {
-      const now = Date.now();
-      const endTime = slot.endTime.toMillis();
-      if (now <= endTime) {
-        return NextResponse.json({ error: 'Slot has not ended yet' }, { status: 400 });
-      }
+    if (!force && now <= endTime) {
+      return NextResponse.json({ error: 'Slot has not ended yet' }, { status: 400 });
     }
 
-    // Determine final status based on current status
-    let newStatus: 'completed' | 'missed';
+    // Determine final status based on current status and timing
+    let newStatus: 'completed' | 'missed' | 'paused';
 
     if (slot.status === 'live' || slot.status === 'paused') {
-      // Was live at some point, mark as completed
-      newStatus = 'completed';
+      if (force && now <= endTime) {
+        // DJ ended early but time slot is still active - mark as paused so they can resume
+        newStatus = 'paused';
+      } else {
+        // Time slot has passed - mark as completed
+        newStatus = 'completed';
+      }
     } else if (slot.status === 'scheduled') {
-      // Never went live, mark as missed
-      newStatus = 'missed';
+      // Never went live
+      if (now > endTime) {
+        // Time has passed, mark as missed
+        newStatus = 'missed';
+      } else {
+        // Still within time slot, nothing to do
+        return NextResponse.json({ success: true, status: slot.status });
+      }
     } else {
       // Already completed or missed, nothing to do
       return NextResponse.json({ success: true, status: slot.status });

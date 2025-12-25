@@ -115,7 +115,7 @@ export function RtmpIngressPanel({ participantIdentity, onReady, onError, onBack
         <h2 className="text-xl font-semibold text-white mb-4">RTMP Stream Settings</h2>
 
         <div className="space-y-4">
-          <div className="bg-blue-900/30 border border-blue-800 rounded-lg p-4">
+          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
             <p className="text-gray-300 text-sm">
               Copy these settings into OBS Studio or your hardware encoder.
               Go to Settings → Stream and select &quot;Custom&quot; as the service.
@@ -171,8 +171,8 @@ export function RtmpIngressPanel({ participantIdentity, onReady, onError, onBack
               )}
               {ingress.status === 'buffering' && (
                 <>
-                  <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
-                  <span className="text-blue-400">Connecting...</span>
+                  <div className="w-3 h-3 bg-gray-400 rounded-full animate-pulse"></div>
+                  <span className="text-gray-400">Connecting...</span>
                 </>
               )}
               {ingress.status === 'publishing' && (

@@ -69,8 +69,8 @@ export function SystemAudioCapture({ onStream, onError, onBack }: SystemAudioCap
         <h2 className="text-xl font-semibold text-white mb-4">System Audio Capture</h2>
 
         <div className="space-y-4">
-          <div className="bg-blue-900/30 border border-blue-800 rounded-lg p-4">
-            <h3 className="text-blue-400 font-medium mb-2">How it works:</h3>
+          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+            <h3 className="text-gray-300 font-medium mb-2">How it works:</h3>
             <ol className="text-gray-300 text-sm space-y-2 list-decimal list-inside">
               <li>Click &quot;Start Capture&quot; below</li>
               <li>A screen share dialog will appear</li>
@@ -93,7 +93,7 @@ export function SystemAudioCapture({ onStream, onError, onBack }: SystemAudioCap
           <button
             onClick={captureSystemAudio}
             disabled={isCapturing}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg transition-colors"
+            className="w-full bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg transition-colors"
           >
             {isCapturing ? 'Requesting permission...' : 'Start Capture'}
           </button>

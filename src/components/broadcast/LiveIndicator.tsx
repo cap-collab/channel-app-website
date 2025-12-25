@@ -221,7 +221,7 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
 
           {/* Channel App URL */}
           <div className="mb-6">
-            <label className="block text-gray-400 text-sm mb-2">Listen in Channel</label>
+            <label className="block text-gray-400 text-sm mb-2">Share your Livestream</label>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -237,7 +237,7 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
               </button>
             </div>
             <p className="text-gray-500 text-xs mt-2">
-              Share this link to open your broadcast in the Channel app
+              Share this link to provide access to your livestream, chat, and promo link
             </p>
           </div>
 
@@ -253,7 +253,7 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
 
         {/* Login section - only show when NOT logged in (no dismiss option) */}
         {!isAuthenticated && djUsername && (
-          <div className="bg-blue-900/30 border border-blue-500/30 rounded-xl p-4">
+          <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
             {emailSent ? (
               // Email sent success state
               <div className="text-center">
@@ -262,8 +262,8 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <p className="text-blue-200 text-sm font-medium mb-1">Check your email</p>
-                <p className="text-blue-300/70 text-xs mb-3">
+                <p className="text-gray-200 text-sm font-medium mb-1">Check your email</p>
+                <p className="text-gray-400 text-xs mb-3">
                   We sent a sign-in link to <span className="text-white">{email}</span>
                 </p>
                 <button
@@ -272,7 +272,7 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
                     setShowEmailForm(false);
                     setEmail('');
                   }}
-                  className="text-blue-400 text-xs underline hover:text-blue-300"
+                  className="text-gray-400 text-xs underline hover:text-gray-300"
                 >
                   Use a different method
                 </button>
@@ -280,7 +280,7 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
             ) : showEmailForm ? (
               // Email form
               <form onSubmit={handleEmailSubmit}>
-                <p className="text-blue-200 text-sm font-medium mb-3">
+                <p className="text-gray-200 text-sm font-medium mb-3">
                   Sign in with email
                 </p>
                 <div className="flex gap-2 mb-2">
@@ -291,7 +291,7 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
                     placeholder="Enter your email"
                     required
                     autoFocus
-                    className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-gray-500"
                   />
                   <button
                     type="submit"
@@ -304,7 +304,7 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
                 <button
                   type="button"
                   onClick={() => setShowEmailForm(false)}
-                  className="text-blue-400 text-xs underline hover:text-blue-300"
+                  className="text-gray-400 text-xs underline hover:text-gray-300"
                 >
                   Back to sign-in options
                 </button>
@@ -312,10 +312,10 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
             ) : (
               // Default login options
               <div>
-                <p className="text-blue-200 text-sm font-medium mb-1">
+                <p className="text-gray-200 text-sm font-medium mb-1">
                   Chat on mobile, save your settings for next time
                 </p>
-                <p className="text-blue-300/70 text-xs mb-3">
+                <p className="text-gray-400 text-xs mb-3">
                   Log in to link your account to the Channel app.
                 </p>
                 <div className="flex flex-wrap gap-2">

@@ -11,6 +11,17 @@ const config: Config = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        // Channel brand colors
+        accent: {
+          DEFAULT: '#D94099',
+          hover: '#E54DA6',
+          muted: '#D94099/20',
+        },
+        surface: {
+          base: '#121212',
+          card: '#1C1C1C',
+          elevated: '#262626',
+        },
       },
     },
   },

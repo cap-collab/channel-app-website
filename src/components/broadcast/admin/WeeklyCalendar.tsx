@@ -342,9 +342,9 @@ export function WeeklyCalendar({
 
     const getSlotColors = () => {
       if (isLive) return 'bg-red-600 border-2 border-red-400';
-      if (isPast) return 'bg-gray-700 opacity-60';
-      if (isRemote) return 'bg-purple-600 hover:bg-purple-500';
-      return 'bg-blue-600 hover:bg-blue-500';
+      if (isPast) return 'bg-gray-600 opacity-60';
+      if (isRemote) return 'bg-blue-600 hover:bg-blue-500';
+      return 'bg-accent hover:bg-accent-hover'; // venue slots
     };
 
     // Border radius based on segment position
@@ -457,11 +457,11 @@ export function WeeklyCalendar({
   const formatDayHeader = (date: Date) => {
     const isToday = date.toDateString() === new Date().toDateString();
     return (
-      <div className={`text-center py-2 ${isToday ? 'bg-blue-900/30' : ''}`}>
+      <div className={`text-center py-2 ${isToday ? 'bg-accent/10' : ''}`}>
         <div className="text-gray-400 text-xs uppercase">
           {date.toLocaleDateString('en-US', { weekday: 'short' })}
         </div>
-        <div className={`text-lg font-semibold ${isToday ? 'text-blue-400' : 'text-white'}`}>
+        <div className={`text-lg font-semibold ${isToday ? 'text-accent' : 'text-white'}`}>
           {date.getDate()}
         </div>
       </div>
@@ -549,11 +549,11 @@ export function WeeklyCalendar({
           {/* Legend */}
           <div className="flex items-center gap-3 text-xs">
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded bg-blue-600"></div>
+              <div className="w-3 h-3 rounded bg-accent"></div>
               <span className="text-gray-400">{venueName}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded bg-purple-600"></div>
+              <div className="w-3 h-3 rounded bg-blue-600"></div>
               <span className="text-gray-400">Remote</span>
             </div>
           </div>

@@ -44,10 +44,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Token has expired' }, { status: 410 });
     }
 
-    // Check if slot is still valid (not already completed/missed)
-    if (slot.status === 'completed' || slot.status === 'missed') {
-      console.error('[go-live] Slot has ended:', { status: slot.status });
+    // Check if slot is still valid
+    // Allow going live again if we're still within the time slot, even if previously completed
+    const slotEndTime = slot.endTime.toMillis();
+    if (now > slotEndTime) {
+      console.error('[go-live] Slot time has passed:', { endTime: slotEndTime, now });
       return NextResponse.json({ error: 'This broadcast slot has ended' }, { status: 410 });
+    }
+
+    // Only reject if status is 'missed' (never went live at all)
+    if (slot.status === 'missed') {
+      console.error('[go-live] Slot was missed:', { status: slot.status });
+      return NextResponse.json({ error: 'This broadcast slot was missed' }, { status: 410 });
     }
 
     // Update slot to live status with DJ info

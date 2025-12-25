@@ -27,7 +27,7 @@ function ChatMessage({ message, isOwnMessage, currentLiveDjUsername }: {
 
   if (message.messageType === 'promo') {
     return (
-      <div className="bg-blue-900/30 border border-blue-500/30 rounded-lg p-4 my-2">
+      <div className="bg-accent/10 border border-accent/30 rounded-lg p-4 my-2">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-white font-medium">{message.username}</span>
           {isCurrentlyLiveDJ && (
@@ -42,7 +42,7 @@ function ChatMessage({ message, isOwnMessage, currentLiveDjUsername }: {
           href={message.promoUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-2 text-blue-400 hover:text-blue-300 text-sm"
+          className="flex items-center gap-2 text-accent hover:text-accent-hover text-sm"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -224,7 +224,7 @@ export function DJChatPanel({
                 href={latestPromo.promoUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-3 py-2.5 bg-blue-500/10 hover:bg-blue-500/20 border-b border-gray-800 transition-colors flex-shrink-0"
+                className="flex items-center gap-2 px-3 py-2.5 bg-accent/10 hover:bg-accent/20 border-b border-gray-800 transition-colors flex-shrink-0"
               >
                 <span className="text-white font-semibold text-sm">{latestPromo.username}</span>
                 <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0" title="Live DJ"></span>
@@ -234,7 +234,7 @@ export function DJChatPanel({
                     <span className="text-white text-sm truncate flex-1">{latestPromo.promoTitle}</span>
                   </>
                 )}
-                <span className="flex items-center gap-1 text-blue-400 text-xs ml-auto flex-shrink-0">
+                <span className="flex items-center gap-1 text-accent text-xs ml-auto flex-shrink-0">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                   </svg>
@@ -273,47 +273,47 @@ export function DJChatPanel({
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 placeholder="Type a message..."
-                className="flex-1 bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500"
+                className="flex-1 bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500"
                 maxLength={280}
                 disabled={isSending}
               />
               <button
                 type="submit"
                 disabled={!inputValue.trim() || isSending}
-                className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors"
+                className="bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors"
               >
                 Send
               </button>
             </form>
 
+            {/* Chatting as section - show for all DJs, Edit button only for venue DJs */}
+            <div className="mt-3 flex items-center justify-between">
+              <span className="text-gray-400 text-sm">
+                Chatting as <span className="text-white font-medium">{djUsername}</span>
+              </span>
+              {isVenue && onChangeUsername && (
+                <button
+                  onClick={() => {
+                    setNewUsername(djUsername);
+                    setShowUsernameModal(true);
+                  }}
+                  className="text-accent hover:text-accent-hover text-sm"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
+
             {/* Promo button - always visible, text changes based on state */}
             <button
               onClick={() => setShowPromoModal(true)}
-              className="mt-3 w-full flex items-center justify-center gap-2 text-blue-400 hover:text-blue-300 text-sm py-2"
+              className="mt-3 w-full flex items-center justify-center gap-2 text-accent hover:text-accent-hover text-sm py-2"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
               </svg>
               {hasPostedPromo ? 'Update promo link' : 'Share a promo link'}
             </button>
-
-            {/* Chatting as section - for venue DJs */}
-            {isVenue && onChangeUsername && (
-              <div className="mt-3 pt-3 border-t border-gray-800 flex items-center justify-between">
-                <span className="text-gray-400 text-sm">
-                  Chatting as <span className="text-white font-medium">{djUsername}</span>
-                </span>
-                <button
-                  onClick={() => {
-                    setNewUsername(djUsername);
-                    setShowUsernameModal(true);
-                  }}
-                  className="text-blue-400 hover:text-blue-300 text-sm"
-                >
-                  Edit
-                </button>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -335,7 +335,7 @@ export function DJChatPanel({
                   value={promoUrl}
                   onChange={(e) => setPromoUrl(e.target.value)}
                   placeholder="https://..."
-                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500"
                 />
               </div>
 
@@ -346,7 +346,7 @@ export function DJChatPanel({
                   value={promoTitle}
                   onChange={(e) => setPromoTitle(e.target.value)}
                   placeholder="New album out now!"
-                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500"
                   maxLength={100}
                 />
               </div>
@@ -361,7 +361,7 @@ export function DJChatPanel({
                 <button
                   onClick={handleSendPromo}
                   disabled={!promoUrl.trim() || isSending}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white py-3 rounded-lg transition-colors"
+                  className="flex-1 bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white py-3 rounded-lg transition-colors"
                 >
                   {isSending ? 'Posting...' : hasPostedPromo ? 'Update' : 'Post'}
                 </button>
@@ -388,7 +388,7 @@ export function DJChatPanel({
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
                   placeholder="YourDJName"
-                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500"
                   maxLength={20}
                 />
                 <p className="text-gray-500 text-xs mt-1">
@@ -412,7 +412,7 @@ export function DJChatPanel({
                     }
                   }}
                   disabled={!newUsername.trim() || newUsername.trim().length < 2 || !/^[A-Za-z0-9]+$/.test(newUsername.trim())}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white py-3 rounded-lg transition-colors"
+                  className="flex-1 bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white py-3 rounded-lg transition-colors"
                 >
                   Save
                 </button>
