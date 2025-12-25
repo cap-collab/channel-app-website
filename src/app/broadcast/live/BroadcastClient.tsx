@@ -11,9 +11,9 @@ import { RtmpIngressPanel } from '@/components/broadcast/RtmpIngressPanel';
 import { AudioLevelMeter } from '@/components/broadcast/AudioLevelMeter';
 import { LiveIndicator } from '@/components/broadcast/LiveIndicator';
 import { DJProfileSetup } from '@/components/broadcast/DJProfileSetup';
-import { AuthModal } from '@/components/AuthModal';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { AudioInputMethod } from '@/types/broadcast';
+import { BroadcastHeader } from '@/components/BroadcastHeader';
 
 type OnboardingStep = 'profile' | 'audio';
 
@@ -54,87 +54,6 @@ function ChannelAppUrlSection() {
       <p className="text-gray-500 text-xs mt-2">
         Share this link to open your broadcast in the Channel app
       </p>
-    </div>
-  );
-}
-
-// Profile button component - shows user's profile picture/initial when logged in, or user icon when logged out
-function ProfileButton() {
-  const { user, isAuthenticated, signOut } = useAuthContext();
-  const [showMenu, setShowMenu] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-
-  const handleSignOut = async () => {
-    setShowMenu(false);
-    await signOut();
-  };
-
-  // Not logged in - show a clickable "Guest" button that opens sign-in modal
-  if (!isAuthenticated || !user) {
-    return (
-      <>
-        <button
-          onClick={() => setShowAuthModal(true)}
-          className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 transition-colors"
-        >
-          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-          <span className="text-gray-400 text-sm">Guest</span>
-        </button>
-        <AuthModal
-          isOpen={showAuthModal}
-          onClose={() => setShowAuthModal(false)}
-          message="Sign in to save your DJ settings and chat on mobile"
-        />
-      </>
-    );
-  }
-
-  const displayName = user.displayName || user.email?.split('@')[0] || 'User';
-  const initial = displayName.charAt(0).toUpperCase();
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setShowMenu(!showMenu)}
-        className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-700 hover:border-gray-500 transition-colors flex items-center justify-center bg-gray-800"
-      >
-        {user.photoURL ? (
-          <img
-            src={user.photoURL}
-            alt={displayName}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <span className="text-white font-medium">{initial}</span>
-        )}
-      </button>
-
-      {showMenu && (
-        <>
-          {/* Backdrop to close menu */}
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setShowMenu(false)}
-          />
-          {/* Menu dropdown */}
-          <div className="absolute right-0 top-12 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-50 min-w-[200px]">
-            <div className="px-4 py-3 border-b border-gray-700">
-              <p className="text-white font-medium truncate">{displayName}</p>
-              {user.email && (
-                <p className="text-gray-500 text-sm truncate">{user.email}</p>
-              )}
-            </div>
-            <button
-              onClick={handleSignOut}
-              className="w-full px-4 py-3 text-left text-red-400 hover:bg-gray-800 transition-colors"
-            >
-              Sign out
-            </button>
-          </div>
-        </>
-      )}
     </div>
   );
 }
@@ -541,54 +460,52 @@ export function BroadcastClient() {
     const needsNewDjProfile = !djUsername && slot?.djSlots && slot.djSlots.length > 0;
 
     return (
-      <div className="min-h-screen bg-black p-4 lg:p-8 relative">
-        {/* Profile button - top right */}
-        <div className="absolute top-4 right-4 lg:top-8 lg:right-8 z-30">
-          <ProfileButton />
-        </div>
+      <div className="min-h-screen bg-black">
+        <BroadcastHeader />
+        <div className="p-4 lg:p-8">
+          <div className="max-w-6xl mx-auto">
+            {/* Show promo error if initial promo failed */}
+            {promoError && (
+              <div className="bg-red-900/30 border border-red-800 rounded-lg p-4 mb-4">
+                <p className="text-red-400">Promo link failed: {promoError}</p>
+                <button
+                  onClick={() => setPromoError(null)}
+                  className="text-red-300 text-sm underline mt-2"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+            <LiveIndicator
+              slot={slot}
+              hlsUrl={broadcast.hlsUrl}
+              onEndBroadcast={handleEndBroadcast}
+              broadcastToken={token || undefined}
+              djUsername={djUsername}
+              initialPromoSubmitted={initialPromoSubmitted}
+              isVenue={slot?.broadcastType === 'venue'}
+              onChangeUsername={slot?.broadcastType === 'venue' ? setDjUsername : undefined}
+            />
+          </div>
 
-        <div className="max-w-6xl mx-auto">
-          {/* Show promo error if initial promo failed */}
-          {promoError && (
-            <div className="bg-red-900/30 border border-red-800 rounded-lg p-4 mb-4">
-              <p className="text-red-400">Promo link failed: {promoError}</p>
-              <button
-                onClick={() => setPromoError(null)}
-                className="text-red-300 text-sm underline mt-2"
-              >
-                Dismiss
-              </button>
+          {/* New DJ profile overlay for multi-DJ shows */}
+          {needsNewDjProfile && (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="relative">
+                <div className="absolute -top-12 left-0 right-0 text-center">
+                  <span className="inline-flex items-center gap-2 bg-red-600 text-white text-sm font-medium px-3 py-1 rounded-full">
+                    <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+                    Broadcast is live
+                  </span>
+                </div>
+                <DJProfileSetup
+                  defaultUsername={getDefaultDjName()}
+                  onComplete={handleProfileComplete}
+                />
+              </div>
             </div>
           )}
-          <LiveIndicator
-            slot={slot}
-            hlsUrl={broadcast.hlsUrl}
-            onEndBroadcast={handleEndBroadcast}
-            broadcastToken={token || undefined}
-            djUsername={djUsername}
-            initialPromoSubmitted={initialPromoSubmitted}
-            isVenue={slot?.broadcastType === 'venue'}
-            onChangeUsername={slot?.broadcastType === 'venue' ? setDjUsername : undefined}
-          />
         </div>
-
-        {/* New DJ profile overlay for multi-DJ shows */}
-        {needsNewDjProfile && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="relative">
-              <div className="absolute -top-12 left-0 right-0 text-center">
-                <span className="inline-flex items-center gap-2 bg-red-600 text-white text-sm font-medium px-3 py-1 rounded-full">
-                  <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
-                  Broadcast is live
-                </span>
-              </div>
-              <DJProfileSetup
-                defaultUsername={getDefaultDjName()}
-                onComplete={handleProfileComplete}
-              />
-            </div>
-          </div>
-        )}
       </div>
     );
   }
@@ -596,27 +513,22 @@ export function BroadcastClient() {
   // DJ Onboarding - Profile setup (with non-blocking inline login prompt)
   if (onboardingStep === 'profile') {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-8 relative">
-        {/* Profile button - top right */}
-        <div className="absolute top-4 right-4 lg:top-8 lg:right-8 z-30">
-          <ProfileButton />
-        </div>
-
+      <div className="min-h-screen bg-black">
+        <BroadcastHeader />
+        <div className="flex items-center justify-center p-8 min-h-[calc(100vh-60px)]">
         <DJProfileSetup
           defaultUsername={getDefaultDjName()}
           onComplete={handleProfileComplete}
         />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black text-white p-8 relative">
-      {/* Profile button - top right */}
-      <div className="absolute top-4 right-4 lg:top-8 lg:right-8 z-30">
-        <ProfileButton />
-      </div>
-
+    <div className="min-h-screen bg-black text-white">
+      <BroadcastHeader />
+      <div className="p-8">
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -759,6 +671,7 @@ export function BroadcastClient() {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

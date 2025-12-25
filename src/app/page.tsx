@@ -300,10 +300,10 @@ export default function Home() {
                 Contact Us
               </a>
               <Link
-                href="/apply"
+                href="/broadcast/admin"
                 className="inline-block bg-transparent border border-gray-600 text-white px-8 py-4 rounded-xl text-base font-medium hover:border-white hover:bg-white/5 transition-all"
               >
-                Feature Your Station
+                Radio Portal
               </Link>
             </div>
 

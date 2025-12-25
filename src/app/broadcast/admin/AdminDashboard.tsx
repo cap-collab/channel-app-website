@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Image from 'next/image';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
 import { useBroadcasterSettings } from '@/hooks/useBroadcasterSettings';
@@ -9,6 +8,7 @@ import { BroadcastSlotSerialized, RoomStatus, BroadcastType, DJSlot } from '@/ty
 import { WeeklyCalendar } from '@/components/broadcast/admin/WeeklyCalendar';
 import { SlotModal } from '@/components/broadcast/admin/SlotModal';
 import { getSlots, createSlot, deleteSlot as deleteSlotFromDb, updateSlot } from '@/lib/broadcast-slots';
+import { BroadcastHeader } from '@/components/BroadcastHeader';
 
 // Channel app deep link for the broadcast station
 const CHANNEL_BROADCAST_URL = 'https://channel-app.com/listen/broadcast';
@@ -63,10 +63,9 @@ function getWeekStart(date: Date = new Date()): Date {
 }
 
 export function AdminDashboard() {
-  const { user, isAuthenticated, loading: authLoading, signInWithGoogle, signInWithApple, sendEmailLink, emailSent, resetEmailSent, signOut } = useAuthContext();
+  const { user, isAuthenticated, loading: authLoading, signInWithGoogle, signInWithApple, sendEmailLink, emailSent, resetEmailSent } = useAuthContext();
   const { role, loading: roleLoading } = useUserRole(user);
   const { settings: broadcasterSettings, loading: settingsLoading } = useBroadcasterSettings(user);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   const [slots, setSlots] = useState<BroadcastSlotSerialized[]>([]);
   const [roomStatus, setRoomStatus] = useState<RoomStatus | null>(null);
@@ -219,8 +218,11 @@ export function AdminDashboard() {
   // Auth or role loading
   if (authLoading || roleLoading || settingsLoading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+      <div className="min-h-screen bg-black">
+        <BroadcastHeader />
+        <div className="flex items-center justify-center" style={{ minHeight: 'calc(100vh - 60px)' }}>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+        </div>
       </div>
     );
   }
@@ -228,19 +230,11 @@ export function AdminDashboard() {
   // Not authenticated - show sign in options
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-8">
+      <div className="min-h-screen bg-black">
+        <BroadcastHeader />
+        <div className="flex items-center justify-center p-8" style={{ minHeight: 'calc(100vh - 60px)' }}>
         <div className="bg-gray-900 rounded-xl p-8 max-w-md w-full">
-          <div className="flex justify-center mb-6">
-            <Image
-              src="/logo-white.svg"
-              alt="CHANNEL"
-              width={140}
-              height={28}
-              className="h-7 w-auto"
-              priority
-            />
-          </div>
-          <h1 className="text-2xl font-bold text-white mb-2 text-center">Channel Broadcast</h1>
+          <h1 className="text-2xl font-bold text-white mb-2 text-center">Sign In</h1>
           <p className="text-gray-400 mb-6 text-center">
             Sign in to manage your radio station broadcasts.
           </p>
@@ -325,6 +319,7 @@ export function AdminDashboard() {
             </p>
           </div>
         </div>
+        </div>
       </div>
     );
   }
@@ -332,7 +327,9 @@ export function AdminDashboard() {
   // Not a broadcaster
   if (!hasBroadcasterAccess) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-8">
+      <div className="min-h-screen bg-black">
+        <BroadcastHeader />
+        <div className="flex items-center justify-center p-8" style={{ minHeight: 'calc(100vh - 60px)' }}>
         <div className="bg-gray-900 rounded-xl p-8 max-w-md text-center">
           <div className="w-16 h-16 bg-red-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -359,80 +356,33 @@ export function AdminDashboard() {
             </p>
           </div>
         </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black text-white p-4 md:p-8">
+    <div className="min-h-screen bg-black text-white">
+      <BroadcastHeader />
+      <div className="p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl md:text-3xl font-bold">Broadcast Schedule</h1>
 
-          <div className="flex items-center gap-4">
-            {/* Live status */}
-            {roomStatus && (
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
-                roomStatus.isLive ? 'bg-red-900/50' : 'bg-gray-800'
-              }`}>
-                <div className={`w-2 h-2 rounded-full ${
-                  roomStatus.isLive ? 'bg-red-500 animate-pulse' : 'bg-gray-500'
-                }`}></div>
-                <span className={roomStatus.isLive ? 'text-red-400' : 'text-gray-400'}>
-                  {roomStatus.isLive ? `Live: ${roomStatus.currentDJ}` : 'Off Air'}
-                </span>
-              </div>
-            )}
-
-            {/* Profile menu */}
-            <div className="relative">
-              <button
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors"
-              >
-                {user?.photoURL ? (
-                  <img
-                    src={user.photoURL}
-                    alt="Profile"
-                    className="w-10 h-10 rounded-full"
-                  />
-                ) : (
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                )}
-              </button>
-
-              {showProfileMenu && (
-                <>
-                  {/* Backdrop to close menu */}
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setShowProfileMenu(false)}
-                  />
-                  {/* Dropdown menu */}
-                  <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-lg border border-gray-700 z-50">
-                    <div className="px-4 py-3 border-b border-gray-700">
-                      <p className="text-sm text-white truncate">{user?.email}</p>
-                    </div>
-                    <button
-                      onClick={async () => {
-                        await signOut();
-                        window.location.href = '/';
-                      }}
-                      className="w-full px-4 py-3 text-left text-red-400 hover:bg-gray-700 rounded-b-lg transition-colors flex items-center gap-2"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                      </svg>
-                      Sign Out
-                    </button>
-                  </div>
-                </>
-              )}
+          {/* Live status */}
+          {roomStatus && (
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
+              roomStatus.isLive ? 'bg-red-900/50' : 'bg-gray-800'
+            }`}>
+              <div className={`w-2 h-2 rounded-full ${
+                roomStatus.isLive ? 'bg-red-500 animate-pulse' : 'bg-gray-500'
+              }`}></div>
+              <span className={roomStatus.isLive ? 'text-red-400' : 'text-gray-400'}>
+                {roomStatus.isLive ? `Live: ${roomStatus.currentDJ}` : 'Off Air'}
+              </span>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Channel App URL */}
@@ -461,6 +411,7 @@ export function AdminDashboard() {
         <div className="mt-4 text-center text-sm text-gray-500">
           Tip: Click to edit, right-click to copy link. Drag edges to resize.
         </div>
+      </div>
       </div>
 
       {/* Slot Modal */}
