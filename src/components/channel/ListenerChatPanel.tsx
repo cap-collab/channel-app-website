@@ -10,6 +10,19 @@ interface ListenerChatPanelProps {
   username?: string;
   currentDJ?: string | null;
   isLive?: boolean;
+  profileLoading?: boolean;
+  onSetUsername?: (username: string) => Promise<{ success: boolean; error?: string }>;
+}
+
+// Reserved usernames that cannot be registered (case-insensitive)
+const RESERVED_USERNAMES = ['channel', 'admin', 'system', 'moderator', 'mod'];
+
+// Validate username format (same rules as iOS app)
+function isValidUsername(username: string): boolean {
+  const trimmed = username.trim();
+  if (trimmed.length < 2 || trimmed.length > 20) return false;
+  if (RESERVED_USERNAMES.includes(trimmed.toLowerCase())) return false;
+  return /^[A-Za-z0-9]+$/.test(trimmed);
 }
 
 function formatTimeAgo(timestamp: number): string {
@@ -227,11 +240,152 @@ function LoginPrompt() {
   );
 }
 
+function UsernameSetup({
+  onSetUsername,
+}: {
+  onSetUsername: (username: string) => Promise<{ success: boolean; error?: string }>;
+}) {
+  const [inputUsername, setInputUsername] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isChecking, setIsChecking] = useState(false);
+
+  const hasInput = inputUsername.trim().length > 0;
+
+  const handleJoin = async () => {
+    const trimmed = inputUsername.trim();
+
+    if (!isValidUsername(trimmed)) {
+      setErrorMessage('Invalid username. Use 2-20 characters, letters and numbers only.');
+      return;
+    }
+
+    setIsChecking(true);
+    setErrorMessage('');
+
+    const result = await onSetUsername(trimmed);
+
+    setIsChecking(false);
+
+    if (!result.success) {
+      setErrorMessage(result.error || 'Username already taken. Try another one.');
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && hasInput && !isChecking) {
+      e.preventDefault();
+      handleJoin();
+    }
+  };
+
+  return (
+    <div className="flex-1 flex items-center justify-center p-6">
+      <div className="text-center max-w-sm w-full">
+        {/* Header */}
+        <svg className="w-16 h-16 text-white mx-auto mb-4" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+        </svg>
+
+        <h3 className="text-white font-bold text-xl mb-2">Choose a Username</h3>
+        <p className="text-gray-400 text-sm mb-6">
+          This will be displayed in the chat
+        </p>
+
+        {/* Input field */}
+        <div className="text-left mb-4">
+          <input
+            type="text"
+            value={inputUsername}
+            onChange={(e) => {
+              setInputUsername(e.target.value);
+              if (errorMessage) setErrorMessage('');
+            }}
+            onKeyDown={handleKeyDown}
+            placeholder="Username"
+            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-gray-500"
+            maxLength={20}
+            autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
+            disabled={isChecking}
+          />
+          <p className="text-gray-500 text-xs mt-2">
+            2-20 characters, letters and numbers only
+          </p>
+          {errorMessage && (
+            <p className="text-red-400 text-xs mt-2">
+              {errorMessage}
+            </p>
+          )}
+        </div>
+
+        {/* Join button */}
+        <button
+          onClick={handleJoin}
+          disabled={!hasInput || isChecking}
+          className="w-full bg-white hover:bg-gray-100 disabled:bg-gray-600 disabled:cursor-not-allowed text-gray-900 disabled:text-gray-400 font-medium py-3 rounded-lg transition-colors"
+        >
+          {isChecking ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              Checking...
+            </span>
+          ) : (
+            'Join Chat'
+          )}
+        </button>
+
+        {/* Community guidelines */}
+        <div className="mt-6 text-left text-xs text-gray-500 space-y-2">
+          <p className="text-gray-400 font-medium">
+            Channel exists to bring people together, and we want to keep this space safe for everyone.
+          </p>
+          <p>
+            We have zero tolerance for harassment, hate speech, discrimination, or illegal content.
+          </p>
+          <p>
+            Messages or access may be removed to protect the community.
+          </p>
+          <p className="pt-2">
+            <a
+              href="https://channel-app.com/guidelines"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-400 underline hover:text-gray-300"
+            >
+              Read our Community Guidelines
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProfileLoading() {
+  return (
+    <div className="flex-1 flex items-center justify-center p-6">
+      <div className="text-center">
+        <svg className="animate-spin h-8 w-8 text-gray-400 mx-auto mb-4" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+        </svg>
+        <p className="text-gray-400">Loading your profile...</p>
+      </div>
+    </div>
+  );
+}
+
 export function ListenerChatPanel({
   isAuthenticated,
   username,
   currentDJ,
   isLive = false,
+  profileLoading = false,
+  onSetUsername,
 }: ListenerChatPanelProps) {
   const { messages, isConnected, error, currentPromo, sendMessage, sendLove } = useListenerChat({
     username,
@@ -270,19 +424,44 @@ export function ListenerChatPanel({
     }
   };
 
+  // Chat header component to reduce duplication
+  const ChatHeader = () => (
+    <div className="p-4 border-b border-gray-800">
+      <div className="flex items-center gap-2">
+        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
+        <span className="text-white font-medium">Chat</span>
+      </div>
+    </div>
+  );
+
   // Show login prompt if not authenticated
   if (!isAuthenticated) {
     return (
       <div className="flex flex-col h-full bg-gray-900">
-        <div className="p-4 border-b border-gray-800">
-          <div className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            <span className="text-white font-medium">Chat</span>
-          </div>
-        </div>
+        <ChatHeader />
         <LoginPrompt />
+      </div>
+    );
+  }
+
+  // Show loading state while fetching profile
+  if (profileLoading) {
+    return (
+      <div className="flex flex-col h-full bg-gray-900">
+        <ChatHeader />
+        <ProfileLoading />
+      </div>
+    );
+  }
+
+  // Show username setup if authenticated but no chatUsername
+  if (!username && onSetUsername) {
+    return (
+      <div className="flex flex-col h-full bg-gray-900">
+        <ChatHeader />
+        <UsernameSetup onSetUsername={onSetUsername} />
       </div>
     );
   }

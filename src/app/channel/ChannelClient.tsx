@@ -12,11 +12,12 @@ import { useBroadcastSchedule } from '@/hooks/useBroadcastSchedule';
 
 export function ChannelClient() {
   const { user, isAuthenticated } = useAuthContext();
-  const { chatUsername } = useUserProfile(user?.uid);
+  const { chatUsername, loading: profileLoading, setChatUsername } = useUserProfile(user?.uid);
   const [activeTab, setActiveTab] = useState<'chat' | 'schedule'>('chat');
 
-  // Use chatUsername from Firestore profile (set in iOS app) if available
-  const username = chatUsername || user?.displayName || undefined;
+  // Only use chatUsername from Firestore - do NOT fall back to displayName
+  // Users must explicitly choose their chat username
+  const username = chatUsername || undefined;
 
   const {
     isPlaying,
@@ -86,6 +87,8 @@ export function ChannelClient() {
               username={username}
               currentDJ={currentDJ}
               isLive={isLive}
+              profileLoading={profileLoading}
+              onSetUsername={setChatUsername}
             />
           </div>
         </div>
@@ -143,6 +146,8 @@ export function ChannelClient() {
                 username={username}
                 currentDJ={currentDJ}
                 isLive={isLive}
+                profileLoading={profileLoading}
+                onSetUsername={setChatUsername}
               />
             ) : (
               <div className="h-full overflow-y-auto p-4">
