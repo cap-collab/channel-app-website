@@ -7,11 +7,11 @@ export default function HomeScreen() {
   ];
 
   return (
-    <div className="h-full bg-gradient-to-b from-gray-900/50 to-black p-4 space-y-3">
+    <div className="h-full bg-gradient-to-b from-[#252525]/50 to-[#1a1a1a] p-4 space-y-3">
       {stations.map((station, i) => (
         <div
           key={i}
-          className="bg-gray-900/80 rounded-2xl p-4 flex items-center gap-4"
+          className="bg-[#252525]/80 rounded-2xl p-4 flex items-center gap-4"
         >
           {/* Logo placeholder - colored square */}
           <div

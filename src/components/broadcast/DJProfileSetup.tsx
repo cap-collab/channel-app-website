@@ -191,7 +191,7 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
   // Show loading state while fetching user profile
   if (isAuthenticated && profileLoading) {
     return (
-      <div className="bg-gray-900 rounded-xl p-8 max-w-md mx-auto">
+      <div className="bg-[#252525] rounded-xl p-8 max-w-md mx-auto">
         <div className="flex items-center justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-400"></div>
           <span className="ml-3 text-gray-400">Loading your profile...</span>
@@ -201,7 +201,7 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
   }
 
   return (
-    <div className="bg-gray-900 rounded-xl p-8 max-w-md mx-auto">
+    <div className="bg-[#252525] rounded-xl p-8 max-w-md mx-auto">
       <h2 className="text-2xl font-bold text-white mb-2">
         Your DJ Profile
       </h2>

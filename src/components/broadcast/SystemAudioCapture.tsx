@@ -65,7 +65,7 @@ export function SystemAudioCapture({ onStream, onError, onBack }: SystemAudioCap
         Back
       </button>
 
-      <div className="bg-gray-900 rounded-xl p-6">
+      <div className="bg-[#252525] rounded-xl p-6">
         <h2 className="text-xl font-semibold text-white mb-4">System Audio Capture</h2>
 
         <div className="space-y-4">

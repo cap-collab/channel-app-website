@@ -370,7 +370,7 @@ function ShowBlockComponent({
                   className={`w-full py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
                     isFavorited
                       ? "bg-white/20 text-white border border-white/30"
-                      : "bg-gray-900 text-white border border-gray-800 hover:bg-gray-800"
+                      : "bg-[#252525] text-white border border-gray-800 hover:bg-[#303030]"
                   }`}
                 >
                   <svg

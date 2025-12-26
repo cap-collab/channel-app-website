@@ -369,9 +369,9 @@ export function SlotModal({
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-gray-900 rounded-xl w-full max-w-lg mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-[#252525] rounded-xl w-full max-w-lg mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
+        <div className="flex items-center justify-between p-4 border-b border-gray-800 sticky top-0 bg-[#252525] z-10">
           <h2 className="text-lg font-semibold text-white">
             {isEditing ? 'Edit Show' : 'New Show'}
           </h2>
@@ -621,7 +621,7 @@ export function SlotModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-4 border-t border-gray-800 sticky bottom-0 bg-gray-900">
+        <div className="flex items-center justify-between p-4 border-t border-gray-800 sticky bottom-0 bg-[#252525]">
           {isEditing && onDelete ? (
             <button
               onClick={handleDelete}

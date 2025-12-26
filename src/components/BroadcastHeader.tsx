@@ -74,7 +74,7 @@ export function BroadcastHeader({ stationName = "Channel Broadcast" }: Broadcast
                       <Link
                         href="/settings"
                         onClick={() => setShowUserMenu(false)}
-                        className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-gray-900 transition-colors"
+                        className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                       >
                         Settings
                       </Link>
@@ -83,7 +83,7 @@ export function BroadcastHeader({ stationName = "Channel Broadcast" }: Broadcast
                           signOut();
                           setShowUserMenu(false);
                         }}
-                        className="w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-gray-900 transition-colors"
+                        className="w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                       >
                         Sign Out
                       </button>

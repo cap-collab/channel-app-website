@@ -35,7 +35,7 @@ function ChannelAppUrlSection() {
   };
 
   return (
-    <div className="bg-gray-900 rounded-xl p-4">
+    <div className="bg-[#252525] rounded-xl p-4">
       <label className="block text-gray-400 text-sm mb-2">Listen in Channel</label>
       <div className="flex gap-2">
         <input
@@ -342,7 +342,7 @@ export function BroadcastClient() {
   // Loading state
   if (tokenLoading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
           <p className="text-gray-400">Validating broadcast link...</p>
@@ -354,8 +354,8 @@ export function BroadcastClient() {
   // Invalid token
   if (tokenError || !slot) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-8">
-        <div className="bg-gray-900 rounded-xl p-8 max-w-md text-center">
+      <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center p-8">
+        <div className="bg-[#252525] rounded-xl p-8 max-w-md text-center">
           <div className="w-16 h-16 bg-red-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -376,8 +376,8 @@ export function BroadcastClient() {
   // Paused state - DJ disconnected, can resume
   if (slot.status === 'paused' && !dismissedWarning) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-8">
-        <div className="bg-gray-900 rounded-xl p-8 max-w-md">
+      <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center p-8">
+        <div className="bg-[#252525] rounded-xl p-8 max-w-md">
           <div className="w-16 h-16 bg-orange-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -412,8 +412,8 @@ export function BroadcastClient() {
   if ((scheduleStatus === 'early' || scheduleStatus === 'late') && !dismissedWarning) {
     const isEarly = scheduleStatus === 'early';
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-8">
-        <div className="bg-gray-900 rounded-xl p-8 max-w-md">
+      <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center p-8">
+        <div className="bg-[#252525] rounded-xl p-8 max-w-md">
           {isEarly ? (
             // Info icon (blue) for early - informational, not alarming
             <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -460,7 +460,7 @@ export function BroadcastClient() {
     const needsNewDjProfile = !djUsername && slot?.djSlots && slot.djSlots.length > 0;
 
     return (
-      <div className="min-h-screen bg-black">
+      <div className="min-h-screen bg-[#1a1a1a]">
         <BroadcastHeader />
         <div className="p-4 lg:p-8">
           <div className="max-w-6xl mx-auto">
@@ -514,7 +514,7 @@ export function BroadcastClient() {
   // DJ Onboarding - Profile setup (with non-blocking inline login prompt)
   if (onboardingStep === 'profile') {
     return (
-      <div className="min-h-screen bg-black">
+      <div className="min-h-screen bg-[#1a1a1a]">
         <BroadcastHeader />
         <div className="flex items-center justify-center p-8 min-h-[calc(100vh-60px)]">
         <DJProfileSetup
@@ -528,7 +528,7 @@ export function BroadcastClient() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[#1a1a1a] text-white">
       <BroadcastHeader />
       <div className="p-8">
       <div className="max-w-lg mx-auto">
@@ -621,7 +621,7 @@ export function BroadcastClient() {
             {/* Channel App URL */}
             <ChannelAppUrlSection />
 
-            <div className="bg-gray-900 rounded-xl p-4">
+            <div className="bg-[#252525] rounded-xl p-4">
               <p className="text-gray-400 text-sm mb-4">
                 Check your audio levels above to make sure sound is coming through.
                 You can test as long as you need &mdash; your broadcast won&apos;t start until you click GO LIVE.

@@ -32,7 +32,7 @@ export default function ChatScreen() {
   ];
 
   return (
-    <div className="h-full bg-black flex flex-col">
+    <div className="h-full bg-[#1a1a1a] flex flex-col">
       {/* Header */}
       <div className="px-3 py-2 flex items-center justify-between border-b border-gray-800/50">
         <div className="flex items-center gap-2">
@@ -84,7 +84,7 @@ export default function ChatScreen() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
             </svg>
           </button>
-          <div className="flex-1 bg-gray-900 rounded-full px-3 py-1.5 border border-gray-700">
+          <div className="flex-1 bg-[#252525] rounded-full px-3 py-1.5 border border-gray-700">
             <span className="text-gray-500 text-xs">Message</span>
           </div>
           <button className="text-gray-500">

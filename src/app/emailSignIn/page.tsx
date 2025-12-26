@@ -122,7 +122,7 @@ export default function EmailSignInPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center p-4">
       <div className="max-w-md w-full text-center">
         {status === "loading" && (
           <div className="space-y-4">
@@ -154,7 +154,7 @@ export default function EmailSignInPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
-                className="w-full px-4 py-3 rounded-lg bg-gray-900 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                className="w-full px-4 py-3 rounded-lg bg-[#252525] border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
                 autoFocus
               />
               <button

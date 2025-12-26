@@ -71,8 +71,8 @@ function ShowBlock({
         isCurrentSlot
           ? 'border-accent bg-accent/10'
           : isPast
-          ? 'border-gray-800 bg-gray-900/50 opacity-60'
-          : 'border-gray-800 bg-gray-900 hover:border-gray-700'
+          ? 'border-gray-800 bg-[#252525]/50 opacity-60'
+          : 'border-gray-800 bg-[#252525] hover:border-gray-700'
       }`}
     >
       <div className="p-4">

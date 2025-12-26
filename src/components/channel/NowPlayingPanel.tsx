@@ -116,7 +116,7 @@ export function NowPlayingPanel({
   }
 
   return (
-    <div className="bg-gray-900 rounded-xl overflow-hidden">
+    <div className="bg-[#252525] rounded-xl overflow-hidden">
       <div className="p-4">
         {/* Station header */}
         <div className="flex items-start gap-4 mb-4">

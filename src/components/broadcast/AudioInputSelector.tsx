@@ -52,7 +52,7 @@ export function AudioInputSelector({ onSelect, disabled }: AudioInputSelectorPro
             key={method.id}
             onClick={() => onSelect(method.id)}
             disabled={disabled}
-            className="flex items-start gap-4 p-5 bg-gray-900 hover:bg-gray-800 rounded-xl border border-gray-800 hover:border-gray-700 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-start gap-4 p-5 bg-[#252525] hover:bg-[#303030] rounded-xl border border-gray-800 hover:border-gray-700 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="text-gray-400 mt-0.5">
               {method.icon}

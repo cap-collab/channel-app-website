@@ -40,7 +40,7 @@ export function ChannelClient() {
   } = useBroadcastSchedule();
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[#1a1a1a] text-white">
       {/* Use shared Header with profile icon */}
       <Header currentPage="channel" position="sticky" />
 
@@ -96,7 +96,7 @@ export function ChannelClient() {
         {/* Mobile layout */}
         <div className="lg:hidden flex flex-col h-[calc(100vh-64px)]">
           {/* Compact Now Playing */}
-          <div className="p-4 bg-gray-900/50">
+          <div className="p-4 bg-[#252525]/50">
             <NowPlayingPanel
               isPlaying={isPlaying}
               isLoading={isLoading}

@@ -41,7 +41,7 @@ export function DJAccountPrompt({ onComplete, onSkip }: DJAccountPromptProps) {
   };
 
   return (
-    <div className="bg-gray-900 rounded-xl p-8 max-w-md mx-auto">
+    <div className="bg-[#252525] rounded-xl p-8 max-w-md mx-auto">
       <h2 className="text-2xl font-bold text-white mb-2">
         Welcome to Channel Broadcast!
       </h2>

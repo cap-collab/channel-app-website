@@ -23,7 +23,7 @@ export function AudioLevelMeter({ stream }: AudioLevelMeterProps) {
   };
 
   return (
-    <div className="bg-gray-900 rounded-xl p-4">
+    <div className="bg-[#252525] rounded-xl p-4">
       <div className="flex items-center justify-between mb-2">
         <span className="text-gray-400 text-sm">Audio Level</span>
         {stream ? (

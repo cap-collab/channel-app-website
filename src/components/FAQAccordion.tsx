@@ -48,7 +48,7 @@ export default function FAQAccordion({ items }: FAQAccordionProps) {
         >
           <button
             onClick={() => toggle(index)}
-            className="w-full px-6 py-5 text-left flex items-center justify-between hover:bg-gray-900/50 transition-colors"
+            className="w-full px-6 py-5 text-left flex items-center justify-between hover:bg-[#252525]/50 transition-colors"
           >
             <span className="text-white font-medium text-lg pr-4">
               {item.question}

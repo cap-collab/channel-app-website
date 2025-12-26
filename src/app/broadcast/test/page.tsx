@@ -139,10 +139,10 @@ export default function BroadcastTestPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white p-8">
+    <div className="min-h-screen bg-[#1a1a1a] text-white p-8">
       <h1 className="text-3xl font-bold mb-8">Broadcast Test</h1>
 
-      <div className="bg-gray-900 rounded-lg p-6 max-w-md">
+      <div className="bg-[#252525] rounded-lg p-6 max-w-md">
         <div className="mb-6">
           <p className="text-gray-400 text-sm">Status</p>
           <p className="text-xl font-mono">{status}</p>
@@ -194,7 +194,7 @@ export default function BroadcastTestPage() {
 
       {/* HLS Egress Controls */}
       {isStreaming && (
-        <div className="bg-gray-900 rounded-lg p-6 max-w-md mt-6">
+        <div className="bg-[#252525] rounded-lg p-6 max-w-md mt-6">
           <h2 className="text-xl font-bold mb-4">HLS Output</h2>
 
           {egressStatus && (

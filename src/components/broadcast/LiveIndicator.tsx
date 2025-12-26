@@ -131,7 +131,7 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
       {/* Left Column - Show info and controls */}
       <div className="flex-1 space-y-4 lg:overflow-y-auto">
         {/* Station Header (like iOS NowPlayingBar) */}
-        <div className="bg-gray-900 rounded-xl p-4">
+        <div className="bg-[#252525] rounded-xl p-4">
           <div className="flex items-center gap-3">
             {/* Station logo - square app icon */}
             <Image
@@ -153,7 +153,7 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
 
         {/* Show Schedule */}
         {slot && (slot.djSlots?.length || slot.djName) && (
-          <div className="bg-gray-900 rounded-xl p-4">
+          <div className="bg-[#252525] rounded-xl p-4">
             <p className="text-gray-500 text-sm mb-3">
               {formatDate(slot.startTime)} · {formatTime(slot.startTime)} – {formatTime(slot.endTime)}
             </p>
@@ -201,7 +201,7 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
         )}
 
         {/* Live Status Card */}
-        <div className="bg-gray-900 rounded-xl p-6">
+        <div className="bg-[#252525] rounded-xl p-6">
           {/* Live badge and duration */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">

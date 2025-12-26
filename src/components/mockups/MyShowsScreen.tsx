@@ -1,6 +1,6 @@
 export default function MyShowsScreen() {
   return (
-    <div className="h-full bg-black px-4 pt-2">
+    <div className="h-full bg-[#1a1a1a] px-4 pt-2">
       {/* Header */}
       <div className="text-center mb-4">
         <h2 className="text-white font-semibold text-lg">My Shows</h2>
@@ -20,7 +20,7 @@ export default function MyShowsScreen() {
           <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
           <span className="text-gray-500 text-xs font-medium tracking-wider">LIVE NOW</span>
         </div>
-        <div className="bg-gray-900/60 rounded-xl p-4 border-l-4 border-pink-500">
+        <div className="bg-[#252525]/60 rounded-xl p-4 border-l-4 border-pink-500">
           <div className="flex items-center justify-between">
             <div>
               <div className="h-3 w-16 bg-gray-600 rounded blur-[5px] mb-2" />
@@ -37,7 +37,7 @@ export default function MyShowsScreen() {
       {/* Coming Up Today */}
       <div className="mb-5">
         <span className="text-gray-500 text-xs font-medium tracking-wider mb-3 block">COMING UP TODAY</span>
-        <div className="bg-gray-900/60 rounded-xl p-4 border-l-4 border-cyan-500">
+        <div className="bg-[#252525]/60 rounded-xl p-4 border-l-4 border-cyan-500">
           <div className="flex items-center justify-between">
             <div>
               <div className="h-3 w-14 bg-gray-600 rounded blur-[5px] mb-2" />
@@ -54,7 +54,7 @@ export default function MyShowsScreen() {
       {/* Tomorrow */}
       <div className="mb-5">
         <span className="text-gray-500 text-xs font-medium tracking-wider mb-3 block">TOMORROW</span>
-        <div className="bg-gray-900/60 rounded-xl p-4 border-l-4 border-lime-400">
+        <div className="bg-[#252525]/60 rounded-xl p-4 border-l-4 border-lime-400">
           <div className="flex items-center justify-between">
             <div>
               <div className="h-3 w-20 bg-gray-600 rounded blur-[5px] mb-2" />
@@ -72,7 +72,7 @@ export default function MyShowsScreen() {
       <div>
         <span className="text-gray-500 text-xs font-medium tracking-wider mb-1 block">WATCH LIST</span>
         <span className="text-gray-600 text-xs mb-3 block">Shows you&apos;ve starred but aren&apos;t currently scheduled</span>
-        <div className="bg-gray-900/60 rounded-xl p-4 border-l-4 border-gray-600">
+        <div className="bg-[#252525]/60 rounded-xl p-4 border-l-4 border-gray-600">
           <div className="flex items-center justify-between">
             <div>
               <div className="h-3 w-16 bg-gray-600 rounded blur-[5px] mb-2" />

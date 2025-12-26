@@ -173,7 +173,7 @@ export function DJChatPanel({
   const unreadCount = isCollapsed ? messages.filter(m => Date.now() - m.timestamp < 60000).length : 0;
 
   return (
-    <div className="bg-gray-900 rounded-xl overflow-hidden flex flex-col lg:h-full">
+    <div className="bg-[#252525] rounded-xl overflow-hidden flex flex-col lg:h-full">
       {/* Header */}
       <button
         onClick={onToggleCollapse}
@@ -321,7 +321,7 @@ export function DJChatPanel({
       {/* Promo Modal */}
       {showPromoModal && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 rounded-xl p-6 max-w-md w-full">
+          <div className="bg-[#252525] rounded-xl p-6 max-w-md w-full">
             <h3 className="text-xl font-bold text-white mb-4">Share a promo link</h3>
             <p className="text-gray-400 text-sm mb-4">
               This will be pinned at the top of the chat for all listeners.
@@ -374,7 +374,7 @@ export function DJChatPanel({
       {/* Username Edit Modal - for venue DJs */}
       {showUsernameModal && onChangeUsername && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 rounded-xl p-6 max-w-md w-full">
+          <div className="bg-[#252525] rounded-xl p-6 max-w-md w-full">
             <h3 className="text-xl font-bold text-white mb-4">Change chat username</h3>
             <p className="text-gray-400 text-sm mb-4">
               This will update your name in the chat.

@@ -115,7 +115,7 @@ export function DeviceAudioCapture({ onStream, onError, onBack }: DeviceAudioCap
         Back
       </button>
 
-      <div className="bg-gray-900 rounded-xl p-6">
+      <div className="bg-[#252525] rounded-xl p-6">
         <h2 className="text-xl font-semibold text-white mb-4">Audio Interface</h2>
 
         <div className="space-y-4">

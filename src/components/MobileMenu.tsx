@@ -83,7 +83,7 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                       <Link
                         href="/settings"
                         onClick={() => setIsOpen(false)}
-                        className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-gray-900 transition-colors"
+                        className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                       >
                         Settings
                       </Link>
@@ -92,7 +92,7 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                           signOut();
                           setIsOpen(false);
                         }}
-                        className="w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-gray-900 transition-colors"
+                        className="w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                       >
                         Sign Out
                       </button>
@@ -108,7 +108,7 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                       onSignInClick?.();
                       setIsOpen(false);
                     }}
-                    className="w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-gray-900 transition-colors"
+                    className="w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                   >
                     Sign In
                   </button>
@@ -127,7 +127,7 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                       onClick={() => handleItemClick(item)}
                       target={isExternal ? "_blank" : undefined}
                       rel={isExternal ? "noopener noreferrer" : undefined}
-                      className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-gray-900 transition-colors"
+                      className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                     >
                       {item.label}
                     </a>
@@ -138,7 +138,7 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                     key={index}
                     href={item.href}
                     onClick={() => handleItemClick(item)}
-                    className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-gray-900 transition-colors"
+                    className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                   >
                     {item.label}
                   </Link>
@@ -149,7 +149,7 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                 <button
                   key={index}
                   onClick={() => handleItemClick(item)}
-                  className="w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-gray-900 transition-colors"
+                  className="w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                 >
                   {item.label}
                 </button>
