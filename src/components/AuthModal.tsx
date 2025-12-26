@@ -133,11 +133,11 @@ export function AuthModal({
     }
     return (
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90"
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
         onClick={onClose}
       >
         <div
-          className="bg-black border border-gray-800 rounded-xl p-6 max-w-sm w-full"
+          className="bg-white/[0.08] backdrop-blur-xl rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-white/[0.1]"
           onClick={(e) => e.stopPropagation()}
         >
           {children}
@@ -159,13 +159,13 @@ export function AuthModal({
           </div>
 
           <h2 className="text-xl font-bold text-white mb-2 text-center">Check your email</h2>
-          <p className="text-gray-400 text-sm text-center mb-6">
+          <p className="text-white/60 text-sm text-center mb-6">
             We sent a password reset link to <span className="text-white">{forgotPasswordEmail || email}</span>.
           </p>
 
           <button
             onClick={onClose}
-            className="w-full py-3 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors"
+            className="w-full py-3 bg-white text-black rounded-xl font-medium hover:bg-white/90 transition-all"
           >
             Done
           </button>
@@ -175,7 +175,7 @@ export function AuthModal({
               resetPasswordResetSent();
               setView("forgotPassword");
             }}
-            className="w-full mt-3 py-2 text-gray-500 text-sm hover:text-white transition-colors"
+            className="w-full mt-3 py-2 text-white/50 text-sm hover:text-white transition-colors"
           >
             Try a different email
           </button>
@@ -196,20 +196,20 @@ export function AuthModal({
           </div>
 
           <h2 className="text-xl font-bold text-white mb-2 text-center">Check your email</h2>
-          <p className="text-gray-400 text-sm text-center mb-6">
+          <p className="text-white/60 text-sm text-center mb-6">
             We sent a sign-in link to <span className="text-white">{email}</span>. Click the link to sign in.
           </p>
 
           <button
             onClick={onClose}
-            className="w-full py-3 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors"
+            className="w-full py-3 bg-white text-black rounded-xl font-medium hover:bg-white/90 transition-all"
           >
             Done
           </button>
 
           <button
             onClick={() => resetEmailSent()}
-            className="w-full mt-3 py-2 text-gray-500 text-sm hover:text-white transition-colors"
+            className="w-full mt-3 py-2 text-white/50 text-sm hover:text-white transition-colors"
           >
             Use a different email
           </button>
@@ -223,10 +223,10 @@ export function AuthModal({
         <h2 className="text-xl font-bold text-white mb-2">
           {view === "forgotPassword" ? "Reset Password" : "Sign In"}
         </h2>
-        {view === "main" && <p className="text-gray-500 text-sm mb-6">{message}</p>}
+        {view === "main" && <p className="text-white/50 text-sm mb-6">{message}</p>}
 
         {error && (
-          <div className="mb-4 p-3 bg-red-900/20 border border-red-900 rounded-lg text-red-400 text-sm">
+          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
             {error}
           </div>
         )}
@@ -238,7 +238,7 @@ export function AuthModal({
             <button
               onClick={handleAppleSignIn}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 bg-white text-black py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-3 bg-white text-black py-3 rounded-xl font-medium hover:bg-white/90 transition-all disabled:opacity-50"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-gray-400 border-t-black rounded-full animate-spin" />
@@ -256,7 +256,7 @@ export function AuthModal({
             <button
               onClick={handleGoogleSignIn}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 bg-white text-black py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-3 bg-white text-black py-3 rounded-xl font-medium hover:bg-white/90 transition-all disabled:opacity-50"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-gray-400 border-t-black rounded-full animate-spin" />
@@ -277,7 +277,7 @@ export function AuthModal({
             <button
               onClick={() => setView("emailInput")}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 bg-transparent border border-gray-700 text-white py-3 rounded-lg font-medium hover:border-white transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-3 bg-white/[0.08] text-white py-3 rounded-xl font-medium hover:bg-white/[0.15] transition-all disabled:opacity-50"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -288,7 +288,7 @@ export function AuthModal({
             {/* Forgot password link */}
             <button
               onClick={() => setView("forgotPassword")}
-              className="w-full py-2 text-gray-500 text-sm hover:text-white transition-colors"
+              className="w-full py-2 text-white/50 text-sm hover:text-white transition-colors"
             >
               Forgot password?
             </button>
@@ -302,7 +302,7 @@ export function AuthModal({
                   onChange={(e) => setEnableNotifications(e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-5 h-5 border border-gray-600 rounded bg-transparent peer-checked:bg-white peer-checked:border-white transition-colors" />
+                <div className="w-5 h-5 border border-white/30 rounded bg-white/[0.05] peer-checked:bg-white peer-checked:border-white transition-all" />
                 <svg
                   className="absolute top-0.5 left-0.5 w-4 h-4 text-black opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none"
                   fill="none"
@@ -312,7 +312,7 @@ export function AuthModal({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">
+              <span className="text-sm text-white/60 group-hover:text-white/80 transition-colors">
                 Email me when my favorite DJs or shows are scheduled
               </span>
             </label>
@@ -329,7 +329,7 @@ export function AuthModal({
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email"
                 autoFocus
-                className="w-full px-4 py-3 bg-transparent border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors"
+                className="w-full px-4 py-3 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/30 focus:bg-white/[0.08] transition-all"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && email.trim()) {
                     handleEmailContinue();
@@ -341,7 +341,7 @@ export function AuthModal({
             <button
               onClick={handleEmailContinue}
               disabled={loading || !email.trim()}
-              className="w-full py-3 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
+              className="w-full py-3 bg-white text-black rounded-xl font-medium hover:bg-white/90 transition-all disabled:opacity-50"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-gray-400 border-t-black rounded-full animate-spin mx-auto" />
@@ -352,7 +352,7 @@ export function AuthModal({
 
             <button
               onClick={goBack}
-              className="w-full py-2 text-gray-500 text-sm hover:text-white transition-colors"
+              className="w-full py-2 text-white/50 text-sm hover:text-white transition-colors"
             >
               Back to sign-in options
             </button>
@@ -362,12 +362,12 @@ export function AuthModal({
         {/* Method choice view */}
         {view === "methodChoice" && (
           <div className="space-y-4">
-            <p className="text-gray-400 text-sm mb-4">{email}</p>
+            <p className="text-white/60 text-sm mb-4">{email}</p>
 
             <button
               onClick={handleSendMagicLink}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 bg-white text-black py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-3 bg-white text-black py-3 rounded-xl font-medium hover:bg-white/90 transition-all disabled:opacity-50"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-gray-400 border-t-black rounded-full animate-spin" />
@@ -384,7 +384,7 @@ export function AuthModal({
             <button
               onClick={() => setView("password")}
               disabled={loading}
-              className="w-full flex flex-col items-center gap-1 bg-transparent border border-gray-700 text-white py-3 rounded-lg font-medium hover:border-white transition-colors disabled:opacity-50"
+              className="w-full flex flex-col items-center gap-1 bg-white/[0.08] text-white py-3 rounded-xl font-medium hover:bg-white/[0.15] transition-all disabled:opacity-50"
             >
               <span className="flex items-center gap-2">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -392,7 +392,7 @@ export function AuthModal({
                 </svg>
                 Enter password manually
               </span>
-              <span className="text-xs text-gray-500 font-normal">Recommended if using a shared computer</span>
+              <span className="text-xs text-white/40 font-normal">Recommended if using a shared computer</span>
             </button>
 
             <button
@@ -400,14 +400,14 @@ export function AuthModal({
                 setForgotPasswordEmail(email);
                 setView("forgotPassword");
               }}
-              className="w-full py-2 text-gray-500 text-sm hover:text-white transition-colors"
+              className="w-full py-2 text-white/50 text-sm hover:text-white transition-colors"
             >
               Forgot password?
             </button>
 
             <button
               onClick={goBack}
-              className="w-full py-2 text-gray-500 text-sm hover:text-white transition-colors"
+              className="w-full py-2 text-white/50 text-sm hover:text-white transition-colors"
             >
               Back
             </button>
@@ -417,10 +417,10 @@ export function AuthModal({
         {/* Password entry view */}
         {view === "password" && (
           <form onSubmit={handlePasswordSubmit} className="space-y-4">
-            <p className="text-gray-400 text-sm">{email}</p>
+            <p className="text-white/60 text-sm">{email}</p>
 
             {isNewUser && (
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-white/50">
                 Create a password for your new account
               </p>
             )}
@@ -432,7 +432,7 @@ export function AuthModal({
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password"
                 autoFocus
-                className="w-full px-4 py-3 bg-transparent border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors"
+                className="w-full px-4 py-3 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/30 focus:bg-white/[0.08] transition-all"
               />
             </div>
 
@@ -443,19 +443,19 @@ export function AuthModal({
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirm password"
-                  className="w-full px-4 py-3 bg-transparent border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors"
+                  className="w-full px-4 py-3 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/30 focus:bg-white/[0.08] transition-all"
                 />
                 {confirmPassword && password !== confirmPassword && (
                   <p className="text-red-400 text-xs mt-1">Passwords don&apos;t match</p>
                 )}
-                <p className="text-gray-500 text-xs mt-2">Password must be at least 6 characters</p>
+                <p className="text-white/40 text-xs mt-2">Password must be at least 6 characters</p>
               </div>
             )}
 
             <button
               type="submit"
               disabled={loading || !password || (isNewUser && (password !== confirmPassword || password.length < 6))}
-              className="w-full py-3 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
+              className="w-full py-3 bg-white text-black rounded-xl font-medium hover:bg-white/90 transition-all disabled:opacity-50"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-gray-400 border-t-black rounded-full animate-spin mx-auto" />
@@ -472,7 +472,7 @@ export function AuthModal({
                 setForgotPasswordEmail(email);
                 setView("forgotPassword");
               }}
-              className="w-full py-2 text-gray-500 text-sm hover:text-white transition-colors"
+              className="w-full py-2 text-white/50 text-sm hover:text-white transition-colors"
             >
               Forgot password?
             </button>
@@ -480,7 +480,7 @@ export function AuthModal({
             <button
               type="button"
               onClick={goBack}
-              className="w-full py-2 text-gray-500 text-sm hover:text-white transition-colors"
+              className="w-full py-2 text-white/50 text-sm hover:text-white transition-colors"
             >
               Back
             </button>
@@ -490,7 +490,7 @@ export function AuthModal({
         {/* Forgot password view */}
         {view === "forgotPassword" && (
           <form onSubmit={handleForgotPassword} className="space-y-4">
-            <p className="text-gray-400 text-sm mb-4">
+            <p className="text-white/60 text-sm mb-4">
               Enter your email and we&apos;ll send you a link to reset your password.
             </p>
 
@@ -501,14 +501,14 @@ export function AuthModal({
                 onChange={(e) => setForgotPasswordEmail(e.target.value)}
                 placeholder="Enter your email"
                 autoFocus
-                className="w-full px-4 py-3 bg-transparent border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors"
+                className="w-full px-4 py-3 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/30 focus:bg-white/[0.08] transition-all"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading || !(forgotPasswordEmail || email).trim()}
-              className="w-full py-3 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
+              className="w-full py-3 bg-white text-black rounded-xl font-medium hover:bg-white/90 transition-all disabled:opacity-50"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-gray-400 border-t-black rounded-full animate-spin mx-auto" />
@@ -520,7 +520,7 @@ export function AuthModal({
             <button
               type="button"
               onClick={goBack}
-              className="w-full py-2 text-gray-500 text-sm hover:text-white transition-colors"
+              className="w-full py-2 text-white/50 text-sm hover:text-white transition-colors"
             >
               Back to sign-in options
             </button>
@@ -528,21 +528,23 @@ export function AuthModal({
         )}
 
         {/* Footer */}
-        <p className="mt-4 text-xs text-gray-500 text-center">
-          By signing in, you agree to our{" "}
-          <Link href="/terms" className="text-gray-400 hover:text-white underline">
-            Terms of Use
-          </Link>{" "}
-          and{" "}
-          <Link href="/privacy" className="text-gray-400 hover:text-white underline">
-            Privacy Policy
-          </Link>
-        </p>
+        <div className="mt-6 pt-4 border-t border-white/[0.08]">
+          <p className="text-xs text-white/40 text-center">
+            By signing in, you agree to our{" "}
+            <Link href="/terms" className="text-white/60 hover:text-white underline">
+              Terms of Use
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="text-white/60 hover:text-white underline">
+              Privacy Policy
+            </Link>
+          </p>
+        </div>
 
         {!inline && (
           <button
             onClick={onClose}
-            className="w-full mt-3 py-2 text-gray-500 text-sm hover:text-white transition-colors"
+            className="w-full mt-3 py-2 text-white/40 text-sm hover:text-white transition-colors"
           >
             Cancel
           </button>

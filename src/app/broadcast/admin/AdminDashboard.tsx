@@ -26,6 +26,7 @@ export function AdminDashboard() {
   const { settings: broadcasterSettings, loading: settingsLoading } = useBroadcasterSettings(user);
 
   const [slots, setSlots] = useState<BroadcastSlotSerialized[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [roomStatus, setRoomStatus] = useState<RoomStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -245,25 +246,6 @@ export function AdminDashboard() {
       <BroadcastHeader />
       <div className="p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold">Broadcast Schedule</h1>
-
-          {/* Live status */}
-          {roomStatus && (
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
-              roomStatus.isLive ? 'bg-red-900/50' : 'bg-gray-800'
-            }`}>
-              <div className={`w-2 h-2 rounded-full ${
-                roomStatus.isLive ? 'bg-red-500 animate-pulse' : 'bg-gray-500'
-              }`}></div>
-              <span className={roomStatus.isLive ? 'text-red-400' : 'text-gray-400'}>
-                {roomStatus.isLive ? `Live: ${roomStatus.currentDJ}` : 'Off Air'}
-              </span>
-            </div>
-          )}
-        </div>
-
         {/* Loading */}
         {isLoading ? (
           <div className="flex items-center justify-center py-20">

@@ -122,8 +122,8 @@ export default function EmailSignInPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center p-4">
-      <div className="max-w-md w-full text-center">
+    <div className="min-h-screen bg-black flex items-center justify-center p-4">
+      <div className="bg-white/[0.08] backdrop-blur-xl rounded-2xl p-8 max-w-sm w-full shadow-2xl border border-white/[0.1] text-center">
         {status === "loading" && (
           <div className="space-y-4">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto"></div>
@@ -134,7 +134,7 @@ export default function EmailSignInPage() {
                   const currentUrl = window.location.href;
                   window.location.href = `channel://emailSignIn?url=${encodeURIComponent(currentUrl)}`;
                 }}
-                className="mt-4 px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold"
+                className="mt-4 w-full py-3 rounded-xl bg-white text-black font-medium hover:bg-white/90 transition-all"
               >
                 Open in Channel App
               </button>
@@ -145,7 +145,7 @@ export default function EmailSignInPage() {
         {status === "email-needed" && (
           <div className="space-y-6">
             <h1 className="text-2xl font-bold text-white">Confirm Your Email</h1>
-            <p className="text-gray-400">
+            <p className="text-white/60">
               Please enter the email address you used to sign in.
             </p>
             <form onSubmit={handleSubmitEmail} className="space-y-4">
@@ -154,13 +154,13 @@ export default function EmailSignInPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
-                className="w-full px-4 py-3 rounded-lg bg-[#252525] border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                className="w-full px-4 py-3 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/30 focus:bg-white/[0.08] transition-all"
                 autoFocus
               />
               <button
                 type="submit"
                 disabled={!email.trim()}
-                className="w-full py-3 rounded-lg bg-white text-black font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-3 rounded-xl bg-white text-black font-medium hover:bg-white/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Continue
               </button>
@@ -170,22 +170,30 @@ export default function EmailSignInPage() {
 
         {status === "success" && (
           <div className="space-y-4">
-            <div className="text-green-500 text-6xl">✓</div>
+            <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto">
+              <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
             <h1 className="text-2xl font-bold text-white">You&apos;re signed in!</h1>
-            <p className="text-gray-400">Redirecting you to DJ Shows...</p>
+            <p className="text-white/60">Redirecting you to DJ Shows...</p>
           </div>
         )}
 
         {status === "error" && (
           <div className="space-y-4">
-            <div className="text-red-500 text-6xl">✕</div>
+            <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto">
+              <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
             <h1 className="text-2xl font-bold text-white">Sign In Failed</h1>
-            <p className="text-gray-400">{errorMessage}</p>
+            <p className="text-white/60">{errorMessage}</p>
             {/* Go to DJ Shows button hidden */}
             {false && (
               <a
                 href="/djshows"
-                className="inline-block mt-4 px-6 py-3 rounded-lg bg-white text-black font-semibold"
+                className="inline-block mt-4 w-full py-3 rounded-xl bg-white text-black font-medium hover:bg-white/90 transition-all"
               >
                 Go to DJ Shows
               </a>
