@@ -157,19 +157,6 @@ export function BroadcastSchedule({
     return slots.sort((a, b) => a.startTime - b.startTime);
   }, [shows]);
 
-  const goToToday = () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    onDateChange(today);
-  };
-
-  const goToTomorrow = () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
-    onDateChange(tomorrow);
-  };
-
   const goToPrevDay = () => {
     const prev = new Date(selectedDate);
     prev.setDate(prev.getDate() - 1);
@@ -186,41 +173,18 @@ export function BroadcastSchedule({
     <div className="flex flex-col h-full">
       {/* Date navigation - Sticky */}
       <div className="flex-shrink-0 sticky top-0 bg-black pb-4 z-10">
-        <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={goToToday}
-            className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-              isToday(selectedDate)
-                ? 'bg-accent text-white'
-                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-            }`}
-          >
-            Today
-          </button>
-          <button
-            onClick={goToTomorrow}
-            className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-              isTomorrow(selectedDate)
-                ? 'bg-accent text-white'
-                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-            }`}
-          >
-            Tomorrow
-          </button>
-        </div>
-
         <div className="flex items-center gap-2">
           <button
             onClick={goToPrevDay}
-            className="p-2 text-gray-400 hover:text-white transition-colors"
+            disabled={isToday(selectedDate)}
+            className="p-2 text-gray-400 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <span className="text-white font-medium min-w-[140px] text-center">
-            {formatDate(selectedDate)}
+          <span className="text-white font-medium">
+            {isToday(selectedDate) ? 'Today' : isTomorrow(selectedDate) ? 'Tomorrow' : formatDate(selectedDate)}
           </span>
           <button
             onClick={goToNextDay}
@@ -230,7 +194,6 @@ export function BroadcastSchedule({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
-          </div>
         </div>
       </div>
 
