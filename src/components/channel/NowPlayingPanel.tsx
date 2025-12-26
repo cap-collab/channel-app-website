@@ -50,7 +50,7 @@ export function NowPlayingPanel({
   // Station name is always "Channel Broadcast"
   const stationName = 'Channel Broadcast';
   // Show name from current show, or fallback when no show
-  const showName = currentShow?.showName || (isLive ? 'Live Now' : 'Off Air');
+  const showName = currentShow?.showName || (isLive ? 'Live Now' : 'Offline');
   // DJ name from live DJ or scheduled DJ
   const djName = currentDJ || currentShow?.djName || currentShow?.liveDjUsername;
 
@@ -93,19 +93,19 @@ export function NowPlayingPanel({
           <button
             onClick={onTogglePlay}
             disabled={!isLive}
-            className="w-10 h-10 flex items-center justify-center bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed rounded-full transition-colors"
+            className="w-10 h-10 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isLoading ? (
-              <svg className="w-5 h-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 animate-spin text-accent" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
             ) : isPlaying ? (
-              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-accent" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
               </svg>
             ) : (
-              <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-accent ml-0.5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>
             )}
@@ -117,11 +117,6 @@ export function NowPlayingPanel({
 
   return (
     <div className="bg-gray-900 rounded-xl overflow-hidden">
-      {/* Progress bar at top */}
-      {currentShow && isLive && (
-        <ProgressBar progress={progress} />
-      )}
-
       <div className="p-4">
         {/* Station header */}
         <div className="flex items-start gap-4 mb-4">
@@ -159,11 +154,14 @@ export function NowPlayingPanel({
           </div>
         </div>
 
-        {/* Time range */}
-        {currentShow && (
-          <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-            <span>{formatTime(currentShow.startTime)}</span>
-            <span>{formatTime(currentShow.endTime)}</span>
+        {/* Progress bar with time range below */}
+        {currentShow && isLive && (
+          <div className="mb-4">
+            <ProgressBar progress={progress} />
+            <div className="flex items-center justify-between text-sm text-gray-500 mt-1">
+              <span>{formatTime(currentShow.startTime)}</span>
+              <span>{formatTime(currentShow.endTime)}</span>
+            </div>
           </div>
         )}
 
@@ -197,19 +195,19 @@ export function NowPlayingPanel({
           <button
             onClick={onTogglePlay}
             disabled={!isLive}
-            className="w-14 h-14 flex items-center justify-center bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed rounded-full transition-colors"
+            className="w-14 h-14 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isLoading ? (
-              <svg className="w-7 h-7 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+              <svg className="w-10 h-10 animate-spin text-accent" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
             ) : isPlaying ? (
-              <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-10 h-10 text-accent" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
               </svg>
             ) : (
-              <svg className="w-7 h-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-10 h-10 text-accent ml-1" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>
             )}
@@ -224,7 +222,7 @@ export function NowPlayingPanel({
         )}
         {!isLive && !error && (
           <p className="text-center text-gray-500 text-sm mt-4">
-            No broadcast currently live. Check the schedule below.
+            No show currently live.
           </p>
         )}
       </div>
