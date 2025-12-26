@@ -9,6 +9,10 @@ import {
   sendSignInLinkToEmail,
   isSignInWithEmailLink,
   signInWithEmailLink,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  fetchSignInMethodsForEmail,
 } from "firebase/auth";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db, googleProvider, appleProvider } from "@/lib/firebase";
@@ -21,6 +25,7 @@ interface AuthState {
   loading: boolean;
   error: string | null;
   emailSent: boolean;
+  passwordResetSent: boolean;
 }
 
 export function useAuth() {
@@ -29,6 +34,7 @@ export function useAuth() {
     loading: true,
     error: null,
     emailSent: false,
+    passwordResetSent: false,
   });
 
   // Handle email link sign-in on page load
@@ -92,7 +98,7 @@ export function useAuth() {
             // Clean up URL
             window.history.replaceState(null, "", window.location.pathname);
 
-            setState({ user, loading: false, error: null, emailSent: false });
+            setState({ user, loading: false, error: null, emailSent: false, passwordResetSent: false });
           } catch (error) {
             console.error("Email link sign-in error:", error);
             setState((prev) => ({
@@ -110,7 +116,7 @@ export function useAuth() {
 
   useEffect(() => {
     if (!auth) {
-      setState({ user: null, loading: false, error: null, emailSent: false });
+      setState({ user: null, loading: false, error: null, emailSent: false, passwordResetSent: false });
       return;
     }
 
@@ -182,7 +188,7 @@ export function useAuth() {
         await setDoc(userRef, updateData, { merge: true });
       }
 
-      setState({ user, loading: false, error: null, emailSent: false });
+      setState({ user, loading: false, error: null, emailSent: false, passwordResetSent: false });
       return user;
     } catch (error) {
       const message =
@@ -246,7 +252,7 @@ export function useAuth() {
         await setDoc(userRef, updateData, { merge: true });
       }
 
-      setState({ user, loading: false, error: null, emailSent: false });
+      setState({ user, loading: false, error: null, emailSent: false, passwordResetSent: false });
       return user;
     } catch (error) {
       const message =
@@ -294,12 +300,179 @@ export function useAuth() {
     setState((prev) => ({ ...prev, emailSent: false, error: null }));
   }, []);
 
+  const resetPasswordResetSent = useCallback(() => {
+    setState((prev) => ({ ...prev, passwordResetSent: false, error: null }));
+  }, []);
+
+  // Check what sign-in methods exist for an email
+  const checkEmailMethods = useCallback(async (email: string): Promise<string[]> => {
+    if (!auth) return [];
+    try {
+      return await fetchSignInMethodsForEmail(auth, email);
+    } catch (error) {
+      console.error("Error checking email methods:", error);
+      return [];
+    }
+  }, []);
+
+  // Sign in with email and password
+  const signInWithPassword = useCallback(async (
+    email: string,
+    password: string,
+    enableNotifications = false
+  ): Promise<User | null> => {
+    if (!auth || !db) {
+      setState((prev) => ({ ...prev, error: "Authentication not configured" }));
+      return null;
+    }
+
+    try {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      const user = result.user;
+
+      // Update user document
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+
+      const updateData: Record<string, unknown> = {
+        lastSeenAt: serverTimestamp(),
+      };
+      if (enableNotifications) {
+        updateData.emailNotifications = {
+          showStarting: true,
+          watchlistMatch: true,
+        };
+      }
+
+      if (!userSnap.exists()) {
+        // First time signing in with password - create user doc
+        await setDoc(userRef, {
+          email: user.email,
+          displayName: user.email?.split("@")[0] || "User",
+          photoURL: null,
+          createdAt: serverTimestamp(),
+          lastSeenAt: serverTimestamp(),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          emailNotifications: {
+            showStarting: enableNotifications,
+            watchlistMatch: enableNotifications,
+          },
+        });
+      } else {
+        await setDoc(userRef, updateData, { merge: true });
+      }
+
+      setState({ user, loading: false, error: null, emailSent: false, passwordResetSent: false });
+      return user;
+    } catch (error) {
+      const firebaseError = error as { code?: string };
+      let message = "Failed to sign in";
+
+      if (firebaseError.code === "auth/wrong-password" || firebaseError.code === "auth/invalid-credential") {
+        message = "Incorrect password";
+      } else if (firebaseError.code === "auth/user-not-found") {
+        message = "No account found with this email";
+      } else if (firebaseError.code === "auth/too-many-requests") {
+        message = "Too many attempts. Please try again later.";
+      } else if (firebaseError.code === "auth/invalid-email") {
+        message = "Invalid email address";
+      }
+
+      console.error("Password sign-in error:", error);
+      setState((prev) => ({ ...prev, loading: false, error: message }));
+      return null;
+    }
+  }, []);
+
+  // Create account with email and password
+  const createAccountWithPassword = useCallback(async (
+    email: string,
+    password: string,
+    enableNotifications = false
+  ): Promise<User | null> => {
+    if (!auth || !db) {
+      setState((prev) => ({ ...prev, error: "Authentication not configured" }));
+      return null;
+    }
+
+    try {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      const user = result.user;
+
+      // Create user document
+      const userRef = doc(db, "users", user.uid);
+      await setDoc(userRef, {
+        email: user.email,
+        displayName: user.email?.split("@")[0] || "User",
+        photoURL: null,
+        createdAt: serverTimestamp(),
+        lastSeenAt: serverTimestamp(),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        emailNotifications: {
+          showStarting: enableNotifications,
+          watchlistMatch: enableNotifications,
+        },
+      });
+
+      setState({ user, loading: false, error: null, emailSent: false, passwordResetSent: false });
+      return user;
+    } catch (error) {
+      const firebaseError = error as { code?: string };
+      let message = "Failed to create account";
+
+      if (firebaseError.code === "auth/email-already-in-use") {
+        message = "An account already exists with this email";
+      } else if (firebaseError.code === "auth/weak-password") {
+        message = "Password must be at least 6 characters";
+      } else if (firebaseError.code === "auth/invalid-email") {
+        message = "Invalid email address";
+      }
+
+      console.error("Account creation error:", error);
+      setState((prev) => ({ ...prev, loading: false, error: message }));
+      return null;
+    }
+  }, []);
+
+  // Send password reset email
+  const sendPasswordReset = useCallback(async (email: string): Promise<boolean> => {
+    if (!auth) {
+      setState((prev) => ({ ...prev, error: "Authentication not configured" }));
+      return false;
+    }
+
+    try {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+      await sendPasswordResetEmail(auth, email);
+      setState((prev) => ({ ...prev, loading: false, passwordResetSent: true }));
+      return true;
+    } catch (error) {
+      const firebaseError = error as { code?: string };
+      let message = "Failed to send password reset email";
+
+      if (firebaseError.code === "auth/user-not-found") {
+        // Don't reveal if email exists for security
+        message = "If this email is registered, you'll receive a reset link.";
+        setState((prev) => ({ ...prev, loading: false, passwordResetSent: true }));
+        return true;
+      } else if (firebaseError.code === "auth/invalid-email") {
+        message = "Invalid email address";
+      }
+
+      console.error("Password reset error:", error);
+      setState((prev) => ({ ...prev, loading: false, error: message }));
+      return false;
+    }
+  }, []);
+
   const signOut = useCallback(async () => {
     if (!auth) return;
 
     try {
       await firebaseSignOut(auth);
-      setState({ user: null, loading: false, error: null, emailSent: false });
+      setState({ user: null, loading: false, error: null, emailSent: false, passwordResetSent: false });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to sign out";
@@ -313,10 +486,16 @@ export function useAuth() {
     loading: state.loading,
     error: state.error,
     emailSent: state.emailSent,
+    passwordResetSent: state.passwordResetSent,
     signInWithGoogle,
     signInWithApple,
     sendEmailLink,
     resetEmailSent,
+    checkEmailMethods,
+    signInWithPassword,
+    createAccountWithPassword,
+    sendPasswordReset,
+    resetPasswordResetSent,
     signOut,
     isAuthenticated: !!state.user,
   };

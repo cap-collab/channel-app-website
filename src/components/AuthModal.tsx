@@ -8,26 +8,55 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   message?: string;
+  /** Render inline (not as a modal overlay) */
+  inline?: boolean;
 }
+
+type ModalView = "main" | "emailInput" | "methodChoice" | "password" | "forgotPassword";
 
 export function AuthModal({
   isOpen,
   onClose,
   message = "Sign in to save favorites and get alerts",
+  inline = false,
 }: AuthModalProps) {
-  const { sendEmailLink, signInWithGoogle, signInWithApple, loading, error, emailSent, resetEmailSent } = useAuthContext();
+  const {
+    sendEmailLink,
+    signInWithGoogle,
+    signInWithApple,
+    signInWithPassword,
+    createAccountWithPassword,
+    sendPasswordReset,
+    checkEmailMethods,
+    loading,
+    error,
+    emailSent,
+    passwordResetSent,
+    resetEmailSent,
+    resetPasswordResetSent,
+  } = useAuthContext();
+
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [enableNotifications, setEnableNotifications] = useState(true);
-  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [view, setView] = useState<ModalView>("main");
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
 
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setEmail("");
-      setShowEmailForm(false);
+      setPassword("");
+      setConfirmPassword("");
+      setView("main");
+      setIsNewUser(false);
+      setForgotPasswordEmail("");
       resetEmailSent();
+      resetPasswordResetSent();
     }
-  }, [isOpen, resetEmailSent]);
+  }, [isOpen, resetEmailSent, resetPasswordResetSent]);
 
   const handleGoogleSignIn = async () => {
     const user = await signInWithGoogle(enableNotifications);
@@ -43,16 +72,65 @@ export function AuthModal({
     }
   };
 
-  if (!isOpen) return null;
+  const handleEmailContinue = async () => {
+    if (!email.trim()) return;
+    // Check if user exists to determine if they're new
+    const methods = await checkEmailMethods(email.trim());
+    setIsNewUser(methods.length === 0);
+    setView("methodChoice");
+  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendMagicLink = async () => {
     if (!email.trim()) return;
     await sendEmailLink(email.trim(), enableNotifications);
   };
 
-  // Email sent success view
-  if (emailSent) {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !password) return;
+
+    if (isNewUser) {
+      if (password !== confirmPassword) {
+        return;
+      }
+      const user = await createAccountWithPassword(email.trim(), password, enableNotifications);
+      if (user) {
+        onClose();
+      }
+    } else {
+      const user = await signInWithPassword(email.trim(), password, enableNotifications);
+      if (user) {
+        onClose();
+      }
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const emailToReset = forgotPasswordEmail.trim() || email.trim();
+    if (!emailToReset) return;
+    await sendPasswordReset(emailToReset);
+  };
+
+  const goBack = () => {
+    if (view === "password" || view === "methodChoice") {
+      setView("emailInput");
+      setPassword("");
+      setConfirmPassword("");
+    } else if (view === "emailInput" || view === "forgotPassword") {
+      setView("main");
+      setEmail("");
+      setForgotPasswordEmail("");
+    }
+  };
+
+  if (!isOpen) return null;
+
+  // Wrapper component for modal vs inline rendering
+  const Wrapper = ({ children }: { children: React.ReactNode }) => {
+    if (inline) {
+      return <div className="w-full">{children}</div>;
+    }
     return (
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90"
@@ -62,6 +140,53 @@ export function AuthModal({
           className="bg-black border border-gray-800 rounded-xl p-6 max-w-sm w-full"
           onClick={(e) => e.stopPropagation()}
         >
+          {children}
+        </div>
+      </div>
+    );
+  };
+
+  // Password reset sent success view
+  if (passwordResetSent) {
+    return (
+      <Wrapper>
+          <div className="flex justify-center mb-4">
+            <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
+              <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          </div>
+
+          <h2 className="text-xl font-bold text-white mb-2 text-center">Check your email</h2>
+          <p className="text-gray-400 text-sm text-center mb-6">
+            We sent a password reset link to <span className="text-white">{forgotPasswordEmail || email}</span>.
+          </p>
+
+          <button
+            onClick={onClose}
+            className="w-full py-3 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors"
+          >
+            Done
+          </button>
+
+          <button
+            onClick={() => {
+              resetPasswordResetSent();
+              setView("forgotPassword");
+            }}
+            className="w-full mt-3 py-2 text-gray-500 text-sm hover:text-white transition-colors"
+          >
+            Try a different email
+          </button>
+      </Wrapper>
+    );
+  }
+
+  // Email sent success view
+  if (emailSent) {
+    return (
+      <Wrapper>
           <div className="flex justify-center mb-4">
             <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
               <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -88,22 +213,17 @@ export function AuthModal({
           >
             Use a different email
           </button>
-        </div>
-      </div>
+      </Wrapper>
     );
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90"
-      onClick={onClose}
-    >
-      <div
-        className="bg-black border border-gray-800 rounded-xl p-6 max-w-sm w-full"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-xl font-bold text-white mb-2">Sign In</h2>
-        <p className="text-gray-500 text-sm mb-6">{message}</p>
+    <Wrapper>
+        {/* Header */}
+        <h2 className="text-xl font-bold text-white mb-2">
+          {view === "forgotPassword" ? "Reset Password" : "Sign In"}
+        </h2>
+        {view === "main" && <p className="text-gray-500 text-sm mb-6">{message}</p>}
 
         {error && (
           <div className="mb-4 p-3 bg-red-900/20 border border-red-900 rounded-lg text-red-400 text-sm">
@@ -111,47 +231,8 @@ export function AuthModal({
           </div>
         )}
 
-        {showEmailForm ? (
-          <form onSubmit={handleSubmit}>
-            {/* Email input */}
-            <div className="mb-4">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                required
-                autoFocus
-                className="w-full px-4 py-3 bg-transparent border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || !email.trim()}
-              className="w-full flex items-center justify-center gap-3 bg-white text-black py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-gray-400 border-t-black rounded-full animate-spin" />
-              ) : (
-                <>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  Send Sign-In Link
-                </>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowEmailForm(false)}
-              className="w-full mt-3 py-2 text-gray-500 text-sm hover:text-white transition-colors"
-            >
-              Back to sign-in options
-            </button>
-          </form>
-        ) : (
+        {/* Main sign-in options */}
+        {view === "main" && (
           <div className="space-y-3">
             {/* Apple Sign In */}
             <button
@@ -182,22 +263,10 @@ export function AuthModal({
               ) : (
                 <>
                   <svg className="w-5 h-5" viewBox="0 0 24 24">
-                    <path
-                      fill="currentColor"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    />
+                    <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                    <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                   </svg>
                   Continue with Google
                 </>
@@ -206,7 +275,7 @@ export function AuthModal({
 
             {/* Email Sign In */}
             <button
-              onClick={() => setShowEmailForm(true)}
+              onClick={() => setView("emailInput")}
               disabled={loading}
               className="w-full flex items-center justify-center gap-3 bg-transparent border border-gray-700 text-white py-3 rounded-lg font-medium hover:border-white transition-colors disabled:opacity-50"
             >
@@ -214,6 +283,14 @@ export function AuthModal({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
               Continue with Email
+            </button>
+
+            {/* Forgot password link */}
+            <button
+              onClick={() => setView("forgotPassword")}
+              className="w-full py-2 text-gray-500 text-sm hover:text-white transition-colors"
+            >
+              Forgot password?
             </button>
 
             {/* Email notifications opt-in */}
@@ -242,6 +319,215 @@ export function AuthModal({
           </div>
         )}
 
+        {/* Email input view */}
+        {view === "emailInput" && (
+          <div className="space-y-4">
+            <div>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+                autoFocus
+                className="w-full px-4 py-3 bg-transparent border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && email.trim()) {
+                    handleEmailContinue();
+                  }
+                }}
+              />
+            </div>
+
+            <button
+              onClick={handleEmailContinue}
+              disabled={loading || !email.trim()}
+              className="w-full py-3 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-gray-400 border-t-black rounded-full animate-spin mx-auto" />
+              ) : (
+                "Continue"
+              )}
+            </button>
+
+            <button
+              onClick={goBack}
+              className="w-full py-2 text-gray-500 text-sm hover:text-white transition-colors"
+            >
+              Back to sign-in options
+            </button>
+          </div>
+        )}
+
+        {/* Method choice view */}
+        {view === "methodChoice" && (
+          <div className="space-y-4">
+            <p className="text-gray-400 text-sm mb-4">{email}</p>
+
+            <button
+              onClick={handleSendMagicLink}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-3 bg-white text-black py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-gray-400 border-t-black rounded-full animate-spin" />
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  Send sign-in link
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={() => setView("password")}
+              disabled={loading}
+              className="w-full flex flex-col items-center gap-1 bg-transparent border border-gray-700 text-white py-3 rounded-lg font-medium hover:border-white transition-colors disabled:opacity-50"
+            >
+              <span className="flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                Enter password manually
+              </span>
+              <span className="text-xs text-gray-500 font-normal">Recommended if using a shared computer</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setForgotPasswordEmail(email);
+                setView("forgotPassword");
+              }}
+              className="w-full py-2 text-gray-500 text-sm hover:text-white transition-colors"
+            >
+              Forgot password?
+            </button>
+
+            <button
+              onClick={goBack}
+              className="w-full py-2 text-gray-500 text-sm hover:text-white transition-colors"
+            >
+              Back
+            </button>
+          </div>
+        )}
+
+        {/* Password entry view */}
+        {view === "password" && (
+          <form onSubmit={handlePasswordSubmit} className="space-y-4">
+            <p className="text-gray-400 text-sm">{email}</p>
+
+            {isNewUser && (
+              <p className="text-sm text-gray-500">
+                Create a password for your new account
+              </p>
+            )}
+
+            <div>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                autoFocus
+                className="w-full px-4 py-3 bg-transparent border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors"
+              />
+            </div>
+
+            {isNewUser && (
+              <div>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm password"
+                  className="w-full px-4 py-3 bg-transparent border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors"
+                />
+                {confirmPassword && password !== confirmPassword && (
+                  <p className="text-red-400 text-xs mt-1">Passwords don&apos;t match</p>
+                )}
+                <p className="text-gray-500 text-xs mt-2">Password must be at least 6 characters</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading || !password || (isNewUser && (password !== confirmPassword || password.length < 6))}
+              className="w-full py-3 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-gray-400 border-t-black rounded-full animate-spin mx-auto" />
+              ) : isNewUser ? (
+                "Create Account"
+              ) : (
+                "Sign In"
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setForgotPasswordEmail(email);
+                setView("forgotPassword");
+              }}
+              className="w-full py-2 text-gray-500 text-sm hover:text-white transition-colors"
+            >
+              Forgot password?
+            </button>
+
+            <button
+              type="button"
+              onClick={goBack}
+              className="w-full py-2 text-gray-500 text-sm hover:text-white transition-colors"
+            >
+              Back
+            </button>
+          </form>
+        )}
+
+        {/* Forgot password view */}
+        {view === "forgotPassword" && (
+          <form onSubmit={handleForgotPassword} className="space-y-4">
+            <p className="text-gray-400 text-sm mb-4">
+              Enter your email and we&apos;ll send you a link to reset your password.
+            </p>
+
+            <div>
+              <input
+                type="email"
+                value={forgotPasswordEmail || email}
+                onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                placeholder="Enter your email"
+                autoFocus
+                className="w-full px-4 py-3 bg-transparent border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || !(forgotPasswordEmail || email).trim()}
+              className="w-full py-3 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-gray-400 border-t-black rounded-full animate-spin mx-auto" />
+              ) : (
+                "Send Reset Link"
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={goBack}
+              className="w-full py-2 text-gray-500 text-sm hover:text-white transition-colors"
+            >
+              Back to sign-in options
+            </button>
+          </form>
+        )}
+
+        {/* Footer */}
         <p className="mt-4 text-xs text-gray-500 text-center">
           By signing in, you agree to our{" "}
           <Link href="/terms" className="text-gray-400 hover:text-white underline">
@@ -253,13 +539,14 @@ export function AuthModal({
           </Link>
         </p>
 
-        <button
-          onClick={onClose}
-          className="w-full mt-3 py-2 text-gray-500 text-sm hover:text-white transition-colors"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
+        {!inline && (
+          <button
+            onClick={onClose}
+            className="w-full mt-3 py-2 text-gray-500 text-sm hover:text-white transition-colors"
+          >
+            Cancel
+          </button>
+        )}
+    </Wrapper>
   );
 }

@@ -55,9 +55,11 @@ function isTomorrow(date: Date): boolean {
 function ShowBlock({
   slot,
   isCurrentSlot,
+  isFirst,
 }: {
   slot: DisplaySlot;
   isCurrentSlot: boolean;
+  isFirst: boolean;
 }) {
   const now = Date.now();
   // Check if this specific slot is live (for venue shows, check DJ slot time)
@@ -67,15 +69,17 @@ function ShowBlock({
 
   return (
     <div
-      className={`border rounded-lg overflow-hidden transition-colors ${
+      className={`transition-colors ${
+        !isFirst ? 'border-t border-accent' : ''
+      } ${
         isCurrentSlot
-          ? 'border-accent bg-accent/10'
+          ? 'bg-accent/10'
           : isPast
-          ? 'border-gray-800 bg-black/50 opacity-60'
-          : 'border-gray-800 bg-black hover:border-gray-700'
+          ? 'bg-black/50 opacity-60'
+          : 'bg-black'
       }`}
     >
-      <div className="p-4">
+      <div className="py-4">
         <div className="flex items-start justify-between gap-4">
           {/* Time */}
           <div className="flex-shrink-0 w-24">
@@ -214,12 +218,13 @@ export function BroadcastSchedule({
           <p className="text-gray-500">No show scheduled for this day</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {displaySlots.map((slot) => (
+        <div>
+          {displaySlots.map((slot, index) => (
             <ShowBlock
               key={slot.id}
               slot={slot}
               isCurrentSlot={currentShow?.id === slot.parentShowId}
+              isFirst={index === 0}
             />
           ))}
         </div>

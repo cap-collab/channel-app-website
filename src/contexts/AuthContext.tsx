@@ -9,10 +9,16 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
   emailSent: boolean;
+  passwordResetSent: boolean;
   signInWithGoogle: (enableNotifications?: boolean, djUsername?: string) => Promise<User | null>;
   signInWithApple: (enableNotifications?: boolean, djUsername?: string) => Promise<User | null>;
   sendEmailLink: (email: string, enableNotifications?: boolean) => Promise<boolean>;
   resetEmailSent: () => void;
+  checkEmailMethods: (email: string) => Promise<string[]>;
+  signInWithPassword: (email: string, password: string, enableNotifications?: boolean) => Promise<User | null>;
+  createAccountWithPassword: (email: string, password: string, enableNotifications?: boolean) => Promise<User | null>;
+  sendPasswordReset: (email: string) => Promise<boolean>;
+  resetPasswordResetSent: () => void;
   signOut: () => Promise<void>;
   isAuthenticated: boolean;
 }
