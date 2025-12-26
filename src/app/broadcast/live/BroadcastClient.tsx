@@ -500,6 +500,7 @@ export function BroadcastClient() {
                 </div>
                 <DJProfileSetup
                   defaultUsername={getDefaultDjName()}
+                  broadcastType={slot?.broadcastType}
                   onComplete={handleProfileComplete}
                 />
               </div>
@@ -518,6 +519,7 @@ export function BroadcastClient() {
         <div className="flex items-center justify-center p-8 min-h-[calc(100vh-60px)]">
         <DJProfileSetup
           defaultUsername={getDefaultDjName()}
+          broadcastType={slot?.broadcastType}
           onComplete={handleProfileComplete}
         />
         </div>

@@ -1,15 +1,37 @@
 'use client';
 
+/**
+ * DJ Profile Setup Component
+ *
+ * USERNAME RULES:
+ * ===============
+ * | DJ Type                    | Can edit username? | Saved to profile? |
+ * |----------------------------|-------------------|-------------------|
+ * | Venue DJ (single/multi)    | ✓ Yes             | ✗ No (ephemeral)  |
+ * | Remote DJ (logged in)      | ✗ No - locked     | Uses chatUsername |
+ * | Remote DJ (guest)          | ✓ Yes             | ✗ No (ephemeral)  |
+ *
+ * WHY:
+ * - Venue DJs share one computer, each types their own name (ephemeral)
+ * - Remote DJs who log in should use their persistent Channel username
+ * - This keeps chat identity consistent across the platform
+ *
+ * DETECTION:
+ * - broadcastType === 'venue' → Venue DJ (permanent URL like /broadcast/bettertomorrow)
+ * - broadcastType === 'remote' → Remote DJ (token-based URL like /broadcast/live?token=xxx)
+ */
+
 import { useState, useEffect } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 
 interface DJProfileSetupProps {
   defaultUsername?: string;
+  broadcastType?: 'venue' | 'remote';
   onComplete: (username: string, promoUrl?: string, promoTitle?: string) => void;
 }
 
-export function DJProfileSetup({ defaultUsername, onComplete }: DJProfileSetupProps) {
+export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: DJProfileSetupProps) {
   const { user, isAuthenticated, signInWithGoogle, signInWithApple, sendEmailLink, emailSent, resetEmailSent, loading: authLoading } = useAuthContext();
   const { chatUsername: savedUsername, loading: profileLoading } = useUserProfile(user?.uid);
   const [username, setUsername] = useState(defaultUsername || '');
@@ -19,6 +41,11 @@ export function DJProfileSetup({ defaultUsername, onComplete }: DJProfileSetupPr
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState('');
+
+  // Remote DJs who are logged in with a chatUsername have their username locked
+  // Venue DJs can always change their display name (ephemeral, shared computer)
+  const isRemoteDj = broadcastType === 'remote';
+  const isUsernameLocked = isAuthenticated && !!savedUsername && isRemoteDj;
 
   // Pre-fill username from saved chatUsername - this takes PRIORITY over defaultUsername
   // When a logged-in DJ goes live, their chatUsername becomes their DJ username
@@ -189,23 +216,34 @@ export function DJProfileSetup({ defaultUsername, onComplete }: DJProfileSetupPr
           </div>
         )}
 
-        {/* Username */}
+        {/* Username - locked for logged-in remote DJs, editable for venue DJs and guests */}
         <div>
           <label htmlFor="username" className="block text-gray-400 text-sm mb-2">
-            Chat username <span className="text-red-400">*</span>
+            Chat username {!isUsernameLocked && <span className="text-red-400">*</span>}
           </label>
-          <input
-            id="username"
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="YourDJName"
-            className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-gray-500"
-            maxLength={20}
-            required
-          />
+          {isUsernameLocked ? (
+            // Read-only for logged-in remote DJs
+            <div className="w-full bg-gray-800/50 text-white border border-gray-700 rounded-lg px-4 py-3">
+              {savedUsername}
+            </div>
+          ) : (
+            // Editable for venue DJs and guests
+            <input
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="YourDJName"
+              className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-gray-500"
+              maxLength={20}
+              required
+            />
+          )}
           <p className="text-gray-500 text-xs mt-1">
-            2-20 characters, letters and numbers only
+            {isUsernameLocked
+              ? 'This is your Channel username'
+              : '2-20 characters, letters and numbers only'
+            }
           </p>
         </div>
 
