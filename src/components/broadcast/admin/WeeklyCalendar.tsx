@@ -513,7 +513,7 @@ export function WeeklyCalendar({
   };
 
   return (
-    <div className="bg-[#252525] rounded-xl overflow-hidden">
+    <div className="bg-black rounded-xl overflow-hidden">
       {/* Header with navigation */}
       <div className="flex items-center justify-between p-4 border-b border-gray-800">
         <div className="flex items-center gap-2">
