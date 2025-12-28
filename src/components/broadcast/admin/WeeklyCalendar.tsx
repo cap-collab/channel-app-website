@@ -600,6 +600,20 @@ export function WeeklyCalendar({
 
       {/* Calendar grid */}
       <div className="flex">
+        {/* Time labels */}
+        <div className="w-16 flex-shrink-0 border-r border-gray-800">
+          <div className="h-[52px]" /> {/* Header spacer */}
+          {HOURS.map(hour => (
+            <div
+              key={hour}
+              className="text-right pr-2 text-xs text-gray-500"
+              style={{ height: `${HOUR_HEIGHT}px` }}
+            >
+              {hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`}
+            </div>
+          ))}
+        </div>
+
         {/* Day columns */}
         <div className="flex-1 flex" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
           {weekDays.map((day, dayIndex) => (

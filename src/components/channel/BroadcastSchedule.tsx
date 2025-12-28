@@ -25,10 +25,6 @@ interface DisplaySlot {
   djSlot?: DJSlot;
 }
 
-function formatTime(timestamp: number): string {
-  return new Date(timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-}
-
 function formatDate(date: Date): string {
   return date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
 }
@@ -52,73 +48,17 @@ function isTomorrow(date: Date): boolean {
   );
 }
 
-function ShowBlock({
-  slot,
-  isCurrentSlot,
-  isFirst,
-}: {
-  slot: DisplaySlot;
-  isCurrentSlot: boolean;
-  isFirst: boolean;
-}) {
-  const now = Date.now();
-  // Check if this specific slot is live (for venue shows, check DJ slot time)
-  const isLive = slot.originalShow.status === 'live' &&
-    slot.startTime <= now && slot.endTime > now;
-  const isPast = slot.endTime < now;
+// Height per hour in pixels for the grid view
+const HOUR_HEIGHT = 60;
 
-  return (
-    <div
-      className={`transition-colors ${
-        !isFirst ? 'border-t border-accent' : ''
-      } ${
-        isCurrentSlot
-          ? 'bg-accent/10'
-          : isPast
-          ? 'bg-black/50 opacity-60'
-          : 'bg-black'
-      }`}
-    >
-      <div className="py-4 pl-2">
-        <div className="flex items-start justify-between gap-4">
-          {/* Time */}
-          <div className="flex-shrink-0 w-24">
-            <p className="text-gray-400 text-sm">
-              {formatTime(slot.startTime)}
-            </p>
-            <p className="text-gray-600 text-xs">
-              {formatTime(slot.endTime)}
-            </p>
-          </div>
-
-          {/* Show info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className="text-white font-medium truncate">{slot.showName}</h3>
-              {isLive && (
-                <span className="flex items-center gap-1 bg-red-600 text-white text-xs px-2 py-0.5 rounded-full">
-                  <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                  LIVE
-                </span>
-              )}
-            </div>
-            {/* Always show DJ name on its own line */}
-            <p className="text-gray-400 text-sm truncate">
-              {slot.djName || 'TBD'}
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+// Generate hours array for the time grid
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 export function BroadcastSchedule({
   shows,
   selectedDate,
   onDateChange,
   loading,
-  currentShow,
 }: BroadcastScheduleProps) {
   // Expand shows with djSlots into individual rows
   const displaySlots = useMemo<DisplaySlot[]>(() => {
@@ -161,6 +101,34 @@ export function BroadcastSchedule({
     return slots.sort((a, b) => a.startTime - b.startTime);
   }, [shows]);
 
+  // Calculate time range for the day based on shows
+  const timeRange = useMemo(() => {
+    if (displaySlots.length === 0) {
+      return { startHour: 8, endHour: 23 }; // Default range
+    }
+
+    let minHour = 24;
+    let maxHour = 0;
+
+    for (const slot of displaySlots) {
+      const startDate = new Date(slot.startTime);
+      const endDate = new Date(slot.endTime);
+      const startHour = startDate.getHours();
+      const endHour = endDate.getHours() + (endDate.getMinutes() > 0 ? 1 : 0);
+
+      minHour = Math.min(minHour, startHour);
+      maxHour = Math.max(maxHour, endHour);
+    }
+
+    // Add some padding
+    return {
+      startHour: Math.max(0, minHour - 1),
+      endHour: Math.min(24, maxHour + 1),
+    };
+  }, [displaySlots]);
+
+  const visibleHours = HOURS.filter(h => h >= timeRange.startHour && h < timeRange.endHour);
+
   const goToPrevDay = () => {
     const prev = new Date(selectedDate);
     prev.setDate(prev.getDate() - 1);
@@ -171,6 +139,14 @@ export function BroadcastSchedule({
     const next = new Date(selectedDate);
     next.setDate(next.getDate() + 1);
     onDateChange(next);
+  };
+
+  // Format hour for display
+  const formatHour = (hour: number) => {
+    if (hour === 0) return '12 AM';
+    if (hour < 12) return `${hour} AM`;
+    if (hour === 12) return '12 PM';
+    return `${hour - 12} PM`;
   };
 
   return (
@@ -201,34 +177,96 @@ export function BroadcastSchedule({
         </div>
       </div>
 
-      {/* Schedule list - Scrollable */}
+      {/* Schedule grid - Scrollable */}
       <div className="flex-1 overflow-y-auto">
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <svg className="w-6 h-6 animate-spin text-gray-500" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-          </svg>
-        </div>
-      ) : displaySlots.length === 0 ? (
-        <div className="text-center py-12">
-          <svg className="w-12 h-12 text-gray-700 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-          <p className="text-gray-500">No show scheduled for this day</p>
-        </div>
-      ) : (
-        <div>
-          {displaySlots.map((slot, index) => (
-            <ShowBlock
-              key={slot.id}
-              slot={slot}
-              isCurrentSlot={currentShow?.id === slot.parentShowId}
-              isFirst={index === 0}
-            />
-          ))}
-        </div>
-      )}
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <svg className="w-6 h-6 animate-spin text-gray-500" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+          </div>
+        ) : displaySlots.length === 0 ? (
+          <div className="text-center py-12">
+            <svg className="w-12 h-12 text-gray-700 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <p className="text-gray-500">No show scheduled for this day</p>
+          </div>
+        ) : (
+          <div className="flex">
+            {/* Time labels column */}
+            <div className="w-16 flex-shrink-0">
+              {visibleHours.map(hour => (
+                <div
+                  key={hour}
+                  className="text-right pr-3 text-xs text-gray-500"
+                  style={{ height: `${HOUR_HEIGHT}px` }}
+                >
+                  {formatHour(hour)}
+                </div>
+              ))}
+            </div>
+
+            {/* Shows column */}
+            <div className="flex-1 relative border-l border-gray-800" style={{ height: `${visibleHours.length * HOUR_HEIGHT}px` }}>
+              {/* Hour grid lines */}
+              {visibleHours.map((hour, index) => (
+                <div
+                  key={hour}
+                  className="absolute left-0 right-0 border-t border-gray-800/50"
+                  style={{ top: `${index * HOUR_HEIGHT}px` }}
+                />
+              ))}
+
+              {/* Show blocks */}
+              {displaySlots.map((slot) => {
+                const startDate = new Date(slot.startTime);
+                const endDate = new Date(slot.endTime);
+                const startHour = startDate.getHours() + startDate.getMinutes() / 60;
+                const endHour = endDate.getHours() + endDate.getMinutes() / 60;
+                const duration = endHour - startHour;
+
+                // Adjust position relative to visible time range
+                const top = (startHour - timeRange.startHour) * HOUR_HEIGHT;
+                const height = Math.max(duration * HOUR_HEIGHT, 40);
+
+                const now = Date.now();
+                const isLive = slot.originalShow.status === 'live' &&
+                  slot.startTime <= now && slot.endTime > now;
+                const isPast = slot.endTime < now;
+
+                return (
+                  <div
+                    key={slot.id}
+                    className={`absolute left-1 right-1 rounded-lg overflow-hidden transition-colors ${
+                      isLive
+                        ? 'bg-red-600 border-2 border-red-400'
+                        : isPast
+                        ? 'bg-gray-700 opacity-60'
+                        : 'bg-accent'
+                    }`}
+                    style={{ top: `${top}px`, height: `${height}px` }}
+                  >
+                    <div className="px-3 py-2 h-full overflow-hidden">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-white font-medium text-sm truncate">{slot.showName}</h3>
+                        {isLive && (
+                          <span className="w-2 h-2 bg-white rounded-full animate-pulse flex-shrink-0" />
+                        )}
+                      </div>
+                      {height > 50 && (
+                        <p className="text-white/70 text-xs truncate">
+                          {slot.djName || 'TBD'}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
