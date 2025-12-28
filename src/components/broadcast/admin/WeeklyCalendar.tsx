@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
 
 interface WeeklyCalendarProps {
@@ -57,6 +57,17 @@ export function WeeklyCalendar({
   // Context menu state
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Current time state for the time indicator line
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Update current time every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+    return () => clearInterval(interval);
+  }, []);
 
   // Get days of the week
   const weekDays = useMemo(() => {
@@ -468,6 +479,29 @@ export function WeeklyCalendar({
     );
   };
 
+  // Current time indicator line
+  const renderCurrentTimeIndicator = (dayIndex: number) => {
+    const day = weekDays[dayIndex];
+    const isToday = day.toDateString() === currentTime.toDateString();
+
+    if (!isToday) return null;
+
+    const currentHour = currentTime.getHours() + currentTime.getMinutes() / 60;
+    const top = currentHour * HOUR_HEIGHT;
+
+    return (
+      <div
+        className="absolute left-0 right-0 z-30 pointer-events-none"
+        style={{ top: `${top}px` }}
+      >
+        {/* Red dot on the left */}
+        <div className="absolute -left-1.5 -top-1.5 w-3 h-3 bg-red-500 rounded-full" />
+        {/* Red line across the column */}
+        <div className="absolute left-0 right-0 h-0.5 bg-red-500" />
+      </div>
+    );
+  };
+
   // Drag selection overlay
   const renderDragSelection = (dayIndex: number) => {
     if (!isDragging || !dragStart || !dragEnd || dragStart.day !== dayIndex) return null;
@@ -603,6 +637,9 @@ export function WeeklyCalendar({
 
                 {/* Slot segments */}
                 {segmentsByDay[dayIndex]?.map(renderSlotSegment)}
+
+                {/* Current time indicator */}
+                {renderCurrentTimeIndicator(dayIndex)}
 
                 {/* Drag selection */}
                 {renderDragSelection(dayIndex)}

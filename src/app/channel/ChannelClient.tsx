@@ -86,6 +86,7 @@ export function ChannelClient() {
               isAuthenticated={isAuthenticated}
               username={username}
               currentDJ={currentDJ}
+              showName={currentShow?.showName}
               isLive={isLive}
               profileLoading={profileLoading}
               onSetUsername={setChatUsername}
@@ -145,6 +146,7 @@ export function ChannelClient() {
                 isAuthenticated={isAuthenticated}
                 username={username}
                 currentDJ={currentDJ}
+                showName={currentShow?.showName}
                 isLive={isLive}
                 profileLoading={profileLoading}
                 onSetUsername={setChatUsername}

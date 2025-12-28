@@ -79,7 +79,7 @@ function ShowBlock({
           : 'bg-black'
       }`}
     >
-      <div className="py-4">
+      <div className="py-4 pl-2">
         <div className="flex items-start justify-between gap-4">
           {/* Time */}
           <div className="flex-shrink-0 w-24">

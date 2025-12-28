@@ -247,7 +247,51 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
           </p>
         </div>
 
-        {/* Non-blocking login prompt for guests */}
+        <button
+          type="submit"
+          disabled={!username.trim()}
+          className="w-full bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg transition-colors"
+        >
+          Continue to Go Live
+        </button>
+
+        {/* Promo Link (Optional) */}
+        <div>
+          <label htmlFor="promoUrl" className="block text-gray-400 text-sm mb-2">
+            Promo link <span className="text-gray-600">(optional)</span>
+          </label>
+          <input
+            id="promoUrl"
+            type="url"
+            value={promoUrl}
+            onChange={(e) => setPromoUrl(e.target.value)}
+            placeholder="https://bandcamp.com/your-album"
+            className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-gray-500"
+          />
+          <p className="text-gray-500 text-xs mt-1">
+            Share a link to your music, merch, or tickets
+          </p>
+        </div>
+
+        {/* Promo Title (Optional) */}
+        {promoUrl && (
+          <div>
+            <label htmlFor="promoTitle" className="block text-gray-400 text-sm mb-2">
+              Link title <span className="text-gray-600">(optional)</span>
+            </label>
+            <input
+              id="promoTitle"
+              type="text"
+              value={promoTitle}
+              onChange={(e) => setPromoTitle(e.target.value)}
+              placeholder="New album out now!"
+              className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-gray-500"
+              maxLength={100}
+            />
+          </div>
+        )}
+
+        {/* Non-blocking login prompt for guests - below Continue button */}
         {!isAuthenticated && (
           <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
             {emailSent ? (
@@ -310,7 +354,7 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
               // Default sign-in options
               <div>
                 <p className="text-gray-300 text-sm mb-3">
-                  Already on Channel? Log in to load your profile.
+                  Log in to chat on mobile and save your settings
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <button
@@ -354,50 +398,6 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
             )}
           </div>
         )}
-
-        {/* Promo Link (Optional) */}
-        <div>
-          <label htmlFor="promoUrl" className="block text-gray-400 text-sm mb-2">
-            Promo link <span className="text-gray-600">(optional)</span>
-          </label>
-          <input
-            id="promoUrl"
-            type="url"
-            value={promoUrl}
-            onChange={(e) => setPromoUrl(e.target.value)}
-            placeholder="https://bandcamp.com/your-album"
-            className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-gray-500"
-          />
-          <p className="text-gray-500 text-xs mt-1">
-            Share a link to your music, merch, or tickets
-          </p>
-        </div>
-
-        {/* Promo Title (Optional) */}
-        {promoUrl && (
-          <div>
-            <label htmlFor="promoTitle" className="block text-gray-400 text-sm mb-2">
-              Link title <span className="text-gray-600">(optional)</span>
-            </label>
-            <input
-              id="promoTitle"
-              type="text"
-              value={promoTitle}
-              onChange={(e) => setPromoTitle(e.target.value)}
-              placeholder="New album out now!"
-              className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-gray-500"
-              maxLength={100}
-            />
-          </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={!username.trim()}
-          className="w-full bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg transition-colors"
-        >
-          Continue to Go Live
-        </button>
       </form>
     </div>
   );

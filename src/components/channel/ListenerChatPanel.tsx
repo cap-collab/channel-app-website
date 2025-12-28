@@ -4,11 +4,13 @@ import { useState, useRef, useEffect } from 'react';
 import { useListenerChat } from '@/hooks/useListenerChat';
 import { ChatMessageSerialized } from '@/types/broadcast';
 import { AuthModal } from '@/components/AuthModal';
+import { FloatingHearts } from './FloatingHearts';
 
 interface ListenerChatPanelProps {
   isAuthenticated: boolean;
   username?: string;
   currentDJ?: string | null;
+  showName?: string;
   isLive?: boolean;
   profileLoading?: boolean;
   onSetUsername?: (username: string) => Promise<{ success: boolean; error?: string }>;
@@ -251,6 +253,7 @@ export function ListenerChatPanel({
   isAuthenticated,
   username,
   currentDJ,
+  showName,
   isLive = false,
   profileLoading = false,
   onSetUsername,
@@ -261,6 +264,7 @@ export function ListenerChatPanel({
 
   const [inputValue, setInputValue] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [heartTrigger, setHeartTrigger] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom
@@ -285,8 +289,12 @@ export function ListenerChatPanel({
 
   const handleSendLove = async () => {
     if (!username) return;
+
+    // Trigger floating hearts animation
+    setHeartTrigger((prev) => prev + 1);
+
     try {
-      await sendLove();
+      await sendLove(showName);
     } catch (err) {
       console.error('Failed to send love:', err);
     }
@@ -407,17 +415,20 @@ export function ListenerChatPanel({
       {/* Input bar */}
       <div className="border-t border-gray-800 p-4 flex-shrink-0">
         <form onSubmit={handleSendMessage} className="flex items-center gap-3">
-          {/* Heart button */}
-          <button
-            type="button"
-            onClick={handleSendLove}
-            disabled={!isLive}
-            className={`transition-colors ${isLive ? 'text-accent hover:text-accent-hover' : 'text-gray-600 cursor-not-allowed'}`}
-          >
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-            </svg>
-          </button>
+          {/* Heart button with floating hearts */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={handleSendLove}
+              disabled={!isLive}
+              className={`transition-colors ${isLive ? 'text-accent hover:text-accent-hover' : 'text-gray-600 cursor-not-allowed'}`}
+            >
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+              </svg>
+            </button>
+            <FloatingHearts trigger={heartTrigger} />
+          </div>
 
           {/* Text input */}
           <input

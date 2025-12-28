@@ -25,7 +25,9 @@ interface SlotModalProps {
 interface LocalDJSlot {
   id: string;
   djName: string;
+  startDate: string; // YYYY-MM-DD format
   startTime: string; // HH:mm format
+  endDate: string;   // YYYY-MM-DD format
   endTime: string;   // HH:mm format
 }
 
@@ -57,79 +59,145 @@ function snapToHalfHour(timeStr: string): string {
   return `${hours.toString().padStart(2, '0')}:${snappedMinutes.toString().padStart(2, '0')}`;
 }
 
-// Convert time string to minutes since midnight
-function timeToMinutes(timeStr: string): number {
-  const [hours, minutes] = timeStr.split(':').map(Number);
-  return hours * 60 + minutes;
+// Convert date + time to timestamp
+function dateTimeToTimestamp(date: string, time: string): number {
+  return new Date(`${date}T${time}`).getTime();
 }
 
-// Convert minutes since midnight to time string
-function minutesToTime(minutes: number): string {
-  // Handle overnight (minutes can be > 1440 for next day)
-  const normalizedMinutes = ((minutes % 1440) + 1440) % 1440;
-  const hours = Math.floor(normalizedMinutes / 60);
-  const mins = normalizedMinutes % 60;
-  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+// Convert timestamp to date string (YYYY-MM-DD)
+function timestampToDate(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
 }
 
-// Adjust DJ slots to fit within show boundaries
+// Convert timestamp to time string (HH:mm)
+function timestampToTime(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+}
+
+// Adjust DJ slots to fit within show boundaries (works with full date+time)
 function adjustDjSlotsToShowBounds(
   djSlots: LocalDJSlot[],
+  showStartDate: string,
   showStartTime: string,
-  showEndTime: string,
-  isOvernight: boolean
+  showEndDate: string,
+  showEndTime: string
 ): LocalDJSlot[] {
   if (djSlots.length === 0) return djSlots;
 
-  const showStartMins = timeToMinutes(showStartTime);
-  let showEndMins = timeToMinutes(showEndTime);
-
-  // For overnight shows, end time is on next day
-  if (isOvernight || showEndMins <= showStartMins) {
-    showEndMins += 1440; // Add 24 hours
-  }
+  const showStartTs = dateTimeToTimestamp(showStartDate, showStartTime);
+  const showEndTs = dateTimeToTimestamp(showEndDate, showEndTime);
 
   return djSlots.map(dj => {
-    let djStartMins = timeToMinutes(dj.startTime);
-    let djEndMins = timeToMinutes(dj.endTime);
-
-    // Handle overnight DJ slots
-    if (djStartMins < showStartMins && !isOvernight) {
-      djStartMins += 1440;
-    }
-    if (djEndMins <= djStartMins) {
-      djEndMins += 1440;
-    }
+    let djStartTs = dateTimeToTimestamp(dj.startDate, dj.startTime);
+    let djEndTs = dateTimeToTimestamp(dj.endDate, dj.endTime);
 
     // Clamp DJ start time to show bounds
-    if (djStartMins < showStartMins) {
-      djStartMins = showStartMins;
+    if (djStartTs < showStartTs) {
+      djStartTs = showStartTs;
     }
-    if (djStartMins > showEndMins) {
-      djStartMins = showEndMins;
+    if (djStartTs > showEndTs) {
+      djStartTs = showEndTs;
     }
 
     // Clamp DJ end time to show bounds
-    if (djEndMins < showStartMins) {
-      djEndMins = showStartMins;
+    if (djEndTs < showStartTs) {
+      djEndTs = showStartTs;
     }
-    if (djEndMins > showEndMins) {
-      djEndMins = showEndMins;
+    if (djEndTs > showEndTs) {
+      djEndTs = showEndTs;
     }
 
-    // If DJ slot is completely squeezed (start >= end after clamping),
-    // set both to show start time as a placeholder
-    if (djStartMins >= djEndMins) {
-      djStartMins = showStartMins;
-      djEndMins = showStartMins;
+    // Ensure end is after start (minimum 30 min slot)
+    if (djEndTs <= djStartTs) {
+      djEndTs = Math.min(djStartTs + 30 * 60 * 1000, showEndTs);
     }
 
     return {
       ...dj,
-      startTime: minutesToTime(djStartMins),
-      endTime: minutesToTime(djEndMins),
+      startDate: timestampToDate(djStartTs),
+      startTime: snapToHalfHour(timestampToTime(djStartTs)),
+      endDate: timestampToDate(djEndTs),
+      endTime: snapToHalfHour(timestampToTime(djEndTs)),
     };
   });
+}
+
+// Ensure DJ slots cover the entire show time, filling gaps with empty DJ slots
+function ensureFullCoverage(
+  djSlots: LocalDJSlot[],
+  showStartDate: string,
+  showStartTime: string,
+  showEndDate: string,
+  showEndTime: string
+): LocalDJSlot[] {
+  if (djSlots.length === 0) return djSlots;
+
+  const showStartTs = dateTimeToTimestamp(showStartDate, showStartTime);
+  const showEndTs = dateTimeToTimestamp(showEndDate, showEndTime);
+
+  // Sort slots by start time
+  const sortedSlots = [...djSlots].sort((a, b) => {
+    const aStart = dateTimeToTimestamp(a.startDate, a.startTime);
+    const bStart = dateTimeToTimestamp(b.startDate, b.startTime);
+    return aStart - bStart;
+  });
+
+  const result: LocalDJSlot[] = [];
+  let currentTs = showStartTs;
+
+  for (const slot of sortedSlots) {
+    const slotStartTs = dateTimeToTimestamp(slot.startDate, slot.startTime);
+    const slotEndTs = dateTimeToTimestamp(slot.endDate, slot.endTime);
+
+    // If there's a gap before this slot, fill it with an empty DJ slot
+    if (slotStartTs > currentTs) {
+      result.push({
+        id: `gap-${Date.now()}-${result.length}`,
+        djName: '',
+        startDate: timestampToDate(currentTs),
+        startTime: snapToHalfHour(timestampToTime(currentTs)),
+        endDate: timestampToDate(slotStartTs),
+        endTime: snapToHalfHour(timestampToTime(slotStartTs)),
+      });
+    }
+
+    result.push(slot);
+    currentTs = Math.max(currentTs, slotEndTs);
+  }
+
+  // If there's a gap after the last slot, fill it
+  if (currentTs < showEndTs) {
+    result.push({
+      id: `gap-${Date.now()}-end`,
+      djName: '',
+      startDate: timestampToDate(currentTs),
+      startTime: snapToHalfHour(timestampToTime(currentTs)),
+      endDate: showEndDate,
+      endTime: showEndTime,
+    });
+  }
+
+  // Ensure first slot starts at show start
+  if (result.length > 0) {
+    const firstSlotStart = dateTimeToTimestamp(result[0].startDate, result[0].startTime);
+    if (firstSlotStart > showStartTs) {
+      result.unshift({
+        id: `gap-${Date.now()}-start`,
+        djName: '',
+        startDate: showStartDate,
+        startTime: showStartTime,
+        endDate: result[0].startDate,
+        endTime: result[0].startTime,
+      });
+    } else if (firstSlotStart < showStartTs) {
+      result[0].startDate = showStartDate;
+      result[0].startTime = showStartTime;
+    }
+  }
+
+  return result;
 }
 
 export function SlotModal({
@@ -183,14 +251,20 @@ export function SlotModal({
         setEndTime(snapToHalfHour(end.toTimeString().slice(0, 5)));
         setBroadcastType(slot.broadcastType || 'venue');
 
-        // Convert DJ slots to local format
+        // Convert DJ slots to local format with dates
         if (slot.djSlots && slot.djSlots.length > 0) {
-          setDjSlots(slot.djSlots.map(dj => ({
-            id: dj.id,
-            djName: dj.djName || '',
-            startTime: snapToHalfHour(new Date(dj.startTime).toTimeString().slice(0, 5)),
-            endTime: snapToHalfHour(new Date(dj.endTime).toTimeString().slice(0, 5)),
-          })));
+          setDjSlots(slot.djSlots.map(dj => {
+            const djStart = new Date(dj.startTime);
+            const djEnd = new Date(dj.endTime);
+            return {
+              id: dj.id,
+              djName: dj.djName || '',
+              startDate: formatLocalDate(djStart),
+              startTime: snapToHalfHour(djStart.toTimeString().slice(0, 5)),
+              endDate: formatLocalDate(djEnd),
+              endTime: snapToHalfHour(djEnd.toTimeString().slice(0, 5)),
+            };
+          }));
         } else {
           setDjSlots([]);
         }
@@ -233,12 +307,13 @@ export function SlotModal({
   // Adjust DJ slots when show times change to keep them within bounds
   useEffect(() => {
     if (djSlots.length > 0 && startTime && endTime && startDate && endDate) {
-      const isOvernightShow = endDate > startDate;
-      const adjustedSlots = adjustDjSlotsToShowBounds(djSlots, startTime, endTime, isOvernightShow);
+      const adjustedSlots = adjustDjSlotsToShowBounds(djSlots, startDate, startTime, endDate, endTime);
 
       // Only update if there are actual changes to avoid infinite loops
       const hasChanges = adjustedSlots.some((adjusted, i) =>
+        adjusted.startDate !== djSlots[i].startDate ||
         adjusted.startTime !== djSlots[i].startTime ||
+        adjusted.endDate !== djSlots[i].endDate ||
         adjusted.endTime !== djSlots[i].endTime
       );
 
@@ -257,25 +332,20 @@ export function SlotModal({
       const startDateTime = new Date(`${startDate}T${startTime}`).getTime();
       const endDateTime = new Date(`${endDate}T${endTime}`).getTime();
 
-      // Convert local DJ slots to timestamps
-      const convertedDjSlots: DJSlot[] | undefined = broadcastType === 'venue' && djSlots.length > 0
-        ? djSlots.map(dj => {
-            // Determine which date to use for this DJ slot
-            const djStartMinutes = parseInt(dj.startTime.split(':')[0]) * 60 + parseInt(dj.startTime.split(':')[1]);
-            const showStartMinutes = parseInt(startTime.split(':')[0]) * 60 + parseInt(startTime.split(':')[1]);
+      // For venue broadcasts with DJ slots, ensure full coverage before saving
+      let slotsToSave = djSlots;
+      if (broadcastType === 'venue' && djSlots.length > 0) {
+        slotsToSave = ensureFullCoverage(djSlots, startDate, startTime, endDate, endTime);
+      }
 
-            // If DJ start time is before show start time, it's on the next day
-            const djStartDate = djStartMinutes < showStartMinutes ? endDate : startDate;
-            const djEndMinutes = parseInt(dj.endTime.split(':')[0]) * 60 + parseInt(dj.endTime.split(':')[1]);
-            const djEndDate = djEndMinutes <= djStartMinutes || djEndMinutes < showStartMinutes ? endDate : djStartDate;
-
-            return {
-              id: dj.id,
-              djName: dj.djName || undefined,
-              startTime: new Date(`${djStartDate}T${dj.startTime}`).getTime(),
-              endTime: new Date(`${djEndDate}T${dj.endTime}`).getTime(),
-            };
-          })
+      // Convert local DJ slots to timestamps using explicit dates
+      const convertedDjSlots: DJSlot[] | undefined = broadcastType === 'venue' && slotsToSave.length > 0
+        ? slotsToSave.map(dj => ({
+            id: dj.id,
+            djName: dj.djName || undefined,
+            startTime: new Date(`${dj.startDate}T${dj.startTime}`).getTime(),
+            endTime: new Date(`${dj.endDate}T${dj.endTime}`).getTime(),
+          }))
         : undefined;
 
       await onSave({
@@ -325,34 +395,100 @@ export function SlotModal({
 
   const addDjSlot = () => {
     const newId = `dj-${Date.now()}`;
-    // Default to show start/end times for new DJ slot
-    setDjSlots([...djSlots, {
-      id: newId,
-      djName: '',
-      startTime: djSlots.length > 0 ? djSlots[djSlots.length - 1].endTime : startTime,
-      endTime: endTime,
-    }]);
+
+    if (djSlots.length === 0) {
+      // First DJ slot covers entire show
+      setDjSlots([{
+        id: newId,
+        djName: '',
+        startDate: startDate,
+        startTime: startTime,
+        endDate: endDate,
+        endTime: endTime,
+      }]);
+    } else {
+      // New slot starts at last slot's end, ends at show end
+      const lastSlot = djSlots[djSlots.length - 1];
+      setDjSlots([...djSlots, {
+        id: newId,
+        djName: '',
+        startDate: lastSlot.endDate,
+        startTime: lastSlot.endTime,
+        endDate: endDate,
+        endTime: endTime,
+      }]);
+    }
   };
 
   const updateDjSlot = (id: string, field: keyof LocalDJSlot, value: string) => {
-    setDjSlots(djSlots.map(dj => {
-      if (dj.id !== id) return dj;
+    const slotIndex = djSlots.findIndex(dj => dj.id === id);
+    if (slotIndex === -1) return;
 
-      const updatedDj = { ...dj, [field]: value };
+    const updatedSlots = [...djSlots];
+    const updatedDj = { ...updatedSlots[slotIndex], [field]: value };
 
-      // If updating time fields, clamp to show bounds
-      if (field === 'startTime' || field === 'endTime') {
-        const isOvernightShow = endDate > startDate;
-        const [adjusted] = adjustDjSlotsToShowBounds([updatedDj], startTime, endTime, isOvernightShow);
-        return adjusted;
+    // If updating date/time fields, clamp to show bounds and auto-adjust adjacent slots
+    if (field === 'startDate' || field === 'startTime' || field === 'endDate' || field === 'endTime') {
+      // First clamp the updated slot to show bounds
+      const [adjusted] = adjustDjSlotsToShowBounds([updatedDj], startDate, startTime, endDate, endTime);
+      updatedSlots[slotIndex] = adjusted;
+
+      // Auto-adjust adjacent slots to prevent gaps
+      if (field === 'endDate' || field === 'endTime') {
+        // When changing end time, update next slot's start to match
+        if (slotIndex < updatedSlots.length - 1) {
+          updatedSlots[slotIndex + 1] = {
+            ...updatedSlots[slotIndex + 1],
+            startDate: adjusted.endDate,
+            startTime: adjusted.endTime,
+          };
+        }
       }
 
-      return updatedDj;
-    }));
+      if (field === 'startDate' || field === 'startTime') {
+        // When changing start time, update previous slot's end to match
+        if (slotIndex > 0) {
+          updatedSlots[slotIndex - 1] = {
+            ...updatedSlots[slotIndex - 1],
+            endDate: adjusted.startDate,
+            endTime: adjusted.startTime,
+          };
+        }
+      }
+    } else {
+      updatedSlots[slotIndex] = updatedDj;
+    }
+
+    setDjSlots(updatedSlots);
   };
 
   const removeDjSlot = (id: string) => {
-    setDjSlots(djSlots.filter(dj => dj.id !== id));
+    const slotIndex = djSlots.findIndex(dj => dj.id === id);
+    if (slotIndex === -1) return;
+
+    const removedSlot = djSlots[slotIndex];
+    const updatedSlots = djSlots.filter(dj => dj.id !== id);
+
+    // Extend adjacent slot to fill the gap
+    if (updatedSlots.length > 0) {
+      if (slotIndex > 0 && slotIndex <= updatedSlots.length) {
+        // Extend previous slot's end to the removed slot's end
+        updatedSlots[slotIndex - 1] = {
+          ...updatedSlots[slotIndex - 1],
+          endDate: removedSlot.endDate,
+          endTime: removedSlot.endTime,
+        };
+      } else if (slotIndex === 0 && updatedSlots.length > 0) {
+        // Removed first slot - extend next slot's start to removed slot's start
+        updatedSlots[0] = {
+          ...updatedSlots[0],
+          startDate: removedSlot.startDate,
+          startTime: removedSlot.startTime,
+        };
+      }
+    }
+
+    setDjSlots(updatedSlots);
   };
 
   if (!isOpen) return null;
@@ -555,7 +691,18 @@ export function SlotModal({
                         </svg>
                       </button>
                     </div>
-                    <div className="flex items-center gap-2 ml-6">
+                    {/* Time selection - show dates for multi-day shows */}
+                    <div className="flex items-center gap-2 ml-6 flex-wrap">
+                      {isOvernight && (
+                        <input
+                          type="date"
+                          value={dj.startDate}
+                          onChange={(e) => updateDjSlot(dj.id, 'startDate', e.target.value)}
+                          min={startDate}
+                          max={endDate}
+                          className="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:border-gray-500"
+                        />
+                      )}
                       <select
                         value={dj.startTime}
                         onChange={(e) => updateDjSlot(dj.id, 'startTime', e.target.value)}
@@ -566,6 +713,16 @@ export function SlotModal({
                         ))}
                       </select>
                       <span className="text-gray-500">-</span>
+                      {isOvernight && (
+                        <input
+                          type="date"
+                          value={dj.endDate}
+                          onChange={(e) => updateDjSlot(dj.id, 'endDate', e.target.value)}
+                          min={startDate}
+                          max={endDate}
+                          className="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:border-gray-500"
+                        />
+                      )}
                       <select
                         value={dj.endTime}
                         onChange={(e) => updateDjSlot(dj.id, 'endTime', e.target.value)}
