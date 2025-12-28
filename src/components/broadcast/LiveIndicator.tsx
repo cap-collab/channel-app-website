@@ -7,7 +7,7 @@ import { DJChatPanel } from './DJChatPanel';
 import { useAuthContext } from '@/contexts/AuthContext';
 
 // Channel app deep link for the broadcast station
-const CHANNEL_BROADCAST_URL = 'https://channel-app.com/listen/broadcast';
+const CHANNEL_BROADCAST_URL = 'https://channel-app.com/channel';
 
 interface LiveIndicatorProps {
   slot: BroadcastSlotSerialized | null;

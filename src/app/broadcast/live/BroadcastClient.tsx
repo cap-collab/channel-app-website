@@ -18,7 +18,7 @@ import { BroadcastHeader } from '@/components/BroadcastHeader';
 type OnboardingStep = 'profile' | 'audio';
 
 // Channel app deep link for the broadcast station
-const CHANNEL_BROADCAST_URL = 'https://channel-app.com/listen/broadcast';
+const CHANNEL_BROADCAST_URL = 'https://channel-app.com/channel';
 
 // Channel App URL Section Component
 function ChannelAppUrlSection() {
