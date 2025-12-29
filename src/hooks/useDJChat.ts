@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getFirestore, collection, query, orderBy, limit, onSnapshot, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { getFirestore, collection, query, orderBy, limit, where, onSnapshot, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { getApps, initializeApp } from 'firebase/app';
 import { ChatMessageSerialized } from '@/types/broadcast';
 
@@ -50,8 +50,10 @@ export function useDJChat({ broadcastToken, slotId, djUsername }: UseDJChatOptio
     const db = getFirestore(app);
 
     const messagesRef = collection(db, 'chats', 'broadcast', 'messages');
+    const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
     const q = query(
       messagesRef,
+      where('timestamp', '>=', twentyFourHoursAgo),
       orderBy('timestamp', 'desc'),
       limit(100)
     );
