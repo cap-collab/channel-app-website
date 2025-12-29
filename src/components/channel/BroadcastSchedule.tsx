@@ -54,27 +54,53 @@ const HOUR_HEIGHT = 60;
 // Generate hours array for the time grid
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
+// Get day boundaries (midnight to midnight) for a given date
+function getDayBoundaries(date: Date): { dayStart: number; dayEnd: number } {
+  const dayStart = new Date(date);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(date);
+  dayEnd.setHours(23, 59, 59, 999);
+  return { dayStart: dayStart.getTime(), dayEnd: dayEnd.getTime() };
+}
+
+// Check if a slot overlaps with a day
+function slotOverlapsDay(slotStart: number, slotEnd: number, dayStart: number, dayEnd: number): boolean {
+  return slotStart <= dayEnd && slotEnd >= dayStart;
+}
+
 export function BroadcastSchedule({
   shows,
   selectedDate,
   onDateChange,
   loading,
 }: BroadcastScheduleProps) {
-  // Expand shows with djSlots into individual rows
+  // Get day boundaries for the selected date
+  const { dayStart, dayEnd } = useMemo(() => getDayBoundaries(selectedDate), [selectedDate]);
+
+  // Expand shows with djSlots into individual rows, filtered and clipped to selected day
   const displaySlots = useMemo<DisplaySlot[]>(() => {
     const slots: DisplaySlot[] = [];
 
     for (const show of shows) {
-      // If show has djSlots, create a row for each DJ slot (like iOS calendar)
+      // If show has djSlots, create a row for each DJ slot that overlaps with selected day
       if (show.djSlots && show.djSlots.length > 0) {
         for (const djSlot of show.djSlots) {
+          // Check if this DJ slot overlaps with the selected day
+          if (!slotOverlapsDay(djSlot.startTime, djSlot.endTime, dayStart, dayEnd)) {
+            continue; // Skip slots that don't overlap with selected day
+          }
+
+          // Clip the slot times to the selected day's boundaries
+          const clippedStart = Math.max(djSlot.startTime, dayStart);
+          const clippedEnd = Math.min(djSlot.endTime, dayEnd);
+
           slots.push({
-            id: `${show.id}-${djSlot.id}`,
+            id: `${show.id}-${djSlot.id}-${selectedDate.toISOString().split('T')[0]}`,
             parentShowId: show.id,
             showName: show.showName,
             djName: djSlot.djName || djSlot.liveDjUsername,
-            startTime: djSlot.startTime,
-            endTime: djSlot.endTime,
+            startTime: clippedStart,
+            endTime: clippedEnd,
             status: show.status,
             isVenueSlot: true,
             originalShow: show,
@@ -82,14 +108,22 @@ export function BroadcastSchedule({
           });
         }
       } else {
-        // Regular show without djSlots - show as single row
+        // Regular show without djSlots - check if it overlaps with selected day
+        if (!slotOverlapsDay(show.startTime, show.endTime, dayStart, dayEnd)) {
+          continue; // Skip shows that don't overlap with selected day
+        }
+
+        // Clip the show times to the selected day's boundaries
+        const clippedStart = Math.max(show.startTime, dayStart);
+        const clippedEnd = Math.min(show.endTime, dayEnd);
+
         slots.push({
-          id: show.id,
+          id: `${show.id}-${selectedDate.toISOString().split('T')[0]}`,
           parentShowId: show.id,
           showName: show.showName,
           djName: show.djName || show.liveDjUsername,
-          startTime: show.startTime,
-          endTime: show.endTime,
+          startTime: clippedStart,
+          endTime: clippedEnd,
           status: show.status,
           isVenueSlot: false,
           originalShow: show,
@@ -99,7 +133,7 @@ export function BroadcastSchedule({
 
     // Sort by start time
     return slots.sort((a, b) => a.startTime - b.startTime);
-  }, [shows]);
+  }, [shows, dayStart, dayEnd, selectedDate]);
 
   // Calculate time range for the day based on shows
   const timeRange = useMemo(() => {

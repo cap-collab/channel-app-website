@@ -188,6 +188,23 @@ export function useAuth() {
         await setDoc(userRef, updateData, { merge: true });
       }
 
+      // Register username in usernames collection for cross-platform uniqueness
+      if (djUsername) {
+        try {
+          const idToken = await user.getIdToken();
+          await fetch('/api/chat/register-username', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({ username: djUsername }),
+          });
+        } catch (err) {
+          console.error('Failed to register username (non-fatal):', err);
+        }
+      }
+
       setState({ user, loading: false, error: null, emailSent: false, passwordResetSent: false });
       return user;
     } catch (error) {
@@ -250,6 +267,23 @@ export function useAuth() {
           updateData.chatUsername = djUsername;
         }
         await setDoc(userRef, updateData, { merge: true });
+      }
+
+      // Register username in usernames collection for cross-platform uniqueness
+      if (djUsername) {
+        try {
+          const idToken = await user.getIdToken();
+          await fetch('/api/chat/register-username', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({ username: djUsername }),
+          });
+        } catch (err) {
+          console.error('Failed to register username (non-fatal):', err);
+        }
       }
 
       setState({ user, loading: false, error: null, emailSent: false, passwordResetSent: false });

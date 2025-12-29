@@ -55,11 +55,13 @@ export function useBroadcastSchedule(): UseBroadcastScheduleReturn {
     const { start, end } = getDateRange(selectedDate);
 
     const slotsRef = collection(db, 'broadcast-slots');
+    // Fetch shows that OVERLAP with the selected day
+    // A show overlaps if: startTime < dayEnd AND endTime > dayStart
+    // Firestore limitation: we query by endTime > dayStart, then filter client-side
     const q = query(
       slotsRef,
-      where('startTime', '>=', Timestamp.fromDate(start)),
-      where('startTime', '<=', Timestamp.fromDate(end)),
-      orderBy('startTime', 'asc')
+      where('endTime', '>', Timestamp.fromDate(start)),
+      orderBy('endTime', 'asc')
     );
 
     setLoading(true);
@@ -91,7 +93,12 @@ export function useBroadcastSchedule(): UseBroadcastScheduleReturn {
             showPromoTitle: data.showPromoTitle,
           });
         });
-        setShows(slots);
+        // Filter to only shows that overlap with selected day
+        // (endTime > dayStart is already enforced by query)
+        // Now filter: startTime < dayEnd (show must start before day ends)
+        const endTime = end.getTime();
+        const filteredSlots = slots.filter(slot => slot.startTime < endTime);
+        setShows(filteredSlots);
         setLoading(false);
         setError(null);
       },
