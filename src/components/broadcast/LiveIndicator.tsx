@@ -5,6 +5,25 @@ import Image from 'next/image';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
 import { DJChatPanel } from './DJChatPanel';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { getFirestore, collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { getDatabase, ref, onValue } from 'firebase/database';
+import { getApps, initializeApp } from 'firebase/app';
+
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
+
+function getFirebaseApp() {
+  if (getApps().length === 0) {
+    return initializeApp(firebaseConfig);
+  }
+  return getApps()[0];
+}
 
 // Channel app deep link for the broadcast station
 const CHANNEL_BROADCAST_URL = 'https://channel-app.com/channel';
@@ -33,6 +52,59 @@ function formatDate(timestamp: number): string {
 export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername, initialPromoSubmitted, isVenue = false, onChangeUsername }: LiveIndicatorProps) {
   const { user, isAuthenticated, signInWithGoogle, signInWithApple, sendEmailLink, emailSent, resetEmailSent, loading: authLoading } = useAuthContext();
   const [copied, setCopied] = useState(false);
+  const [listenerCount, setListenerCount] = useState(0);
+  const [loveCount, setLoveCount] = useState(0);
+  const [messageCount, setMessageCount] = useState(0);
+
+  // Subscribe to activity counts
+  useEffect(() => {
+    const app = getFirebaseApp();
+    const db = getFirestore(app);
+
+    // Subscribe to chat messages for message count
+    const messagesRef = collection(db, 'chats', 'broadcast', 'messages');
+    const now = Date.now();
+    const oneHourAgo = now - 60 * 60 * 1000;
+
+    // Count messages in the last hour
+    const messagesQuery = query(
+      messagesRef,
+      where('timestamp', '>', new Date(oneHourAgo)),
+      orderBy('timestamp', 'desc'),
+      limit(100)
+    );
+
+    const unsubMessages = onSnapshot(messagesQuery, (snapshot) => {
+      let loves = 0;
+      let msgs = 0;
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.messageType === 'love' || data.message?.includes(' is ❤️')) {
+          loves += 1;
+        } else {
+          msgs += 1;
+        }
+      });
+      setLoveCount(loves);
+      setMessageCount(msgs);
+    });
+
+    return () => unsubMessages();
+  }, []);
+
+  // Subscribe to listener count from Firebase Realtime Database
+  useEffect(() => {
+    const app = getFirebaseApp();
+    const db = getDatabase(app);
+    const presenceRef = ref(db, 'presence/broadcast');
+
+    const unsubscribe = onValue(presenceRef, (snapshot) => {
+      const count = snapshot.size || 0;
+      setListenerCount(count);
+    });
+
+    return () => unsubscribe();
+  }, []);
   const [duration, setDuration] = useState(0);
   const [isEnding, setIsEnding] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -147,6 +219,30 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
               {slot && (
                 <p className="text-gray-400 text-sm truncate">{slot.showName || 'Live'}</p>
               )}
+            </div>
+            {/* Activity counts */}
+            <div className="flex items-center gap-3 text-gray-400 text-sm">
+              {/* Listener count */}
+              <div className="flex items-center gap-1" title="Listeners">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.536a5 5 0 001.414 1.414m2.828-9.9a9 9 0 012.828-2.828" />
+                </svg>
+                <span>{listenerCount}</span>
+              </div>
+              {/* Love count */}
+              <div className="flex items-center gap-1" title="Loves">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                </svg>
+                <span>{loveCount}</span>
+              </div>
+              {/* Message count */}
+              <div className="flex items-center gap-1" title="Messages">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <span>{messageCount}</span>
+              </div>
             </div>
           </div>
         </div>

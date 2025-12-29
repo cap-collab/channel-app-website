@@ -22,8 +22,8 @@ function ChatMessage({ message, isOwnMessage, currentLiveDjUsername }: {
   currentLiveDjUsername?: string;
 }) {
   const timeAgo = formatTimeAgo(message.timestamp);
-  // Only show DJ badge if this message is from the CURRENTLY live DJ (match by username, same as iOS)
-  const isCurrentlyLiveDJ = message.isDJ && currentLiveDjUsername && message.username === currentLiveDjUsername;
+  // Show red dot for any message from the live DJ's username (case-insensitive, regardless of which chat panel they used)
+  const isCurrentlyLiveDJ = !!(currentLiveDjUsername && message.username.toLowerCase() === currentLiveDjUsername.toLowerCase());
 
   if (message.messageType === 'promo') {
     return (

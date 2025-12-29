@@ -63,16 +63,6 @@ function ChatMessage({
   // Show red dot for any message from the live DJ's username (case-insensitive, regardless of which chat panel they used)
   const isCurrentlyLiveDJ = !!(currentLiveDjUsername && message.username.toLowerCase() === currentLiveDjUsername.toLowerCase());
 
-  // Debug logging for DJ matching
-  if (message.username.toLowerCase() === 'junior') {
-    console.log('[DJ Match Debug]', {
-      msgUsername: message.username,
-      currentDJ: currentLiveDjUsername,
-      isMatch: isCurrentlyLiveDJ,
-      msgText: message.message?.substring(0, 20)
-    });
-  }
-
   if (message.messageType === 'promo') {
     return null; // Promos shown in pinned bar
   }
