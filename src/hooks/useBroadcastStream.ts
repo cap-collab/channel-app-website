@@ -7,6 +7,19 @@ import { getDatabase, ref, set, remove, onValue, onDisconnect } from 'firebase/d
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getApps, initializeApp } from 'firebase/app';
 import { BroadcastSlotSerialized, ROOM_NAME } from '@/types/broadcast';
+import Hls from 'hls.js';
+
+// HLS stream URL
+const HLS_URL = `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/channel-radio/live.m3u8`;
+
+// Detect if we should use HLS (mobile or Safari)
+function shouldUseHLS(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ua = navigator.userAgent.toLowerCase();
+  const isMobile = /iphone|ipad|ipod|android|mobile/i.test(ua);
+  const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
+  return isMobile || isSafari;
+}
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -83,6 +96,8 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
 
   const roomRef = useRef<Room | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  const hlsRef = useRef<Hls | null>(null);
+  const useHLSRef = useRef<boolean>(false);
 
   // Subscribe to current live slot from Firestore
   useEffect(() => {
@@ -154,6 +169,10 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
         roomRef.current.disconnect();
         roomRef.current = null;
       }
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
       if (audioElementRef.current) {
         audioElementRef.current.pause();
         audioElementRef.current.srcObject = null;
@@ -178,13 +197,19 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
       console.log('🎵 Track subscribed:', track.kind, 'from', participant.identity);
 
       if (track.kind === Track.Kind.Audio) {
-        // Create audio element if needed
+        // Audio element should already exist from play() warmup
+        // Create one as fallback just in case
         if (!audioElementRef.current) {
           audioElementRef.current = new Audio();
         }
 
         // Attach the track to the audio element
         track.attach(audioElementRef.current);
+
+        // Set playsinline for iOS
+        (audioElementRef.current as HTMLAudioElement & { playsInline: boolean }).playsInline = true;
+        audioElementRef.current.setAttribute('playsinline', 'true');
+        audioElementRef.current.setAttribute('webkit-playsinline', 'true');
 
         audioElementRef.current.play()
           .then(() => {
@@ -223,90 +248,193 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
     setIsLoading(true);
     setError(null);
 
-    try {
-      // Get a listener token (canPublish=false)
-      const res = await fetch(
-        `/api/livekit/token?room=${ROOM_NAME}&username=web-listener-${Date.now()}&canPublish=false`
-      );
-      const data = await res.json();
+    // Determine if we should use HLS (mobile/Safari) or WebRTC (desktop)
+    const useHLS = shouldUseHLS();
+    useHLSRef.current = useHLS;
+    console.log('🎵 Using', useHLS ? 'HLS' : 'WebRTC', 'for playback');
 
-      if (data.error) {
-        setError(data.error);
-        setIsLoading(false);
-        return;
-      }
+    // Create audio element
+    if (!audioElementRef.current) {
+      audioElementRef.current = new Audio();
+    }
 
-      // Create and connect to the room
-      const room = new Room();
-      roomRef.current = room;
+    // Set mobile-friendly attributes
+    audioElementRef.current.setAttribute('playsinline', 'true');
+    audioElementRef.current.setAttribute('webkit-playsinline', 'true');
 
-      // Set up event handlers
-      room.on(RoomEvent.TrackSubscribed, handleTrackSubscribed);
-      room.on(RoomEvent.TrackUnsubscribed, handleTrackUnsubscribed);
+    if (useHLS) {
+      // Use HLS for mobile/Safari - more reliable
+      try {
+        if (Hls.isSupported()) {
+          // Use HLS.js for browsers that need it
+          const hls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: true,
+            backBufferLength: 30,
+          });
+          hlsRef.current = hls;
 
-      room.on(RoomEvent.Disconnected, () => {
-        console.log('🎵 Disconnected from LiveKit room');
-        setIsPlaying(false);
-        setIsLoading(false);
-        roomRef.current = null;
-      });
+          hls.loadSource(HLS_URL);
+          hls.attachMedia(audioElementRef.current);
 
-      room.on(RoomEvent.ParticipantConnected, (participant) => {
-        console.log('🎵 Participant connected:', participant.identity);
-      });
+          hls.on(Hls.Events.MANIFEST_PARSED, async () => {
+            console.log('🎵 HLS manifest loaded');
+            try {
+              await audioElementRef.current!.play();
+              setIsPlaying(true);
+              setIsLoading(false);
+              setError(null);
+            } catch (err) {
+              console.error('🎵 HLS play error:', err);
+              setError('Failed to play audio. Tap to try again.');
+              setIsLoading(false);
+            }
+          });
 
-      room.on(RoomEvent.ParticipantDisconnected, (participant) => {
-        console.log('🎵 Participant disconnected:', participant.identity);
-      });
-
-      // Connect to the room
-      await room.connect(data.url, data.token);
-      console.log('🎵 Connected to LiveKit room:', ROOM_NAME);
-
-      // Check if there are already tracks to subscribe to
-      room.remoteParticipants.forEach((participant) => {
-        participant.trackPublications.forEach((publication) => {
-          if (publication.track && publication.kind === Track.Kind.Audio) {
-            handleTrackSubscribed(
-              publication.track as RemoteTrack,
-              publication as RemoteTrackPublication,
-              participant
-            );
+          hls.on(Hls.Events.ERROR, (event, data) => {
+            console.error('🎵 HLS error:', data);
+            if (data.fatal) {
+              setError('Stream error. Try again.');
+              setIsLoading(false);
+            }
+          });
+        } else if (audioElementRef.current.canPlayType('application/vnd.apple.mpegurl')) {
+          // Native HLS support (Safari)
+          audioElementRef.current.src = HLS_URL;
+          try {
+            await audioElementRef.current.play();
+            setIsPlaying(true);
+            setIsLoading(false);
+            setError(null);
+          } catch (err) {
+            console.error('🎵 Native HLS play error:', err);
+            setError('Failed to play audio. Tap to try again.');
+            setIsLoading(false);
           }
-        });
-      });
+        } else {
+          setError('HLS not supported on this browser');
+          setIsLoading(false);
+        }
 
-      // Register presence in Firebase
-      const sessionId = getSessionId();
-      if (sessionId) {
-        ensureAuthAndExecute(() => {
-          const db = getDatabase(getFirebaseApp());
-          const presenceRef = ref(db, `presence/broadcast/${sessionId}`);
-          onDisconnect(presenceRef).remove();
-          set(presenceRef, true);
-        });
+        // Register presence
+        const sessionId = getSessionId();
+        if (sessionId) {
+          ensureAuthAndExecute(() => {
+            const db = getDatabase(getFirebaseApp());
+            const presenceRef = ref(db, `presence/broadcast/${sessionId}`);
+            onDisconnect(presenceRef).remove();
+            set(presenceRef, true);
+          });
+        }
+      } catch (err) {
+        console.error('🎵 HLS setup error:', err);
+        setError('Failed to connect to stream');
+        setIsLoading(false);
       }
-
-      // If no tracks yet, we're waiting for the DJ to start streaming
-      if (room.remoteParticipants.size === 0) {
-        console.log('🎵 No participants yet, waiting for DJ...');
-        // Keep loading state until we get a track
+    } else {
+      // Use WebRTC for desktop - lower latency
+      // Play silent audio to unlock audio context
+      audioElementRef.current.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+      try {
+        await audioElementRef.current.play();
+      } catch {
+        // Ignore errors from silent audio
       }
+      audioElementRef.current.src = '';
 
-    } catch (err) {
-      console.error('🎵 LiveKit connection error:', err);
-      setError('Failed to connect to stream');
-      setIsLoading(false);
+      try {
+        // Get a listener token (canPublish=false)
+        const res = await fetch(
+          `/api/livekit/token?room=${ROOM_NAME}&username=web-listener-${Date.now()}&canPublish=false`
+        );
+        const data = await res.json();
+
+        if (data.error) {
+          setError(data.error);
+          setIsLoading(false);
+          return;
+        }
+
+        // Create and connect to the room
+        const room = new Room();
+        roomRef.current = room;
+
+        // Set up event handlers
+        room.on(RoomEvent.TrackSubscribed, handleTrackSubscribed);
+        room.on(RoomEvent.TrackUnsubscribed, handleTrackUnsubscribed);
+
+        room.on(RoomEvent.Disconnected, () => {
+          console.log('🎵 Disconnected from LiveKit room');
+          setIsPlaying(false);
+          setIsLoading(false);
+          roomRef.current = null;
+        });
+
+        room.on(RoomEvent.ParticipantConnected, (participant) => {
+          console.log('🎵 Participant connected:', participant.identity);
+        });
+
+        room.on(RoomEvent.ParticipantDisconnected, (participant) => {
+          console.log('🎵 Participant disconnected:', participant.identity);
+        });
+
+        // Connect to the room
+        await room.connect(data.url, data.token);
+        console.log('🎵 Connected to LiveKit room:', ROOM_NAME);
+
+        // Check if there are already tracks to subscribe to
+        room.remoteParticipants.forEach((participant) => {
+          participant.trackPublications.forEach((publication) => {
+            if (publication.track && publication.kind === Track.Kind.Audio) {
+              handleTrackSubscribed(
+                publication.track as RemoteTrack,
+                publication as RemoteTrackPublication,
+                participant
+              );
+            }
+          });
+        });
+
+        // Register presence in Firebase
+        const sessionId = getSessionId();
+        if (sessionId) {
+          ensureAuthAndExecute(() => {
+            const db = getDatabase(getFirebaseApp());
+            const presenceRef = ref(db, `presence/broadcast/${sessionId}`);
+            onDisconnect(presenceRef).remove();
+            set(presenceRef, true);
+          });
+        }
+
+        // If no tracks yet, we're waiting for the DJ to start streaming
+        if (room.remoteParticipants.size === 0) {
+          console.log('🎵 No participants yet, waiting for DJ...');
+          // Keep loading state until we get a track
+        }
+
+      } catch (err) {
+        console.error('🎵 LiveKit connection error:', err);
+        setError('Failed to connect to stream');
+        setIsLoading(false);
+      }
     }
   }, [isLive, handleTrackSubscribed, handleTrackUnsubscribed]);
 
   const pause = useCallback(() => {
+    // Clean up WebRTC
     if (roomRef.current) {
       roomRef.current.disconnect();
       roomRef.current = null;
     }
+    // Clean up HLS
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+    // Stop audio
     if (audioElementRef.current) {
       audioElementRef.current.pause();
+      audioElementRef.current.src = '';
     }
     setIsPlaying(false);
 
