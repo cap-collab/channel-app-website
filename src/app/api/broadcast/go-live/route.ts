@@ -71,34 +71,46 @@ export async function POST(request: NextRequest) {
     await doc.ref.update(updateData);
     console.log('[go-live] ✅ Slot updated to live:', { slotId: doc.id, updateData });
 
-    // If DJ is logged in, save their DJ username to their user profile as chatUsername
-    // AND register it in the usernames collection for cross-platform uniqueness
+    // If DJ is logged in, optionally save their DJ username to their user profile
+    // Only save if user doesn't already have a chatUsername (prevents venue DJ overwrites)
     if (djUserId && djUsername) {
       try {
-        const normalizedUsername = djUsername.toLowerCase();
-        const usernameDocRef = db.collection('usernames').doc(normalizedUsername);
         const userRef = db.collection('users').doc(djUserId);
+        const userDoc = await userRef.get();
+        const existingUsername = userDoc.data()?.chatUsername;
 
-        // Check if username is already claimed by someone else
-        const usernameDoc = await usernameDocRef.get();
-        if (!usernameDoc.exists || usernameDoc.data()?.uid === djUserId) {
-          // Claim or update the username in usernames collection
-          await usernameDocRef.set({
-            displayName: djUsername,
-            uid: djUserId,
-            claimedAt: FieldValue.serverTimestamp(),
+        if (!existingUsername) {
+          // User doesn't have a chatUsername yet - save it and register in usernames collection
+          const normalizedUsername = djUsername.toLowerCase();
+          const usernameDocRef = db.collection('usernames').doc(normalizedUsername);
+
+          // Check if username is already claimed by someone else
+          const usernameDoc = await usernameDocRef.get();
+          if (!usernameDoc.exists || usernameDoc.data()?.uid === djUserId) {
+            // Claim or update the username in usernames collection
+            await usernameDocRef.set({
+              displayName: djUsername,
+              uid: djUserId,
+              claimedAt: FieldValue.serverTimestamp(),
+            }, { merge: true });
+            console.log('[go-live] ✅ Registered username in usernames collection:', { normalizedUsername, djUserId });
+          } else {
+            console.log('[go-live] ⚠️ Username already claimed by another user, skipping registration:', { normalizedUsername });
+          }
+
+          // Save chatUsername to user profile
+          await userRef.set({
+            chatUsername: djUsername,
+            lastSeenAt: FieldValue.serverTimestamp(),
           }, { merge: true });
-          console.log('[go-live] ✅ Registered username in usernames collection:', { normalizedUsername, djUserId });
+          console.log('[go-live] ✅ Saved chatUsername to user profile:', { djUserId, chatUsername: djUsername });
         } else {
-          console.log('[go-live] ⚠️ Username already claimed by another user, skipping registration:', { normalizedUsername });
+          // User already has a chatUsername - don't overwrite (protects against venue DJ changes)
+          await userRef.set({
+            lastSeenAt: FieldValue.serverTimestamp(),
+          }, { merge: true });
+          console.log('[go-live] ℹ️ User already has chatUsername, not overwriting:', { djUserId, existingUsername, djUsername });
         }
-
-        // Update user profile with chatUsername
-        await userRef.set({
-          chatUsername: djUsername,
-          lastSeenAt: FieldValue.serverTimestamp(),
-        }, { merge: true });
-        console.log('[go-live] ✅ Saved chatUsername to user profile:', { djUserId, chatUsername: djUsername });
       } catch (userError) {
         // Don't fail the go-live if user profile update fails
         console.error('[go-live] Failed to update user profile (non-fatal):', userError);

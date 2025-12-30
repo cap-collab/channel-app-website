@@ -17,7 +17,7 @@ interface FloatingHeartsProps {
   color?: string;
 }
 
-export function FloatingHearts({ trigger, color = 'var(--accent)' }: FloatingHeartsProps) {
+export function FloatingHearts({ trigger, color = '#D94099' }: FloatingHeartsProps) {
   const [hearts, setHearts] = useState<Heart[]>([]);
 
   const removeHeart = useCallback((id: number) => {
