@@ -8,7 +8,7 @@ import { AuthModal } from "@/components/AuthModal";
 import { MobileMenu, MobileMenuItem } from "@/components/MobileMenu";
 import { useBroadcastLiveStatus } from "@/hooks/useBroadcastLiveStatus";
 
-type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel";
+type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal";
 
 interface HeaderProps {
   currentPage?: CurrentPage;
@@ -40,6 +40,9 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
     // Get Involved - anchor on home/djshows (both have the section), full URL on apply
     const getInvolvedHref = currentPage === "apply" ? "/#get-involved" : "#get-involved";
     items.push({ label: "Get Involved", href: getInvolvedHref });
+    if (currentPage !== "dj-portal") {
+      items.push({ label: "DJ Portal", href: "/dj-portal" });
+    }
     if (currentPage !== "broadcast-admin") {
       items.push({ label: "Radio Portal", href: "/broadcast/admin" });
     }
@@ -86,6 +89,14 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
             >
               Get Involved
             </a>
+            {currentPage !== "dj-portal" && (
+              <Link
+                href="/dj-portal"
+                className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
+              >
+                DJ Portal
+              </Link>
+            )}
             {currentPage !== "broadcast-admin" && (
               <Link
                 href="/broadcast/admin"

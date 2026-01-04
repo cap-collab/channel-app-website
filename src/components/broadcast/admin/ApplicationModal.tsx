@@ -1,0 +1,380 @@
+'use client';
+
+import { useState } from 'react';
+import { DJApplicationSerialized, DJApplicationStatus, TimeSlot } from '@/types/dj-application';
+
+interface ApplicationModalProps {
+  application: DJApplicationSerialized;
+  onClose: () => void;
+  onStatusChange: (
+    applicationId: string,
+    newStatus: DJApplicationStatus,
+    additionalData?: { selectedSlot?: { start: number; end: number } }
+  ) => Promise<{ broadcastUrl?: string } | void>;
+}
+
+export function ApplicationModal({ application, onClose, onStatusChange }: ApplicationModalProps) {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const selectedSlot = selectedSlotIndex !== null ? application.preferredSlots[selectedSlotIndex] : null;
+
+  // Generate mailto link - opens in new tab
+  const openMailto = (subject: string, body: string) => {
+    const mailto = `mailto:${application.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(mailto, '_blank');
+  };
+
+  // Format time in a specific timezone
+  const formatTimeInTimezone = (timestamp: number, timezone: string, options?: Intl.DateTimeFormatOptions) => {
+    return new Date(timestamp).toLocaleString('en-US', { timeZone: timezone, ...options });
+  };
+
+  // Get short timezone name (e.g., "EST", "PST")
+  const getTimezoneAbbr = (timezone: string, timestamp: number) => {
+    const formatter = new Intl.DateTimeFormat('en-US', { timeZone: timezone, timeZoneName: 'short' });
+    const parts = formatter.formatToParts(new Date(timestamp));
+    return parts.find(p => p.type === 'timeZoneName')?.value || timezone;
+  };
+
+  // Handle approve
+  const handleApprove = async () => {
+    if (!selectedSlot) {
+      setError('Please select a time slot');
+      return;
+    }
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      const result = await onStatusChange(application.id, 'approved', { selectedSlot });
+
+      // Format time in DJ's timezone for the email
+      const djTimezone = application.timezone || 'America/New_York';
+      const djTz = getTimezoneAbbr(djTimezone, selectedSlot.start);
+      const formattedDate = formatTimeInTimezone(selectedSlot.start, djTimezone, {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+      });
+      const formattedStart = formatTimeInTimezone(selectedSlot.start, djTimezone, { hour: 'numeric', minute: '2-digit' });
+      const formattedEnd = formatTimeInTimezone(selectedSlot.end, djTimezone, { hour: 'numeric', minute: '2-digit' });
+
+      const broadcastUrl = result?.broadcastUrl || '[Broadcast URL will be provided]';
+
+      // Open mailto with approval email
+      openMailto(
+        "You're approved to broadcast on Channel!",
+        `Hey ${application.djName},
+
+Great news - you're approved to broadcast "${application.showName}" on Channel!
+
+Your scheduled time:
+${formattedDate}
+${formattedStart} - ${formattedEnd} ${djTz}
+
+Your broadcast link:
+${broadcastUrl}
+
+Keep this link private - anyone with it can broadcast to your slot.
+
+Setup is simple:
+1. Connect your DJ setup to your computer (controller, mixer, or audio interface)
+2. Open the broadcast link in Chrome about 10 minutes before your set
+3. Select your audio input and click "Go Live"
+
+If you have any questions about setup, just reply to this email.
+
+Looking forward to your set!
+
+- Channel`
+      );
+
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to approve application');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Handle request more info
+  const handleRequestInfo = async () => {
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      await onStatusChange(application.id, 'info-requested');
+
+      // Open mailto
+      openMailto(
+        'Channel - Your DJ Application',
+        `Hey ${application.djName},
+
+Thanks for applying to broadcast on Channel!
+
+Before we can schedule your set, we'd love to learn a bit more:
+
+[Add your questions here]
+
+Looking forward to hearing from you.
+
+- Channel`
+      );
+
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update application');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Handle deny
+  const handleDeny = async () => {
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      await onStatusChange(application.id, 'denied');
+
+      // Open mailto
+      openMailto(
+        'Channel - Application Update',
+        `Hey ${application.djName},
+
+Thanks for your interest in broadcasting on Channel.
+
+After reviewing your application, we're not able to schedule a set at this time. This isn't a reflection of your work - we're being very selective as we grow and focusing on a specific sound and vibe right now.
+
+If things change or you'd like to apply again in the future, you're always welcome to reach out.
+
+Thanks for understanding.
+
+- Channel`
+      );
+
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to deny application');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const formatSlotTime = (slot: TimeSlot) => {
+    const djTimezone = application.timezone || 'America/New_York';
+    const adminTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    // Show in DJ's timezone
+    const djStart = formatTimeInTimezone(slot.start, djTimezone, { hour: 'numeric', minute: '2-digit' });
+    const djEnd = formatTimeInTimezone(slot.end, djTimezone, { hour: 'numeric', minute: '2-digit' });
+    const djDate = formatTimeInTimezone(slot.start, djTimezone, { weekday: 'short', month: 'short', day: 'numeric' });
+    const djTz = getTimezoneAbbr(djTimezone, slot.start);
+
+    // Show in admin's timezone if different
+    if (djTimezone !== adminTimezone) {
+      const adminStart = formatTimeInTimezone(slot.start, adminTimezone, { hour: 'numeric', minute: '2-digit' });
+      const adminEnd = formatTimeInTimezone(slot.end, adminTimezone, { hour: 'numeric', minute: '2-digit' });
+      const adminDate = formatTimeInTimezone(slot.start, adminTimezone, { weekday: 'short', month: 'short', day: 'numeric' });
+      const adminTz = getTimezoneAbbr(adminTimezone, slot.start);
+      return `${djDate} ${djStart} - ${djEnd} ${djTz} (DJ) / ${adminDate} ${adminStart} - ${adminEnd} ${adminTz} (you)`;
+    }
+
+    return `${djDate} ${djStart} - ${djEnd} ${djTz}`;
+  };
+
+  const isActionable = application.status === 'pending' || application.status === 'info-requested';
+
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+      <div className="bg-[#1a1a1a] rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="sticky top-0 bg-[#1a1a1a] border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Application Details</h2>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 space-y-6">
+          {/* Basic Info */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-gray-500 uppercase tracking-wide">DJ Name</label>
+              <p className="text-white font-medium">{application.djName}</p>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 uppercase tracking-wide">Email</label>
+              <p className="text-white">{application.email}</p>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 uppercase tracking-wide">Show Name</label>
+              <p className="text-white">{application.showName}</p>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 uppercase tracking-wide">Location</label>
+              <p className="text-white capitalize">
+                {application.locationType}
+                {application.venueName && ` - ${application.venueName}`}
+              </p>
+            </div>
+          </div>
+
+          {/* Setup Support Flag */}
+          {application.needsSetupSupport && (
+            <div className="p-3 bg-yellow-900/30 border border-yellow-800 rounded-xl">
+              <p className="text-yellow-400 text-sm font-medium flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Needs setup support
+              </p>
+            </div>
+          )}
+
+          {/* Comments */}
+          {application.comments && (
+            <div>
+              <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Comments</label>
+              <p className="text-gray-300 text-sm whitespace-pre-wrap bg-gray-800/50 p-4 rounded-lg">{application.comments}</p>
+            </div>
+          )}
+
+          {/* Social Links */}
+          {(application.soundcloud || application.instagram || application.youtube) && (
+            <div>
+              <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Social Links</label>
+              <div className="flex flex-wrap gap-2">
+                {application.soundcloud && (
+                  <a
+                    href={application.soundcloud.startsWith('http') ? application.soundcloud : `https://soundcloud.com/${application.soundcloud}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 bg-orange-900/30 text-orange-400 border border-orange-800 rounded-lg text-sm hover:bg-orange-900/50"
+                  >
+                    SoundCloud
+                  </a>
+                )}
+                {application.instagram && (
+                  <a
+                    href={application.instagram.startsWith('http') ? application.instagram : `https://instagram.com/${application.instagram.replace('@', '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 bg-pink-900/30 text-pink-400 border border-pink-800 rounded-lg text-sm hover:bg-pink-900/50"
+                  >
+                    Instagram
+                  </a>
+                )}
+                {application.youtube && (
+                  <a
+                    href={application.youtube.startsWith('http') ? application.youtube : `https://youtube.com/${application.youtube}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 bg-red-900/30 text-red-400 border border-red-800 rounded-lg text-sm hover:bg-red-900/50"
+                  >
+                    YouTube
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Preferred Slots */}
+          <div>
+            <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">
+              Preferred Time Slots
+              {isActionable && <span className="text-gray-600 normal-case"> (select one to approve)</span>}
+            </label>
+            <div className="space-y-2">
+              {application.preferredSlots.map((slot, index) => (
+                <button
+                  key={index}
+                  onClick={() => isActionable && setSelectedSlotIndex(index)}
+                  disabled={!isActionable}
+                  className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
+                    selectedSlotIndex === index
+                      ? 'bg-green-900/30 border-green-700 text-green-400'
+                      : isActionable
+                      ? 'bg-gray-800/50 border-gray-700 hover:border-gray-600 text-gray-300'
+                      : 'bg-gray-800/30 border-gray-800 text-gray-500'
+                  }`}
+                >
+                  {formatSlotTime(slot)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Submitted Date */}
+          <div>
+            <label className="text-xs text-gray-500 uppercase tracking-wide">Submitted</label>
+            <p className="text-gray-400">
+              {new Date(application.submittedAt).toLocaleString()}
+            </p>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="p-4 bg-red-900/30 border border-red-800 rounded-xl text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+
+          {/* Actions */}
+          {isActionable && (
+            <div className="pt-4 border-t border-gray-800">
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={handleApprove}
+                  disabled={isProcessing || selectedSlotIndex === null}
+                  className="flex-1 min-w-[140px] py-3 px-4 bg-green-600 text-white rounded-xl font-medium hover:bg-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isProcessing ? 'Processing...' : 'Approve & Schedule'}
+                </button>
+                <button
+                  onClick={handleRequestInfo}
+                  disabled={isProcessing}
+                  className="flex-1 min-w-[140px] py-3 px-4 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-500 transition-colors disabled:opacity-50"
+                >
+                  Request Info
+                </button>
+                <button
+                  onClick={handleDeny}
+                  disabled={isProcessing}
+                  className="flex-1 min-w-[140px] py-3 px-4 bg-gray-700 text-white rounded-xl font-medium hover:bg-gray-600 transition-colors disabled:opacity-50"
+                >
+                  Deny
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-3 text-center">
+                Each action will open your email app with a pre-filled message to edit and send.
+              </p>
+            </div>
+          )}
+
+          {/* Already processed */}
+          {!isActionable && (
+            <div className="pt-4 border-t border-gray-800">
+              <div className={`p-4 rounded-xl text-center ${
+                application.status === 'approved'
+                  ? 'bg-green-900/20 text-green-400'
+                  : 'bg-red-900/20 text-red-400'
+              }`}>
+                This application has been {application.status}.
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

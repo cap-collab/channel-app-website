@@ -10,6 +10,9 @@ import { SlotModal } from '@/components/broadcast/admin/SlotModal';
 import { getSlots, createSlot, deleteSlot as deleteSlotFromDb, updateSlot } from '@/lib/broadcast-slots';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { AuthModal } from '@/components/AuthModal';
+import { DJApplicationsTab } from '@/components/broadcast/admin/DJApplicationsTab';
+
+type AdminTab = 'schedule' | 'applications';
 
 // Get start of current week (Sunday)
 function getWeekStart(date: Date = new Date()): Date {
@@ -37,6 +40,10 @@ export function AdminDashboard() {
   const [selectedSlot, setSelectedSlot] = useState<BroadcastSlotSerialized | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newSlotTimes, setNewSlotTimes] = useState<{ start: Date; end: Date } | null>(null);
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<AdminTab>('schedule');
+  const [applicationCount, setApplicationCount] = useState(0);
 
   // Check if user has broadcaster access
   const hasBroadcasterAccess = isBroadcaster(role);
@@ -182,7 +189,34 @@ export function AdminDashboard() {
     return (
       <div className="min-h-screen bg-[#1a1a1a]">
         <BroadcastHeader />
-        <div className="flex items-center justify-center p-8" style={{ minHeight: 'calc(100vh - 60px)' }}>
+        <div className="flex flex-col items-center justify-center p-8" style={{ minHeight: 'calc(100vh - 60px)' }}>
+          {/* Radio info section */}
+          <div className="max-w-xl text-center mb-12">
+            <div className="space-y-6 text-gray-400 leading-relaxed">
+              <p>
+                Channel features a curated selection of independent radio stations across web and mobile.
+              </p>
+              <p>
+                If you run a radio and want to extend your reach beyond your own site, Channel helps you connect with new listeners, activate real-time community chat around your shows, and experiment with direct fan support — all at no cost.
+              </p>
+              <p>
+                We&apos;re selective and intentional about the radios we feature. Channel is built around live moments, culture, and community — not passive listening or ads. If that resonates with how you operate, we&apos;d love to hear from you.
+              </p>
+              <p className="text-white">
+                Reach out to be featured on Channel.
+              </p>
+            </div>
+            <div className="mt-8">
+              <a
+                href="mailto:info@channel-app.com"
+                className="inline-block bg-white text-black px-8 py-3 rounded-xl text-base font-semibold hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(255,255,255,0.15)] transition-all"
+              >
+                Contact Us
+              </a>
+            </div>
+          </div>
+
+          {/* Sign in section */}
           <div className="bg-[#252525] rounded-xl p-8 max-w-md w-full">
             <AuthModal
               isOpen={true}
@@ -245,31 +279,74 @@ export function AdminDashboard() {
     <div className="min-h-screen bg-black text-white">
       <BroadcastHeader />
       <div className="p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Loading */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+        <div className="max-w-7xl mx-auto">
+          {/* Tabs */}
+          <div className="flex gap-2 mb-6">
+            <button
+              onClick={() => setActiveTab('schedule')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                activeTab === 'schedule'
+                  ? 'bg-white text-black'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+            >
+              Schedule
+            </button>
+            <button
+              onClick={() => setActiveTab('applications')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                activeTab === 'applications'
+                  ? 'bg-white text-black'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+            >
+              DJ Applications
+              {applicationCount > 0 && (
+                <span className={`px-2 py-0.5 text-xs rounded-full ${
+                  activeTab === 'applications'
+                    ? 'bg-black text-white'
+                    : 'bg-yellow-500 text-black'
+                }`}>
+                  {applicationCount}
+                </span>
+              )}
+            </button>
           </div>
-        ) : (
-          /* Calendar */
-          <WeeklyCalendar
-            slots={slots}
-            onSlotClick={handleSlotClick}
-            onCreateSlot={handleCreateSlot}
-            onUpdateSlot={handleUpdateSlotTimes}
-            currentWeekStart={currentWeekStart}
-            onWeekChange={setCurrentWeekStart}
-            venueName={broadcasterSettings.venueName}
-            venueSlug={broadcasterSettings.venueSlug}
-          />
-        )}
 
-        {/* Quick tip */}
-        <div className="mt-4 text-center text-sm text-gray-500">
-          Tip: Click to edit, right-click to copy link. Drag edges to resize.
+          {/* Tab Content */}
+          {activeTab === 'schedule' ? (
+            <>
+              {/* Loading */}
+              {isLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                </div>
+              ) : (
+                /* Calendar */
+                <WeeklyCalendar
+                  slots={slots}
+                  onSlotClick={handleSlotClick}
+                  onCreateSlot={handleCreateSlot}
+                  onUpdateSlot={handleUpdateSlotTimes}
+                  currentWeekStart={currentWeekStart}
+                  onWeekChange={setCurrentWeekStart}
+                  venueName={broadcasterSettings.venueName}
+                  venueSlug={broadcasterSettings.venueSlug}
+                />
+              )}
+
+              {/* Quick tip */}
+              <div className="mt-4 text-center text-sm text-gray-500">
+                Tip: Click to edit, right-click to copy link. Drag edges to resize.
+              </div>
+            </>
+          ) : (
+            <DJApplicationsTab
+              userId={user?.uid || ''}
+              onPendingCountChange={setApplicationCount}
+            />
+          )}
         </div>
-      </div>
       </div>
 
       {/* Slot Modal */}
