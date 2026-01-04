@@ -14,13 +14,19 @@ function isValidUsername(username: string): boolean {
     return false;
   }
 
-  // Check reserved usernames
-  if (RESERVED_USERNAMES.includes(trimmed.toLowerCase())) {
+  // Must contain at least 2 alphanumeric characters (when spaces removed)
+  const handle = trimmed.replace(/\s+/g, '');
+  if (handle.length < 2) {
     return false;
   }
 
-  // Alphanumeric only (no spaces) - required for @mentions to work properly
-  return /^[A-Za-z0-9]+$/.test(trimmed);
+  // Check reserved usernames against normalized handle
+  if (RESERVED_USERNAMES.includes(handle.toLowerCase())) {
+    return false;
+  }
+
+  // Alphanumeric and single spaces only - handles are used for @mentions
+  return /^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(trimmed);
 }
 
 // POST - Register a unique chat username
@@ -63,12 +69,13 @@ export async function POST(request: NextRequest) {
     // Validate username format
     if (!isValidUsername(trimmedUsername)) {
       return NextResponse.json({
-        error: 'Invalid username. Use 2-20 characters, letters and numbers only.'
+        error: 'Invalid username. Use 2-20 characters, letters, numbers, and spaces.'
       }, { status: 400 });
     }
 
-    const normalizedUsername = trimmedUsername.toLowerCase();
-    const usernameDocRef = db.collection('usernames').doc(normalizedUsername);
+    // Generate normalized handle (remove spaces, lowercase) for uniqueness and @mentions
+    const handle = trimmedUsername.replace(/\s+/g, '').toLowerCase();
+    const usernameDocRef = db.collection('usernames').doc(handle);
     const userDocRef = db.collection('users').doc(userId);
 
     // Use a transaction to ensure atomicity (same as iOS app)
@@ -86,7 +93,8 @@ export async function POST(request: NextRequest) {
         } else {
           // Claim the username
           transaction.set(usernameDocRef, {
-            displayName: trimmedUsername, // Store original casing
+            displayName: trimmedUsername, // Store original casing and spaces
+            usernameHandle: handle, // Store normalized handle for reference
             uid: userId,
             claimedAt: FieldValue.serverTimestamp(),
           });

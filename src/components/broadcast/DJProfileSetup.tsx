@@ -133,11 +133,21 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
     if (trimmed.length > 20) {
       return 'Username must be 20 characters or less';
     }
-    if (!/^[A-Za-z0-9]+$/.test(trimmed)) {
-      return 'Username can only contain letters and numbers';
+
+    // Must contain at least 2 alphanumeric characters (when spaces removed)
+    const handle = trimmed.replace(/\s+/g, '');
+    if (handle.length < 2) {
+      return 'Username must have at least 2 characters (excluding spaces)';
     }
+
+    // Alphanumeric and single spaces only
+    if (!/^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(trimmed)) {
+      return 'Username can only contain letters, numbers, and spaces';
+    }
+
+    // Check reserved usernames against normalized handle
     const reserved = ['channel', 'admin', 'system', 'moderator', 'mod'];
-    if (reserved.includes(trimmed.toLowerCase())) {
+    if (reserved.includes(handle.toLowerCase())) {
       return 'This username is reserved';
     }
     return null;
@@ -242,7 +252,7 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
           <p className="text-gray-500 text-xs mt-1">
             {isUsernameLocked
               ? 'This is your Channel username'
-              : '2-20 characters, letters and numbers only'
+              : '2-20 characters, letters, numbers, and spaces'
             }
           </p>
         </div>

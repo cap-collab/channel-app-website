@@ -20,15 +20,25 @@ export function DeviceAudioCapture({ onStream, onError, onBack }: DeviceAudioCap
     const loadDevices = async () => {
       try {
         // Request permission first to get device labels
-        await navigator.mediaDevices.getUserMedia({ audio: true });
+        await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          }
+        });
 
         const allDevices = await navigator.mediaDevices.enumerateDevices();
         const audioInputs = allDevices
           .filter(d => d.kind === 'audioinput')
           .map(d => ({
             deviceId: d.deviceId,
-            label: d.label || `Audio Input ${d.deviceId.slice(0, 8)}`,
+            label: d.label || `Unknown Audio Device ${d.deviceId.slice(0, 8)}`,
           }));
+
+        // Debug logging to see what devices are detected
+        console.log('Detected audio inputs:', audioInputs);
+        console.log('All devices:', allDevices);
 
         setDevices(audioInputs);
         if (audioInputs.length > 0 && !selectedDeviceId) {
@@ -67,12 +77,12 @@ export function DeviceAudioCapture({ onStream, onError, onBack }: DeviceAudioCap
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          deviceId: { exact: selectedDeviceId },
+          deviceId: selectedDeviceId ? { ideal: selectedDeviceId } : undefined,
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
-          sampleRate: 48000,
-          channelCount: 2,
+          sampleRate: { ideal: 48000 },
+          channelCount: { ideal: 2 },
         },
         video: false,
       });

@@ -21,19 +21,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No username provided' }, { status: 400 });
     }
 
-    // Validate username format (2-20 chars, alphanumeric only)
+    // Validate username format (2-20 chars, alphanumeric and single spaces)
     const trimmedUsername = username.trim();
     if (trimmedUsername.length < 2 || trimmedUsername.length > 20) {
       return NextResponse.json({ error: 'Username must be 2-20 characters' }, { status: 400 });
     }
 
-    if (!/^[A-Za-z0-9]+$/.test(trimmedUsername)) {
-      return NextResponse.json({ error: 'Username must be alphanumeric only' }, { status: 400 });
+    // Must contain at least 2 alphanumeric characters (when spaces removed)
+    const handle = trimmedUsername.replace(/\s+/g, '');
+    if (handle.length < 2) {
+      return NextResponse.json({ error: 'Username must have at least 2 characters (excluding spaces)' }, { status: 400 });
     }
 
-    // Check reserved usernames
+    // Alphanumeric and single spaces only
+    if (!/^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(trimmedUsername)) {
+      return NextResponse.json({ error: 'Username can only contain letters, numbers, and spaces' }, { status: 400 });
+    }
+
+    // Check reserved usernames against normalized handle
     const reserved = ['channel', 'admin', 'system', 'moderator', 'mod'];
-    if (reserved.includes(trimmedUsername.toLowerCase())) {
+    if (reserved.includes(handle.toLowerCase())) {
       return NextResponse.json({ error: 'This username is reserved' }, { status: 400 });
     }
 

@@ -16,33 +16,58 @@ const faqItems = [
   {
     question: "What is Channel?",
     answer:
-      "Channel is a home for DJ radio culture — a place to listen, discover, and engage with independent stations, their DJs, and the communities behind them.",
+      "Channel is a live-streaming app for DJ culture. It's where select live DJ sets are broadcast, and where listeners can tune in together, in real time.\n\nChannel isn't about passive listening. It's about presence, shared moments, and supporting the people behind the music.",
   },
   {
-    question: "How does it work?",
+    question: "Who is Channel for?",
     answer:
-      "We aggregate livestreams from selected independent radios and give listeners new ways to connect: calendar browsing, show reminders, chat, and soon direct support tools like tipping and super chats.",
+      "Channel is built for DJs, venues, and curators who want deeper relationships with their audience — and for listeners who care about independent culture.",
   },
   {
-    question: "Why only a few radios?",
+    question: "How is Channel different from other streaming apps?",
     answer:
-      "Channel is growing intentionally. We partner with stations who share our values and want to actively build stronger community engagement.",
+      "Channel is not social audio, and it's not a feed.\n\nEverything on Channel is live, intentional, and anchored in a real moment — a DJ set, a venue, a curator. Listeners aren't just tuning in; they're showing up together while it's happening.",
   },
   {
-    question: "Why is the mobile app not ready yet?",
+    question: "Can I listen on Channel today?",
     answer:
-      "We're onboarding partner radios and waiting for authorization to feature some of the leading DJ radios in our app. Great things take time.",
+      "Yes. Channel is live on the web, and available on iOS via TestFlight while we continue expanding access.\n\nYou can tune into live sets, see what's coming up, and join the chat during broadcasts.",
   },
   {
-    question: "How can I help?",
+    question: "Who can broadcast on Channel?",
     answer:
-      "Join the community, share Channel with friends, and tell your favorite radios why you want to see them on the platform.",
+      "Channel is open to DJs, venues, and curators who want to host live broadcasts.\n\nIf your DJ setup connects to a computer — through a controller, a mixer with USB, or a simple audio interface — you already have what you need to go live.\n\nIf you already have a radio stream, we can feature you as well.\n\nWe onboard progressively to keep the experience intentional and high-quality.",
   },
   {
-    question: "How can I feature my radio on Channel?",
+    question: "Do I need special equipment to go live?",
     answer:
-      "We'd love to connect. Fill out our application form with your radio info or email us at info@channel-app.com and we will be in touch shortly.",
+      "No. Most everyday DJ setups already work. No cameras required, and no complex software needed to get started.",
+  },
+  {
+    question: "Can listeners interact during live sets?",
+    answer:
+      "Yes. Listeners can tune in, join the chat, send love, and connect with others — while the music is playing.\n\nParticipation is there to support the moment, not distract from it.",
+  },
+  {
+    question: "How does support work on Channel?",
+    answer:
+      "Channel enables direct support for DJs, curators, and venues through tipping, exclusive drops, and community-driven features.\n\nWe don't run ads. Support flows to the people creating the culture.",
+  },
+  {
+    question: "Why isn't Channel fully available on the App Store yet?",
+    answer:
+      "Channel is currently in beta on iOS.\n\nWe're rolling out access thoughtfully to make sure broadcasts are authorized, the live experience feels right, and the community features work as intended.\n\nThe web version is already live.",
+  },
+  {
+    question: "How can I get involved?",
+    answer:
+      "If you're a DJ, venue, or curator and want to host live broadcasts, reach out at info@channel-app.com\n\nIf you're a radio and want to be featured on Channel, reach out.\n\nIf you're a listener, tune in, show up in the chat, and invite people who care about DJ culture.",
     hasLink: true,
+  },
+  {
+    question: "What's next?",
+    answer:
+      "More live broadcasts. More venues. More ways to support the people behind the music.\n\nChannel is built alongside the community using it.",
   },
 ];
 
@@ -77,7 +102,7 @@ export default function Home() {
       <section className="min-h-screen flex flex-col justify-center items-center px-6 pt-24 pb-20 relative bg-[#1a1a1a]">
         <div className="max-w-3xl text-center">
           <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
-            The live-streaming app<br />for DJ shows.
+            Live streaming for<br />DJ communities.
           </h1>
 
           <p className="text-lg md:text-xl text-gray-400 mb-12 max-w-xl mx-auto leading-relaxed">
@@ -160,10 +185,10 @@ export default function Home() {
                   Curated
                 </h2>
                 <p className="text-gray-400 leading-relaxed text-center text-sm mb-8">
-                  Channel partners with independent radios and DJs who want deeper
-                  relationships with their audience. Our goal is to build a more
-                  transparent, sustainable and engaging ecosystem for artists,
-                  curators, and streamers.
+                  Channel partners with DJs, venues, and curators who want deeper
+                  relationships with their audience. Our goal is to support
+                  meaningful live moments and build a more sustainable, engaging
+                  culture around them.
                 </p>
                 <div className="transform scale-[0.55] origin-top -mb-[45%]">
                   <PhoneMockup className="w-[300px]">
@@ -178,9 +203,10 @@ export default function Home() {
                   Supportive
                 </h2>
                 <p className="text-gray-400 leading-relaxed text-center text-sm mb-8">
-                  Channel enables direct support for DJs and stations through super
-                  chats, tipping, and community-driven features. We build tools that
-                  amplify culture, not extract from it. We don&apos;t do ads.
+                  Channel enables direct support for DJs, curators, and venues
+                  through tipping, exclusive sales, and community-driven features.
+                  We build tools that amplify culture — not extract from it. We
+                  don&apos;t run ads.
                 </p>
                 <div className="transform scale-[0.55] origin-top -mb-[45%]">
                   <PhoneMockup className="w-[300px]">
@@ -195,9 +221,9 @@ export default function Home() {
                   Participative
                 </h2>
                 <p className="text-gray-400 leading-relaxed text-center text-sm mb-8">
-                  Channel is built for participation and community. Listeners can
-                  tune in, join the chat, send love, and connect with other
-                  streamers or show hosts in real time.
+                  Channel is built for live moments and shared experience. Listeners
+                  can tune in, join the chat, send love, and connect in real time
+                  with other listeners, DJs, and curators.
                 </p>
                 <div className="transform scale-[0.55] origin-top -mb-[45%]">
                   <PhoneMockup className="w-[300px]">
@@ -232,30 +258,20 @@ export default function Home() {
 
             <div className="space-y-6 text-gray-400 leading-relaxed">
               <p>
-                My name is Cap. I&apos;m building Channel out of love for DJ radio and the communities that make it so special.
+                My name is Cap. I&apos;m building Channel out of love for DJ culture and the communities that make it so special.
               </p>
 
               <p>
-                After moving from Paris to New York to Los Angeles, I realized how hard it was to stay connected with my favorite DJs, dancers, and curators beyond the dancefloor. This ecosystem deserves better tools: to support artists, strengthen communities, and make it easier to follow the sounds and the people you love.
+                After moving from Paris to New York to Los Angeles, I realized how hard it was to stay connected with my favorite DJs, dancers, and curators beyond the dancefloor. This culture deserves better tools — to support artists, strengthen communities, and make it easier to follow the sounds and the people you love.
               </p>
 
               <p>
-                I&apos;m looking to connect with <span className="text-white">DJs, radio operators, nightlife promoters, dancers, and music heads</span> of all kinds. Whether you want to collaborate, give feedback, or just chat, I&apos;d truly love to hear from you.
+                I&apos;m looking to connect with <span className="text-white">DJs, venues, nightlife promoters, dancers, curators, and music heads</span> of all kinds. Whether you want to collaborate, give feedback, broadcast a live set, or just chat, I&apos;d truly love to hear from you.
               </p>
 
               <p>
-                Channel is growing, and I&apos;m actively seeking help with:
+                Channel is growing, and I&apos;m especially interested in conversations around DJ programming, live broadcasts, fan and community support, partnerships, and the realities of building sustainable culture around live music.
               </p>
-
-              <ul className="list-disc list-inside space-y-2 text-gray-300 pl-4">
-                <li>DJ show curation (ambient, dub, electronic, techno, minimal, house, ...)</li>
-                <li>Product & website design</li>
-                <li>Fan & community monetization</li>
-                <li>DJ relationship and insights</li>
-                <li>DJ radio relationship and insights</li>
-                <li>Partnerships & licensing</li>
-                <li>Fundraising</li>
-              </ul>
 
               <p>
                 If any of this resonates, reach out. I&apos;d love to connect.

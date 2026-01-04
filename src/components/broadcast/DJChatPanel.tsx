@@ -406,12 +406,13 @@ export function DJChatPanel({
                 <button
                   onClick={() => {
                     const trimmed = newUsername.trim();
-                    if (trimmed.length >= 2 && trimmed.length <= 20 && /^[A-Za-z0-9]+$/.test(trimmed)) {
+                    const handle = trimmed.replace(/\s+/g, '');
+                    if (trimmed.length >= 2 && trimmed.length <= 20 && handle.length >= 2 && /^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(trimmed)) {
                       onChangeUsername(trimmed);
                       setShowUsernameModal(false);
                     }
                   }}
-                  disabled={!newUsername.trim() || newUsername.trim().length < 2 || !/^[A-Za-z0-9]+$/.test(newUsername.trim())}
+                  disabled={!newUsername.trim() || newUsername.trim().length < 2 || newUsername.trim().replace(/\s+/g, '').length < 2 || !/^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(newUsername.trim())}
                   className="flex-1 bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white py-3 rounded-lg transition-colors"
                 >
                   Save

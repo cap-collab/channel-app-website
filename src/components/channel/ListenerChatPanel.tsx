@@ -23,8 +23,16 @@ const RESERVED_USERNAMES = ['channel', 'admin', 'system', 'moderator', 'mod'];
 function isValidUsername(username: string): boolean {
   const trimmed = username.trim();
   if (trimmed.length < 2 || trimmed.length > 20) return false;
-  if (RESERVED_USERNAMES.includes(trimmed.toLowerCase())) return false;
-  return /^[A-Za-z0-9]+$/.test(trimmed);
+
+  // Must contain at least 2 alphanumeric characters (when spaces removed)
+  const handle = trimmed.replace(/\s+/g, '');
+  if (handle.length < 2) return false;
+
+  // Check reserved usernames against normalized handle
+  if (RESERVED_USERNAMES.includes(handle.toLowerCase())) return false;
+
+  // Alphanumeric and single spaces only
+  return /^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(trimmed);
 }
 
 function formatTimeAgo(timestamp: number): string {
@@ -181,7 +189,7 @@ function UsernameSetup({
             disabled={isChecking}
           />
           <p className="text-gray-500 text-xs mt-2">
-            2-20 characters, letters and numbers only
+            2-20 characters, letters, numbers, and spaces
           </p>
           {errorMessage && (
             <p className="text-red-400 text-xs mt-2">
