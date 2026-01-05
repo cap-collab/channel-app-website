@@ -316,7 +316,7 @@ export default function Home() {
                 Contact Us
               </a>
               <Link
-                href="/broadcast/admin"
+                href="/radio-portal"
                 className="inline-block bg-transparent border border-gray-600 text-white px-8 py-4 rounded-xl text-base font-medium hover:border-white hover:bg-white/5 transition-all"
               >
                 Radio Portal

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
 import { BroadcastSlotSerialized, RoomStatus, BroadcastType, DJSlot } from '@/types/broadcast';
@@ -8,7 +9,6 @@ import { WeeklyCalendar } from '@/components/broadcast/admin/WeeklyCalendar';
 import { SlotModal } from '@/components/broadcast/admin/SlotModal';
 import { getSlots, createSlot, deleteSlot as deleteSlotFromDb, updateSlot } from '@/lib/broadcast-slots';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
-import { AuthModal } from '@/components/AuthModal';
 import { DJApplicationsTab } from '@/components/broadcast/admin/DJApplicationsTab';
 
 type AdminTab = 'schedule' | 'applications';
@@ -23,6 +23,7 @@ function getWeekStart(date: Date = new Date()): Date {
 }
 
 export function AdminDashboard() {
+  const router = useRouter();
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const { role, loading: roleLoading } = useUserRole(user);
 
@@ -91,6 +92,13 @@ export function AdminDashboard() {
       setIsLoading(false);
     }
   }, [isAuthenticated, hasBroadcasterAccess, completeExpiredSlots, fetchSlots, fetchRoomStatus]);
+
+  // Redirect to radio portal if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/radio-portal');
+    }
+  }, [authLoading, isAuthenticated, router]);
 
   // Handle slot click (edit)
   const handleSlotClick = (slot: BroadcastSlotSerialized) => {
@@ -180,55 +188,13 @@ export function AdminDashboard() {
     );
   }
 
-  // Not authenticated - show sign in options
+  // Not authenticated - show loading while redirecting
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#1a1a1a]">
         <BroadcastHeader />
-        <div className="flex flex-col items-center justify-center p-8" style={{ minHeight: 'calc(100vh - 60px)' }}>
-          {/* Radio info section */}
-          <div className="max-w-xl text-center mb-12">
-            <div className="space-y-6 text-gray-400 leading-relaxed">
-              <p>
-                Channel features a curated selection of independent radio stations across web and mobile.
-              </p>
-              <p>
-                If you run a radio and want to extend your reach beyond your own site, Channel helps you connect with new listeners, activate real-time community chat around your shows, and experiment with direct fan support — all at no cost.
-              </p>
-              <p>
-                We&apos;re selective and intentional about the radios we feature. Channel is built around live moments, culture, and community — not passive listening or ads. If that resonates with how you operate, we&apos;d love to hear from you.
-              </p>
-              <p className="text-white">
-                Reach out to be featured on Channel.
-              </p>
-            </div>
-            <div className="mt-8">
-              <a
-                href="mailto:info@channel-app.com"
-                className="inline-block bg-white text-black px-8 py-3 rounded-xl text-base font-semibold hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(255,255,255,0.15)] transition-all"
-              >
-                Contact Us
-              </a>
-            </div>
-          </div>
-
-          {/* Sign in section */}
-          <div className="bg-[#252525] rounded-xl p-8 max-w-md w-full">
-            <AuthModal
-              isOpen={true}
-              onClose={() => {}}
-              message="Sign in to manage your radio station broadcasts."
-              inline={true}
-            />
-            <div className="mt-6 pt-6 border-t border-gray-700 text-center">
-              <p className="text-gray-400 text-sm">
-                Not on Channel yet?{' '}
-                <a href="/apply" className="text-blue-400 hover:text-blue-300">
-                  Fill out this form to feature your station
-                </a>
-              </p>
-            </div>
-          </div>
+        <div className="flex items-center justify-center" style={{ minHeight: 'calc(100vh - 60px)' }}>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
         </div>
       </div>
     );

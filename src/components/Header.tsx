@@ -8,7 +8,7 @@ import { AuthModal } from "@/components/AuthModal";
 import { MobileMenu, MobileMenuItem } from "@/components/MobileMenu";
 import { useBroadcastLiveStatus } from "@/hooks/useBroadcastLiveStatus";
 
-type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal";
+type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal" | "radio-portal";
 
 interface HeaderProps {
   currentPage?: CurrentPage;
@@ -43,8 +43,8 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
     if (currentPage !== "dj-portal") {
       items.push({ label: "DJ Portal", href: "/dj-portal" });
     }
-    if (currentPage !== "broadcast-admin") {
-      items.push({ label: "Radio Portal", href: "/broadcast/admin" });
+    if (currentPage !== "broadcast-admin" && currentPage !== "radio-portal") {
+      items.push({ label: "Radio Portal", href: "/radio-portal" });
     }
     // Only show auth on non-home pages
     if (currentPage !== "home") {
@@ -97,9 +97,9 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
                 DJ Portal
               </Link>
             )}
-            {currentPage !== "broadcast-admin" && (
+            {currentPage !== "broadcast-admin" && currentPage !== "radio-portal" && (
               <Link
-                href="/broadcast/admin"
+                href="/radio-portal"
                 className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
               >
                 Radio Portal
