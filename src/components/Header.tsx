@@ -136,8 +136,8 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
               iOS Beta
             </a>
 
-            {/* User/Guest icon - always visible */}
-            <div className="relative hidden sm:block">
+            {/* User/Guest icon - always visible on all screen sizes */}
+            <div className="relative">
               {loading ? (
                 <div className="w-8 h-8 rounded-full bg-gray-800 animate-pulse" />
               ) : isAuthenticated && user ? (
