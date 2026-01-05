@@ -307,22 +307,6 @@ export default function Home() {
               </a>
             </p>
 
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-              <a
-                href="mailto:info@channel-app.com"
-                className="inline-block bg-white text-black px-8 py-4 rounded-xl text-base font-semibold hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(255,255,255,0.15)] transition-all"
-              >
-                Contact Us
-              </a>
-              <Link
-                href="/radio-portal"
-                className="inline-block bg-transparent border border-gray-600 text-white px-8 py-4 rounded-xl text-base font-medium hover:border-white hover:bg-white/5 transition-all"
-              >
-                Radio Portal
-              </Link>
-            </div>
-
             {/* Legal links */}
             <div className="text-sm text-gray-600 space-y-3">
               <p>
