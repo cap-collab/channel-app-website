@@ -23,6 +23,7 @@ export function DJPortalClient() {
     comments: '',
     needsSetupSupport: false,
   });
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [status, setStatus] = useState<FormStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -70,6 +71,10 @@ export function DJPortalClient() {
     }
     if (formData.preferredSlots.length === 0) {
       setErrorMessage('Please select at least one preferred time slot');
+      return false;
+    }
+    if (!agreedToTerms) {
+      setErrorMessage('You must agree to the Broadcast Terms to apply');
       return false;
     }
     return true;
@@ -397,16 +402,29 @@ export function DJPortalClient() {
                 />
               </div>
 
-              {/* Disclaimer */}
+              {/* Terms Agreement */}
               <div className="pt-6 border-t border-gray-800">
-                <p className="text-sm text-gray-500 leading-relaxed">
-                  By applying, you confirm that you&apos;re comfortable broadcasting your set live
-                  and that you have the rights to do so. If you&apos;re streaming from a venue,
-                  please make sure the venue is aware.
-                </p>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={agreedToTerms}
+                    onChange={(e) => setAgreedToTerms(e.target.checked)}
+                    className="mt-1 w-5 h-5 rounded border-gray-700 bg-[#1a1a1a] text-white focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                  />
+                  <span className="text-sm text-gray-300">
+                    I have read and agree to the{' '}
+                    <Link
+                      href="/broadcast-terms"
+                      target="_blank"
+                      className="text-white underline hover:text-gray-300"
+                    >
+                      Channel Broadcast Terms for DJs &amp; Broadcasters
+                    </Link>
+                    , including responsibilities for content rights, licensing, and venue authorization. *
+                  </span>
+                </label>
                 <p className="text-sm text-gray-500 leading-relaxed mt-4">
-                  If you have questions, want to share context, or aren&apos;t sure whether your
-                  setup works, feel free to reach out at{' '}
+                  If you have questions or aren&apos;t sure whether your setup works, reach out at{' '}
                   <a
                     href="mailto:info@channel-app.com"
                     className="text-white hover:underline"

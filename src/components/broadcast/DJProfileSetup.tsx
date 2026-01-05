@@ -41,6 +41,7 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState('');
+  const [venuePermissionsConfirmed, setVenuePermissionsConfirmed] = useState(false);
 
   // Remote DJs who are logged in with a chatUsername have their username locked
   // Venue DJs can always change their display name (ephemeral, shared computer)
@@ -193,6 +194,12 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
       return;
     }
 
+    // Validate venue permissions for venue broadcasts
+    if (broadcastType === 'venue' && !venuePermissionsConfirmed) {
+      setError('You must confirm that you have obtained all required permissions');
+      return;
+    }
+
     // No API call needed - username will be saved when going live
     // This allows the flow to work without Firebase Admin SDK
     onComplete(username.trim(), promoUrl || undefined, promoTitle || undefined);
@@ -257,9 +264,34 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
           </p>
         </div>
 
+        {/* Venue Permissions Confirmation - only for venue broadcasts */}
+        {broadcastType === 'venue' && (
+          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+            <p className="text-gray-300 text-sm mb-3">
+              By starting this broadcast, I represent and warrant that:
+            </p>
+            <ul className="text-gray-400 text-sm space-y-1 mb-4 ml-4">
+              <li>• the venue has authorized this livestream,</li>
+              <li>• all DJs listed on this broadcast are aware of and consent to being livestreamed, and</li>
+              <li>• I am responsible for ensuring the livestream complies with venue policies and applicable laws.</li>
+            </ul>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={venuePermissionsConfirmed}
+                onChange={(e) => setVenuePermissionsConfirmed(e.target.checked)}
+                className="mt-0.5 w-5 h-5 rounded border-gray-600 bg-gray-800 text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
+              />
+              <span className="text-gray-300 text-sm">
+                I represent and warrant that I have obtained all required permissions
+              </span>
+            </label>
+          </div>
+        )}
+
         <button
           type="submit"
-          disabled={!username.trim()}
+          disabled={!username.trim() || (broadcastType === 'venue' && !venuePermissionsConfirmed)}
           className="w-full bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg transition-colors"
         >
           Continue to Go Live

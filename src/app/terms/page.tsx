@@ -17,187 +17,176 @@ export default function TermsPage() {
       <p className="last-updated">
         Channel Media, Inc.
         <br />
-        Last updated: December 2025
+        Last updated: January 2026
       </p>
 
       <h2>1. Acceptance of Terms</h2>
       <p>
-        By accessing or using Channel — whether through the mobile app or the web app — you agree
-        to these Terms of Use.
+        By accessing or using Channel — including the mobile app, web app, and Channel Broadcast — you agree to these Terms of Use.
       </p>
       <p>If you do not agree, do not use Channel.</p>
 
       <h2>2. Eligibility</h2>
-      <p>You must be 16 years or older to use Channel.</p>
+      <p>Channel is intended for users 16 years and older worldwide.</p>
 
-      <h2>3. Description of Service</h2>
-      <p>Channel provides (across mobile and web):</p>
+      <h2>3. Description of the Service</h2>
+      <p>Channel is a platform that enables:</p>
       <ul>
         <li>Live audio streams from third-party radio stations</li>
-        <li>Public chat rooms</li>
-        <li>Show schedules</li>
-        <li>Optional automated &quot;activity messages&quot;</li>
-        <li>Optional local/mobile notifications</li>
-        <li>Optional web email alerts (show reminders, digests)</li>
-        <li>Optional watchlists and favorites</li>
-        <li>BPM and metadata information</li>
+        <li>Live DJ broadcasts through Channel Broadcast</li>
+        <li>Public chat rooms associated with stations and broadcasts</li>
+        <li>Show schedules, metadata, BPM analysis, and listener indicators</li>
+        <li>Optional automated activity messages (Love, Locked In, Favorites)</li>
+        <li>Optional push notifications (mobile)</li>
+        <li>Optional email notifications (web)</li>
+        <li>Watchlists, favorites, and saved searches</li>
+        <li>Deep linking between web and mobile</li>
       </ul>
-      <p>We do not own or control any station content.</p>
+      <p>Channel does not own or control the content streamed by third-party radios or DJs.</p>
 
-      <h2>4. Accounts &amp; Login</h2>
+      <h2>4. Accounts &amp; Authentication</h2>
 
       <h3>4.1 Mobile App</h3>
-      <p>Mobile use is anonymous by default. No account is required.</p>
-      <p>You may optionally sign in via Google, Apple, or email Magic Link to sync your favorites and chat username across devices.</p>
-
-      <h3>4.2 Web App</h3>
-      <p>The web app requires sign-in via Google OAuth, Apple Sign-In, or email Magic Link.</p>
-      <p>When you sign in, we may receive (depending on method):</p>
+      <p>Use is anonymous by default. Users may optionally authenticate using:</p>
       <ul>
-        <li>Email</li>
-        <li>Display name</li>
-        <li>Profile photo</li>
-        <li>Timezone</li>
+        <li>Email and password</li>
+        <li>Email Magic Link</li>
+        <li>Google OAuth</li>
+        <li>Apple Sign-In</li>
       </ul>
-      <p>You agree to keep your account secure and not share access.</p>
+      <p>You are responsible for maintaining the security of your account credentials.</p>
 
-      <h2>5. User Conduct</h2>
-      <p>You agree not to post or transmit:</p>
+      <h2>5. Channel Broadcast (DJ Livestreaming)</h2>
+
+      <h3>5.1 Platform Role</h3>
+      <p>Channel provides technical tools that allow DJs to livestream audio.</p>
+      <p>Channel acts as a hosting platform, not a publisher.</p>
+      <p>DJs are solely responsible for the content they broadcast.</p>
+
+      <h3>5.2 DJ Responsibility</h3>
+      <p>By broadcasting on Channel, DJs represent and warrant that:</p>
+      <ul>
+        <li>They have all necessary rights to stream the audio content</li>
+        <li>They have permission from the venue if broadcasting from a venue</li>
+        <li>Their broadcast complies with applicable laws and venue policies</li>
+      </ul>
+      <p>Channel does not verify licensing or venue authorization.</p>
+
+      <h3>5.3 Broadcast Availability</h3>
+      <p>Channel does not guarantee:</p>
+      <ul>
+        <li>Stream quality or continuity</li>
+        <li>Audience size</li>
+        <li>Successful delivery of a live broadcast</li>
+      </ul>
+      <p>Broadcasts may be interrupted, delayed, or terminated at any time for technical, safety, or compliance reasons.</p>
+
+      <h2>6. User Conduct</h2>
+      <p>You agree not to post, transmit, or broadcast:</p>
       <ul>
         <li>Harassment, threats, or abuse</li>
-        <li>Hate speech (racism, sexism, homophobia, transphobia, etc.)</li>
-        <li>Illegal content</li>
+        <li>Hate speech or discriminatory content</li>
+        <li>Illegal or infringing material</li>
         <li>Sexual or explicit content</li>
-        <li>Spam, ads, or self-promotion</li>
-        <li>Someone else&apos;s personal information</li>
+        <li>Spam or self-promotion unrelated to the broadcast</li>
+        <li>Personal information of others</li>
       </ul>
-      <p>Violations may result in message removal or access restriction.</p>
+      <p>Violations may result in removal, suspension, or permanent restriction.</p>
 
-      <h2>6. User-Generated Content</h2>
+      <h2>7. User-Generated Content &amp; Chat</h2>
 
-      <h3>6.1 Chat Messages</h3>
-      <p>
-        Chat messages are public and visible to anyone tuned into that station.
-      </p>
+      <h3>7.1 Public Chat</h3>
+      <p>Messages posted in chat are public and visible to all listeners.</p>
+      <p>You are responsible for what you post.</p>
 
-      <h3>6.2 @Channel Mentions</h3>
-      <p>
-        Messages that mention &quot;@Channel&quot; are logged separately for developer review and abuse detection.
-      </p>
+      <h3>7.2 Mentions</h3>
+      <p>Users may mention others using @username.</p>
+      <p>Mentions may trigger notifications.</p>
+      <p>Harassing mentions violate these Terms.</p>
 
-      <h3>6.3 Automatic Activity Messages</h3>
-      <p>
-        Channel may post short activity-based messages (ex: &quot;username is loving this
-        show&quot;).
-      </p>
-      <p>These:</p>
+      <h3>7.3 Automated Activity Messages</h3>
+      <p>Channel may generate optional automatic messages based on listening behavior, including:</p>
       <ul>
-        <li>Are optional</li>
-        <li>Can be disabled at any time</li>
-        <li>Include only your username</li>
-        <li>Appear publicly in chat</li>
+        <li>Love reactions</li>
+        <li>Locked In messages (after ~35 minutes of listening)</li>
+        <li>Favorite messages</li>
       </ul>
-      <p>By enabling this option, you acknowledge these messages may appear publicly.</p>
-
-      <h3>6.4 Favorites and Watchlist</h3>
-      <p>
-        You may optionally save favorite shows and add search terms or DJ names to your watchlist.
-      </p>
-      <p>
-        This data is stored in Firestore under your user account and synced across devices.
-      </p>
-
-      <h2>7. External Radio Streams</h2>
-      <p>Channel streams content from third-party broadcasters such as:</p>
-      <p>NTS, Subtle Radio, Dublab, Rinse FM, and others.</p>
-      <p>We are not responsible for:</p>
-      <ul>
-        <li>Schedule accuracy</li>
-        <li>Stream availability or interruptions</li>
-        <li>Copyright or licensing issues related to station content</li>
-        <li>Content quality or appropriateness</li>
-      </ul>
+      <p>These features can be disabled in Settings and are rate-limited.</p>
 
       <h2>8. Notifications</h2>
 
       <h3>8.1 Push Notifications (Mobile)</h3>
-      <p>You may optionally enable push notifications for:</p>
-      <ul>
-        <li>Show starting alerts (for favorited shows)</li>
-        <li>Watchlist matches (when a DJ or search term you follow is playing)</li>
-        <li>Popularity alerts (when a station crosses listener thresholds)</li>
-        <li>Chat mentions (when someone @mentions you)</li>
-      </ul>
-      <p>These can be disabled at any time in Settings.</p>
-
-      <h3>8.2 Email Notifications (Web)</h3>
-      <p>You may optionally enable email notifications for:</p>
+      <p>Optional notifications may include:</p>
       <ul>
         <li>Show reminders</li>
-        <li>Watchlist matches</li>
-        <li>Mention alerts</li>
         <li>Popularity alerts</li>
+        <li>Mentions</li>
+        <li>Chat activity</li>
       </ul>
-      <p>These can be disabled at any time in your account settings.</p>
 
-      <h2>9. Disclaimers</h2>
+      <h3>8.2 Email Notifications (Web)</h3>
+      <p>Optional emails may include:</p>
+      <ul>
+        <li>Show reminders</li>
+        <li>Watchlist updates</li>
+        <li>Digest emails</li>
+      </ul>
+      <p>You may disable notifications at any time.</p>
+
+      <h2>9. Third-Party Services</h2>
+      <p>Channel integrates third-party services including:</p>
+      <ul>
+        <li>Firebase (authentication, storage, notifications)</li>
+        <li>LiveKit (live streaming infrastructure)</li>
+        <li>Resend (email delivery)</li>
+      </ul>
+      <p>Channel is not responsible for third-party service interruptions.</p>
+
+      <h2>10. Disclaimers</h2>
       <p>Channel is provided &quot;as is&quot; without warranties of any kind.</p>
-      <p>We do not guarantee:</p>
-      <ul>
-        <li>Continuous or error-free service</li>
-        <li>Availability of specific stations</li>
-        <li>Accuracy of schedules or metadata</li>
-      </ul>
+      <p>We do not guarantee availability, accuracy, or uninterrupted service.</p>
 
-      <h2>10. Limitation of Liability</h2>
-      <p>To the maximum extent permitted by law, Channel Media, Inc. is not liable for:</p>
+      <h2>11. Limitation of Liability</h2>
+      <p>To the fullest extent permitted by law, Channel Media, Inc. is not liable for:</p>
       <ul>
-        <li>Service interruptions</li>
+        <li>Live broadcast interruptions or failures</li>
+        <li>Copyright or venue disputes</li>
+        <li>User-generated content</li>
+        <li>Chat interactions</li>
         <li>Data loss</li>
-        <li>User interactions in chat</li>
-        <li>Third-party station content</li>
-        <li>Device issues, browser issues, or app crashes</li>
         <li>Unauthorized account access</li>
       </ul>
+      <p>Your sole remedy is to stop using Channel.</p>
 
-      <h2>11. Reporting Issues</h2>
-      <p>You may report:</p>
+      <h2>12. Reporting &amp; Enforcement</h2>
+      <p>You may report issues via:</p>
       <ul>
-        <li>Bugs</li>
-        <li>Abuse</li>
-        <li>Content violations</li>
+        <li>Shaking your device (mobile)</li>
+        <li>Mentioning @Channel in chat</li>
+        <li>Emailing <a href="mailto:support@channel-app.com">support@channel-app.com</a></li>
       </ul>
-      <p>
-        By shaking your mobile device or emailing{" "}
-        <a href="mailto:support@channel-app.com">support@channel-app.com</a>.
-      </p>
-
-      <h2>12. Governing Law</h2>
-      <p>
-        These Terms are governed by U.S. federal law and the laws of the State of California.
-      </p>
+      <p>Channel may remove content or restrict access at its discretion.</p>
 
       <h2>13. Account Deletion</h2>
-      <p>You may delete your account at any time:</p>
-      <ul>
-        <li>On web: via account settings</li>
-        <li>On mobile: via Settings &rarr; Delete My Account</li>
-      </ul>
+      <p>Web users may delete their account via Settings.</p>
+      <p>Deletion removes associated user data as described in the Privacy Policy.</p>
+
+      <h2>14. Governing Law</h2>
       <p>
-        Account deletion removes your user record, favorites, watchlist, username, and all associated data from our systems.
+        These Terms are governed by U.S. federal law and the laws of California, except where EU/UK consumer protections apply.
       </p>
 
-      <h2>14. Contact</h2>
+      <h2>15. Contact</h2>
       <p>
         Channel Media, Inc.
         <br />
-        General contact: <a href="mailto:info@channel-app.com">info@channel-app.com</a>
+        <a href="mailto:info@channel-app.com">info@channel-app.com</a>
         <br />
-        Safety/abuse: <a href="mailto:support@channel-app.com">support@channel-app.com</a>
+        <a href="mailto:support@channel-app.com">support@channel-app.com</a>
       </p>
 
       <footer className="legal-footer">
-        <p>&copy; 2025 Channel Media, Inc.</p>
+        <p>&copy; 2026 Channel Media, Inc.</p>
         <p>
           <a href="mailto:info@channel-app.com">info@channel-app.com</a>
         </p>
