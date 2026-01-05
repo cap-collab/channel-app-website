@@ -271,109 +271,27 @@ export function RadioPortalClient() {
       <main className="p-8">
         {/* Intro Section */}
         <div className="max-w-xl mx-auto pt-12 pb-12">
-          {/* First paragraph + Contact Us button */}
+          <h1 className="text-3xl font-bold mb-6">Radio Portal</h1>
+
+          {/* First paragraph */}
           <div className="text-gray-400 leading-relaxed mb-8">
             <p>
               Channel features a curated selection of independent radio stations across web and mobile — including both established radios and new ones getting started.
             </p>
           </div>
 
-          <div className="text-center mb-10">
-            <a
-              href="#contact-buttons"
-              className="inline-block bg-white text-black px-8 py-3 rounded-xl text-base font-semibold hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(255,255,255,0.15)] transition-all"
-            >
-              Contact us
-            </a>
-          </div>
-
           {/* Remaining intro text */}
           <div className="space-y-6 text-gray-400 leading-relaxed">
             <p>
-              If you&apos;re looking to launch a radio, Channel provides the tools to do so: live streaming, scheduling, recording, and monetization features, all designed to support live moments and community, without ads.
+              <strong className="text-white">If you&apos;re looking to launch a radio</strong>, Channel provides the tools to do so: live streaming, scheduling, recording, and monetization features, all designed to support live moments and community, without ads.
             </p>
             <p>
-              If you already run a radio, Channel can help you extend your reach beyond your own site, connect with new listeners, activate real-time community chat around your shows, and experiment with direct fan support — all at no cost.
-            </p>
-          </div>
-        </div>
-
-        {/* Features Section - 3 columns */}
-        <div className="max-w-6xl mx-auto py-12 border-t border-gray-800">
-          <div className="flex flex-col md:flex-row md:divide-x divide-gray-800">
-            {/* Independent */}
-            <div className="flex-1 py-8 md:py-0 md:px-8 first:md:pl-0 last:md:pr-0 border-b md:border-b-0 border-gray-800 last:border-b-0 flex flex-col items-center">
-              <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 text-center">
-                Independent
-              </h2>
-              <p className="text-gray-400 leading-relaxed text-center text-sm mb-6">
-                Launch and run your own radio, on your own terms. Each radio on Channel has a dedicated page across web and mobile, with its schedule, shows, and identity clearly presented — and customizable to reflect your crew.
-              </p>
-              <div className="flex w-full justify-center items-center gap-3 h-40">
-                <img
-                  src="/radio-portal/independent.png"
-                  alt="Channel mobile app showing radio schedule"
-                  className="w-20 rounded-lg shadow-lg"
-                />
-                <img
-                  src="/radio-portal/independent2.png"
-                  alt="Radio station page"
-                  className="w-40 rounded-lg shadow-lg"
-                />
-              </div>
-            </div>
-
-            {/* Seamless */}
-            <div className="flex-1 py-8 md:py-0 md:px-8 first:md:pl-0 last:md:pr-0 border-b md:border-b-0 border-gray-800 last:border-b-0 flex flex-col items-center">
-              <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 text-center">
-                Seamless
-              </h2>
-              <p className="text-gray-400 leading-relaxed text-center text-sm mb-6">
-                Schedule and broadcast live shows from anywhere — a venue, a studio, or a home setup — and deliver a premium experience for listeners on web and mobile. Channel features ensure every show feels live, shared, and present.
-              </p>
-              <div className="flex w-full justify-center items-end gap-3 h-40">
-                <img
-                  src="/radio-portal/seamless.png"
-                  alt="Livestream setup options"
-                  className="w-32 rounded-lg shadow-lg self-start"
-                />
-                <img
-                  src="/radio-portal/seamless2.png"
-                  alt="Create a show form"
-                  className="w-28 rounded-lg shadow-lg self-end"
-                />
-              </div>
-            </div>
-
-            {/* Sustainable */}
-            <div className="flex-1 py-8 md:py-0 md:px-8 first:md:pl-0 last:md:pr-0 border-b md:border-b-0 border-gray-800 last:border-b-0 flex flex-col items-center">
-              <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 text-center">
-                Sustainable
-              </h2>
-              <p className="text-gray-400 leading-relaxed text-center text-sm mb-6">
-                Enable direct support through tipping, exclusive content, and sales. Support flows from listeners to the people behind the radio — DJs, producers, and hosts — without ads and without intermediaries.
-              </p>
-              <div className="flex justify-center h-40 items-center">
-                <img
-                  src="/radio-portal/sustainable2.png"
-                  alt="Tips, merch, and Bandcamp sales"
-                  className="h-full w-auto rounded-lg shadow-lg"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* CTA Section */}
-        <div id="contact-buttons" className="max-w-xl mx-auto py-12 border-t border-gray-800 scroll-mt-20">
-          <div className="text-gray-400 leading-relaxed mb-10 text-center">
-            <p>
-              We&apos;re selective and intentional about the radios we feature. Channel is built around live culture and participation, not passive listening. If that resonates with how you operate — or how you want to operate — we&apos;d love to hear from you.
+              <strong className="text-white">If you already run a radio</strong>, Channel can help you extend your reach beyond your own site, connect with new listeners, activate real-time community chat around your shows, and experiment with direct fan support — all at no cost.
             </p>
           </div>
 
-          {/* Two buttons side by side - always visible */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-8">
+          {/* Two buttons side by side */}
+          <div className="flex flex-col sm:flex-row gap-4 mt-10">
             <button
               onClick={() => setViewState(viewState === 'feature-form' ? 'initial' : 'feature-form')}
               className={`flex-1 px-6 py-4 rounded-xl text-base font-semibold transition-all ${
@@ -397,7 +315,7 @@ export function RadioPortalClient() {
           </div>
 
           {viewState === 'launch-form' && (
-            <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
+            <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6 mt-6">
               <h2 className="text-xl font-semibold mb-6">Launch a Radio</h2>
 
               <form onSubmit={handleLaunchSubmit} className="space-y-4">
@@ -499,7 +417,7 @@ export function RadioPortalClient() {
           )}
 
           {viewState === 'feature-form' && (
-            <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
+            <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6 mt-6">
               <h2 className="text-xl font-semibold mb-6">Feature Your Station</h2>
 
               <form onSubmit={handleFeatureSubmit} className="space-y-4">
@@ -629,6 +547,72 @@ export function RadioPortalClient() {
               </form>
             </div>
           )}
+        </div>
+
+        {/* Features Section - 3 columns */}
+        <div className="max-w-6xl mx-auto py-12 border-t border-gray-800">
+          <div className="flex flex-col md:flex-row md:divide-x divide-gray-800">
+            {/* Independent */}
+            <div className="flex-1 py-8 md:py-0 md:px-8 first:md:pl-0 last:md:pr-0 border-b md:border-b-0 border-gray-800 last:border-b-0 flex flex-col items-center">
+              <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 text-center">
+                Independent
+              </h2>
+              <p className="text-gray-400 leading-relaxed text-center text-sm mb-6">
+                Launch and run your own radio, on your own terms. Each radio on Channel has a dedicated page across web and mobile, with its schedule, shows, and identity clearly presented — and customizable to reflect your crew.
+              </p>
+              <div className="flex w-full justify-center items-center gap-3 h-40">
+                <img
+                  src="/radio-portal/independent.png"
+                  alt="Channel mobile app showing radio schedule"
+                  className="w-20 rounded-lg shadow-lg"
+                />
+                <img
+                  src="/radio-portal/independent2.png"
+                  alt="Radio station page"
+                  className="w-40 rounded-lg shadow-lg"
+                />
+              </div>
+            </div>
+
+            {/* Seamless */}
+            <div className="flex-1 py-8 md:py-0 md:px-8 first:md:pl-0 last:md:pr-0 border-b md:border-b-0 border-gray-800 last:border-b-0 flex flex-col items-center">
+              <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 text-center">
+                Seamless
+              </h2>
+              <p className="text-gray-400 leading-relaxed text-center text-sm mb-6">
+                Schedule and broadcast live shows from anywhere — a venue, a studio, or a home setup — and deliver a premium experience for listeners on web and mobile. Channel features ensure every show feels live, shared, and present.
+              </p>
+              <div className="flex w-full justify-center items-end gap-3 h-40">
+                <img
+                  src="/radio-portal/seamless.png"
+                  alt="Livestream setup options"
+                  className="w-32 rounded-lg shadow-lg self-start"
+                />
+                <img
+                  src="/radio-portal/seamless2.png"
+                  alt="Create a show form"
+                  className="w-28 rounded-lg shadow-lg self-end"
+                />
+              </div>
+            </div>
+
+            {/* Sustainable */}
+            <div className="flex-1 py-8 md:py-0 md:px-8 first:md:pl-0 last:md:pr-0 border-b md:border-b-0 border-gray-800 last:border-b-0 flex flex-col items-center">
+              <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 text-center">
+                Sustainable
+              </h2>
+              <p className="text-gray-400 leading-relaxed text-center text-sm mb-6">
+                Enable direct support through tipping, exclusive content, and sales. Support flows from listeners to the people behind the radio — DJs, producers, and hosts — without ads and without intermediaries.
+              </p>
+              <div className="flex justify-center h-40 items-center">
+                <img
+                  src="/radio-portal/sustainable2.png"
+                  alt="Tips, merch, and Bandcamp sales"
+                  className="h-full w-auto rounded-lg shadow-lg"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </main>
     </div>
