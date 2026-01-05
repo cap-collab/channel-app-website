@@ -505,7 +505,7 @@ export function SlotModal({
           </h2>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-800 rounded-lg transition-colors"
+            className="p-1 hover:bg-black rounded-lg transition-colors"
           >
             <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -517,7 +517,7 @@ export function SlotModal({
         <div className="p-4 space-y-4">
           {/* Broadcast link (for existing slots) */}
           {isEditing && (
-            <div className="bg-gray-800 rounded-lg p-3">
+            <div className="bg-black rounded-lg p-3">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-gray-400">Broadcast Link</span>
                 <button
@@ -545,7 +545,7 @@ export function SlotModal({
               value={showName}
               onChange={(e) => setShowName(e.target.value)}
               placeholder="e.g., Sunday Sessions"
-              className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
+              className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
             />
           </div>
 
@@ -558,7 +558,7 @@ export function SlotModal({
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
+                  className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
                 />
               </div>
               <div>
@@ -568,7 +568,7 @@ export function SlotModal({
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   min={startDate}
-                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
+                  className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
                 />
               </div>
             </div>
@@ -578,7 +578,7 @@ export function SlotModal({
                 <select
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
+                  className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
                 >
                   {TIME_OPTIONS.map(opt => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -590,7 +590,7 @@ export function SlotModal({
                 <select
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
+                  className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
                 >
                   {TIME_OPTIONS.map(opt => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -601,7 +601,7 @@ export function SlotModal({
 
             {/* Overnight indicator */}
             {isOvernight && (
-              <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 text-sm">
+              <div className="bg-black/50 border border-gray-700 rounded-lg p-3 text-sm">
                 <div className="flex items-center gap-2 text-gray-300">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
@@ -625,7 +625,7 @@ export function SlotModal({
                 className={`flex-1 p-3 rounded-lg border transition-colors ${
                   broadcastType === 'venue'
                     ? 'bg-accent/20 border-accent text-white'
-                    : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600'
+                    : 'bg-black border-gray-700 text-gray-400 hover:border-gray-600'
                 }`}
               >
                 <div className="flex items-center gap-2 justify-center">
@@ -643,7 +643,7 @@ export function SlotModal({
                 className={`flex-1 p-3 rounded-lg border transition-colors ${
                   broadcastType === 'remote'
                     ? 'bg-blue-600/20 border-blue-500 text-white'
-                    : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600'
+                    : 'bg-black border-gray-700 text-gray-400 hover:border-gray-600'
                 }`}
               >
                 <div className="flex items-center gap-2 justify-center">
@@ -663,7 +663,7 @@ export function SlotModal({
               <label className="block text-sm text-gray-400 mb-2">DJ Lineup</label>
               <div className="space-y-2">
                 {djSlots.map((dj, index) => (
-                  <div key={dj.id} className="bg-gray-800 rounded-lg p-3">
+                  <div key={dj.id} className="bg-black rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-xs text-gray-500 w-6">#{index + 1}</span>
                       <input
@@ -747,7 +747,7 @@ export function SlotModal({
                 value={djName}
                 onChange={(e) => setDjName(e.target.value)}
                 placeholder="e.g., DJ Shadow (optional)"
-                className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
+                className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
               />
             </div>
           )}
@@ -770,7 +770,7 @@ export function SlotModal({
 
           {/* Recording download (for completed slots with recording) */}
           {isEditing && slot?.status === 'completed' && (
-            <div className="bg-gray-800 rounded-lg p-3">
+            <div className="bg-black rounded-lg p-3">
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-sm text-gray-400">Recording</span>
@@ -828,7 +828,7 @@ export function SlotModal({
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-gray-400 hover:bg-gray-800 rounded-lg transition-colors"
+              className="px-4 py-2 text-gray-400 hover:bg-black rounded-lg transition-colors"
             >
               Cancel
             </button>

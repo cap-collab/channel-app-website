@@ -273,7 +273,7 @@ export function BroadcastSchedule({
                 return (
                   <div
                     key={slot.id}
-                    className={`absolute left-1 right-1 rounded-lg overflow-hidden transition-colors bg-gray-800/80 border border-accent ${
+                    className={`absolute left-1 right-1 rounded-lg overflow-hidden transition-colors bg-black border border-accent ${
                       isPast ? 'opacity-60' : ''
                     }`}
                     style={{ top: `${top}px`, height: `${height}px` }}

@@ -177,7 +177,7 @@ export function DJChatPanel({
       {/* Header */}
       <button
         onClick={onToggleCollapse}
-        className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors"
+        className="w-full flex items-center justify-between p-4 hover:bg-black transition-colors"
       >
         <div className="flex items-center gap-2">
           <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -273,7 +273,7 @@ export function DJChatPanel({
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 placeholder="Type a message..."
-                className="flex-1 bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500"
+                className="flex-1 bg-black text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500"
                 maxLength={280}
                 disabled={isSending}
               />
@@ -335,7 +335,7 @@ export function DJChatPanel({
                   value={promoUrl}
                   onChange={(e) => setPromoUrl(e.target.value)}
                   placeholder="https://..."
-                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500"
+                  className="w-full bg-black text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500"
                 />
               </div>
 
@@ -346,7 +346,7 @@ export function DJChatPanel({
                   value={promoTitle}
                   onChange={(e) => setPromoTitle(e.target.value)}
                   placeholder="New album out now!"
-                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500"
+                  className="w-full bg-black text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500"
                   maxLength={100}
                 />
               </div>
@@ -388,7 +388,7 @@ export function DJChatPanel({
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
                   placeholder="YourDJName"
-                  className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500"
+                  className="w-full bg-black text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500"
                   maxLength={20}
                 />
                 <p className="text-gray-500 text-xs mt-1">

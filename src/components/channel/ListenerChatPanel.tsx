@@ -85,7 +85,7 @@ function ChatMessage({
   }
 
   return (
-    <div className={`py-2 px-4 ${isOwnMessage ? 'bg-gray-800/30' : ''}`}>
+    <div className={`py-2 px-4 ${isOwnMessage ? 'bg-black/30' : ''}`}>
       <div className="flex items-start gap-2">
         <div className="flex-1">
           <div className="flex items-center gap-2">
@@ -181,7 +181,7 @@ function UsernameSetup({
             }}
             onKeyDown={handleKeyDown}
             placeholder="Username"
-            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-gray-500"
+            className="w-full px-4 py-3 bg-black border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-gray-500"
             maxLength={20}
             autoComplete="off"
             autoCapitalize="none"
@@ -445,7 +445,7 @@ export function ListenerChatPanel({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder={isLive ? "Type a message..." : "Chat available when live"}
-            className="flex-1 bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500 disabled:text-gray-500 disabled:cursor-not-allowed"
+            className="flex-1 bg-black text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500 disabled:text-gray-500 disabled:cursor-not-allowed"
             maxLength={280}
             disabled={isSending || !isLive}
           />

@@ -285,7 +285,7 @@ function ShowBlockComponent({
 
         {/* BPM badge in bottom right corner */}
         {badgeContent && (
-          <div className="absolute bottom-1 right-1 text-[10px] text-gray-400 bg-gray-800/80 px-1.5 py-0.5 rounded flex items-center gap-1">
+          <div className="absolute bottom-1 right-1 text-[10px] text-gray-400 bg-black px-1.5 py-0.5 rounded flex items-center gap-1">
             <span>{badgeContent.icon}</span>
             <span>{badgeContent.text}</span>
           </div>
