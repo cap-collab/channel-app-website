@@ -1,5 +1,5 @@
 import { EgressClient } from 'livekit-server-sdk';
-import { SegmentedFileOutput, SegmentedFileProtocol, S3Upload } from '@livekit/protocol';
+import { SegmentedFileOutput, SegmentedFileProtocol, S3Upload, EncodedFileOutput, EncodedFileType } from '@livekit/protocol';
 import { NextRequest, NextResponse } from 'next/server';
 
 const livekitHost = process.env.LIVEKIT_URL?.replace('wss://', 'https://') || '';
@@ -14,7 +14,7 @@ const r2Bucket = process.env.R2_BUCKET_NAME || '';
 const r2Endpoint = `https://${r2AccountId}.r2.cloudflarestorage.com`;
 const r2PublicUrl = process.env.R2_PUBLIC_URL || '';
 
-// Start HLS egress for a room
+// Start HLS + OGG egress for a room
 export async function POST(request: NextRequest) {
   try {
     const { room } = await request.json();
@@ -53,22 +53,56 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Start room composite egress
-    const egress = await egressClient.startRoomCompositeEgress(
+    // Start room composite egress for HLS streaming
+    const hlsEgress = await egressClient.startRoomCompositeEgress(
       room,
       { segments: segmentOutput },
       { audioOnly: true }
     );
 
+    // Start a second egress for MP4 file recording (works on iOS/Safari + SoundCloud)
+    const recordingS3Upload = new S3Upload({
+      accessKey: r2AccessKey,
+      secret: r2SecretKey,
+      bucket: r2Bucket,
+      region: 'auto',
+      endpoint: r2Endpoint,
+      forcePathStyle: true,
+    });
+
+    const mp4Output = new EncodedFileOutput({
+      fileType: EncodedFileType.MP4,
+      filepath: `recordings/${room}/{room_name}-{time}.mp4`,
+      output: {
+        case: 's3',
+        value: recordingS3Upload,
+      },
+    });
+
+    let recordingEgressId: string | null = null;
+    try {
+      const recordingEgress = await egressClient.startRoomCompositeEgress(
+        room,
+        { file: mp4Output },
+        { audioOnly: true }
+      );
+      recordingEgressId = recordingEgress.egressId;
+      console.log('MP4 recording egress started:', recordingEgressId);
+    } catch (recordingError) {
+      // Log but don't fail - HLS streaming is more important
+      console.error('Failed to start MP4 recording egress:', recordingError);
+    }
+
     // Construct the HLS URL using public R2 subdomain
     const hlsUrl = `${r2PublicUrl}/${room}/live.m3u8`;
 
     return NextResponse.json({
-      egressId: egress.egressId,
-      status: egress.status,
+      egressId: hlsEgress.egressId,
+      recordingEgressId,
+      status: hlsEgress.status,
       room,
       hlsUrl,
-      message: 'HLS egress started',
+      message: recordingEgressId ? 'HLS + MP4 recording started' : 'HLS egress started (recording failed)',
     });
 
   } catch (error: unknown) {

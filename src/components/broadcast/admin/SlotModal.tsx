@@ -18,8 +18,6 @@ interface SlotModalProps {
   onDelete?: (slotId: string) => Promise<void>;
   initialStartTime?: Date;
   initialEndTime?: Date;
-  venueName: string;
-  venueSlug: string;
 }
 
 interface LocalDJSlot {
@@ -208,8 +206,6 @@ export function SlotModal({
   onDelete,
   initialStartTime,
   initialEndTime,
-  venueName,
-  venueSlug,
 }: SlotModalProps) {
   const [showName, setShowName] = useState('');
   const [djName, setDjName] = useState('');
@@ -249,7 +245,7 @@ export function SlotModal({
         setEndDate(formatLocalDate(end));
         setStartTime(snapToHalfHour(start.toTimeString().slice(0, 5)));
         setEndTime(snapToHalfHour(end.toTimeString().slice(0, 5)));
-        setBroadcastType(slot.broadcastType || 'venue');
+        setBroadcastType(slot.broadcastType || 'remote');
 
         // Convert DJ slots to local format with dates
         if (slot.djSlots && slot.djSlots.length > 0) {
@@ -277,7 +273,7 @@ export function SlotModal({
         setEndDate(formatLocalDate(initialEndTime));
         setStartTime(snapToHalfHour(initialStartTime.toTimeString().slice(0, 5)));
         setEndTime(snapToHalfHour(initialEndTime.toTimeString().slice(0, 5)));
-        setBroadcastType('venue');
+        setBroadcastType('remote');
         setDjSlots([]);
       }
     }
@@ -381,9 +377,7 @@ export function SlotModal({
 
   const copyBroadcastLink = async () => {
     if (!slot) return;
-    const url = slot.broadcastType === 'venue'
-      ? `${window.location.origin}/broadcast/${venueSlug}`
-      : `${window.location.origin}/broadcast/live?token=${slot.broadcastToken}`;
+    const url = `${window.location.origin}/broadcast/live?token=${slot.broadcastToken}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
@@ -494,9 +488,7 @@ export function SlotModal({
   if (!isOpen) return null;
 
   const broadcastUrl = slot
-    ? slot.broadcastType === 'venue'
-      ? `${typeof window !== 'undefined' ? window.location.origin : ''}/broadcast/${venueSlug}`
-      : `${typeof window !== 'undefined' ? window.location.origin : ''}/broadcast/live?token=${slot.broadcastToken}`
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/broadcast/live?token=${slot.broadcastToken}`
     : '';
 
   return (
@@ -641,7 +633,7 @@ export function SlotModal({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  <span className="font-medium">{venueName}</span>
+                  <span className="font-medium">Venue</span>
                 </div>
                 <p className="text-xs mt-1 opacity-70">At the venue CDJs</p>
               </button>
@@ -773,6 +765,48 @@ export function SlotModal({
               }`}>
                 {slot?.status}
               </span>
+            </div>
+          )}
+
+          {/* Recording download (for completed slots with recording) */}
+          {isEditing && slot?.status === 'completed' && (
+            <div className="bg-gray-800 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm text-gray-400">Recording</span>
+                  {slot.recordingStatus === 'ready' && slot.recordingUrl ? (
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-gray-500">
+                        {slot.recordingDuration
+                          ? `${Math.floor(slot.recordingDuration / 60)}:${String(Math.floor(slot.recordingDuration % 60)).padStart(2, '0')}`
+                          : 'Ready'}
+                      </span>
+                    </div>
+                  ) : slot.recordingStatus === 'recording' ? (
+                    <p className="text-xs text-yellow-500 mt-1">Recording in progress...</p>
+                  ) : slot.recordingStatus === 'processing' ? (
+                    <p className="text-xs text-blue-400 mt-1">Processing...</p>
+                  ) : slot.recordingStatus === 'failed' ? (
+                    <p className="text-xs text-red-400 mt-1">Recording failed</p>
+                  ) : (
+                    <p className="text-xs text-gray-500 mt-1">No recording available</p>
+                  )}
+                </div>
+                {slot.recordingStatus === 'ready' && slot.recordingUrl && (
+                  <a
+                    href={slot.recordingUrl}
+                    download
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Download
+                  </a>
+                )}
+              </div>
             </div>
           )}
         </div>

@@ -25,12 +25,6 @@ export interface DJSlot {
   promoTitle?: string;       // Optional title for promo
 }
 
-// Broadcaster account settings (stored in users collection)
-export interface BroadcasterSettings {
-  venueName: string;         // Display name: "Better Tomorrow"
-  venueSlug: string;         // URL slug: "bettertomorrow"
-}
-
 // Generic timestamp interface that works with both Admin and Client SDK
 export interface FirestoreTimestamp {
   toMillis(): number;
@@ -51,14 +45,19 @@ export interface BroadcastSlot {
   createdAt: FirestoreTimestamp;
   createdBy: string;           // Owner's UID
   status: BroadcastSlotStatus;
-  broadcastType: BroadcastType; // 'venue' = permanent URL, 'remote' = unique token
-  venueSlug?: string;          // URL slug for venue broadcast page
+  broadcastType: BroadcastType; // 'venue' or 'remote' - determines DJ journey
   // Live DJ info (for single-DJ broadcasts)
   liveDjUserId?: string;       // Firebase UID of the DJ who went live
   liveDjUsername?: string;     // Their chat username
   // Show-level promo (default for all DJs)
   showPromoUrl?: string;
   showPromoTitle?: string;
+  // Recording (for downloadable audio files)
+  egressId?: string;              // HLS egress ID
+  recordingEgressId?: string;     // MP4 file egress ID
+  recordingUrl?: string;          // Public URL to download file
+  recordingStatus?: 'recording' | 'processing' | 'ready' | 'failed';
+  recordingDuration?: number;     // Duration in seconds
 }
 
 // Serialized version for API responses (timestamps as numbers)
@@ -75,15 +74,23 @@ export interface BroadcastSlotSerialized {
   createdAt: number;
   createdBy: string;
   status: BroadcastSlotStatus;
-  broadcastType: BroadcastType;
-  venueSlug?: string;          // URL slug for venue broadcast page
+  broadcastType: BroadcastType; // 'venue' or 'remote' - determines DJ journey
   // Live DJ info (for single-DJ broadcasts)
   liveDjUserId?: string;
   liveDjUsername?: string;
   // Show-level promo
   showPromoUrl?: string;
   showPromoTitle?: string;
+  // Recording (for downloadable audio files)
+  egressId?: string;
+  recordingEgressId?: string;
+  recordingUrl?: string;
+  recordingStatus?: 'recording' | 'processing' | 'ready' | 'failed';
+  recordingDuration?: number;
 }
+
+// Recording status type
+export type RecordingStatus = 'recording' | 'processing' | 'ready' | 'failed';
 
 // State for the broadcast hook
 export interface BroadcastState {
@@ -92,6 +99,7 @@ export interface BroadcastState {
   isPublishing: boolean;
   isLive: boolean;              // Egress is running
   egressId: string | null;
+  recordingEgressId: string | null;  // MP4 file egress ID for recording
   hlsUrl: string | null;
   roomName: string;
   error: string | null;

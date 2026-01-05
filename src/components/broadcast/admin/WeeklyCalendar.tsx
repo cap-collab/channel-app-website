@@ -10,8 +10,6 @@ interface WeeklyCalendarProps {
   onUpdateSlot?: (slotId: string, updates: { startTime?: number; endTime?: number }) => Promise<void>;
   currentWeekStart: Date;
   onWeekChange: (newStart: Date) => void;
-  venueName: string;
-  venueSlug: string;
 }
 
 interface ContextMenuState {
@@ -41,8 +39,6 @@ export function WeeklyCalendar({
   onUpdateSlot,
   currentWeekStart,
   onWeekChange,
-  venueName,
-  venueSlug,
 }: WeeklyCalendarProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ day: number; hour: number } | null>(null);
@@ -521,9 +517,7 @@ export function WeeklyCalendar({
 
   // Context menu handlers
   const getBroadcastUrl = (slot: BroadcastSlotSerialized) => {
-    return slot.broadcastType === 'venue'
-      ? `${window.location.origin}/broadcast/${venueSlug}`
-      : `${window.location.origin}/broadcast/live?token=${slot.broadcastToken}`;
+    return `${window.location.origin}/broadcast/live?token=${slot.broadcastToken}`;
   };
 
   const handleCopyLink = async () => {
@@ -584,7 +578,7 @@ export function WeeklyCalendar({
           <div className="flex items-center gap-3 text-xs">
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded bg-accent"></div>
-              <span className="text-gray-400">{venueName}</span>
+              <span className="text-gray-400">Venue</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded bg-blue-600"></div>

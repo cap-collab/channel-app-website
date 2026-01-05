@@ -65,8 +65,7 @@ export async function POST(
       createdAt: Timestamp.now(),
       createdBy,
       status: 'scheduled',
-      broadcastType: 'remote',
-      venueSlug: null,
+      broadcastType: application.locationType === 'venue' ? 'venue' : 'remote',
     };
 
     const docRef = await db.collection('broadcast-slots').add(slotData);
@@ -83,7 +82,7 @@ export async function POST(
       createdAt: Date.now(),
       createdBy,
       status: 'scheduled',
-      broadcastType: 'remote',
+      broadcastType: application.locationType === 'venue' ? 'venue' : 'remote',
     };
 
     const broadcastUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com'}/broadcast/live?token=${broadcastToken}`;

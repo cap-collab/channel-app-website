@@ -43,8 +43,13 @@ function serializeSlot(docId: string, data: Record<string, unknown>): BroadcastS
     createdAt: (data.createdAt as { toMillis: () => number })?.toMillis() || 0,
     createdBy: data.createdBy as string,
     status: data.status as BroadcastSlotSerialized['status'],
-    broadcastType: (data.broadcastType as BroadcastType) || 'venue',
-    venueSlug: data.venueSlug as string | undefined,
+    broadcastType: (data.broadcastType as BroadcastType) || 'remote',
+    // Recording fields
+    egressId: data.egressId as string | undefined,
+    recordingEgressId: data.recordingEgressId as string | undefined,
+    recordingUrl: data.recordingUrl as string | undefined,
+    recordingStatus: data.recordingStatus as BroadcastSlotSerialized['recordingStatus'],
+    recordingDuration: data.recordingDuration as number | undefined,
   };
 }
 
@@ -75,16 +80,14 @@ export async function createSlot(data: {
   endTime: number;
   createdBy: string;
   broadcastType?: BroadcastType;
-  venueSlug?: string;
 }): Promise<{ slot: BroadcastSlotSerialized; broadcastUrl: string }> {
   if (!db) throw new Error('Firestore not initialized');
 
-  const broadcastType = data.broadcastType || 'venue';
+  const broadcastType = data.broadcastType || 'remote';
   const startTimestamp = Timestamp.fromMillis(data.startTime);
   const endTimestamp = Timestamp.fromMillis(data.endTime);
   const tokenExpiresAt = Timestamp.fromMillis(data.endTime + 60 * 60 * 1000);
   const broadcastToken = generateToken();
-  const venueSlug = data.venueSlug || 'venue';
 
   const slotData: Record<string, unknown> = {
     stationId: STATION_ID,
@@ -99,7 +102,6 @@ export async function createSlot(data: {
     createdBy: data.createdBy,
     status: 'scheduled',
     broadcastType,
-    venueSlug,
   };
 
   const docRef = await addDoc(collection(db, COLLECTION), slotData);
@@ -118,13 +120,10 @@ export async function createSlot(data: {
     createdBy: data.createdBy,
     status: 'scheduled',
     broadcastType,
-    venueSlug,
   };
 
-  // Venue slots use permanent URL, remote slots get unique token URL
-  const broadcastUrl = broadcastType === 'venue'
-    ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com'}/broadcast/${venueSlug}`
-    : `${process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com'}/broadcast/live?token=${broadcastToken}`;
+  // All slots use token URLs
+  const broadcastUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com'}/broadcast/live?token=${broadcastToken}`;
 
   return { slot, broadcastUrl };
 }
@@ -222,58 +221,3 @@ export async function validateToken(token: string): Promise<{
   return { valid: true, slot, scheduleStatus, message };
 }
 
-// Get current and next venue slots for the venue broadcast page
-export async function getVenueSlots(stationId: string = STATION_ID): Promise<{
-  currentSlot: BroadcastSlotSerialized | null;
-  nextSlot: BroadcastSlotSerialized | null;
-}> {
-  if (!db) throw new Error('Firestore not initialized');
-
-  const now = Date.now();
-
-  // Find venue slots - query all slots for station and filter by type in memory
-  // Uses desc order to match existing index (stationId asc, startTime desc)
-  const venueQuery = query(
-    collection(db, COLLECTION),
-    where('stationId', '==', stationId),
-    orderBy('startTime', 'desc')
-  );
-
-  const snapshot = await getDocs(venueQuery);
-  const slots: BroadcastSlotSerialized[] = [];
-
-  snapshot.forEach((doc) => {
-    const data = doc.data();
-    // Include slots that are venue type OR don't have broadcastType set (legacy)
-    const broadcastType = data.broadcastType || 'venue';
-    if (broadcastType !== 'venue') return; // Skip remote slots
-
-    slots.push(serializeSlot(doc.id, data));
-  });
-
-  // Sort ascending for finding current/next (query returns desc)
-  slots.sort((a, b) => a.startTime - b.startTime);
-
-  // Find active slot (now is between start and end)
-  const activeSlot = slots.find(
-    (slot) => slot.startTime <= now && slot.endTime > now
-  ) || null;
-
-  // Find next upcoming slot (starts after now)
-  const upcomingSlot = slots.find(
-    (slot) => slot.startTime > now
-  ) || null;
-
-  // For setup purposes: allow DJs to set up anytime before their slot
-  // If there's an active slot, use that. Otherwise, use the next upcoming slot.
-  // This lets DJs prepare their audio before their scheduled time.
-  const currentSlot = activeSlot || upcomingSlot;
-
-  // Next slot is the one after current (if current is active, next is upcoming)
-  // If current is an upcoming slot, next is the slot after that
-  const nextSlot = activeSlot
-    ? upcomingSlot
-    : slots.find((slot) => slot.startTime > (upcomingSlot?.startTime || now)) || null;
-
-  return { currentSlot, nextSlot };
-}

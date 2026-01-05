@@ -25,8 +25,7 @@ function serializeSlot(slot: BroadcastSlot): BroadcastSlotSerialized {
     createdAt: slot.createdAt.toMillis(),
     createdBy: slot.createdBy,
     status: slot.status,
-    broadcastType: slot.broadcastType || 'venue',
-    venueSlug: slot.venueSlug,
+    broadcastType: slot.broadcastType || 'remote',
   };
 }
 
@@ -83,7 +82,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { showName, djName, djSlots, startTime, endTime, broadcastType = 'venue', venueSlug = 'venue' } = await request.json();
+    const { showName, djName, djSlots, startTime, endTime, broadcastType = 'remote' } = await request.json();
 
     if (!showName || !startTime || !endTime) {
       return NextResponse.json(
@@ -111,16 +110,13 @@ export async function POST(request: NextRequest) {
       createdBy: OWNER_UID, // TODO: Get from verified token
       status: 'scheduled',
       broadcastType,
-      venueSlug,
     };
 
     const docRef = await db.collection('broadcast-slots').add(slot);
 
     const createdSlot: BroadcastSlot = { id: docRef.id, ...slot };
-    // Venue slots use permanent URL, remote slots get unique token URL
-    const broadcastUrl = broadcastType === 'venue'
-      ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com'}/broadcast/${venueSlug}`
-      : `${process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com'}/broadcast/live?token=${slot.broadcastToken}`;
+    // All slots use token URLs
+    const broadcastUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com'}/broadcast/live?token=${slot.broadcastToken}`;
 
     return NextResponse.json({
       slot: serializeSlot(createdSlot),

@@ -17,8 +17,8 @@
  * - This keeps chat identity consistent across the platform
  *
  * DETECTION:
- * - broadcastType === 'venue' → Venue DJ (permanent URL like /broadcast/bettertomorrow)
- * - broadcastType === 'remote' → Remote DJ (token-based URL like /broadcast/live?token=xxx)
+ * - broadcastType === 'venue' → Venue DJ (at a venue, shared computer)
+ * - broadcastType === 'remote' → Remote DJ (from home, personal setup)
  */
 
 import { useState, useEffect } from 'react';

@@ -18,6 +18,7 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
     isPublishing: false,
     isLive: false,
     egressId: null,
+    recordingEgressId: null,
     hlsUrl: null,
     roomName: ROOM_NAME,
     error: null,
@@ -164,6 +165,8 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
               broadcastToken,
               djUsername: djInfo?.username,
               djUserId: djInfo?.userId,
+              egressId: data.egressId,
+              recordingEgressId: data.recordingEgressId,
             }),
           });
 
@@ -185,6 +188,7 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
         ...prev,
         isLive: true,
         egressId: data.egressId,
+        recordingEgressId: data.recordingEgressId || null,
         hlsUrl,
       }));
 
@@ -213,16 +217,31 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
     return started;
   }, [state.isConnected, connect, publishAudio, startEgress]);
 
-  // Stop egress
+  // Stop egress (both HLS and recording)
   const stopEgress = useCallback(async () => {
     if (!state.egressId) return;
 
     try {
+      // Stop HLS egress
       await fetch('/api/livekit/egress', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ egressId: state.egressId }),
       });
+
+      // Stop recording egress if it exists
+      if (state.recordingEgressId) {
+        try {
+          await fetch('/api/livekit/egress', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ egressId: state.recordingEgressId }),
+          });
+          console.log('📡 Stopped recording egress:', state.recordingEgressId);
+        } catch (recordingError) {
+          console.error('Failed to stop recording egress:', recordingError);
+        }
+      }
 
       // Update Firestore slot status to 'completed' via API
       // force: true allows completing before scheduled end time (DJ ended early)
@@ -243,11 +262,12 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
         ...prev,
         isLive: false,
         egressId: null,
+        recordingEgressId: null,
       }));
     } catch (error) {
       console.error('Failed to stop egress:', error);
     }
-  }, [state.egressId, slotId]);
+  }, [state.egressId, state.recordingEgressId, slotId]);
 
   // Unpublish audio
   const unpublishAudio = useCallback(async () => {
@@ -287,6 +307,7 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
       ...prev,
       isLive: false,
       egressId: null,
+      recordingEgressId: null,
       hlsUrl: null,
     }));
   }, [stopEgress, unpublishAudio, disconnect]);

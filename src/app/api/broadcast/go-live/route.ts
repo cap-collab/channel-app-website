@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { broadcastToken, djUsername, djUserId } = body;
+    const { broadcastToken, djUsername, djUserId, egressId, recordingEgressId } = body;
 
     console.log('[go-live] Request received:', { broadcastToken: broadcastToken?.slice(0, 10) + '...', djUsername, djUserId });
 
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'This broadcast slot was missed' }, { status: 410 });
     }
 
-    // Update slot to live status with DJ info
+    // Update slot to live status with DJ info and egress IDs
     const updateData: Record<string, string> = { status: 'live' };
 
     if (djUsername) {
@@ -66,6 +66,13 @@ export async function POST(request: NextRequest) {
     }
     if (djUserId) {
       updateData.liveDjUserId = djUserId;
+    }
+    if (egressId) {
+      updateData.egressId = egressId;
+    }
+    if (recordingEgressId) {
+      updateData.recordingEgressId = recordingEgressId;
+      updateData.recordingStatus = 'recording';
     }
 
     await doc.ref.update(updateData);

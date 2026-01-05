@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
-import { useBroadcasterSettings } from '@/hooks/useBroadcasterSettings';
 import { BroadcastSlotSerialized, RoomStatus, BroadcastType, DJSlot } from '@/types/broadcast';
 import { WeeklyCalendar } from '@/components/broadcast/admin/WeeklyCalendar';
 import { SlotModal } from '@/components/broadcast/admin/SlotModal';
@@ -26,7 +25,6 @@ function getWeekStart(date: Date = new Date()): Date {
 export function AdminDashboard() {
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const { role, loading: roleLoading } = useUserRole(user);
-  const { settings: broadcasterSettings, loading: settingsLoading } = useBroadcasterSettings(user);
 
   const [slots, setSlots] = useState<BroadcastSlotSerialized[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -129,7 +127,6 @@ export function AdminDashboard() {
         await createSlot({
           ...data,
           createdBy: user.uid,
-          venueSlug: broadcasterSettings.venueSlug,
         });
       } else {
         // Update existing slot - preserve the token by using updateSlot
@@ -146,7 +143,6 @@ export function AdminDashboard() {
       await createSlot({
         ...data,
         createdBy: user.uid,
-        venueSlug: broadcasterSettings.venueSlug,
       });
     }
 
@@ -173,7 +169,7 @@ export function AdminDashboard() {
   };
 
   // Auth or role loading
-  if (authLoading || roleLoading || settingsLoading) {
+  if (authLoading || roleLoading) {
     return (
       <div className="min-h-screen bg-[#1a1a1a]">
         <BroadcastHeader />
@@ -330,8 +326,6 @@ export function AdminDashboard() {
                   onUpdateSlot={handleUpdateSlotTimes}
                   currentWeekStart={currentWeekStart}
                   onWeekChange={setCurrentWeekStart}
-                  venueName={broadcasterSettings.venueName}
-                  venueSlug={broadcasterSettings.venueSlug}
                 />
               )}
 
@@ -358,8 +352,6 @@ export function AdminDashboard() {
         onDelete={handleDeleteSlot}
         initialStartTime={newSlotTimes?.start}
         initialEndTime={newSlotTimes?.end}
-        venueName={broadcasterSettings.venueName}
-        venueSlug={broadcasterSettings.venueSlug}
       />
     </div>
   );

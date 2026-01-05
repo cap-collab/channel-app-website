@@ -8,8 +8,8 @@ This document explains how DJ usernames, chat usernames, and promo links work ac
 
 | Broadcast Type | URL Pattern | Login Required | DJ Can Edit Username | Username Saved to Profile |
 |----------------|-------------|----------------|---------------------|---------------------------|
-| Venue Single DJ | `/broadcast/{venue}` | No | ✅ Yes | ❌ No (ephemeral) |
-| Venue Multi-DJ | `/broadcast/{venue}` | No | ✅ Yes | ❌ No (ephemeral) |
+| Venue Single DJ | `/broadcast/live?token=xxx` | No | ✅ Yes | ❌ No (ephemeral) |
+| Venue Multi-DJ | `/broadcast/live?token=xxx` | No | ✅ Yes | ❌ No (ephemeral) |
 | Remote DJ (guest) | `/broadcast/live?token=xxx` | No | ✅ Yes | ❌ No (ephemeral) |
 | Remote DJ (logged in) | `/broadcast/live?token=xxx` | Yes | ❌ No - locked | Uses `chatUsername` |
 
@@ -19,12 +19,13 @@ This document explains how DJ usernames, chat usernames, and promo links work ac
 
 ### 1. Venue Broadcasts (`broadcastType: 'venue'`)
 
-**URL**: `/broadcast/{venueSlug}` (e.g., `/broadcast/bettertomorrow`)
+**URL**: `/broadcast/live?token={uniqueToken}`
 
-- **Permanent URL** - same link every time for that venue
-- **Shared computer** - multiple DJs use the same device
+- **Token-based URL** - secure, one-time link sent to venue
+- **Shared computer** - multiple DJs use the same device at the venue
 - **No login required** - DJs just type their name and go live
 - **Ephemeral usernames** - not saved to any profile
+- **Venue journey** - includes venue permissions confirmation
 
 #### Single DJ Venue
 - One DJ per broadcast slot
@@ -123,8 +124,7 @@ DJ opens page → Username pre-filled from profile → Can't edit → Goes live
 {
   // Broadcast info
   broadcastType: 'venue' | 'remote',
-  venueSlug?: string,           // For venue broadcasts
-  broadcastToken?: string,      // For remote broadcasts
+  broadcastToken: string,       // Unique token for the broadcast URL
   tokenExpiresAt?: Timestamp,
 
   // Schedule
