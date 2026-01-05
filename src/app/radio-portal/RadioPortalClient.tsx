@@ -302,33 +302,64 @@ export function RadioPortalClient() {
         <div className="max-w-6xl mx-auto py-12 border-t border-gray-800">
           <div className="flex flex-col md:flex-row md:divide-x divide-gray-800">
             {/* Independent */}
-            <div className="flex-1 py-8 md:py-0 md:px-8 first:md:pl-0 last:md:pr-0 border-b md:border-b-0 border-gray-800 last:border-b-0">
+            <div className="flex-1 py-8 md:py-0 md:px-8 first:md:pl-0 last:md:pr-0 border-b md:border-b-0 border-gray-800 last:border-b-0 flex flex-col items-center">
               <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 text-center">
                 Independent
               </h2>
-              <p className="text-gray-400 leading-relaxed text-center text-sm">
+              <p className="text-gray-400 leading-relaxed text-center text-sm mb-6">
                 Launch and run your own radio, on your own terms. Each radio on Channel has a dedicated page across web and mobile, with its schedule, shows, and identity clearly presented — and customizable to reflect your crew.
               </p>
+              <div className="flex w-full justify-center items-center gap-3 h-40">
+                <img
+                  src="/radio-portal/independent.png"
+                  alt="Channel mobile app showing radio schedule"
+                  className="w-20 rounded-lg shadow-lg"
+                />
+                <img
+                  src="/radio-portal/independent2.png"
+                  alt="Radio station page"
+                  className="w-40 rounded-lg shadow-lg"
+                />
+              </div>
             </div>
 
             {/* Seamless */}
-            <div className="flex-1 py-8 md:py-0 md:px-8 first:md:pl-0 last:md:pr-0 border-b md:border-b-0 border-gray-800 last:border-b-0">
+            <div className="flex-1 py-8 md:py-0 md:px-8 first:md:pl-0 last:md:pr-0 border-b md:border-b-0 border-gray-800 last:border-b-0 flex flex-col items-center">
               <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 text-center">
                 Seamless
               </h2>
-              <p className="text-gray-400 leading-relaxed text-center text-sm">
+              <p className="text-gray-400 leading-relaxed text-center text-sm mb-6">
                 Schedule and broadcast live shows from anywhere — a venue, a studio, or a home setup — and deliver a premium experience for listeners on web and mobile. Channel features ensure every show feels live, shared, and present.
               </p>
+              <div className="flex w-full justify-center items-end gap-3 h-40">
+                <img
+                  src="/radio-portal/seamless.png"
+                  alt="Livestream setup options"
+                  className="w-32 rounded-lg shadow-lg self-start"
+                />
+                <img
+                  src="/radio-portal/seamless2.png"
+                  alt="Create a show form"
+                  className="w-28 rounded-lg shadow-lg self-end"
+                />
+              </div>
             </div>
 
             {/* Sustainable */}
-            <div className="flex-1 py-8 md:py-0 md:px-8 first:md:pl-0 last:md:pr-0 border-b md:border-b-0 border-gray-800 last:border-b-0">
+            <div className="flex-1 py-8 md:py-0 md:px-8 first:md:pl-0 last:md:pr-0 border-b md:border-b-0 border-gray-800 last:border-b-0 flex flex-col items-center">
               <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 text-center">
                 Sustainable
               </h2>
-              <p className="text-gray-400 leading-relaxed text-center text-sm">
+              <p className="text-gray-400 leading-relaxed text-center text-sm mb-6">
                 Enable direct support through tipping, exclusive content, and sales. Support flows from listeners to the people behind the radio — DJs, producers, and hosts — without ads and without intermediaries.
               </p>
+              <div className="flex justify-center h-40 items-center">
+                <img
+                  src="/radio-portal/sustainable2.png"
+                  alt="Tips, merch, and Bandcamp sales"
+                  className="h-full w-auto rounded-lg shadow-lg"
+                />
+              </div>
             </div>
           </div>
         </div>

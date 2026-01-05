@@ -273,25 +273,21 @@ export function BroadcastSchedule({
                 return (
                   <div
                     key={slot.id}
-                    className={`absolute left-1 right-1 rounded-lg overflow-hidden transition-colors ${
-                      isLive
-                        ? 'bg-red-600 border-2 border-red-400'
-                        : isPast
-                        ? 'bg-gray-700 opacity-60'
-                        : 'bg-accent'
+                    className={`absolute left-1 right-1 rounded-lg overflow-hidden transition-colors bg-gray-800/80 border border-accent ${
+                      isPast ? 'opacity-60' : ''
                     }`}
                     style={{ top: `${top}px`, height: `${height}px` }}
                   >
                     <div className="px-3 py-2 h-full overflow-hidden">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-white font-medium text-sm truncate">{slot.showName}</h3>
                         {isLive && (
-                          <span className="w-2 h-2 bg-white rounded-full animate-pulse flex-shrink-0" />
+                          <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0" />
                         )}
+                        <h3 className="text-white font-medium text-sm truncate">{slot.showName}</h3>
                       </div>
-                      {height > 50 && (
+                      {height > 50 && slot.djName && (
                         <p className="text-white/70 text-xs truncate">
-                          {slot.djName || 'TBD'}
+                          {slot.djName}
                         </p>
                       )}
                     </div>
