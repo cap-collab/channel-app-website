@@ -81,6 +81,31 @@ export default function TermsPage() {
       </ul>
       <p>Broadcasts may be interrupted, delayed, or terminated at any time for technical, safety, or compliance reasons.</p>
 
+      <h3>5.4 Recording of Broadcasts</h3>
+      <p>By broadcasting on Channel, you acknowledge and agree that:</p>
+      <ul>
+        <li>Channel may record, store, and archive your live broadcast, in whole or in part</li>
+        <li>Recordings may include audio, metadata, chat messages, timestamps, and DJ identifiers</li>
+        <li>Recordings may be used for:
+          <ul>
+            <li>Playback or replays on Channel</li>
+            <li>Editorial, promotional, or archival purposes</li>
+            <li>Product improvement and moderation</li>
+            <li>Internal review and compliance</li>
+          </ul>
+        </li>
+      </ul>
+      <p>
+        You grant Channel Media, Inc. a non-exclusive, worldwide, royalty-free license to record, store, reproduce, stream, and make available recordings of your broadcast on the Channel platform.
+      </p>
+      <p>You confirm that:</p>
+      <ul>
+        <li>You have the right to grant this permission</li>
+        <li>All DJs listed on the broadcast are aware of and consent to the recording</li>
+        <li>Recording the broadcast does not violate venue policies or third-party rights</li>
+      </ul>
+      <p>Channel is not obligated to publish or retain any recording and may remove recordings at its discretion.</p>
+
       <h2>6. User Conduct</h2>
       <p>You agree not to post, transmit, or broadcast:</p>
       <ul>
