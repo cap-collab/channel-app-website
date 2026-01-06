@@ -40,16 +40,51 @@ export function useFavorites() {
       return;
     }
 
-    const favoritesRef = collection(db, "users", user.uid, "favorites");
+    // Store non-null reference for use in callback
+    const firestore = db;
+    const userId = user.uid;
+
+    const favoritesRef = collection(firestore, "users", userId, "favorites");
     const unsubscribe = onSnapshot(
       favoritesRef,
-      (snapshot) => {
+      async (snapshot) => {
         const favs: Favorite[] = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
           createdAt: doc.data().createdAt?.toDate() || new Date(),
         })) as Favorite[];
-        setFavorites(favs);
+
+        // Deduplicate: find and remove duplicate entries in Firebase
+        const seen = new Map<string, Favorite>();
+        const duplicateIds: string[] = [];
+
+        for (const fav of favs) {
+          const key = `${fav.term.toLowerCase()}-${fav.stationId || ""}`;
+          if (seen.has(key)) {
+            // Keep the older one (by createdAt), delete the newer one
+            const existing = seen.get(key)!;
+            if (fav.createdAt > existing.createdAt) {
+              duplicateIds.push(fav.id);
+            } else {
+              duplicateIds.push(existing.id);
+              seen.set(key, fav);
+            }
+          } else {
+            seen.set(key, fav);
+          }
+        }
+
+        // Delete duplicates from Firebase (async, don't block)
+        if (duplicateIds.length > 0) {
+          console.log(`Removing ${duplicateIds.length} duplicate favorites`);
+          for (const id of duplicateIds) {
+            deleteDoc(doc(firestore, "users", userId, "favorites", id)).catch(console.error);
+          }
+        }
+
+        // Set deduplicated favorites
+        const dedupedFavs = favs.filter((f) => !duplicateIds.includes(f.id));
+        setFavorites(dedupedFavs);
         setLoading(false);
       },
       (error) => {

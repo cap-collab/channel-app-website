@@ -101,14 +101,13 @@ export function MyShowsClient() {
   );
   const watchlist = favorites.filter((f) => f.type === "search" || !f.stationId);
 
-  // Categorize shows into Live Now, Coming Up, Recurring, One-Time
+  // Categorize shows into Live Now, Coming Up, Returning Soon, Watchlist, One-Time
   const categorizedShows = useMemo(() => {
     const now = new Date();
     const liveNow: CategorizedShow[] = [];
     const comingUp: CategorizedShow[] = [];
-    const recurring: Favorite[] = [];
+    const returningSoon: Favorite[] = []; // Recurring shows not currently scheduled
     const oneTime: Favorite[] = [];
-    const processedFavoriteIds = new Set<string>();
 
     for (const favorite of stationShows) {
       const matchingShows = findMatchingShows(favorite, allShows);
@@ -122,7 +121,6 @@ export function MyShowsClient() {
 
       if (liveShow) {
         liveNow.push({ favorite, show: liveShow });
-        processedFavoriteIds.add(favorite.id);
         continue;
       }
 
@@ -134,31 +132,18 @@ export function MyShowsClient() {
       if (upcomingShows.length > 0) {
         const nextShow = upcomingShows[0];
         comingUp.push({ favorite, show: nextShow });
-        processedFavoriteIds.add(favorite.id);
-
-        // Check if it's recurring or one-time based on show type
-        const isRecurring = nextShow.type === "weekly" || nextShow.type === "monthly" || nextShow.type === "biweekly";
-        if (isRecurring) {
-          recurring.push(favorite);
-        } else {
-          oneTime.push(favorite);
-        }
         continue;
       }
 
-      // No scheduled shows found - check if any past shows were recurring
+      // No upcoming shows - check if recurring (returning soon) or one-time
       const pastShows = matchingShows.filter((show) => new Date(show.endTime) <= now);
-      if (pastShows.length > 0) {
-        const hasRecurring = pastShows.some(
-          (s) => s.type === "weekly" || s.type === "monthly" || s.type === "biweekly"
-        );
-        if (hasRecurring) {
-          recurring.push(favorite);
-        } else {
-          oneTime.push(favorite);
-        }
+      const hasRecurring = pastShows.some(
+        (s) => s.type === "weekly" || s.type === "monthly" || s.type === "biweekly"
+      );
+
+      if (hasRecurring) {
+        returningSoon.push(favorite);
       } else {
-        // No shows found at all, treat as one-time
         oneTime.push(favorite);
       }
     }
@@ -168,7 +153,7 @@ export function MyShowsClient() {
       (a, b) => new Date(a.show.startTime).getTime() - new Date(b.show.startTime).getTime()
     );
 
-    return { liveNow, comingUp, recurring, oneTime };
+    return { liveNow, comingUp, returningSoon, oneTime };
   }, [stationShows, allShows]);
 
   // Handle search
@@ -555,50 +540,17 @@ export function MyShowsClient() {
               </section>
             )}
 
-            {/* Recurring Shows (not currently scheduled) */}
-            {categorizedShows.recurring.length > 0 &&
-             categorizedShows.recurring.filter(f =>
-               !categorizedShows.liveNow.some(l => l.favorite.id === f.id) &&
-               !categorizedShows.comingUp.some(c => c.favorite.id === f.id)
-             ).length > 0 && (
+            {/* Returning Soon (recurring shows not currently scheduled) */}
+            {categorizedShows.returningSoon.length > 0 && (
               <section>
                 <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-                  Recurring Shows
+                  Returning Soon ({categorizedShows.returningSoon.length})
                 </h2>
                 <p className="text-gray-600 text-sm mb-3">
-                  Not currently scheduled
+                  These recurring shows will be back
                 </p>
                 <div className="space-y-2">
-                  {categorizedShows.recurring
-                    .filter(f =>
-                      !categorizedShows.liveNow.some(l => l.favorite.id === f.id) &&
-                      !categorizedShows.comingUp.some(c => c.favorite.id === f.id)
-                    )
-                    .map((favorite) => renderFavoriteCard(favorite))}
-                </div>
-              </section>
-            )}
-
-            {/* One-Time Shows (not currently scheduled) */}
-            {categorizedShows.oneTime.length > 0 &&
-             categorizedShows.oneTime.filter(f =>
-               !categorizedShows.liveNow.some(l => l.favorite.id === f.id) &&
-               !categorizedShows.comingUp.some(c => c.favorite.id === f.id)
-             ).length > 0 && (
-              <section>
-                <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-                  One-Time Shows
-                </h2>
-                <p className="text-gray-600 text-sm mb-3">
-                  Not currently scheduled
-                </p>
-                <div className="space-y-2">
-                  {categorizedShows.oneTime
-                    .filter(f =>
-                      !categorizedShows.liveNow.some(l => l.favorite.id === f.id) &&
-                      !categorizedShows.comingUp.some(c => c.favorite.id === f.id)
-                    )
-                    .map((favorite) => renderFavoriteCard(favorite))}
+                  {categorizedShows.returningSoon.map((favorite) => renderFavoriteCard(favorite))}
                 </div>
               </section>
             )}
@@ -651,6 +603,21 @@ export function MyShowsClient() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </section>
+            )}
+
+            {/* One-Time Shows (not currently scheduled) */}
+            {categorizedShows.oneTime.length > 0 && (
+              <section>
+                <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+                  One-Time Shows ({categorizedShows.oneTime.length})
+                </h2>
+                <p className="text-gray-600 text-sm mb-3">
+                  Not currently scheduled
+                </p>
+                <div className="space-y-2">
+                  {categorizedShows.oneTime.map((favorite) => renderFavoriteCard(favorite))}
                 </div>
               </section>
             )}
