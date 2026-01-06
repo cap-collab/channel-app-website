@@ -44,12 +44,7 @@ export function MyShowsClient() {
       {/* Header */}
       <header className="p-4 border-b border-gray-900">
         <div className="max-w-xl mx-auto flex items-center justify-between">
-          <Link
-            href="/djshows"
-            className="text-gray-600 hover:text-white text-sm transition-colors"
-          >
-            ← Back
-          </Link>
+          <div />
           <h1 className="text-lg font-medium text-white">My Shows</h1>
           <Link
             href="/settings"
