@@ -71,6 +71,16 @@ export const STATIONS: Station[] = [
     textColor: "#FFFFFF",
     accentColor: "#0287FE",
   },
+  {
+    id: "newtown",
+    name: "Newtown Radio",
+    metadataKey: "newtown",
+    streamUrl: "https://streaming.radio.co/s0d090ee43/listen",
+    websiteUrl: "https://newtownradio.com",
+    backgroundColor: "#1A1A1A",
+    textColor: "#FEFEFE",
+    accentColor: "#ec92af",
+  },
 ];
 
 export function getStationById(id: string): Station | undefined {
