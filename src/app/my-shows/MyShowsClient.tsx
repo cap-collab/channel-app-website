@@ -6,7 +6,13 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { useFavorites, Favorite } from "@/hooks/useFavorites";
 import { AuthModal } from "@/components/AuthModal";
 import { SearchBar } from "@/components/SearchBar";
-import { getStationById } from "@/lib/stations";
+import { getStationById, getStationByMetadataKey } from "@/lib/stations";
+
+// Helper to find station by id OR metadataKey
+function getStation(stationId: string | undefined) {
+  if (!stationId) return undefined;
+  return getStationById(stationId) || getStationByMetadataKey(stationId);
+}
 import { searchShows } from "@/lib/metadata";
 import { Show } from "@/types";
 
@@ -57,9 +63,9 @@ export function MyShowsClient() {
   const [togglingFavorite, setTogglingFavorite] = useState<string | null>(null);
   const [addingToWatchlist, setAddingToWatchlist] = useState(false);
 
-  // Separate favorites by type
-  const shows = favorites.filter((f) => f.type === "show" || f.type === "dj");
-  const watchlist = favorites.filter((f) => f.type === "search");
+  // Separate favorites by type - only station-specific shows go under "Saved Shows"
+  const shows = favorites.filter((f) => (f.type === "show" || f.type === "dj") && f.stationId);
+  const watchlist = favorites.filter((f) => f.type === "search" || !f.stationId);
 
   // Handle search
   const handleSearch = async (query: string) => {
@@ -190,7 +196,7 @@ export function MyShowsClient() {
                   ) : (
                     <div className="space-y-2">
                       {searchResults.slice(0, 20).map((show) => {
-                        const station = getStationById(show.stationId);
+                        const station = getStation(show.stationId);
                         const accentColor = station?.accentColor || "#fff";
                         const isFavorited = isShowFavorited(show);
                         const isToggling = togglingFavorite === show.id;
@@ -217,11 +223,8 @@ export function MyShowsClient() {
                                 <button
                                   onClick={() => handleToggleFavorite(show)}
                                   disabled={isToggling}
-                                  className={`p-0.5 transition-colors disabled:opacity-50 ${
-                                    isFavorited
-                                      ? "text-yellow-500 hover:text-yellow-400"
-                                      : "text-gray-600 hover:text-white"
-                                  }`}
+                                  className="p-0.5 transition-colors disabled:opacity-50"
+                                  style={{ color: accentColor }}
                                   aria-label={
                                     isFavorited
                                       ? "Remove from favorites"
@@ -332,9 +335,7 @@ export function MyShowsClient() {
                 </h2>
                 <div className="space-y-2">
                   {shows.map((favorite) => {
-                    const station = favorite.stationId
-                      ? getStationById(favorite.stationId)
-                      : undefined;
+                    const station = getStation(favorite.stationId);
                     const accentColor = station?.accentColor || "#fff";
                     return (
                       <div
@@ -353,12 +354,13 @@ export function MyShowsClient() {
                               className="text-[10px] font-semibold uppercase tracking-wide"
                               style={{ color: accentColor }}
                             >
-                              {station?.name || favorite.stationId || "CHANNEL"}
+                              {station?.name || favorite.stationId}
                             </span>
                             <button
                               onClick={() => handleRemove(favorite)}
                               disabled={removing === favorite.id}
-                              className="p-0.5 transition-colors text-gray-600 hover:text-red-400 disabled:opacity-50"
+                              className="p-0.5 transition-colors disabled:opacity-50"
+                              style={{ color: accentColor }}
                               aria-label="Remove from favorites"
                             >
                               {removing === favorite.id ? (

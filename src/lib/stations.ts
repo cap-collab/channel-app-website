@@ -2,6 +2,16 @@ import { Station } from "@/types";
 
 export const STATIONS: Station[] = [
   {
+    id: "broadcast",
+    name: "Channel Broadcast",
+    metadataKey: "broadcast",
+    streamUrl: "",
+    websiteUrl: "https://channel-app.com/channel",
+    backgroundColor: "#000000",
+    textColor: "#FFFFFF",
+    accentColor: "#D94099",
+  },
+  {
     id: "nts-1",
     name: "NTS 1",
     metadataKey: "nts1",
