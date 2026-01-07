@@ -102,15 +102,15 @@ export function TipModal({
   const isValidAmount = currentAmount >= 100 && currentAmount <= 50000;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm"
         onClick={onClose}
       />
 
       {/* Modal */}
-      <div className="relative bg-[#1a1a1a] border border-white/10 rounded-xl p-6 w-full max-w-sm mx-4 shadow-2xl">
+      <div className="relative bg-[#1a1a1a] border border-white/20 rounded-xl p-6 w-full max-w-sm shadow-2xl my-auto">
         {/* Close button */}
         <button
           onClick={onClose}
