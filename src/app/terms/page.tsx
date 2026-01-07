@@ -86,7 +86,7 @@ export default function TermsPage() {
       <p>By broadcasting on Channel, you acknowledge and agree that:</p>
       <ul>
         <li>Channel may record, store, and archive your live broadcast, in whole or in part</li>
-        <li>Recordings may include audio, metadata, chat messages, timestamps, and DJ identifiers</li>
+        <li>Recordings may include audio, metadata, timestamps, and DJ identifiers</li>
         <li>Recordings may be used for:
           <ul>
             <li>Playback or replays on Channel</li>
@@ -189,8 +189,10 @@ export default function TermsPage() {
       <h2>10. Third-Party Services</h2>
       <p>Channel integrates third-party services including:</p>
       <ul>
-        <li>Firebase (authentication, storage, notifications)</li>
-        <li>LiveKit (live streaming infrastructure)</li>
+        <li>Firebase / Google Cloud (authentication, databases, notifications)</li>
+        <li>Hetzner (live streaming infrastructure)</li>
+        <li>Cloudflare R2 (recording storage)</li>
+        <li>Vercel (application hosting)</li>
         <li>Resend (email delivery)</li>
         <li>Stripe (payment processing)</li>
       </ul>
