@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { stripe, calculateTotalCharge } from '@/lib/stripe';
+import Stripe from 'stripe';
 
 // POST - Create Stripe Checkout Session for a tip
 export async function POST(request: NextRequest) {
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
     // Create Stripe Checkout Session
     // For guests: collect email, no saved cards
     // For authenticated: use customer, save cards for future
-    const sessionConfig: Parameters<typeof stripe.checkout.sessions.create>[0] = {
+    const sessionConfig: Stripe.Checkout.SessionCreateParams = {
       payment_method_types: ['card'],
       line_items: [
         {

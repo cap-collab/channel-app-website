@@ -17,7 +17,6 @@ interface TipButtonProps {
 }
 
 export function TipButton({
-  isAuthenticated,
   tipperUserId,
   tipperUsername,
   djEmail,
