@@ -7,7 +7,7 @@ interface TipButtonProps {
   isAuthenticated: boolean;
   tipperUserId?: string;
   tipperUsername?: string;
-  djUserId: string;
+  djEmail: string;        // DJ's email - used to look up user ID on server
   djUsername: string;
   broadcastSlotId: string;
   showName: string;
@@ -20,7 +20,7 @@ export function TipButton({
   isAuthenticated,
   tipperUserId,
   tipperUsername,
-  djUserId,
+  djEmail,
   djUsername,
   broadcastSlotId,
   showName,
@@ -70,7 +70,7 @@ export function TipButton({
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           djUsername={djUsername}
-          djUserId={djUserId}
+          djEmail={djEmail}
           broadcastSlotId={broadcastSlotId}
           showName={showName}
           tipperUserId={tipperUserId}

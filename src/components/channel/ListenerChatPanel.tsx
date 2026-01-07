@@ -12,7 +12,7 @@ interface ListenerChatPanelProps {
   username?: string;
   userId?: string;
   currentDJ?: string | null;
-  currentDJUserId?: string | null;
+  currentDJEmail?: string | null;
   showName?: string;
   broadcastSlotId?: string;
   isLive?: boolean;
@@ -276,7 +276,7 @@ export function ListenerChatPanel({
   username,
   userId,
   currentDJ,
-  currentDJUserId,
+  currentDJEmail,
   showName,
   broadcastSlotId,
   isLive = false,
@@ -456,12 +456,12 @@ export function ListenerChatPanel({
           </div>
 
           {/* Tip button - only when live and DJ info available */}
-          {isLive && currentDJ && currentDJUserId && broadcastSlotId && showName && (
+          {isLive && currentDJ && currentDJEmail && broadcastSlotId && showName && (
             <TipButton
               isAuthenticated={isAuthenticated}
               tipperUserId={userId}
               tipperUsername={username}
-              djUserId={currentDJUserId}
+              djEmail={currentDJEmail}
               djUsername={currentDJ}
               broadcastSlotId={broadcastSlotId}
               showName={showName}

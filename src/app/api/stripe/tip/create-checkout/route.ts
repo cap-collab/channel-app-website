@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       tipAmountCents,
-      djUserId,
+      djEmail,
       djUsername,
       broadcastSlotId,
       showName,
@@ -34,9 +34,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Maximum tip is $500' }, { status: 400 });
     }
 
-    if (!djUserId || !djUsername) {
+    if (!djEmail || !djUsername) {
       return NextResponse.json({ error: 'DJ information required' }, { status: 400 });
     }
+
+    // Look up DJ's user ID from email
+    const djUserSnapshot = await db.collection('users')
+      .where('email', '==', djEmail)
+      .limit(1)
+      .get();
+
+    if (djUserSnapshot.empty) {
+      return NextResponse.json({ error: 'DJ not found' }, { status: 404 });
+    }
+
+    const djUserId = djUserSnapshot.docs[0].id;
 
     if (!broadcastSlotId || !showName) {
       return NextResponse.json({ error: 'Show information required' }, { status: 400 });

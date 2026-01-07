@@ -131,7 +131,8 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
     }
   }, [expanded, isLive, djProfile, loadingProfile, fetchDjProfile, slot.originalShow.liveDjUserId, slot.djSlot?.liveDjUserId]);
 
-  const hasDjInfo = slot.originalShow.liveDjUserId || slot.djSlot?.liveDjUserId;
+  // Show tip button if DJ email is assigned (djEmail is set when show is created)
+  const hasDjInfo = slot.originalShow.djEmail;
   const hasExpandableContent = hasDjInfo && djProfile && djProfile.bio;
 
   return (
@@ -164,14 +165,14 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
 
           {/* Right side: tip button + promo link + expand button */}
           <div className="flex items-center gap-1 flex-shrink-0">
-            {/* Tip button - show if DJ is assigned */}
+            {/* Tip button - show if DJ email is assigned */}
             {hasDjInfo && (
               <div onClick={(e) => e.stopPropagation()}>
                 <TipButton
                   isAuthenticated={isAuthenticated || false}
                   tipperUserId={userId}
                   tipperUsername={username}
-                  djUserId={slot.originalShow.liveDjUserId || slot.djSlot?.liveDjUserId || ''}
+                  djEmail={slot.originalShow.djEmail!}
                   djUsername={slot.djName || 'DJ'}
                   broadcastSlotId={slot.originalShow.id}
                   showName={slot.showName}

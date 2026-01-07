@@ -92,7 +92,7 @@ export function ChannelClient() {
               username={username}
               userId={user?.uid}
               currentDJ={currentDJ}
-              currentDJUserId={currentShow?.liveDjUserId}
+              currentDJEmail={currentShow?.djEmail}
               showName={currentShow?.showName}
               broadcastSlotId={currentShow?.id}
               isLive={isLive}
@@ -155,7 +155,7 @@ export function ChannelClient() {
                 username={username}
                 userId={user?.uid}
                 currentDJ={currentDJ}
-                currentDJUserId={currentShow?.liveDjUserId}
+                currentDJEmail={currentShow?.djEmail}
                 showName={currentShow?.showName}
                 broadcastSlotId={currentShow?.id}
                 isLive={isLive}

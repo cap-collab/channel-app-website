@@ -7,7 +7,7 @@ interface TipModalProps {
   isOpen: boolean;
   onClose: () => void;
   djUsername: string;
-  djUserId: string;
+  djEmail: string;
   broadcastSlotId: string;
   showName: string;
   tipperUserId: string;
@@ -20,7 +20,7 @@ export function TipModal({
   isOpen,
   onClose,
   djUsername,
-  djUserId,
+  djEmail,
   broadcastSlotId,
   showName,
   tipperUserId,
@@ -72,7 +72,7 @@ export function TipModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tipAmountCents: currentAmount,
-          djUserId,
+          djEmail,
           djUsername,
           broadcastSlotId,
           showName,
@@ -93,7 +93,7 @@ export function TipModal({
       setError(err instanceof Error ? err.message : 'Something went wrong');
       setIsLoading(false);
     }
-  }, [currentAmount, djUserId, djUsername, broadcastSlotId, showName, tipperUserId, tipperUsername]);
+  }, [currentAmount, djEmail, djUsername, broadcastSlotId, showName, tipperUserId, tipperUsername]);
 
   if (!isOpen) return null;
 
