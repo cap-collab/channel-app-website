@@ -55,7 +55,8 @@ export function TipModal({
     setIsCustom(true);
   }, []);
 
-  const maxTipCents = 20000; // $200 max per user per DJ session
+  const isGuest = !tipperUserId;
+  const maxTipCents = isGuest ? 2000 : 20000; // $20 for guests, $200 for logged in
 
   const handleSubmit = useCallback(async () => {
     if (currentAmount < 100) {
@@ -64,7 +65,11 @@ export function TipModal({
     }
 
     if (currentAmount > maxTipCents) {
-      setError('Maximum tip is $200');
+      if (isGuest) {
+        setError('Log in to tip more than $20');
+      } else {
+        setError('Maximum tip is $200');
+      }
       return;
     }
 

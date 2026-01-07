@@ -32,8 +32,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Minimum tip is $1' }, { status: 400 });
     }
 
-    // Single tip max $200
-    if (tipAmountCents > 20000) {
+    // Single tip max: $20 for guests, $200 for logged in
+    const maxSingleTipCents = isGuest ? 2000 : 20000;
+    if (tipAmountCents > maxSingleTipCents) {
+      if (isGuest) {
+        return NextResponse.json({ error: 'Log in to tip more than $20' }, { status: 400 });
+      }
       return NextResponse.json({ error: 'Maximum tip is $200' }, { status: 400 });
     }
 
