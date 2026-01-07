@@ -47,6 +47,8 @@ function formatShowTime(startTime: string): string {
 // Match a favorite against shows to find scheduled instances
 function findMatchingShows(favorite: Favorite, allShows: Show[]): Show[] {
   const term = favorite.term.toLowerCase();
+  const showName = favorite.showName?.toLowerCase();
+
   return allShows.filter((show) => {
     // Match by station if specified
     if (favorite.stationId) {
@@ -54,10 +56,18 @@ function findMatchingShows(favorite: Favorite, allShows: Show[]): Show[] {
       const showStation = getStation(show.stationId);
       if (favStation?.id !== showStation?.id) return false;
     }
-    // Match by name or DJ
-    const nameMatch = show.name.toLowerCase().includes(term);
-    const djMatch = show.dj?.toLowerCase().includes(term);
-    return nameMatch || djMatch;
+
+    const showNameLower = show.name.toLowerCase();
+    const showDjLower = show.dj?.toLowerCase();
+
+    // Match by name (bidirectional - either contains the other)
+    const nameMatch = showNameLower.includes(term) || term.includes(showNameLower);
+    // Also try matching against the stored showName
+    const storedNameMatch = showName && (showNameLower.includes(showName) || showName.includes(showNameLower));
+    // Match by DJ
+    const djMatch = showDjLower && (showDjLower.includes(term) || term.includes(showDjLower));
+
+    return nameMatch || storedNameMatch || djMatch;
   });
 }
 
@@ -108,10 +118,27 @@ export function MyShowsClient() {
     const comingUp: CategorizedShow[] = [];
     const returningSoon: Favorite[] = []; // Recurring shows not currently scheduled
     const oneTime: Favorite[] = [];
-    const processedForUpcoming = new Set<string>(); // Track which favorites have upcoming shows
+
+    // Debug: log all shows from newtown station
+    const newtownShows = allShows.filter(s => s.stationId === "newtown");
+    if (newtownShows.length > 0) {
+      console.log(`[Debug] Found ${newtownShows.length} newtown shows in allShows`);
+      console.log(`[Debug] First few:`, newtownShows.slice(0, 3).map(s => ({ name: s.name, start: s.startTime, stationId: s.stationId })));
+    } else {
+      console.log(`[Debug] No newtown shows in allShows. Total shows: ${allShows.length}`);
+    }
 
     for (const favorite of stationShows) {
       const matchingShows = findMatchingShows(favorite, allShows);
+
+      // Debug: log matching for newtown favorites
+      if (favorite.stationId === "newtown" || favorite.stationId?.includes("newtown")) {
+        console.log(`[Debug] Favorite "${favorite.term}" (station: ${favorite.stationId})`);
+        console.log(`[Debug]   matchingShows count: ${matchingShows.length}`);
+        if (matchingShows.length > 0) {
+          console.log(`[Debug]   First match:`, { name: matchingShows[0].name, start: matchingShows[0].startTime, stationId: matchingShows[0].stationId });
+        }
+      }
 
       // Find live show
       const liveShow = matchingShows.find((show) => {
@@ -122,7 +149,6 @@ export function MyShowsClient() {
 
       if (liveShow) {
         liveNow.push({ favorite, show: liveShow });
-        processedForUpcoming.add(favorite.id);
         continue;
       }
 
@@ -134,7 +160,6 @@ export function MyShowsClient() {
       if (upcomingShows.length > 0) {
         const nextShow = upcomingShows[0];
         comingUp.push({ favorite, show: nextShow });
-        processedForUpcoming.add(favorite.id);
         continue;
       }
 
