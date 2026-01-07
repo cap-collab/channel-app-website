@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { doc, onSnapshot, updateDoc, collection, query, where, orderBy, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -24,8 +23,6 @@ export function DJProfileClient() {
   const { role, loading: roleLoading } = useUserRole(user);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  const searchParams = useSearchParams();
-
   // Profile data
   const [chatUsername, setChatUsername] = useState<string | null>(null);
   const [djProfile, setDjProfile] = useState<DJProfile>({
@@ -39,21 +36,12 @@ export function DJProfileClient() {
   // Stripe connect state
   const [connectingStripe, setConnectingStripe] = useState(false);
   const [stripeError, setStripeError] = useState<string | null>(null);
-  const [stripeSuccess, setStripeSuccess] = useState(false);
 
   // Pending payout info
   const { pendingCents, pendingCount, transferredCents, loading: payoutLoading } = usePendingPayout({
     djUserId: user?.uid || '',
   });
 
-  // Check for Stripe redirect success
-  useEffect(() => {
-    const stripeStatus = searchParams.get('stripe');
-    if (stripeStatus === 'success') {
-      setStripeSuccess(true);
-      setTimeout(() => setStripeSuccess(false), 5000);
-    }
-  }, [searchParams]);
 
   // Form state - About section
   const [bioInput, setBioInput] = useState("");
@@ -514,13 +502,6 @@ export function DJProfileClient() {
               Payments
             </h2>
             <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
-              {/* Success message */}
-              {stripeSuccess && (
-                <div className="p-3 bg-green-500/20 border border-green-500/30 rounded-lg text-green-400 text-sm">
-                  Stripe connected successfully! Your pending tips will be transferred shortly.
-                </div>
-              )}
-
               {/* Error message */}
               {stripeError && (
                 <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm">
@@ -529,31 +510,44 @@ export function DJProfileClient() {
               )}
 
               {/* Stripe status */}
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                  djProfile.stripeOnboarded ? 'bg-green-500/20' : 'bg-gray-800'
-                }`}>
-                  {djProfile.stripeOnboarded ? (
-                    <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : (
+              {djProfile.stripeOnboarded ? (
+                <>
+                  {/* Connected state */}
+                  <div className="p-3 bg-green-500/20 border border-green-500/30 rounded-lg text-green-400 text-sm">
+                    Stripe connected! Tips are automatically transferred to your bank.
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-green-500/20">
+                      <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-white font-medium">Stripe Connected</p>
+                      <p className="text-gray-500 text-sm">View payouts and manage your account</p>
+                    </div>
+                    <a
+                      href="https://dashboard.stripe.com/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors"
+                    >
+                      Manage
+                    </a>
+                  </div>
+                </>
+              ) : (
+                /* Not connected state */
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gray-800">
                     <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                     </svg>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <p className="text-white font-medium">
-                    {djProfile.stripeOnboarded ? 'Stripe Connected' : 'Connect Stripe'}
-                  </p>
-                  <p className="text-gray-500 text-sm">
-                    {djProfile.stripeOnboarded
-                      ? 'Receive tips directly to your bank'
-                      : 'Set up to receive tips from listeners'}
-                  </p>
-                </div>
-                {!djProfile.stripeOnboarded && (
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-white font-medium">Connect Stripe</p>
+                    <p className="text-gray-500 text-sm">Set up to receive tips from listeners</p>
+                  </div>
                   <button
                     onClick={handleConnectStripe}
                     disabled={connectingStripe}
@@ -561,8 +555,8 @@ export function DJProfileClient() {
                   >
                     {connectingStripe ? 'Connecting...' : 'Connect'}
                   </button>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Earnings summary */}
               {!payoutLoading && (pendingCents > 0 || transferredCents > 0) && (
