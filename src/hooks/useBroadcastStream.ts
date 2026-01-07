@@ -160,6 +160,7 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
             stationId: data.stationId || 'broadcast',
             showName: data.showName || 'Live Broadcast',
             djName: data.djName,
+            djEmail: data.djEmail,
             djSlots: data.djSlots,
             startTime: (data.startTime as Timestamp).toMillis(),
             endTime: (data.endTime as Timestamp).toMillis(),
