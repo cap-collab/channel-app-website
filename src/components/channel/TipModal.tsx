@@ -12,8 +12,8 @@ interface TipModalProps {
   djEmail: string;
   broadcastSlotId: string;
   showName: string;
-  tipperUserId: string;
-  tipperUsername: string;
+  tipperUserId?: string;    // Optional - undefined for guest tippers
+  tipperUsername?: string;  // Optional - undefined for guest tippers
 }
 
 const PRESET_AMOUNTS = [100, 300, 500, 1000]; // cents
@@ -79,8 +79,10 @@ export function TipModal({
           djUsername,
           broadcastSlotId,
           showName,
-          tipperUserId,
-          tipperUsername,
+          // Pass tipper info if logged in, otherwise mark as guest
+          tipperUserId: tipperUserId || null,
+          tipperUsername: tipperUsername || null,
+          isGuest: !tipperUserId,
         }),
       });
 
@@ -110,9 +112,9 @@ export function TipModal({
 
   const modalContent = (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-      {/* Backdrop */}
+      {/* Backdrop - transparent, just captures clicks to close */}
       <div
-        className="absolute inset-0 bg-black/90"
+        className="absolute inset-0"
         onClick={onClose}
       />
 

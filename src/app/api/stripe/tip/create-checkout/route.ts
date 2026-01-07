@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
       showName,
       tipperUserId,
       tipperUsername,
+      isGuest,
     } = body;
 
     // Validate required fields
@@ -54,42 +55,52 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Show information required' }, { status: 400 });
     }
 
-    if (!tipperUserId || !tipperUsername) {
+    // For authenticated users, require user info. For guests, we'll collect email via Stripe.
+    if (!isGuest && (!tipperUserId || !tipperUsername)) {
       return NextResponse.json({ error: 'Tipper information required' }, { status: 400 });
     }
 
     // Calculate fees
     const { tipAmountCents: tipCents, platformFeeCents, totalCents } = calculateTotalCharge(tipAmountCents);
 
-    // Check if tipper has a Stripe Customer ID for saved cards
+    // For authenticated users, check/create Stripe Customer for saved cards
     let stripeCustomerId: string | undefined;
-    const tipperDoc = await db.collection('users').doc(tipperUserId).get();
-    if (tipperDoc.exists) {
-      stripeCustomerId = tipperDoc.data()?.stripeCustomerId;
-    }
 
-    // Create new Stripe Customer if they don't have one
-    if (!stripeCustomerId) {
-      const customer = await stripe.customers.create({
-        metadata: {
-          firebaseUserId: tipperUserId,
-          username: tipperUsername,
-        },
-      });
-      stripeCustomerId = customer.id;
+    if (!isGuest && tipperUserId) {
+      const tipperDoc = await db.collection('users').doc(tipperUserId).get();
+      if (tipperDoc.exists) {
+        stripeCustomerId = tipperDoc.data()?.stripeCustomerId;
+      }
 
-      // Save customer ID to user document
-      await db.collection('users').doc(tipperUserId).update({
-        stripeCustomerId: customer.id,
-      });
+      // Create new Stripe Customer if they don't have one
+      if (!stripeCustomerId) {
+        const customer = await stripe.customers.create({
+          metadata: {
+            firebaseUserId: tipperUserId,
+            username: tipperUsername || 'anonymous',
+          },
+        });
+        stripeCustomerId = customer.id;
+
+        // Save customer ID to user document
+        await db.collection('users').doc(tipperUserId).update({
+          stripeCustomerId: customer.id,
+        });
+      }
     }
+    // For guests, we don't create a customer - Stripe will collect email in checkout
 
     // Get the base URL for redirects
     const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
+    // Prepare tipper info for metadata (use 'guest' placeholders for guest tippers)
+    const effectiveTipperUserId = tipperUserId || 'guest';
+    const effectiveTipperUsername = tipperUsername || 'Guest';
+
     // Create Stripe Checkout Session
-    const session = await stripe.checkout.sessions.create({
-      customer: stripeCustomerId,
+    // For guests: collect email, no saved cards
+    // For authenticated: use customer, save cards for future
+    const sessionConfig: Parameters<typeof stripe.checkout.sessions.create>[0] = {
       payment_method_types: ['card'],
       line_items: [
         {
@@ -107,19 +118,6 @@ export async function POST(request: NextRequest) {
       mode: 'payment',
       success_url: `${origin}/channel?tip=success`,
       cancel_url: `${origin}/channel?tip=cancelled`,
-      payment_intent_data: {
-        setup_future_usage: 'on_session', // Save card for future tips
-        metadata: {
-          tipAmountCents: tipCents.toString(),
-          platformFeeCents: platformFeeCents.toString(),
-          djUserId,
-          djUsername,
-          broadcastSlotId,
-          showName,
-          tipperUserId,
-          tipperUsername,
-        },
-      },
       metadata: {
         type: 'tip',
         tipAmountCents: tipCents.toString(),
@@ -128,10 +126,49 @@ export async function POST(request: NextRequest) {
         djUsername,
         broadcastSlotId,
         showName,
-        tipperUserId,
-        tipperUsername,
+        tipperUserId: effectiveTipperUserId,
+        tipperUsername: effectiveTipperUsername,
+        isGuest: isGuest ? 'true' : 'false',
       },
-    });
+    };
+
+    if (isGuest) {
+      // For guests: collect email for refund purposes (as per privacy policy)
+      sessionConfig.customer_email = undefined; // Let Stripe collect it
+      sessionConfig.customer_creation = 'always'; // Create customer from email for refund tracking
+      sessionConfig.payment_intent_data = {
+        metadata: {
+          tipAmountCents: tipCents.toString(),
+          platformFeeCents: platformFeeCents.toString(),
+          djUserId,
+          djUsername,
+          broadcastSlotId,
+          showName,
+          tipperUserId: effectiveTipperUserId,
+          tipperUsername: effectiveTipperUsername,
+          isGuest: 'true',
+        },
+      };
+    } else {
+      // For authenticated users: use existing customer, save card for future
+      sessionConfig.customer = stripeCustomerId;
+      sessionConfig.payment_intent_data = {
+        setup_future_usage: 'on_session',
+        metadata: {
+          tipAmountCents: tipCents.toString(),
+          platformFeeCents: platformFeeCents.toString(),
+          djUserId,
+          djUsername,
+          broadcastSlotId,
+          showName,
+          tipperUserId: effectiveTipperUserId,
+          tipperUsername: effectiveTipperUsername,
+          isGuest: 'false',
+        },
+      };
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
 
     return NextResponse.json({
       checkoutUrl: session.url,

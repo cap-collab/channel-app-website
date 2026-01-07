@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react';
 import { TipModal } from './TipModal';
 
 interface TipButtonProps {
-  isAuthenticated: boolean;
+  isAuthenticated?: boolean;
   tipperUserId?: string;
   tipperUsername?: string;
   djEmail: string;        // DJ's email - used to look up user ID on server
@@ -26,20 +26,14 @@ export function TipButton({
   showName,
   compact = false,
   disabled = false,
-  onRequireAuth,
 }: TipButtonProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleClick = useCallback(() => {
     if (disabled) return;
-
-    if (!isAuthenticated || !tipperUserId || !tipperUsername) {
-      onRequireAuth?.();
-      return;
-    }
-
+    // Allow tipping for both authenticated and guest users
     setIsModalOpen(true);
-  }, [disabled, isAuthenticated, tipperUserId, tipperUsername, onRequireAuth]);
+  }, [disabled]);
 
   const buttonSize = compact ? 'w-10 h-10' : 'w-12 h-12';
   const iconSize = compact ? 'w-5 h-5' : 'w-6 h-6';
@@ -65,7 +59,7 @@ export function TipButton({
         </svg>
       </button>
 
-      {isModalOpen && tipperUserId && tipperUsername && (
+      {isModalOpen && (
         <TipModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
