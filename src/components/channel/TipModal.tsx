@@ -117,7 +117,7 @@ export function TipModal({
       />
 
       {/* Modal */}
-      <div className="relative z-10 bg-[#1a1a1a] border border-white/20 rounded-xl p-5 w-full max-w-[340px] max-h-[90vh] overflow-y-auto shadow-2xl">
+      <div className="relative z-10 bg-[#1a1a1a] border border-white/20 rounded-xl p-4 w-full max-w-[420px] max-h-[90vh] overflow-y-auto shadow-2xl">
         {/* Close button */}
         <button
           onClick={onClose}
@@ -129,10 +129,9 @@ export function TipModal({
         </button>
 
         {/* Header */}
-        <div className="text-center mb-6">
-          <div className="text-2xl mb-2">💸</div>
+        <div className="text-center mb-4">
           <h2 className="text-lg font-medium text-white">Tip DJ {djUsername}</h2>
-          <p className="text-sm text-gray-400 mt-1">{showName}</p>
+          <p className="text-sm text-gray-400">{showName}</p>
         </div>
 
         {/* Preset amounts */}
@@ -153,7 +152,7 @@ export function TipModal({
         </div>
 
         {/* Custom amount */}
-        <div className="mb-6">
+        <div className="mb-4">
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
             <input
@@ -178,7 +177,7 @@ export function TipModal({
 
         {/* Fee breakdown */}
         {isValidAmount && (
-          <div className="mb-6 p-3 bg-white/5 rounded-lg text-sm">
+          <div className="mb-4 p-3 bg-white/5 rounded-lg text-sm">
             <div className="flex justify-between text-gray-400 mb-1">
               <span>Tip to DJ</span>
               <span>${(tipAmountCents / 100).toFixed(2)}</span>
@@ -195,28 +194,17 @@ export function TipModal({
         )}
 
         {/* Terms agreement */}
-        <div className="mb-4">
-          <label className="flex items-start gap-3 cursor-pointer">
+        <div className="mb-3">
+          <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
               checked={agreedToTerms}
               onChange={(e) => setAgreedToTerms(e.target.checked)}
-              className="mt-0.5 w-4 h-4 rounded border-gray-600 bg-white/5 text-accent focus:ring-accent focus:ring-offset-0"
+              className="w-4 h-4 rounded border-gray-600 bg-white/5 text-accent focus:ring-accent focus:ring-offset-0 flex-shrink-0"
             />
-            <span className="text-sm text-gray-300">
-              I agree to the{' '}
-              <Link href="/terms" target="_blank" className="text-accent hover:underline">
-                Terms of Use
-              </Link>{' '}
-              and{' '}
-              <Link href="/privacy" target="_blank" className="text-accent hover:underline">
-                Privacy Policy
-              </Link>
-            </span>
+            <span className="text-sm text-gray-300">I agree to the <Link href="/terms" target="_blank" className="text-accent hover:underline">Terms of Use</Link> and <Link href="/privacy" target="_blank" className="text-accent hover:underline">Privacy Policy</Link></span>
           </label>
-          <p className="text-xs text-gray-500 mt-2 ml-7">
-            Tips are voluntary and do not purchase content or services.
-          </p>
+          <p className="text-xs text-gray-500 mt-1 ml-6">Tips are voluntary and do not purchase content or services.</p>
         </div>
 
         {/* Error */}
@@ -239,9 +227,7 @@ export function TipModal({
           {isLoading ? 'Redirecting...' : `Send $${(tipAmountCents / 100).toFixed(2)} Tip`}
         </button>
 
-        <p className="text-xs text-gray-500 text-center mt-4">
-          Secure payment via Stripe
-        </p>
+        <p className="text-xs text-gray-500 text-center mt-3">Secure payment via Stripe</p>
       </div>
     </div>
   );
