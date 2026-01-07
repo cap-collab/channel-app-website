@@ -55,14 +55,16 @@ export function TipModal({
     setIsCustom(true);
   }, []);
 
+  const maxTipCents = 20000; // $200 max per user per DJ session
+
   const handleSubmit = useCallback(async () => {
     if (currentAmount < 100) {
       setError('Minimum tip is $1');
       return;
     }
 
-    if (currentAmount > 50000) {
-      setError('Maximum tip is $500');
+    if (currentAmount > maxTipCents) {
+      setError('Maximum tip is $200');
       return;
     }
 
@@ -108,7 +110,7 @@ export function TipModal({
 
   if (!isOpen || !mounted) return null;
 
-  const isValidAmount = currentAmount >= 100 && currentAmount <= 50000;
+  const isValidAmount = currentAmount >= 100 && currentAmount <= maxTipCents;
 
   const modalContent = (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">

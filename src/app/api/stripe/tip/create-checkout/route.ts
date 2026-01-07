@@ -32,8 +32,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Minimum tip is $1' }, { status: 400 });
     }
 
-    if (tipAmountCents > 50000) {
-      return NextResponse.json({ error: 'Maximum tip is $500' }, { status: 400 });
+    // Single tip max $200
+    if (tipAmountCents > 20000) {
+      return NextResponse.json({ error: 'Maximum tip is $200' }, { status: 400 });
+    }
+
+    // For logged-in users, check total tips for this session (max $200 per user per DJ session)
+    const MAX_SESSION_TIP_CENTS = 20000;
+    if (!isGuest && tipperUserId) {
+      const existingTipsSnapshot = await db.collection('tips')
+        .where('tipperUserId', '==', tipperUserId)
+        .where('broadcastSlotId', '==', broadcastSlotId)
+        .where('status', '==', 'succeeded')
+        .get();
+
+      const existingTotalCents = existingTipsSnapshot.docs.reduce((sum, doc) => {
+        return sum + (doc.data().tipAmountCents || 0);
+      }, 0);
+
+      if (existingTotalCents + tipAmountCents > MAX_SESSION_TIP_CENTS) {
+        const remainingCents = MAX_SESSION_TIP_CENTS - existingTotalCents;
+        if (remainingCents <= 0) {
+          return NextResponse.json({ error: 'You have reached the $200 tip limit for this session' }, { status: 400 });
+        }
+        return NextResponse.json({
+          error: `You can only tip $${(remainingCents / 100).toFixed(2)} more for this session (max $200 per session)`
+        }, { status: 400 });
+      }
     }
 
     if (!djEmail || !djUsername) {
