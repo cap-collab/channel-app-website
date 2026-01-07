@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { useFavorites, Favorite } from "@/hooks/useFavorites";
+import { useFavorites, Favorite, isRecurringFavorite } from "@/hooks/useFavorites";
 import { AuthModal } from "@/components/AuthModal";
 import { SearchBar } from "@/components/SearchBar";
 import { getStationById, getStationByMetadataKey } from "@/lib/stations";
@@ -104,11 +104,11 @@ export function MyShowsClient() {
   // Categorize shows into Live Now, Coming Up, Returning Soon, Watchlist, One-Time
   const categorizedShows = useMemo(() => {
     const now = new Date();
-    const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     const liveNow: CategorizedShow[] = [];
     const comingUp: CategorizedShow[] = [];
-    const returningSoon: CategorizedShow[] = []; // Recurring shows scheduled later or not scheduled
+    const returningSoon: Favorite[] = []; // Recurring shows not currently scheduled
     const oneTime: Favorite[] = [];
+    const processedForUpcoming = new Set<string>(); // Track which favorites have upcoming shows
 
     for (const favorite of stationShows) {
       const matchingShows = findMatchingShows(favorite, allShows);
@@ -122,6 +122,7 @@ export function MyShowsClient() {
 
       if (liveShow) {
         liveNow.push({ favorite, show: liveShow });
+        processedForUpcoming.add(favorite.id);
         continue;
       }
 
@@ -130,39 +131,24 @@ export function MyShowsClient() {
         .filter((show) => new Date(show.startTime) > now)
         .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
-      // Check if this is a recurring show
-      const isRecurring = matchingShows.some(
-        (s) => s.type === "weekly" || s.type === "monthly" || s.type === "biweekly"
-      );
-
       if (upcomingShows.length > 0) {
         const nextShow = upcomingShows[0];
-        const nextShowTime = new Date(nextShow.startTime);
-
-        // Recurring shows go to "Returning Soon" if next occurrence is more than a week away
-        // Otherwise they go to "Coming Up"
-        if (isRecurring && nextShowTime > oneWeekFromNow) {
-          returningSoon.push({ favorite, show: nextShow });
-        } else {
-          comingUp.push({ favorite, show: nextShow });
-        }
+        comingUp.push({ favorite, show: nextShow });
+        processedForUpcoming.add(favorite.id);
         continue;
       }
 
-      // No upcoming shows - recurring goes to returning soon, others to one-time
-      if (isRecurring) {
-        // No scheduled instance, but it's a recurring show
-        returningSoon.push({ favorite, show: matchingShows[0] }); // Use most recent show for display
+      // No upcoming or live shows - categorize based on favorite's showType
+      // Use showType stored in favorite (from iOS) to determine if recurring
+      if (isRecurringFavorite(favorite)) {
+        returningSoon.push(favorite);
       } else {
         oneTime.push(favorite);
       }
     }
 
-    // Sort coming up and returning soon by show time
+    // Sort coming up by show time
     comingUp.sort(
-      (a, b) => new Date(a.show.startTime).getTime() - new Date(b.show.startTime).getTime()
-    );
-    returningSoon.sort(
       (a, b) => new Date(a.show.startTime).getTime() - new Date(b.show.startTime).getTime()
     );
 
@@ -553,18 +539,18 @@ export function MyShowsClient() {
               </section>
             )}
 
-            {/* Returning Soon (recurring shows scheduled later) */}
+            {/* Returning Soon (recurring shows not currently scheduled) */}
             {categorizedShows.returningSoon.length > 0 && (
               <section>
                 <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
                   Returning Soon ({categorizedShows.returningSoon.length})
                 </h2>
                 <p className="text-gray-600 text-sm mb-3">
-                  Recurring shows coming back later
+                  Recurring shows not currently scheduled
                 </p>
                 <div className="space-y-2">
-                  {categorizedShows.returningSoon.map(({ favorite, show }) =>
-                    renderFavoriteCard(favorite, show)
+                  {categorizedShows.returningSoon.map((favorite) =>
+                    renderFavoriteCard(favorite)
                   )}
                 </div>
               </section>

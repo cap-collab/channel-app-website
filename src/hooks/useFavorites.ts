@@ -23,8 +23,15 @@ export interface Favorite {
   showName?: string;
   djName?: string;
   stationId?: string;
+  showType?: string; // "regular", "weekly", "biweekly", "monthly", "restream", "playlist"
   createdAt: Date;
   createdBy: "web" | "ios";
+}
+
+// Helper to check if a favorite is for a recurring show
+export function isRecurringFavorite(favorite: Favorite): boolean {
+  const showType = favorite.showType?.toLowerCase();
+  return showType === "regular" || showType === "weekly" || showType === "biweekly" || showType === "monthly";
 }
 
 export function useFavorites() {
