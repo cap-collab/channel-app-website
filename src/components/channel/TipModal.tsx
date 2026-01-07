@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { calculateTotalCharge } from '@/lib/stripe-client';
 
@@ -97,12 +98,18 @@ export function TipModal({
     }
   }, [currentAmount, djEmail, djUsername, broadcastSlotId, showName, tipperUserId, tipperUsername]);
 
-  if (!isOpen) return null;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!isOpen || !mounted) return null;
 
   const isValidAmount = currentAmount >= 100 && currentAmount <= 50000;
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/90"
@@ -238,4 +245,6 @@ export function TipModal({
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
