@@ -351,7 +351,7 @@ export function SlotModal({
       await onSave({
         showName,
         djName: broadcastType === 'remote' ? (djName || undefined) : undefined,
-        djEmail: broadcastType === 'remote' ? (djEmail || undefined) : undefined,
+        djEmail: djEmail || undefined,  // Same for both venue and remote
         djSlots: convertedDjSlots,
         startTime: startDateTime,
         endTime: endDateTime,
@@ -757,22 +757,20 @@ export function SlotModal({
             </div>
           )}
 
-          {/* DJ Email (remote only) */}
-          {broadcastType === 'remote' && (
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">DJ Email</label>
-              <input
-                type="email"
-                value={djEmail}
-                onChange={(e) => setDjEmail(e.target.value)}
-                placeholder="dj@example.com (optional)"
-                className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
-              />
-              <p className="text-gray-500 text-xs mt-1">
-                Links this slot to the DJ&apos;s profile page
-              </p>
-            </div>
-          )}
+          {/* DJ Email - same for both venue and remote */}
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">DJ Email</label>
+            <input
+              type="email"
+              value={djEmail}
+              onChange={(e) => setDjEmail(e.target.value)}
+              placeholder="dj@example.com"
+              className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
+            />
+            <p className="text-gray-500 text-xs mt-1">
+              Required for tips. Links to DJ&apos;s profile page.
+            </p>
+          </div>
 
           {/* Status badge (for existing slots) */}
           {isEditing && (
