@@ -307,7 +307,7 @@ export function useAuth() {
     }
 
     const actionCodeSettings = {
-      url: window.location.origin + "/djshows",
+      url: window.location.origin + "/channel",
       handleCodeInApp: true,
     };
 

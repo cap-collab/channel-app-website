@@ -101,7 +101,7 @@ export function SettingsClient() {
       <header className="p-4 border-b border-gray-900">
         <div className="max-w-xl mx-auto flex items-center justify-between">
           <Link
-            href="/djshows"
+            href="/channel"
             className="text-gray-600 hover:text-white text-sm transition-colors"
           >
             ← Back

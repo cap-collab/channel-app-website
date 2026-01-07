@@ -8,7 +8,7 @@ import { AuthModal } from "@/components/AuthModal";
 import { MobileMenu, MobileMenuItem } from "@/components/MobileMenu";
 import { useBroadcastLiveStatus } from "@/hooks/useBroadcastLiveStatus";
 
-type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal" | "radio-portal";
+type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal" | "radio-portal" | "my-shows";
 
 interface HeaderProps {
   currentPage?: CurrentPage;
@@ -194,6 +194,13 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
                         {user.email}
                       </p>
                     </div>
+                    <Link
+                      href="/my-shows"
+                      onClick={() => setShowUserMenu(false)}
+                      className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                    >
+                      My Shows
+                    </Link>
                     <Link
                       href="/settings"
                       onClick={() => setShowUserMenu(false)}

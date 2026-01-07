@@ -71,9 +71,9 @@ export default function EmailSignInPage() {
 
       setStatus("success");
 
-      // Redirect to djshows after short delay
+      // Redirect to channel after short delay
       setTimeout(() => {
-        window.location.href = "/djshows";
+        window.location.href = "/channel";
       }, 1500);
     } catch (error) {
       console.error("Email link sign-in error:", error);
@@ -176,7 +176,7 @@ export default function EmailSignInPage() {
               </svg>
             </div>
             <h1 className="text-2xl font-bold text-white">You&apos;re signed in!</h1>
-            <p className="text-white/60">Redirecting you to DJ Shows...</p>
+            <p className="text-white/60">Redirecting you to Channel...</p>
           </div>
         )}
 
@@ -189,13 +189,13 @@ export default function EmailSignInPage() {
             </div>
             <h1 className="text-2xl font-bold text-white">Sign In Failed</h1>
             <p className="text-white/60">{errorMessage}</p>
-            {/* Go to DJ Shows button hidden */}
+            {/* Go to Channel button hidden */}
             {false && (
               <a
-                href="/djshows"
+                href="/channel"
                 className="inline-block mt-4 w-full py-3 rounded-xl bg-white text-black font-medium hover:bg-white/90 transition-all"
               >
-                Go to DJ Shows
+                Go to Channel
               </a>
             )}
           </div>
