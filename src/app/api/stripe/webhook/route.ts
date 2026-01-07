@@ -108,9 +108,8 @@ async function handleTipPayment(
   if (djDoc.exists) {
     const djData = djDoc.data();
     const stripeAccountId = djData?.djProfile?.stripeAccountId;
-    const stripeOnboarded = djData?.djProfile?.stripeOnboarded;
 
-    if (stripeAccountId && stripeOnboarded) {
+    if (stripeAccountId) {
       // Transfer to DJ immediately
       try {
         const transfer = await stripe.transfers.create({

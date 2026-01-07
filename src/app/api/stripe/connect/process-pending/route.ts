@@ -26,10 +26,9 @@ export async function POST(request: NextRequest) {
 
     const userData = userDoc.data();
     const stripeAccountId = userData?.djProfile?.stripeAccountId;
-    const stripeOnboarded = userData?.djProfile?.stripeOnboarded;
 
-    if (!stripeAccountId || !stripeOnboarded) {
-      return NextResponse.json({ error: 'Stripe account not fully onboarded' }, { status: 400 });
+    if (!stripeAccountId) {
+      return NextResponse.json({ error: 'Stripe account not connected' }, { status: 400 });
     }
 
     // Get pending tips for this DJ
