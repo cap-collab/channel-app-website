@@ -7,6 +7,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/AuthModal";
 import { MobileMenu, MobileMenuItem } from "@/components/MobileMenu";
 import { useBroadcastLiveStatus } from "@/hooks/useBroadcastLiveStatus";
+import { useUserRole, isDJ } from "@/hooks/useUserRole";
 
 type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal" | "radio-portal" | "my-shows";
 
@@ -20,6 +21,7 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { user, isAuthenticated, signOut, loading } = useAuthContext();
   const { isLive } = useBroadcastLiveStatus();
+  const { role } = useUserRole(user);
 
   // Build mobile menu items based on current page
   const getMobileMenuItems = (): MobileMenuItem[] => {
@@ -201,6 +203,15 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
                     >
                       My Shows
                     </Link>
+                    {isDJ(role) && (
+                      <Link
+                        href="/dj-profile"
+                        onClick={() => setShowUserMenu(false)}
+                        className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                      >
+                        DJ Profile
+                      </Link>
+                    )}
                     <Link
                       href="/settings"
                       onClick={() => setShowUserMenu(false)}

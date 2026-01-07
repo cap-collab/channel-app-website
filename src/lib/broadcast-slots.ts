@@ -35,6 +35,7 @@ function serializeSlot(docId: string, data: Record<string, unknown>): BroadcastS
     stationId: data.stationId as string,
     showName: data.showName as string,
     djName: data.djName as string | undefined,
+    djEmail: data.djEmail as string | undefined,
     djSlots: data.djSlots as DJSlot[] | undefined,
     startTime: (data.startTime as { toMillis: () => number })?.toMillis() || 0,
     endTime: (data.endTime as { toMillis: () => number })?.toMillis() || 0,
@@ -75,6 +76,7 @@ export async function getSlots(stationId: string = STATION_ID): Promise<Broadcas
 export async function createSlot(data: {
   showName: string;
   djName?: string;
+  djEmail?: string;
   djSlots?: DJSlot[];
   startTime: number;
   endTime: number;
@@ -93,6 +95,7 @@ export async function createSlot(data: {
     stationId: STATION_ID,
     showName: data.showName,
     djName: data.djName || null,
+    djEmail: data.djEmail || null,
     djSlots: data.djSlots || null,
     startTime: startTimestamp,
     endTime: endTimestamp,
@@ -111,6 +114,7 @@ export async function createSlot(data: {
     stationId: STATION_ID,
     showName: data.showName,
     djName: data.djName,
+    djEmail: data.djEmail,
     djSlots: data.djSlots,
     startTime: data.startTime,
     endTime: data.endTime,
@@ -134,6 +138,7 @@ export async function updateSlot(
     status: string;
     showName: string;
     djName: string;
+    djEmail: string;
     djSlots: DJSlot[];
     startTime: number;
     endTime: number;
@@ -146,6 +151,7 @@ export async function updateSlot(
   if (updates.status !== undefined) updateData.status = updates.status;
   if (updates.showName !== undefined) updateData.showName = updates.showName;
   if (updates.djName !== undefined) updateData.djName = updates.djName || null;
+  if (updates.djEmail !== undefined) updateData.djEmail = updates.djEmail || null;
   if (updates.djSlots !== undefined) updateData.djSlots = updates.djSlots || null;
 
   // Handle time updates - convert to Firestore Timestamps

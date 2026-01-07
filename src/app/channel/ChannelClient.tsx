@@ -78,6 +78,9 @@ export function ChannelClient() {
                 onDateChange={setSelectedDate}
                 loading={scheduleLoading}
                 currentShow={currentShow}
+                isAuthenticated={isAuthenticated}
+                userId={user?.uid}
+                username={username}
               />
             </div>
           </div>
@@ -87,8 +90,11 @@ export function ChannelClient() {
             <ListenerChatPanel
               isAuthenticated={isAuthenticated}
               username={username}
+              userId={user?.uid}
               currentDJ={currentDJ}
+              currentDJUserId={currentShow?.liveDjUserId}
               showName={currentShow?.showName}
+              broadcastSlotId={currentShow?.id}
               isLive={isLive}
               profileLoading={profileLoading}
               onSetUsername={setChatUsername}
@@ -147,8 +153,11 @@ export function ChannelClient() {
               <ListenerChatPanel
                 isAuthenticated={isAuthenticated}
                 username={username}
+                userId={user?.uid}
                 currentDJ={currentDJ}
+                currentDJUserId={currentShow?.liveDjUserId}
                 showName={currentShow?.showName}
+                broadcastSlotId={currentShow?.id}
                 isLive={isLive}
                 profileLoading={profileLoading}
                 onSetUsername={setChatUsername}
@@ -161,6 +170,9 @@ export function ChannelClient() {
                   onDateChange={setSelectedDate}
                   loading={scheduleLoading}
                   currentShow={currentShow}
+                  isAuthenticated={isAuthenticated}
+                  userId={user?.uid}
+                  username={username}
                 />
               </div>
             )}

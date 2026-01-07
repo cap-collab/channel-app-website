@@ -50,6 +50,7 @@ export interface UserDocument {
   createdAt: Date;
   lastSeenAt: Date;
   timezone: string;
+  role?: 'user' | 'dj' | 'broadcaster' | 'admin';
   googleCalendar?: {
     accessToken: string;
     refreshToken: string;
@@ -61,6 +62,14 @@ export interface UserDocument {
     watchlistMatch: boolean;
   };
   lastWatchlistEmailAt?: Date;
+  djProfile?: {
+    bio: string | null;
+    photoUrl: string | null;
+    promoUrl: string | null;
+    promoTitle: string | null;
+    stripeAccountId: string | null;
+    stripeOnboarded: boolean;
+  };
 }
 
 // Favorite document in Firestore

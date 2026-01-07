@@ -49,6 +49,8 @@ export interface BroadcastSlot {
   // Live DJ info (for single-DJ broadcasts)
   liveDjUserId?: string;       // Firebase UID of the DJ who went live
   liveDjUsername?: string;     // Their chat username
+  liveDjBio?: string;          // DJ bio (from their profile)
+  liveDjPhotoUrl?: string;     // DJ photo URL (from their profile)
   // Show-level promo (default for all DJs)
   showPromoUrl?: string;
   showPromoTitle?: string;
@@ -66,6 +68,7 @@ export interface BroadcastSlotSerialized {
   stationId: string;
   showName: string;            // Show title (REQUIRED)
   djName?: string;             // Single DJ for remote broadcasts (optional)
+  djEmail?: string;            // DJ's email for matching in DJ Profile (set on approval)
   djSlots?: DJSlot[];          // Multiple DJ slots for venue broadcasts (optional)
   startTime: number;           // Unix timestamp ms
   endTime: number;
@@ -78,6 +81,8 @@ export interface BroadcastSlotSerialized {
   // Live DJ info (for single-DJ broadcasts)
   liveDjUserId?: string;
   liveDjUsername?: string;
+  liveDjBio?: string;
+  liveDjPhotoUrl?: string;
   // Show-level promo
   showPromoUrl?: string;
   showPromoTitle?: string;
@@ -127,7 +132,7 @@ export interface AudioDevice {
 }
 
 // Chat message types for DJ chat
-export type ChatMessageType = 'chat' | 'promo' | 'love';
+export type ChatMessageType = 'chat' | 'promo' | 'love' | 'tip';
 
 export interface ChatMessage {
   id?: string;

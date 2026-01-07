@@ -1,7 +1,18 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { BroadcastSlotSerialized, DJSlot } from '@/types/broadcast';
+import { TipButton } from './TipButton';
+
+// DJ profile data fetched from Firestore
+interface DJProfileData {
+  bio: string | null;
+  photoUrl: string | null;
+  promoUrl: string | null;
+  promoTitle: string | null;
+}
 
 interface BroadcastScheduleProps {
   shows: BroadcastSlotSerialized[];
@@ -9,6 +20,9 @@ interface BroadcastScheduleProps {
   onDateChange: (date: Date) => void;
   loading: boolean;
   currentShow: BroadcastSlotSerialized | null;
+  isAuthenticated?: boolean;
+  userId?: string;
+  username?: string;
 }
 
 // Expanded slot for display - either a single show or a DJ slot within a venue show
@@ -68,11 +82,191 @@ function slotOverlapsDay(slotStart: number, slotEnd: number, dayStart: number, d
   return slotStart <= dayEnd && slotEnd >= dayStart;
 }
 
+// Show card component with expandable DJ info
+interface ShowCardProps {
+  slot: DisplaySlot;
+  isLive: boolean;
+  isPast: boolean;
+  height: number;
+  top: number;
+  isAuthenticated?: boolean;
+  userId?: string;
+  username?: string;
+}
+
+function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, username }: ShowCardProps) {
+  const [expanded, setExpanded] = useState(false);
+  const [djProfile, setDjProfile] = useState<DJProfileData | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+
+  // Fetch DJ profile when card is expanded or when live
+  const fetchDjProfile = useCallback(async () => {
+    const userId = slot.originalShow.liveDjUserId || slot.djSlot?.liveDjUserId;
+    if (!userId || !db) return;
+
+    setLoadingProfile(true);
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        if (data.djProfile) {
+          setDjProfile({
+            bio: data.djProfile.bio || null,
+            photoUrl: data.djProfile.photoUrl || null,
+            promoUrl: data.djProfile.promoUrl || null,
+            promoTitle: data.djProfile.promoTitle || null,
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch DJ profile:', err);
+    } finally {
+      setLoadingProfile(false);
+    }
+  }, [slot.originalShow.liveDjUserId, slot.djSlot?.liveDjUserId]);
+
+  // Fetch profile when expanded or when live (for promo link)
+  useEffect(() => {
+    const userId = slot.originalShow.liveDjUserId || slot.djSlot?.liveDjUserId;
+    if (userId && (expanded || isLive) && !djProfile && !loadingProfile) {
+      fetchDjProfile();
+    }
+  }, [expanded, isLive, djProfile, loadingProfile, fetchDjProfile, slot.originalShow.liveDjUserId, slot.djSlot?.liveDjUserId]);
+
+  const hasDjInfo = slot.originalShow.liveDjUserId || slot.djSlot?.liveDjUserId;
+  const hasExpandableContent = hasDjInfo && djProfile && (djProfile.bio || djProfile.photoUrl);
+
+  return (
+    <div
+      className={`absolute left-1 right-1 rounded-lg overflow-hidden transition-all bg-black border border-accent ${
+        isPast ? 'opacity-60' : ''
+      } ${expanded ? 'z-20' : ''}`}
+      style={{
+        top: `${top}px`,
+        minHeight: `${height}px`,
+        height: expanded ? 'auto' : `${height}px`
+      }}
+    >
+      <div className="px-3 py-2">
+        {/* Header row */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              {isLive && (
+                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0" />
+              )}
+              <h3 className="text-white font-medium text-sm truncate">{slot.showName}</h3>
+            </div>
+            {height > 50 && slot.djName && (
+              <p className="text-white/70 text-xs truncate mt-0.5">
+                {slot.djName}
+              </p>
+            )}
+          </div>
+
+          {/* Right side: tip button + promo link + expand button */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {/* Tip button - show if DJ is assigned */}
+            {hasDjInfo && (
+              <div onClick={(e) => e.stopPropagation()}>
+                <TipButton
+                  isAuthenticated={isAuthenticated || false}
+                  tipperUserId={userId}
+                  tipperUsername={username}
+                  djUserId={slot.originalShow.liveDjUserId || slot.djSlot?.liveDjUserId || ''}
+                  djUsername={slot.djName || 'DJ'}
+                  broadcastSlotId={slot.originalShow.id}
+                  showName={slot.showName}
+                  compact
+                />
+              </div>
+            )}
+
+            {/* Promo link */}
+            {djProfile?.promoUrl && (
+              <a
+                href={djProfile.promoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-accent hover:text-white text-xs px-2 py-1 bg-accent/10 rounded transition-colors truncate max-w-[100px]"
+                title={djProfile.promoTitle || djProfile.promoUrl}
+              >
+                {djProfile.promoTitle || 'Promo'}
+              </a>
+            )}
+
+            {/* Expand button - only show if there's expandable content */}
+            {hasDjInfo && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpanded(!expanded);
+                }}
+                className="p-1 text-gray-400 hover:text-white transition-colors"
+                title={expanded ? 'Collapse' : 'Show DJ info'}
+              >
+                <svg
+                  className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Expanded content */}
+        {expanded && (
+          <div className="mt-3 pt-3 border-t border-gray-800">
+            {loadingProfile ? (
+              <div className="flex items-center justify-center py-2">
+                <div className="w-4 h-4 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
+              </div>
+            ) : hasExpandableContent ? (
+              <div className="flex gap-3">
+                {/* DJ Photo */}
+                {djProfile.photoUrl && (
+                  <div className="w-16 h-16 rounded-lg bg-gray-800 overflow-hidden flex-shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={djProfile.photoUrl}
+                      alt={slot.djName || 'DJ'}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+                {/* DJ Bio */}
+                {djProfile.bio && (
+                  <p className="text-gray-300 text-xs leading-relaxed flex-1">
+                    {djProfile.bio}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-xs">No DJ info available</p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function BroadcastSchedule({
   shows,
   selectedDate,
   onDateChange,
   loading,
+  isAuthenticated,
+  userId,
+  username,
 }: BroadcastScheduleProps) {
   // Get day boundaries for the selected date
   const { dayStart, dayEnd } = useMemo(() => getDayBoundaries(selectedDate), [selectedDate]);
@@ -271,27 +465,17 @@ export function BroadcastSchedule({
                 const isPast = slot.endTime < now;
 
                 return (
-                  <div
+                  <ShowCard
                     key={slot.id}
-                    className={`absolute left-1 right-1 rounded-lg overflow-hidden transition-colors bg-black border border-accent ${
-                      isPast ? 'opacity-60' : ''
-                    }`}
-                    style={{ top: `${top}px`, height: `${height}px` }}
-                  >
-                    <div className="px-3 py-2 h-full overflow-hidden">
-                      <div className="flex items-center gap-2">
-                        {isLive && (
-                          <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0" />
-                        )}
-                        <h3 className="text-white font-medium text-sm truncate">{slot.showName}</h3>
-                      </div>
-                      {height > 50 && slot.djName && (
-                        <p className="text-white/70 text-xs truncate">
-                          {slot.djName}
-                        </p>
-                      )}
-                    </div>
-                  </div>
+                    slot={slot}
+                    isLive={isLive}
+                    isPast={isPast}
+                    height={height}
+                    top={top}
+                    isAuthenticated={isAuthenticated}
+                    userId={userId}
+                    username={username}
+                  />
                 );
               })}
             </div>

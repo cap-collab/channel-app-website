@@ -118,12 +118,15 @@ export function AdminDashboard() {
   const handleSaveSlot = async (data: {
     showName: string;
     djName?: string;
+    djEmail?: string;
     djSlots?: DJSlot[];
     startTime: number;
     endTime: number;
     broadcastType: BroadcastType;
   }) => {
     if (!user) return;
+
+    let createdSlot: BroadcastSlotSerialized | null = null;
 
     if (selectedSlot) {
       // Check if broadcast type changed - if so, need to recreate to get new token
@@ -132,29 +135,134 @@ export function AdminDashboard() {
       if (typeChanged) {
         // Delete old slot and create new one (new type needs new token)
         await deleteSlotFromDb(selectedSlot.id);
-        await createSlot({
+        const result = await createSlot({
           ...data,
           createdBy: user.uid,
         });
+        createdSlot = result.slot;
       } else {
         // Update existing slot - preserve the token by using updateSlot
         await updateSlot(selectedSlot.id, {
           showName: data.showName,
           djName: data.djName,
+          djEmail: data.djEmail,
           djSlots: data.djSlots,
           startTime: data.startTime,
           endTime: data.endTime,
         });
+        // For updates, we use the existing slot's token
+        createdSlot = { ...selectedSlot, ...data, broadcastToken: selectedSlot.broadcastToken };
       }
     } else {
       // Create new slot
-      await createSlot({
+      const result = await createSlot({
         ...data,
         createdBy: user.uid,
       });
+      createdSlot = result.slot;
     }
 
     await fetchSlots();
+
+    // If DJ email was provided for a new slot, send notification email
+    if (data.djEmail && createdSlot && !selectedSlot) {
+      await sendDJNotificationEmail(data.djEmail, createdSlot, data);
+    }
+  };
+
+  // Send notification email to DJ when slot is created with their email
+  const sendDJNotificationEmail = async (
+    djEmail: string,
+    slot: BroadcastSlotSerialized,
+    data: { showName: string; djName?: string; startTime: number; endTime: number }
+  ) => {
+    try {
+      // Check if user exists and assign DJ role
+      const response = await fetch('/api/users/check-and-assign-dj', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: djEmail }),
+      });
+      const result = await response.json();
+      const userExists = result.userExists;
+
+      // Format show date/time
+      const startDate = new Date(data.startTime);
+      const endDate = new Date(data.endTime);
+      const dateStr = startDate.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      });
+      const startTimeStr = startDate.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+      const endTimeStr = endDate.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+
+      const broadcastUrl = `${window.location.origin}/broadcast/live?token=${slot.broadcastToken}`;
+      const djProfileUrl = `${window.location.origin}/dj-profile`;
+      const signInUrl = `${window.location.origin}/radio-portal`;
+
+      let subject: string;
+      let body: string;
+
+      if (userExists) {
+        // User has an account
+        subject = `Your DJ slot on Channel: ${data.showName}`;
+        body = `Hi${data.djName ? ` ${data.djName}` : ''},
+
+You've been scheduled to DJ on Channel!
+
+Show: ${data.showName}
+Date: ${dateStr}
+Time: ${startTimeStr} - ${endTimeStr}
+
+Your broadcast link (keep this private):
+${broadcastUrl}
+
+You can set up your DJ profile now to add your bio, photo, and promo link:
+${djProfileUrl}
+
+See you on air!
+- Channel Team`;
+      } else {
+        // User doesn't have an account yet
+        subject = `You're invited to DJ on Channel: ${data.showName}`;
+        body = `Hi${data.djName ? ` ${data.djName}` : ''},
+
+You've been invited to DJ on Channel!
+
+Show: ${data.showName}
+Date: ${dateStr}
+Time: ${startTimeStr} - ${endTimeStr}
+
+To get started:
+1. Create your account: ${signInUrl}
+2. Once signed in, set up your DJ profile: ${djProfileUrl}
+
+Your broadcast link (keep this private - you'll use this to go live):
+${broadcastUrl}
+
+Creating an account lets you:
+- Receive tips from listeners
+- Chat with your audience on mobile
+- Save your DJ profile with bio, photo, and promo link
+
+See you on air!
+- Channel Team`;
+      }
+
+      // Open Gmail compose in new tab
+      const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(djEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.open(gmailUrl, '_blank');
+    } catch (error) {
+      console.error('Failed to send DJ notification:', error);
+    }
   };
 
   // Delete slot - directly from Firestore

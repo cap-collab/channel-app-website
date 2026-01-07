@@ -33,7 +33,7 @@ interface DJProfileSetupProps {
 
 export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: DJProfileSetupProps) {
   const { user, isAuthenticated, signInWithGoogle, signInWithApple, sendEmailLink, emailSent, resetEmailSent, loading: authLoading } = useAuthContext();
-  const { chatUsername: savedUsername, loading: profileLoading } = useUserProfile(user?.uid);
+  const { chatUsername: savedUsername, djProfile, loading: profileLoading } = useUserProfile(user?.uid);
   const [username, setUsername] = useState(defaultUsername || '');
   const [promoUrl, setPromoUrl] = useState('');
   const [promoTitle, setPromoTitle] = useState('');
@@ -55,6 +55,18 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
       setUsername(savedUsername);
     }
   }, [savedUsername]);
+
+  // Pre-fill promo URL/title from DJ profile (if available and not already set)
+  useEffect(() => {
+    if (djProfile && !promoUrl) {
+      if (djProfile.promoUrl) {
+        setPromoUrl(djProfile.promoUrl);
+      }
+      if (djProfile.promoTitle) {
+        setPromoTitle(djProfile.promoTitle);
+      }
+    }
+  }, [djProfile, promoUrl]);
 
   // Get valid username for saving during sign-in (if valid)
   const getValidUsername = (): string | undefined => {
@@ -397,7 +409,7 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
               // Default sign-in options
               <div>
                 <p className="text-gray-300 text-sm mb-3">
-                  Log in to chat on mobile and save your settings
+                  Log in to receive tips, chat on mobile, and save your settings
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <button

@@ -14,6 +14,7 @@ import { DJProfileSetup } from '@/components/broadcast/DJProfileSetup';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { AudioInputMethod } from '@/types/broadcast';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
+import { useTipTotal } from '@/hooks/useTipTotal';
 
 type OnboardingStep = 'profile' | 'audio';
 
@@ -64,6 +65,12 @@ export function BroadcastClient() {
   const { user } = useAuthContext();
 
   const { slot, error: tokenError, loading: tokenLoading, scheduleStatus, message } = useBroadcastToken(token);
+
+  // Tips for current broadcast
+  const { totalCents: tipTotalCents, tipCount } = useTipTotal({
+    djUserId: user?.uid || '',
+    broadcastSlotId: slot?.id,
+  });
 
   // DJ onboarding state - declared early so djInfo can use it
   // Start directly at profile step (non-blocking login is inline in DJProfileSetup)
@@ -464,6 +471,21 @@ export function BroadcastClient() {
         <BroadcastHeader />
         <div className="p-4 lg:p-8">
           <div className="max-w-6xl mx-auto">
+            {/* Tips counter */}
+            {tipTotalCents > 0 && (
+              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 mb-4 flex items-center gap-3">
+                <span className="text-2xl">💸</span>
+                <div>
+                  <p className="text-green-400 font-medium">
+                    You got ${(tipTotalCents / 100).toFixed(2)} in tips!
+                  </p>
+                  <p className="text-gray-500 text-sm">
+                    {tipCount} {tipCount === 1 ? 'tip' : 'tips'} during this broadcast
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Show promo error if initial promo failed */}
             {promoError && (
               <div className="bg-red-900/30 border border-red-800 rounded-lg p-4 mb-4">

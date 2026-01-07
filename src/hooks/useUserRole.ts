@@ -3,7 +3,7 @@ import { User } from 'firebase/auth';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
-export type UserRole = 'broadcaster' | 'admin' | 'user' | null;
+export type UserRole = 'broadcaster' | 'admin' | 'dj' | 'user' | null;
 
 interface UserRoleData {
   role: UserRole;
@@ -53,8 +53,16 @@ export function useUserRole(user: User | null): UserRoleData {
 }
 
 /**
- * Check if user has broadcaster access
+ * Check if user has broadcaster access (admin dashboard)
  */
 export function isBroadcaster(role: UserRole): boolean {
   return role === 'broadcaster' || role === 'admin';
+}
+
+/**
+ * Check if user has DJ access (DJ profile, broadcast features)
+ * Includes dj, broadcaster, and admin roles
+ */
+export function isDJ(role: UserRole): boolean {
+  return role === 'dj' || role === 'broadcaster' || role === 'admin';
 }

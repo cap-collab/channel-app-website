@@ -18,7 +18,8 @@
     "next": "14.2.33",
     "react": "^18",
     "react-dom": "^18",
-    "resend": "^6.5.2"
+    "resend": "^6.5.2",
+    "stripe": "^20.1.2"
   },
   "devDependencies": {
     "@types/node": "^20",

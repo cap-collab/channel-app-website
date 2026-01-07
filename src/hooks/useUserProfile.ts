@@ -4,9 +4,17 @@ import { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 
+interface DJProfile {
+  bio: string | null;
+  photoUrl: string | null;
+  promoUrl: string | null;
+  promoTitle: string | null;
+}
+
 interface UserProfile {
   chatUsername: string | null;
   displayName: string | null;
+  djProfile: DJProfile | null;
 }
 
 interface SetUsernameResult {
@@ -19,7 +27,7 @@ interface SetUsernameResult {
  * Used to get saved chatUsername for DJ profile setup and chat
  */
 export function useUserProfile(userId: string | undefined) {
-  const [profile, setProfile] = useState<UserProfile>({ chatUsername: null, displayName: null });
+  const [profile, setProfile] = useState<UserProfile>({ chatUsername: null, displayName: null, djProfile: null });
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = useCallback(async () => {
@@ -35,6 +43,12 @@ export function useUserProfile(userId: string | undefined) {
         setProfile({
           chatUsername: data.chatUsername || null,
           displayName: data.displayName || null,
+          djProfile: data.djProfile ? {
+            bio: data.djProfile.bio || null,
+            photoUrl: data.djProfile.photoUrl || null,
+            promoUrl: data.djProfile.promoUrl || null,
+            promoTitle: data.djProfile.promoTitle || null,
+          } : null,
         });
       }
     } catch (err) {

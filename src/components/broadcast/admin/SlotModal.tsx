@@ -10,6 +10,7 @@ interface SlotModalProps {
   onSave: (data: {
     showName: string;
     djName?: string;
+    djEmail?: string;
     djSlots?: DJSlot[];
     startTime: number;
     endTime: number;
@@ -209,6 +210,7 @@ export function SlotModal({
 }: SlotModalProps) {
   const [showName, setShowName] = useState('');
   const [djName, setDjName] = useState('');
+  const [djEmail, setDjEmail] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [startTime, setStartTime] = useState('');
@@ -240,6 +242,7 @@ export function SlotModal({
         const end = new Date(slot.endTime);
         setShowName(slot.showName || '');
         setDjName(slot.djName || '');
+        setDjEmail(slot.djEmail || '');
         // Use local date formatting to avoid timezone issues
         setStartDate(formatLocalDate(start));
         setEndDate(formatLocalDate(end));
@@ -268,6 +271,7 @@ export function SlotModal({
         // Creating new slot from calendar drag
         setShowName('');
         setDjName('');
+        setDjEmail('');
         // Use local date formatting to avoid timezone issues
         setStartDate(formatLocalDate(initialStartTime));
         setEndDate(formatLocalDate(initialEndTime));
@@ -347,6 +351,7 @@ export function SlotModal({
       await onSave({
         showName,
         djName: broadcastType === 'remote' ? (djName || undefined) : undefined,
+        djEmail: broadcastType === 'remote' ? (djEmail || undefined) : undefined,
         djSlots: convertedDjSlots,
         startTime: startDateTime,
         endTime: endDateTime,
@@ -749,6 +754,23 @@ export function SlotModal({
                 placeholder="e.g., DJ Shadow (optional)"
                 className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
               />
+            </div>
+          )}
+
+          {/* DJ Email (remote only) */}
+          {broadcastType === 'remote' && (
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">DJ Email</label>
+              <input
+                type="email"
+                value={djEmail}
+                onChange={(e) => setDjEmail(e.target.value)}
+                placeholder="dj@example.com (optional)"
+                className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
+              />
+              <p className="text-gray-500 text-xs mt-1">
+                Links this slot to the DJ&apos;s profile page
+              </p>
             </div>
           )}
 

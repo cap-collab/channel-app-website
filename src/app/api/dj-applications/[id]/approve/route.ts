@@ -57,6 +57,7 @@ export async function POST(
       stationId: STATION_ID,
       showName: application.showName,
       djName: application.djName,
+      djEmail: application.email, // Store DJ's email for matching in DJ Profile
       djSlots: null,
       startTime: Timestamp.fromMillis(selectedSlot.start),
       endTime: Timestamp.fromMillis(selectedSlot.end),
@@ -91,6 +92,20 @@ export async function POST(
     await updateApplicationStatus(id, 'approved', {
       scheduledSlotId: slot.id,
     });
+
+    // Assign DJ role to user by email
+    const usersSnapshot = await db.collection('users')
+      .where('email', '==', application.email)
+      .limit(1)
+      .get();
+
+    if (!usersSnapshot.empty) {
+      const userDoc = usersSnapshot.docs[0];
+      await userDoc.ref.update({ role: 'dj' });
+      console.log(`Assigned DJ role to user ${userDoc.id} (${application.email})`);
+    } else {
+      console.log(`No user found for email ${application.email} - role will need manual assignment`);
+    }
 
     return NextResponse.json({
       success: true,

@@ -5,12 +5,16 @@ import { useListenerChat } from '@/hooks/useListenerChat';
 import { ChatMessageSerialized } from '@/types/broadcast';
 import { AuthModal } from '@/components/AuthModal';
 import { FloatingHearts } from './FloatingHearts';
+import { TipButton } from './TipButton';
 
 interface ListenerChatPanelProps {
   isAuthenticated: boolean;
   username?: string;
+  userId?: string;
   currentDJ?: string | null;
+  currentDJUserId?: string | null;
   showName?: string;
+  broadcastSlotId?: string;
   isLive?: boolean;
   profileLoading?: boolean;
   onSetUsername?: (username: string) => Promise<{ success: boolean; error?: string }>;
@@ -79,6 +83,15 @@ function ChatMessage({
   if (message.messageType === 'love' || message.message?.includes(' is ❤️')) {
     return (
       <div className="py-2 px-4 text-gray-400 text-sm italic">
+        {message.message}
+      </div>
+    );
+  }
+
+  // Tip message
+  if (message.messageType === 'tip') {
+    return (
+      <div className="py-2 px-4 text-green-400 text-sm font-medium">
         {message.message}
       </div>
     );
@@ -261,8 +274,11 @@ function ProfileLoading() {
 export function ListenerChatPanel({
   isAuthenticated,
   username,
+  userId,
   currentDJ,
+  currentDJUserId,
   showName,
+  broadcastSlotId,
   isLive = false,
   profileLoading = false,
   onSetUsername,
@@ -438,6 +454,20 @@ export function ListenerChatPanel({
             </button>
             <FloatingHearts trigger={heartTrigger} />
           </div>
+
+          {/* Tip button - only when live and DJ info available */}
+          {isLive && currentDJ && currentDJUserId && broadcastSlotId && showName && (
+            <TipButton
+              isAuthenticated={isAuthenticated}
+              tipperUserId={userId}
+              tipperUsername={username}
+              djUserId={currentDJUserId}
+              djUsername={currentDJ}
+              broadcastSlotId={broadcastSlotId}
+              showName={showName}
+              compact
+            />
+          )}
 
           {/* Text input */}
           <input
