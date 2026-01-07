@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { doc, onSnapshot, updateDoc, collection, query, where, orderBy, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -15,13 +16,13 @@ interface DJProfile {
   promoUrl: string | null;
   promoTitle: string | null;
   stripeAccountId: string | null;
-  stripeOnboarded: boolean;
 }
 
 export function DJProfileClient() {
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const { role, loading: roleLoading } = useUserRole(user);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const searchParams = useSearchParams();
 
   // Profile data
   const [chatUsername, setChatUsername] = useState<string | null>(null);
@@ -30,12 +31,20 @@ export function DJProfileClient() {
     promoUrl: null,
     promoTitle: null,
     stripeAccountId: null,
-    stripeOnboarded: false,
   });
 
   // Stripe connect state
   const [connectingStripe, setConnectingStripe] = useState(false);
   const [stripeError, setStripeError] = useState<string | null>(null);
+
+  // Check for Stripe success redirect - no status check needed, just having stripeAccountId is enough
+  useEffect(() => {
+    const stripeParam = searchParams.get('stripe');
+    if (stripeParam === 'success') {
+      // User just returned from Stripe - the stripeAccountId will be in Firebase
+      // The onSnapshot listener will pick it up automatically
+    }
+  }, [searchParams]);
 
   // Pending payout info
   const { pendingCents, pendingCount, transferredCents, loading: payoutLoading } = usePendingPayout({
@@ -73,7 +82,6 @@ export function DJProfileClient() {
             promoUrl: data.djProfile.promoUrl || null,
             promoTitle: data.djProfile.promoTitle || null,
             stripeAccountId: data.djProfile.stripeAccountId || null,
-            stripeOnboarded: data.djProfile.stripeOnboarded || false,
           });
           setBioInput(data.djProfile.bio || "");
           setPromoUrlInput(data.djProfile.promoUrl || "");
@@ -510,7 +518,7 @@ export function DJProfileClient() {
               )}
 
               {/* Stripe status */}
-              {djProfile.stripeOnboarded ? (
+              {djProfile.stripeAccountId ? (
                 <>
                   {/* Connected state */}
                   <div className="p-3 bg-green-500/20 border border-green-500/30 rounded-lg text-green-400 text-sm">
@@ -588,7 +596,7 @@ export function DJProfileClient() {
               )}
 
               {/* Pending tips notice */}
-              {!djProfile.stripeOnboarded && pendingCents > 0 && (
+              {!djProfile.stripeAccountId && pendingCents > 0 && (
                 <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                   <p className="text-yellow-400 text-sm">
                     You have ${(pendingCents / 100).toFixed(2)} in pending tips. Connect Stripe to receive them!
