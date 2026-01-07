@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import Link from "next/link";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useFavorites, Favorite, isRecurringFavorite } from "@/hooks/useFavorites";
 import { AuthModal } from "@/components/AuthModal";
