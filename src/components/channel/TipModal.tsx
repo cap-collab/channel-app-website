@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import Link from 'next/link';
 import { calculateTotalCharge } from '@/lib/stripe-client';
 
 interface TipModalProps {
@@ -26,11 +27,12 @@ export function TipModal({
   tipperUserId,
   tipperUsername,
 }: TipModalProps) {
-  const [selectedAmount, setSelectedAmount] = useState(500); // $5 default
-  const [customAmount, setCustomAmount] = useState('');
+  const [selectedAmount, setSelectedAmount] = useState(300); // $3 default
   const [isCustom, setIsCustom] = useState(false);
+  const [customAmount, setCustomAmount] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const currentAmount = isCustom ? (parseFloat(customAmount) * 100 || 0) : selectedAmount;
   const { tipAmountCents, platformFeeCents, totalCents } = calculateTotalCharge(currentAmount);
@@ -150,10 +152,16 @@ export function TipModal({
             <input
               type="text"
               inputMode="decimal"
-              placeholder="Custom amount"
-              value={customAmount}
+              placeholder="Enter amount"
+              value={isCustom ? customAmount : (selectedAmount / 100).toString()}
               onChange={(e) => handleCustomChange(e.target.value)}
-              onFocus={() => setIsCustom(true)}
+              onFocus={() => {
+                if (!isCustom) {
+                  // When focusing, convert current selection to custom input
+                  setCustomAmount((selectedAmount / 100).toString());
+                  setIsCustom(true);
+                }
+              }}
               className={`w-full pl-8 pr-4 py-3 bg-white/5 border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 transition-all ${
                 isCustom ? 'border-accent ring-1 ring-accent' : 'border-white/10'
               }`}
@@ -179,6 +187,31 @@ export function TipModal({
           </div>
         )}
 
+        {/* Terms agreement */}
+        <div className="mb-4">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={agreedToTerms}
+              onChange={(e) => setAgreedToTerms(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded border-gray-600 bg-white/5 text-accent focus:ring-accent focus:ring-offset-0"
+            />
+            <span className="text-sm text-gray-300">
+              I agree to the{' '}
+              <Link href="/terms" target="_blank" className="text-accent hover:underline">
+                Terms of Use
+              </Link>{' '}
+              and{' '}
+              <Link href="/privacy" target="_blank" className="text-accent hover:underline">
+                Privacy Policy
+              </Link>
+            </span>
+          </label>
+          <p className="text-xs text-gray-500 mt-2 ml-7">
+            Tips are voluntary and do not purchase content or services.
+          </p>
+        </div>
+
         {/* Error */}
         {error && (
           <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm">
@@ -189,9 +222,9 @@ export function TipModal({
         {/* Submit button */}
         <button
           onClick={handleSubmit}
-          disabled={!isValidAmount || isLoading}
+          disabled={!isValidAmount || isLoading || !agreedToTerms}
           className={`w-full py-3 rounded-lg font-medium transition-all ${
-            isValidAmount && !isLoading
+            isValidAmount && !isLoading && agreedToTerms
               ? 'bg-accent text-black hover:bg-accent-hover'
               : 'bg-gray-600 text-gray-400 cursor-not-allowed'
           }`}
