@@ -9,7 +9,6 @@ import { TipButton } from './TipButton';
 // DJ profile data fetched from Firestore
 interface DJProfileData {
   bio: string | null;
-  photoUrl: string | null;
   promoUrl: string | null;
   promoTitle: string | null;
 }
@@ -112,7 +111,6 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
         if (data.djProfile) {
           setDjProfile({
             bio: data.djProfile.bio || null,
-            photoUrl: data.djProfile.photoUrl || null,
             promoUrl: data.djProfile.promoUrl || null,
             promoTitle: data.djProfile.promoTitle || null,
           });
@@ -134,7 +132,7 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
   }, [expanded, isLive, djProfile, loadingProfile, fetchDjProfile, slot.originalShow.liveDjUserId, slot.djSlot?.liveDjUserId]);
 
   const hasDjInfo = slot.originalShow.liveDjUserId || slot.djSlot?.liveDjUserId;
-  const hasExpandableContent = hasDjInfo && djProfile && (djProfile.bio || djProfile.photoUrl);
+  const hasExpandableContent = hasDjInfo && djProfile && djProfile.bio;
 
   return (
     <div
@@ -227,28 +225,9 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
                 <div className="w-4 h-4 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
               </div>
             ) : hasExpandableContent ? (
-              <div className="flex gap-3">
-                {/* DJ Photo */}
-                {djProfile.photoUrl && (
-                  <div className="w-16 h-16 rounded-lg bg-gray-800 overflow-hidden flex-shrink-0">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={djProfile.photoUrl}
-                      alt={slot.djName || 'DJ'}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                  </div>
-                )}
-                {/* DJ Bio */}
-                {djProfile.bio && (
-                  <p className="text-gray-300 text-xs leading-relaxed flex-1">
-                    {djProfile.bio}
-                  </p>
-                )}
-              </div>
+              <p className="text-gray-300 text-xs leading-relaxed">
+                {djProfile.bio}
+              </p>
             ) : (
               <p className="text-gray-500 text-xs">No DJ info available</p>
             )}

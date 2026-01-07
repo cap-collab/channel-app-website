@@ -50,7 +50,6 @@ export interface BroadcastSlot {
   liveDjUserId?: string;       // Firebase UID of the DJ who went live
   liveDjUsername?: string;     // Their chat username
   liveDjBio?: string;          // DJ bio (from their profile)
-  liveDjPhotoUrl?: string;     // DJ photo URL (from their profile)
   // Show-level promo (default for all DJs)
   showPromoUrl?: string;
   showPromoTitle?: string;
@@ -82,7 +81,6 @@ export interface BroadcastSlotSerialized {
   liveDjUserId?: string;
   liveDjUsername?: string;
   liveDjBio?: string;
-  liveDjPhotoUrl?: string;
   // Show-level promo
   showPromoUrl?: string;
   showPromoTitle?: string;

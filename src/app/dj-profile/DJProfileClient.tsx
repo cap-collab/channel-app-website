@@ -13,7 +13,6 @@ import { usePendingPayout } from "@/hooks/usePendingPayout";
 
 interface DJProfile {
   bio: string | null;
-  photoUrl: string | null;
   promoUrl: string | null;
   promoTitle: string | null;
   stripeAccountId: string | null;
@@ -31,7 +30,6 @@ export function DJProfileClient() {
   const [chatUsername, setChatUsername] = useState<string | null>(null);
   const [djProfile, setDjProfile] = useState<DJProfile>({
     bio: null,
-    photoUrl: null,
     promoUrl: null,
     promoTitle: null,
     stripeAccountId: null,
@@ -59,7 +57,6 @@ export function DJProfileClient() {
 
   // Form state - About section
   const [bioInput, setBioInput] = useState("");
-  const [photoUrlInput, setPhotoUrlInput] = useState("");
   const [savingAbout, setSavingAbout] = useState(false);
   const [saveAboutSuccess, setSaveAboutSuccess] = useState(false);
 
@@ -85,14 +82,12 @@ export function DJProfileClient() {
         if (data.djProfile) {
           setDjProfile({
             bio: data.djProfile.bio || null,
-            photoUrl: data.djProfile.photoUrl || null,
             promoUrl: data.djProfile.promoUrl || null,
             promoTitle: data.djProfile.promoTitle || null,
             stripeAccountId: data.djProfile.stripeAccountId || null,
             stripeOnboarded: data.djProfile.stripeOnboarded || false,
           });
           setBioInput(data.djProfile.bio || "");
-          setPhotoUrlInput(data.djProfile.photoUrl || "");
           setPromoUrlInput(data.djProfile.promoUrl || "");
           setPromoTitleInput(data.djProfile.promoTitle || "");
         }
@@ -173,7 +168,6 @@ export function DJProfileClient() {
       const userRef = doc(db, "users", user.uid);
       await updateDoc(userRef, {
         "djProfile.bio": bioInput.trim() || null,
-        "djProfile.photoUrl": photoUrlInput.trim() || null,
       });
       setSaveAboutSuccess(true);
       setTimeout(() => setSaveAboutSuccess(false), 2000);
@@ -387,48 +381,6 @@ export function DJProfileClient() {
               About
             </h2>
             <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
-              {/* Profile Picture Preview */}
-              <div className="flex items-center gap-4">
-                <div className="w-20 h-20 rounded-full bg-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0">
-                  {photoUrlInput ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={photoUrlInput}
-                      alt="Profile"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                      }}
-                    />
-                  ) : (
-                    <svg
-                      className="w-10 h-10 text-gray-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                      />
-                    </svg>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <label className="block text-gray-400 text-sm mb-2">
-                    Photo URL
-                  </label>
-                  <input
-                    type="url"
-                    value={photoUrlInput}
-                    onChange={(e) => setPhotoUrlInput(e.target.value)}
-                    placeholder="https://..."
-                    className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none text-sm"
-                  />
-                </div>
-              </div>
               <div>
                 <label className="block text-gray-400 text-sm mb-2">
                   Bio
@@ -454,11 +406,11 @@ export function DJProfileClient() {
                     : "bg-white text-black hover:bg-gray-100"
                 } disabled:opacity-50`}
               >
-                {savingAbout ? "Saving..." : saveAboutSuccess ? "Saved!" : "Save About"}
+                {savingAbout ? "Saving..." : saveAboutSuccess ? "Saved!" : "Save Bio"}
               </button>
             </div>
             <p className="text-gray-600 text-xs mt-2 px-1">
-              Your bio and photo appear on your DJ profile during broadcasts.
+              Your bio appears on your DJ profile during broadcasts.
             </p>
           </section>
 

@@ -6,7 +6,6 @@ import { db, auth } from '@/lib/firebase';
 
 interface DJProfile {
   bio: string | null;
-  photoUrl: string | null;
   promoUrl: string | null;
   promoTitle: string | null;
 }
@@ -45,7 +44,6 @@ export function useUserProfile(userId: string | undefined) {
           displayName: data.displayName || null,
           djProfile: data.djProfile ? {
             bio: data.djProfile.bio || null,
-            photoUrl: data.djProfile.photoUrl || null,
             promoUrl: data.djProfile.promoUrl || null,
             promoTitle: data.djProfile.promoTitle || null,
           } : null,
