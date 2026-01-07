@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { RoomServiceClient } from 'livekit-server-sdk';
+import { ROOM_NAME } from '@/types/broadcast';
+
+// LiveKit server configuration
+const livekitHost = process.env.LIVEKIT_URL?.replace('wss://', 'https://') || '';
+const apiKey = process.env.LIVEKIT_API_KEY || '';
+const apiSecret = process.env.LIVEKIT_API_SECRET || '';
 
 // Verify request is from Vercel Cron
 function verifyCronRequest(request: NextRequest): boolean {
@@ -24,6 +31,12 @@ export async function GET(request: NextRequest) {
     const now = Date.now();
     let completedCount = 0;
     let missedCount = 0;
+    let disconnectedCount = 0;
+
+    // Initialize LiveKit client if configured
+    const roomService = (livekitHost && apiKey && apiSecret)
+      ? new RoomServiceClient(livekitHost, apiKey, apiSecret)
+      : null;
 
     // Query all slots that are still live, paused, or scheduled
     // We'll check their end times in memory
@@ -46,6 +59,21 @@ export async function GET(request: NextRequest) {
         // Was live at some point, mark as completed
         newStatus = 'completed';
         completedCount++;
+
+        // Disconnect DJ from LiveKit if they're still connected
+        if (slot.status === 'live' && roomService) {
+          const djIdentity = slot.liveDjUsername || slot.liveDjUserId;
+          if (djIdentity) {
+            try {
+              await roomService.removeParticipant(ROOM_NAME, djIdentity);
+              disconnectedCount++;
+              console.log(`Disconnected DJ ${djIdentity} from LiveKit (show ended)`);
+            } catch (e) {
+              // DJ may have already disconnected - that's fine
+              console.log(`Could not remove DJ ${djIdentity} from LiveKit: ${e}`);
+            }
+          }
+        }
       } else if (slot.status === 'scheduled') {
         // Never went live, mark as missed
         newStatus = 'missed';
@@ -62,6 +90,7 @@ export async function GET(request: NextRequest) {
       success: true,
       completed: completedCount,
       missed: missedCount,
+      disconnected: disconnectedCount,
       totalProcessed: completedCount + missedCount,
     });
   } catch (error) {
