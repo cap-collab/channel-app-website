@@ -1,5 +1,7 @@
 import { MetadataResponse, Show, ShowV2 } from "@/types";
 import { getStationByMetadataKey } from "./stations";
+import { db } from "./firebase";
+import { collection, getDocs, query, where, orderBy, Timestamp } from "firebase/firestore";
 
 const METADATA_URL = "https://cap-collab.github.io/channel-metadata/metadata.json";
 const NEWTOWN_SCHEDULE_URL = "https://newtownradio.com/weekly-schedule/";
@@ -173,6 +175,89 @@ async function fetchNewtownDirectly(): Promise<Show[]> {
   }
 }
 
+// Fetch broadcast shows from Firebase
+async function fetchBroadcastShows(): Promise<Show[]> {
+  if (!db) {
+    console.log("[Broadcast] Firebase not initialized");
+    return [];
+  }
+
+  try {
+    const now = new Date();
+    // Get shows from yesterday to 5 days in future (same as iOS)
+    const pastCutoff = new Date(now);
+    pastCutoff.setDate(pastCutoff.getDate() - 1);
+    pastCutoff.setHours(0, 0, 0, 0);
+
+    const futureCutoff = new Date(now);
+    futureCutoff.setDate(futureCutoff.getDate() + 5);
+
+    const q = query(
+      collection(db, "broadcast-slots"),
+      where("startTime", ">=", Timestamp.fromDate(pastCutoff)),
+      where("startTime", "<", Timestamp.fromDate(futureCutoff)),
+      orderBy("startTime")
+    );
+
+    const snapshot = await getDocs(q);
+    const shows: Show[] = [];
+
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      const status = data.status as string;
+
+      // Only include scheduled or live slots
+      if (status !== "scheduled" && status !== "live") {
+        return;
+      }
+
+      const startTime = (data.startTime as Timestamp).toDate().toISOString();
+      const endTime = (data.endTime as Timestamp).toDate().toISOString();
+      const showName = data.showName as string;
+      const djName = data.djName as string | undefined;
+      const djSlots = data.djSlots as Array<{
+        djName?: string;
+        startTime: number;
+        endTime: number;
+      }> | undefined;
+
+      // Handle djSlots (venue broadcasts with multiple DJs)
+      if (djSlots && djSlots.length > 0) {
+        for (const djSlot of djSlots) {
+          const slotStart = new Date(djSlot.startTime).toISOString();
+          const slotEnd = new Date(djSlot.endTime).toISOString();
+          shows.push({
+            id: `broadcast-${doc.id}-${djSlot.startTime}`,
+            name: showName,
+            dj: djSlot.djName,
+            startTime: slotStart,
+            endTime: slotEnd,
+            stationId: "broadcast",
+            type: status === "live" ? "live" : undefined,
+          });
+        }
+      } else {
+        // Single DJ or no DJs
+        shows.push({
+          id: `broadcast-${doc.id}`,
+          name: showName,
+          dj: djName,
+          startTime,
+          endTime,
+          stationId: "broadcast",
+          type: status === "live" ? "live" : undefined,
+        });
+      }
+    });
+
+    console.log(`[Broadcast] Fetched ${shows.length} broadcast shows`);
+    return shows;
+  } catch (error) {
+    console.error("[Broadcast] Error fetching shows:", error);
+    return [];
+  }
+}
+
 // Convert V2 show format to full Show object
 function expandShow(show: ShowV2, stationMetadataKey: string): Show {
   const station = getStationByMetadataKey(stationMetadataKey);
@@ -225,6 +310,14 @@ export async function getAllShows(): Promise<Show[]> {
     }
   }
 
+  // Fetch Channel Broadcast shows from Firebase
+  try {
+    const broadcastShows = await fetchBroadcastShows();
+    shows.push(...broadcastShows);
+  } catch (error) {
+    console.error("[Metadata] Failed to fetch broadcast shows:", error);
+  }
+
   return shows.sort(
     (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
   );
@@ -232,6 +325,11 @@ export async function getAllShows(): Promise<Show[]> {
 
 // Get shows for a specific station
 export async function getShowsForStation(stationMetadataKey: string): Promise<Show[]> {
+  // Handle Channel Broadcast separately (stored in Firebase, not metadata repo)
+  if (stationMetadataKey === "broadcast") {
+    return fetchBroadcastShows();
+  }
+
   const metadata = await fetchMetadata();
   const stationShows = metadata.stations[stationMetadataKey] || [];
 
