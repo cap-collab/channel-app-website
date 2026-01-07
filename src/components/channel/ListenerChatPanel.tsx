@@ -324,7 +324,7 @@ export function ListenerChatPanel({
   // Show login prompt if not authenticated
   if (!isAuthenticated) {
     return (
-      <div className="flex flex-col h-full bg-[#252525]">
+      <div className="flex flex-col h-full bg-[#252525] rounded-xl overflow-hidden">
         <ChatHeader />
         <LoginPrompt />
       </div>
@@ -334,7 +334,7 @@ export function ListenerChatPanel({
   // Show loading state while fetching profile
   if (profileLoading) {
     return (
-      <div className="flex flex-col h-full bg-[#252525]">
+      <div className="flex flex-col h-full bg-[#252525] rounded-xl overflow-hidden">
         <ChatHeader />
         <ProfileLoading />
       </div>
@@ -344,7 +344,7 @@ export function ListenerChatPanel({
   // Show username setup if authenticated but no chatUsername
   if (!username && onSetUsername) {
     return (
-      <div className="flex flex-col h-full bg-[#252525]">
+      <div className="flex flex-col h-full bg-[#252525] rounded-xl overflow-hidden">
         <ChatHeader />
         <UsernameSetup onSetUsername={onSetUsername} />
       </div>
@@ -352,7 +352,7 @@ export function ListenerChatPanel({
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#252525]">
+    <div className="flex flex-col h-full bg-[#252525] rounded-xl overflow-hidden">
       {/* Header */}
       <div className="p-4 border-b border-gray-800 flex-shrink-0">
         <div className="flex items-center gap-2">

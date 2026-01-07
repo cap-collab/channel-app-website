@@ -9,6 +9,7 @@ import { ListenerChatPanel } from '@/components/channel/ListenerChatPanel';
 import { BroadcastSchedule } from '@/components/channel/BroadcastSchedule';
 import { useBroadcastStream } from '@/hooks/useBroadcastStream';
 import { useBroadcastSchedule } from '@/hooks/useBroadcastSchedule';
+import { AnimatedBackground } from '@/components/AnimatedBackground';
 
 export function ChannelClient() {
   const { user, isAuthenticated } = useAuthContext();
@@ -40,7 +41,8 @@ export function ChannelClient() {
   } = useBroadcastSchedule();
 
   return (
-    <div className="min-h-screen bg-[#1a1a1a] text-white">
+    <div className="min-h-screen text-white relative">
+      <AnimatedBackground />
       {/* Use shared Header with profile icon */}
       <Header currentPage="channel" position="sticky" />
 
@@ -81,7 +83,7 @@ export function ChannelClient() {
           </div>
 
           {/* Right column: Chat (full height) */}
-          <div className="w-96 border-l border-gray-800 flex flex-col">
+          <div className="w-96 border-l border-gray-800 flex flex-col p-4">
             <ListenerChatPanel
               isAuthenticated={isAuthenticated}
               username={username}

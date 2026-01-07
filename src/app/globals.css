@@ -126,3 +126,91 @@ a {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* Animated background - slow organic blob movements */
+@keyframes blob-drift-1 {
+  0%, 100% {
+    transform: translate(0%, 0%) scale(1) rotate(0deg);
+  }
+  25% {
+    transform: translate(15%, -10%) scale(1.1) rotate(45deg);
+  }
+  50% {
+    transform: translate(-5%, 15%) scale(0.95) rotate(90deg);
+  }
+  75% {
+    transform: translate(-15%, -5%) scale(1.05) rotate(135deg);
+  }
+}
+
+@keyframes blob-drift-2 {
+  0%, 100% {
+    transform: translate(0%, 0%) scale(1) rotate(0deg);
+  }
+  25% {
+    transform: translate(-20%, 10%) scale(1.15) rotate(-30deg);
+  }
+  50% {
+    transform: translate(10%, -15%) scale(0.9) rotate(-60deg);
+  }
+  75% {
+    transform: translate(20%, 5%) scale(1.1) rotate(-90deg);
+  }
+}
+
+@keyframes blob-drift-3 {
+  0%, 100% {
+    transform: translate(0%, 0%) scale(1);
+  }
+  33% {
+    transform: translate(-10%, -20%) scale(1.2);
+  }
+  66% {
+    transform: translate(15%, 10%) scale(0.85);
+  }
+}
+
+.animate-blob-pink {
+  background: radial-gradient(
+    ellipse 80% 60% at 50% 50%,
+    rgba(217, 64, 153, 0.12) 0%,
+    rgba(217, 64, 153, 0.06) 40%,
+    transparent 70%
+  );
+  animation: blob-drift-1 45s ease-in-out infinite;
+  will-change: transform;
+  filter: blur(60px);
+}
+
+.animate-blob-white {
+  background: radial-gradient(
+    ellipse 70% 80% at 50% 50%,
+    rgba(255, 255, 255, 0.10) 0%,
+    rgba(255, 255, 255, 0.05) 40%,
+    transparent 70%
+  );
+  animation: blob-drift-2 55s ease-in-out infinite;
+  will-change: transform;
+  filter: blur(80px);
+}
+
+.animate-blob-pink-2 {
+  background: radial-gradient(
+    ellipse 60% 70% at 50% 50%,
+    rgba(217, 64, 153, 0.08) 0%,
+    rgba(217, 64, 153, 0.04) 50%,
+    transparent 70%
+  );
+  animation: blob-drift-3 60s ease-in-out infinite;
+  will-change: transform;
+  filter: blur(70px);
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .animate-blob-pink,
+  .animate-blob-white,
+  .animate-blob-pink-2 {
+    animation: none;
+  }
+}
