@@ -128,12 +128,16 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
   }, [djProfile, promoUrl]);
 
   // Get valid username for saving during sign-in (if valid)
+  // Must match validateUsername() validation rules
   const getValidUsername = (): string | undefined => {
     const trimmed = username.trim();
     if (trimmed.length < 2 || trimmed.length > 20) return undefined;
-    if (!/^[A-Za-z0-9]+$/.test(trimmed)) return undefined;
+    // Allow alphanumeric and single spaces between words (same as validateUsername)
+    if (!/^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(trimmed)) return undefined;
     const reserved = ['channel', 'admin', 'system', 'moderator', 'mod'];
-    if (reserved.includes(trimmed.toLowerCase())) return undefined;
+    // Check reserved against handle (spaces removed)
+    const handle = trimmed.replace(/\s+/g, '');
+    if (reserved.includes(handle.toLowerCase())) return undefined;
     return trimmed;
   };
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 
 // POST - Reconcile broadcast slots and tips when a DJ user is created
-// Called when a user is created with role: 'dj', 'admin', or 'broadcaster'
+// Called when a user is created - checks if they have approved DJ slots and assigns DJ role
 export async function POST(request: NextRequest) {
   try {
     const db = getAdminDb();
@@ -21,8 +21,9 @@ export async function POST(request: NextRequest) {
 
     let slotsUpdated = 0;
     let tipsUpdated = 0;
+    let djRoleAssigned = false;
 
-    // Find broadcast slots where djEmail matches but djUserId is not set
+    // Find broadcast slots where djEmail matches
     const slotsSnapshot = await db.collection('broadcast-slots')
       .where('djEmail', '==', email)
       .get();
@@ -35,6 +36,20 @@ export async function POST(request: NextRequest) {
         await slotDoc.ref.update({ djUserId: userId });
         slotsUpdated++;
         console.log(`[reconcile] Updated slot ${slotDoc.id} with djUserId ${userId}`);
+      }
+    }
+
+    // If user has any broadcast slots, assign DJ role if they don't have a higher role
+    if (slotsSnapshot.size > 0) {
+      const userRef = db.collection('users').doc(userId);
+      const userDoc = await userRef.get();
+      const userData = userDoc.data();
+
+      const currentRole = userData?.role;
+      if (!currentRole || currentRole === 'user') {
+        await userRef.update({ role: 'dj' });
+        djRoleAssigned = true;
+        console.log(`[reconcile] Assigned DJ role to user ${userId}`);
       }
     }
 
@@ -54,12 +69,13 @@ export async function POST(request: NextRequest) {
       console.log(`[reconcile] Updated tip ${tipDoc.id} with djUserId ${userId}`);
     }
 
-    console.log(`[reconcile] Completed: ${slotsUpdated} slots, ${tipsUpdated} tips updated for ${email}`);
+    console.log(`[reconcile] Completed: ${slotsUpdated} slots, ${tipsUpdated} tips updated, djRole=${djRoleAssigned} for ${email}`);
 
     return NextResponse.json({
       success: true,
       slotsUpdated,
       tipsUpdated,
+      djRoleAssigned,
     });
   } catch (error) {
     console.error('[reconcile] Error:', error);
