@@ -72,6 +72,20 @@ async function handleTipPayment(
   const djUserId = metadata.djUserId;
   const djEmail = metadata.djEmail || '';
   const isPendingDj = djUserId === 'pending';
+  const usedDestinationCharge = metadata.useDestinationCharge === 'true';
+
+  // Determine payout status:
+  // - 'transferred' if destination charge was used (Stripe handles it automatically)
+  // - 'pending_dj_account' if DJ doesn't exist yet
+  // - 'pending' if DJ exists but no Stripe (needs manual transfer via cron)
+  let payoutStatus: string;
+  if (usedDestinationCharge) {
+    payoutStatus = 'transferred';
+  } else if (isPendingDj) {
+    payoutStatus = 'pending_dj_account';
+  } else {
+    payoutStatus = 'pending';
+  }
 
   // Create tip record
   const tipData: Record<string, unknown> = {
@@ -88,13 +102,24 @@ async function handleTipPayment(
     stripeSessionId: session.id,
     stripePaymentIntentId: session.payment_intent as string,
     status: 'succeeded',
-    // If DJ account is pending, use special status for reconciliation later
-    payoutStatus: isPendingDj ? 'pending_dj_account' : 'pending',
+    payoutStatus,
+    usedDestinationCharge,
   };
 
   // Store djEmail for reconciliation when djUserId is 'pending'
   if (djEmail) {
     tipData.djEmail = djEmail;
+  }
+
+  // If destination charge was used, record transfer time
+  if (usedDestinationCharge) {
+    tipData.transferredAt = FieldValue.serverTimestamp();
+    tipData.djStripeAccountId = metadata.djStripeAccountId;
+    console.log('[tip] Destination charge used, tip automatically transferred:', {
+      djUserId,
+      djStripeAccountId: metadata.djStripeAccountId,
+      amount: metadata.tipAmountCents
+    });
   }
 
   const tipRef = await db.collection('tips').add(tipData);
@@ -112,41 +137,12 @@ async function handleTipPayment(
 
   await db.collection('chats').doc('broadcast').collection('messages').add(chatMessage);
 
-  // If DJ account is pending, skip transfer attempt
-  if (isPendingDj) {
-    console.log('[tip] DJ account pending, tip stored for later reconciliation:', { tipId: tipRef.id, djEmail });
-    return;
-  }
-
-  // Check if DJ has connected Stripe - if so, transfer immediately
-  const djDoc = await db.collection('users').doc(djUserId).get();
-  if (djDoc.exists) {
-    const djData = djDoc.data();
-    const stripeAccountId = djData?.djProfile?.stripeAccountId;
-
-    if (stripeAccountId) {
-      // Transfer to DJ immediately
-      try {
-        const transfer = await stripe.transfers.create({
-          amount: parseInt(metadata.tipAmountCents),
-          currency: 'usd',
-          destination: stripeAccountId,
-          transfer_group: tipRef.id,
-          metadata: {
-            tipId: tipRef.id,
-            djUserId: djUserId,
-          },
-        });
-
-        await tipRef.update({
-          stripeTransferId: transfer.id,
-          payoutStatus: 'transferred',
-          transferredAt: FieldValue.serverTimestamp(),
-        });
-      } catch (error) {
-        console.error('Failed to transfer to DJ:', error);
-        // Keep as pending - will retry later
-      }
+  // Log status for non-destination charges
+  if (!usedDestinationCharge) {
+    if (isPendingDj) {
+      console.log('[tip] DJ account pending, tip stored for later reconciliation:', { tipId: tipRef.id, djEmail });
+    } else {
+      console.log('[tip] DJ has no Stripe, tip pending for cron transfer:', { tipId: tipRef.id, djUserId });
     }
   }
 }

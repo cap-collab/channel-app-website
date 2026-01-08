@@ -70,12 +70,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'DJ information required' }, { status: 400 });
     }
 
-    // Get DJ's user ID - prefer direct ID from go-live, fallback to email lookup, or 'pending' for later reconciliation
+    // Get DJ's user ID and Stripe account - prefer direct ID from go-live, fallback to email lookup
     let djUserId: string;
+    let djStripeAccountId: string | null = null;
 
     if (djUserIdFromRequest) {
       // Use the DJ's Firebase UID directly (set at go-live)
       djUserId = djUserIdFromRequest;
+      // Look up their Stripe account
+      const djUserDoc = await db.collection('users').doc(djUserIdFromRequest).get();
+      if (djUserDoc.exists) {
+        djStripeAccountId = djUserDoc.data()?.djProfile?.stripeAccountId || null;
+      }
     } else if (djEmail) {
       // Try to look up DJ's user ID from email
       const djUserSnapshot = await db.collection('users')
@@ -85,6 +91,7 @@ export async function POST(request: NextRequest) {
 
       if (!djUserSnapshot.empty) {
         djUserId = djUserSnapshot.docs[0].id;
+        djStripeAccountId = djUserSnapshot.docs[0].data()?.djProfile?.stripeAccountId || null;
       } else {
         // DJ not found by email - use 'pending' for later reconciliation
         // Tip will be held until DJ creates an account and links Stripe
@@ -141,9 +148,29 @@ export async function POST(request: NextRequest) {
     const effectiveTipperUserId = tipperUserId || 'guest';
     const effectiveTipperUsername = tipperUsername || 'Guest';
 
+    // Determine if we can use destination charge (DJ has connected Stripe)
+    // If yes: payment goes directly to DJ, we take application fee - fully automated
+    // If no: payment goes to platform, we transfer later via cron job
+    const useDestinationCharge = !!djStripeAccountId;
+
+    // Common metadata for tracking
+    const tipMetadata = {
+      type: 'tip',
+      tipAmountCents: tipCents.toString(),
+      platformFeeCents: platformFeeCents.toString(),
+      djUserId,
+      djStripeAccountId: djStripeAccountId || '',
+      djEmail: djEmail || '',
+      djUsername,
+      broadcastSlotId,
+      showName,
+      tipperUserId: effectiveTipperUserId,
+      tipperUsername: effectiveTipperUsername,
+      isGuest: isGuest ? 'true' : 'false',
+      useDestinationCharge: useDestinationCharge ? 'true' : 'false',
+    };
+
     // Create Stripe Checkout Session
-    // For guests: collect email, no saved cards
-    // For authenticated: use customer, save cards for future
     const sessionConfig: Stripe.Checkout.SessionCreateParams = {
       payment_method_types: ['card'],
       line_items: [
@@ -162,58 +189,38 @@ export async function POST(request: NextRequest) {
       mode: 'payment',
       success_url: `${origin}/channel?tip=success`,
       cancel_url: `${origin}/channel?tip=cancelled`,
-      metadata: {
-        type: 'tip',
-        tipAmountCents: tipCents.toString(),
-        platformFeeCents: platformFeeCents.toString(),
-        djUserId,
-        djEmail: djEmail || '',  // Store email for reconciliation if djUserId is 'pending'
-        djUsername,
-        broadcastSlotId,
-        showName,
-        tipperUserId: effectiveTipperUserId,
-        tipperUsername: effectiveTipperUsername,
-        isGuest: isGuest ? 'true' : 'false',
-      },
+      metadata: tipMetadata,
     };
 
-    if (isGuest) {
-      // For guests: collect email for refund purposes (as per privacy policy)
-      sessionConfig.customer_email = undefined; // Let Stripe collect it
-      sessionConfig.customer_creation = 'always'; // Create customer from email for refund tracking
-      sessionConfig.payment_intent_data = {
-        metadata: {
-          tipAmountCents: tipCents.toString(),
-          platformFeeCents: platformFeeCents.toString(),
-          djUserId,
-          djEmail: djEmail || '',
-          djUsername,
-          broadcastSlotId,
-          showName,
-          tipperUserId: effectiveTipperUserId,
-          tipperUsername: effectiveTipperUsername,
-          isGuest: 'true',
-        },
+    // Set up payment_intent_data based on whether DJ has Stripe
+    const paymentIntentData: Stripe.Checkout.SessionCreateParams.PaymentIntentData = {
+      metadata: tipMetadata,
+    };
+
+    if (useDestinationCharge) {
+      // DJ has Stripe - use destination charge for automatic transfer
+      // Payment goes to DJ's account, we collect application fee
+      paymentIntentData.transfer_data = {
+        destination: djStripeAccountId!,
       };
+      paymentIntentData.application_fee_amount = platformFeeCents;
+      console.log('[tip] Using destination charge:', { djStripeAccountId, applicationFee: platformFeeCents });
+    }
+
+    if (isGuest) {
+      // For guests: collect email for refund purposes
+      sessionConfig.customer_email = undefined;
+      sessionConfig.customer_creation = 'always';
     } else {
       // For authenticated users: use existing customer, save card for future
       sessionConfig.customer = stripeCustomerId;
-      sessionConfig.payment_intent_data = {
-        setup_future_usage: 'on_session',
-        metadata: {
-          tipAmountCents: tipCents.toString(),
-          platformFeeCents: platformFeeCents.toString(),
-          djUserId,
-          djEmail: djEmail || '',
-          djUsername,
-          broadcastSlotId,
-          showName,
-          tipperUserId: effectiveTipperUserId,
-          tipperUsername: effectiveTipperUsername,
-          isGuest: 'false',
-        },
-      };
+      if (!useDestinationCharge) {
+        // Only set up future usage if not using destination charge
+        paymentIntentData.setup_future_usage = 'on_session';
+      }
     }
+
+    sessionConfig.payment_intent_data = paymentIntentData;
 
     const session = await stripe.checkout.sessions.create(sessionConfig);
 
