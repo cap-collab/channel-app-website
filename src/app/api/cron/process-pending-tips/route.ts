@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     const errors: string[] = [];
 
     // Process each DJ's tips
-    for (const [djUserId, tips] of tipsByDj) {
+    for (const [djUserId, tips] of Array.from(tipsByDj.entries())) {
       // Look up DJ's Stripe account
       const djDoc = await db.collection('users').doc(djUserId).get();
       if (!djDoc.exists) {
