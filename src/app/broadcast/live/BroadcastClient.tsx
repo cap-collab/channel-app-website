@@ -66,9 +66,8 @@ export function BroadcastClient() {
 
   const { slot, error: tokenError, loading: tokenLoading, scheduleStatus, message } = useBroadcastToken(token);
 
-  // Tips for current broadcast
+  // Tips for current broadcast - query by slot ID only, regardless of who's logged in
   const { totalCents: tipTotalCents, tipCount } = useTipTotal({
-    djUserId: user?.uid || '',
     broadcastSlotId: slot?.id,
   });
 

@@ -3,7 +3,7 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 interface UseTipTotalOptions {
-  djUserId: string;
+  djUserId?: string;  // Optional - if not provided, will query by broadcastSlotId only
   broadcastSlotId?: string; // If provided, only count tips for this slot
 }
 
@@ -21,25 +21,31 @@ export function useTipTotal({ djUserId, broadcastSlotId }: UseTipTotalOptions): 
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!djUserId || !db) {
+    // Need at least one filter (djUserId or broadcastSlotId)
+    if (!db || (!djUserId && !broadcastSlotId)) {
       setLoading(false);
       return;
     }
 
-    let q = query(
-      collection(db, 'tips'),
-      where('djUserId', '==', djUserId),
-      where('status', '==', 'succeeded')
-    );
+    let q;
 
-    // If broadcastSlotId provided, also filter by that
     if (broadcastSlotId) {
+      // Query by broadcastSlotId (primary for DJ broadcast page)
       q = query(
         collection(db, 'tips'),
-        where('djUserId', '==', djUserId),
         where('broadcastSlotId', '==', broadcastSlotId),
         where('status', '==', 'succeeded')
       );
+    } else if (djUserId) {
+      // Query by djUserId only (for DJ profile page)
+      q = query(
+        collection(db, 'tips'),
+        where('djUserId', '==', djUserId),
+        where('status', '==', 'succeeded')
+      );
+    } else {
+      setLoading(false);
+      return;
     }
 
     const unsubscribe = onSnapshot(
