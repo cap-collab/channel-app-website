@@ -200,11 +200,12 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
             {/* Expand button - only show if there's expandable content */}
             {hasDjInfo && (
               <button
-                onClick={(e) => {
+                onPointerDown={(e) => {
                   e.stopPropagation();
+                  e.preventDefault();
                   setExpanded(!expanded);
                 }}
-                className="p-1 text-gray-400 hover:text-white transition-colors"
+                className="p-2 text-gray-400 hover:text-white transition-colors touch-manipulation"
                 title={expanded ? 'Collapse' : 'Show DJ info'}
               >
                 <svg
