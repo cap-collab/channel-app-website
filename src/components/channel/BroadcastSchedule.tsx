@@ -203,8 +203,8 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
               </a>
             )}
 
-            {/* Expand button - only show if there's expandable content */}
-            {hasDjInfo && (
+            {/* Expand button - only show if there's a bio to display */}
+            {hasExpandableContent && (
               <button
                 onPointerDown={(e) => {
                   e.stopPropagation();
