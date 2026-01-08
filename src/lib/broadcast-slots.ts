@@ -216,7 +216,18 @@ export async function validateToken(token: string): Promise<{
   if (now < slot.startTime - fifteenMinutes) {
     // More than 15 minutes before start
     scheduleStatus = 'early';
-    message = `Your show starts at ${new Date(slot.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+    const startDate = new Date(slot.startTime);
+    const today = new Date();
+    const isToday = startDate.getDate() === today.getDate() &&
+      startDate.getMonth() === today.getMonth() &&
+      startDate.getFullYear() === today.getFullYear();
+    const timeStr = startDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    if (isToday) {
+      message = `Your show starts at ${timeStr}`;
+    } else {
+      const dateStr = startDate.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+      message = `Your show starts ${dateStr} at ${timeStr}`;
+    }
   } else if (now > slot.startTime && now < slot.endTime) {
     // Show has already started but not ended - they're late joining
     scheduleStatus = 'late';

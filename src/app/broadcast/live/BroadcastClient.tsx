@@ -60,6 +60,21 @@ function ChannelAppUrlSection() {
   );
 }
 
+// Helper to format time, including the date if it's not today
+function formatTimeWithDate(date: Date): string {
+  const today = new Date();
+  const isToday = date.getDate() === today.getDate() &&
+    date.getMonth() === today.getMonth() &&
+    date.getFullYear() === today.getFullYear();
+
+  const timeStr = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (isToday) {
+    return timeStr;
+  }
+  const dateStr = date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+  return `${dateStr} at ${timeStr}`;
+}
+
 export function BroadcastClient() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -159,7 +174,7 @@ export function BroadcastClient() {
         setGoLiveMessage('');
       } else if (now < oneMinuteBefore) {
         setCanGoLive(false);
-        const availableTime = new Date(oneMinuteBefore).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        const availableTime = formatTimeWithDate(new Date(oneMinuteBefore));
         setGoLiveMessage(`GO LIVE will be available at ${availableTime}`);
       } else {
         setCanGoLive(false);
@@ -482,7 +497,6 @@ export function BroadcastClient() {
                 </p>
                 <p className="text-gray-500 text-sm">
                   {tipCount} {tipCount === 1 ? 'tip' : 'tips'} during this broadcast
-                  {slot?.id && <span className="text-gray-600 ml-2">(slot: {slot.id.slice(0, 8)}...)</span>}
                 </p>
               </div>
             </div>
@@ -670,7 +684,7 @@ export function BroadcastClient() {
                       onClick={() => setAutoGoLive(true)}
                       className="w-full bg-accent hover:bg-accent-hover text-white font-bold py-3 px-6 rounded-lg transition-colors"
                     >
-                      Go live automatically at {new Date(slot.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                      Go live automatically at {formatTimeWithDate(new Date(slot.startTime))}
                     </button>
                   ) : slot && autoGoLive ? (
                     <div className="bg-accent/10 border border-accent/30 rounded-lg p-3 text-center">
@@ -681,7 +695,7 @@ export function BroadcastClient() {
                         Auto go-live enabled
                       </p>
                       <p className="text-accent/70 text-sm mt-1">
-                        Will start at {new Date(slot.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                        Will start at {formatTimeWithDate(new Date(slot.startTime))}
                       </p>
                       <button
                         onClick={() => setAutoGoLive(false)}
