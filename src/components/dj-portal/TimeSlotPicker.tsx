@@ -274,16 +274,33 @@ export function TimeSlotPicker({ selectedSlots, onChange }: TimeSlotPickerProps)
       )}
 
       {/* Calendar grid */}
-      <div className="overflow-x-auto">
+      <div className="flex">
+        {/* Sticky time column - stays fixed while days scroll */}
+        <div className="flex-shrink-0 w-[50px] bg-[#0a0a0a] z-10">
+          {/* Empty header cell */}
+          <div className="h-[33px] border-b border-gray-800"></div>
+          {/* Hour labels */}
+          {!isLoading && HOURS.map((hour) => (
+            <div
+              key={hour}
+              className="flex items-start justify-end pr-2 pt-1 border-b border-gray-800/50"
+              style={{ height: HOUR_HEIGHT }}
+            >
+              <span className="text-xs text-gray-600">{formatHour(hour)}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Scrollable days container */}
+        <div className="flex-1 overflow-x-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
           </div>
         ) : (
-          <div className="min-w-[700px]">
+          <div className="min-w-[600px]">
             {/* Day headers */}
-            <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-gray-800">
-              <div className="p-2 text-xs text-gray-600"></div>
+            <div className="grid grid-cols-7 border-b border-gray-800">
               {days.map((day, i) => (
                 <div
                   key={i}
@@ -305,14 +322,9 @@ export function TimeSlotPicker({ selectedSlots, onChange }: TimeSlotPickerProps)
               {HOURS.map((hour) => (
                 <div
                   key={hour}
-                  className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-gray-800/50"
+                  className="grid grid-cols-7 border-b border-gray-800/50"
                   style={{ height: HOUR_HEIGHT }}
                 >
-                  {/* Hour label */}
-                  <div className="flex items-start justify-end pr-2 pt-1">
-                    <span className="text-xs text-gray-600">{formatHour(hour)}</span>
-                  </div>
-
                   {/* Day cells */}
                   {days.map((_, dayIndex) => {
                     const timestamp = getTimestamp(dayIndex, hour);
@@ -342,6 +354,7 @@ export function TimeSlotPicker({ selectedSlots, onChange }: TimeSlotPickerProps)
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* Legend */}
