@@ -102,10 +102,10 @@ export function ChannelClient() {
           </div>
         </div>
 
-        {/* Mobile layout */}
-        <div className="lg:hidden flex flex-col h-[calc(100vh-64px)]">
+        {/* Mobile layout - use dvh for proper mobile viewport handling */}
+        <div className="lg:hidden flex flex-col h-[calc(100dvh-64px)]">
           {/* Compact Now Playing */}
-          <div className="p-4 bg-[#252525]/50">
+          <div className="flex-shrink-0 p-4 bg-[#252525]/50">
             <NowPlayingPanel
               isPlaying={isPlaying}
               isLoading={isLoading}
@@ -124,7 +124,7 @@ export function ChannelClient() {
           </div>
 
           {/* Tab navigation */}
-          <div className="flex border-b border-gray-800">
+          <div className="flex-shrink-0 flex border-b border-gray-800">
             <button
               onClick={() => setActiveTab('chat')}
               className={`flex-1 py-3 text-sm font-medium transition-colors ${
@@ -147,8 +147,8 @@ export function ChannelClient() {
             </button>
           </div>
 
-          {/* Tab content */}
-          <div className="flex-1 overflow-hidden">
+          {/* Tab content - min-h-0 is critical for flex children to shrink properly */}
+          <div className="flex-1 min-h-0">
             {activeTab === 'chat' ? (
               <ListenerChatPanel
                 isAuthenticated={isAuthenticated}
