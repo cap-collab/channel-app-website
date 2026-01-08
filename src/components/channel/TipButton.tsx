@@ -42,6 +42,7 @@ export function TipButton({
   return (
     <>
       <button
+        type="button"
         onClick={handleClick}
         disabled={disabled}
         className={`${buttonSize} flex items-center justify-center transition-all ${

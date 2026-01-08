@@ -103,7 +103,7 @@ async function handleTipPayment(
   const chatMessage = {
     stationId: 'broadcast',
     username: 'Channel',
-    message: `💸 Someone tipped DJ ${metadata.djUsername}`,
+    message: `💸 Someone tipped ${metadata.djUsername}`,
     timestamp: FieldValue.serverTimestamp(),
     isDJ: false,
     djSlotId: metadata.broadcastSlotId,

@@ -142,7 +142,7 @@ export function TipModal({
 
         {/* Header */}
         <div className="text-center mb-4">
-          <h2 className="text-lg font-medium text-white">Tip DJ {djUsername}</h2>
+          <h2 className="text-lg font-medium text-white">Tip {djUsername}</h2>
           <p className="text-sm text-gray-400">{showName}</p>
         </div>
 
