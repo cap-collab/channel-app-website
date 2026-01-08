@@ -75,7 +75,8 @@ export async function POST(request: NextRequest) {
         totalAmountCents += tip.tipAmountCents;
       } catch (error) {
         console.error(`Failed to transfer tip ${tipDoc.id}:`, error);
-        errors.push(tipDoc.id);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        errors.push(`${tipDoc.id}: ${errorMessage}`);
       }
     }
 
@@ -83,6 +84,7 @@ export async function POST(request: NextRequest) {
       processed: processedCount,
       totalAmountCents,
       failed: errors.length,
+      errors: errors.length > 0 ? errors : undefined,
       message: `Transferred $${(totalAmountCents / 100).toFixed(2)} from ${processedCount} tips`,
     });
   } catch (error) {
