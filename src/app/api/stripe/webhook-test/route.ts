@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 
 // GET - Test endpoint to verify webhook route is reachable and Firebase works
-export async function GET(request: NextRequest) {
+export async function GET() {
   const checks = {
     routeReachable: true,
     stripeSecretKeySet: !!process.env.STRIPE_SECRET_KEY,
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const db = getAdminDb();
     if (db) {
       // Try to read something to verify connection works
-      const testDoc = await db.collection('tips').limit(1).get();
+      await db.collection('tips').limit(1).get();
       checks.firebaseDbWorking = true;
     }
   } catch (error) {
@@ -28,4 +28,3 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json(checks);
 }
-// trigger deploy
