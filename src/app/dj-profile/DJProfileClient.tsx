@@ -423,10 +423,10 @@ export function DJProfileClient() {
                   Promo URL
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   value={promoUrlInput}
                   onChange={(e) => setPromoUrlInput(e.target.value)}
-                  placeholder="https://..."
+                  placeholder="bandcamp.com/your-album"
                   className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
               </div>

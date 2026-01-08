@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { BroadcastSlotSerialized, DJSlot } from '@/types/broadcast';
@@ -97,40 +97,46 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
   const [expanded, setExpanded] = useState(false);
   const [djProfile, setDjProfile] = useState<DJProfileData | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
+  const [profileFetched, setProfileFetched] = useState(false);
 
-  // Fetch DJ profile when card is expanded or when live
-  // Use djUserId (permanent) or liveDjUserId (set at go-live) to look up profile
-  const fetchDjProfile = useCallback(async () => {
-    const djUid = slot.originalShow.djUserId || slot.originalShow.liveDjUserId || slot.djSlot?.liveDjUserId;
-    if (!djUid || !db) return;
-
-    setLoadingProfile(true);
-    try {
-      const userDoc = await getDoc(doc(db, 'users', djUid));
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        if (data.djProfile) {
-          setDjProfile({
-            bio: data.djProfile.bio || null,
-            promoUrl: data.djProfile.promoUrl || null,
-            promoTitle: data.djProfile.promoTitle || null,
-          });
-        }
-      }
-    } catch (err) {
-      console.error('Failed to fetch DJ profile:', err);
-    } finally {
-      setLoadingProfile(false);
-    }
-  }, [slot.originalShow.djUserId, slot.originalShow.liveDjUserId, slot.djSlot?.liveDjUserId]);
+  // Get stable DJ UID for profile lookup
+  const djUid = slot.originalShow.djUserId || slot.originalShow.liveDjUserId || slot.djSlot?.liveDjUserId;
 
   // Fetch profile when expanded or when live (for promo link)
+  // Only fetch once per card instance to prevent flickering
   useEffect(() => {
-    const djUid = slot.originalShow.djUserId || slot.originalShow.liveDjUserId || slot.djSlot?.liveDjUserId;
-    if (djUid && (expanded || isLive) && !djProfile && !loadingProfile) {
-      fetchDjProfile();
-    }
-  }, [expanded, isLive, djProfile, loadingProfile, fetchDjProfile, slot.originalShow.djUserId, slot.originalShow.liveDjUserId, slot.djSlot?.liveDjUserId]);
+    if (!djUid || !db || profileFetched || loadingProfile) return;
+    if (!expanded && !isLive) return;
+
+    let cancelled = false;
+    setLoadingProfile(true);
+
+    getDoc(doc(db, 'users', djUid))
+      .then((userDoc) => {
+        if (cancelled) return;
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          if (data.djProfile) {
+            setDjProfile({
+              bio: data.djProfile.bio || null,
+              promoUrl: data.djProfile.promoUrl || null,
+              promoTitle: data.djProfile.promoTitle || null,
+            });
+          }
+        }
+        setProfileFetched(true);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('Failed to fetch DJ profile:', err);
+        setProfileFetched(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingProfile(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [djUid, expanded, isLive, profileFetched, loadingProfile]);
 
   // Show tip button if DJ email is assigned (djEmail is set when show is created)
   const hasDjInfo = slot.originalShow.djEmail;

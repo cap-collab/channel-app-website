@@ -336,10 +336,10 @@ export function DJChatPanel({
               <div>
                 <label className="block text-gray-400 text-sm mb-1">URL</label>
                 <input
-                  type="url"
+                  type="text"
                   value={promoUrl}
                   onChange={(e) => setPromoUrl(e.target.value)}
-                  placeholder="https://..."
+                  placeholder="bandcamp.com/your-album"
                   className="w-full bg-black text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500"
                 />
               </div>

@@ -435,10 +435,10 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
           </label>
           <input
             id="promoUrl"
-            type="url"
+            type="text"
             value={promoUrl}
             onChange={(e) => setPromoUrl(e.target.value)}
-            placeholder="https://bandcamp.com/your-album"
+            placeholder="bandcamp.com/your-album"
             className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-gray-500"
           />
           <p className="text-gray-500 text-xs mt-1">
