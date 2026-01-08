@@ -18,7 +18,6 @@ interface BroadcastScheduleProps {
   selectedDate: Date;
   onDateChange: (date: Date) => void;
   loading: boolean;
-  currentShow: BroadcastSlotSerialized | null;
   isAuthenticated?: boolean;
   userId?: string;
   username?: string;
@@ -99,13 +98,14 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
   const [loadingProfile, setLoadingProfile] = useState(false);
 
   // Fetch DJ profile when card is expanded or when live
+  // Use djUserId (permanent) or liveDjUserId (set at go-live) to look up profile
   const fetchDjProfile = useCallback(async () => {
-    const userId = slot.originalShow.liveDjUserId || slot.djSlot?.liveDjUserId;
-    if (!userId || !db) return;
+    const djUid = slot.originalShow.djUserId || slot.originalShow.liveDjUserId || slot.djSlot?.liveDjUserId;
+    if (!djUid || !db) return;
 
     setLoadingProfile(true);
     try {
-      const userDoc = await getDoc(doc(db, 'users', userId));
+      const userDoc = await getDoc(doc(db, 'users', djUid));
       if (userDoc.exists()) {
         const data = userDoc.data();
         if (data.djProfile) {
@@ -121,15 +121,15 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
     } finally {
       setLoadingProfile(false);
     }
-  }, [slot.originalShow.liveDjUserId, slot.djSlot?.liveDjUserId]);
+  }, [slot.originalShow.djUserId, slot.originalShow.liveDjUserId, slot.djSlot?.liveDjUserId]);
 
   // Fetch profile when expanded or when live (for promo link)
   useEffect(() => {
-    const userId = slot.originalShow.liveDjUserId || slot.djSlot?.liveDjUserId;
-    if (userId && (expanded || isLive) && !djProfile && !loadingProfile) {
+    const djUid = slot.originalShow.djUserId || slot.originalShow.liveDjUserId || slot.djSlot?.liveDjUserId;
+    if (djUid && (expanded || isLive) && !djProfile && !loadingProfile) {
       fetchDjProfile();
     }
-  }, [expanded, isLive, djProfile, loadingProfile, fetchDjProfile, slot.originalShow.liveDjUserId, slot.djSlot?.liveDjUserId]);
+  }, [expanded, isLive, djProfile, loadingProfile, fetchDjProfile, slot.originalShow.djUserId, slot.originalShow.liveDjUserId, slot.djSlot?.liveDjUserId]);
 
   // Show tip button if DJ email is assigned (djEmail is set when show is created)
   const hasDjInfo = slot.originalShow.djEmail;
@@ -165,14 +165,15 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
 
           {/* Right side: tip button + promo link + expand button */}
           <div className="flex items-center gap-1 flex-shrink-0">
-            {/* Tip button - show if DJ email is assigned */}
+            {/* Tip button - show if DJ info is assigned */}
             {hasDjInfo && (
               <div onClick={(e) => e.stopPropagation()}>
                 <TipButton
                   isAuthenticated={isAuthenticated || false}
                   tipperUserId={userId}
                   tipperUsername={username}
-                  djEmail={slot.originalShow.djEmail!}
+                  djUserId={slot.originalShow.djUserId || slot.originalShow.liveDjUserId || slot.djSlot?.liveDjUserId}
+                  djEmail={slot.originalShow.djEmail}
                   djUsername={slot.djName || 'DJ'}
                   broadcastSlotId={slot.originalShow.id}
                   showName={slot.showName}

@@ -77,7 +77,6 @@ export function ChannelClient() {
                 selectedDate={selectedDate}
                 onDateChange={setSelectedDate}
                 loading={scheduleLoading}
-                currentShow={currentShow}
                 isAuthenticated={isAuthenticated}
                 userId={user?.uid}
                 username={username}
@@ -92,6 +91,7 @@ export function ChannelClient() {
               username={username}
               userId={user?.uid}
               currentDJ={currentDJ}
+              currentDJUserId={currentShow?.djUserId || currentShow?.liveDjUserId}
               currentDJEmail={currentShow?.djEmail}
               showName={currentShow?.showName}
               broadcastSlotId={currentShow?.id}
@@ -155,6 +155,7 @@ export function ChannelClient() {
                 username={username}
                 userId={user?.uid}
                 currentDJ={currentDJ}
+                currentDJUserId={currentShow?.djUserId || currentShow?.liveDjUserId}
                 currentDJEmail={currentShow?.djEmail}
                 showName={currentShow?.showName}
                 broadcastSlotId={currentShow?.id}
@@ -169,7 +170,6 @@ export function ChannelClient() {
                   selectedDate={selectedDate}
                   onDateChange={setSelectedDate}
                   loading={scheduleLoading}
-                  currentShow={currentShow}
                   isAuthenticated={isAuthenticated}
                   userId={user?.uid}
                   username={username}

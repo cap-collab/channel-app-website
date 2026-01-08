@@ -7,7 +7,8 @@ interface TipButtonProps {
   isAuthenticated?: boolean;
   tipperUserId?: string;
   tipperUsername?: string;
-  djEmail: string;        // DJ's email - used to look up user ID on server
+  djUserId?: string;      // DJ's Firebase UID - set at go-live (preferred)
+  djEmail?: string;       // DJ's email - fallback only, may not match auth email
   djUsername: string;
   broadcastSlotId: string;
   showName: string;
@@ -19,6 +20,7 @@ interface TipButtonProps {
 export function TipButton({
   tipperUserId,
   tipperUsername,
+  djUserId,
   djEmail,
   djUsername,
   broadcastSlotId,
@@ -63,6 +65,7 @@ export function TipButton({
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           djUsername={djUsername}
+          djUserId={djUserId}
           djEmail={djEmail}
           broadcastSlotId={broadcastSlotId}
           showName={showName}

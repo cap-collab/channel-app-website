@@ -21,9 +21,10 @@
  * - broadcastType === 'remote' → Remote DJ (from home, personal setup)
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { useDebouncedCallback } from 'use-debounce';
 
 interface DJProfileSetupProps {
   defaultUsername?: string;
@@ -42,11 +43,69 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState('');
   const [permissionsConfirmed, setPermissionsConfirmed] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [checkingUsername, setCheckingUsername] = useState(false);
+  const [usernameCheckError, setUsernameCheckError] = useState<string | null>(null);
 
   // Remote DJs who are logged in with a chatUsername have their username locked
   // Venue DJs can always change their display name (ephemeral, shared computer)
   const isRemoteDj = broadcastType === 'remote';
   const isUsernameLocked = isAuthenticated && !!savedUsername && isRemoteDj;
+
+  // Logged-in users who don't have a chatUsername must pick a unique one
+  // Venue DJs and guests don't need uniqueness check (ephemeral)
+  const needsUsernameCheck = isAuthenticated && !savedUsername && isRemoteDj;
+
+  // Check username availability (debounced)
+  const checkUsernameAvailability = useCallback(async (usernameToCheck: string) => {
+    if (!needsUsernameCheck || !user?.uid) return;
+
+    const trimmed = usernameToCheck.trim();
+    if (trimmed.length < 2) {
+      setUsernameAvailable(null);
+      setUsernameCheckError(null);
+      return;
+    }
+
+    setCheckingUsername(true);
+    setUsernameCheckError(null);
+
+    try {
+      const res = await fetch(
+        `/api/chat/check-username?username=${encodeURIComponent(trimmed)}&userId=${user.uid}`
+      );
+      const data = await res.json();
+
+      if (data.error) {
+        setUsernameCheckError(data.error);
+        setUsernameAvailable(false);
+      } else if (data.available) {
+        setUsernameAvailable(true);
+        setUsernameCheckError(null);
+      } else {
+        setUsernameAvailable(false);
+        setUsernameCheckError(data.reason || 'Username is not available');
+      }
+    } catch {
+      setUsernameCheckError('Failed to check username');
+      setUsernameAvailable(null);
+    } finally {
+      setCheckingUsername(false);
+    }
+  }, [needsUsernameCheck, user?.uid]);
+
+  // Debounced version for onChange
+  const debouncedCheckUsername = useDebouncedCallback(checkUsernameAvailability, 500);
+
+  // Check username when it changes (for logged-in users without chatUsername)
+  useEffect(() => {
+    if (needsUsernameCheck && username.trim().length >= 2) {
+      debouncedCheckUsername(username);
+    } else {
+      setUsernameAvailable(null);
+      setUsernameCheckError(null);
+    }
+  }, [username, needsUsernameCheck, debouncedCheckUsername]);
 
   // Pre-fill username from saved chatUsername - this takes PRIORITY over defaultUsername
   // When a logged-in DJ goes live, their chatUsername becomes their DJ username
@@ -193,6 +252,26 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
       return;
     }
 
+    // For logged-in remote DJs without chatUsername, check username availability
+    if (needsUsernameCheck) {
+      if (checkingUsername) {
+        setError('Please wait while we check username availability');
+        return;
+      }
+      if (usernameAvailable === false) {
+        setError(usernameCheckError || 'Username is not available. Please choose another.');
+        return;
+      }
+      if (usernameAvailable === null) {
+        // Force a check if not yet checked
+        await checkUsernameAvailability(username);
+        if (usernameAvailable === false) {
+          setError(usernameCheckError || 'Username is not available. Please choose another.');
+          return;
+        }
+      }
+    }
+
     // Validate promo URL if provided
     const urlError = validateUrl(promoUrl);
     if (urlError) {
@@ -251,26 +330,58 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
             Chat username {!isUsernameLocked && <span className="text-red-400">*</span>}
           </label>
           {isUsernameLocked ? (
-            // Read-only for logged-in remote DJs
+            // Read-only for logged-in remote DJs with existing chatUsername
             <div className="w-full bg-gray-800/50 text-white border border-gray-700 rounded-lg px-4 py-3">
               {savedUsername}
             </div>
           ) : (
-            // Editable for venue DJs and guests
-            <input
-              id="username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="YourDJName"
-              className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-gray-500"
-              maxLength={20}
-              required
-            />
+            // Editable for venue DJs, guests, and logged-in DJs without chatUsername
+            <div className="relative">
+              <input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="YourDJName"
+                className={`w-full bg-gray-800 text-white border rounded-lg px-4 py-3 focus:outline-none ${
+                  needsUsernameCheck && usernameAvailable === false
+                    ? 'border-red-500 focus:border-red-500'
+                    : needsUsernameCheck && usernameAvailable === true
+                    ? 'border-green-500 focus:border-green-500'
+                    : 'border-gray-700 focus:border-gray-500'
+                }`}
+                maxLength={20}
+                required
+              />
+              {/* Username availability indicator for logged-in users */}
+              {needsUsernameCheck && username.trim().length >= 2 && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  {checkingUsername ? (
+                    <div className="w-5 h-5 border-2 border-gray-500 border-t-white rounded-full animate-spin" />
+                  ) : usernameAvailable === true ? (
+                    <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : usernameAvailable === false ? (
+                    <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  ) : null}
+                </div>
+              )}
+            </div>
           )}
-          <p className="text-gray-500 text-xs mt-1">
+          <p className={`text-xs mt-1 ${
+            needsUsernameCheck && usernameCheckError ? 'text-red-400' : 'text-gray-500'
+          }`}>
             {isUsernameLocked
               ? 'This is your Channel username'
+              : needsUsernameCheck && usernameCheckError
+              ? usernameCheckError
+              : needsUsernameCheck && usernameAvailable
+              ? 'Username is available!'
+              : needsUsernameCheck
+              ? 'This username will be registered to your account'
               : '2-20 characters, letters, numbers, and spaces'
             }
           </p>

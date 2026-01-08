@@ -14,7 +14,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       tipAmountCents,
-      djEmail,
+      djUserId: djUserIdFromRequest,  // Preferred: DJ's Firebase UID set at go-live
+      djEmail,                         // Fallback: DJ's email from application
       djUsername,
       broadcastSlotId,
       showName,
@@ -65,21 +66,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!djEmail || !djUsername) {
+    if (!djUsername) {
       return NextResponse.json({ error: 'DJ information required' }, { status: 400 });
     }
 
-    // Look up DJ's user ID from email
-    const djUserSnapshot = await db.collection('users')
-      .where('email', '==', djEmail)
-      .limit(1)
-      .get();
+    // Get DJ's user ID - prefer direct ID from go-live, fallback to email lookup, or 'pending' for later reconciliation
+    let djUserId: string;
 
-    if (djUserSnapshot.empty) {
-      return NextResponse.json({ error: 'DJ not found' }, { status: 404 });
+    if (djUserIdFromRequest) {
+      // Use the DJ's Firebase UID directly (set at go-live)
+      djUserId = djUserIdFromRequest;
+    } else if (djEmail) {
+      // Try to look up DJ's user ID from email
+      const djUserSnapshot = await db.collection('users')
+        .where('email', '==', djEmail)
+        .limit(1)
+        .get();
+
+      if (!djUserSnapshot.empty) {
+        djUserId = djUserSnapshot.docs[0].id;
+      } else {
+        // DJ not found by email - use 'pending' for later reconciliation
+        // Tip will be held until DJ creates an account and links Stripe
+        djUserId = 'pending';
+        console.log('[tip] DJ not found by email, using pending status:', { djEmail, djUsername });
+      }
+    } else {
+      return NextResponse.json({ error: 'DJ information required' }, { status: 400 });
     }
-
-    const djUserId = djUserSnapshot.docs[0].id;
 
     if (!broadcastSlotId || !showName) {
       return NextResponse.json({ error: 'Show information required' }, { status: 400 });
@@ -153,6 +167,7 @@ export async function POST(request: NextRequest) {
         tipAmountCents: tipCents.toString(),
         platformFeeCents: platformFeeCents.toString(),
         djUserId,
+        djEmail: djEmail || '',  // Store email for reconciliation if djUserId is 'pending'
         djUsername,
         broadcastSlotId,
         showName,
@@ -171,6 +186,7 @@ export async function POST(request: NextRequest) {
           tipAmountCents: tipCents.toString(),
           platformFeeCents: platformFeeCents.toString(),
           djUserId,
+          djEmail: djEmail || '',
           djUsername,
           broadcastSlotId,
           showName,
@@ -188,6 +204,7 @@ export async function POST(request: NextRequest) {
           tipAmountCents: tipCents.toString(),
           platformFeeCents: platformFeeCents.toString(),
           djUserId,
+          djEmail: djEmail || '',
           djUsername,
           broadcastSlotId,
           showName,

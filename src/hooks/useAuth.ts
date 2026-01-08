@@ -78,6 +78,20 @@ export function useAuth() {
                   watchlistMatch: enableNotifications,
                 },
               });
+
+              // Reconcile any pending broadcast slots or tips by email
+              // (e.g., DJ was approved before creating account)
+              if (user.email) {
+                try {
+                  await fetch('/api/users/reconcile-broadcast-slots', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: user.uid, email: user.email }),
+                  });
+                } catch (err) {
+                  console.error('Failed to reconcile broadcast slots (non-fatal):', err);
+                }
+              }
             } else {
               const updateData: Record<string, unknown> = {
                 lastSeenAt: serverTimestamp(),
@@ -168,6 +182,20 @@ export function useAuth() {
           // Set chatUsername from DJ broadcast flow if provided (matches iOS app field name)
           ...(djUsername && { chatUsername: djUsername }),
         });
+
+        // Reconcile any pending broadcast slots or tips by email
+        // (e.g., DJ was approved before creating account)
+        if (user.email) {
+          try {
+            await fetch('/api/users/reconcile-broadcast-slots', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: user.uid, email: user.email }),
+            });
+          } catch (err) {
+            console.error('Failed to reconcile broadcast slots (non-fatal):', err);
+          }
+        }
       } else {
         // Existing user - update last seen
         // If they opted in during this sign-in, enable notifications
@@ -250,6 +278,20 @@ export function useAuth() {
           // Set chatUsername from DJ broadcast flow if provided (matches iOS app field name)
           ...(djUsername && { chatUsername: djUsername }),
         });
+
+        // Reconcile any pending broadcast slots or tips by email
+        // (e.g., DJ was approved before creating account)
+        if (user.email) {
+          try {
+            await fetch('/api/users/reconcile-broadcast-slots', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: user.uid, email: user.email }),
+            });
+          } catch (err) {
+            console.error('Failed to reconcile broadcast slots (non-fatal):', err);
+          }
+        }
       } else {
         // Existing user - update last seen
         const updateData: Record<string, unknown> = {
@@ -449,6 +491,20 @@ export function useAuth() {
           watchlistMatch: enableNotifications,
         },
       });
+
+      // Reconcile any pending broadcast slots or tips by email
+      // (e.g., DJ was approved before creating account)
+      if (user.email) {
+        try {
+          await fetch('/api/users/reconcile-broadcast-slots', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.uid, email: user.email }),
+          });
+        } catch (err) {
+          console.error('Failed to reconcile broadcast slots (non-fatal):', err);
+        }
+      }
 
       setState({ user, loading: false, error: null, emailSent: false, passwordResetSent: false });
       return user;

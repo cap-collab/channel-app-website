@@ -77,6 +77,7 @@ export function useBroadcastSchedule(): UseBroadcastScheduleReturn {
             stationId: data.stationId || 'broadcast',
             showName: data.showName || 'Broadcast',
             djName: data.djName,
+            djUserId: data.djUserId,
             djEmail: data.djEmail,
             djSlots: data.djSlots,
             startTime: (data.startTime as Timestamp).toMillis(),

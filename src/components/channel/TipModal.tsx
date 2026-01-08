@@ -9,7 +9,8 @@ interface TipModalProps {
   isOpen: boolean;
   onClose: () => void;
   djUsername: string;
-  djEmail: string;
+  djUserId?: string;        // DJ's Firebase UID - set at go-live (preferred)
+  djEmail?: string;         // DJ's email - fallback only, may not match auth email
   broadcastSlotId: string;
   showName: string;
   tipperUserId?: string;    // Optional - undefined for guest tippers
@@ -22,6 +23,7 @@ export function TipModal({
   isOpen,
   onClose,
   djUsername,
+  djUserId,
   djEmail,
   broadcastSlotId,
   showName,
@@ -82,7 +84,8 @@ export function TipModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tipAmountCents: currentAmount,
-          djEmail,
+          djUserId,           // Preferred: DJ's Firebase UID set at go-live
+          djEmail,            // Fallback: DJ's email from application
           djUsername,
           broadcastSlotId,
           showName,
@@ -105,7 +108,7 @@ export function TipModal({
       setError(err instanceof Error ? err.message : 'Something went wrong');
       setIsLoading(false);
     }
-  }, [currentAmount, djEmail, djUsername, broadcastSlotId, showName, tipperUserId, tipperUsername]);
+  }, [currentAmount, djUserId, djEmail, djUsername, broadcastSlotId, showName, tipperUserId, tipperUsername]);
 
   const [mounted, setMounted] = useState(false);
 

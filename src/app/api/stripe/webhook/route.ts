@@ -69,13 +69,16 @@ async function handleTipPayment(
   session: Stripe.Checkout.Session
 ) {
   const metadata = session.metadata!;
+  const djUserId = metadata.djUserId;
+  const djEmail = metadata.djEmail || '';
+  const isPendingDj = djUserId === 'pending';
 
   // Create tip record
-  const tipData = {
+  const tipData: Record<string, unknown> = {
     createdAt: FieldValue.serverTimestamp(),
     tipperUserId: metadata.tipperUserId,
     tipperUsername: metadata.tipperUsername,
-    djUserId: metadata.djUserId,
+    djUserId: djUserId,
     djUsername: metadata.djUsername,
     broadcastSlotId: metadata.broadcastSlotId,
     showName: metadata.showName,
@@ -85,8 +88,14 @@ async function handleTipPayment(
     stripeSessionId: session.id,
     stripePaymentIntentId: session.payment_intent as string,
     status: 'succeeded',
-    payoutStatus: 'pending', // Will be updated when transferred to DJ
+    // If DJ account is pending, use special status for reconciliation later
+    payoutStatus: isPendingDj ? 'pending_dj_account' : 'pending',
   };
+
+  // Store djEmail for reconciliation when djUserId is 'pending'
+  if (djEmail) {
+    tipData.djEmail = djEmail;
+  }
 
   const tipRef = await db.collection('tips').add(tipData);
 
@@ -103,8 +112,14 @@ async function handleTipPayment(
 
   await db.collection('chats').doc('broadcast').collection('messages').add(chatMessage);
 
+  // If DJ account is pending, skip transfer attempt
+  if (isPendingDj) {
+    console.log('[tip] DJ account pending, tip stored for later reconciliation:', { tipId: tipRef.id, djEmail });
+    return;
+  }
+
   // Check if DJ has connected Stripe - if so, transfer immediately
-  const djDoc = await db.collection('users').doc(metadata.djUserId).get();
+  const djDoc = await db.collection('users').doc(djUserId).get();
   if (djDoc.exists) {
     const djData = djDoc.data();
     const stripeAccountId = djData?.djProfile?.stripeAccountId;
@@ -119,7 +134,7 @@ async function handleTipPayment(
           transfer_group: tipRef.id,
           metadata: {
             tipId: tipRef.id,
-            djUserId: metadata.djUserId,
+            djUserId: djUserId,
           },
         });
 
@@ -157,13 +172,15 @@ async function handleAccountUpdated(
 
   const userDoc = usersSnapshot.docs[0];
   const userId = userDoc.id;
+  const userData = userDoc.data();
+  const userEmail = userData?.email;
 
   // Update onboarded status
   await userDoc.ref.update({
     'djProfile.stripeOnboarded': true,
   });
 
-  // Process any pending tips
+  // Process any pending tips (where djUserId already matches)
   const pendingTips = await db.collection('tips')
     .where('djUserId', '==', userId)
     .where('payoutStatus', '==', 'pending')
@@ -192,6 +209,55 @@ async function handleAccountUpdated(
       });
     } catch (error) {
       console.error(`Failed to transfer tip ${tipDoc.id}:`, error);
+    }
+  }
+
+  // Reconcile tips where djUserId is 'pending' but djEmail matches user's email
+  if (userEmail) {
+    const pendingByEmail = await db.collection('tips')
+      .where('djEmail', '==', userEmail)
+      .where('djUserId', '==', 'pending')
+      .where('status', '==', 'succeeded')
+      .get();
+
+    console.log(`[webhook] Found ${pendingByEmail.docs.length} pending tips to reconcile by email for ${userEmail}`);
+
+    for (const tipDoc of pendingByEmail.docs) {
+      const tip = tipDoc.data();
+
+      try {
+        // First update the djUserId to the real user ID
+        await tipDoc.ref.update({
+          djUserId: userId,
+        });
+
+        // Then create the transfer
+        const transfer = await stripe.transfers.create({
+          amount: tip.tipAmountCents,
+          currency: 'usd',
+          destination: account.id,
+          transfer_group: tipDoc.id,
+          metadata: {
+            tipId: tipDoc.id,
+            djUserId: userId,
+          },
+        });
+
+        await tipDoc.ref.update({
+          stripeTransferId: transfer.id,
+          payoutStatus: 'transferred',
+          transferredAt: FieldValue.serverTimestamp(),
+        });
+
+        console.log(`[webhook] Reconciled and transferred tip ${tipDoc.id} to DJ ${userId}`);
+      } catch (error) {
+        console.error(`Failed to reconcile/transfer tip ${tipDoc.id}:`, error);
+        // Update djUserId even if transfer fails, so it's ready for retry
+        await tipDoc.ref.update({
+          djUserId: userId,
+          payoutStatus: 'pending', // Ready for retry
+        });
+      }
     }
   }
 }

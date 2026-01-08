@@ -9,8 +9,9 @@ export interface TipTransaction {
   tipperUsername: string;
 
   // Who was live / scheduled
-  djUserId: string;
+  djUserId: string;              // Firebase UID, or 'pending' if DJ not logged in
   djUsername: string;
+  djEmail?: string;              // For reconciliation when djUserId is 'pending'
 
   // Context
   broadcastSlotId: string;
@@ -28,7 +29,11 @@ export interface TipTransaction {
   status: 'pending' | 'succeeded' | 'failed';
 
   // Payout status
-  payoutStatus: 'pending' | 'transferred' | 'failed';
+  // 'pending' = ready to transfer when DJ has Stripe
+  // 'pending_dj_account' = DJ not found yet, waiting for account creation
+  // 'transferred' = successfully sent to DJ
+  // 'failed' = transfer failed
+  payoutStatus: 'pending' | 'pending_dj_account' | 'transferred' | 'failed';
   transferredAt?: Timestamp;
 }
 
@@ -42,6 +47,7 @@ export interface TipTransactionSerialized {
 
   djUserId: string;
   djUsername: string;
+  djEmail?: string;
 
   broadcastSlotId: string;
   showName: string;
@@ -55,6 +61,6 @@ export interface TipTransactionSerialized {
   stripeTransferId?: string;
   status: 'pending' | 'succeeded' | 'failed';
 
-  payoutStatus: 'pending' | 'transferred' | 'failed';
+  payoutStatus: 'pending' | 'pending_dj_account' | 'transferred' | 'failed';
   transferredAt?: number;
 }

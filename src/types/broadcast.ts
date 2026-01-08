@@ -37,6 +37,8 @@ export interface BroadcastSlot {
   stationId: string;           // For multi-station future
   showName: string;            // Show title (REQUIRED)
   djName?: string;             // Single DJ for remote broadcasts (optional)
+  djUserId?: string;           // DJ's Firebase UID (set at approval if user exists, or reconciled later)
+  djEmail?: string;            // DJ's email for matching (set on approval)
   djSlots?: DJSlot[];          // Multiple DJ slots for venue broadcasts (optional)
   startTime: FirestoreTimestamp;  // Scheduled start
   endTime: FirestoreTimestamp;    // Scheduled end
@@ -67,6 +69,7 @@ export interface BroadcastSlotSerialized {
   stationId: string;
   showName: string;            // Show title (REQUIRED)
   djName?: string;             // Single DJ for remote broadcasts (optional)
+  djUserId?: string;           // DJ's Firebase UID (set at approval if user exists, or reconciled later)
   djEmail?: string;            // DJ's email for matching in DJ Profile (set on approval)
   djSlots?: DJSlot[];          // Multiple DJ slots for venue broadcasts (optional)
   startTime: number;           // Unix timestamp ms

@@ -50,14 +50,31 @@ export async function POST(
       return NextResponse.json({ error: 'Database not initialized' }, { status: 500 });
     }
 
+    // Look up user by email to get djUserId (if user exists)
+    const usersSnapshot = await db.collection('users')
+      .where('email', '==', application.email)
+      .limit(1)
+      .get();
+
+    let djUserId: string | null = null;
+    if (!usersSnapshot.empty) {
+      const userDoc = usersSnapshot.docs[0];
+      djUserId = userDoc.id;
+      // Also assign DJ role
+      await userDoc.ref.update({ role: 'dj' });
+      console.log(`[approve] Found user ${djUserId} for ${application.email}, assigned DJ role`);
+    } else {
+      console.log(`[approve] No user found for ${application.email} - djUserId will be reconciled when user signs up`);
+    }
+
     const broadcastToken = generateToken();
     const tokenExpiresAt = Timestamp.fromMillis(selectedSlot.end + 60 * 60 * 1000);
 
-    const slotData = {
+    const slotData: Record<string, unknown> = {
       stationId: STATION_ID,
       showName: application.showName,
       djName: application.djName,
-      djEmail: application.email, // Store DJ's email for matching in DJ Profile
+      djEmail: application.email, // Store DJ's email for matching/reconciliation
       djSlots: null,
       startTime: Timestamp.fromMillis(selectedSlot.start),
       endTime: Timestamp.fromMillis(selectedSlot.end),
@@ -69,6 +86,11 @@ export async function POST(
       broadcastType: application.locationType === 'venue' ? 'venue' : 'remote',
     };
 
+    // Set djUserId if user exists
+    if (djUserId) {
+      slotData.djUserId = djUserId;
+    }
+
     const docRef = await db.collection('broadcast-slots').add(slotData);
 
     const slot: BroadcastSlotSerialized = {
@@ -76,6 +98,8 @@ export async function POST(
       stationId: STATION_ID,
       showName: application.showName,
       djName: application.djName,
+      djUserId: djUserId || undefined,
+      djEmail: application.email,
       startTime: selectedSlot.start,
       endTime: selectedSlot.end,
       broadcastToken,
@@ -92,20 +116,6 @@ export async function POST(
     await updateApplicationStatus(id, 'approved', {
       scheduledSlotId: slot.id,
     });
-
-    // Assign DJ role to user by email
-    const usersSnapshot = await db.collection('users')
-      .where('email', '==', application.email)
-      .limit(1)
-      .get();
-
-    if (!usersSnapshot.empty) {
-      const userDoc = usersSnapshot.docs[0];
-      await userDoc.ref.update({ role: 'dj' });
-      console.log(`Assigned DJ role to user ${userDoc.id} (${application.email})`);
-    } else {
-      console.log(`No user found for email ${application.email} - role will need manual assignment`);
-    }
 
     return NextResponse.json({
       success: true,

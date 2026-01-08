@@ -12,7 +12,8 @@ interface ListenerChatPanelProps {
   username?: string;
   userId?: string;
   currentDJ?: string | null;
-  currentDJEmail?: string | null;
+  currentDJUserId?: string | null;  // DJ's Firebase UID - set at go-live (preferred for tips)
+  currentDJEmail?: string | null;   // DJ's email - fallback only
   showName?: string;
   broadcastSlotId?: string;
   isLive?: boolean;
@@ -276,6 +277,7 @@ export function ListenerChatPanel({
   username,
   userId,
   currentDJ,
+  currentDJUserId,
   currentDJEmail,
   showName,
   broadcastSlotId,
@@ -456,12 +458,13 @@ export function ListenerChatPanel({
           </div>
 
           {/* Tip button - only when live and DJ info available */}
-          {isLive && currentDJ && currentDJEmail && broadcastSlotId && showName && (
+          {isLive && currentDJ && (currentDJUserId || currentDJEmail) && broadcastSlotId && showName && (
             <TipButton
               isAuthenticated={isAuthenticated}
               tipperUserId={userId}
               tipperUsername={username}
-              djEmail={currentDJEmail}
+              djUserId={currentDJUserId || undefined}
+              djEmail={currentDJEmail || undefined}
               djUsername={currentDJ}
               broadcastSlotId={broadcastSlotId}
               showName={showName}
