@@ -41,15 +41,15 @@ export function ChannelClient() {
   } = useBroadcastSchedule();
 
   return (
-    <div className="min-h-screen text-white relative">
+    <div className="h-[100dvh] text-white relative overflow-hidden flex flex-col">
       <AnimatedBackground />
       {/* Use shared Header with profile icon */}
       <Header currentPage="channel" position="sticky" />
 
-      {/* Main content */}
-      <main className="max-w-7xl mx-auto">
+      {/* Main content - flex-1 and min-h-0 to fill remaining space */}
+      <main className="max-w-7xl mx-auto flex-1 min-h-0 w-full">
         {/* Desktop layout */}
-        <div className="hidden lg:flex lg:h-[calc(100vh-64px)]">
+        <div className="hidden lg:flex lg:h-full">
           {/* Left column: Now Playing + Schedule */}
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Now Playing Panel - Fixed */}
@@ -102,8 +102,8 @@ export function ChannelClient() {
           </div>
         </div>
 
-        {/* Mobile layout - use dvh for proper mobile viewport handling */}
-        <div className="lg:hidden flex flex-col h-[calc(100dvh-64px)]">
+        {/* Mobile layout */}
+        <div className="lg:hidden flex flex-col h-full">
           {/* Compact Now Playing */}
           <div className="flex-shrink-0 p-4 bg-[#252525]/50">
             <NowPlayingPanel
