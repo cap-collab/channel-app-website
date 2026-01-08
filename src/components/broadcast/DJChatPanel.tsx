@@ -215,10 +215,13 @@ export function DJChatPanel({
             </div>
           )}
 
-          {/* Pinned Promo Bar (like iOS) - shows most recent promo from current DJ only */}
+          {/* Pinned Promo Bar (like iOS) - shows most recent promo from current broadcast slot only */}
           {(() => {
+            // Only show promos that match the current slot ID
             const latestPromo = [...messages].reverse().find(m => m.messageType === 'promo' && m.djSlotId === slotId);
             if (!latestPromo) return null;
+            // Use the current DJ username for display, not the historical username from the message
+            const displayUsername = djUsername || latestPromo.username;
             return (
               <a
                 href={latestPromo.promoUrl}
@@ -226,7 +229,7 @@ export function DJChatPanel({
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-3 py-2.5 bg-accent/10 hover:bg-accent/20 border-b border-gray-800 transition-colors flex-shrink-0"
               >
-                <span className="text-white font-semibold text-sm">{latestPromo.username}</span>
+                <span className="text-white font-semibold text-sm">{displayUsername}</span>
                 <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0" title="Live DJ"></span>
                 {latestPromo.promoTitle && (
                   <>

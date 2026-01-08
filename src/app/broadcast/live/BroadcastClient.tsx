@@ -470,20 +470,21 @@ export function BroadcastClient() {
         <BroadcastHeader />
         <div className="p-4 lg:p-8">
           <div className="max-w-6xl mx-auto">
-            {/* Tips counter */}
-            {tipTotalCents > 0 && (
-              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 mb-4 flex items-center gap-3">
-                <span className="text-2xl">💸</span>
-                <div>
-                  <p className="text-green-400 font-medium">
-                    You got ${(tipTotalCents / 100).toFixed(2)} in tips!
-                  </p>
-                  <p className="text-gray-500 text-sm">
-                    {tipCount} {tipCount === 1 ? 'tip' : 'tips'} during this broadcast
-                  </p>
-                </div>
+            {/* Tips counter - always show during debugging */}
+            <div className={`${tipTotalCents > 0 ? 'bg-green-500/10 border-green-500/30' : 'bg-gray-800/50 border-gray-700'} border rounded-lg p-4 mb-4 flex items-center gap-3`}>
+              <span className="text-2xl">💸</span>
+              <div>
+                <p className={`${tipTotalCents > 0 ? 'text-green-400' : 'text-gray-400'} font-medium`}>
+                  {tipTotalCents > 0
+                    ? `You got $${(tipTotalCents / 100).toFixed(2)} in tips!`
+                    : 'No tips yet - share your stream!'}
+                </p>
+                <p className="text-gray-500 text-sm">
+                  {tipCount} {tipCount === 1 ? 'tip' : 'tips'} during this broadcast
+                  {slot?.id && <span className="text-gray-600 ml-2">(slot: {slot.id.slice(0, 8)}...)</span>}
+                </p>
               </div>
-            )}
+            </div>
 
             {/* Show promo error if initial promo failed */}
             {promoError && (
