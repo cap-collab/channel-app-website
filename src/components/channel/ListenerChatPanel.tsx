@@ -6,6 +6,7 @@ import { ChatMessageSerialized } from '@/types/broadcast';
 import { AuthModal } from '@/components/AuthModal';
 import { FloatingHearts } from './FloatingHearts';
 import { TipButton } from './TipButton';
+import { normalizeUrl } from '@/lib/url';
 
 interface ListenerChatPanelProps {
   isAuthenticated: boolean;
@@ -396,7 +397,7 @@ export function ListenerChatPanel({
       {/* Pinned promo bar - only show when live */}
       {isLive && currentPromo && currentPromo.promoUrl && (
         <a
-          href={currentPromo.promoUrl}
+          href={normalizeUrl(currentPromo.promoUrl)}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-2 px-4 py-3 bg-accent/10 hover:bg-accent/20 border-b border-gray-800 transition-colors flex-shrink-0"

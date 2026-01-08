@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { BroadcastSlot } from '@/types/broadcast';
 import { FieldValue } from 'firebase-admin/firestore';
+import { normalizeUrl } from '@/lib/url';
 
 // POST - Set or update DJ promo link for a broadcast slot
 export async function POST(request: NextRequest) {
@@ -22,9 +23,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No promo URL provided' }, { status: 400 });
     }
 
+    // Normalize URL (auto-prepend https:// if missing)
+    const normalizedPromoUrl = normalizeUrl(promoUrl);
+
     // Validate URL format
     try {
-      const url = new URL(promoUrl);
+      const url = new URL(normalizedPromoUrl);
       // Only allow http/https
       if (!['http:', 'https:'].includes(url.protocol)) {
         return NextResponse.json({ error: 'Invalid URL protocol' }, { status: 400 });
@@ -34,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate URL length
-    if (promoUrl.length > 500) {
+    if (normalizedPromoUrl.length > 500) {
       return NextResponse.json({ error: 'URL too long (max 500 chars)' }, { status: 400 });
     }
 
@@ -77,7 +81,7 @@ export async function POST(request: NextRequest) {
         const updatedDjSlots = [...slot.djSlots];
         updatedDjSlots[djSlotIndex] = {
           ...updatedDjSlots[djSlotIndex],
-          promoUrl,
+          promoUrl: normalizedPromoUrl,
           promoTitle: promoTitle || null,
         };
         await doc.ref.update({ djSlots: updatedDjSlots });
@@ -85,7 +89,7 @@ export async function POST(request: NextRequest) {
     } else {
       // Single DJ: update show-level promo
       await doc.ref.update({
-        showPromoUrl: promoUrl,
+        showPromoUrl: normalizedPromoUrl,
         showPromoTitle: promoTitle || null,
       });
     }
@@ -94,12 +98,12 @@ export async function POST(request: NextRequest) {
     const chatMessage = {
       stationId: 'broadcast',
       username: username || slot.liveDjUsername || 'DJ',
-      message: promoTitle || promoUrl,
+      message: promoTitle || normalizedPromoUrl,
       timestamp: FieldValue.serverTimestamp(),
       isDJ: true,
       djSlotId: doc.id,
       messageType: 'promo',
-      promoUrl,
+      promoUrl: normalizedPromoUrl,
       promoTitle: promoTitle || null,
     };
 
@@ -107,7 +111,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      promoUrl,
+      promoUrl: normalizedPromoUrl,
       promoTitle: promoTitle || null,
       messageId: chatRef.id,
     });

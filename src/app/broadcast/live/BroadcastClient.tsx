@@ -15,6 +15,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { AudioInputMethod } from '@/types/broadcast';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { useTipTotal } from '@/hooks/useTipTotal';
+import { normalizeUrl } from '@/lib/url';
 
 type OnboardingStep = 'profile' | 'audio';
 
@@ -261,7 +262,7 @@ export function BroadcastClient() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             broadcastToken: token,
-            promoUrl: initialPromoUrl,
+            promoUrl: normalizeUrl(initialPromoUrl),
             promoTitle: initialPromoTitle,
             username: djUsername,
           }),

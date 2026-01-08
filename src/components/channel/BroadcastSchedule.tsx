@@ -5,6 +5,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { BroadcastSlotSerialized, DJSlot } from '@/types/broadcast';
 import { TipButton } from './TipButton';
+import { normalizeUrl } from '@/lib/url';
 
 // DJ profile data fetched from Firestore
 interface DJProfileData {
@@ -185,7 +186,7 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
             {/* Promo link */}
             {djProfile?.promoUrl && (
               <a
-                href={djProfile.promoUrl}
+                href={normalizeUrl(djProfile.promoUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}

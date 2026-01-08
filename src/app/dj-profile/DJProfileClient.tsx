@@ -10,6 +10,7 @@ import { useUserRole, isDJ } from "@/hooks/useUserRole";
 import { AuthModal } from "@/components/AuthModal";
 import { BroadcastSlotSerialized } from "@/types/broadcast";
 import { usePendingPayout } from "@/hooks/usePendingPayout";
+import { normalizeUrl } from "@/lib/url";
 
 interface DJProfile {
   bio: string | null;
@@ -182,8 +183,9 @@ export function DJProfileClient() {
 
     try {
       const userRef = doc(db, "users", user.uid);
+      const normalizedPromoUrl = promoUrlInput.trim() ? normalizeUrl(promoUrlInput.trim()) : null;
       await updateDoc(userRef, {
-        "djProfile.promoUrl": promoUrlInput.trim() || null,
+        "djProfile.promoUrl": normalizedPromoUrl,
         "djProfile.promoTitle": promoTitleInput.trim() || null,
       });
       setSaveSuccess(true);

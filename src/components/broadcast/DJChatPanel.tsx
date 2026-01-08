@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useDJChat } from '@/hooks/useDJChat';
 import { ChatMessageSerialized } from '@/types/broadcast';
+import { normalizeUrl } from '@/lib/url';
 
 interface DJChatPanelProps {
   broadcastToken: string;
@@ -39,7 +40,7 @@ function ChatMessage({ message, isOwnMessage, currentLiveDjUsername }: {
           <p className="text-white font-medium mb-2">{message.promoTitle}</p>
         )}
         <a
-          href={message.promoUrl}
+          href={normalizeUrl(message.promoUrl || '')}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-2 text-accent hover:text-accent-hover text-sm"
@@ -159,7 +160,8 @@ export function DJChatPanel({
     setLocalError(null);
 
     try {
-      await sendPromo(promoUrl.trim(), promoTitle.trim() || undefined);
+      const normalizedPromoUrl = normalizeUrl(promoUrl.trim());
+      await sendPromo(normalizedPromoUrl, promoTitle.trim() || undefined);
       setShowPromoModal(false);
       setPromoUrl('');
       setPromoTitle('');

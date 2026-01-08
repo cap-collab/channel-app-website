@@ -25,6 +25,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useDebouncedCallback } from 'use-debounce';
+import { normalizeUrl } from '@/lib/url';
 
 interface DJProfileSetupProps {
   defaultUsername?: string;
@@ -231,12 +232,13 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
 
   const validateUrl = (value: string): string | null => {
     if (!value) return null; // Optional field
+    const normalized = normalizeUrl(value);
     try {
-      const url = new URL(value);
+      const url = new URL(normalized);
       if (!['http:', 'https:'].includes(url.protocol)) {
         return 'URL must start with http:// or https://';
       }
-      if (value.length > 500) {
+      if (normalized.length > 500) {
         return 'URL is too long';
       }
     } catch {
@@ -297,7 +299,8 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
 
     // No API call needed - username will be saved when going live
     // This allows the flow to work without Firebase Admin SDK
-    onComplete(username.trim(), promoUrl || undefined, promoTitle || undefined);
+    const normalizedPromoUrl = promoUrl ? normalizeUrl(promoUrl) : undefined;
+    onComplete(username.trim(), normalizedPromoUrl, promoTitle || undefined);
   };
 
   // Show loading state while fetching user profile
