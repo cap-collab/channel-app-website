@@ -29,10 +29,21 @@ export async function GET(request: NextRequest) {
     const tipDoc = tipsSnapshot.docs[0];
     const tipData = tipDoc.data();
 
+    // Fetch DJ photo URL from user profile if djUserId exists
+    let djPhotoUrl: string | null = null;
+    if (tipData.djUserId) {
+      const userDoc = await db.collection('users').doc(tipData.djUserId).get();
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        djPhotoUrl = userData?.djProfile?.photoUrl || null;
+      }
+    }
+
     // Return only the fields needed for the thank you popup
     return NextResponse.json({
       id: tipDoc.id,
       djUsername: tipData.djUsername,
+      djPhotoUrl,
       djThankYouMessage: tipData.djThankYouMessage || 'Thanks for the tip!',
       tipAmountCents: tipData.tipAmountCents,
       showName: tipData.showName,
