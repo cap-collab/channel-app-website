@@ -36,12 +36,14 @@ const faqItems = [
   {
     question: "Who can broadcast on Channel?",
     answer:
-      "Channel is open to DJs, venues, and curators who want to host live broadcasts.\n\nIf your DJ setup connects to a computer — through a controller, a mixer with USB, or a simple audio interface — you already have what you need to go live.\n\nIf you already have a radio stream, we can feature you as well.\n\nWe onboard progressively to keep the experience intentional and high-quality.",
+      "Channel is open to DJs, venues, and curators who want to host live broadcasts.\n\nIf your DJ setup connects to a computer — through a controller, a mixer with USB, or a simple audio interface — you already have what you need to go live. Check our streaming setup guide for details.\n\nIf you already have a radio stream, we can feature you as well.\n\nWe onboard progressively to keep the experience intentional and high-quality.",
+    hasLink: true,
   },
   {
     question: "Do I need special equipment to go live?",
     answer:
-      "No. Most everyday DJ setups already work. No cameras required, and no complex software needed to get started.",
+      "No. Most everyday DJ setups already work. No cameras required, and no complex software needed to get started.\n\nSee our streaming setup guide for more details on what equipment works.",
+    hasLink: true,
   },
   {
     question: "Can listeners interact during live sets?",

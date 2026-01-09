@@ -190,8 +190,11 @@ export function DJPortalClient() {
               </p>
               <p>
                 A live set can be streamed from home or from a venue. If your DJ setup connects to a
-                computer, you already have what you need. We&apos;ll follow up with simple setup
-                details once we confirm a slot.
+                computer, you already have what you need. Check our{' '}
+                <Link href="/streaming-guide" className="text-white underline hover:text-gray-300 transition-colors">
+                  streaming setup guide
+                </Link>{' '}
+                to see if you&apos;re ready.
               </p>
             </div>
           </div>

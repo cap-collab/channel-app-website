@@ -15,19 +15,42 @@ interface FAQAccordionProps {
 
 function renderAnswer(answer: string, hasLink?: boolean) {
   if (hasLink) {
-    // Replace "Fill out our application form" with a link
-    const parts = answer.split("Fill out our application form");
-    if (parts.length === 2) {
-      return (
-        <>
-          {parts[0]}
-          <Link href="/apply" className="text-white underline hover:text-gray-300 transition-colors">
-            Fill out our application form
-          </Link>
-          {parts[1]}
-        </>
-      );
+    // Define link patterns to replace
+    const linkPatterns = [
+      { text: "Fill out our application form", href: "/apply" },
+      { text: "streaming setup guide", href: "/streaming-guide" },
+    ];
+
+    // Split and rebuild with links
+    let result: (string | JSX.Element)[] = [answer];
+
+    for (const pattern of linkPatterns) {
+      const newResult: (string | JSX.Element)[] = [];
+      for (const part of result) {
+        if (typeof part === 'string' && part.includes(pattern.text)) {
+          const segments = part.split(pattern.text);
+          segments.forEach((segment, i) => {
+            if (segment) newResult.push(segment);
+            if (i < segments.length - 1) {
+              newResult.push(
+                <Link
+                  key={`${pattern.href}-${i}`}
+                  href={pattern.href}
+                  className="text-white underline hover:text-gray-300 transition-colors"
+                >
+                  {pattern.text}
+                </Link>
+              );
+            }
+          });
+        } else {
+          newResult.push(part);
+        }
+      }
+      result = newResult;
     }
+
+    return <>{result}</>;
   }
   return answer;
 }
