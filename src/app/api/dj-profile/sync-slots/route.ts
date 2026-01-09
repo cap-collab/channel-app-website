@@ -32,8 +32,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Find all slots where this user is the DJ
-    // Look for both djUserId (assigned at approval) and liveDjUserId (set when going live)
+    // Look for djUserId, liveDjUserId, and djEmail
     const now = new Date();
+
+    // Get user's email for djEmail query
+    const userDoc = await db.collection('users').doc(userId).get();
+    const userEmail = userDoc.data()?.email;
 
     // Query 1: Slots where djUserId matches (upcoming scheduled slots)
     const byDjUserIdQuery = db.collection('broadcast-slots')
@@ -45,10 +49,20 @@ export async function POST(request: NextRequest) {
       .where('liveDjUserId', '==', userId)
       .where('endTime', '>', now);
 
-    const [byDjUserId, byLiveDjUserId] = await Promise.all([
-      byDjUserIdQuery.get(),
-      byLiveDjUserIdQuery.get(),
-    ]);
+    // Query 3: Slots where djEmail matches (slots assigned by email before DJ logged in)
+    const byDjEmailQuery = userEmail
+      ? db.collection('broadcast-slots')
+          .where('djEmail', '==', userEmail)
+          .where('endTime', '>', now)
+      : null;
+
+    const queries = [byDjUserIdQuery.get(), byLiveDjUserIdQuery.get()];
+    if (byDjEmailQuery) {
+      queries.push(byDjEmailQuery.get());
+    }
+
+    const results = await Promise.all(queries);
+    const [byDjUserId, byLiveDjUserId, byDjEmail] = results;
 
     // Collect unique slot IDs to update
     const slotIds = new Set<string>();
@@ -67,6 +81,15 @@ export async function POST(request: NextRequest) {
         slotsToUpdate.push(doc);
       }
     });
+
+    if (byDjEmail) {
+      byDjEmail.forEach((doc) => {
+        if (!slotIds.has(doc.id)) {
+          slotIds.add(doc.id);
+          slotsToUpdate.push(doc);
+        }
+      });
+    }
 
     // Update all matching slots
     const updatePromises = slotsToUpdate.map((doc) =>
