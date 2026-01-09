@@ -90,6 +90,8 @@ export function useBroadcastSchedule(): UseBroadcastScheduleReturn {
             broadcastType: data.broadcastType,
             liveDjUserId: data.liveDjUserId,
             liveDjUsername: data.liveDjUsername,
+            liveDjBio: data.liveDjBio,
+            liveDjPhotoUrl: data.liveDjPhotoUrl,
             showPromoUrl: data.showPromoUrl,
             showPromoTitle: data.showPromoTitle,
           });

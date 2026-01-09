@@ -17,6 +17,8 @@ export interface Show {
   endTime: string;
   description?: string;
   dj?: string;
+  djBio?: string;
+  djPhotoUrl?: string;
   imageUrl?: string;
   stationId: string;
   type?: string; // weekly, monthly, restream, playlist

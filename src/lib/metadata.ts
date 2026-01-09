@@ -220,6 +220,8 @@ async function fetchBroadcastShows(): Promise<Show[]> {
         startTime: number;
         endTime: number;
       }> | undefined;
+      const liveDjBio = data.liveDjBio as string | undefined;
+      const liveDjPhotoUrl = data.liveDjPhotoUrl as string | undefined;
 
       // Handle djSlots (venue broadcasts with multiple DJs)
       if (djSlots && djSlots.length > 0) {
@@ -230,6 +232,8 @@ async function fetchBroadcastShows(): Promise<Show[]> {
             id: `broadcast-${doc.id}-${djSlot.startTime}`,
             name: showName,
             dj: djSlot.djName,
+            djBio: liveDjBio,
+            djPhotoUrl: liveDjPhotoUrl,
             startTime: slotStart,
             endTime: slotEnd,
             stationId: "broadcast",
@@ -242,6 +246,8 @@ async function fetchBroadcastShows(): Promise<Show[]> {
           id: `broadcast-${doc.id}`,
           name: showName,
           dj: djName,
+          djBio: liveDjBio,
+          djPhotoUrl: liveDjPhotoUrl,
           startTime,
           endTime,
           stationId: "broadcast",
