@@ -85,6 +85,27 @@ export async function createSlot(data: {
 }): Promise<{ slot: BroadcastSlotSerialized; broadcastUrl: string }> {
   if (!db) throw new Error('Firestore not initialized');
 
+  // Look up DJ info by email if provided
+  let djUserId: string | null = null;
+  let finalDjName = data.djName;
+  let liveDjBio: string | null = null;
+  let liveDjPhotoUrl: string | null = null;
+
+  if (data.djEmail) {
+    try {
+      const res = await fetch(`/api/users/lookup-by-email?email=${encodeURIComponent(data.djEmail)}`);
+      const djInfo = await res.json();
+      if (djInfo) {
+        djUserId = djInfo.djUserId;
+        finalDjName = djInfo.djName || data.djName;
+        liveDjBio = djInfo.liveDjBio;
+        liveDjPhotoUrl = djInfo.liveDjPhotoUrl;
+      }
+    } catch (error) {
+      console.error('Failed to lookup DJ info:', error);
+    }
+  }
+
   const broadcastType = data.broadcastType || 'remote';
   const startTimestamp = Timestamp.fromMillis(data.startTime);
   const endTimestamp = Timestamp.fromMillis(data.endTime);
@@ -94,8 +115,9 @@ export async function createSlot(data: {
   const slotData: Record<string, unknown> = {
     stationId: STATION_ID,
     showName: data.showName,
-    djName: data.djName || null,
+    djName: finalDjName || null,
     djEmail: data.djEmail || null,
+    djUserId: djUserId || null,
     djSlots: data.djSlots || null,
     startTime: startTimestamp,
     endTime: endTimestamp,
@@ -105,6 +127,8 @@ export async function createSlot(data: {
     createdBy: data.createdBy,
     status: 'scheduled',
     broadcastType,
+    liveDjBio: liveDjBio || null,
+    liveDjPhotoUrl: liveDjPhotoUrl || null,
   };
 
   const docRef = await addDoc(collection(db, COLLECTION), slotData);
@@ -113,8 +137,9 @@ export async function createSlot(data: {
     id: docRef.id,
     stationId: STATION_ID,
     showName: data.showName,
-    djName: data.djName,
+    djName: finalDjName,
     djEmail: data.djEmail,
+    djUserId: djUserId || undefined,
     djSlots: data.djSlots,
     startTime: data.startTime,
     endTime: data.endTime,
@@ -124,6 +149,8 @@ export async function createSlot(data: {
     createdBy: data.createdBy,
     status: 'scheduled',
     broadcastType,
+    liveDjBio: liveDjBio || undefined,
+    liveDjPhotoUrl: liveDjPhotoUrl || undefined,
   };
 
   // All slots use token URLs

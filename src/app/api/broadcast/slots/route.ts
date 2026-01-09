@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { showName, djName, djSlots, startTime, endTime, broadcastType = 'remote' } = await request.json();
+    const { showName, djName, djEmail, djSlots, startTime, endTime, broadcastType = 'remote' } = await request.json();
 
     if (!showName || !startTime || !endTime) {
       return NextResponse.json(
@@ -91,16 +91,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Look up DJ info by email if provided
+    let djUserId: string | undefined;
+    let finalDjName = djName;
+    let liveDjBio: string | undefined;
+    let liveDjPhotoUrl: string | undefined;
+
+    if (djEmail) {
+      const usersSnapshot = await db.collection('users')
+        .where('email', '==', djEmail)
+        .limit(1)
+        .get();
+
+      if (!usersSnapshot.empty) {
+        const userDoc = usersSnapshot.docs[0];
+        const userData = userDoc.data();
+        djUserId = userDoc.id;
+        finalDjName = userData.chatUsername || userData.displayName || djName;
+        liveDjBio = userData.djProfile?.bio;
+        liveDjPhotoUrl = userData.djProfile?.photoUrl;
+        console.log(`[slots POST] Found user ${djUserId} for ${djEmail}, bio: ${!!liveDjBio}, photo: ${!!liveDjPhotoUrl}`);
+      }
+    }
+
     const startTimestamp = Timestamp.fromMillis(startTime);
     const endTimestamp = Timestamp.fromMillis(endTime);
 
     // Token expires 1 hour after slot ends
     const tokenExpiresAt = Timestamp.fromMillis(endTime + 60 * 60 * 1000);
 
-    const slot: Omit<BroadcastSlot, 'id'> = {
+    const slot: Omit<BroadcastSlot, 'id'> & { djEmail?: string; djUserId?: string; liveDjBio?: string; liveDjPhotoUrl?: string } = {
       stationId: STATION_ID,
       showName,
-      djName: djName || undefined,
+      djName: finalDjName || undefined,
+      djEmail: djEmail || undefined,
+      djUserId: djUserId || undefined,
       djSlots: djSlots || undefined,
       startTime: startTimestamp,
       endTime: endTimestamp,
@@ -110,6 +135,8 @@ export async function POST(request: NextRequest) {
       createdBy: OWNER_UID, // TODO: Get from verified token
       status: 'scheduled',
       broadcastType,
+      liveDjBio: liveDjBio || undefined,
+      liveDjPhotoUrl: liveDjPhotoUrl || undefined,
     };
 
     const docRef = await db.collection('broadcast-slots').add(slot);

@@ -50,19 +50,27 @@ export async function POST(
       return NextResponse.json({ error: 'Database not initialized' }, { status: 500 });
     }
 
-    // Look up user by email to get djUserId (if user exists)
+    // Look up user by email to get djUserId and profile info (if user exists)
     const usersSnapshot = await db.collection('users')
       .where('email', '==', application.email)
       .limit(1)
       .get();
 
     let djUserId: string | null = null;
+    let djNameFromProfile: string | null = null;
+    let liveDjBio: string | null = null;
+    let liveDjPhotoUrl: string | null = null;
+
     if (!usersSnapshot.empty) {
       const userDoc = usersSnapshot.docs[0];
+      const userData = userDoc.data();
       djUserId = userDoc.id;
+      djNameFromProfile = userData.chatUsername || userData.displayName || null;
+      liveDjBio = userData.djProfile?.bio || null;
+      liveDjPhotoUrl = userData.djProfile?.photoUrl || null;
       // Also assign DJ role
       await userDoc.ref.update({ role: 'dj' });
-      console.log(`[approve] Found user ${djUserId} for ${application.email}, assigned DJ role`);
+      console.log(`[approve] Found user ${djUserId} for ${application.email}, assigned DJ role, bio: ${!!liveDjBio}, photo: ${!!liveDjPhotoUrl}`);
     } else {
       console.log(`[approve] No user found for ${application.email} - djUserId will be reconciled when user signs up`);
     }
@@ -73,7 +81,7 @@ export async function POST(
     const slotData: Record<string, unknown> = {
       stationId: STATION_ID,
       showName: application.showName,
-      djName: application.djName,
+      djName: djNameFromProfile || application.djName, // Use profile name if available
       djEmail: application.email, // Store DJ's email for matching/reconciliation
       djSlots: null,
       startTime: Timestamp.fromMillis(selectedSlot.start),
@@ -86,9 +94,15 @@ export async function POST(
       broadcastType: application.locationType === 'venue' ? 'venue' : 'remote',
     };
 
-    // Set djUserId if user exists
+    // Set DJ profile info if user exists
     if (djUserId) {
       slotData.djUserId = djUserId;
+    }
+    if (liveDjBio) {
+      slotData.liveDjBio = liveDjBio;
+    }
+    if (liveDjPhotoUrl) {
+      slotData.liveDjPhotoUrl = liveDjPhotoUrl;
     }
 
     const docRef = await db.collection('broadcast-slots').add(slotData);
@@ -97,7 +111,7 @@ export async function POST(
       id: docRef.id,
       stationId: STATION_ID,
       showName: application.showName,
-      djName: application.djName,
+      djName: djNameFromProfile || application.djName,
       djUserId: djUserId || undefined,
       djEmail: application.email,
       startTime: selectedSlot.start,
@@ -108,6 +122,8 @@ export async function POST(
       createdBy,
       status: 'scheduled',
       broadcastType: application.locationType === 'venue' ? 'venue' : 'remote',
+      liveDjBio: liveDjBio || undefined,
+      liveDjPhotoUrl: liveDjPhotoUrl || undefined,
     };
 
     const broadcastUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com'}/broadcast/live?token=${broadcastToken}`;
