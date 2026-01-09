@@ -117,6 +117,7 @@ Need help? Contact support@channel-app.com
 • Join a few minutes early
 • Once you hit "Go Live," listeners will be able to tune in, chat, and support you in real time
 • You'll see live feedback and support messages during the set
+• Share your live stream URL: https://channel-app.com/channel
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

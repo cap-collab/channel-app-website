@@ -219,6 +219,7 @@ export function SlotModal({
   const [djSlots, setDjSlots] = useState<LocalDJSlot[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [emailOpened, setEmailOpened] = useState(false);
 
   const isEditing = !!slot;
 
@@ -392,6 +393,101 @@ export function SlotModal({
     }
   };
 
+  // Format time in a specific timezone
+  const formatTimeInTimezone = (timestamp: number, timezone: string, options?: Intl.DateTimeFormatOptions) => {
+    return new Date(timestamp).toLocaleString('en-US', { timeZone: timezone, ...options });
+  };
+
+  // Get short timezone name (e.g., "EST", "PST")
+  const getTimezoneAbbr = (timezone: string, timestamp: number) => {
+    const formatter = new Intl.DateTimeFormat('en-US', { timeZone: timezone, timeZoneName: 'short' });
+    const parts = formatter.formatToParts(new Date(timestamp));
+    return parts.find(p => p.type === 'timeZoneName')?.value || timezone;
+  };
+
+  // Open mailto with DJ onboarding email
+  const openDjEmail = () => {
+    if (!slot || !djEmail) return;
+
+    const broadcastUrl = `${window.location.origin}/broadcast/live?token=${slot.broadcastToken}`;
+    const djTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone; // Use admin's timezone as default
+    const djTz = getTimezoneAbbr(djTimezone, slot.startTime);
+    const formattedDate = formatTimeInTimezone(slot.startTime, djTimezone, {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    });
+    const formattedStart = formatTimeInTimezone(slot.startTime, djTimezone, { hour: 'numeric', minute: '2-digit' });
+    const formattedEnd = formatTimeInTimezone(slot.endTime, djTimezone, { hour: 'numeric', minute: '2-digit' });
+
+    const displayDjName = djName || 'there';
+
+    const subject = `You're scheduled to DJ on Channel — ${formattedDate}`;
+    const body = `Hi ${displayDjName},
+
+You're officially scheduled to DJ on Channel!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Show: ${showName}
+Date: ${formattedDate}
+Time: ${formattedStart} – ${formattedEnd} ${djTz}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. COMPLETE YOUR DJ PROFILE
+
+Your DJ profile is what listeners see on our calendar, in your show details, and while you're live. A complete profile helps people connect with you and support your work.
+
+Please take a few minutes to set up your DJ profile:
+→ https://channel-app.com/dj-profile
+
+• Connect Stripe so you can receive listener support during your set
+  See our setup guide: https://channel-app.com/stripe-setup
+• Add a profile photo (this shows up during your set)
+• Write a short bio (who you are / what you play)
+• Add a promo link (Event, Bandcamp, SoundCloud, Instagram, website, etc.)
+
+If Stripe isn't connected, listeners can still send support — but payouts will be delayed until you finish setup.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2. PREPARE YOUR LIVE STREAM
+
+You'll broadcast using your private link below. Do not share this link.
+
+Your broadcast link:
+${broadcastUrl}
+
+We strongly recommend:
+• Opening the link ahead of time
+• Doing a quick test stream (sound levels, connection, device)
+• Using the same setup you'll use for the live set
+
+→ Full streaming setup guide: https://channel-app.com/streaming-guide
+
+Need help? Contact support@channel-app.com
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3. DAY OF THE SHOW
+
+• Join a few minutes early
+• Once you hit "Go Live," listeners will be able to tune in, chat, and support you in real time
+• You'll see live feedback and support messages during the set
+• Share your live stream URL: https://channel-app.com/channel
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+That's it — we're excited to have you on Channel.
+
+See you on air,
+– The Channel Team`;
+
+    const mailto = `mailto:${djEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(mailto, '_blank');
+    setEmailOpened(true);
+    setTimeout(() => setEmailOpened(false), 2000);
+  };
+
   const addDjSlot = () => {
     const newId = `dj-${Date.now()}`;
 
@@ -525,16 +621,30 @@ export function SlotModal({
             <div className="bg-black rounded-lg p-3">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-gray-400">Broadcast Link</span>
-                <button
-                  onClick={copyBroadcastLink}
-                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                    copied
-                      ? 'bg-green-600 text-white'
-                      : 'bg-accent hover:bg-accent-hover text-white'
-                  }`}
-                >
-                  {copied ? 'Copied!' : 'Copy Link'}
-                </button>
+                <div className="flex gap-2">
+                  {djEmail && (
+                    <button
+                      onClick={openDjEmail}
+                      className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                        emailOpened
+                          ? 'bg-green-600 text-white'
+                          : 'bg-blue-600 hover:bg-blue-500 text-white'
+                      }`}
+                    >
+                      {emailOpened ? 'Opened!' : 'Send Email'}
+                    </button>
+                  )}
+                  <button
+                    onClick={copyBroadcastLink}
+                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                      copied
+                        ? 'bg-green-600 text-white'
+                        : 'bg-accent hover:bg-accent-hover text-white'
+                    }`}
+                  >
+                    {copied ? 'Copied!' : 'Copy Link'}
+                  </button>
+                </div>
               </div>
               <div className="text-xs text-gray-500 font-mono truncate">
                 {broadcastUrl}
