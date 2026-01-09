@@ -66,30 +66,64 @@ export function ApplicationModal({ application, onClose, onStatusChange }: Appli
 
       // Open mailto with approval email
       openMailto(
-        "You're approved to broadcast on Channel!",
-        `Hey ${application.djName},
+        `You're scheduled to DJ on Channel — ${formattedDate}`,
+        `Hi ${application.djName},
 
-Great news - you're approved to broadcast "${application.showName}" on Channel!
+You're officially scheduled to DJ on Channel!
 
-Your scheduled time:
-${formattedDate}
-${formattedStart} - ${formattedEnd} ${djTz}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Show: ${application.showName}
+Date: ${formattedDate}
+Time: ${formattedStart} – ${formattedEnd} ${djTz}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. COMPLETE YOUR DJ PROFILE
+
+Your DJ profile is what listeners see on our calendar, in your show details, and while you're live. A complete profile helps people connect with you and support your work.
+
+Please take a few minutes to set up your DJ profile:
+→ https://channel-app.com/dj-profile
+
+• Connect Stripe so you can receive listener support during your set
+  See our setup guide: https://channel-app.com/stripe-setup
+• Add a profile photo (this shows up during your set)
+• Write a short bio (who you are / what you play)
+• Add a promo link (Event, Bandcamp, SoundCloud, Instagram, website, etc.)
+
+If Stripe isn't connected, listeners can still send support — but payouts will be delayed until you finish setup.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2. PREPARE YOUR LIVE STREAM
+
+You'll broadcast using your private link below. Do not share this link.
 
 Your broadcast link:
 ${broadcastUrl}
 
-Keep this link private - anyone with it can broadcast to your slot.
+We strongly recommend:
+• Opening the link ahead of time
+• Doing a quick test stream (sound levels, connection, device)
+• Using the same setup you'll use for the live set
 
-Setup is simple:
-1. Connect your DJ setup to your computer (controller, mixer, or audio interface)
-2. Open the broadcast link in Chrome about 10 minutes before your set
-3. Select your audio input and click "Go Live"
+→ Full streaming setup guide: https://channel-app.com/streaming-guide
 
-If you have any questions about setup, just reply to this email.
+Need help? Contact support@channel-app.com
 
-Looking forward to your set!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-- Channel`
+3. DAY OF THE SHOW
+
+• Join a few minutes early
+• Once you hit "Go Live," listeners will be able to tune in, chat, and support you in real time
+• You'll see live feedback and support messages during the set
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+That's it — we're excited to have you on Channel.
+
+See you on air,
+– The Channel Team`
       );
 
       onClose();
