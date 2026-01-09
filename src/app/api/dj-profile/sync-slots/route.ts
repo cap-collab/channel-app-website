@@ -98,7 +98,8 @@ export async function POST(request: NextRequest) {
 
     await Promise.all(updatePromises);
 
-    console.log(`[sync-slots] Updated ${slotsToUpdate.length} slots for user ${userId}:`, updateData);
+    console.log(`[sync-slots] Updated ${slotsToUpdate.length} slots for user ${userId} (email: ${userEmail || 'none'}):`, updateData);
+    console.log(`[sync-slots] Query results: byDjUserId=${byDjUserId.size}, byLiveDjUserId=${byLiveDjUserId.size}, byDjEmail=${byDjEmail?.size || 0}`);
 
     return NextResponse.json({
       success: true,
