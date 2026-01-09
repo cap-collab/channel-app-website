@@ -206,11 +206,28 @@ a {
   filter: blur(70px);
 }
 
+/* Fade in animation for streaming guide */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
 /* Respect reduced motion preferences */
 @media (prefers-reduced-motion: reduce) {
   .animate-blob-pink,
   .animate-blob-white,
-  .animate-blob-pink-2 {
+  .animate-blob-pink-2,
+  .animate-fadeIn {
     animation: none;
   }
 }

@@ -1,0 +1,213 @@
+'use client';
+
+import { useState } from 'react';
+import { Header } from '@/components/Header';
+import { QuestionCard } from './components/QuestionCard';
+import { InfoCard } from './components/InfoCard';
+import { SetupGuide } from './components/SetupGuide';
+
+type QuestionnaireState =
+  | 'q1_has_gear'
+  | 'result_no_gear'
+  | 'q2_has_usb'
+  | 'result_usb_ready'
+  | 'result_needs_interface'
+  | 'guide';
+
+type StreamingPath = 'computer' | 'dj_gear';
+
+interface StreamingGuideState {
+  questionnaireState: QuestionnaireState;
+  streamingPath: StreamingPath | null;
+}
+
+export function StreamingGuideClient() {
+  const [state, setState] = useState<StreamingGuideState>({
+    questionnaireState: 'q1_has_gear',
+    streamingPath: null,
+  });
+
+  const handleQ1Answer = (hasGear: boolean) => {
+    if (hasGear) {
+      setState({ questionnaireState: 'q2_has_usb', streamingPath: null });
+    } else {
+      setState({ questionnaireState: 'result_no_gear', streamingPath: 'computer' });
+    }
+  };
+
+  const handleQ2Answer = (hasUsb: boolean) => {
+    if (hasUsb) {
+      setState({ questionnaireState: 'result_usb_ready', streamingPath: 'dj_gear' });
+    } else {
+      setState({ questionnaireState: 'result_needs_interface', streamingPath: 'dj_gear' });
+    }
+  };
+
+  const handleContinueToGuide = () => {
+    setState((prev) => ({ ...prev, questionnaireState: 'guide' }));
+  };
+
+  const handleStartOver = () => {
+    setState({ questionnaireState: 'q1_has_gear', streamingPath: null });
+  };
+
+  const isInQuestionnaire = state.questionnaireState !== 'guide';
+
+  return (
+    <div className="min-h-screen bg-black">
+      <Header currentPage="streaming-guide" position="sticky" />
+
+      <main className="p-4 md:p-8">
+        <div className="max-w-2xl mx-auto">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold mb-4">Streaming Setup Guide</h1>
+            {isInQuestionnaire && (
+              <p className="text-gray-400 leading-relaxed">
+                Can I live stream on Channel? Short answer: yes — but your computer needs to receive audio. Here&apos;s how to know if you&apos;re ready.
+              </p>
+            )}
+          </div>
+
+          {/* Part 1: Questionnaire */}
+          {isInQuestionnaire && (
+            <div className="space-y-6">
+              {/* Q1: Do you have DJ gear? */}
+              <QuestionCard
+                question="Do you have DJ gear (mixer or controller)?"
+                isVisible={state.questionnaireState === 'q1_has_gear'}
+                onYes={() => handleQ1Answer(true)}
+                onNo={() => handleQ1Answer(false)}
+              />
+
+              {/* Result: No gear */}
+              <InfoCard
+                type="info"
+                title="You can still live stream"
+                message="You'll stream directly from your computer."
+                isVisible={state.questionnaireState === 'result_no_gear'}
+                actionLabel="Continue to setup"
+                onAction={handleContinueToGuide}
+              />
+
+              {/* Q2: Does it have USB? */}
+              <QuestionCard
+                question="Does your mixer or controller have a USB audio output?"
+                description="Look at the back of your mixer/controller."
+                isVisible={state.questionnaireState === 'q2_has_usb'}
+                onYes={() => handleQ2Answer(true)}
+                onNo={() => handleQ2Answer(false)}
+              />
+
+              {/* Result: Has USB - ready */}
+              <InfoCard
+                type="success"
+                title="Great. Your mixer can send audio directly to your computer."
+                message="You're ready."
+                isVisible={state.questionnaireState === 'result_usb_ready'}
+                actionLabel="Continue to setup"
+                onAction={handleContinueToGuide}
+              />
+
+              {/* Result: No USB - needs interface */}
+              <InfoCard
+                type="warning"
+                title="You must buy an audio interface"
+                message="There is no workaround."
+                isVisible={state.questionnaireState === 'result_needs_interface'}
+                actionLabel="Continue to setup"
+                onAction={handleContinueToGuide}
+              >
+                <div className="mt-6 space-y-6">
+                  <h4 className="text-white font-medium">What to buy</h4>
+
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-gray-300 font-medium">1. Audio interface</p>
+                      <p className="text-gray-400 text-sm mt-1">
+                        <a
+                          href="https://www.amazon.com/dp/B087QL8SLN"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-white underline hover:text-gray-300"
+                        >
+                          MOTU M2
+                        </a>
+                        {' '}— the only reliable option for proper sound
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-gray-300 font-medium">2. USB-C to USB-C cable</p>
+                      <p className="text-gray-400 text-sm mt-1">
+                        To connect MOTU to Mac (MOTU only comes with USB-C to USB-A).
+                      </p>
+                      <p className="text-gray-400 text-sm mt-1">
+                        Must support data transfer, not charging only. Test: plug a phone to your computer — if it recognizes the phone/can read content, the cable works.
+                      </p>
+                      <p className="text-gray-400 text-sm mt-1">
+                        <a
+                          href="https://www.amazon.com/dp/B0D44Q73JP"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-white underline hover:text-gray-300"
+                        >
+                          Recommended cable
+                        </a>
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-gray-300 font-medium">3. Cables from your mixer/amp to MOTU M2</p>
+                      <p className="text-gray-400 text-sm mt-1">Depending on your mixer&apos;s output:</p>
+                      <ul className="text-gray-400 text-sm mt-1 list-disc list-inside space-y-1">
+                        <li>
+                          <a
+                            href="https://www.amazon.com/dp/B083R6G1DQ"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-white underline hover:text-gray-300"
+                          >
+                            RCA to 1/4&quot; Jack
+                          </a>
+                        </li>
+                        <li>
+                          <a
+                            href="https://www.amazon.com/dp/B08TTFRS1R"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-white underline hover:text-gray-300"
+                          >
+                            XLR to 1/4&quot; Jack
+                          </a>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-gray-700">
+                    <p className="text-gray-300 font-medium">How it connects</p>
+                    <p className="text-gray-400 text-sm mt-2 font-mono">
+                      Mixer OUT → MOTU M2 IN → USB-C → Computer
+                    </p>
+                    <p className="text-gray-500 text-sm mt-2">
+                      Once this is done, your computer can receive your live mix.
+                    </p>
+                  </div>
+                </div>
+              </InfoCard>
+            </div>
+          )}
+
+          {/* Part 2: Setup Guide */}
+          {state.questionnaireState === 'guide' && state.streamingPath && (
+            <SetupGuide
+              streamingPath={state.streamingPath}
+              onStartOver={handleStartOver}
+            />
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
