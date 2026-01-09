@@ -96,7 +96,11 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
 
   // Show tip button if DJ email is assigned (djEmail is set when show is created)
   const hasDjInfo = slot.originalShow.djEmail;
-  const hasExpandableContent = hasDjInfo && djBio;
+
+  // Determine if there's enough room to show bio inline (height > 80px)
+  const canShowBioInline = height > 80 && djBio;
+  // Only show expand button if there's a bio but not enough room to show it inline
+  const needsExpandButton = djBio && !canShowBioInline;
 
   return (
     <div
@@ -109,9 +113,21 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
         height: expanded ? 'auto' : `${height}px`
       }}
     >
-      <div className="px-3 py-2">
-        {/* Header row */}
-        <div className="flex items-start justify-between gap-2">
+      <div className="px-3 py-2 h-full flex flex-col">
+        {/* Header row with photo */}
+        <div className="flex items-start gap-2">
+          {/* DJ Photo - show on left of name */}
+          {djPhotoUrl && (
+            <Image
+              src={djPhotoUrl}
+              alt={slot.djName || 'DJ'}
+              width={36}
+              height={36}
+              className="rounded-full object-cover flex-shrink-0"
+            />
+          )}
+
+          {/* Show name and DJ name */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               {isLive && (
@@ -119,7 +135,7 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
               )}
               <h3 className="text-white font-medium text-sm truncate">{slot.showName}</h3>
             </div>
-            {height > 50 && slot.djName && (
+            {slot.djName && (
               <p className="text-white/70 text-xs truncate mt-0.5">
                 {slot.djName}
               </p>
@@ -159,8 +175,8 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
               </a>
             )}
 
-            {/* Expand button - only show if there's a bio to display */}
-            {hasExpandableContent && (
+            {/* Expand button - only show if bio exists but card is too small */}
+            {needsExpandButton && (
               <button
                 onPointerDown={(e) => {
                   e.stopPropagation();
@@ -183,27 +199,19 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
           </div>
         </div>
 
-        {/* Expanded content */}
-        {expanded && (
-          <div className="mt-3 pt-3 border-t border-gray-800">
-            {hasExpandableContent ? (
-              <div className="flex gap-3">
-                {djPhotoUrl && (
-                  <Image
-                    src={djPhotoUrl}
-                    alt={slot.djName || 'DJ'}
-                    width={48}
-                    height={48}
-                    className="rounded-full object-cover flex-shrink-0"
-                  />
-                )}
-                <p className="text-gray-300 text-xs leading-relaxed">
-                  {djBio}
-                </p>
-              </div>
-            ) : (
-              <p className="text-gray-500 text-xs">No DJ info available</p>
-            )}
+        {/* Bio shown inline if there's room */}
+        {canShowBioInline && (
+          <p className="text-gray-400 text-xs mt-2 line-clamp-2 leading-relaxed">
+            {djBio}
+          </p>
+        )}
+
+        {/* Expanded content - only when expanded via button */}
+        {expanded && needsExpandButton && (
+          <div className="mt-2 pt-2 border-t border-gray-800">
+            <p className="text-gray-400 text-xs leading-relaxed">
+              {djBio}
+            </p>
           </div>
         )}
       </div>
