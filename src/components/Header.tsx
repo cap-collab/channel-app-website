@@ -208,7 +208,7 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
                       onClick={() => setShowUserMenu(false)}
                       className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                     >
-                      Your Support
+                      My Support
                     </Link>
                     {isDJ(role) && (
                       <Link

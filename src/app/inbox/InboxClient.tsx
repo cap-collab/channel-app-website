@@ -120,7 +120,7 @@ export function InboxClient() {
           >
             &larr; Back
           </Link>
-          <h1 className="text-lg font-medium text-white">Your Support</h1>
+          <h1 className="text-lg font-medium text-white">My Support</h1>
           <div className="w-10" />
         </div>
       </header>
