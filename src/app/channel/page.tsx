@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import { Suspense } from 'react';
 import { ChannelClient } from './ChannelClient';
 
 export const metadata: Metadata = {
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function ChannelPage() {
-  return <ChannelClient />;
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black" />}>
+      <ChannelClient />
+    </Suspense>
+  );
 }
