@@ -9,7 +9,7 @@ import { MobileMenu, MobileMenuItem } from "@/components/MobileMenu";
 import { useBroadcastLiveStatus } from "@/hooks/useBroadcastLiveStatus";
 import { useUserRole, isDJ } from "@/hooks/useUserRole";
 
-type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal" | "radio-portal" | "my-shows" | "streaming-guide";
+type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal" | "radio-portal" | "my-shows" | "streaming-guide" | "stripe-setup";
 
 interface HeaderProps {
   currentPage?: CurrentPage;
