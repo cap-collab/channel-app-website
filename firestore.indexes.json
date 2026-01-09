@@ -23,6 +23,15 @@
         { "fieldPath": "djEmail", "order": "ASCENDING" },
         { "fieldPath": "endTime", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "tips",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tipperUserId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
