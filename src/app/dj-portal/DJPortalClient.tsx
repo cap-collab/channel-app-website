@@ -13,6 +13,7 @@ export function DJPortalClient() {
     djName: '',
     email: '',
     showName: '',
+    setDuration: 2, // Default 2 hours
     locationType: 'home',
     venueName: '',
     soundcloud: '',
@@ -47,6 +48,17 @@ export function DJPortalClient() {
     setFormData((prev) => ({ ...prev, [name]: checked }));
   };
 
+  const handleDurationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = parseFloat(e.target.value);
+    if (isNaN(rawValue)) return;
+
+    // Round to nearest 0.5 and clamp to valid range
+    const roundedValue = Math.round(rawValue * 2) / 2;
+    const clampedValue = Math.max(0.5, Math.min(24, roundedValue));
+
+    setFormData((prev) => ({ ...prev, setDuration: clampedValue }));
+  };
+
   const validateForm = (): boolean => {
     if (!formData.djName.trim()) {
       setErrorMessage('DJ name is required');
@@ -63,6 +75,14 @@ export function DJPortalClient() {
     }
     if (!formData.showName.trim()) {
       setErrorMessage('Show name is required');
+      return false;
+    }
+    if (!formData.setDuration || formData.setDuration < 0.5 || formData.setDuration > 24) {
+      setErrorMessage('Set duration must be between 0.5 and 24 hours');
+      return false;
+    }
+    if ((formData.setDuration * 2) % 1 !== 0) {
+      setErrorMessage('Set duration must be in 0.5 hour increments (e.g., 2 or 2.5, not 2.3)');
       return false;
     }
     if (formData.locationType === 'venue' && !formData.venueName?.trim()) {
@@ -238,6 +258,33 @@ export function DJPortalClient() {
                 />
               </div>
 
+              {/* Set Duration */}
+              <div>
+                <label
+                  htmlFor="setDuration"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
+                  Set Duration (hours) *
+                </label>
+                <p className="text-sm text-gray-500 mb-3">
+                  How long will your set be? All your preferred time slots will use this duration.
+                </p>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="number"
+                    id="setDuration"
+                    name="setDuration"
+                    value={formData.setDuration}
+                    onChange={handleDurationChange}
+                    min={0.5}
+                    max={24}
+                    step={0.5}
+                    className="w-32 px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors text-center"
+                  />
+                  <span className="text-gray-400">hours</span>
+                </div>
+              </div>
+
               {/* Location Type */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-3">
@@ -374,12 +421,12 @@ export function DJPortalClient() {
                   Preferred Set Times *
                 </label>
                 <p className="text-sm text-gray-500 mb-4">
-                  Select one or more time slots that work for you. We&apos;ll use this to schedule
-                  your live set.
+                  Click a start time to add a {formData.setDuration}-hour slot. Click again to remove it.
                 </p>
                 <TimeSlotPicker
                   selectedSlots={formData.preferredSlots}
                   onChange={handleSlotsChange}
+                  setDuration={formData.setDuration}
                 />
               </div>
 

@@ -203,6 +203,13 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
                     >
                       My Shows
                     </Link>
+                    <Link
+                      href="/inbox"
+                      onClick={() => setShowUserMenu(false)}
+                      className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                    >
+                      Tip History
+                    </Link>
                     {isDJ(role) && (
                       <Link
                         href="/dj-profile"

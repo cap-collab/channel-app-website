@@ -68,6 +68,7 @@ export interface UserDocument {
     promoTitle: string | null;
     stripeAccountId: string | null;
     stripeOnboarded: boolean;
+    photoUrl: string | null;
   };
 }
 

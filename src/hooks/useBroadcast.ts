@@ -9,6 +9,7 @@ const r2PublicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
 interface DJInfo {
   username: string;
   userId?: string;
+  thankYouMessage?: string;
 }
 
 export function useBroadcast(participantIdentity: string, slotId?: string, djInfo?: DJInfo, broadcastToken?: string) {
@@ -165,6 +166,7 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
               broadcastToken,
               djUsername: djInfo?.username,
               djUserId: djInfo?.userId,
+              thankYouMessage: djInfo?.thankYouMessage,
               egressId: data.egressId,
               recordingEgressId: data.recordingEgressId,
             }),

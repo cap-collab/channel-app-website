@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { doc, onSnapshot, updateDoc, collection, query, where, orderBy, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -11,12 +12,15 @@ import { AuthModal } from "@/components/AuthModal";
 import { BroadcastSlotSerialized } from "@/types/broadcast";
 import { usePendingPayout } from "@/hooks/usePendingPayout";
 import { normalizeUrl } from "@/lib/url";
+import { uploadDJPhoto, deleteDJPhoto, validatePhoto } from "@/lib/photo-upload";
 
 interface DJProfile {
   bio: string | null;
   promoUrl: string | null;
   promoTitle: string | null;
   stripeAccountId: string | null;
+  thankYouMessage: string | null;
+  photoUrl: string | null;
 }
 
 export function DJProfileClient() {
@@ -32,7 +36,13 @@ export function DJProfileClient() {
     promoUrl: null,
     promoTitle: null,
     stripeAccountId: null,
+    thankYouMessage: null,
+    photoUrl: null,
   });
+
+  // Photo upload state
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   // Stripe connect state
   const [connectingStripe, setConnectingStripe] = useState(false);
@@ -57,6 +67,11 @@ export function DJProfileClient() {
   const [bioInput, setBioInput] = useState("");
   const [savingAbout, setSavingAbout] = useState(false);
   const [saveAboutSuccess, setSaveAboutSuccess] = useState(false);
+
+  // Form state - Thank You Message section
+  const [thankYouInput, setThankYouInput] = useState("");
+  const [savingThankYou, setSavingThankYou] = useState(false);
+  const [saveThankYouSuccess, setSaveThankYouSuccess] = useState(false);
 
   // Form state - Promo section
   const [promoUrlInput, setPromoUrlInput] = useState("");
@@ -83,10 +98,13 @@ export function DJProfileClient() {
             promoUrl: data.djProfile.promoUrl || null,
             promoTitle: data.djProfile.promoTitle || null,
             stripeAccountId: data.djProfile.stripeAccountId || null,
+            thankYouMessage: data.djProfile.thankYouMessage || null,
+            photoUrl: data.djProfile.photoUrl || null,
           });
           setBioInput(data.djProfile.bio || "");
           setPromoUrlInput(data.djProfile.promoUrl || "");
           setPromoTitleInput(data.djProfile.promoTitle || "");
+          setThankYouInput(data.djProfile.thankYouMessage || "");
         }
       }
     });
@@ -155,6 +173,24 @@ export function DJProfileClient() {
     return () => unsubscribe();
   }, [user]);
 
+  // Sync DJ profile data to broadcast slots
+  const syncProfileToSlots = async (bio?: string | null, photoUrl?: string | null) => {
+    if (!user) return;
+    try {
+      await fetch('/api/dj-profile/sync-slots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.uid,
+          ...(bio !== undefined && { bio }),
+          ...(photoUrl !== undefined && { photoUrl }),
+        }),
+      });
+    } catch (error) {
+      console.error("Error syncing profile to slots:", error);
+    }
+  };
+
   const handleSaveAbout = async () => {
     if (!user || !db) return;
 
@@ -163,15 +199,38 @@ export function DJProfileClient() {
 
     try {
       const userRef = doc(db, "users", user.uid);
+      const newBio = bioInput.trim() || null;
       await updateDoc(userRef, {
-        "djProfile.bio": bioInput.trim() || null,
+        "djProfile.bio": newBio,
       });
+      // Sync to broadcast slots
+      await syncProfileToSlots(newBio, undefined);
       setSaveAboutSuccess(true);
       setTimeout(() => setSaveAboutSuccess(false), 2000);
     } catch (error) {
       console.error("Error saving about:", error);
     } finally {
       setSavingAbout(false);
+    }
+  };
+
+  const handleSaveThankYou = async () => {
+    if (!user || !db) return;
+
+    setSavingThankYou(true);
+    setSaveThankYouSuccess(false);
+
+    try {
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        "djProfile.thankYouMessage": thankYouInput.trim() || null,
+      });
+      setSaveThankYouSuccess(true);
+      setTimeout(() => setSaveThankYouSuccess(false), 2000);
+    } catch (error) {
+      console.error("Error saving thank you message:", error);
+    } finally {
+      setSavingThankYou(false);
     }
   };
 
@@ -233,6 +292,71 @@ export function DJProfileClient() {
     } catch (err) {
       setStripeError(err instanceof Error ? err.message : 'Something went wrong');
       setConnectingStripe(false);
+    }
+  };
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user || !db) return;
+
+    setPhotoError(null);
+
+    // Validate before upload
+    const validation = validatePhoto(file);
+    if (!validation.valid) {
+      setPhotoError(validation.error || 'Invalid file');
+      return;
+    }
+
+    setUploadingPhoto(true);
+
+    try {
+      const result = await uploadDJPhoto(user.uid, file);
+
+      if (!result.success) {
+        setPhotoError(result.error || 'Upload failed');
+        return;
+      }
+
+      // Save URL to Firestore
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        "djProfile.photoUrl": result.url,
+      });
+
+      // Sync to broadcast slots
+      await syncProfileToSlots(undefined, result.url);
+    } catch (error) {
+      console.error("Error uploading photo:", error);
+      setPhotoError('Failed to upload photo');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    if (!user || !db || !djProfile.photoUrl) return;
+
+    setUploadingPhoto(true);
+    setPhotoError(null);
+
+    try {
+      // Delete from Storage
+      await deleteDJPhoto(user.uid, djProfile.photoUrl);
+
+      // Remove URL from Firestore
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        "djProfile.photoUrl": null,
+      });
+
+      // Sync to broadcast slots
+      await syncProfileToSlots(undefined, null);
+    } catch (error) {
+      console.error("Error removing photo:", error);
+      setPhotoError('Failed to remove photo');
+    } finally {
+      setUploadingPhoto(false);
     }
   };
 
@@ -373,6 +497,77 @@ export function DJProfileClient() {
             </div>
           </section>
 
+          {/* Profile Photo section */}
+          <section>
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+              Profile Photo
+            </h2>
+            <div className="bg-[#1a1a1a] rounded-lg p-4">
+              <div className="flex items-center gap-4">
+                {/* Photo preview */}
+                <div className="relative w-20 h-20 flex-shrink-0">
+                  {djProfile.photoUrl ? (
+                    <Image
+                      src={djProfile.photoUrl}
+                      alt="Profile photo"
+                      fill
+                      className="rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-gray-800 flex items-center justify-center">
+                      <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                  )}
+                  {uploadingPhoto && (
+                    <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                      <div className="w-6 h-6 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Upload/Remove buttons */}
+                <div className="flex-1 space-y-2">
+                  <label className="block">
+                    <span className="sr-only">Choose photo</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      onChange={handlePhotoChange}
+                      disabled={uploadingPhoto}
+                      className="block w-full text-sm text-gray-400
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-lg file:border-0
+                        file:text-sm file:font-medium
+                        file:bg-white file:text-black
+                        file:cursor-pointer file:hover:bg-gray-100
+                        file:disabled:opacity-50 file:disabled:cursor-not-allowed
+                        cursor-pointer"
+                    />
+                  </label>
+                  {djProfile.photoUrl && (
+                    <button
+                      onClick={handleRemovePhoto}
+                      disabled={uploadingPhoto}
+                      className="text-red-400 hover:text-red-300 text-sm transition-colors disabled:opacity-50"
+                    >
+                      Remove photo
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Error message */}
+              {photoError && (
+                <p className="text-red-400 text-sm mt-3">{photoError}</p>
+              )}
+            </div>
+            <p className="text-gray-600 text-xs mt-2 px-1">
+              JPG, PNG, GIF, or WebP. Max 5MB. Appears during your live broadcasts.
+            </p>
+          </section>
+
           {/* About section */}
           <section>
             <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
@@ -409,6 +604,45 @@ export function DJProfileClient() {
             </div>
             <p className="text-gray-600 text-xs mt-2 px-1">
               Your bio appears on your DJ profile during broadcasts.
+            </p>
+          </section>
+
+          {/* Thank You Message section */}
+          <section>
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+              Thank You Message
+            </h2>
+            <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">
+                  Message for Tippers
+                </label>
+                <textarea
+                  value={thankYouInput}
+                  onChange={(e) => setThankYouInput(e.target.value)}
+                  placeholder="Thanks for the tip!"
+                  rows={2}
+                  maxLength={200}
+                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none resize-none"
+                />
+                <p className="text-gray-600 text-xs mt-1 text-right">
+                  {thankYouInput.length}/200
+                </p>
+              </div>
+              <button
+                onClick={handleSaveThankYou}
+                disabled={savingThankYou}
+                className={`w-full py-2 rounded-lg font-medium transition-colors ${
+                  saveThankYouSuccess
+                    ? "bg-green-600 text-white"
+                    : "bg-white text-black hover:bg-gray-100"
+                } disabled:opacity-50`}
+              >
+                {savingThankYou ? "Saving..." : saveThankYouSuccess ? "Saved!" : "Save Thank You Message"}
+              </button>
+            </div>
+            <p className="text-gray-600 text-xs mt-2 px-1">
+              This message shows to listeners after they tip you.
             </p>
           </section>
 

@@ -70,17 +70,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'DJ information required' }, { status: 400 });
     }
 
-    // Get DJ's user ID and Stripe account - prefer direct ID from go-live, fallback to email lookup
+    // Get DJ's user ID, Stripe account, and thank you message - prefer direct ID from go-live, fallback to email lookup
     let djUserId: string;
     let djStripeAccountId: string | null = null;
+    let djThankYouMessage: string = 'Thanks for the tip!'; // Default message
 
     if (djUserIdFromRequest) {
       // Use the DJ's Firebase UID directly (set at go-live)
       djUserId = djUserIdFromRequest;
-      // Look up their Stripe account
+      // Look up their Stripe account and thank you message
       const djUserDoc = await db.collection('users').doc(djUserIdFromRequest).get();
       if (djUserDoc.exists) {
-        djStripeAccountId = djUserDoc.data()?.djProfile?.stripeAccountId || null;
+        const djProfile = djUserDoc.data()?.djProfile;
+        djStripeAccountId = djProfile?.stripeAccountId || null;
+        djThankYouMessage = djProfile?.thankYouMessage || 'Thanks for the tip!';
       }
     } else if (djEmail) {
       // Try to look up DJ's user ID from email
@@ -91,7 +94,9 @@ export async function POST(request: NextRequest) {
 
       if (!djUserSnapshot.empty) {
         djUserId = djUserSnapshot.docs[0].id;
-        djStripeAccountId = djUserSnapshot.docs[0].data()?.djProfile?.stripeAccountId || null;
+        const djProfile = djUserSnapshot.docs[0].data()?.djProfile;
+        djStripeAccountId = djProfile?.stripeAccountId || null;
+        djThankYouMessage = djProfile?.thankYouMessage || 'Thanks for the tip!';
       } else {
         // DJ not found by email - use 'pending' for later reconciliation
         // Tip will be held until DJ creates an account and links Stripe
@@ -162,6 +167,7 @@ export async function POST(request: NextRequest) {
       djStripeAccountId: djStripeAccountId || '',
       djEmail: djEmail || '',
       djUsername,
+      djThankYouMessage,
       broadcastSlotId,
       showName,
       tipperUserId: effectiveTipperUserId,
@@ -187,7 +193,7 @@ export async function POST(request: NextRequest) {
         },
       ],
       mode: 'payment',
-      success_url: `${origin}/channel?tip=success`,
+      success_url: `${origin}/channel?tip=success&session={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/channel?tip=cancelled`,
       metadata: tipMetadata,
     };

@@ -6,6 +6,7 @@ import { TimeSlot } from '@/types/dj-application';
 interface TimeSlotPickerProps {
   selectedSlots: TimeSlot[];
   onChange: (slots: TimeSlot[]) => void;
+  setDuration: number; // Duration in hours
 }
 
 interface BlockedSlot {
@@ -40,7 +41,7 @@ function formatDayHeader(date: Date): string {
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-export function TimeSlotPicker({ selectedSlots, onChange }: TimeSlotPickerProps) {
+export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlotPickerProps) {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     // Start from today, not Sunday
     const today = new Date();
@@ -50,10 +51,11 @@ export function TimeSlotPicker({ selectedSlots, onChange }: TimeSlotPickerProps)
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Drag state
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState<{ day: number; hour: number } | null>(null);
-  const [dragEnd, setDragEnd] = useState<{ day: number; hour: number } | null>(null);
+  // Hover preview state
+  const [hoverSlot, setHoverSlot] = useState<{ dayIndex: number; startHour: number } | null>(null);
+
+  // Duration in milliseconds
+  const durationMs = setDuration * 60 * 60 * 1000;
 
   // Get days to show (7 days starting from current week start)
   const days = useMemo(() => {
@@ -103,75 +105,97 @@ export function TimeSlotPicker({ selectedSlots, onChange }: TimeSlotPickerProps)
     return date.getTime();
   };
 
-  // Handle mouse down on grid
-  const handleMouseDown = (dayIndex: number, hour: number, e: React.MouseEvent) => {
-    e.preventDefault();
-    const timestamp = getTimestamp(dayIndex, hour);
-    if (isTimeBlocked(timestamp) || isTimeUnavailable(timestamp)) return;
+  // Check if a slot from startTimestamp for the set duration is completely valid
+  const isSlotValid = (dayIndex: number, startHour: number): boolean => {
+    const startTime = getTimestamp(dayIndex, startHour);
+    const endTime = startTime + durationMs;
 
-    setIsDragging(true);
-    setDragStart({ day: dayIndex, hour });
-    setDragEnd({ day: dayIndex, hour });
-  };
+    // Check if slot extends past midnight
+    const startDate = new Date(startTime);
+    const endDate = new Date(endTime);
+    const crossesMidnight = startDate.getDate() !== endDate.getDate();
 
-  // Handle mouse move
-  const handleMouseMove = (dayIndex: number, hour: number) => {
-    if (!isDragging || !dragStart) return;
-    // Only allow same-day selection
-    if (dayIndex !== dragStart.day) return;
-    setDragEnd({ day: dayIndex, hour });
-  };
-
-  // Handle mouse up
-  const handleMouseUp = () => {
-    if (!isDragging || !dragStart || !dragEnd) {
-      setIsDragging(false);
-      setDragStart(null);
-      setDragEnd(null);
-      return;
+    // Disallow slots that cross midnight
+    if (crossesMidnight) {
+      return false;
     }
 
-    const startHour = Math.min(dragStart.hour, dragEnd.hour);
-    const endHour = Math.max(dragStart.hour, dragEnd.hour) + 1; // +1 to include the end hour
-
-    const startTime = getTimestamp(dragStart.day, startHour);
-    const endTime = getTimestamp(dragStart.day, endHour);
-
-    // Check if any part of the selection is blocked or unavailable
-    let isValid = true;
-    for (let h = startHour; h < endHour; h++) {
-      const ts = getTimestamp(dragStart.day, h);
-      if (isTimeBlocked(ts) || isTimeUnavailable(ts)) {
-        isValid = false;
-        break;
+    // Check every 30-minute segment for blocked/unavailable time
+    const segmentDuration = 30 * 60 * 1000; // 30 minutes
+    for (let t = startTime; t < endTime; t += segmentDuration) {
+      if (isTimeBlocked(t) || isTimeUnavailable(t)) {
+        return false;
       }
     }
 
-    if (isValid && endHour - startHour >= 1) {
-      // Add the new slot
-      const newSlot: TimeSlot = { start: startTime, end: endTime };
-
-      // Check if it overlaps with existing selected slots
-      const nonOverlapping = selectedSlots.filter(
-        (slot) => slot.end <= newSlot.start || slot.start >= newSlot.end
-      );
-
-      onChange([...nonOverlapping, newSlot].sort((a, b) => a.start - b.start));
-    }
-
-    setIsDragging(false);
-    setDragStart(null);
-    setDragEnd(null);
+    return true;
   };
 
-  // Check if a cell is in the drag selection
-  const isInDragSelection = (dayIndex: number, hour: number): boolean => {
-    if (!isDragging || !dragStart || !dragEnd) return false;
-    if (dayIndex !== dragStart.day) return false;
+  // Handle click on a time cell - creates slot of setDuration
+  const handleCellClick = (dayIndex: number, hour: number) => {
+    const startTime = getTimestamp(dayIndex, hour);
 
-    const minHour = Math.min(dragStart.hour, dragEnd.hour);
-    const maxHour = Math.max(dragStart.hour, dragEnd.hour);
-    return hour >= minHour && hour <= maxHour;
+    // Check if clicking on an already-selected slot (to deselect)
+    const existingSlotIndex = selectedSlots.findIndex(
+      (slot) => startTime >= slot.start && startTime < slot.end
+    );
+
+    if (existingSlotIndex !== -1) {
+      // Remove the clicked slot
+      onChange(selectedSlots.filter((_, i) => i !== existingSlotIndex));
+      return;
+    }
+
+    // Validate the new slot
+    if (!isSlotValid(dayIndex, hour)) {
+      return;
+    }
+
+    const endTime = startTime + durationMs;
+    const newSlot: TimeSlot = { start: startTime, end: endTime };
+
+    // Remove any overlapping slots and add the new one
+    const nonOverlapping = selectedSlots.filter(
+      (slot) => slot.end <= newSlot.start || slot.start >= newSlot.end
+    );
+
+    onChange([...nonOverlapping, newSlot].sort((a, b) => a.start - b.start));
+  };
+
+  // Handle mouse enter for hover preview
+  const handleCellMouseEnter = (dayIndex: number, hour: number) => {
+    const startTime = getTimestamp(dayIndex, hour);
+
+    // Don't show preview if already selected
+    const isSelected = selectedSlots.some(
+      (slot) => startTime >= slot.start && startTime < slot.end
+    );
+    if (isSelected) {
+      setHoverSlot(null);
+      return;
+    }
+
+    // Show preview if valid
+    if (isSlotValid(dayIndex, hour)) {
+      setHoverSlot({ dayIndex, startHour: hour });
+    } else {
+      setHoverSlot(null);
+    }
+  };
+
+  const handleCellMouseLeave = () => {
+    setHoverSlot(null);
+  };
+
+  // Check if a cell is within the hover preview slot
+  const isInHoverPreview = (dayIndex: number, hour: number): boolean => {
+    if (!hoverSlot || hoverSlot.dayIndex !== dayIndex) return false;
+
+    const cellTime = getTimestamp(dayIndex, hour);
+    const previewStart = getTimestamp(hoverSlot.dayIndex, hoverSlot.startHour);
+    const previewEnd = previewStart + durationMs;
+
+    return cellTime >= previewStart && cellTime < previewEnd;
   };
 
   // Check if a cell is in a selected slot
@@ -312,13 +336,7 @@ export function TimeSlotPicker({ selectedSlots, onChange }: TimeSlotPickerProps)
             </div>
 
             {/* Time grid */}
-            <div
-              className="relative select-none"
-              onMouseUp={handleMouseUp}
-              onMouseLeave={() => {
-                if (isDragging) handleMouseUp();
-              }}
-            >
+            <div className="relative select-none">
               {HOURS.map((hour) => (
                 <div
                   key={hour}
@@ -330,22 +348,25 @@ export function TimeSlotPicker({ selectedSlots, onChange }: TimeSlotPickerProps)
                     const timestamp = getTimestamp(dayIndex, hour);
                     const blocked = isTimeBlocked(timestamp);
                     const unavailable = isTimeUnavailable(timestamp);
-                    const inDrag = isInDragSelection(dayIndex, hour);
                     const selected = isInSelectedSlot(dayIndex, hour);
+                    const inPreview = isInHoverPreview(dayIndex, hour);
+                    const canSelect = !blocked && !unavailable && isSlotValid(dayIndex, hour);
 
                     return (
                       <div
                         key={dayIndex}
                         className={`
-                          border-l border-gray-800/50 cursor-pointer transition-colors
+                          border-l border-gray-800/50 transition-colors
                           ${blocked ? 'bg-gray-800/50 cursor-not-allowed' : ''}
                           ${unavailable && !blocked ? 'bg-red-950/40 cursor-not-allowed' : ''}
-                          ${inDrag && !blocked && !unavailable ? 'bg-green-900/50' : ''}
-                          ${selected && !inDrag ? 'bg-green-900/40' : ''}
-                          ${!blocked && !unavailable && !inDrag && !selected ? 'hover:bg-gray-800/30' : ''}
+                          ${selected ? 'bg-green-900/40 cursor-pointer' : ''}
+                          ${inPreview && !selected ? 'bg-green-900/30 cursor-pointer' : ''}
+                          ${!blocked && !unavailable && !selected && !inPreview && canSelect ? 'hover:bg-gray-800/30 cursor-pointer' : ''}
+                          ${!blocked && !unavailable && !canSelect && !selected ? 'cursor-not-allowed' : ''}
                         `}
-                        onMouseDown={(e) => handleMouseDown(dayIndex, hour, e)}
-                        onMouseMove={() => handleMouseMove(dayIndex, hour)}
+                        onClick={() => handleCellClick(dayIndex, hour)}
+                        onMouseEnter={() => handleCellMouseEnter(dayIndex, hour)}
+                        onMouseLeave={handleCellMouseLeave}
                       />
                     );
                   })}
@@ -358,18 +379,20 @@ export function TimeSlotPicker({ selectedSlots, onChange }: TimeSlotPickerProps)
       </div>
 
       {/* Legend */}
-      <div className="px-4 py-3 bg-[#1a1a1a] border-t border-gray-800 flex gap-6 text-xs text-gray-500">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-gray-800/50 rounded"></div>
-          <span>Booked</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-red-950/40 rounded"></div>
-          <span>Unavailable</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-green-900/40 rounded"></div>
-          <span>Your selection</span>
+      <div className="px-4 py-3 bg-[#1a1a1a] border-t border-gray-800">
+        <div className="flex gap-6 text-xs text-gray-500">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-gray-800/50 rounded"></div>
+            <span>Booked</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-red-950/40 rounded"></div>
+            <span>Unavailable</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-green-900/40 rounded"></div>
+            <span>Your selection</span>
+          </div>
         </div>
       </div>
     </div>

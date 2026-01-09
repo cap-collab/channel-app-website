@@ -17,6 +17,12 @@ export async function POST(request: NextRequest) {
     if (!data.showName?.trim()) {
       return NextResponse.json({ error: 'Show name is required' }, { status: 400 });
     }
+    if (!data.setDuration || data.setDuration < 0.5 || data.setDuration > 24) {
+      return NextResponse.json({ error: 'Set duration must be between 0.5 and 24 hours' }, { status: 400 });
+    }
+    if ((data.setDuration * 2) % 1 !== 0) {
+      return NextResponse.json({ error: 'Set duration must be in 0.5 hour increments' }, { status: 400 });
+    }
     if (!data.preferredSlots || data.preferredSlots.length === 0) {
       return NextResponse.json({ error: 'At least one preferred time slot is required' }, { status: 400 });
     }

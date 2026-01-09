@@ -1,20 +1,89 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { Header } from '@/components/Header';
 import { NowPlayingPanel } from '@/components/channel/NowPlayingPanel';
 import { ListenerChatPanel } from '@/components/channel/ListenerChatPanel';
 import { BroadcastSchedule } from '@/components/channel/BroadcastSchedule';
+import { TipThankYouModal } from '@/components/channel/TipThankYouModal';
 import { useBroadcastStream } from '@/hooks/useBroadcastStream';
 import { useBroadcastSchedule } from '@/hooks/useBroadcastSchedule';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
+import { saveTipToLocalStorage } from '@/lib/tip-history-storage';
+
+interface TipSuccessData {
+  djUsername: string;
+  djThankYouMessage: string;
+  tipAmountCents: number;
+  showName: string;
+}
 
 export function ChannelClient() {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername, loading: profileLoading, setChatUsername } = useUserProfile(user?.uid);
   const [activeTab, setActiveTab] = useState<'chat' | 'schedule'>('chat');
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Tip success modal state
+  const [showThankYouModal, setShowThankYouModal] = useState(false);
+  const [tipSuccessData, setTipSuccessData] = useState<TipSuccessData | null>(null);
+
+  // Handle tip success redirect from Stripe
+  const handleTipSuccess = useCallback(async (sessionId: string) => {
+    try {
+      const response = await fetch(`/api/tips/by-session?sessionId=${sessionId}`);
+      if (!response.ok) {
+        console.error('Failed to fetch tip data');
+        return;
+      }
+
+      const tipData = await response.json();
+
+      // Save to localStorage for guest users (or all users for offline access)
+      saveTipToLocalStorage({
+        id: tipData.id,
+        stripeSessionId: sessionId,
+        djUsername: tipData.djUsername,
+        showName: tipData.showName,
+        tipAmountCents: tipData.tipAmountCents,
+        djThankYouMessage: tipData.djThankYouMessage,
+        createdAt: Date.now(),
+      });
+
+      // Show the thank you modal
+      setTipSuccessData({
+        djUsername: tipData.djUsername,
+        djThankYouMessage: tipData.djThankYouMessage,
+        tipAmountCents: tipData.tipAmountCents,
+        showName: tipData.showName,
+      });
+      setShowThankYouModal(true);
+
+      // Clear URL params
+      router.replace('/channel', { scroll: false });
+    } catch (error) {
+      console.error('Error handling tip success:', error);
+    }
+  }, [router]);
+
+  // Check for tip success on mount
+  useEffect(() => {
+    const tipParam = searchParams.get('tip');
+    const sessionId = searchParams.get('session');
+
+    if (tipParam === 'success' && sessionId) {
+      handleTipSuccess(sessionId);
+    }
+  }, [searchParams, handleTipSuccess]);
+
+  const handleCloseThankYouModal = useCallback(() => {
+    setShowThankYouModal(false);
+    setTipSuccessData(null);
+  }, []);
 
   // Only use chatUsername from Firestore - do NOT fall back to displayName
   // Users must explicitly choose their chat username
@@ -179,6 +248,17 @@ export function ChannelClient() {
           </div>
         </div>
       </main>
+
+      {/* Tip Thank You Modal */}
+      {tipSuccessData && (
+        <TipThankYouModal
+          isOpen={showThankYouModal}
+          onClose={handleCloseThankYouModal}
+          djUsername={tipSuccessData.djUsername}
+          thankYouMessage={tipSuccessData.djThankYouMessage}
+          tipAmountCents={tipSuccessData.tipAmountCents}
+        />
+      )}
     </div>
   );
 }

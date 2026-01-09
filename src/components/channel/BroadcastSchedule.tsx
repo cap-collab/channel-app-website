@@ -1,18 +1,10 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useMemo, useState } from 'react';
+import Image from 'next/image';
 import { BroadcastSlotSerialized, DJSlot } from '@/types/broadcast';
 import { TipButton } from './TipButton';
 import { normalizeUrl } from '@/lib/url';
-
-// DJ profile data fetched from Firestore
-interface DJProfileData {
-  bio: string | null;
-  promoUrl: string | null;
-  promoTitle: string | null;
-}
 
 interface BroadcastScheduleProps {
   shows: BroadcastSlotSerialized[];
@@ -95,52 +87,16 @@ interface ShowCardProps {
 
 function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, username }: ShowCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const [djProfile, setDjProfile] = useState<DJProfileData | null>(null);
-  const [loadingProfile, setLoadingProfile] = useState(false);
-  const [profileFetched, setProfileFetched] = useState(false);
 
-  // Get stable DJ UID for profile lookup
-  const djUid = slot.originalShow.djUserId || slot.originalShow.liveDjUserId || slot.djSlot?.liveDjUserId;
-
-  // Fetch profile when expanded or when live (for promo link)
-  // Only fetch once per card instance to prevent flickering
-  useEffect(() => {
-    if (!djUid || !db || profileFetched || loadingProfile) return;
-    if (!expanded && !isLive) return;
-
-    let cancelled = false;
-    setLoadingProfile(true);
-
-    getDoc(doc(db, 'users', djUid))
-      .then((userDoc) => {
-        if (cancelled) return;
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          if (data.djProfile) {
-            setDjProfile({
-              bio: data.djProfile.bio || null,
-              promoUrl: data.djProfile.promoUrl || null,
-              promoTitle: data.djProfile.promoTitle || null,
-            });
-          }
-        }
-        setProfileFetched(true);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        console.error('Failed to fetch DJ profile:', err);
-        setProfileFetched(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingProfile(false);
-      });
-
-    return () => { cancelled = true; };
-  }, [djUid, expanded, isLive, profileFetched, loadingProfile]);
+  // Read DJ profile data directly from the slot (synced when DJ updates their profile)
+  const djBio = slot.originalShow.liveDjBio || null;
+  const djPhotoUrl = slot.originalShow.liveDjPhotoUrl || null;
+  const djPromoUrl = slot.originalShow.showPromoUrl || null;
+  const djPromoTitle = slot.originalShow.showPromoTitle || null;
 
   // Show tip button if DJ email is assigned (djEmail is set when show is created)
   const hasDjInfo = slot.originalShow.djEmail;
-  const hasExpandableContent = hasDjInfo && djProfile && djProfile.bio;
+  const hasExpandableContent = hasDjInfo && djBio;
 
   return (
     <div
@@ -190,16 +146,16 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
             )}
 
             {/* Promo link */}
-            {djProfile?.promoUrl && (
+            {djPromoUrl && (
               <a
-                href={normalizeUrl(djProfile.promoUrl)}
+                href={normalizeUrl(djPromoUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
                 className="text-accent hover:text-white text-xs px-2 py-1 bg-accent/10 rounded transition-colors truncate max-w-[100px]"
-                title={djProfile.promoTitle || djProfile.promoUrl}
+                title={djPromoTitle || djPromoUrl}
               >
-                {djProfile.promoTitle || 'Promo'}
+                {djPromoTitle || 'Promo'}
               </a>
             )}
 
@@ -230,14 +186,21 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
         {/* Expanded content */}
         {expanded && (
           <div className="mt-3 pt-3 border-t border-gray-800">
-            {loadingProfile ? (
-              <div className="flex items-center justify-center py-2">
-                <div className="w-4 h-4 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
+            {hasExpandableContent ? (
+              <div className="flex gap-3">
+                {djPhotoUrl && (
+                  <Image
+                    src={djPhotoUrl}
+                    alt={slot.djName || 'DJ'}
+                    width={48}
+                    height={48}
+                    className="rounded-full object-cover flex-shrink-0"
+                  />
+                )}
+                <p className="text-gray-300 text-xs leading-relaxed">
+                  {djBio}
+                </p>
               </div>
-            ) : hasExpandableContent ? (
-              <p className="text-gray-300 text-xs leading-relaxed">
-                {djProfile.bio}
-              </p>
             ) : (
               <p className="text-gray-500 text-xs">No DJ info available</p>
             )}

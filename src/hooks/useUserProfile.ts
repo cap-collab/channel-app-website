@@ -8,6 +8,7 @@ interface DJProfile {
   bio: string | null;
   promoUrl: string | null;
   promoTitle: string | null;
+  thankYouMessage: string | null;
 }
 
 interface UserProfile {
@@ -46,6 +47,7 @@ export function useUserProfile(userId: string | undefined) {
             bio: data.djProfile.bio || null,
             promoUrl: data.djProfile.promoUrl || null,
             promoTitle: data.djProfile.promoTitle || null,
+            thankYouMessage: data.djProfile.thankYouMessage || null,
           } : null,
         });
       }

@@ -30,7 +30,7 @@ import { normalizeUrl } from '@/lib/url';
 interface DJProfileSetupProps {
   defaultUsername?: string;
   broadcastType?: 'venue' | 'remote';
-  onComplete: (username: string, promoUrl?: string, promoTitle?: string) => void;
+  onComplete: (username: string, promoUrl?: string, promoTitle?: string, thankYouMessage?: string) => void;
 }
 
 export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: DJProfileSetupProps) {
@@ -39,6 +39,7 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
   const [username, setUsername] = useState(defaultUsername || '');
   const [promoUrl, setPromoUrl] = useState('');
   const [promoTitle, setPromoTitle] = useState('');
+  const [thankYouMessage, setThankYouMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
@@ -116,7 +117,7 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
     }
   }, [savedUsername]);
 
-  // Pre-fill promo URL/title from DJ profile (if available and not already set)
+  // Pre-fill promo URL/title and thank you message from DJ profile (if available and not already set)
   useEffect(() => {
     if (djProfile && !promoUrl) {
       if (djProfile.promoUrl) {
@@ -124,6 +125,9 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
       }
       if (djProfile.promoTitle) {
         setPromoTitle(djProfile.promoTitle);
+      }
+      if (djProfile.thankYouMessage) {
+        setThankYouMessage(djProfile.thankYouMessage);
       }
     }
   }, [djProfile, promoUrl]);
@@ -300,7 +304,7 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
     // No API call needed - username will be saved when going live
     // This allows the flow to work without Firebase Admin SDK
     const normalizedPromoUrl = promoUrl ? normalizeUrl(promoUrl) : undefined;
-    onComplete(username.trim(), normalizedPromoUrl, promoTitle || undefined);
+    onComplete(username.trim(), normalizedPromoUrl, promoTitle || undefined, thankYouMessage.trim() || undefined);
   };
 
   // Show loading state while fetching user profile
@@ -463,6 +467,25 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
             />
           </div>
         )}
+
+        {/* Thank You Message (Optional) */}
+        <div>
+          <label htmlFor="thankYouMessage" className="block text-gray-400 text-sm mb-2">
+            Thank you message <span className="text-gray-600">(optional)</span>
+          </label>
+          <textarea
+            id="thankYouMessage"
+            value={thankYouMessage}
+            onChange={(e) => setThankYouMessage(e.target.value)}
+            placeholder="Thanks for the tip!"
+            rows={2}
+            maxLength={200}
+            className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-gray-500 resize-none"
+          />
+          <p className="text-gray-500 text-xs mt-1">
+            Shown to listeners after they tip you ({thankYouMessage.length}/200)
+          </p>
+        </div>
 
         {/* Non-blocking login prompt for guests - below Continue button */}
         {!isAuthenticated && (

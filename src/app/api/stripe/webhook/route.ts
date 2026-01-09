@@ -87,13 +87,18 @@ async function handleTipPayment(
     payoutStatus = 'pending';
   }
 
+  // Get tipper email from Stripe session (for guest users)
+  const tipperEmail = session.customer_details?.email || '';
+
   // Create tip record
   const tipData: Record<string, unknown> = {
     createdAt: FieldValue.serverTimestamp(),
     tipperUserId: metadata.tipperUserId,
     tipperUsername: metadata.tipperUsername,
+    tipperEmail, // For guest users - captured from Stripe checkout
     djUserId: djUserId,
     djUsername: metadata.djUsername,
+    djThankYouMessage: metadata.djThankYouMessage || 'Thanks for the tip!',
     broadcastSlotId: metadata.broadcastSlotId,
     showName: metadata.showName,
     tipAmountCents: parseInt(metadata.tipAmountCents),

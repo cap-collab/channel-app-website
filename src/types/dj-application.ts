@@ -13,6 +13,7 @@ export interface DJApplication {
   djName: string;
   email: string;
   showName: string;
+  setDuration: number; // Duration in hours (0.5 to 24, 0.5 increments)
   locationType: LocationType;
   venueName?: string;
   soundcloud?: string;
@@ -34,6 +35,7 @@ export interface DJApplicationSerialized {
   djName: string;
   email: string;
   showName: string;
+  setDuration: number; // Duration in hours (0.5 to 24, 0.5 increments)
   locationType: LocationType;
   venueName?: string;
   soundcloud?: string;
@@ -54,6 +56,7 @@ export interface DJApplicationFormData {
   djName: string;
   email: string;
   showName: string;
+  setDuration: number; // Duration in hours (0.5 to 24, 0.5 increments)
   locationType: LocationType;
   venueName?: string;
   soundcloud?: string;

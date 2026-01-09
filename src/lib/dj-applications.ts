@@ -11,6 +11,7 @@ function serializeApplication(docId: string, data: Record<string, unknown>): DJA
     djName: data.djName as string,
     email: data.email as string,
     showName: data.showName as string,
+    setDuration: (data.setDuration as number) || 2, // Default 2 hours for legacy data
     locationType: data.locationType as 'home' | 'venue',
     venueName: data.venueName as string | undefined,
     soundcloud: data.soundcloud as string | undefined,
@@ -64,6 +65,7 @@ export async function createApplication(data: DJApplicationFormData): Promise<DJ
     djName: data.djName.trim(),
     email: data.email.trim(),
     showName: data.showName.trim(),
+    setDuration: data.setDuration,
     locationType: data.locationType,
     venueName: data.venueName?.trim() || null,
     soundcloud: data.soundcloud?.trim() || null,

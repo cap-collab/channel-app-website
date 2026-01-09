@@ -221,6 +221,10 @@ Thanks for understanding.
               <p className="text-white">{application.showName}</p>
             </div>
             <div>
+              <label className="text-xs text-gray-500 uppercase tracking-wide">Set Duration</label>
+              <p className="text-white">{application.setDuration} hours</p>
+            </div>
+            <div>
               <label className="text-xs text-gray-500 uppercase tracking-wide">Location</label>
               <p className="text-white capitalize">
                 {application.locationType}

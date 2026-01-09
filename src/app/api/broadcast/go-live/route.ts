@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { broadcastToken, djUsername, djUserId, egressId, recordingEgressId } = body;
+    const { broadcastToken, djUsername, djUserId, egressId, recordingEgressId, thankYouMessage } = body;
 
     console.log('[go-live] Request received:', { broadcastToken: broadcastToken?.slice(0, 10) + '...', djUsername, djUserId });
 
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update slot to live status with DJ info and egress IDs
-    const updateData: Record<string, string> = { status: 'live' };
+    const updateData: Record<string, string | null> = { status: 'live' };
 
     // Determine liveDjUsername based on login status and existing chatUsername
     // Rule: Logged-in users MUST use their chatUsername (or register a new one)
@@ -69,6 +69,10 @@ export async function POST(request: NextRequest) {
       const userDoc = await userRef.get();
       const userData = userDoc.data();
       const existingChatUsername = userData?.chatUsername;
+
+      // Extract DJ profile data for the slot
+      const djBio = userData?.djProfile?.bio || null;
+      const djPhotoUrl = userData?.djProfile?.photoUrl || null;
 
       if (existingChatUsername) {
         // User already has a chatUsername - use it (ignore form input)
@@ -110,6 +114,14 @@ export async function POST(request: NextRequest) {
       }
 
       updateData.liveDjUserId = djUserId;
+
+      // Add DJ profile data to the slot
+      if (djBio) {
+        updateData.liveDjBio = djBio;
+      }
+      if (djPhotoUrl) {
+        updateData.liveDjPhotoUrl = djPhotoUrl;
+      }
     } else {
       // Guest/venue DJ - ephemeral username, no registration needed
       if (djUsername) {
@@ -138,10 +150,17 @@ export async function POST(request: NextRequest) {
         const userData = userDoc.data();
         const userEmail = userData?.email;
 
-        // Update lastSeenAt
-        await userRef.set({
+        // Update lastSeenAt and optionally save thankYouMessage to djProfile
+        const userUpdate: Record<string, unknown> = {
           lastSeenAt: FieldValue.serverTimestamp(),
-        }, { merge: true });
+        };
+
+        // Save thankYouMessage to djProfile if provided
+        if (thankYouMessage && typeof thankYouMessage === 'string' && thankYouMessage.trim()) {
+          userUpdate['djProfile.thankYouMessage'] = thankYouMessage.trim().slice(0, 200);
+        }
+
+        await userRef.set(userUpdate, { merge: true });
 
         // Reconcile any pending tips by email
         // This handles cases where tips were received before DJ logged in
