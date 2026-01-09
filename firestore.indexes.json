@@ -1,62 +1,27 @@
 {
   "indexes": [
     {
-      "collectionGroup": "messages",
+      "collectionGroup": "broadcast-slots",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "djSlotId", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "DESCENDING" }
+        { "fieldPath": "djUserId", "order": "ASCENDING" },
+        { "fieldPath": "endTime", "order": "ASCENDING" }
       ]
     },
     {
       "collectionGroup": "broadcast-slots",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "stationId", "order": "ASCENDING" },
-        { "fieldPath": "broadcastType", "order": "ASCENDING" },
-        { "fieldPath": "startTime", "order": "ASCENDING" }
+        { "fieldPath": "liveDjUserId", "order": "ASCENDING" },
+        { "fieldPath": "endTime", "order": "ASCENDING" }
       ]
     },
     {
       "collectionGroup": "broadcast-slots",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "stationId", "order": "ASCENDING" },
-        { "fieldPath": "startTime", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "tips",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "djUserId", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "tips",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "djUserId", "order": "ASCENDING" },
-        { "fieldPath": "broadcastSlotId", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "tips",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "djUserId", "order": "ASCENDING" },
-        { "fieldPath": "payoutStatus", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "tips",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "broadcastSlotId", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
+        { "fieldPath": "djEmail", "order": "ASCENDING" },
+        { "fieldPath": "endTime", "order": "ASCENDING" }
       ]
     }
   ],
