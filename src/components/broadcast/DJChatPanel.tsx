@@ -380,14 +380,14 @@ export function DJChatPanel({
       {showUsernameModal && onChangeUsername && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="bg-[#252525] rounded-xl p-6 max-w-md w-full">
-            <h3 className="text-xl font-bold text-white mb-4">Change chat username</h3>
+            <h3 className="text-xl font-bold text-white mb-4">Change DJ Name</h3>
             <p className="text-gray-400 text-sm mb-4">
               This will update your name in the chat.
             </p>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-gray-400 text-sm mb-1">Username</label>
+                <label className="block text-gray-400 text-sm mb-1">DJ Name</label>
                 <input
                   type="text"
                   value={newUsername}

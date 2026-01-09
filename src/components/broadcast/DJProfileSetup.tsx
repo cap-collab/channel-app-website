@@ -338,7 +338,7 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
         {/* Username - locked for logged-in remote DJs, editable for venue DJs and guests */}
         <div>
           <label htmlFor="username" className="block text-gray-400 text-sm mb-2">
-            Chat username {!isUsernameLocked && <span className="text-red-400">*</span>}
+            DJ Name {!isUsernameLocked && <span className="text-red-400">*</span>}
           </label>
           {isUsernameLocked ? (
             // Read-only for logged-in remote DJs with existing chatUsername
