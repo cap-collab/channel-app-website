@@ -60,10 +60,31 @@ export async function GET(request: NextRequest) {
       latestTipDate: string;
     }>);
 
-    // Convert to array and sort by most recent tip
-    const djGroups = Object.values(groupedByDj).sort((a, b) =>
-      new Date(b.latestTipDate).getTime() - new Date(a.latestTipDate).getTime()
-    );
+    // Fetch DJ profile photos
+    const djUserIds = Object.keys(groupedByDj).filter(id => id && id !== 'pending');
+    const djPhotos: Record<string, string | null> = {};
+
+    if (djUserIds.length > 0) {
+      const userDocs = await Promise.all(
+        djUserIds.map(id => db.collection('users').doc(id).get())
+      );
+      userDocs.forEach((doc, index) => {
+        if (doc.exists) {
+          const data = doc.data();
+          djPhotos[djUserIds[index]] = data?.djProfile?.photoUrl || null;
+        }
+      });
+    }
+
+    // Convert to array, add photos, and sort by most recent tip
+    const djGroups = Object.values(groupedByDj)
+      .map(group => ({
+        ...group,
+        djPhotoUrl: djPhotos[group.djUserId] || null,
+      }))
+      .sort((a, b) =>
+        new Date(b.latestTipDate).getTime() - new Date(a.latestTipDate).getTime()
+      );
 
     return NextResponse.json({
       djGroups,

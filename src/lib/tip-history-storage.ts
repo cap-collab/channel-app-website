@@ -57,6 +57,7 @@ export function clearTipHistory(): void {
 export interface DJTipGroup {
   djUsername: string;
   djUserId?: string;
+  djPhotoUrl?: string | null;
   tips: LocalTipRecord[];
   totalAmountCents: number;
   latestTipDate: number;

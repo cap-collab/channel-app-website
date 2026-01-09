@@ -8,6 +8,7 @@ import { getTipHistoryFromLocalStorage, groupTipsByDJ, DJTipGroup } from '@/lib/
 interface APITipGroup {
   djUserId: string;
   djUsername: string;
+  djPhotoUrl: string | null;
   tips: Array<{
     id: string;
     djUsername: string;
@@ -40,6 +41,7 @@ export function InboxClient() {
             const groups: DJTipGroup[] = data.djGroups.map((group: APITipGroup) => ({
               djUsername: group.djUsername,
               djUserId: group.djUserId,
+              djPhotoUrl: group.djPhotoUrl,
               tips: group.tips.map(tip => ({
                 id: tip.id,
                 stripeSessionId: '',
@@ -152,11 +154,19 @@ export function InboxClient() {
                     className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-accent/20 rounded-full flex items-center justify-center">
-                        <svg className="w-5 h-5 text-accent" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
-                        </svg>
-                      </div>
+                      {group.djPhotoUrl ? (
+                        <img
+                          src={group.djPhotoUrl}
+                          alt={group.djUsername}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 bg-accent/20 rounded-full flex items-center justify-center">
+                          <span className="text-accent font-medium">
+                            {group.djUsername.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
                       <div className="text-left">
                         <p className="text-white font-medium">{group.djUsername}</p>
                         <p className="text-gray-500 text-sm">
