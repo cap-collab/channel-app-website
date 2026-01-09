@@ -5,31 +5,61 @@ import Link from "next/link";
 import Image from "next/image";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/AuthModal";
+import { useUserRole, isDJ } from "@/hooks/useUserRole";
 
 interface BroadcastHeaderProps {
   stationName?: string;
+  /** When true, navigation links open in new windows instead of navigating away */
+  openInNewWindow?: boolean;
 }
 
-export function BroadcastHeader({ stationName = "Channel Broadcast" }: BroadcastHeaderProps) {
+export function BroadcastHeader({ stationName = "Channel Broadcast", openInNewWindow = false }: BroadcastHeaderProps) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { user, isAuthenticated, signOut, loading } = useAuthContext();
+  const { role } = useUserRole(user);
+
+  // Handle link clicks - open in new window if broadcasting
+  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (openInNewWindow) {
+      e.preventDefault();
+      window.open(href, '_blank', 'noopener,noreferrer');
+      setShowUserMenu(false);
+    }
+  };
 
   return (
     <>
       <header className="sticky top-0 z-50 bg-black/80 backdrop-blur-md border-b border-gray-900">
         <div className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/">
-              <Image
-                src="/logo-white.svg"
-                alt="CHANNEL"
-                width={140}
-                height={28}
-                className="h-7 w-auto"
-                priority
-              />
-            </Link>
+            {openInNewWindow ? (
+              <a
+                href="/"
+                onClick={(e) => handleLinkClick(e, '/')}
+                className="cursor-pointer"
+              >
+                <Image
+                  src="/logo-white.svg"
+                  alt="CHANNEL"
+                  width={140}
+                  height={28}
+                  className="h-7 w-auto"
+                  priority
+                />
+              </a>
+            ) : (
+              <Link href="/">
+                <Image
+                  src="/logo-white.svg"
+                  alt="CHANNEL"
+                  width={140}
+                  height={28}
+                  className="h-7 w-auto"
+                  priority
+                />
+              </Link>
+            )}
             <span className="text-gray-500">|</span>
             <span className="text-white font-medium">{stationName}</span>
           </div>
@@ -71,13 +101,48 @@ export function BroadcastHeader({ stationName = "Channel Broadcast" }: Broadcast
                           {user.email}
                         </p>
                       </div>
-                      <Link
+                      <a
+                        href="/my-shows"
+                        onClick={(e) => {
+                          handleLinkClick(e, '/my-shows');
+                          if (!openInNewWindow) setShowUserMenu(false);
+                        }}
+                        className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                      >
+                        My Shows
+                      </a>
+                      <a
+                        href="/inbox"
+                        onClick={(e) => {
+                          handleLinkClick(e, '/inbox');
+                          if (!openInNewWindow) setShowUserMenu(false);
+                        }}
+                        className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                      >
+                        Tip History
+                      </a>
+                      {isDJ(role) && (
+                        <a
+                          href="/dj-profile"
+                          onClick={(e) => {
+                            handleLinkClick(e, '/dj-profile');
+                            if (!openInNewWindow) setShowUserMenu(false);
+                          }}
+                          className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                        >
+                          DJ Profile
+                        </a>
+                      )}
+                      <a
                         href="/settings"
-                        onClick={() => setShowUserMenu(false)}
+                        onClick={(e) => {
+                          handleLinkClick(e, '/settings');
+                          if (!openInNewWindow) setShowUserMenu(false);
+                        }}
                         className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                       >
                         Settings
-                      </Link>
+                      </a>
                       <button
                         onClick={() => {
                           signOut();
@@ -94,7 +159,7 @@ export function BroadcastHeader({ stationName = "Channel Broadcast" }: Broadcast
             ) : (
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors"
+                className="w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-600 transition-colors flex items-center justify-center"
                 title="Sign in"
               >
                 <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

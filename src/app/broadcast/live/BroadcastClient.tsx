@@ -498,7 +498,7 @@ export function BroadcastClient() {
 
     return (
       <div className="min-h-screen bg-[#1a1a1a]">
-        <BroadcastHeader />
+        <BroadcastHeader openInNewWindow />
         <div className="p-4 lg:p-8">
           <div className="max-w-6xl mx-auto">
             {/* Tips counter - always show during debugging */}
