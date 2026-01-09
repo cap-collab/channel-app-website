@@ -15,6 +15,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { AudioInputMethod } from '@/types/broadcast';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { useTipTotal } from '@/hooks/useTipTotal';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import { normalizeUrl } from '@/lib/url';
 
 type OnboardingStep = 'profile' | 'audio';
@@ -87,6 +88,9 @@ export function BroadcastClient() {
     broadcastSlotId: slot?.id,
   });
 
+  // User profile - to get saved thank you message for logged-in users
+  const { djProfile } = useUserProfile(user?.uid);
+
   // DJ onboarding state - declared early so djInfo can use it
   // Start directly at profile step (non-blocking login is inline in DJProfileSetup)
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>('profile');
@@ -97,6 +101,13 @@ export function BroadcastClient() {
 
   // Multi-DJ show: track current DJ slot to detect DJ changes
   const [currentDjSlotId, setCurrentDjSlotId] = useState<string | null>(null);
+
+  // Load saved thank you message from user profile when logged in
+  useEffect(() => {
+    if (djProfile?.thankYouMessage && !initialThankYouMessage) {
+      setInitialThankYouMessage(djProfile.thankYouMessage);
+    }
+  }, [djProfile?.thankYouMessage, initialThankYouMessage]);
 
   // Get current DJ slot based on current time (for multi-DJ shows)
   const getCurrentDjSlot = useCallback(() => {
@@ -526,6 +537,8 @@ export function BroadcastClient() {
               initialPromoSubmitted={initialPromoSubmitted}
               isVenue={slot?.broadcastType === 'venue'}
               onChangeUsername={slot?.broadcastType === 'venue' ? setDjUsername : undefined}
+              initialThankYouMessage={initialThankYouMessage}
+              onThankYouMessageChange={setInitialThankYouMessage}
             />
           </div>
 
