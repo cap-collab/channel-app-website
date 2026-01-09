@@ -118,13 +118,15 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
         <div className="flex items-start gap-2">
           {/* DJ Photo - show on left of name */}
           {djPhotoUrl && (
-            <Image
-              src={djPhotoUrl}
-              alt={slot.djName || 'DJ'}
-              width={36}
-              height={36}
-              className="rounded-full object-cover flex-shrink-0"
-            />
+            <div className="w-9 h-9 flex-shrink-0 relative">
+              <Image
+                src={djPhotoUrl}
+                alt={slot.djName || 'DJ'}
+                fill
+                sizes="36px"
+                className="rounded-full object-cover"
+              />
+            </div>
           )}
 
           {/* Show name and DJ name */}
