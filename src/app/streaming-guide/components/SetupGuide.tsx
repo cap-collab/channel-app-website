@@ -43,7 +43,7 @@ function DJGearGuide() {
   return (
     <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
       <h3 className="text-lg font-semibold text-white mb-4">
-        Streaming from DJ gear (mixer / controller / MOTU M2)
+        Streaming from DJ gear (mixer / controller / audio interface)
       </h3>
 
       <div className="space-y-4">
@@ -55,7 +55,7 @@ function DJGearGuide() {
           <li>Open your private broadcast link in Chrome</li>
           <li>In the address bar, click the audio / microphone icon (left of the URL)</li>
           <li>
-            Set <span className="text-white">Audio input</span> to: your mixer, your controller, or MOTU M2
+            Set <span className="text-white">Audio input</span> to: your mixer, your controller, or your audio interface
           </li>
         </ol>
 

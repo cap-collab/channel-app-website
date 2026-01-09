@@ -133,14 +133,14 @@ export function StreamingGuideClient() {
                         >
                           MOTU M2
                         </a>
-                        {' '}— the only reliable option for proper sound
+                        {' '}— the only reliable option for proper sound I know so far
                       </p>
                     </div>
 
                     <div>
                       <p className="text-gray-300 font-medium">2. USB-C to USB-C cable</p>
                       <p className="text-gray-400 text-sm mt-1">
-                        To connect MOTU to Mac (MOTU only comes with USB-C to USB-A).
+                        To connect your audio interface to Mac (MOTU M2 only comes with USB-C to USB-A).
                       </p>
                       <p className="text-gray-400 text-sm mt-1">
                         Must support data transfer, not charging only. Test: plug a phone to your computer — if it recognizes the phone/can read content, the cable works.
@@ -158,7 +158,7 @@ export function StreamingGuideClient() {
                     </div>
 
                     <div>
-                      <p className="text-gray-300 font-medium">3. Cables from your mixer/amp to MOTU M2</p>
+                      <p className="text-gray-300 font-medium">3. Cables from your mixer/amp to your audio interface</p>
                       <p className="text-gray-400 text-sm mt-1">Depending on your mixer&apos;s output:</p>
                       <ul className="text-gray-400 text-sm mt-1 list-disc list-inside space-y-1">
                         <li>
@@ -168,7 +168,7 @@ export function StreamingGuideClient() {
                             rel="noopener noreferrer"
                             className="text-white underline hover:text-gray-300"
                           >
-                            RCA to 1/4&quot; Jack
+                            Dual 1/4 inch TS to Dual RCA Cable
                           </a>
                         </li>
                         <li>
@@ -178,7 +178,7 @@ export function StreamingGuideClient() {
                             rel="noopener noreferrer"
                             className="text-white underline hover:text-gray-300"
                           >
-                            XLR to 1/4&quot; Jack
+                            1/4 Inch Male Jack to Dual 1/4 inch Male TS
                           </a>
                         </li>
                       </ul>
@@ -188,7 +188,7 @@ export function StreamingGuideClient() {
                   <div className="pt-4 border-t border-gray-700">
                     <p className="text-gray-300 font-medium">How it connects</p>
                     <p className="text-gray-400 text-sm mt-2 font-mono">
-                      Mixer OUT → MOTU M2 IN → USB-C → Computer
+                      Mixer OUT → Audio Interface IN → USB-C → Computer
                     </p>
                     <p className="text-gray-500 text-sm mt-2">
                       Once this is done, your computer can receive your live mix.
