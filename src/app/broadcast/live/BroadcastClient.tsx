@@ -93,6 +93,7 @@ export function BroadcastClient() {
   const [djUsername, setDjUsername] = useState<string>('');
   const [initialPromoUrl, setInitialPromoUrl] = useState<string | undefined>();
   const [initialPromoTitle, setInitialPromoTitle] = useState<string | undefined>();
+  const [initialThankYouMessage, setInitialThankYouMessage] = useState<string | undefined>();
 
   // Multi-DJ show: track current DJ slot to detect DJ changes
   const [currentDjSlotId, setCurrentDjSlotId] = useState<string | null>(null);
@@ -118,6 +119,7 @@ export function BroadcastClient() {
         setDjUsername('');
         setInitialPromoUrl(undefined);
         setInitialPromoTitle(undefined);
+        setInitialThankYouMessage(undefined);
         setInitialPromoSubmitted(false);
         setOnboardingStep('profile');
         console.log('DJ slot changed, prompting new DJ for profile');
@@ -144,8 +146,9 @@ export function BroadcastClient() {
     return {
       username: djUsername,
       userId: user?.uid,
+      thankYouMessage: initialThankYouMessage,
     };
-  }, [djUsername, user?.uid]);
+  }, [djUsername, user?.uid, initialThankYouMessage]);
 
   const participantIdentity = slot?.djName || 'DJ';
   const broadcast = useBroadcast(participantIdentity, slot?.id, djInfo, token || undefined);
@@ -354,10 +357,11 @@ export function BroadcastClient() {
   }, [audioStream, broadcast]);
 
   // DJ onboarding handler
-  const handleProfileComplete = useCallback((username: string, promoUrl?: string, promoTitle?: string) => {
+  const handleProfileComplete = useCallback((username: string, promoUrl?: string, promoTitle?: string, thankYouMessage?: string) => {
     setDjUsername(username);
     setInitialPromoUrl(promoUrl);
     setInitialPromoTitle(promoTitle);
+    setInitialThankYouMessage(thankYouMessage);
     setOnboardingStep('audio');
   }, []);
 
