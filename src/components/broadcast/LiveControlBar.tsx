@@ -26,9 +26,10 @@ interface LiveControlBarProps {
   stream: MediaStream | null;
   isLive: boolean;
   tipTotalCents: number;
+  tipCount: number;
 }
 
-export function LiveControlBar({ stream, isLive, tipTotalCents }: LiveControlBarProps) {
+export function LiveControlBar({ stream, isLive, tipTotalCents, tipCount }: LiveControlBarProps) {
   const level = useAudioLevel(stream);
   const [listenerCount, setListenerCount] = useState(0);
   const [loveCount, setLoveCount] = useState(0);
@@ -142,11 +143,14 @@ export function LiveControlBar({ stream, isLive, tipTotalCents }: LiveControlBar
           </div>
 
           {/* Tips - large and prominent */}
-          <div className="flex items-center gap-1.5" title="Tips">
+          <div className="flex items-center gap-1.5" title={`${tipCount} ${tipCount === 1 ? 'tip' : 'tips'}`}>
             <span className="text-lg">💰</span>
             <span className={`font-bold text-lg tabular-nums ${tipTotalCents > 0 ? 'text-green-400' : 'text-gray-400'}`}>
               {formatTips(tipTotalCents)}
             </span>
+            {tipCount > 0 && (
+              <span className="text-gray-500 text-sm">({tipCount})</span>
+            )}
           </div>
 
           {/* Loves - smaller */}

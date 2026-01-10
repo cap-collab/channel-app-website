@@ -446,6 +446,7 @@ export function BroadcastClient() {
           djUsername={djUsername}
           userId={user?.uid}
           tipTotalCents={tipTotalCents}
+          tipCount={tipCount}
           promoUrl={initialPromoUrl}
           promoTitle={initialPromoTitle}
           thankYouMessage={initialThankYouMessage}
@@ -591,6 +592,7 @@ export function BroadcastClient() {
             djUsername={djUsername}
             userId={user?.uid}
             tipTotalCents={tipTotalCents}
+            tipCount={tipCount}
             promoUrl={initialPromoUrl}
             promoTitle={initialPromoTitle}
             thankYouMessage={initialThankYouMessage}

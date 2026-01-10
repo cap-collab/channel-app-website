@@ -25,6 +25,7 @@ interface DJControlCenterProps {
   djUsername: string;
   userId?: string;
   tipTotalCents: number;
+  tipCount: number;
   promoUrl?: string;
   promoTitle?: string;
   thankYouMessage?: string;
@@ -50,6 +51,7 @@ export function DJControlCenter({
   djUsername,
   userId,
   tipTotalCents,
+  tipCount,
   promoUrl,
   promoTitle,
   thankYouMessage,
@@ -85,6 +87,7 @@ export function DJControlCenter({
         stream={audioStream}
         isLive={isLive}
         tipTotalCents={tipTotalCents}
+        tipCount={tipCount}
       />
 
       {/* Main Content */}
