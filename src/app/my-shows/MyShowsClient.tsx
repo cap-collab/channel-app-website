@@ -105,11 +105,11 @@ export function MyShowsClient() {
       .finally(() => setShowsLoading(false));
   }, []);
 
-  // Separate favorites by type
+  // Separate favorites by type (use type field as primary discriminator, not stationId)
   const stationShows = favorites.filter(
-    (f) => (f.type === "show" || f.type === "dj") && f.stationId
+    (f) => f.type === "show" || f.type === "dj"
   );
-  const watchlist = favorites.filter((f) => f.type === "search" || !f.stationId);
+  const watchlist = favorites.filter((f) => f.type === "search");
 
   // Categorize shows into Live Now, Coming Up, Returning Soon, Watchlist, One-Time
   const categorizedShows = useMemo(() => {
