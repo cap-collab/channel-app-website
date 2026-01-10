@@ -106,9 +106,22 @@ export function MyShowsClient() {
   }, []);
 
   // Separate favorites by type (use type field as primary discriminator, not stationId)
-  const stationShows = favorites.filter(
-    (f) => f.type === "show" || f.type === "dj"
-  );
+  // Deduplicate by term, preferring entries with stationId set
+  const stationShows = useMemo(() => {
+    const showFavorites = favorites.filter(
+      (f) => f.type === "show" || f.type === "dj"
+    );
+    const byTerm = new Map<string, Favorite>();
+    for (const fav of showFavorites) {
+      const term = fav.term.toLowerCase();
+      const existing = byTerm.get(term);
+      // Prefer the one with stationId, or keep existing if both have/lack stationId
+      if (!existing || (fav.stationId && !existing.stationId)) {
+        byTerm.set(term, fav);
+      }
+    }
+    return Array.from(byTerm.values());
+  }, [favorites]);
   const watchlist = favorites.filter((f) => f.type === "search");
 
   // Categorize shows into Live Now, Coming Up, Returning Soon, Watchlist, One-Time
