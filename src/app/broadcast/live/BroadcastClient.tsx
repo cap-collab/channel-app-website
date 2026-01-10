@@ -8,9 +8,8 @@ import { AudioInputSelector } from '@/components/broadcast/AudioInputSelector';
 import { SystemAudioCapture } from '@/components/broadcast/SystemAudioCapture';
 import { DeviceAudioCapture } from '@/components/broadcast/DeviceAudioCapture';
 import { RtmpIngressPanel } from '@/components/broadcast/RtmpIngressPanel';
-import { AudioLevelMeter } from '@/components/broadcast/AudioLevelMeter';
-import { LiveIndicator } from '@/components/broadcast/LiveIndicator';
 import { DJProfileSetup } from '@/components/broadcast/DJProfileSetup';
+import { DJControlCenter } from '@/components/broadcast/DJControlCenter';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { AudioInputMethod } from '@/types/broadcast';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
@@ -19,47 +18,6 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { normalizeUrl } from '@/lib/url';
 
 type OnboardingStep = 'profile' | 'audio';
-
-// Channel app deep link for the broadcast station
-const CHANNEL_BROADCAST_URL = 'https://channel-app.com/channel';
-
-// Channel App URL Section Component
-function ChannelAppUrlSection() {
-  const [copied, setCopied] = useState(false);
-
-  const copyUrl = async () => {
-    try {
-      await navigator.clipboard.writeText(CHANNEL_BROADCAST_URL);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      console.error('Failed to copy');
-    }
-  };
-
-  return (
-    <div className="bg-[#252525] rounded-xl p-4">
-      <label className="block text-gray-400 text-sm mb-2">Listen in Channel</label>
-      <div className="flex gap-2">
-        <input
-          type="text"
-          readOnly
-          value={CHANNEL_BROADCAST_URL}
-          className="flex-1 bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 font-mono text-sm"
-        />
-        <button
-          onClick={copyUrl}
-          className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-3 rounded-lg transition-colors"
-        >
-          {copied ? 'Copied!' : 'Copy'}
-        </button>
-      </div>
-      <p className="text-gray-500 text-xs mt-2">
-        Share this link to open your broadcast in the Channel app
-      </p>
-    </div>
-  );
-}
 
 // Helper to format time, including the date if it's not today
 function formatTimeWithDate(date: Date): string {
@@ -169,10 +127,7 @@ export function BroadcastClient() {
   const [isGoingLive, setIsGoingLive] = useState(false);
   const [canGoLive, setCanGoLive] = useState(false);
   const [goLiveMessage, setGoLiveMessage] = useState('');
-  const [autoGoLive, setAutoGoLive] = useState(false);
-  const [autoGoLiveTriggered, setAutoGoLiveTriggered] = useState(false);
   const [initialPromoSubmitted, setInitialPromoSubmitted] = useState(false);
-  const [promoError, setPromoError] = useState<string | null>(null);
 
 
   // Check Go Live availability based on slot timing
@@ -280,7 +235,6 @@ export function BroadcastClient() {
     if (!audioStream) return;
 
     setIsGoingLive(true);
-    setPromoError(null);
     const success = await broadcast.goLive(audioStream);
 
     // If we have an initial promo from onboarding, submit it now
@@ -302,11 +256,9 @@ export function BroadcastClient() {
         } else {
           const errorData = await promoRes.json();
           console.error('Failed to submit initial promo:', errorData.error);
-          setPromoError(errorData.error || 'Failed to post promo link');
         }
       } catch (err) {
         console.error('Failed to submit initial promo:', err);
-        setPromoError('Failed to post promo link');
       }
     }
 
@@ -316,24 +268,6 @@ export function BroadcastClient() {
       console.error('Failed to go live:', broadcast.error);
     }
   }, [audioStream, broadcast, initialPromoUrl, initialPromoTitle, token, djUsername]);
-
-  // Auto go-live: trigger when slot start time arrives and autoGoLive is enabled
-  useEffect(() => {
-    if (!slot || !autoGoLive || autoGoLiveTriggered || !audioStream || broadcast.isLive || isGoingLive) return;
-
-    const checkAutoGoLive = () => {
-      const now = Date.now();
-      // Trigger exactly at slot start time (not 1 minute before)
-      if (now >= slot.startTime && now <= slot.endTime) {
-        setAutoGoLiveTriggered(true);
-        handleGoLive();
-      }
-    };
-
-    checkAutoGoLive();
-    const interval = setInterval(checkAutoGoLive, 1000);
-    return () => clearInterval(interval);
-  }, [slot, autoGoLive, autoGoLiveTriggered, audioStream, broadcast.isLive, isGoingLive, handleGoLive]);
 
   const handleRtmpReady = useCallback(async () => {
     // For RTMP, the audio comes from the ingress, not local capture
@@ -491,77 +425,60 @@ export function BroadcastClient() {
     );
   }
 
-  // Live state
+  // Live state - use DJControlCenter
   if (broadcast.isLive) {
     // If djUsername is empty (new DJ slot started), show profile overlay
     const needsNewDjProfile = !djUsername && slot?.djSlots && slot.djSlots.length > 0;
 
     return (
-      <div className="min-h-screen bg-[#1a1a1a]">
-        <BroadcastHeader openInNewWindow />
-        <div className="p-4 lg:p-8">
-          <div className="max-w-6xl mx-auto">
-            {/* Tips counter - always show during debugging */}
-            <div className={`${tipTotalCents > 0 ? 'bg-green-500/10 border-green-500/30' : 'bg-gray-800/50 border-gray-700'} border rounded-lg p-4 mb-4 flex items-center gap-3`}>
-              <span className="text-2xl">💸</span>
-              <div>
-                <p className={`${tipTotalCents > 0 ? 'text-green-400' : 'text-gray-400'} font-medium`}>
-                  {tipTotalCents > 0
-                    ? `You got $${(tipTotalCents / 100).toFixed(2)} in tips!`
-                    : 'No tips yet - share your stream!'}
-                </p>
-                <p className="text-gray-500 text-sm">
-                  {tipCount} {tipCount === 1 ? 'tip' : 'tips'} during this broadcast
-                </p>
-              </div>
-            </div>
+      <>
+        <DJControlCenter
+          slot={slot}
+          audioStream={audioStream}
+          inputMethod={broadcast.inputMethod}
+          isLive={true}
+          isPublishing={broadcast.isPublishing}
+          canGoLive={true}
+          onGoLive={handleGoLive}
+          isGoingLive={isGoingLive}
+          onEndBroadcast={handleEndBroadcast}
+          broadcastToken={token || ''}
+          djUsername={djUsername}
+          userId={user?.uid}
+          tipTotalCents={tipTotalCents}
+          promoUrl={initialPromoUrl}
+          promoTitle={initialPromoTitle}
+          thankYouMessage={initialThankYouMessage}
+          onPromoChange={(url, title) => {
+            setInitialPromoUrl(url);
+            setInitialPromoTitle(title);
+            setInitialPromoSubmitted(true);
+          }}
+          onThankYouChange={setInitialThankYouMessage}
+          isVenue={slot?.broadcastType === 'venue'}
+          onChangeUsername={slot?.broadcastType === 'venue' ? setDjUsername : undefined}
+          initialPromoSubmitted={initialPromoSubmitted}
+        />
 
-            {/* Show promo error if initial promo failed */}
-            {promoError && (
-              <div className="bg-red-900/30 border border-red-800 rounded-lg p-4 mb-4">
-                <p className="text-red-400">Promo link failed: {promoError}</p>
-                <button
-                  onClick={() => setPromoError(null)}
-                  className="text-red-300 text-sm underline mt-2"
-                >
-                  Dismiss
-                </button>
+        {/* New DJ profile overlay for multi-DJ shows */}
+        {needsNewDjProfile && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="relative">
+              <div className="absolute -top-12 left-0 right-0 text-center">
+                <span className="inline-flex items-center gap-2 bg-red-600 text-white text-sm font-medium px-3 py-1 rounded-full">
+                  <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+                  Broadcast is live
+                </span>
               </div>
-            )}
-            <LiveIndicator
-              slot={slot}
-              hlsUrl={broadcast.hlsUrl}
-              onEndBroadcast={handleEndBroadcast}
-              broadcastToken={token || undefined}
-              djUsername={djUsername}
-              initialPromoSubmitted={initialPromoSubmitted}
-              isVenue={slot?.broadcastType === 'venue'}
-              onChangeUsername={slot?.broadcastType === 'venue' ? setDjUsername : undefined}
-              initialThankYouMessage={initialThankYouMessage}
-              onThankYouMessageChange={setInitialThankYouMessage}
-            />
+              <DJProfileSetup
+                defaultUsername={getDefaultDjName()}
+                broadcastType={slot?.broadcastType}
+                onComplete={handleProfileComplete}
+              />
+            </div>
           </div>
-
-          {/* New DJ profile overlay for multi-DJ shows */}
-          {needsNewDjProfile && (
-            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-              <div className="relative">
-                <div className="absolute -top-12 left-0 right-0 text-center">
-                  <span className="inline-flex items-center gap-2 bg-red-600 text-white text-sm font-medium px-3 py-1 rounded-full">
-                    <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
-                    Broadcast is live
-                  </span>
-                </div>
-                <DJProfileSetup
-                  defaultUsername={getDefaultDjName()}
-                  broadcastType={slot?.broadcastType}
-                  onComplete={handleProfileComplete}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+        )}
+      </>
     );
   }
 
@@ -657,75 +574,35 @@ export function BroadcastClient() {
           />
         )}
 
-        {/* Audio captured - show level meter and go live button */}
+        {/* Audio captured - show DJControlCenter in pre-live state */}
         {audioStream && (
-          <div className="space-y-6">
-            <button
-              onClick={handleBack}
-              className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back
-            </button>
-
-<AudioLevelMeter stream={audioStream} />
-
-            {/* Channel App URL */}
-            <ChannelAppUrlSection />
-
-            <div className="bg-[#252525] rounded-xl p-4">
-              <p className="text-gray-400 text-sm mb-4">
-                Check your audio levels above to make sure sound is coming through.
-                You can test as long as you need &mdash; your broadcast won&apos;t start until you click GO LIVE.
-              </p>
-
-              {canGoLive ? (
-                <button
-                  onClick={handleGoLive}
-                  disabled={isGoingLive}
-                  className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg text-xl transition-colors"
-                >
-                  {isGoingLive ? 'Going live...' : 'GO LIVE'}
-                </button>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-center text-gray-500 font-medium">
-                    {goLiveMessage}
-                  </p>
-
-                  {/* Auto go-live option */}
-                  {slot && !autoGoLive ? (
-                    <button
-                      onClick={() => setAutoGoLive(true)}
-                      className="w-full bg-accent hover:bg-accent-hover text-white font-bold py-3 px-6 rounded-lg transition-colors"
-                    >
-                      Go live automatically at {formatTimeWithDate(new Date(slot.startTime))}
-                    </button>
-                  ) : slot && autoGoLive ? (
-                    <div className="bg-accent/10 border border-accent/30 rounded-lg p-3 text-center">
-                      <p className="text-accent font-medium flex items-center justify-center gap-2">
-                        <svg className="w-5 h-5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Auto go-live enabled
-                      </p>
-                      <p className="text-accent/70 text-sm mt-1">
-                        Will start at {formatTimeWithDate(new Date(slot.startTime))}
-                      </p>
-                      <button
-                        onClick={() => setAutoGoLive(false)}
-                        className="text-accent text-sm underline mt-2"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              )}
-            </div>
-          </div>
+          <DJControlCenter
+            slot={slot}
+            audioStream={audioStream}
+            inputMethod={broadcast.inputMethod}
+            isLive={false}
+            isPublishing={false}
+            canGoLive={canGoLive}
+            goLiveMessage={goLiveMessage}
+            onGoLive={handleGoLive}
+            isGoingLive={isGoingLive}
+            onEndBroadcast={handleEndBroadcast}
+            broadcastToken={token || ''}
+            djUsername={djUsername}
+            userId={user?.uid}
+            tipTotalCents={tipTotalCents}
+            promoUrl={initialPromoUrl}
+            promoTitle={initialPromoTitle}
+            thankYouMessage={initialThankYouMessage}
+            onPromoChange={(url, title) => {
+              setInitialPromoUrl(url);
+              setInitialPromoTitle(title);
+            }}
+            onThankYouChange={setInitialThankYouMessage}
+            isVenue={slot?.broadcastType === 'venue'}
+            onChangeUsername={slot?.broadcastType === 'venue' ? setDjUsername : undefined}
+            initialPromoSubmitted={initialPromoSubmitted}
+          />
         )}
       </div>
       </div>
