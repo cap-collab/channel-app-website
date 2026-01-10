@@ -251,6 +251,7 @@ export function MyShowsClient() {
   const renderFavoriteCard = (favorite: Favorite, showInfo?: Show) => {
     const station = getStation(favorite.stationId);
     const accentColor = station?.accentColor || "#fff";
+    const stationName = station?.name || favorite.stationId || "CHANNEL";
     const isLive = showInfo && new Date(showInfo.startTime) <= new Date() && new Date(showInfo.endTime) > new Date();
 
     return (
@@ -271,7 +272,7 @@ export function MyShowsClient() {
                 className="text-[10px] font-semibold uppercase tracking-wide"
                 style={{ color: accentColor }}
               >
-                {station?.name || favorite.stationId}
+                {stationName}
               </span>
               {isLive && (
                 <span className="flex items-center gap-1 text-[10px] text-red-500">

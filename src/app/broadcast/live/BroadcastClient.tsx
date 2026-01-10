@@ -499,6 +499,40 @@ export function BroadcastClient() {
     );
   }
 
+  // Audio captured - show DJControlCenter in pre-live state (full screen)
+  if (audioStream) {
+    return (
+      <DJControlCenter
+        slot={slot}
+        audioStream={audioStream}
+        inputMethod={broadcast.inputMethod}
+        isLive={false}
+        isPublishing={false}
+        canGoLive={canGoLive}
+        goLiveMessage={goLiveMessage}
+        onGoLive={handleGoLive}
+        isGoingLive={isGoingLive}
+        onEndBroadcast={handleEndBroadcast}
+        broadcastToken={token || ''}
+        djUsername={djUsername}
+        userId={user?.uid}
+        tipTotalCents={tipTotalCents}
+        tipCount={tipCount}
+        promoUrl={initialPromoUrl}
+        promoTitle={initialPromoTitle}
+        thankYouMessage={initialThankYouMessage}
+        onPromoChange={(url, title) => {
+          setInitialPromoUrl(url);
+          setInitialPromoTitle(title);
+        }}
+        onThankYouChange={setInitialThankYouMessage}
+        isVenue={slot?.broadcastType === 'venue'}
+        onChangeUsername={slot?.broadcastType === 'venue' ? setDjUsername : undefined}
+        initialPromoSubmitted={initialPromoSubmitted}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#1a1a1a] text-white">
       <BroadcastHeader />
@@ -575,37 +609,6 @@ export function BroadcastClient() {
           />
         )}
 
-        {/* Audio captured - show DJControlCenter in pre-live state */}
-        {audioStream && (
-          <DJControlCenter
-            slot={slot}
-            audioStream={audioStream}
-            inputMethod={broadcast.inputMethod}
-            isLive={false}
-            isPublishing={false}
-            canGoLive={canGoLive}
-            goLiveMessage={goLiveMessage}
-            onGoLive={handleGoLive}
-            isGoingLive={isGoingLive}
-            onEndBroadcast={handleEndBroadcast}
-            broadcastToken={token || ''}
-            djUsername={djUsername}
-            userId={user?.uid}
-            tipTotalCents={tipTotalCents}
-            tipCount={tipCount}
-            promoUrl={initialPromoUrl}
-            promoTitle={initialPromoTitle}
-            thankYouMessage={initialThankYouMessage}
-            onPromoChange={(url, title) => {
-              setInitialPromoUrl(url);
-              setInitialPromoTitle(title);
-            }}
-            onThankYouChange={setInitialThankYouMessage}
-            isVenue={slot?.broadcastType === 'venue'}
-            onChangeUsername={slot?.broadcastType === 'venue' ? setDjUsername : undefined}
-            initialPromoSubmitted={initialPromoSubmitted}
-          />
-        )}
       </div>
       </div>
     </div>
