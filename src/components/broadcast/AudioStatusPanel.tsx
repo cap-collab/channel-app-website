@@ -104,9 +104,10 @@ export function AudioStatusPanel({
     <div className="bg-[#252525] rounded-xl p-4">
       <h3 className="text-gray-400 text-sm font-medium mb-3">Audio System</h3>
 
-      {/* Input method badge with change button */}
-      <div className="mb-4">
-        <div className="flex items-center gap-2">
+      {/* Input method and source with aligned change buttons */}
+      <div className="mb-4 space-y-2">
+        {/* Input method row */}
+        <div className="flex items-center justify-between">
           <span className="inline-flex items-center gap-2 bg-gray-800 text-white text-sm px-3 py-1.5 rounded-lg">
             {inputMethod === 'system' && (
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -134,18 +135,18 @@ export function AudioStatusPanel({
             </button>
           )}
         </div>
-        {/* Show the specific source (e.g., "Spotify", "Chrome Tab Audio", device name) */}
+        {/* Source row */}
         {audioSourceLabel && (
-          <div className="flex items-center gap-2 mt-1.5">
-            <p className="text-gray-400 text-xs truncate flex-1" title={audioSourceLabel}>
+          <div className="flex items-center justify-between">
+            <p className="text-gray-400 text-sm truncate pr-4" title={audioSourceLabel}>
               {audioSourceLabel}
             </p>
             {onChangeSource && !isLive && (
               <button
                 onClick={onChangeSource}
-                className="text-accent hover:text-accent-hover text-xs transition-colors flex-shrink-0"
+                className="text-accent hover:text-accent-hover text-sm transition-colors flex-shrink-0"
               >
-                Change source
+                Change
               </button>
             )}
           </div>
