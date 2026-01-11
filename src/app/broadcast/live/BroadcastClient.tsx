@@ -238,6 +238,17 @@ export function BroadcastClient() {
     broadcast.setInputMethod(null);
   }, [audioStream, broadcast]);
 
+  // Change source without changing input method (re-capture from different tab/device)
+  const handleChangeSource = useCallback(() => {
+    // Stop any existing stream but keep the input method
+    if (audioStream) {
+      audioStream.getTracks().forEach(t => t.stop());
+      setAudioStream(null);
+      setAudioSourceLabel(null);
+    }
+    // This will show the capture UI again for the same input method
+  }, [audioStream]);
+
   const handleGoLive = useCallback(async () => {
     if (!audioStream) return;
 
@@ -538,6 +549,7 @@ export function BroadcastClient() {
         onChangeUsername={slot?.broadcastType === 'venue' ? setDjUsername : undefined}
         initialPromoSubmitted={initialPromoSubmitted}
         onChangeAudioSetup={handleBack}
+        onChangeSource={handleChangeSource}
         audioSourceLabel={audioSourceLabel}
       />
     );

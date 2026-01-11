@@ -13,6 +13,7 @@ interface AudioStatusPanelProps {
   onGoLive: () => void;
   isGoingLive: boolean;
   onChangeAudioSetup?: () => void;
+  onChangeSource?: () => void;
   audioSourceLabel?: string | null;
 }
 
@@ -26,6 +27,7 @@ export function AudioStatusPanel({
   onGoLive,
   isGoingLive,
   onChangeAudioSetup,
+  onChangeSource,
   audioSourceLabel,
 }: AudioStatusPanelProps) {
   const level = useAudioLevel(stream);
@@ -45,23 +47,58 @@ export function AudioStatusPanel({
     }
   };
 
-  const statusItems = [
-    {
-      id: 'connected',
-      label: `${getInputMethodLabel()} connected`,
-      checked: !!stream || inputMethod === 'rtmp',
-    },
-    {
+  // Build checklist items based on input method
+  const getStatusItems = () => {
+    const items = [
+      {
+        id: 'connected',
+        label: `${getInputMethodLabel()} connected`,
+        checked: !!stream || inputMethod === 'rtmp',
+      },
+    ];
+
+    // Add method-specific items
+    if (inputMethod === 'device' && !isLive) {
+      // Check if audio source is NOT a built-in microphone
+      const isExternalDevice = audioSourceLabel
+        ? !audioSourceLabel.toLowerCase().includes('built-in')
+          && !audioSourceLabel.toLowerCase().includes('macbook')
+          && !audioSourceLabel.toLowerCase().includes('internal')
+        : false;
+
+      items.push({
+        id: 'correct-input',
+        label: 'Audio input set to mixer/controller (not built-in mic)',
+        checked: isExternalDevice,
+      });
+    }
+
+    if (inputMethod === 'system' && !isLive) {
+      items.push({
+        id: 'share-audio',
+        label: 'Sharing tab or system audio (not just screen)',
+        checked: !!stream && hasAudioLevels,
+      });
+    }
+
+    items.push({
       id: 'levels',
       label: 'Audio levels detected',
       checked: hasAudioLevels,
-    },
-    ...(isLive ? [{
-      id: 'publishing',
-      label: 'Stream publishing',
-      checked: isPublishing,
-    }] : []),
-  ];
+    });
+
+    if (isLive) {
+      items.push({
+        id: 'publishing',
+        label: 'Stream publishing',
+        checked: isPublishing,
+      });
+    }
+
+    return items;
+  };
+
+  const statusItems = getStatusItems();
 
   return (
     <div className="bg-[#252525] rounded-xl p-4">
@@ -99,9 +136,19 @@ export function AudioStatusPanel({
         </div>
         {/* Show the specific source (e.g., "Spotify", "Chrome Tab Audio", device name) */}
         {audioSourceLabel && (
-          <p className="text-gray-400 text-xs mt-1.5 truncate" title={audioSourceLabel}>
-            {audioSourceLabel}
-          </p>
+          <div className="flex items-center gap-2 mt-1.5">
+            <p className="text-gray-400 text-xs truncate flex-1" title={audioSourceLabel}>
+              {audioSourceLabel}
+            </p>
+            {onChangeSource && !isLive && (
+              <button
+                onClick={onChangeSource}
+                className="text-accent hover:text-accent-hover text-xs transition-colors flex-shrink-0"
+              >
+                Change source
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -127,11 +174,25 @@ export function AudioStatusPanel({
         ))}
       </div>
 
+      {/* Setup tip - show method-specific guidance when not live */}
+      {!isLive && inputMethod === 'device' && (
+        <div className="bg-blue-900/30 border border-blue-700/50 rounded-lg p-3 mb-4">
+          <p className="text-blue-200 text-sm font-medium mb-1">
+            Set your audio input in Chrome
+          </p>
+          <p className="text-blue-200/80 text-xs">
+            In the address bar, click the audio/microphone icon → Set Audio input to your mixer, controller, or audio interface
+          </p>
+        </div>
+      )}
+
       {/* Microphone warning - show when audio levels detected */}
       {hasAudioLevels && !isLive && (
         <div className="bg-yellow-900/30 border border-yellow-700/50 rounded-lg p-3 mb-4">
           <p className="text-yellow-200 text-sm">
-            Verify sound is not coming from your microphone (if audio levels are moving)
+            {inputMethod === 'device'
+              ? 'Verify audio input is your mixer/controller, not built-in microphone'
+              : 'Verify sound is not coming from your microphone'}
           </p>
         </div>
       )}

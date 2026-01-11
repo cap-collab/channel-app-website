@@ -35,6 +35,7 @@ interface DJControlCenterProps {
   onChangeUsername?: (newUsername: string) => void;
   initialPromoSubmitted?: boolean;
   onChangeAudioSetup?: () => void;
+  onChangeSource?: () => void;
   audioSourceLabel?: string | null;
 }
 
@@ -63,6 +64,7 @@ export function DJControlCenter({
   onChangeUsername,
   initialPromoSubmitted = false,
   onChangeAudioSetup,
+  onChangeSource,
   audioSourceLabel,
 }: DJControlCenterProps) {
   const [copied, setCopied] = useState(false);
@@ -111,6 +113,7 @@ export function DJControlCenter({
                 onGoLive={onGoLive}
                 isGoingLive={isGoingLive}
                 onChangeAudioSetup={onChangeAudioSetup}
+                onChangeSource={onChangeSource}
                 audioSourceLabel={audioSourceLabel}
               />
 
