@@ -23,7 +23,7 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
   const { isLive } = useBroadcastLiveStatus();
   const { role } = useUserRole(user);
 
-  // Build mobile menu items based on current page
+  // Build mobile menu items - static menu with current page highlighted
   const getMobileMenuItems = (): MobileMenuItem[] => {
     const items: MobileMenuItem[] = [];
 
@@ -35,19 +35,10 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
     // iOS Beta always first (after Live Now if present)
     items.push({ label: "iOS Beta", href: "https://testflight.apple.com/join/HcKTJ1nH", external: true });
 
-    // Browse DJ Shows button hidden
-    if (false && currentPage !== "djshows") {
-      items.push({ label: "Browse DJ Shows", href: "/djshows" });
-    }
-    // Get Involved - anchor on home/djshows (both have the section), full URL on apply
-    const getInvolvedHref = currentPage === "apply" ? "/#get-involved" : "#get-involved";
-    items.push({ label: "Get Involved", href: getInvolvedHref });
-    if (currentPage !== "dj-portal") {
-      items.push({ label: "DJ Portal", href: "/dj-portal" });
-    }
-    if (currentPage !== "broadcast-admin" && currentPage !== "radio-portal") {
-      items.push({ label: "Radio Portal", href: "/radio-portal" });
-    }
+    // Static menu items - always show all, highlight current
+    items.push({ label: "DJ Portal", href: "/dj-portal", active: currentPage === "dj-portal" });
+    items.push({ label: "Radio Portal", href: "/radio-portal", active: currentPage === "radio-portal" || currentPage === "broadcast-admin" });
+
     // Always show auth option in mobile menu
     items.push({ type: "auth" });
 
@@ -73,38 +64,23 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
             />
           </Link>
           <div className="flex items-center gap-3 md:gap-4">
-            {/* Navigation links - same on all pages, hide link to current page */}
-            {/* Browse DJ Shows button hidden */}
-            {false && currentPage !== "djshows" && (
-              <Link
-                href="/djshows"
-                className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
-              >
-                Browse DJ Shows
-              </Link>
-            )}
-            <a
-              href={currentPage === "apply" ? "/#get-involved" : "#get-involved"}
-              className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
+            {/* Navigation links - static menu, highlight current page in white */}
+            <Link
+              href="/dj-portal"
+              className={`hidden sm:inline-block text-sm transition-colors ${
+                currentPage === "dj-portal" ? "text-white" : "text-gray-400 hover:text-white"
+              }`}
             >
-              Get Involved
-            </a>
-            {currentPage !== "dj-portal" && (
-              <Link
-                href="/dj-portal"
-                className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
-              >
-                DJ Portal
-              </Link>
-            )}
-            {currentPage !== "broadcast-admin" && currentPage !== "radio-portal" && (
-              <Link
-                href="/radio-portal"
-                className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
-              >
-                Radio Portal
-              </Link>
-            )}
+              DJ Portal
+            </Link>
+            <Link
+              href="/radio-portal"
+              className={`hidden sm:inline-block text-sm transition-colors ${
+                currentPage === "radio-portal" || currentPage === "broadcast-admin" ? "text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Radio Portal
+            </Link>
 
             {/* Sign In - only on non-home pages when not authenticated */}
             {/* Sign In button hidden */}

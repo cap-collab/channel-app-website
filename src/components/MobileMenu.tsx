@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useAuthContext } from "@/contexts/AuthContext";
 
 export type MobileMenuItem =
-  | { label: string; href?: string; onClick?: () => void; type?: "link"; external?: boolean }
-  | { type: "auth"; label?: never; href?: never; onClick?: never; external?: never };
+  | { label: string; href?: string; onClick?: () => void; type?: "link"; external?: boolean; active?: boolean }
+  | { type: "auth"; label?: never; href?: never; onClick?: never; external?: never; active?: never };
 
 interface MobileMenuProps {
   items: MobileMenuItem[];
@@ -123,6 +123,10 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
               }
 
               // Regular link or button item
+              const textClass = item.active
+                ? "text-white"
+                : "text-gray-400 hover:text-white";
+
               if (item.href) {
                 const isAnchor = item.href.startsWith("#");
                 const isExternal = item.external || item.href.startsWith("http");
@@ -134,7 +138,7 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                       onClick={() => handleItemClick(item)}
                       target={isExternal ? "_blank" : undefined}
                       rel={isExternal ? "noopener noreferrer" : undefined}
-                      className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                      className={`block w-full px-4 py-3 text-left text-sm ${textClass} hover:bg-[#252525] transition-colors`}
                     >
                       {item.label}
                     </a>
@@ -145,7 +149,7 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                     key={index}
                     href={item.href}
                     onClick={() => handleItemClick(item)}
-                    className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                    className={`block w-full px-4 py-3 text-left text-sm ${textClass} hover:bg-[#252525] transition-colors`}
                   >
                     {item.label}
                   </Link>
@@ -156,7 +160,7 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                 <button
                   key={index}
                   onClick={() => handleItemClick(item)}
-                  className="w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                  className={`w-full px-4 py-3 text-left text-sm ${textClass} hover:bg-[#252525] transition-colors`}
                 >
                   {item.label}
                 </button>
