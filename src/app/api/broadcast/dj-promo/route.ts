@@ -13,38 +13,41 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { broadcastToken, promoUrl, promoTitle, username } = body;
+    const { broadcastToken, promoText, promoHyperlink, username } = body;
 
     if (!broadcastToken) {
       return NextResponse.json({ error: 'No broadcast token provided' }, { status: 400 });
     }
 
-    if (!promoUrl) {
-      return NextResponse.json({ error: 'No promo URL provided' }, { status: 400 });
+    if (!promoText) {
+      return NextResponse.json({ error: 'No promo text provided' }, { status: 400 });
     }
 
-    // Normalize URL (auto-prepend https:// if missing)
-    const normalizedPromoUrl = normalizeUrl(promoUrl);
+    // Validate promo text length
+    if (promoText.length > 200) {
+      return NextResponse.json({ error: 'Promo text too long (max 200 chars)' }, { status: 400 });
+    }
 
-    // Validate URL format
-    try {
-      const url = new URL(normalizedPromoUrl);
-      // Only allow http/https
-      if (!['http:', 'https:'].includes(url.protocol)) {
-        return NextResponse.json({ error: 'Invalid URL protocol' }, { status: 400 });
+    // Normalize and validate hyperlink if provided
+    let normalizedHyperlink: string | null = null;
+    if (promoHyperlink) {
+      normalizedHyperlink = normalizeUrl(promoHyperlink);
+
+      // Validate URL format
+      try {
+        const url = new URL(normalizedHyperlink);
+        // Only allow http/https
+        if (!['http:', 'https:'].includes(url.protocol)) {
+          return NextResponse.json({ error: 'Invalid URL protocol' }, { status: 400 });
+        }
+      } catch {
+        return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 });
       }
-    } catch {
-      return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 });
-    }
 
-    // Validate URL length
-    if (normalizedPromoUrl.length > 500) {
-      return NextResponse.json({ error: 'URL too long (max 500 chars)' }, { status: 400 });
-    }
-
-    // Validate title if provided
-    if (promoTitle && promoTitle.length > 100) {
-      return NextResponse.json({ error: 'Title too long (max 100 chars)' }, { status: 400 });
+      // Validate URL length
+      if (normalizedHyperlink.length > 500) {
+        return NextResponse.json({ error: 'URL too long (max 500 chars)' }, { status: 400 });
+      }
     }
 
     // Look up the slot by token
@@ -71,7 +74,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'This broadcast slot has ended' }, { status: 410 });
     }
 
-    // Update promo link (can be changed multiple times during broadcast)
+    // Update promo (can be changed multiple times during broadcast)
     if (slot.djSlots && slot.djSlots.length > 0) {
       // Multi-DJ: update the specific DJ slot's promo
       const djSlotIndex = slot.djSlots.findIndex(
@@ -81,16 +84,16 @@ export async function POST(request: NextRequest) {
         const updatedDjSlots = [...slot.djSlots];
         updatedDjSlots[djSlotIndex] = {
           ...updatedDjSlots[djSlotIndex],
-          promoUrl: normalizedPromoUrl,
-          promoTitle: promoTitle || null,
+          promoText: promoText,
+          promoHyperlink: normalizedHyperlink,
         };
         await doc.ref.update({ djSlots: updatedDjSlots });
       }
     } else {
       // Single DJ: update show-level promo
       await doc.ref.update({
-        showPromoUrl: normalizedPromoUrl,
-        showPromoTitle: promoTitle || null,
+        showPromoText: promoText,
+        showPromoHyperlink: normalizedHyperlink,
       });
     }
 
@@ -98,21 +101,21 @@ export async function POST(request: NextRequest) {
     const chatMessage = {
       stationId: 'broadcast',
       username: username || slot.liveDjUsername || 'DJ',
-      message: promoTitle || normalizedPromoUrl,
+      message: promoText,
       timestamp: FieldValue.serverTimestamp(),
       isDJ: true,
       djSlotId: doc.id,
       messageType: 'promo',
-      promoUrl: normalizedPromoUrl,
-      promoTitle: promoTitle || null,
+      promoText: promoText,
+      promoHyperlink: normalizedHyperlink,
     };
 
     const chatRef = await db.collection('chats').doc('broadcast').collection('messages').add(chatMessage);
 
     return NextResponse.json({
       success: true,
-      promoUrl: normalizedPromoUrl,
-      promoTitle: promoTitle || null,
+      promoText: promoText,
+      promoHyperlink: normalizedHyperlink,
       messageId: chatRef.id,
     });
   } catch (error) {

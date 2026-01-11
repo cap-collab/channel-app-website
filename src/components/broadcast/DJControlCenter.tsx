@@ -34,6 +34,7 @@ interface DJControlCenterProps {
   isVenue?: boolean;
   onChangeUsername?: (newUsername: string) => void;
   initialPromoSubmitted?: boolean;
+  onChangeAudioSetup?: () => void;
 }
 
 export function DJControlCenter({
@@ -60,6 +61,7 @@ export function DJControlCenter({
   isVenue = false,
   onChangeUsername,
   initialPromoSubmitted = false,
+  onChangeAudioSetup,
 }: DJControlCenterProps) {
   const [copied, setCopied] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
@@ -96,7 +98,7 @@ export function DJControlCenter({
           <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 lg:h-[calc(100vh-8rem)]">
             {/* Left Column - Controls */}
             <div className="flex-1 space-y-4 lg:overflow-y-auto">
-              {/* Audio Status */}
+              {/* Audio System */}
               <AudioStatusPanel
                 inputMethod={inputMethod}
                 stream={audioStream}
@@ -106,6 +108,7 @@ export function DJControlCenter({
                 goLiveMessage={goLiveMessage}
                 onGoLive={onGoLive}
                 isGoingLive={isGoingLive}
+                onChangeAudioSetup={onChangeAudioSetup}
               />
 
               {/* Broadcast Settings */}
@@ -158,7 +161,7 @@ export function DJControlCenter({
 
             {/* Right Column - Chat */}
             {slot && (
-              <div className="lg:w-96 lg:flex-shrink-0 lg:h-full flex flex-col">
+              <div className="lg:w-96 lg:flex-shrink-0 lg:h-full flex flex-col overflow-hidden">
                 <DJChatPanel
                   broadcastToken={broadcastToken}
                   slotId={slot.id}

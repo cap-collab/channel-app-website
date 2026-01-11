@@ -33,7 +33,6 @@ export function LiveControlBar({ stream, isLive, tipTotalCents, tipCount }: Live
   const level = useAudioLevel(stream);
   const [listenerCount, setListenerCount] = useState(0);
   const [loveCount, setLoveCount] = useState(0);
-  const [messageCount, setMessageCount] = useState(0);
 
   // Subscribe to activity counts
   useEffect(() => {
@@ -53,17 +52,13 @@ export function LiveControlBar({ stream, isLive, tipTotalCents, tipCount }: Live
 
     const unsubMessages = onSnapshot(messagesQuery, (snapshot) => {
       let loves = 0;
-      let msgs = 0;
       snapshot.forEach((doc) => {
         const data = doc.data();
         if (data.messageType === 'love' || data.message?.includes(' is ❤️')) {
           loves += 1;
-        } else {
-          msgs += 1;
         }
       });
       setLoveCount(loves);
-      setMessageCount(msgs);
     });
 
     return () => unsubMessages();
@@ -134,39 +129,31 @@ export function LiveControlBar({ stream, isLive, tipTotalCents, tipCount }: Live
 
         {/* Metrics - visible from afar */}
         <div className="flex items-center gap-4 flex-shrink-0">
-          {/* Listeners - large */}
-          <div className="flex items-center gap-1.5" title="Listeners">
-            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.536a5 5 0 001.414 1.414m2.828-9.9a9 9 0 012.828-2.828" />
+          {/* Listeners - large with headphone icon */}
+          <div className="flex items-center gap-2" title="Listeners">
+            <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 1a9 9 0 00-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7a9 9 0 00-9-9z" />
             </svg>
-            <span className="text-white font-bold text-lg tabular-nums">{listenerCount}</span>
+            <span className="text-white font-bold text-xl tabular-nums">{listenerCount}</span>
           </div>
 
           {/* Tips - large and prominent */}
-          <div className="flex items-center gap-1.5" title={`${tipCount} ${tipCount === 1 ? 'tip' : 'tips'}`}>
-            <span className="text-lg">💰</span>
-            <span className={`font-bold text-lg tabular-nums ${tipTotalCents > 0 ? 'text-green-400' : 'text-gray-400'}`}>
+          <div className="flex items-center gap-2" title={`${tipCount} ${tipCount === 1 ? 'tip' : 'tips'}`}>
+            <span className="text-xl">💰</span>
+            <span className={`font-bold text-xl tabular-nums ${tipTotalCents > 0 ? 'text-green-400' : 'text-gray-400'}`}>
               {formatTips(tipTotalCents)}
             </span>
             {tipCount > 0 && (
-              <span className="text-gray-500 text-sm">({tipCount})</span>
+              <span className="text-gray-500 text-base">({tipCount})</span>
             )}
           </div>
 
-          {/* Loves - smaller */}
-          <div className="flex items-center gap-1" title="Loves">
-            <svg className="w-4 h-4 text-red-400" fill="currentColor" viewBox="0 0 24 24">
+          {/* Loves */}
+          <div className="flex items-center gap-1.5" title="Loves">
+            <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
             </svg>
-            <span className="text-gray-300 text-sm tabular-nums">{loveCount}</span>
-          </div>
-
-          {/* Messages - smaller */}
-          <div className="flex items-center gap-1" title="Messages">
-            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            <span className="text-gray-300 text-sm tabular-nums">{messageCount}</span>
+            <span className="text-white font-bold text-lg tabular-nums">{loveCount}</span>
           </div>
         </div>
       </div>

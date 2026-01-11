@@ -7,10 +7,10 @@ interface BroadcastSettingsPanelProps {
   broadcastToken: string;
   djUsername: string;
   userId?: string;
-  promoUrl?: string;
-  promoTitle?: string;
+  promoText?: string;
+  promoHyperlink?: string;
   thankYouMessage?: string;
-  onPromoChange?: (url: string, title: string) => void;
+  onPromoChange?: (text: string, hyperlink: string) => void;
   onThankYouChange?: (message: string) => void;
 }
 
@@ -18,15 +18,15 @@ export function BroadcastSettingsPanel({
   broadcastToken,
   djUsername,
   userId,
-  promoUrl = '',
-  promoTitle = '',
+  promoText = '',
+  promoHyperlink = '',
   thankYouMessage = '',
   onPromoChange,
   onThankYouChange,
 }: BroadcastSettingsPanelProps) {
   const [editingField, setEditingField] = useState<'promo' | 'thankYou' | null>(null);
-  const [tempPromoUrl, setTempPromoUrl] = useState(promoUrl);
-  const [tempPromoTitle, setTempPromoTitle] = useState(promoTitle);
+  const [tempPromoText, setTempPromoText] = useState(promoText);
+  const [tempPromoHyperlink, setTempPromoHyperlink] = useState(promoHyperlink);
   const [tempThankYou, setTempThankYou] = useState(thankYouMessage);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,20 +36,20 @@ export function BroadcastSettingsPanel({
     setError(null);
 
     try {
-      const normalizedUrl = tempPromoUrl ? normalizeUrl(tempPromoUrl) : '';
+      const normalizedHyperlink = tempPromoHyperlink ? normalizeUrl(tempPromoHyperlink) : '';
       const response = await fetch('/api/broadcast/dj-promo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           broadcastToken,
-          promoUrl: normalizedUrl,
-          promoTitle: tempPromoTitle,
+          promoText: tempPromoText,
+          promoHyperlink: normalizedHyperlink,
           username: djUsername,
         }),
       });
 
       if (response.ok) {
-        onPromoChange?.(normalizedUrl, tempPromoTitle);
+        onPromoChange?.(tempPromoText, normalizedHyperlink);
         setEditingField(null);
       } else {
         const data = await response.json();
@@ -92,8 +92,8 @@ export function BroadcastSettingsPanel({
   };
 
   const handleCancel = () => {
-    setTempPromoUrl(promoUrl);
-    setTempPromoTitle(promoTitle);
+    setTempPromoText(promoText);
+    setTempPromoHyperlink(promoHyperlink);
     setTempThankYou(thankYouMessage);
     setEditingField(null);
     setError(null);
@@ -128,25 +128,27 @@ export function BroadcastSettingsPanel({
       )}
 
       <div className="space-y-3">
-        {/* Promo Link */}
+        {/* Promo */}
         {editingField === 'promo' ? (
           <div className="space-y-2">
-            <label className="block text-gray-400 text-xs">Promo Link</label>
+            <label className="block text-gray-400 text-xs">Promo Text</label>
             <input
               type="text"
-              value={tempPromoUrl}
-              onChange={(e) => setTempPromoUrl(e.target.value)}
+              value={tempPromoText}
+              onChange={(e) => setTempPromoText(e.target.value)}
+              placeholder="New album out now!"
+              className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+              maxLength={200}
+            />
+            <label className="block text-gray-400 text-xs">Promo Hyperlink (optional)</label>
+            <input
+              type="text"
+              value={tempPromoHyperlink}
+              onChange={(e) => setTempPromoHyperlink(e.target.value)}
               placeholder="bandcamp.com/your-album"
               className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
             />
-            <input
-              type="text"
-              value={tempPromoTitle}
-              onChange={(e) => setTempPromoTitle(e.target.value)}
-              placeholder="Title (optional)"
-              className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-              maxLength={100}
-            />
+            <p className="text-gray-600 text-xs">Clicking the promo text will open this link</p>
             <div className="flex gap-2">
               <button
                 onClick={handleCancel}
@@ -157,7 +159,7 @@ export function BroadcastSettingsPanel({
               </button>
               <button
                 onClick={handleSavePromo}
-                disabled={saving}
+                disabled={saving || !tempPromoText.trim()}
                 className="flex-1 bg-accent hover:bg-accent-hover disabled:bg-gray-700 text-white text-sm py-2 rounded-lg transition-colors"
               >
                 {saving ? 'Saving...' : 'Save'}
@@ -167,21 +169,22 @@ export function BroadcastSettingsPanel({
         ) : (
           <div
             onClick={() => {
-              setTempPromoUrl(promoUrl);
-              setTempPromoTitle(promoTitle);
+              setTempPromoText(promoText);
+              setTempPromoHyperlink(promoHyperlink);
               setEditingField('promo');
             }}
             className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-800/50 cursor-pointer transition-colors"
           >
             <div className="flex items-center gap-2 min-w-0">
               <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
               </svg>
               <div className="min-w-0">
-                <p className="text-gray-400 text-xs">Promo Link</p>
-                {promoUrl ? (
+                <p className="text-gray-400 text-xs">Promo</p>
+                {promoText ? (
                   <p className="text-white text-sm truncate">
-                    {promoTitle || shortenUrl(promoUrl)}
+                    {promoText}
+                    {promoHyperlink && <span className="text-gray-500 ml-1">(linked)</span>}
                   </p>
                 ) : (
                   <p className="text-gray-600 text-sm">Not set</p>

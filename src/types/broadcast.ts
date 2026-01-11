@@ -21,8 +21,8 @@ export interface DJSlot {
   // Live DJ info (filled when DJ claims slot)
   liveDjUserId?: string;     // Firebase UID of DJ who claimed this slot
   liveDjUsername?: string;   // Their chat username
-  promoUrl?: string;         // DJ-specific promo link (overrides show promo)
-  promoTitle?: string;       // Optional title for promo
+  promoText?: string;        // Promo text to display
+  promoHyperlink?: string;   // Clickable promo link (optional)
 }
 
 // Generic timestamp interface that works with both Admin and Client SDK
@@ -54,8 +54,8 @@ export interface BroadcastSlot {
   liveDjBio?: string;          // DJ bio (from their profile)
   liveDjPhotoUrl?: string;     // DJ profile picture URL
   // Show-level promo (default for all DJs)
-  showPromoUrl?: string;
-  showPromoTitle?: string;
+  showPromoText?: string;
+  showPromoHyperlink?: string;
   // Recording (for downloadable audio files)
   egressId?: string;              // HLS egress ID
   recordingEgressId?: string;     // MP4 file egress ID
@@ -87,8 +87,8 @@ export interface BroadcastSlotSerialized {
   liveDjBio?: string;
   liveDjPhotoUrl?: string;
   // Show-level promo
-  showPromoUrl?: string;
-  showPromoTitle?: string;
+  showPromoText?: string;
+  showPromoHyperlink?: string;
   // Recording (for downloadable audio files)
   egressId?: string;
   recordingEgressId?: string;
@@ -148,8 +148,8 @@ export interface ChatMessage {
   isDJ?: boolean;              // true if sender is current DJ
   djSlotId?: string;           // broadcast-slot ID for validation
   messageType?: ChatMessageType;
-  promoUrl?: string;           // only for messageType: 'promo'
-  promoTitle?: string;         // optional display title
+  promoText?: string;          // Promo text to display
+  promoHyperlink?: string;     // Clickable promo link (optional)
 }
 
 export interface ChatMessageSerialized {
@@ -162,8 +162,8 @@ export interface ChatMessageSerialized {
   isDJ?: boolean;
   djSlotId?: string;
   messageType?: ChatMessageType;
-  promoUrl?: string;
-  promoTitle?: string;
+  promoText?: string;
+  promoHyperlink?: string;
 }
 
 // Constants

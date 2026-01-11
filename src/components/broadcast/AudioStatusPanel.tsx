@@ -12,6 +12,7 @@ interface AudioStatusPanelProps {
   goLiveMessage?: string;
   onGoLive: () => void;
   isGoingLive: boolean;
+  onChangeAudioSetup?: () => void;
 }
 
 export function AudioStatusPanel({
@@ -23,6 +24,7 @@ export function AudioStatusPanel({
   goLiveMessage,
   onGoLive,
   isGoingLive,
+  onChangeAudioSetup,
 }: AudioStatusPanelProps) {
   const level = useAudioLevel(stream);
   const hasAudioLevels = level > 0.01;
@@ -61,10 +63,10 @@ export function AudioStatusPanel({
 
   return (
     <div className="bg-[#252525] rounded-xl p-4">
-      <h3 className="text-gray-400 text-sm font-medium mb-3">Audio Status</h3>
+      <h3 className="text-gray-400 text-sm font-medium mb-3">Audio System</h3>
 
-      {/* Input method badge */}
-      <div className="mb-4">
+      {/* Input method badge with change button */}
+      <div className="mb-4 flex items-center gap-2">
         <span className="inline-flex items-center gap-2 bg-gray-800 text-white text-sm px-3 py-1.5 rounded-lg">
           {inputMethod === 'system' && (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -83,6 +85,14 @@ export function AudioStatusPanel({
           )}
           {getInputMethodLabel()}
         </span>
+        {onChangeAudioSetup && !isLive && (
+          <button
+            onClick={onChangeAudioSetup}
+            className="text-accent hover:text-accent-hover text-sm transition-colors"
+          >
+            Change
+          </button>
+        )}
       </div>
 
       {/* Status checklist */}
@@ -106,6 +116,15 @@ export function AudioStatusPanel({
           </div>
         ))}
       </div>
+
+      {/* Microphone warning - show when audio levels detected */}
+      {hasAudioLevels && !isLive && (
+        <div className="bg-yellow-900/30 border border-yellow-700/50 rounded-lg p-3 mb-4">
+          <p className="text-yellow-200 text-sm">
+            Verify sound is not coming from your microphone (if audio levels are moving)
+          </p>
+        </div>
+      )}
 
       {/* Action: GO LIVE button (pre-live) or Troubleshoot link (live) */}
       {!isLive ? (

@@ -53,8 +53,8 @@ export function BroadcastClient() {
   // Start directly at profile step (non-blocking login is inline in DJProfileSetup)
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>('profile');
   const [djUsername, setDjUsername] = useState<string>('');
-  const [initialPromoUrl, setInitialPromoUrl] = useState<string | undefined>();
-  const [initialPromoTitle, setInitialPromoTitle] = useState<string | undefined>();
+  const [initialPromoText, setInitialPromoText] = useState<string | undefined>();
+  const [initialPromoHyperlink, setInitialPromoHyperlink] = useState<string | undefined>();
   const [initialThankYouMessage, setInitialThankYouMessage] = useState<string | undefined>();
 
   // Multi-DJ show: track current DJ slot to detect DJ changes
@@ -86,8 +86,8 @@ export function BroadcastClient() {
       if (newSlotId !== currentDjSlotId && currentDjSlotId !== null && djUsername) {
         // New DJ slot started - reset profile for the new DJ
         setDjUsername('');
-        setInitialPromoUrl(undefined);
-        setInitialPromoTitle(undefined);
+        setInitialPromoText(undefined);
+        setInitialPromoHyperlink(undefined);
         setInitialThankYouMessage(undefined);
         setInitialPromoSubmitted(false);
         setOnboardingStep('profile');
@@ -238,15 +238,15 @@ export function BroadcastClient() {
     const success = await broadcast.goLive(audioStream);
 
     // If we have an initial promo from onboarding, submit it now
-    if (success && initialPromoUrl && token) {
+    if (success && initialPromoText && token) {
       try {
         const promoRes = await fetch('/api/broadcast/dj-promo', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             broadcastToken: token,
-            promoUrl: normalizeUrl(initialPromoUrl),
-            promoTitle: initialPromoTitle,
+            promoText: initialPromoText,
+            promoHyperlink: initialPromoHyperlink ? normalizeUrl(initialPromoHyperlink) : undefined,
             username: djUsername,
           }),
         });
@@ -267,7 +267,7 @@ export function BroadcastClient() {
     if (!success) {
       console.error('Failed to go live:', broadcast.error);
     }
-  }, [audioStream, broadcast, initialPromoUrl, initialPromoTitle, token, djUsername]);
+  }, [audioStream, broadcast, initialPromoText, initialPromoHyperlink, token, djUsername]);
 
   const handleRtmpReady = useCallback(async () => {
     // For RTMP, the audio comes from the ingress, not local capture
@@ -302,10 +302,10 @@ export function BroadcastClient() {
   }, [audioStream, broadcast]);
 
   // DJ onboarding handler
-  const handleProfileComplete = useCallback((username: string, promoUrl?: string, promoTitle?: string, thankYouMessage?: string) => {
+  const handleProfileComplete = useCallback((username: string, promoText?: string, promoHyperlink?: string, thankYouMessage?: string) => {
     setDjUsername(username);
-    setInitialPromoUrl(promoUrl);
-    setInitialPromoTitle(promoTitle);
+    setInitialPromoText(promoText);
+    setInitialPromoHyperlink(promoHyperlink);
     setInitialThankYouMessage(thankYouMessage);
     setOnboardingStep('audio');
   }, []);
@@ -529,6 +529,7 @@ export function BroadcastClient() {
         isVenue={slot?.broadcastType === 'venue'}
         onChangeUsername={slot?.broadcastType === 'venue' ? setDjUsername : undefined}
         initialPromoSubmitted={initialPromoSubmitted}
+        onChangeAudioSetup={handleBack}
       />
     );
   }

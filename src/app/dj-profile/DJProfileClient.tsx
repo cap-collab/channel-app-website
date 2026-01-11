@@ -16,8 +16,8 @@ import { uploadDJPhoto, deleteDJPhoto, validatePhoto } from "@/lib/photo-upload"
 
 interface DJProfile {
   bio: string | null;
-  promoUrl: string | null;
-  promoTitle: string | null;
+  promoText: string | null;
+  promoHyperlink: string | null;
   stripeAccountId: string | null;
   thankYouMessage: string | null;
   photoUrl: string | null;
@@ -33,8 +33,8 @@ export function DJProfileClient() {
   const [chatUsername, setChatUsername] = useState<string | null>(null);
   const [djProfile, setDjProfile] = useState<DJProfile>({
     bio: null,
-    promoUrl: null,
-    promoTitle: null,
+    promoText: null,
+    promoHyperlink: null,
     stripeAccountId: null,
     thankYouMessage: null,
     photoUrl: null,
@@ -74,8 +74,8 @@ export function DJProfileClient() {
   const [saveThankYouSuccess, setSaveThankYouSuccess] = useState(false);
 
   // Form state - Promo section
-  const [promoUrlInput, setPromoUrlInput] = useState("");
-  const [promoTitleInput, setPromoTitleInput] = useState("");
+  const [promoTextInput, setPromoTextInput] = useState("");
+  const [promoHyperlinkInput, setPromoHyperlinkInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -95,15 +95,15 @@ export function DJProfileClient() {
         if (data.djProfile) {
           setDjProfile({
             bio: data.djProfile.bio || null,
-            promoUrl: data.djProfile.promoUrl || null,
-            promoTitle: data.djProfile.promoTitle || null,
+            promoText: data.djProfile.promoText || null,
+            promoHyperlink: data.djProfile.promoHyperlink || null,
             stripeAccountId: data.djProfile.stripeAccountId || null,
             thankYouMessage: data.djProfile.thankYouMessage || null,
             photoUrl: data.djProfile.photoUrl || null,
           });
           setBioInput(data.djProfile.bio || "");
-          setPromoUrlInput(data.djProfile.promoUrl || "");
-          setPromoTitleInput(data.djProfile.promoTitle || "");
+          setPromoTextInput(data.djProfile.promoText || "");
+          setPromoHyperlinkInput(data.djProfile.promoHyperlink || "");
           setThankYouInput(data.djProfile.thankYouMessage || "");
         }
       }
@@ -242,10 +242,10 @@ export function DJProfileClient() {
 
     try {
       const userRef = doc(db, "users", user.uid);
-      const normalizedPromoUrl = promoUrlInput.trim() ? normalizeUrl(promoUrlInput.trim()) : null;
+      const normalizedHyperlink = promoHyperlinkInput.trim() ? normalizeUrl(promoHyperlinkInput.trim()) : null;
       await updateDoc(userRef, {
-        "djProfile.promoUrl": normalizedPromoUrl,
-        "djProfile.promoTitle": promoTitleInput.trim() || null,
+        "djProfile.promoText": promoTextInput.trim() || null,
+        "djProfile.promoHyperlink": normalizedHyperlink,
       });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
@@ -646,33 +646,37 @@ export function DJProfileClient() {
             </p>
           </section>
 
-          {/* Promo Link section */}
+          {/* Promo section */}
           <section>
             <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-              Promo Link
+              Promo
             </h2>
             <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
               <div>
                 <label className="block text-gray-400 text-sm mb-2">
-                  Promo URL
+                  Promo Text
                 </label>
                 <input
                   type="text"
-                  value={promoUrlInput}
-                  onChange={(e) => setPromoUrlInput(e.target.value)}
-                  placeholder="bandcamp.com/your-album"
+                  value={promoTextInput}
+                  onChange={(e) => setPromoTextInput(e.target.value)}
+                  placeholder="e.g., New album out now!"
+                  maxLength={200}
                   className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
+                <p className="text-gray-600 text-xs mt-1 text-right">
+                  {promoTextInput.length}/200
+                </p>
               </div>
               <div>
                 <label className="block text-gray-400 text-sm mb-2">
-                  Promo Title (optional)
+                  Promo Hyperlink (optional)
                 </label>
                 <input
                   type="text"
-                  value={promoTitleInput}
-                  onChange={(e) => setPromoTitleInput(e.target.value)}
-                  placeholder="e.g., New album out now!"
+                  value={promoHyperlinkInput}
+                  onChange={(e) => setPromoHyperlinkInput(e.target.value)}
+                  placeholder="bandcamp.com/your-album"
                   className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
               </div>
@@ -685,11 +689,11 @@ export function DJProfileClient() {
                     : "bg-white text-black hover:bg-gray-100"
                 } disabled:opacity-50`}
               >
-                {saving ? "Saving..." : saveSuccess ? "Saved!" : "Save Promo Link"}
+                {saving ? "Saving..." : saveSuccess ? "Saved!" : "Save Promo"}
               </button>
             </div>
             <p className="text-gray-600 text-xs mt-2 px-1">
-              This link appears in chat when you&apos;re live on Channel Broadcast.
+              This appears in chat when you&apos;re live on Channel Broadcast.
             </p>
           </section>
 

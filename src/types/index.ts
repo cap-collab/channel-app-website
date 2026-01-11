@@ -66,8 +66,8 @@ export interface UserDocument {
   lastWatchlistEmailAt?: Date;
   djProfile?: {
     bio: string | null;
-    promoUrl: string | null;
-    promoTitle: string | null;
+    promoText: string | null;
+    promoHyperlink: string | null;
     stripeAccountId: string | null;
     stripeOnboarded: boolean;
     photoUrl: string | null;

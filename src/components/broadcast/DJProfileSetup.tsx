@@ -30,15 +30,15 @@ import { normalizeUrl } from '@/lib/url';
 interface DJProfileSetupProps {
   defaultUsername?: string;
   broadcastType?: 'venue' | 'remote';
-  onComplete: (username: string, promoUrl?: string, promoTitle?: string, thankYouMessage?: string) => void;
+  onComplete: (username: string, promoText?: string, promoHyperlink?: string, thankYouMessage?: string) => void;
 }
 
 export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: DJProfileSetupProps) {
   const { user, isAuthenticated, signInWithGoogle, signInWithApple, sendEmailLink, emailSent, resetEmailSent, loading: authLoading } = useAuthContext();
   const { chatUsername: savedUsername, djProfile, loading: profileLoading } = useUserProfile(user?.uid);
   const [username, setUsername] = useState(defaultUsername || '');
-  const [promoUrl, setPromoUrl] = useState('');
-  const [promoTitle, setPromoTitle] = useState('');
+  const [promoText, setPromoText] = useState('');
+  const [promoHyperlink, setPromoHyperlink] = useState('');
   const [thankYouMessage, setThankYouMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -117,20 +117,20 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
     }
   }, [savedUsername]);
 
-  // Pre-fill promo URL/title and thank you message from DJ profile (if available and not already set)
+  // Pre-fill promo text/hyperlink and thank you message from DJ profile (if available and not already set)
   useEffect(() => {
-    if (djProfile && !promoUrl) {
-      if (djProfile.promoUrl) {
-        setPromoUrl(djProfile.promoUrl);
+    if (djProfile && !promoText) {
+      if (djProfile.promoText) {
+        setPromoText(djProfile.promoText);
       }
-      if (djProfile.promoTitle) {
-        setPromoTitle(djProfile.promoTitle);
+      if (djProfile.promoHyperlink) {
+        setPromoHyperlink(djProfile.promoHyperlink);
       }
       if (djProfile.thankYouMessage) {
         setThankYouMessage(djProfile.thankYouMessage);
       }
     }
-  }, [djProfile, promoUrl]);
+  }, [djProfile, promoText]);
 
   // Get valid username for saving during sign-in (if valid)
   // Must match validateUsername() validation rules
@@ -282,16 +282,16 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
       }
     }
 
-    // Validate promo URL if provided
-    const urlError = validateUrl(promoUrl);
-    if (urlError) {
-      setError(urlError);
+    // Validate promo text if provided
+    if (promoText && promoText.length > 200) {
+      setError('Promo text must be 200 characters or less');
       return;
     }
 
-    // Validate promo title if provided
-    if (promoTitle && promoTitle.length > 100) {
-      setError('Title must be 100 characters or less');
+    // Validate promo hyperlink if provided
+    const urlError = validateUrl(promoHyperlink);
+    if (urlError) {
+      setError(urlError);
       return;
     }
 
@@ -303,8 +303,8 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
 
     // No API call needed - username will be saved when going live
     // This allows the flow to work without Firebase Admin SDK
-    const normalizedPromoUrl = promoUrl ? normalizeUrl(promoUrl) : undefined;
-    onComplete(username.trim(), normalizedPromoUrl, promoTitle || undefined, thankYouMessage.trim() || undefined);
+    const normalizedHyperlink = promoHyperlink ? normalizeUrl(promoHyperlink) : undefined;
+    onComplete(username.trim(), promoText.trim() || undefined, normalizedHyperlink, thankYouMessage.trim() || undefined);
   };
 
   // Show loading state while fetching user profile
@@ -432,39 +432,42 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
           Continue to Go Live
         </button>
 
-        {/* Promo Link (Optional) */}
+        {/* Promo Text (Optional) */}
         <div>
-          <label htmlFor="promoUrl" className="block text-gray-400 text-sm mb-2">
-            Promo link <span className="text-gray-600">(optional)</span>
+          <label htmlFor="promoText" className="block text-gray-400 text-sm mb-2">
+            Promo text <span className="text-gray-600">(optional)</span>
           </label>
           <input
-            id="promoUrl"
+            id="promoText"
             type="text"
-            value={promoUrl}
-            onChange={(e) => setPromoUrl(e.target.value)}
-            placeholder="bandcamp.com/your-album"
+            value={promoText}
+            onChange={(e) => setPromoText(e.target.value)}
+            placeholder="New album out now!"
+            maxLength={200}
             className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-gray-500"
           />
           <p className="text-gray-500 text-xs mt-1">
-            Share a link to your music, merch, or tickets
+            This text appears in chat during your broadcast ({promoText.length}/200)
           </p>
         </div>
 
-        {/* Promo Title (Optional) */}
-        {promoUrl && (
+        {/* Promo Hyperlink (Optional) */}
+        {promoText && (
           <div>
-            <label htmlFor="promoTitle" className="block text-gray-400 text-sm mb-2">
-              Link title <span className="text-gray-600">(optional)</span>
+            <label htmlFor="promoHyperlink" className="block text-gray-400 text-sm mb-2">
+              Promo hyperlink <span className="text-gray-600">(optional)</span>
             </label>
             <input
-              id="promoTitle"
+              id="promoHyperlink"
               type="text"
-              value={promoTitle}
-              onChange={(e) => setPromoTitle(e.target.value)}
-              placeholder="New album out now!"
+              value={promoHyperlink}
+              onChange={(e) => setPromoHyperlink(e.target.value)}
+              placeholder="bandcamp.com/your-album"
               className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-gray-500"
-              maxLength={100}
             />
+            <p className="text-gray-500 text-xs mt-1">
+              Clicking the promo text will open this link
+            </p>
           </div>
         )}
 
