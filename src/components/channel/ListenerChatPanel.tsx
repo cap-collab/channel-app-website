@@ -385,18 +385,19 @@ export function ListenerChatPanel({
       {isLive && currentPromo && currentPromo.promoText && (() => {
         const hasHyperlink = !!currentPromo.promoHyperlink;
         const content = (
-          <div className={`flex items-center gap-2 px-4 py-3 bg-accent/10 border-b border-gray-800 flex-shrink-0 ${hasHyperlink ? 'hover:bg-accent/20 cursor-pointer' : ''}`}>
-            <span className="text-white font-semibold text-sm">{currentPromo.username}</span>
-            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title="Live DJ" />
-            <span className="text-gray-500">·</span>
-            <span className={`text-sm truncate flex-1 ${hasHyperlink ? 'text-accent' : 'text-white'}`}>
+          <div className={`px-4 py-3 bg-accent/10 border-b border-gray-800 flex-shrink-0 ${hasHyperlink ? 'hover:bg-accent/20 cursor-pointer' : ''}`}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-white font-semibold text-sm">{currentPromo.username}</span>
+              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title="Live DJ" />
+              {hasHyperlink && (
+                <svg className="w-4 h-4 text-accent flex-shrink-0 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              )}
+            </div>
+            <p className={`text-sm ${hasHyperlink ? 'text-accent' : 'text-white'}`}>
               {currentPromo.promoText}
-            </span>
-            {hasHyperlink && (
-              <svg className="w-4 h-4 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-            )}
+            </p>
           </div>
         );
 
