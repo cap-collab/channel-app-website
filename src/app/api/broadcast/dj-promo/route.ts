@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Normalize and validate hyperlink if provided
-    let normalizedHyperlink: string | null = null;
+    let normalizedHyperlink: string | undefined = undefined;
     if (promoHyperlink) {
       normalizedHyperlink = normalizeUrl(promoHyperlink);
 
