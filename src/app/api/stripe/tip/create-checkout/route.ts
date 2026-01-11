@@ -153,10 +153,26 @@ export async function POST(request: NextRequest) {
     const effectiveTipperUserId = tipperUserId || 'guest';
     const effectiveTipperUsername = tipperUsername || 'Guest';
 
-    // Determine if we can use destination charge (DJ has connected Stripe)
+    // Determine if we can use destination charge (DJ has connected Stripe AND completed onboarding)
     // If yes: payment goes directly to DJ, we take application fee - fully automated
     // If no: payment goes to platform, we transfer later via cron job
-    const useDestinationCharge = !!djStripeAccountId;
+    let useDestinationCharge = false;
+    if (djStripeAccountId) {
+      try {
+        // Check if DJ's Stripe account has transfers enabled
+        const account = await stripe.accounts.retrieve(djStripeAccountId);
+        useDestinationCharge = account.capabilities?.transfers === 'active';
+        if (!useDestinationCharge) {
+          console.log('[tip] DJ Stripe account not ready for transfers:', {
+            djStripeAccountId,
+            capabilities: account.capabilities
+          });
+        }
+      } catch (err) {
+        console.error('[tip] Error checking DJ Stripe account:', err);
+        useDestinationCharge = false;
+      }
+    }
 
     // Common metadata for tracking
     const tipMetadata = {
