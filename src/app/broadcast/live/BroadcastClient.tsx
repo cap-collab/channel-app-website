@@ -123,6 +123,7 @@ export function BroadcastClient() {
   const broadcast = useBroadcast(participantIdentity, slot?.id, djInfo, token || undefined);
 
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
+  const [audioSourceLabel, setAudioSourceLabel] = useState<string | null>(null);
   const [dismissedWarning, setDismissedWarning] = useState(false);
   const [isGoingLive, setIsGoingLive] = useState(false);
   const [canGoLive, setCanGoLive] = useState(false);
@@ -215,6 +216,11 @@ export function BroadcastClient() {
 
   const handleStream = useCallback((stream: MediaStream) => {
     setAudioStream(stream);
+    // Extract the audio source label from the stream
+    const audioTracks = stream.getAudioTracks();
+    if (audioTracks.length > 0) {
+      setAudioSourceLabel(audioTracks[0].label || null);
+    }
   }, []);
 
   const handleError = useCallback((error: string) => {
@@ -227,6 +233,7 @@ export function BroadcastClient() {
     if (audioStream) {
       audioStream.getTracks().forEach(t => t.stop());
       setAudioStream(null);
+      setAudioSourceLabel(null);
     }
     broadcast.setInputMethod(null);
   }, [audioStream, broadcast]);
@@ -447,18 +454,19 @@ export function BroadcastClient() {
           userId={user?.uid}
           tipTotalCents={tipTotalCents}
           tipCount={tipCount}
-          promoUrl={initialPromoUrl}
-          promoTitle={initialPromoTitle}
+          promoText={initialPromoText}
+          promoHyperlink={initialPromoHyperlink}
           thankYouMessage={initialThankYouMessage}
-          onPromoChange={(url, title) => {
-            setInitialPromoUrl(url);
-            setInitialPromoTitle(title);
+          onPromoChange={(text, hyperlink) => {
+            setInitialPromoText(text);
+            setInitialPromoHyperlink(hyperlink);
             setInitialPromoSubmitted(true);
           }}
           onThankYouChange={setInitialThankYouMessage}
           isVenue={slot?.broadcastType === 'venue'}
           onChangeUsername={slot?.broadcastType === 'venue' ? setDjUsername : undefined}
           initialPromoSubmitted={initialPromoSubmitted}
+          audioSourceLabel={audioSourceLabel}
         />
 
         {/* New DJ profile overlay for multi-DJ shows */}
@@ -518,18 +526,19 @@ export function BroadcastClient() {
         userId={user?.uid}
         tipTotalCents={tipTotalCents}
         tipCount={tipCount}
-        promoUrl={initialPromoUrl}
-        promoTitle={initialPromoTitle}
+        promoText={initialPromoText}
+        promoHyperlink={initialPromoHyperlink}
         thankYouMessage={initialThankYouMessage}
-        onPromoChange={(url, title) => {
-          setInitialPromoUrl(url);
-          setInitialPromoTitle(title);
+        onPromoChange={(text, hyperlink) => {
+          setInitialPromoText(text);
+          setInitialPromoHyperlink(hyperlink);
         }}
         onThankYouChange={setInitialThankYouMessage}
         isVenue={slot?.broadcastType === 'venue'}
         onChangeUsername={slot?.broadcastType === 'venue' ? setDjUsername : undefined}
         initialPromoSubmitted={initialPromoSubmitted}
         onChangeAudioSetup={handleBack}
+        audioSourceLabel={audioSourceLabel}
       />
     );
   }

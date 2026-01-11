@@ -73,8 +73,8 @@ export function useListenerChat({ username }: UseListenerChatOptions): UseListen
             isDJ: data.isDJ || false,
             djSlotId: data.djSlotId,
             messageType: data.messageType || 'chat',
-            promoUrl: data.promoUrl,
-            promoTitle: data.promoTitle,
+            promoText: data.promoText,
+            promoHyperlink: data.promoHyperlink,
           };
           newMessages.push(msg);
 

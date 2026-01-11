@@ -173,8 +173,8 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
             broadcastType: data.broadcastType,
             liveDjUserId: data.liveDjUserId,
             liveDjUsername: data.liveDjUsername,
-            showPromoUrl: data.showPromoUrl,
-            showPromoTitle: data.showPromoTitle,
+            showPromoText: data.showPromoText,
+            showPromoHyperlink: data.showPromoHyperlink,
           };
           setCurrentShow(slot);
           setCurrentDJ(slot.liveDjUsername || slot.djName || null);

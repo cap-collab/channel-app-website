@@ -91,8 +91,7 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
   // Read DJ profile data directly from the slot (synced when DJ updates their profile)
   const djBio = slot.originalShow.liveDjBio || null;
   const djPhotoUrl = slot.originalShow.liveDjPhotoUrl || null;
-  const djPromoUrl = slot.originalShow.showPromoUrl || null;
-  const djPromoTitle = slot.originalShow.showPromoTitle || null;
+  const djPromoHyperlink = slot.originalShow.showPromoHyperlink || null;
 
   // Show tip button if DJ email is assigned (djEmail is set when show is created)
   const hasDjInfo = slot.originalShow.djEmail;
@@ -163,17 +162,19 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
               </div>
             )}
 
-            {/* Promo link */}
-            {djPromoUrl && (
+            {/* Promo link - show only link icon */}
+            {djPromoHyperlink && (
               <a
-                href={normalizeUrl(djPromoUrl)}
+                href={normalizeUrl(djPromoHyperlink)}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="text-accent hover:text-white text-xs px-2 py-1 bg-accent/10 rounded transition-colors truncate max-w-[100px]"
-                title={djPromoTitle || djPromoUrl}
+                className="text-accent hover:text-white p-1.5 bg-accent/10 rounded transition-colors"
+                title="Open promo link"
               >
-                {djPromoTitle || 'Promo'}
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
               </a>
             )}
 

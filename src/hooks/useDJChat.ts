@@ -34,7 +34,7 @@ interface UseDJChatReturn {
   isConnected: boolean;
   error: string | null;
   sendMessage: (text: string) => Promise<void>;
-  sendPromo: (url: string, title?: string) => Promise<void>;
+  sendPromo: (promoText: string, promoHyperlink?: string) => Promise<void>;
   promoUsed: boolean;
 }
 
@@ -77,8 +77,8 @@ export function useDJChat({ broadcastToken, slotId, djUsername }: UseDJChatOptio
             isDJ: data.isDJ || false,
             djSlotId: data.djSlotId,
             messageType: data.messageType || 'chat',
-            promoUrl: data.promoUrl,
-            promoTitle: data.promoTitle,
+            promoText: data.promoText,
+            promoHyperlink: data.promoHyperlink,
           });
 
           // Check if there's already a promo from this slot
@@ -127,15 +127,15 @@ export function useDJChat({ broadcastToken, slotId, djUsername }: UseDJChatOptio
   }, [djUsername, slotId]);
 
   // Send a promo message (can be called multiple times to update)
-  const sendPromo = useCallback(async (url: string, title?: string) => {
+  const sendPromo = useCallback(async (promoText: string, promoHyperlink?: string) => {
     try {
       const response = await fetch('/api/broadcast/dj-promo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           broadcastToken,
-          promoUrl: url,
-          promoTitle: title,
+          promoText,
+          promoHyperlink,
           username: djUsername,
         }),
       });

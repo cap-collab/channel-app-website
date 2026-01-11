@@ -92,8 +92,8 @@ export function useBroadcastSchedule(): UseBroadcastScheduleReturn {
             liveDjUsername: data.liveDjUsername,
             liveDjBio: data.liveDjBio,
             liveDjPhotoUrl: data.liveDjPhotoUrl,
-            showPromoUrl: data.showPromoUrl,
-            showPromoTitle: data.showPromoTitle,
+            showPromoText: data.showPromoText,
+            showPromoHyperlink: data.showPromoHyperlink,
           });
         });
         // Filter to only shows that overlap with selected day

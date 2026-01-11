@@ -394,30 +394,39 @@ export function ListenerChatPanel({
         </div>
       )}
 
-      {/* Pinned promo bar - only show when live */}
-      {isLive && currentPromo && currentPromo.promoUrl && (
-        <a
-          href={normalizeUrl(currentPromo.promoUrl)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 px-4 py-3 bg-accent/10 hover:bg-accent/20 border-b border-gray-800 transition-colors flex-shrink-0"
-        >
-          <span className="text-white font-semibold text-sm">{currentPromo.username}</span>
-          <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title="Live DJ" />
-          {currentPromo.promoTitle && (
-            <>
-              <span className="text-gray-500">·</span>
-              <span className="text-white text-sm truncate flex-1">{currentPromo.promoTitle}</span>
-            </>
-          )}
-          <span className="flex items-center gap-1 text-accent text-xs ml-auto flex-shrink-0">
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-            </svg>
-            {shortenUrl(currentPromo.promoUrl)}
-          </span>
-        </a>
-      )}
+      {/* Pinned promo bar - only show when live and there's promo text */}
+      {isLive && currentPromo && currentPromo.promoText && (() => {
+        const hasHyperlink = !!currentPromo.promoHyperlink;
+        const content = (
+          <div className={`flex items-center gap-2 px-4 py-3 bg-accent/10 border-b border-gray-800 flex-shrink-0 ${hasHyperlink ? 'hover:bg-accent/20 cursor-pointer' : ''}`}>
+            <span className="text-white font-semibold text-sm">{currentPromo.username}</span>
+            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title="Live DJ" />
+            <span className="text-gray-500">·</span>
+            <span className={`text-sm truncate flex-1 ${hasHyperlink ? 'text-accent' : 'text-white'}`}>
+              {currentPromo.promoText}
+            </span>
+            {hasHyperlink && (
+              <svg className="w-4 h-4 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            )}
+          </div>
+        );
+
+        if (hasHyperlink) {
+          return (
+            <a
+              href={normalizeUrl(currentPromo.promoHyperlink!)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block transition-colors"
+            >
+              {content}
+            </a>
+          );
+        }
+        return content;
+      })()}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto">

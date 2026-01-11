@@ -26,15 +26,16 @@ interface DJControlCenterProps {
   userId?: string;
   tipTotalCents: number;
   tipCount: number;
-  promoUrl?: string;
-  promoTitle?: string;
+  promoText?: string;
+  promoHyperlink?: string;
   thankYouMessage?: string;
-  onPromoChange?: (url: string, title: string) => void;
+  onPromoChange?: (text: string, hyperlink: string) => void;
   onThankYouChange?: (message: string) => void;
   isVenue?: boolean;
   onChangeUsername?: (newUsername: string) => void;
   initialPromoSubmitted?: boolean;
   onChangeAudioSetup?: () => void;
+  audioSourceLabel?: string | null;
 }
 
 export function DJControlCenter({
@@ -53,8 +54,8 @@ export function DJControlCenter({
   userId,
   tipTotalCents,
   tipCount,
-  promoUrl,
-  promoTitle,
+  promoText,
+  promoHyperlink,
   thankYouMessage,
   onPromoChange,
   onThankYouChange,
@@ -62,6 +63,7 @@ export function DJControlCenter({
   onChangeUsername,
   initialPromoSubmitted = false,
   onChangeAudioSetup,
+  audioSourceLabel,
 }: DJControlCenterProps) {
   const [copied, setCopied] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
@@ -109,6 +111,7 @@ export function DJControlCenter({
                 onGoLive={onGoLive}
                 isGoingLive={isGoingLive}
                 onChangeAudioSetup={onChangeAudioSetup}
+                audioSourceLabel={audioSourceLabel}
               />
 
               {/* Broadcast Settings */}
@@ -116,8 +119,8 @@ export function DJControlCenter({
                 broadcastToken={broadcastToken}
                 djUsername={djUsername}
                 userId={userId}
-                promoUrl={promoUrl}
-                promoTitle={promoTitle}
+                promoText={promoText}
+                promoHyperlink={promoHyperlink}
                 thankYouMessage={thankYouMessage}
                 onPromoChange={onPromoChange}
                 onThankYouChange={onThankYouChange}
