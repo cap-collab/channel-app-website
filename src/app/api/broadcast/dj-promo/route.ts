@@ -69,8 +69,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Token has expired' }, { status: 410 });
     }
 
-    // Check if slot is still valid
-    if (slot.status === 'completed' || slot.status === 'missed') {
+    // Check if slot end time has passed
+    const slotEndTime = slot.endTime.toMillis();
+    if (now > slotEndTime) {
       return NextResponse.json({ error: 'This broadcast slot has ended' }, { status: 410 });
     }
 
