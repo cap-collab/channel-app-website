@@ -152,27 +152,29 @@ export function AudioStatusPanel({
         )}
       </div>
 
-      {/* Status checklist */}
-      <div className="space-y-2 mb-4">
-        {statusItems.map((item) => (
-          <div key={item.id} className="flex items-center gap-2">
-            <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-              item.checked ? 'bg-green-500' : 'bg-gray-700'
-            }`}>
-              {item.checked ? (
-                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                <div className="w-2 h-2 bg-gray-500 rounded-full" />
-              )}
+      {/* Status checklist - only show when not live */}
+      {!isLive && (
+        <div className="space-y-2 mb-4">
+          {statusItems.map((item) => (
+            <div key={item.id} className="flex items-center gap-2">
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                item.checked ? 'bg-green-500' : 'bg-gray-700'
+              }`}>
+                {item.checked ? (
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <div className="w-2 h-2 bg-gray-500 rounded-full" />
+                )}
+              </div>
+              <span className={`text-sm ${item.checked ? 'text-white' : 'text-gray-500'}`}>
+                {item.label}
+              </span>
             </div>
-            <span className={`text-sm ${item.checked ? 'text-white' : 'text-gray-500'}`}>
-              {item.label}
-            </span>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Setup tip - show method-specific guidance when not live */}
       {!isLive && inputMethod === 'device' && (
