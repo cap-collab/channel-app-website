@@ -163,11 +163,36 @@ export async function POST(request: NextRequest) {
       usersProcessed++;
     }
 
+    // Add debug info
+    let totalFavorites = 0;
+    let showTypeFavorites = 0;
+
+    // Rescan to count for debugging
+    for (const userDoc of users) {
+      const pathParts = userDoc.name.split("/");
+      const userId = pathParts[pathParts.length - 1];
+      const favoritesResponse = await fetch(
+        `${FIRESTORE_BASE_URL}/users/${userId}/favorites?pageSize=500`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (favoritesResponse.ok) {
+        const favData = await favoritesResponse.json();
+        const favs = favData.documents || [];
+        totalFavorites += favs.length;
+        for (const fav of favs) {
+          if (fav.fields?.type?.stringValue === "show") {
+            showTypeFavorites++;
+          }
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       usersProcessed,
       totalFixed,
       changes,
+      debug: { totalFavorites, showTypeFavorites },
     });
   } catch (error) {
     console.error("Migration error:", error);
