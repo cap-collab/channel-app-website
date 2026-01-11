@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     let totalFixed = 0;
     let usersProcessed = 0;
-    const changes: Array<{ userId: string; docId: string; term: string }> = [];
+    const changes: Array<{ userId: string; docId: string; term: string; error?: string }> = [];
 
     for (const userDoc of users) {
       // Extract userId from document path
@@ -153,7 +153,9 @@ export async function POST(request: NextRequest) {
             changes.push({ userId, docId, term });
             console.log(`Fixed favorite for user ${userId}: "${term}" -> type="search"`);
           } else {
-            console.error(`Failed to update favorite ${docId} for user ${userId}`);
+            const errorText = await updateResponse.text();
+            console.error(`Failed to update favorite ${docId} for user ${userId}: ${errorText}`);
+            changes.push({ userId, docId, term, error: errorText });
           }
         }
       }
