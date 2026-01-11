@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useFavorites, Favorite, isRecurringFavorite } from "@/hooks/useFavorites";
 import { AuthModal } from "@/components/AuthModal";
@@ -181,8 +181,8 @@ export function MyShowsClient() {
     return { liveNow, comingUp, returningSoon, oneTime };
   }, [stationShows, allShows]);
 
-  // Handle search
-  const handleSearch = async (query: string) => {
+  // Handle search - memoized to prevent SearchBar re-renders
+  const handleSearch = useCallback(async (query: string) => {
     setSearchQuery(query);
     if (!query.trim()) {
       setSearchResults([]);
@@ -200,7 +200,7 @@ export function MyShowsClient() {
     } finally {
       setSearchLoading(false);
     }
-  };
+  }, []);
 
   const handleRemove = async (favorite: Favorite) => {
     setRemoving(favorite.id);
