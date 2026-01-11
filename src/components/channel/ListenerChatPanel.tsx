@@ -51,19 +51,6 @@ function formatTimeAgo(timestamp: number): string {
   return `${Math.floor(diff / 86400000)}d`;
 }
 
-function shortenUrl(urlString: string): string {
-  try {
-    const url = new URL(urlString);
-    let display = url.host;
-    if (display.startsWith('www.')) {
-      display = display.slice(4);
-    }
-    return display;
-  } catch {
-    return urlString;
-  }
-}
-
 function ChatMessage({
   message,
   isOwnMessage,

@@ -99,24 +99,6 @@ export function BroadcastSettingsPanel({
     setError(null);
   };
 
-  // Shorten URL for display
-  const shortenUrl = (urlString: string): string => {
-    if (!urlString) return '';
-    try {
-      const url = new URL(urlString.startsWith('http') ? urlString : `https://${urlString}`);
-      let display = url.host;
-      if (display.startsWith('www.')) {
-        display = display.slice(4);
-      }
-      if (url.pathname && url.pathname !== '/') {
-        display += url.pathname.slice(0, 20) + (url.pathname.length > 20 ? '...' : '');
-      }
-      return display;
-    } catch {
-      return urlString.slice(0, 30) + (urlString.length > 30 ? '...' : '');
-    }
-  };
-
   return (
     <div className="bg-[#252525] rounded-xl p-4">
       <h3 className="text-gray-400 text-sm font-medium mb-3">Customize Your Broadcast</h3>
