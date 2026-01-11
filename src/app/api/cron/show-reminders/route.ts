@@ -4,7 +4,7 @@ import {
   queryUsersWhere,
   getUserFavorites,
   getUser,
-  createScheduledNotification,
+  setScheduledNotification,
   queryScheduledNotifications,
   updateDocument,
   isRestApiConfigured,
@@ -70,9 +70,10 @@ export async function GET(request: NextRequest) {
       if (metadataResponse.ok) {
         const metadata: Metadata = await metadataResponse.json();
 
-        // Find shows that started in the last 5 minutes (to catch shows starting NOW)
-        const windowStart = new Date(now.getTime() - 5 * 60 * 1000);
-        const windowEnd = new Date(now.getTime() + 5 * 60 * 1000);
+        // Find shows starting in the next 62 minutes (cron runs at :55, covers until next run at :55)
+        // This ensures emails go out ~5 minutes BEFORE shows start, and each show is only caught once
+        const windowStart = now;
+        const windowEnd = new Date(now.getTime() + 62 * 60 * 1000);
 
         const upcomingShows: Array<{
           name: string;
@@ -127,27 +128,24 @@ export async function GET(request: NextRequest) {
               );
 
               if (isMatch) {
-                // Check if notification already exists for this user/show/station/time
-                // Include stationId and notifyAt in the query to prevent duplicates
-                const existing = await queryScheduledNotifications([
-                  { field: "userId", op: "EQUAL", value: userId },
-                  { field: "showName", op: "EQUAL", value: show.name },
-                  { field: "stationId", op: "EQUAL", value: show.stationId },
-                  { field: "notifyAt", op: "EQUAL", value: new Date(show.startTime) },
-                ]);
+                // Use deterministic document ID to prevent duplicates
+                // Format: userId_stationId_showName_date
+                const dateOnly = show.startTime.split("T")[0]; // "2026-01-10"
+                const sanitizedShowName = show.name.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
+                const docId = `${userId}_${show.stationId}_${sanitizedShowName}_${dateOnly}`;
 
-                // If no exact match exists, create the notification
-                if (existing.length === 0) {
-                  await createScheduledNotification({
-                    userId,
-                    showName: show.name,
-                    djName: show.dj || null,
-                    stationName: show.stationName,
-                    stationId: show.stationId,
-                    notifyAt: new Date(show.startTime),
-                    sent: false,
-                    createdAt: new Date(),
-                  });
+                // setScheduledNotification won't overwrite if already sent=true
+                const created = await setScheduledNotification(docId, {
+                  userId,
+                  showName: show.name,
+                  djName: show.dj || null,
+                  stationName: show.stationName,
+                  stationId: show.stationId,
+                  notifyAt: new Date(show.startTime),
+                  sent: false,
+                  createdAt: new Date(),
+                });
+                if (created) {
                   notificationsCreated++;
                 }
               }
@@ -191,6 +189,32 @@ export async function GET(request: NextRequest) {
           await updateDocument("scheduledNotifications", notification.id, {
             sent: true,
             skipped: true,
+          });
+          continue;
+        }
+
+        // Check if we already sent an email for this show today (final safeguard against duplicates)
+        const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        const recentlySent = await queryScheduledNotifications([
+          { field: "userId", op: "EQUAL", value: notification.data.userId },
+          { field: "showName", op: "EQUAL", value: notification.data.showName },
+          { field: "stationId", op: "EQUAL", value: notification.data.stationId },
+          { field: "sent", op: "EQUAL", value: true },
+        ]);
+
+        // Filter to only those sent in the last 24 hours
+        const sentToday = recentlySent.filter((n) => {
+          const sentAt = n.data.sentAt as Date | string | undefined;
+          if (!sentAt) return false;
+          return new Date(sentAt) > twentyFourHoursAgo;
+        });
+
+        if (sentToday.length > 0) {
+          // Already sent recently, skip and mark as duplicate
+          await updateDocument("scheduledNotifications", notification.id, {
+            sent: true,
+            skipped: true,
+            reason: "duplicate_already_sent",
           });
           continue;
         }

@@ -243,7 +243,7 @@ export async function getUser(userId: string): Promise<Record<string, unknown> |
   }
 }
 
-// Create a document in scheduledNotifications collection
+// Create a document in scheduledNotifications collection (auto-generated ID)
 export async function createScheduledNotification(data: Record<string, unknown>): Promise<string | null> {
   const token = await getAuthToken();
   if (!token) return null;
@@ -275,6 +275,64 @@ export async function createScheduledNotification(data: Record<string, unknown>)
   } catch (error) {
     console.error("Create notification failed:", error);
     return null;
+  }
+}
+
+// Set a document in scheduledNotifications collection with a specific ID (upsert)
+// Uses PATCH with updateMask to create or update - won't overwrite existing sent=true
+export async function setScheduledNotification(docId: string, data: Record<string, unknown>): Promise<boolean> {
+  const token = await getAuthToken();
+  if (!token) return false;
+
+  const fields: Record<string, unknown> = {};
+  const updateMask: string[] = [];
+
+  for (const [key, value] of Object.entries(data)) {
+    fields[key] = jsValueToFirestore(value);
+    updateMask.push(key);
+  }
+
+  try {
+    // First check if document exists and is already sent
+    const checkResponse = await fetch(
+      `${FIRESTORE_BASE_URL}/scheduledNotifications/${docId}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    if (checkResponse.ok) {
+      const existingDoc = await checkResponse.json();
+      const existingFields = existingDoc.fields || {};
+      // If already sent, don't overwrite
+      if (existingFields.sent?.booleanValue === true) {
+        return true; // Already exists and was sent, consider it success
+      }
+    }
+
+    // Create or update the document
+    const response = await fetch(
+      `${FIRESTORE_BASE_URL}/scheduledNotifications/${docId}?updateMask.fieldPaths=${updateMask.join("&updateMask.fieldPaths=")}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ fields }),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error("Set notification error:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Set notification failed:", error);
+    return false;
   }
 }
 
