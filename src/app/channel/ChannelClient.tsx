@@ -12,6 +12,7 @@ import { ListenerChatPanel } from '@/components/channel/ListenerChatPanel';
 import { TipThankYouModal } from '@/components/channel/TipThankYouModal';
 import { AuthModal } from '@/components/AuthModal';
 import { useBroadcastStream } from '@/hooks/useBroadcastStream';
+import { useListenerChat } from '@/hooks/useListenerChat';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { saveTipToLocalStorage } from '@/lib/tip-history-storage';
 
@@ -104,6 +105,9 @@ export function ChannelClient() {
     listenerCount,
   } = useBroadcastStream();
 
+  // Get love count from chat
+  const { loveCount } = useListenerChat({ username });
+
   const handleAuthRequired = useCallback(() => {
     setShowAuthModal(true);
   }, []);
@@ -131,6 +135,7 @@ export function ChannelClient() {
                 currentDJ={currentDJ}
                 onTogglePlay={toggle}
                 listenerCount={listenerCount}
+                loveCount={loveCount}
                 isAuthenticated={isAuthenticated}
                 username={username}
                 error={error}
@@ -176,6 +181,7 @@ export function ChannelClient() {
               currentDJ={currentDJ}
               onTogglePlay={toggle}
               listenerCount={listenerCount}
+              loveCount={loveCount}
               isAuthenticated={isAuthenticated}
               username={username}
               error={error}

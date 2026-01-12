@@ -337,7 +337,7 @@ export function ListenerChatPanel({
   // Show login prompt if not authenticated - compact version
   if (!isAuthenticated) {
     return (
-      <div className="flex flex-col bg-[#252525] rounded-xl overflow-hidden">
+      <div className="flex flex-col min-h-[280px] bg-[#252525] rounded-xl overflow-hidden">
         <ChatHeader />
         <LoginPrompt />
       </div>
@@ -365,7 +365,7 @@ export function ListenerChatPanel({
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#252525] rounded-xl overflow-hidden">
+    <div className="flex flex-col h-full min-h-[280px] bg-[#252525] rounded-xl overflow-hidden">
       {/* Header */}
       <div className="p-4 border-b border-gray-800 flex-shrink-0">
         <div className="flex items-center gap-2">
@@ -473,7 +473,7 @@ export function ListenerChatPanel({
               djUsername={currentDJ}
               broadcastSlotId={broadcastSlotId}
               showName={showName}
-              compact
+              size="medium"
             />
           )}
 
@@ -492,7 +492,7 @@ export function ListenerChatPanel({
           <button
             type="submit"
             disabled={!inputValue.trim() || isSending || !isLive}
-            className="bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors"
+            className="flex-shrink-0 bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />

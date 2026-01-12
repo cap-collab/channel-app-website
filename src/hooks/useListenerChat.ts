@@ -30,6 +30,7 @@ interface UseListenerChatReturn {
   isConnected: boolean;
   error: string | null;
   currentPromo: ChatMessageSerialized | null;
+  loveCount: number;
   sendMessage: (text: string) => Promise<void>;
   sendLove: (showName?: string) => Promise<void>;
 }
@@ -39,6 +40,7 @@ export function useListenerChat({ username }: UseListenerChatOptions): UseListen
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPromo, setCurrentPromo] = useState<ChatMessageSerialized | null>(null);
+  const [loveCount, setLoveCount] = useState(0);
 
   // Subscribe to chat messages
   useEffect(() => {
@@ -59,6 +61,7 @@ export function useListenerChat({ username }: UseListenerChatOptions): UseListen
       (snapshot) => {
         const newMessages: ChatMessageSerialized[] = [];
         let latestPromo: ChatMessageSerialized | null = null;
+        let loves = 0;
 
         snapshot.forEach((doc) => {
           const data = doc.data();
@@ -82,11 +85,17 @@ export function useListenerChat({ username }: UseListenerChatOptions): UseListen
           if (data.messageType === 'promo' && !latestPromo) {
             latestPromo = msg;
           }
+
+          // Count love reactions
+          if (data.messageType === 'love') {
+            loves++;
+          }
         });
 
         // Reverse to show oldest first
         setMessages(newMessages.reverse());
         setCurrentPromo(latestPromo);
+        setLoveCount(loves);
         setIsConnected(true);
         setError(null);
       },
@@ -155,6 +164,7 @@ export function useListenerChat({ username }: UseListenerChatOptions): UseListen
     isConnected,
     error,
     currentPromo,
+    loveCount,
     sendMessage,
     sendLove,
   };

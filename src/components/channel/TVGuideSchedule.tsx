@@ -386,21 +386,21 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                           </div>
 
                           {/* Line 1: Show name */}
-                          <div className="pr-8">
+                          <div className="pr-5">
                             <span className="text-white text-xs font-medium line-clamp-1">
                               {show.name}
                             </span>
                           </div>
                           {/* Line 2: DJ name */}
                           {show.dj && (
-                            <div className="pr-8 -mt-0.5">
+                            <div className="pr-5 -mt-0.5">
                               <span className="text-gray-400 text-[10px] line-clamp-1">
                                 {show.dj}
                               </span>
                             </div>
                           )}
                           {/* Line 3: Description preview + BPM */}
-                          <div className="flex items-center justify-between gap-1 pr-8 -mt-0.5">
+                          <div className="flex items-center justify-between gap-1 pr-5 -mt-0.5">
                             {show.description && !isExpanded ? (
                               <span className="text-gray-500 text-[10px] truncate min-w-0">
                                 {show.description}

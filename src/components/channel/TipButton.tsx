@@ -12,7 +12,8 @@ interface TipButtonProps {
   djUsername: string;
   broadcastSlotId: string;
   showName: string;
-  compact?: boolean;
+  compact?: boolean;      // Deprecated: use size instead
+  size?: 'small' | 'medium' | 'large';  // small for TV Guide, medium for chat, large for standalone
   disabled?: boolean;
   onRequireAuth?: () => void;
 }
@@ -26,6 +27,7 @@ export function TipButton({
   broadcastSlotId,
   showName,
   compact = false,
+  size,
   disabled = false,
 }: TipButtonProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -36,8 +38,15 @@ export function TipButton({
     setIsModalOpen(true);
   }, [disabled]);
 
-  const buttonSize = compact ? 'w-4 h-4' : 'w-12 h-12';
-  const iconSize = compact ? 'w-3 h-3' : 'w-6 h-6';
+  // Determine size: explicit size prop takes precedence, then compact flag, then default to large
+  const effectiveSize = size || (compact ? 'small' : 'large');
+  const sizeClasses = {
+    small: { button: 'w-4 h-4', icon: 'w-3 h-3' },      // TV Guide cards
+    medium: { button: 'w-6 h-6', icon: 'w-6 h-6' },    // Chat panel (matches heart)
+    large: { button: 'w-12 h-12', icon: 'w-6 h-6' },   // Standalone
+  };
+  const buttonSize = sizeClasses[effectiveSize].button;
+  const iconSize = sizeClasses[effectiveSize].icon;
 
   return (
     <>
