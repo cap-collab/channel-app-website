@@ -301,7 +301,7 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                       return (
                         <div
                           key={show.id}
-                          className={`absolute top-0.5 bottom-0.5 rounded px-1.5 py-0.5 pb-5 transition-all group overflow-hidden cursor-pointer ${
+                          className={`absolute top-0.5 bottom-0.5 rounded px-1.5 py-0.5 transition-all group overflow-hidden cursor-pointer ${
                             isLive
                               ? 'bg-white/15 border border-white/20'
                               : 'bg-white/5 hover:bg-white/10'
@@ -373,19 +373,32 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                           )}
 
                           {/* Show name - up to 2 lines, truncate on hover to make room for buttons */}
-                          <div className="group-hover:pr-12">
-                            <span className="text-white text-xs font-medium line-clamp-2 leading-tight">
-                              {show.name}
-                            </span>
-                          </div>
-                          {/* DJ name - up to 2 lines */}
-                          {show.dj && (
-                            <div>
-                              <span className="text-gray-400 text-[10px] line-clamp-2 leading-tight">
-                                {show.dj}
-                              </span>
-                            </div>
-                          )}
+                          {(() => {
+                            const metadataKey = getMetadataKeyByStationId(station.id);
+                            const bpm = isLive && metadataKey ? stationBPM[metadataKey]?.bpm : null;
+                            // Show name is short (1 line) if under ~20 chars, so DJ would be on line 2
+                            // Show name is long (2 lines) if over ~20 chars, so DJ would be on line 3
+                            const showNameIsLong = show.name.length > 20;
+                            const djNeedsPadding = bpm && show.dj && showNameIsLong;
+
+                            return (
+                              <>
+                                <div className="group-hover:pr-12">
+                                  <span className="text-white text-xs font-medium line-clamp-2 leading-tight">
+                                    {show.name}
+                                  </span>
+                                </div>
+                                {/* DJ name - 1 line only, with right padding for BPM only if on 3rd line */}
+                                {show.dj && (
+                                  <div className={djNeedsPadding ? 'pr-14' : ''}>
+                                    <span className="text-gray-400 text-[10px] line-clamp-1 leading-tight">
+                                      {show.dj}
+                                    </span>
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
                           {/* BPM - absolute bottom right */}
                           {isLive && (() => {
                             const metadataKey = getMetadataKeyByStationId(station.id);
