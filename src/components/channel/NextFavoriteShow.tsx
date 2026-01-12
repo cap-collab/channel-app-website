@@ -3,34 +3,15 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useFavorites, Favorite, isRecurringFavorite } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useBPM } from '@/contexts/BPMContext';
 import { getAllShows, searchShows } from '@/lib/metadata';
 import { Show } from '@/types';
 import { getStationById, getStationByMetadataKey } from '@/lib/stations';
+import { BPMBadge } from './BPMBadge';
 
 function getStation(stationId: string | undefined) {
   if (!stationId) return undefined;
   return getStationById(stationId) || getStationByMetadataKey(stationId);
-}
-
-function formatTimeUntil(startTime: string): string {
-  const start = new Date(startTime);
-  const now = new Date();
-  const diffMs = start.getTime() - now.getTime();
-
-  if (diffMs <= 0) return 'Now';
-
-  const diffMins = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMins / 60);
-  const remainingMins = diffMins % 60;
-
-  if (diffHours > 24) {
-    const diffDays = Math.floor(diffHours / 24);
-    return `in ${diffDays}d`;
-  } else if (diffHours > 0) {
-    return `in ${diffHours}h ${remainingMins}m`;
-  } else {
-    return `in ${diffMins}m`;
-  }
 }
 
 function formatShowTime(startTime: string): string {
@@ -95,6 +76,7 @@ interface NextFavoriteShowProps {
 export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
   const { isAuthenticated } = useAuthContext();
   const { favorites, loading: favoritesLoading, toggleFavorite, isShowFavorited, addToWatchlist, isInWatchlist } = useFavorites();
+  const { stationBPM } = useBPM();
   const [allShows, setAllShows] = useState<Show[]>([]);
   const [showsLoading, setShowsLoading] = useState(true);
 
@@ -247,37 +229,28 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
 
   return (
     <div ref={containerRef} className="relative">
-      {/* Search Bar styled as "Find your favorite DJ" */}
-      <div className="bg-surface-card rounded-xl p-4">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
-            <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="relative">
-              <input
-                ref={inputRef}
-                type="text"
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setIsOpen(true);
-                }}
-                onFocus={() => setIsOpen(true)}
-                placeholder="Find your favorite DJ"
-                className="w-full bg-transparent text-white font-medium text-sm placeholder-white focus:outline-none"
-              />
-            </div>
-            <p className="text-gray-500 text-xs mt-0.5">
-              Search and add shows to your favorites to see when they&apos;re coming up
-            </p>
-          </div>
+      {/* Search Bar */}
+      <div className="relative">
+        <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-2.5 border border-white/20 focus-within:border-accent focus-within:bg-white/15 transition-colors">
+          <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setIsOpen(true);
+            }}
+            onFocus={() => setIsOpen(true)}
+            placeholder="Search for a DJ or show..."
+            className="w-full bg-transparent text-white text-sm placeholder-gray-400 focus:outline-none"
+          />
           {query && (
             <button
               onClick={clearSearch}
-              className="text-gray-500 hover:text-white transition-colors flex-shrink-0"
+              className="text-gray-400 hover:text-white transition-colors flex-shrink-0"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -419,7 +392,7 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
 
       {/* Favorites Content - only show if there's content */}
       {hasContent && !showsLoading && !favoritesLoading && (
-        <div className="bg-surface-card rounded-xl p-4 mt-3">
+        <div className={`bg-surface-card rounded-xl p-4 mt-3 ${!isExpanded ? 'max-h-[180px] overflow-hidden' : ''}`}>
           {/* Header with expand button */}
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-gray-500 text-xs uppercase tracking-wide">Your Shows</h3>
@@ -449,6 +422,7 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
                 {(isExpanded ? liveShows : liveShows.slice(0, 2)).map(({ favorite, show }) => {
                   const station = getStation(show.stationId);
                   const accentColor = station?.accentColor || '#fff';
+                  const bpmData = station?.id ? stationBPM[station.id] : null;
                   return (
                     <div key={show.id} className="flex items-center gap-3">
                       <div
@@ -461,17 +435,7 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
                           {station?.name || show.stationId}
                         </p>
                       </div>
-                      {station && station.id !== 'broadcast' && (
-                        <a
-                          href={station.websiteUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs px-2 py-1 rounded-lg transition-colors flex-shrink-0"
-                          style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
-                        >
-                          Listen
-                        </a>
-                      )}
+                      {bpmData?.bpm && <BPMBadge bpm={bpmData.bpm} />}
                     </div>
                   );
                 })}
@@ -501,20 +465,9 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
                         <div className="flex items-center gap-2 text-xs">
                           <span style={{ color: accentColor }}>{station?.name || show.stationId}</span>
                           <span className="text-gray-600">•</span>
-                          <span className="text-accent">{formatTimeUntil(show.startTime)}</span>
+                          <span className="text-gray-400">{formatShowTime(show.startTime)}</span>
                         </div>
                       </div>
-                      {station && station.id !== 'broadcast' && (
-                        <a
-                          href={station.websiteUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs px-2 py-1 rounded-lg transition-colors flex-shrink-0"
-                          style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
-                        >
-                          Open
-                        </a>
-                      )}
                     </div>
                   );
                 })}
