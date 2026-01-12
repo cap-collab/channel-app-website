@@ -3,11 +3,9 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useFavorites, Favorite, isRecurringFavorite } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { useBPM } from '@/contexts/BPMContext';
 import { getAllShows, searchShows } from '@/lib/metadata';
 import { Show } from '@/types';
-import { getStationById, getStationByMetadataKey, getMetadataKeyByStationId } from '@/lib/stations';
-import { BPMBadge } from './BPMBadge';
+import { getStationById, getStationByMetadataKey } from '@/lib/stations';
 
 function getStation(stationId: string | undefined) {
   if (!stationId) return undefined;
@@ -76,7 +74,6 @@ interface NextFavoriteShowProps {
 export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
   const { isAuthenticated } = useAuthContext();
   const { favorites, loading: favoritesLoading, toggleFavorite, isShowFavorited, addToWatchlist, isInWatchlist } = useFavorites();
-  const { stationBPM } = useBPM();
   const [allShows, setAllShows] = useState<Show[]>([]);
   const [showsLoading, setShowsLoading] = useState(true);
 
@@ -422,8 +419,6 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
                 {(isExpanded ? liveShows : liveShows.slice(0, 2)).map(({ favorite, show }) => {
                   const station = getStation(show.stationId);
                   const accentColor = station?.accentColor || '#fff';
-                  const metadataKey = station?.id ? getMetadataKeyByStationId(station.id) : null;
-                  const bpmData = metadataKey ? stationBPM[metadataKey] : null;
                   return (
                     <div key={show.id} className="flex items-center gap-3">
                       <div
@@ -436,7 +431,6 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
                           {station?.name || show.stationId}
                         </p>
                       </div>
-                      {bpmData?.bpm && <BPMBadge bpm={bpmData.bpm} />}
                     </div>
                   );
                 })}
