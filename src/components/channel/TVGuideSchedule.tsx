@@ -301,18 +301,18 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                       return (
                         <div
                           key={show.id}
-                          className={`absolute top-1 rounded-lg px-2 py-1 transition-all group ${
+                          className={`absolute top-0.5 rounded px-1.5 py-0.5 transition-all group ${
                             isLive
                               ? 'bg-white/15 border border-white/20'
                               : 'bg-white/5 hover:bg-white/10'
-                          } ${isExpanded ? 'z-30 min-h-[calc(100%-8px)]' : 'bottom-1 overflow-hidden'}`}
+                          } ${isExpanded ? 'z-30 min-h-[calc(100%-4px)]' : 'bottom-0.5 overflow-hidden'}`}
                           style={{
                             ...style,
                             backgroundColor: isLive ? `${station.accentColor}30` : undefined,
                           }}
                         >
-                          {/* Action buttons row - top right */}
-                          <div className="absolute top-1 right-1 flex items-center gap-0.5 z-10">
+                          {/* Action buttons row - top right, only visible on hover */}
+                          <div className="absolute top-0.5 right-0.5 flex items-center gap-0.5 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 rounded px-0.5">
                             {/* Tip button for live broadcast shows */}
                             {canTip && showWidth >= 80 && (
                               <div onClick={(e) => e.stopPropagation()}>
@@ -335,9 +335,7 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                                   e.stopPropagation();
                                   setExpandedShowId(isExpanded ? null : show.id);
                                 }}
-                                className={`p-0.5 rounded transition-opacity text-gray-400 hover:text-white ${
-                                  isExpanded ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                                }`}
+                                className="p-0.5 rounded text-gray-400 hover:text-white"
                                 title={isExpanded ? 'Hide details' : 'Show details'}
                               >
                                 <svg
@@ -351,16 +349,12 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                                 </svg>
                               </button>
                             )}
-                            {/* Favorite star button - show on hover or if favorited */}
+                            {/* Favorite star button */}
                             {showWidth >= 60 && (
                               <button
                                 onClick={(e) => handleToggleFavorite(show, e)}
                                 disabled={isToggling}
-                                className={`p-0.5 rounded transition-opacity ${
-                                  isFavorited
-                                    ? 'opacity-100'
-                                    : 'opacity-0 group-hover:opacity-100'
-                                }`}
+                                className="p-0.5 rounded"
                                 style={{ color: station.accentColor }}
                                 title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
                               >
@@ -384,35 +378,48 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                               </button>
                             )}
                           </div>
+                          {/* Always-visible favorite indicator (filled star when favorited) */}
+                          {isFavorited && showWidth >= 60 && (
+                            <div className="absolute top-0.5 right-0.5 group-hover:opacity-0 transition-opacity">
+                              <svg
+                                className="w-3 h-3"
+                                fill="currentColor"
+                                style={{ color: station.accentColor }}
+                                viewBox="0 0 24 24"
+                              >
+                                <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                              </svg>
+                            </div>
+                          )}
 
-                          {/* Line 1: Show name */}
-                          <div className="pr-5">
+                          {/* Line 1: Show name - truncate only on hover to make room for buttons */}
+                          <div className="group-hover:pr-12">
                             <span className="text-white text-xs font-medium line-clamp-1">
                               {show.name}
                             </span>
                           </div>
                           {/* Line 2: DJ name */}
                           {show.dj && (
-                            <div className="pr-5 -mt-0.5">
+                            <div className="-mt-0.5">
                               <span className="text-gray-400 text-[10px] line-clamp-1">
                                 {show.dj}
                               </span>
                             </div>
                           )}
                           {/* Line 3: Description preview + BPM */}
-                          <div className="flex items-center justify-between gap-1 pr-5 -mt-0.5">
+                          <div className="flex items-center gap-1 -mt-0.5">
                             {show.description && !isExpanded ? (
-                              <span className="text-gray-500 text-[10px] truncate min-w-0">
+                              <span className="text-gray-500 text-[10px] truncate flex-1 min-w-0">
                                 {show.description}
                               </span>
                             ) : (
-                              <span />
+                              <span className="flex-1" />
                             )}
                             {isLive && (() => {
                               const metadataKey = getMetadataKeyByStationId(station.id);
                               const bpm = metadataKey ? stationBPM[metadataKey]?.bpm : null;
                               return bpm ? (
-                                <span className="text-gray-400 text-[10px] whitespace-nowrap flex-shrink-0">
+                                <span className="text-gray-400 text-[10px] whitespace-nowrap">
                                   {Math.round(bpm)} BPM
                                 </span>
                               ) : null;
