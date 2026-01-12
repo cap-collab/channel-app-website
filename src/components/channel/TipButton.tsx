@@ -39,10 +39,10 @@ export function TipButton({
   }, [disabled]);
 
   // Determine size: explicit size prop takes precedence, then compact flag, then default to large
-  const effectiveSize = size || (compact ? 'small' : 'large');
+  const effectiveSize = size || (compact ? 'medium' : 'large');
   const sizeClasses = {
-    small: { button: 'w-4 h-4', icon: 'w-3 h-3' },      // TV Guide cards
-    medium: { button: 'w-6 h-6', icon: 'w-6 h-6' },    // Chat panel (matches heart)
+    small: { button: 'w-5 h-5', icon: 'w-5 h-5' },     // Chat panel (matches heart w-5)
+    medium: { button: 'w-4 h-4', icon: 'w-3 h-3' },    // TV Guide cards (compact)
     large: { button: 'w-12 h-12', icon: 'w-6 h-6' },   // Standalone
   };
   const buttonSize = sizeClasses[effectiveSize].button;

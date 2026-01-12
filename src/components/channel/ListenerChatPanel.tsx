@@ -445,17 +445,17 @@ export function ListenerChatPanel({
       </div>
 
       {/* Input bar */}
-      <div className="border-t border-gray-800 p-4 flex-shrink-0">
-        <form onSubmit={handleSendMessage} className="flex items-center gap-3">
+      <div className="border-t border-gray-800 p-3 flex-shrink-0">
+        <form onSubmit={handleSendMessage} className="flex items-center gap-2">
           {/* Heart button with floating hearts */}
-          <div className="relative">
+          <div className="relative flex-shrink-0">
             <button
               type="button"
               onClick={handleSendLove}
               disabled={!isLive}
               className={`transition-colors ${isLive ? 'text-accent hover:text-accent-hover' : 'text-gray-600 cursor-not-allowed'}`}
             >
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
               </svg>
             </button>
@@ -464,17 +464,19 @@ export function ListenerChatPanel({
 
           {/* Tip button - only when live and DJ info available */}
           {isLive && currentDJ && (currentDJUserId || currentDJEmail) && broadcastSlotId && showName && (
-            <TipButton
-              isAuthenticated={isAuthenticated}
-              tipperUserId={userId}
-              tipperUsername={username}
-              djUserId={currentDJUserId || undefined}
-              djEmail={currentDJEmail || undefined}
-              djUsername={currentDJ}
-              broadcastSlotId={broadcastSlotId}
-              showName={showName}
-              size="medium"
-            />
+            <div className="flex-shrink-0">
+              <TipButton
+                isAuthenticated={isAuthenticated}
+                tipperUserId={userId}
+                tipperUsername={username}
+                djUserId={currentDJUserId || undefined}
+                djEmail={currentDJEmail || undefined}
+                djUsername={currentDJ}
+                broadcastSlotId={broadcastSlotId}
+                showName={showName}
+                size="small"
+              />
+            </div>
           )}
 
           {/* Text input */}
@@ -482,8 +484,8 @@ export function ListenerChatPanel({
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder={isLive ? "Type a message..." : "Chat available when live"}
-            className="flex-1 bg-black text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500 disabled:text-gray-500 disabled:cursor-not-allowed"
+            placeholder={isLive ? "Message..." : "Chat available when live"}
+            className="flex-1 min-w-0 bg-black text-white text-sm border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500 disabled:text-gray-500 disabled:cursor-not-allowed"
             maxLength={280}
             disabled={isSending || !isLive}
           />
@@ -492,7 +494,7 @@ export function ListenerChatPanel({
           <button
             type="submit"
             disabled={!inputValue.trim() || isSending || !isLive}
-            className="flex-shrink-0 bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors"
+            className="flex-shrink-0 bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white p-2 rounded-lg transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
