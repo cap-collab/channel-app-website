@@ -187,7 +187,7 @@ export function DeviceAudioCapture({ onStream, onError, onBack }: DeviceAudioCap
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
-                    <span className="text-gray-300 text-sm">Audio levels moving on this page — and NOT coming from your microphone</span>
+                    <span className="text-gray-300 text-sm">Audio levels moving on the Channel Go Live page — and NOT coming from your microphone</span>
                   </div>
                 </div>
               </div>

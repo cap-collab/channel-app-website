@@ -301,7 +301,7 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                       return (
                         <div
                           key={show.id}
-                          className={`absolute top-0.5 bottom-0.5 rounded px-1.5 py-0.5 pb-4 transition-all group overflow-hidden cursor-pointer ${
+                          className={`absolute top-0.5 bottom-0.5 rounded px-1.5 py-0.5 pb-5 transition-all group overflow-hidden cursor-pointer ${
                             isLive
                               ? 'bg-white/15 border border-white/20'
                               : 'bg-white/5 hover:bg-white/10'
