@@ -111,8 +111,8 @@ function LoginPrompt() {
 
   return (
     <>
-      <div className="flex-1 flex flex-col items-center justify-center p-6">
-        <p className="text-gray-400 text-sm text-center mb-4">
+      <div className="flex flex-col items-center justify-center p-4">
+        <p className="text-gray-400 text-sm text-center mb-3">
           Sign in to join the chat
         </p>
         <button
@@ -337,10 +337,10 @@ export function ListenerChatPanel({
     </div>
   );
 
-  // Show login prompt if not authenticated
+  // Show login prompt if not authenticated - compact version
   if (!isAuthenticated) {
     return (
-      <div className="flex flex-col h-full bg-[#252525] rounded-xl overflow-hidden">
+      <div className="flex flex-col bg-[#252525] rounded-xl overflow-hidden">
         <ChatHeader />
         <LoginPrompt />
       </div>
