@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useFavorites, Favorite, isRecurringFavorite } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { getAllShows, searchShows } from '@/lib/metadata';
+import { searchShows } from '@/lib/metadata';
 import { Show } from '@/types';
 import { getStationById, getStationByMetadataKey } from '@/lib/stations';
 
@@ -87,10 +87,11 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch all shows on mount
+  // Fetch all shows on mount via API route (avoids CORS issues with Newtown scraping)
   useEffect(() => {
-    getAllShows()
-      .then(setAllShows)
+    fetch('/api/schedule')
+      .then((res) => res.json())
+      .then((data) => setAllShows(data.shows || []))
       .catch(console.error)
       .finally(() => setShowsLoading(false));
   }, []);

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { getAllShows } from '@/lib/metadata';
 import { STATIONS, getMetadataKeyByStationId } from '@/lib/stations';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -53,10 +52,11 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const hasScrolledRef = useRef(false);
 
-  // Fetch shows on mount
+  // Fetch shows on mount via API route (avoids CORS issues with Newtown scraping)
   useEffect(() => {
-    getAllShows()
-      .then(setAllShows)
+    fetch('/api/schedule')
+      .then((res) => res.json())
+      .then((data) => setAllShows(data.shows || []))
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
