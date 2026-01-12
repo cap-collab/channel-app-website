@@ -119,7 +119,7 @@ export function ChannelClient() {
         {/* Desktop layout */}
         <div className="hidden lg:flex lg:flex-col lg:h-full">
           {/* Top section: Player + Search + Favorites | Chat */}
-          <div className="flex-shrink-0 flex border-b border-gray-800">
+          <div className="flex-shrink-0 flex border-b border-gray-800 items-stretch">
             {/* Left column: Player + Search/Favorites */}
             <div className="flex-1 p-4 space-y-4">
               {/* Compact Player */}
@@ -140,8 +140,8 @@ export function ChannelClient() {
               <NextFavoriteShow onAuthRequired={handleAuthRequired} />
             </div>
 
-            {/* Right column: Chat */}
-            <div className="w-80 border-l border-gray-800 flex flex-col max-h-[320px]">
+            {/* Right column: Chat - stretches to match left column height */}
+            <div className="w-80 border-l border-gray-800 flex flex-col">
               <ListenerChatPanel
                 isAuthenticated={isAuthenticated}
                 username={username}
