@@ -111,13 +111,10 @@ function LoginPrompt() {
 
   return (
     <>
-      <div className="flex flex-col items-center justify-center p-4">
-        <p className="text-gray-400 text-sm text-center mb-3">
-          Sign in to join the chat
-        </p>
+      <div className="px-4 pb-4">
         <button
           onClick={() => setShowAuthModal(true)}
-          className="px-6 py-2 bg-white text-black rounded-lg font-medium text-sm hover:bg-white/90 transition-colors"
+          className="w-full py-2 bg-white text-black rounded-lg font-medium text-sm hover:bg-white/90 transition-colors"
         >
           Sign In
         </button>
