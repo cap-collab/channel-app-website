@@ -36,8 +36,8 @@ export function TipButton({
     setIsModalOpen(true);
   }, [disabled]);
 
-  const buttonSize = compact ? 'w-10 h-10' : 'w-12 h-12';
-  const iconSize = compact ? 'w-5 h-5' : 'w-6 h-6';
+  const buttonSize = compact ? 'w-4 h-4' : 'w-12 h-12';
+  const iconSize = compact ? 'w-3 h-3' : 'w-6 h-6';
 
   return (
     <>

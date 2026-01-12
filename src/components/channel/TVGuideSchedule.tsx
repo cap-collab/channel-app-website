@@ -301,11 +301,11 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                       return (
                         <div
                           key={show.id}
-                          className={`absolute top-1 bottom-1 rounded-lg px-2 py-1 overflow-hidden transition-colors group ${
+                          className={`absolute top-1 rounded-lg px-2 py-1 transition-all group ${
                             isLive
                               ? 'bg-white/15 border border-white/20'
                               : 'bg-white/5 hover:bg-white/10'
-                          }`}
+                          } ${isExpanded ? 'z-30 min-h-[calc(100%-8px)]' : 'bottom-1 overflow-hidden'}`}
                           style={{
                             ...style,
                             backgroundColor: isLive ? `${station.accentColor}30` : undefined,
@@ -410,17 +410,17 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                             })()}
                           </div>
 
-                          {/* Expanded description tooltip */}
+                          {/* Expanded description - inline below content */}
                           {isExpanded && hasDescription && (
                             <div
-                              className="absolute left-0 top-full mt-1 bg-surface-elevated border border-gray-700 rounded-lg p-3 shadow-xl z-30 min-w-[200px] max-w-[300px]"
+                              className="mt-1 bg-black/90 rounded p-2 text-[10px] leading-relaxed"
                               onClick={(e) => e.stopPropagation()}
                             >
                               {show.djBio && (
-                                <p className="text-gray-300 text-xs mb-2">{show.djBio}</p>
+                                <p className="text-gray-300 mb-1">{show.djBio}</p>
                               )}
                               {show.description && (
-                                <p className="text-gray-400 text-xs">{show.description}</p>
+                                <p className="text-gray-400">{show.description}</p>
                               )}
                             </div>
                           )}
