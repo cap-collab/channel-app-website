@@ -392,25 +392,17 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                             </div>
                           )}
 
-                          {/* Line 1: Show name - truncate only on hover to make room for buttons */}
+                          {/* Show name - up to 2 lines, truncate on hover to make room for buttons */}
                           <div className="group-hover:pr-12">
-                            <span className="text-white text-xs font-medium line-clamp-1">
+                            <span className="text-white text-xs font-medium line-clamp-2 leading-tight">
                               {show.name}
                             </span>
                           </div>
-                          {/* Line 2: DJ name */}
+                          {/* DJ name - up to 2 lines */}
                           {show.dj && (
-                            <div className="-mt-0.5">
-                              <span className="text-gray-400 text-[10px] line-clamp-1">
+                            <div>
+                              <span className="text-gray-400 text-[10px] line-clamp-2 leading-tight">
                                 {show.dj}
-                              </span>
-                            </div>
-                          )}
-                          {/* Line 3: Description preview */}
-                          {show.description && !isExpanded && (
-                            <div className="-mt-0.5">
-                              <span className="text-gray-500 text-[10px] truncate line-clamp-1">
-                                {show.description}
                               </span>
                             </div>
                           )}
