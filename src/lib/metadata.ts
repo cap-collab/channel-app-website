@@ -247,9 +247,9 @@ async function fetchBroadcastShows(): Promise<Show[]> {
       const data = doc.data();
       const status = data.status as string;
 
-      // Only include scheduled, live, or paused slots
-      // Paused shows are still "on air" - DJ just temporarily disconnected
-      if (status !== "scheduled" && status !== "live" && status !== "paused") {
+      // Skip cancelled slots, but show all others (scheduled, live, paused, completed, missed)
+      // The calendar should display all shows that exist
+      if (status === "cancelled") {
         return;
       }
 
