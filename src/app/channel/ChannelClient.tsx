@@ -1,16 +1,18 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { Header } from '@/components/Header';
-import { NowPlayingPanel } from '@/components/channel/NowPlayingPanel';
+import { CompactPlayer } from '@/components/channel/CompactPlayer';
+import { ShowSearchBar } from '@/components/channel/ShowSearchBar';
+import { NextFavoriteShow } from '@/components/channel/NextFavoriteShow';
+import { TVGuideSchedule } from '@/components/channel/TVGuideSchedule';
 import { ListenerChatPanel } from '@/components/channel/ListenerChatPanel';
-import { BroadcastSchedule } from '@/components/channel/BroadcastSchedule';
 import { TipThankYouModal } from '@/components/channel/TipThankYouModal';
+import { AuthModal } from '@/components/AuthModal';
 import { useBroadcastStream } from '@/hooks/useBroadcastStream';
-import { useBroadcastSchedule } from '@/hooks/useBroadcastSchedule';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { saveTipToLocalStorage } from '@/lib/tip-history-storage';
 
@@ -24,9 +26,13 @@ interface TipSuccessData {
 export function ChannelClient() {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername, loading: profileLoading, setChatUsername } = useUserProfile(user?.uid);
-  const [activeTab, setActiveTab] = useState<'chat' | 'schedule'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'schedule'>('schedule');
   const searchParams = useSearchParams();
   const router = useRouter();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Auth modal state
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Tip success modal state
   const [showThankYouModal, setShowThankYouModal] = useState(false);
@@ -97,17 +103,17 @@ export function ChannelClient() {
     currentDJ,
     error,
     toggle,
-    loveCount,
     listenerCount,
-    messageCount,
   } = useBroadcastStream();
 
-  const {
-    shows,
-    selectedDate,
-    setSelectedDate,
-    loading: scheduleLoading,
-  } = useBroadcastSchedule();
+  const handleAuthRequired = useCallback(() => {
+    setShowAuthModal(true);
+  }, []);
+
+  const handleSearchClick = useCallback(() => {
+    // Focus the search input
+    searchInputRef.current?.focus();
+  }, []);
 
   return (
     <div className="h-[100dvh] text-white relative overflow-hidden flex flex-col">
@@ -116,109 +122,36 @@ export function ChannelClient() {
       <Header currentPage="channel" position="sticky" />
 
       {/* Main content - flex-1 and min-h-0 to fill remaining space */}
-      <main className="max-w-7xl mx-auto flex-1 min-h-0 w-full">
+      <main className="max-w-7xl mx-auto flex-1 min-h-0 w-full flex flex-col">
         {/* Desktop layout */}
-        <div className="hidden lg:flex lg:h-full">
-          {/* Left column: Now Playing + Schedule */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Now Playing Panel - Fixed */}
-            <div className="flex-shrink-0 p-4 border-b border-gray-800">
-              <NowPlayingPanel
+        <div className="hidden lg:flex lg:flex-col lg:h-full">
+          {/* Top section: Player + Search + Favorites | Chat */}
+          <div className="flex border-b border-gray-800">
+            {/* Left column: Player + Search + Next Show */}
+            <div className="flex-1 p-4 space-y-4">
+              {/* Compact Player */}
+              <CompactPlayer
                 isPlaying={isPlaying}
                 isLoading={isLoading}
                 isLive={isLive}
                 currentShow={currentShow}
                 currentDJ={currentDJ}
                 onTogglePlay={toggle}
-                loveCount={loveCount}
                 listenerCount={listenerCount}
-                messageCount={messageCount}
                 isAuthenticated={isAuthenticated}
                 username={username}
                 error={error}
               />
+
+              {/* Search Bar */}
+              <ShowSearchBar onAuthRequired={handleAuthRequired} />
+
+              {/* Next Favorite Show */}
+              <NextFavoriteShow onSearchClick={handleSearchClick} />
             </div>
 
-            {/* Schedule - Scrollable */}
-            <div className="flex-1 overflow-y-auto p-4">
-              <BroadcastSchedule
-                shows={shows}
-                selectedDate={selectedDate}
-                onDateChange={setSelectedDate}
-                loading={scheduleLoading}
-                isAuthenticated={isAuthenticated}
-                userId={user?.uid}
-                username={username}
-              />
-            </div>
-          </div>
-
-          {/* Right column: Chat (full height) */}
-          <div className="w-96 border-l border-gray-800 flex flex-col p-4">
-            <ListenerChatPanel
-              isAuthenticated={isAuthenticated}
-              username={username}
-              userId={user?.uid}
-              currentDJ={currentDJ}
-              currentDJUserId={currentShow?.djUserId || currentShow?.liveDjUserId}
-              currentDJEmail={currentShow?.djEmail}
-              showName={currentShow?.showName}
-              broadcastSlotId={currentShow?.id}
-              isLive={isLive}
-              profileLoading={profileLoading}
-              onSetUsername={setChatUsername}
-            />
-          </div>
-        </div>
-
-        {/* Mobile layout */}
-        <div className="lg:hidden flex flex-col h-full">
-          {/* Compact Now Playing */}
-          <div className="flex-shrink-0 p-4 bg-[#252525]/50">
-            <NowPlayingPanel
-              isPlaying={isPlaying}
-              isLoading={isLoading}
-              isLive={isLive}
-              currentShow={currentShow}
-              currentDJ={currentDJ}
-              onTogglePlay={toggle}
-              loveCount={loveCount}
-              listenerCount={listenerCount}
-              messageCount={messageCount}
-              isAuthenticated={isAuthenticated}
-              username={username}
-              compact
-              error={error}
-            />
-          </div>
-
-          {/* Tab navigation */}
-          <div className="flex-shrink-0 flex border-b border-gray-800">
-            <button
-              onClick={() => setActiveTab('chat')}
-              className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                activeTab === 'chat'
-                  ? 'text-white border-b-2 border-accent'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              Chat
-            </button>
-            <button
-              onClick={() => setActiveTab('schedule')}
-              className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                activeTab === 'schedule'
-                  ? 'text-white border-b-2 border-accent'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              Schedule
-            </button>
-          </div>
-
-          {/* Tab content - min-h-0 is critical for flex children to shrink properly */}
-          <div className="flex-1 min-h-0">
-            {activeTab === 'chat' ? (
+            {/* Right column: Chat */}
+            <div className="w-80 border-l border-gray-800 flex flex-col">
               <ListenerChatPanel
                 isAuthenticated={isAuthenticated}
                 username={username}
@@ -232,22 +165,97 @@ export function ChannelClient() {
                 profileLoading={profileLoading}
                 onSetUsername={setChatUsername}
               />
-            ) : (
+            </div>
+          </div>
+
+          {/* Bottom section: TV Guide (full width) */}
+          <div className="flex-1 min-h-0 p-4 overflow-y-auto">
+            <TVGuideSchedule />
+          </div>
+        </div>
+
+        {/* Mobile layout */}
+        <div className="lg:hidden flex flex-col h-full">
+          {/* Compact Player */}
+          <div className="flex-shrink-0 p-4 pb-2">
+            <CompactPlayer
+              isPlaying={isPlaying}
+              isLoading={isLoading}
+              isLive={isLive}
+              currentShow={currentShow}
+              currentDJ={currentDJ}
+              onTogglePlay={toggle}
+              listenerCount={listenerCount}
+              isAuthenticated={isAuthenticated}
+              username={username}
+              error={error}
+            />
+          </div>
+
+          {/* Search Bar */}
+          <div className="flex-shrink-0 px-4 pb-2">
+            <ShowSearchBar onAuthRequired={handleAuthRequired} />
+          </div>
+
+          {/* Next Favorite Show */}
+          <div className="flex-shrink-0 px-4 pb-2">
+            <NextFavoriteShow onSearchClick={handleSearchClick} />
+          </div>
+
+          {/* Tab navigation */}
+          <div className="flex-shrink-0 flex border-b border-gray-800">
+            <button
+              onClick={() => setActiveTab('schedule')}
+              className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                activeTab === 'schedule'
+                  ? 'text-white border-b-2 border-accent'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Schedule
+            </button>
+            <button
+              onClick={() => setActiveTab('chat')}
+              className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                activeTab === 'chat'
+                  ? 'text-white border-b-2 border-accent'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Chat
+            </button>
+          </div>
+
+          {/* Tab content - min-h-0 is critical for flex children to shrink properly */}
+          <div className="flex-1 min-h-0">
+            {activeTab === 'schedule' ? (
               <div className="h-full overflow-y-auto p-4">
-                <BroadcastSchedule
-                  shows={shows}
-                  selectedDate={selectedDate}
-                  onDateChange={setSelectedDate}
-                  loading={scheduleLoading}
-                  isAuthenticated={isAuthenticated}
-                  userId={user?.uid}
-                  username={username}
-                />
+                <TVGuideSchedule />
               </div>
+            ) : (
+              <ListenerChatPanel
+                isAuthenticated={isAuthenticated}
+                username={username}
+                userId={user?.uid}
+                currentDJ={currentDJ}
+                currentDJUserId={currentShow?.djUserId || currentShow?.liveDjUserId}
+                currentDJEmail={currentShow?.djEmail}
+                showName={currentShow?.showName}
+                broadcastSlotId={currentShow?.id}
+                isLive={isLive}
+                profileLoading={profileLoading}
+                onSetUsername={setChatUsername}
+              />
             )}
           </div>
         </div>
       </main>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
 
       {/* Tip Thank You Modal */}
       {tipSuccessData && (
