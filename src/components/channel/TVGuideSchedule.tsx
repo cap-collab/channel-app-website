@@ -1,29 +1,53 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { getAllShows } from '@/lib/metadata';
 import { STATIONS } from '@/lib/stations';
+import { useFavorites } from '@/hooks/useFavorites';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { useBPM } from '@/contexts/BPMContext';
 import { Show, Station } from '@/types';
 
 const PIXELS_PER_HOUR = 120;
 const STATION_COLUMN_WIDTH = 100;
 const ROW_HEIGHT = 60;
 
-function formatHour(date: Date): string {
-  return date.toLocaleTimeString('en-US', {
+function formatHour(date: Date, showDay: boolean = false): string {
+  const timeStr = date.toLocaleTimeString('en-US', {
     hour: 'numeric',
     hour12: true,
   });
+
+  if (showDay) {
+    const dayStr = date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
+    return `${dayStr} ${timeStr}`;
+  }
+
+  return timeStr;
+}
+
+// Check if this hour is midnight (start of a new day)
+function isMidnight(date: Date): boolean {
+  return date.getHours() === 0;
 }
 
 interface TVGuideScheduleProps {
   className?: string;
+  onAuthRequired?: () => void;
 }
 
-export function TVGuideSchedule({ className = '' }: TVGuideScheduleProps) {
+export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideScheduleProps) {
+  const { isAuthenticated } = useAuthContext();
+  const { toggleFavorite, isShowFavorited } = useFavorites();
+  const { stationBPM } = useBPM();
   const [allShows, setAllShows] = useState<Show[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const hasScrolledRef = useRef(false);
 
@@ -77,9 +101,9 @@ export function TVGuideSchedule({ className = '' }: TVGuideScheduleProps) {
     const start = new Date(earliestStart);
     start.setMinutes(0, 0, 0);
 
-    // Show 8 hours into the future
+    // Show 3 days (72 hours) into the future
     const end = new Date(start);
-    end.setHours(end.getHours() + 8);
+    end.setHours(end.getHours() + 72);
 
     const hours: Date[] = [];
     const current = new Date(start);
@@ -152,6 +176,18 @@ export function TVGuideSchedule({ className = '' }: TVGuideScheduleProps) {
     }
   };
 
+  // Handle favorite toggle
+  const handleToggleFavorite = useCallback(async (show: Show, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      onAuthRequired?.();
+      return;
+    }
+    setTogglingId(show.id);
+    await toggleFavorite(show);
+    setTogglingId(null);
+  }, [isAuthenticated, onAuthRequired, toggleFavorite]);
+
   const timelineWidth = timelineHours.length * PIXELS_PER_HOUR;
 
   if (loading) {
@@ -222,25 +258,20 @@ export function TVGuideSchedule({ className = '' }: TVGuideScheduleProps) {
           <div style={{ width: timelineWidth, minWidth: '100%' }}>
             {/* Time axis */}
             <div className="relative h-8 border-b border-gray-800">
-              {timelineHours.map((hour, idx) => (
-                <div
-                  key={idx}
-                  className="absolute top-0 bottom-0 flex items-center text-gray-500 text-xs"
-                  style={{ left: idx * PIXELS_PER_HOUR }}
-                >
-                  <span className="px-2">{formatHour(hour)}</span>
-                </div>
-              ))}
-
-              {/* NOW indicator in header */}
-              <div
-                className="absolute top-0 bottom-0 flex flex-col items-center"
-                style={{ left: nowLinePosition }}
-              >
-                <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded font-medium">
-                  NOW
-                </span>
-              </div>
+              {timelineHours.map((hour, idx) => {
+                const showDay = isMidnight(hour) || idx === 0;
+                return (
+                  <div
+                    key={idx}
+                    className="absolute top-0 bottom-0 flex items-center text-gray-500 text-xs"
+                    style={{ left: idx * PIXELS_PER_HOUR }}
+                  >
+                    <span className={`px-2 ${showDay ? 'text-white font-medium' : ''}`}>
+                      {formatHour(hour, showDay)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Show rows */}
@@ -263,11 +294,14 @@ export function TVGuideSchedule({ className = '' }: TVGuideScheduleProps) {
                     {shows.map((show) => {
                       const style = getShowStyle(show);
                       const isLive = isShowLive(show);
+                      const isFavorited = isShowFavorited(show);
+                      const isToggling = togglingId === show.id;
+                      const showWidth = parseFloat(style.width);
 
                       return (
                         <div
                           key={show.id}
-                          className={`absolute top-1 bottom-1 rounded-lg px-2 py-1 overflow-hidden transition-colors ${
+                          className={`absolute top-1 bottom-1 rounded-lg px-2 py-1 overflow-hidden transition-colors group ${
                             isLive
                               ? 'bg-white/15 border border-white/20'
                               : 'bg-white/5 hover:bg-white/10'
@@ -277,19 +311,59 @@ export function TVGuideSchedule({ className = '' }: TVGuideScheduleProps) {
                             backgroundColor: isLive ? `${station.accentColor}30` : undefined,
                           }}
                         >
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            {isLive && (
-                              <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse flex-shrink-0" />
-                            )}
+                          {/* Favorite star button - show on hover or if favorited */}
+                          {showWidth >= 60 && (
+                            <button
+                              onClick={(e) => handleToggleFavorite(show, e)}
+                              disabled={isToggling}
+                              className={`absolute top-1 right-1 p-0.5 rounded transition-opacity z-10 ${
+                                isFavorited
+                                  ? 'opacity-100'
+                                  : 'opacity-0 group-hover:opacity-100'
+                              }`}
+                              style={{ color: station.accentColor }}
+                              title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+                            >
+                              {isToggling ? (
+                                <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <svg
+                                  className="w-3 h-3"
+                                  fill={isFavorited ? 'currentColor' : 'none'}
+                                  stroke="currentColor"
+                                  strokeWidth={2}
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                                  />
+                                </svg>
+                              )}
+                            </button>
+                          )}
+
+                          <div className="flex items-center gap-1.5 min-w-0 pr-4">
                             <span className="text-white text-xs font-medium truncate">
                               {show.name}
                             </span>
                           </div>
-                          {show.dj && (
-                            <p className="text-gray-400 text-[10px] truncate mt-0.5">
-                              {show.dj}
-                            </p>
-                          )}
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {show.dj && (
+                              <span className="text-gray-400 text-[10px] truncate">
+                                {show.dj}
+                              </span>
+                            )}
+                            {isLive && stationBPM[station.id]?.bpm && (
+                              <>
+                                {show.dj && <span className="text-gray-600 text-[10px]">•</span>}
+                                <span className="text-gray-400 text-[10px]">
+                                  {Math.round(stationBPM[station.id].bpm!)} BPM
+                                </span>
+                              </>
+                            )}
+                          </div>
                         </div>
                       );
                     })}

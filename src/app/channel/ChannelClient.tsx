@@ -170,7 +170,7 @@ export function ChannelClient() {
 
           {/* Bottom section: TV Guide (full width) - always visible */}
           <div className="flex-1 min-h-[300px] p-4 overflow-y-auto">
-            <TVGuideSchedule />
+            <TVGuideSchedule onAuthRequired={handleAuthRequired} />
           </div>
         </div>
 
@@ -230,7 +230,7 @@ export function ChannelClient() {
           <div className="flex-1 min-h-0">
             {activeTab === 'schedule' ? (
               <div className="h-full overflow-y-auto p-4">
-                <TVGuideSchedule />
+                <TVGuideSchedule onAuthRequired={handleAuthRequired} />
               </div>
             ) : (
               <ListenerChatPanel
