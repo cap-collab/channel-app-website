@@ -109,7 +109,7 @@ export function ChannelClient() {
   }, []);
 
   return (
-    <div className="h-[100dvh] text-white relative overflow-hidden flex flex-col">
+    <div className="min-h-[100dvh] text-white relative flex flex-col">
       <AnimatedBackground />
       {/* Use shared Header with profile icon */}
       <Header currentPage="channel" position="sticky" />

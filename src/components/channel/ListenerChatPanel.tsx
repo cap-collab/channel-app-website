@@ -107,17 +107,27 @@ function ChatMessage({
 }
 
 function LoginPrompt() {
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
   return (
-    <div className="flex-1 flex items-center justify-center p-6">
-      <div className="text-center max-w-sm">
-        <AuthModal
-          isOpen={true}
-          onClose={() => {}}
-          message="Sign in to join the chat"
-          inline={true}
-        />
+    <>
+      <div className="flex-1 flex flex-col items-center justify-center p-6">
+        <p className="text-gray-400 text-sm text-center mb-4">
+          Sign in to join the chat
+        </p>
+        <button
+          onClick={() => setShowAuthModal(true)}
+          className="px-6 py-2 bg-white text-black rounded-lg font-medium text-sm hover:bg-white/90 transition-colors"
+        >
+          Sign In
+        </button>
       </div>
-    </div>
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        message="Sign in to join the chat"
+      />
+    </>
   );
 }
 
