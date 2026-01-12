@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { Header } from '@/components/Header';
 import { CompactPlayer } from '@/components/channel/CompactPlayer';
-import { ShowSearchBar } from '@/components/channel/ShowSearchBar';
 import { NextFavoriteShow } from '@/components/channel/NextFavoriteShow';
 import { TVGuideSchedule } from '@/components/channel/TVGuideSchedule';
 import { ListenerChatPanel } from '@/components/channel/ListenerChatPanel';
@@ -29,7 +28,6 @@ export function ChannelClient() {
   const [activeTab, setActiveTab] = useState<'chat' | 'schedule'>('schedule');
   const searchParams = useSearchParams();
   const router = useRouter();
-  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Auth modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -110,11 +108,6 @@ export function ChannelClient() {
     setShowAuthModal(true);
   }, []);
 
-  const handleSearchClick = useCallback(() => {
-    // Focus the search input
-    searchInputRef.current?.focus();
-  }, []);
-
   return (
     <div className="h-[100dvh] text-white relative overflow-hidden flex flex-col">
       <AnimatedBackground />
@@ -127,7 +120,7 @@ export function ChannelClient() {
         <div className="hidden lg:flex lg:flex-col lg:h-full">
           {/* Top section: Player + Search + Favorites | Chat */}
           <div className="flex-shrink-0 flex border-b border-gray-800">
-            {/* Left column: Player + Search + Next Show */}
+            {/* Left column: Player + Search/Favorites */}
             <div className="flex-1 p-4 space-y-4">
               {/* Compact Player */}
               <CompactPlayer
@@ -143,11 +136,8 @@ export function ChannelClient() {
                 error={error}
               />
 
-              {/* Search Bar */}
-              <ShowSearchBar onAuthRequired={handleAuthRequired} />
-
-              {/* Next Favorite Show */}
-              <NextFavoriteShow onSearchClick={handleSearchClick} />
+              {/* Search + Favorites */}
+              <NextFavoriteShow onAuthRequired={handleAuthRequired} />
             </div>
 
             {/* Right column: Chat */}
@@ -192,14 +182,9 @@ export function ChannelClient() {
             />
           </div>
 
-          {/* Search Bar */}
+          {/* Search + Favorites */}
           <div className="flex-shrink-0 px-4 pb-2">
-            <ShowSearchBar onAuthRequired={handleAuthRequired} />
-          </div>
-
-          {/* Next Favorite Show */}
-          <div className="flex-shrink-0 px-4 pb-2">
-            <NextFavoriteShow onSearchClick={handleSearchClick} />
+            <NextFavoriteShow onAuthRequired={handleAuthRequired} />
           </div>
 
           {/* Tab navigation */}
