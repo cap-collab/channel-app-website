@@ -98,7 +98,7 @@ async function fetchNewtownDirectly(): Promise<Show[]> {
     const html = await response.text();
     const shows: Show[] = [];
 
-    // Extract show titles from simcal-event-title spans
+    // Try the old SimpleCalendar format first (simcal-event-* classes)
     const titlePattern = /<span class="simcal-event-title"[^>]*>([^<]+)<\/span>/gi;
     const titles: string[] = [];
     let titleMatch;
@@ -106,7 +106,6 @@ async function fetchNewtownDirectly(): Promise<Show[]> {
       titles.push(decodeHtmlEntities(titleMatch[1].trim()));
     }
 
-    // Extract start times from content attributes
     const startPattern = /simcal-event-start-time"[^>]*content="([^"]+)"/gi;
     const startTimes: string[] = [];
     let startMatch;
@@ -114,7 +113,6 @@ async function fetchNewtownDirectly(): Promise<Show[]> {
       startTimes.push(startMatch[1]);
     }
 
-    // Extract end times from content attributes
     const endPattern = /simcal-event-end-time"[^>]*content="([^"]+)"/gi;
     const endTimes: string[] = [];
     let endMatch;
@@ -122,37 +120,80 @@ async function fetchNewtownDirectly(): Promise<Show[]> {
       endTimes.push(endMatch[1]);
     }
 
-    console.log(`[Newtown Recovery] Found ${titles.length} titles, ${startTimes.length} start times, ${endTimes.length} end times`);
+    // If old format found data, use it
+    if (titles.length > 0 && startTimes.length > 0 && endTimes.length > 0) {
+      console.log(`[Newtown Recovery] Using SimpleCalendar format: ${titles.length} titles`);
+      const minCount = Math.min(titles.length, startTimes.length, endTimes.length);
 
-    // Match titles with times (they should be in same order)
-    const minCount = Math.min(titles.length, startTimes.length, endTimes.length);
+      for (let i = 0; i < minCount; i++) {
+        const title = titles[i];
+        const startISO = startTimes[i];
+        const endISO = endTimes[i];
 
-    for (let i = 0; i < minCount; i++) {
-      const title = titles[i];
-      const startISO = startTimes[i];
-      const endISO = endTimes[i];
+        if (NEWTOWN_PHANTOM_SHOWS.has(title.toLowerCase())) {
+          continue;
+        }
 
-      // Skip phantom shows
-      if (NEWTOWN_PHANTOM_SHOWS.has(title.toLowerCase())) {
-        continue;
+        const startDate = new Date(startISO);
+        const endDate = new Date(endISO);
+
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          continue;
+        }
+
+        shows.push({
+          id: `newtown-${startDate.toISOString()}`,
+          name: title,
+          startTime: startDate.toISOString(),
+          endTime: endDate.toISOString(),
+          stationId: "newtown",
+          type: title.toUpperCase() === "OPEN" ? "playlist" : undefined,
+        });
+      }
+    } else {
+      // Try the new format: <strong>SHOW_NAME</strong> followed by date/time
+      // Format: "Month Day, Year  HH:MM am/pm - HH:MM am/pm"
+      console.log("[Newtown Recovery] Trying new HTML format...");
+
+      // Pattern to match: <strong>SHOW NAME</strong> followed by date/time on next line
+      const newPattern = /<strong>([^<]+)<\/strong>\s*(?:<\/p>\s*<p>|<br\s*\/?>|\n)\s*([A-Z][a-z]+\s+\d{1,2},\s+\d{4})\s+(\d{1,2}:\d{2}\s*[ap]m)\s*[-–]\s*(\d{1,2}:\d{2}\s*[ap]m)/gi;
+      let newMatch;
+
+      while ((newMatch = newPattern.exec(html)) !== null) {
+        const title = decodeHtmlEntities(newMatch[1].trim());
+        const dateStr = newMatch[2]; // "December 8, 2025"
+        const startTimeStr = newMatch[3]; // "11:00 pm"
+        const endTimeStr = newMatch[4]; // "1:00 am"
+
+        if (NEWTOWN_PHANTOM_SHOWS.has(title.toLowerCase())) {
+          continue;
+        }
+
+        // Parse the date and times
+        const startDate = new Date(`${dateStr} ${startTimeStr}`);
+        let endDate = new Date(`${dateStr} ${endTimeStr}`);
+
+        // Handle shows that cross midnight (end time is AM when start is PM)
+        if (endDate <= startDate) {
+          endDate.setDate(endDate.getDate() + 1);
+        }
+
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          console.log(`[Newtown Recovery] Failed to parse date for "${title}": ${dateStr} ${startTimeStr} - ${endTimeStr}`);
+          continue;
+        }
+
+        shows.push({
+          id: `newtown-${startDate.toISOString()}`,
+          name: title,
+          startTime: startDate.toISOString(),
+          endTime: endDate.toISOString(),
+          stationId: "newtown",
+          type: title.toUpperCase() === "OPEN" ? "playlist" : undefined,
+        });
       }
 
-      // Parse ISO 8601 dates
-      const startDate = new Date(startISO);
-      const endDate = new Date(endISO);
-
-      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        continue;
-      }
-
-      shows.push({
-        id: `newtown-${startDate.toISOString()}`,
-        name: title,
-        startTime: startDate.toISOString(),
-        endTime: endDate.toISOString(),
-        stationId: "newtown",
-        type: title.toUpperCase() === "OPEN" ? "playlist" : undefined,
-      });
+      console.log(`[Newtown Recovery] New format found ${shows.length} shows`);
     }
 
     // Sort by start time
@@ -206,8 +247,9 @@ async function fetchBroadcastShows(): Promise<Show[]> {
       const data = doc.data();
       const status = data.status as string;
 
-      // Only include scheduled or live slots
-      if (status !== "scheduled" && status !== "live") {
+      // Only include scheduled, live, or paused slots
+      // Paused shows are still "on air" - DJ just temporarily disconnected
+      if (status !== "scheduled" && status !== "live" && status !== "paused") {
         return;
       }
 
