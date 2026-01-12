@@ -297,15 +297,17 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                       const hasDescription = !!show.description || !!show.djBio;
                       // Check if tipping is available (broadcast shows with DJ info - not limited to live)
                       const canTip = station.id === 'broadcast' && show.dj && (show.djUserId || show.djEmail) && show.broadcastSlotId;
+                      // Show expand button if there's any content that might be truncated
+                      const canExpand = hasDescription || show.name.length > 25 || (show.dj && show.dj.length > 30);
 
                       return (
                         <div
                           key={show.id}
-                          className={`absolute top-0.5 rounded px-1.5 py-0.5 transition-all group ${
+                          className={`absolute top-0.5 bottom-0.5 rounded px-1.5 py-0.5 pb-4 transition-all group overflow-hidden ${
                             isLive
                               ? 'bg-white/15 border border-white/20'
                               : 'bg-white/5 hover:bg-white/10'
-                          } ${isExpanded ? 'z-30 min-h-[calc(100%-4px)]' : 'bottom-0.5 overflow-hidden'}`}
+                          }`}
                           style={{
                             ...style,
                             backgroundColor: isLive ? `${station.accentColor}30` : undefined,
@@ -328,8 +330,8 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                                 />
                               </div>
                             )}
-                            {/* Expand chevron for shows with description */}
-                            {hasDescription && showWidth >= 60 && (
+                            {/* Expand chevron for shows with content that may be truncated */}
+                            {canExpand && showWidth >= 60 && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -417,19 +419,115 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                             ) : null;
                           })()}
 
-                          {/* Expanded description - inline below content */}
-                          {isExpanded && hasDescription && (
-                            <div
-                              className="mt-1 bg-black/90 rounded p-2 text-[10px] leading-relaxed"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {show.djBio && (
-                                <p className="text-gray-300 mb-1">{show.djBio}</p>
-                              )}
-                              {show.description && (
-                                <p className="text-gray-400">{show.description}</p>
-                              )}
-                            </div>
+                          {/* Popup modal for expanded show details */}
+                          {isExpanded && canExpand && (
+                            <>
+                              {/* Backdrop */}
+                              <div
+                                className="fixed inset-0 bg-black/60 z-40"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedShowId(null);
+                                }}
+                              />
+                              {/* Popup */}
+                              <div
+                                className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-[#1a1a1a] border border-gray-700 rounded-xl p-5 max-w-md w-[90vw] shadow-2xl"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {/* Close button */}
+                                <button
+                                  onClick={() => setExpandedShowId(null)}
+                                  className="absolute top-3 right-3 text-gray-400 hover:text-white transition-colors"
+                                >
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+
+                                {/* Show name */}
+                                <h3 className="text-white text-lg font-semibold pr-8 mb-1">
+                                  {show.name}
+                                </h3>
+
+                                {/* DJ name */}
+                                {show.dj && (
+                                  <p className="text-gray-400 text-sm mb-3">
+                                    by {show.dj}
+                                  </p>
+                                )}
+
+                                {/* Station & time */}
+                                <div className="flex items-center gap-2 text-xs text-gray-500 mb-4">
+                                  <span>{station.name}</span>
+                                  <span>•</span>
+                                  <span>
+                                    {new Date(show.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} - {new Date(show.endTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                  </span>
+                                  {isLive && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="text-red-500 font-medium">LIVE</span>
+                                    </>
+                                  )}
+                                </div>
+
+                                {/* Description - only show section if there's content */}
+                                {hasDescription && (
+                                  <div className="space-y-3 text-sm leading-relaxed max-h-[40vh] overflow-y-auto">
+                                    {show.djBio && (
+                                      <p className="text-gray-300">{show.djBio}</p>
+                                    )}
+                                    {show.description && (
+                                      <p className="text-gray-400">{show.description}</p>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Actions */}
+                                <div className="flex items-center gap-3 mt-5 pt-4 border-t border-gray-800">
+                                  {/* Favorite button */}
+                                  <button
+                                    onClick={(e) => handleToggleFavorite(show, e)}
+                                    disabled={isToggling}
+                                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-sm"
+                                    style={{ color: station.accentColor }}
+                                  >
+                                    {isToggling ? (
+                                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                      <svg
+                                        className="w-4 h-4"
+                                        fill={isFavorited ? 'currentColor' : 'none'}
+                                        stroke="currentColor"
+                                        strokeWidth={2}
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                                        />
+                                      </svg>
+                                    )}
+                                    <span className="text-white">{isFavorited ? 'Favorited' : 'Favorite'}</span>
+                                  </button>
+
+                                  {/* Tip button */}
+                                  {canTip && (
+                                    <TipButton
+                                      isAuthenticated={isAuthenticated}
+                                      tipperUserId={user?.uid}
+                                      djUserId={show.djUserId}
+                                      djEmail={show.djEmail}
+                                      djUsername={show.dj!}
+                                      broadcastSlotId={show.broadcastSlotId!}
+                                      showName={show.name}
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                            </>
                           )}
                         </div>
                       );
