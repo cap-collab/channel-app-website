@@ -409,7 +409,7 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
           </div>
 
           {/* Two column layout: Shows on left, Watchlist on right */}
-          <div className="flex gap-4">
+          <div className="flex gap-2">
             {/* Left column: Shows (Live, Coming Up, Returning Soon) */}
             <div className="flex-1 min-w-0 space-y-2">
               {/* Live Now Section */}
