@@ -171,7 +171,7 @@ async function fetchNewtownDirectly(): Promise<Show[]> {
 
         // Parse the date and times
         const startDate = new Date(`${dateStr} ${startTimeStr}`);
-        let endDate = new Date(`${dateStr} ${endTimeStr}`);
+        const endDate = new Date(`${dateStr} ${endTimeStr}`);
 
         // Handle shows that cross midnight (end time is AM when start is PM)
         if (endDate <= startDate) {
