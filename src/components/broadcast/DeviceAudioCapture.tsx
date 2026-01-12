@@ -161,37 +161,6 @@ export function DeviceAudioCapture({ onStream, onError, onBack }: DeviceAudioCap
                 </p>
               </div>
 
-              {/* Checklist */}
-              <div className="border-t border-gray-700 pt-4">
-                <p className="text-gray-400 text-sm mb-3">Before going live, check:</p>
-                <div className="space-y-2">
-                  <div className="flex items-start gap-3">
-                    <div className="w-5 h-5 rounded border border-gray-600 flex items-center justify-center mt-0.5">
-                      <svg className="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <span className="text-gray-300 text-sm">macOS input &amp; output set to mixer/controller (levels moving in Sound Settings)</span>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-5 h-5 rounded border border-gray-600 flex items-center justify-center mt-0.5">
-                      <svg className="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <span className="text-gray-300 text-sm">Chrome audio input set to mixer/controller</span>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-5 h-5 rounded border border-gray-600 flex items-center justify-center mt-0.5">
-                      <svg className="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <span className="text-gray-300 text-sm">Audio levels moving on the Channel Go Live page — and NOT coming from your microphone</span>
-                  </div>
-                </div>
-              </div>
-
               <button
                 onClick={captureDeviceAudio}
                 disabled={isCapturing || !selectedDeviceId}

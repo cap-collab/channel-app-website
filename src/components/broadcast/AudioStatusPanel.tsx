@@ -49,45 +49,45 @@ export function AudioStatusPanel({
 
   // Build checklist items based on input method
   const getStatusItems = () => {
-    const items = [
-      {
-        id: 'connected',
-        label: `${getInputMethodLabel()} connected`,
-        checked: !!stream || inputMethod === 'rtmp',
-      },
-    ];
+    const items: { id: string; label: string; checked: boolean }[] = [];
 
-    // Add method-specific items
+    // Add method-specific checklist items
     if (inputMethod === 'device' && !isLive) {
-      // Check if audio source is NOT a built-in microphone
-      const isExternalDevice = audioSourceLabel
-        ? !audioSourceLabel.toLowerCase().includes('built-in')
-          && !audioSourceLabel.toLowerCase().includes('macbook')
-          && !audioSourceLabel.toLowerCase().includes('internal')
-        : false;
-
       items.push({
-        id: 'correct-input',
-        label: 'Audio input set to mixer/controller (not built-in mic)',
-        checked: isExternalDevice,
+        id: 'macos-io',
+        label: 'macOS input & output set to mixer/controller (levels moving in Sound Settings)',
+        checked: hasAudioLevels,
+      });
+      items.push({
+        id: 'chrome-input',
+        label: 'Chrome audio input set to mixer/controller',
+        checked: !!stream,
       });
     }
 
     if (inputMethod === 'system' && !isLive) {
       items.push({
-        id: 'share-audio',
-        label: 'Sharing tab or system audio (not just screen)',
-        checked: !!stream && hasAudioLevels,
+        id: 'browser-audio',
+        label: 'Chrome has Screen & System Audio Recording permission for audio only (one-time setup)',
+        checked: !!stream,
       });
     }
 
-    items.push({
-      id: 'levels',
-      label: 'Audio levels detected',
-      checked: hasAudioLevels,
-    });
+    // Common item for both paths
+    if (!isLive) {
+      items.push({
+        id: 'levels',
+        label: 'Audio levels moving on the Channel Go Live page — and NOT coming from your microphone',
+        checked: hasAudioLevels,
+      });
+    }
 
     if (isLive) {
+      items.push({
+        id: 'connected',
+        label: `${getInputMethodLabel()} connected`,
+        checked: !!stream || inputMethod === 'rtmp',
+      });
       items.push({
         id: 'publishing',
         label: 'Stream publishing',
