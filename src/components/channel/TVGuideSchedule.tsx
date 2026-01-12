@@ -406,25 +406,24 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                               </span>
                             </div>
                           )}
-                          {/* Line 3: Description preview + BPM */}
-                          <div className="flex items-center gap-1 -mt-0.5">
-                            {show.description && !isExpanded ? (
-                              <span className="text-gray-500 text-[10px] truncate flex-1 min-w-0">
+                          {/* Line 3: Description preview */}
+                          {show.description && !isExpanded && (
+                            <div className="-mt-0.5">
+                              <span className="text-gray-500 text-[10px] truncate line-clamp-1">
                                 {show.description}
                               </span>
-                            ) : (
-                              <span className="flex-1" />
-                            )}
-                            {isLive && (() => {
-                              const metadataKey = getMetadataKeyByStationId(station.id);
-                              const bpm = metadataKey ? stationBPM[metadataKey]?.bpm : null;
-                              return bpm ? (
-                                <span className="text-gray-400 text-[10px] whitespace-nowrap">
-                                  {Math.round(bpm)} BPM
-                                </span>
-                              ) : null;
-                            })()}
-                          </div>
+                            </div>
+                          )}
+                          {/* BPM - absolute bottom right */}
+                          {isLive && (() => {
+                            const metadataKey = getMetadataKeyByStationId(station.id);
+                            const bpm = metadataKey ? stationBPM[metadataKey]?.bpm : null;
+                            return bpm ? (
+                              <span className="absolute bottom-0.5 right-1 text-gray-400 text-[10px] whitespace-nowrap">
+                                {Math.round(bpm)} BPM
+                              </span>
+                            ) : null;
+                          })()}
 
                           {/* Expanded description - inline below content */}
                           {isExpanded && hasDescription && (
