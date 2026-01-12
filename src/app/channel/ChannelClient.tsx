@@ -126,7 +126,7 @@ export function ChannelClient() {
         {/* Desktop layout */}
         <div className="hidden lg:flex lg:flex-col lg:h-full">
           {/* Top section: Player + Search + Favorites | Chat */}
-          <div className="flex border-b border-gray-800">
+          <div className="flex-shrink-0 flex border-b border-gray-800">
             {/* Left column: Player + Search + Next Show */}
             <div className="flex-1 p-4 space-y-4">
               {/* Compact Player */}
@@ -151,7 +151,7 @@ export function ChannelClient() {
             </div>
 
             {/* Right column: Chat */}
-            <div className="w-80 border-l border-gray-800 flex flex-col">
+            <div className="w-80 border-l border-gray-800 flex flex-col max-h-[320px]">
               <ListenerChatPanel
                 isAuthenticated={isAuthenticated}
                 username={username}
@@ -168,8 +168,8 @@ export function ChannelClient() {
             </div>
           </div>
 
-          {/* Bottom section: TV Guide (full width) */}
-          <div className="flex-1 min-h-0 p-4 overflow-y-auto">
+          {/* Bottom section: TV Guide (full width) - always visible */}
+          <div className="flex-1 min-h-[300px] p-4 overflow-y-auto">
             <TVGuideSchedule />
           </div>
         </div>
