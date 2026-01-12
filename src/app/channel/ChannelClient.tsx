@@ -141,7 +141,7 @@ export function ChannelClient() {
             </div>
 
             {/* Right column: Chat - stretches to match left column height */}
-            <div className="w-80 border-l border-gray-800 flex flex-col">
+            <div className="w-80 border-l border-gray-800 flex flex-col p-4">
               <ListenerChatPanel
                 isAuthenticated={isAuthenticated}
                 username={username}
