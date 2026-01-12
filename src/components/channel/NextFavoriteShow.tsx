@@ -389,10 +389,10 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
 
       {/* Favorites Content - only show if there's content and NOT showing search dropdown */}
       {hasContent && !showsLoading && !favoritesLoading && !showDropdown && (
-        <div className={`bg-surface-card rounded-xl p-4 mt-3 ${!isExpanded ? 'max-h-[180px] overflow-hidden' : ''}`}>
+        <div className={`bg-surface-card rounded-xl p-3 mt-2 ${!isExpanded ? 'max-h-[160px] overflow-hidden' : ''}`}>
           {/* Header with expand button */}
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-gray-500 text-xs uppercase tracking-wide">Your Shows</h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-gray-500 text-xs uppercase tracking-wide">Your Favorites</h3>
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="text-gray-500 hover:text-white transition-colors p-1"
@@ -408,129 +408,135 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
             </button>
           </div>
 
-          {/* Live Now Section */}
-          {hasLiveShows && (
-            <div className="mb-4">
-              <p className="text-red-400 text-[10px] uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                Live Now
-              </p>
-              <div className="space-y-2">
-                {(isExpanded ? liveShows : liveShows.slice(0, 2)).map(({ favorite, show }) => {
-                  const station = getStation(show.stationId);
-                  const accentColor = station?.accentColor || '#fff';
-                  return (
-                    <div key={show.id} className="flex items-center gap-3">
-                      <div
-                        className="w-1 h-10 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: accentColor }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate">{favorite.showName || show.name}</p>
-                        <p className="text-gray-500 text-xs" style={{ color: accentColor }}>
-                          {station?.name || show.stationId}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-                {!isExpanded && liveShows.length > 2 && (
-                  <p className="text-gray-500 text-xs">+{liveShows.length - 2} more live</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Coming Up Section */}
-          {hasUpcomingShows && (
-            <div className="mb-4">
-              <p className="text-gray-500 text-[10px] uppercase tracking-wide mb-2">Coming Up</p>
-              <div className="space-y-2">
-                {(isExpanded ? upcomingShows : upcomingShows.slice(0, 3)).map(({ favorite, show }) => {
-                  const station = getStation(show.stationId);
-                  const accentColor = station?.accentColor || '#fff';
-                  return (
-                    <div key={show.id} className="flex items-center gap-3">
-                      <div
-                        className="w-1 h-10 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: accentColor }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate">{favorite.showName || show.name}</p>
-                        <div className="flex items-center gap-2 text-xs">
-                          <span style={{ color: accentColor }}>{station?.name || show.stationId}</span>
-                          <span className="text-gray-600">•</span>
-                          <span className="text-gray-400">{formatShowTime(show.startTime)}</span>
+          {/* Two column layout: Shows on left, Watchlist on right */}
+          <div className="flex gap-4">
+            {/* Left column: Shows (Live, Coming Up, Returning Soon) */}
+            <div className="flex-1 min-w-0 space-y-2">
+              {/* Live Now Section */}
+              {hasLiveShows && (
+                <div>
+                  <p className="text-red-400 text-[10px] uppercase tracking-wide mb-1 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                    Live Now
+                  </p>
+                  <div className="space-y-1">
+                    {(isExpanded ? liveShows : liveShows.slice(0, 2)).map(({ favorite, show }) => {
+                      const station = getStation(show.stationId);
+                      const accentColor = station?.accentColor || '#fff';
+                      return (
+                        <div key={show.id} className="flex items-center gap-2">
+                          <div
+                            className="w-1 h-8 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: accentColor }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-xs font-medium truncate">{favorite.showName || show.name}</p>
+                            <p className="text-[10px]" style={{ color: accentColor }}>
+                              {station?.name || show.stationId}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                {!isExpanded && upcomingShows.length > 3 && (
-                  <p className="text-gray-500 text-xs">+{upcomingShows.length - 3} more upcoming</p>
-                )}
-              </div>
-            </div>
-          )}
+                      );
+                    })}
+                    {!isExpanded && liveShows.length > 2 && (
+                      <p className="text-gray-500 text-[10px]">+{liveShows.length - 2} more</p>
+                    )}
+                  </div>
+                </div>
+              )}
 
-          {/* Returning Soon Section (only in expanded view or if no live/upcoming) */}
-          {hasReturningSoon && (isExpanded || (!hasLiveShows && !hasUpcomingShows)) && (
-            <div className="mb-4">
-              <p className="text-gray-500 text-[10px] uppercase tracking-wide mb-2">Returning Soon</p>
-              <div className="flex flex-wrap gap-2">
-                {(isExpanded ? returningSoon : returningSoon.slice(0, 3)).map((fav) => {
-                  const station = getStation(fav.stationId);
-                  const accentColor = station?.accentColor || '#fff';
-                  return (
+              {/* Coming Up Section */}
+              {hasUpcomingShows && (
+                <div>
+                  <p className="text-gray-500 text-[10px] uppercase tracking-wide mb-1">Coming Up</p>
+                  <div className="space-y-1">
+                    {(isExpanded ? upcomingShows : upcomingShows.slice(0, 3)).map(({ favorite, show }) => {
+                      const station = getStation(show.stationId);
+                      const accentColor = station?.accentColor || '#fff';
+                      return (
+                        <div key={show.id} className="flex items-center gap-2">
+                          <div
+                            className="w-1 h-8 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: accentColor }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-xs font-medium truncate">{favorite.showName || show.name}</p>
+                            <div className="flex items-center gap-1 text-[10px]">
+                              <span style={{ color: accentColor }}>{station?.name || show.stationId}</span>
+                              <span className="text-gray-600">·</span>
+                              <span className="text-gray-400">{formatShowTime(show.startTime)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {!isExpanded && upcomingShows.length > 3 && (
+                      <p className="text-gray-500 text-[10px]">+{upcomingShows.length - 3} more</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Returning Soon Section */}
+              {hasReturningSoon && (isExpanded || (!hasLiveShows && !hasUpcomingShows)) && (
+                <div>
+                  <p className="text-gray-500 text-[10px] uppercase tracking-wide mb-1">Returning Soon</p>
+                  <div className="flex flex-wrap gap-1">
+                    {(isExpanded ? returningSoon : returningSoon.slice(0, 3)).map((fav) => {
+                      const station = getStation(fav.stationId);
+                      const accentColor = station?.accentColor || '#fff';
+                      return (
+                        <div
+                          key={fav.id}
+                          className="flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-white/5"
+                        >
+                          <div
+                            className="w-1 h-1 rounded-full"
+                            style={{ backgroundColor: accentColor }}
+                          />
+                          <span className="text-white text-[10px] truncate max-w-[100px]">
+                            {fav.showName || fav.term}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {!isExpanded && returningSoon.length > 3 && (
+                      <span className="text-gray-500 text-[10px] self-center">
+                        +{returningSoon.length - 3}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Right column: Watchlist */}
+            {hasWatchlist && (
+              <div className="w-[120px] flex-shrink-0">
+                <p className="text-gray-500 text-[10px] uppercase tracking-wide mb-1">Watchlist</p>
+                <div className="space-y-1">
+                  {(isExpanded ? watchlist : watchlist.slice(0, 4)).map((fav) => (
                     <div
                       key={fav.id}
-                      className="flex items-center gap-2 px-2 py-1 rounded-lg bg-white/5"
+                      className="flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-white/5"
                     >
-                      <div
-                        className="w-1.5 h-1.5 rounded-full"
-                        style={{ backgroundColor: accentColor }}
-                      />
-                      <span className="text-white text-xs truncate max-w-[120px]">
-                        {fav.showName || fav.term}
+                      <svg className="w-2.5 h-2.5 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      <span className="text-white text-[10px] truncate">
+                        {fav.term}
                       </span>
                     </div>
-                  );
-                })}
-                {!isExpanded && returningSoon.length > 3 && (
-                  <span className="text-gray-500 text-xs self-center">
-                    +{returningSoon.length - 3} more
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Watchlist Section (only in expanded view or if no other content) */}
-          {hasWatchlist && (isExpanded || (!hasLiveShows && !hasUpcomingShows && !hasReturningSoon)) && (
-            <div>
-              <p className="text-gray-500 text-[10px] uppercase tracking-wide mb-2">Watchlist</p>
-              <div className="flex flex-wrap gap-2">
-                {(isExpanded ? watchlist : watchlist.slice(0, 3)).map((fav) => (
-                  <div
-                    key={fav.id}
-                    className="flex items-center gap-2 px-2 py-1 rounded-lg bg-white/5"
-                  >
-                    <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    <span className="text-white text-xs truncate max-w-[120px]">
-                      {fav.term}
+                  ))}
+                  {!isExpanded && watchlist.length > 4 && (
+                    <span className="text-gray-500 text-[10px]">
+                      +{watchlist.length - 4} more
                     </span>
-                  </div>
-                ))}
-                {!isExpanded && watchlist.length > 3 && (
-                  <span className="text-gray-500 text-xs self-center">
-                    +{watchlist.length - 3} more
-                  </span>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
     </div>

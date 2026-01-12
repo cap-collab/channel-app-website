@@ -85,7 +85,7 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                         onClick={() => setIsOpen(false)}
                         className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                       >
-                        My Shows
+                        My Favorites
                       </Link>
                       <Link
                         href="/settings"
