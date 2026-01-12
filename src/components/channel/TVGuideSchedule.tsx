@@ -297,13 +297,11 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                       const hasDescription = !!show.description || !!show.djBio;
                       // Check if tipping is available (broadcast shows with DJ info - not limited to live)
                       const canTip = station.id === 'broadcast' && show.dj && (show.djUserId || show.djEmail) && show.broadcastSlotId;
-                      // Show expand button if there's any content that might be truncated
-                      const canExpand = hasDescription || show.name.length > 25 || (show.dj && show.dj.length > 30);
 
                       return (
                         <div
                           key={show.id}
-                          className={`absolute top-0.5 bottom-0.5 rounded px-1.5 py-0.5 pb-4 transition-all group overflow-hidden ${
+                          className={`absolute top-0.5 bottom-0.5 rounded px-1.5 py-0.5 pb-4 transition-all group overflow-hidden cursor-pointer ${
                             isLive
                               ? 'bg-white/15 border border-white/20'
                               : 'bg-white/5 hover:bg-white/10'
@@ -312,6 +310,7 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                             ...style,
                             backgroundColor: isLive ? `${station.accentColor}30` : undefined,
                           }}
+                          onClick={() => setExpandedShowId(isExpanded ? null : show.id)}
                         >
                           {/* Action buttons row - top right, only visible on hover */}
                           <div className="absolute top-0.5 right-0.5 flex items-center gap-0.5 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 rounded px-0.5">
@@ -329,27 +328,6 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                                   compact
                                 />
                               </div>
-                            )}
-                            {/* Expand chevron for shows with content that may be truncated */}
-                            {canExpand && showWidth >= 60 && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setExpandedShowId(isExpanded ? null : show.id);
-                                }}
-                                className="p-0.5 rounded text-gray-400 hover:text-white"
-                                title={isExpanded ? 'Hide details' : 'Show details'}
-                              >
-                                <svg
-                                  className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth={2}
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                                </svg>
-                              </button>
                             )}
                             {/* Favorite star button */}
                             {showWidth >= 60 && (
@@ -420,7 +398,7 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                           })()}
 
                           {/* Popup modal for expanded show details */}
-                          {isExpanded && canExpand && (
+                          {isExpanded && (
                             <>
                               {/* Backdrop */}
                               <div
