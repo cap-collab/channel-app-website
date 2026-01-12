@@ -463,20 +463,15 @@ export function MyShowsClient() {
             <div className="w-6 h-6 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
           </div>
         ) : (
-          /* Two column layout */
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            {/* Left Column - Shows */}
-            <div className="space-y-6">
-              <h2 className="text-white text-sm font-medium border-b border-gray-800 pb-2">
-                Favorite Shows
-              </h2>
-
-              {/* Search Results for Shows */}
-              {isSearching && (
+          <div className="space-y-8">
+            {/* Search Results - Full width above columns */}
+            {isSearching && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                {/* Show Search Results */}
                 <section>
-                  <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+                  <h2 className="text-white text-sm font-medium border-b border-gray-800 pb-2 mb-4">
                     Shows ({searchResults.length})
-                  </h3>
+                  </h2>
                   {searchLoading ? (
                     <div className="flex items-center justify-center py-8">
                       <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
@@ -491,9 +486,79 @@ export function MyShowsClient() {
                     </div>
                   )}
                 </section>
-              )}
 
-              {/* Live Now */}
+                {/* Add to Watchlist */}
+                <section>
+                  <h2 className="text-white text-sm font-medium border-b border-gray-800 pb-2 mb-4">
+                    Add to Watchlist
+                  </h2>
+                  {!watchlistHasTerm ? (
+                    <button
+                      onClick={handleAddToWatchlist}
+                      disabled={addingToWatchlist}
+                      className="w-full py-3 px-4 bg-[#1a1a1a] border border-gray-800/50 rounded-xl text-white text-sm font-medium hover:bg-[#252525] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {addingToWatchlist ? (
+                        <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                          </svg>
+                          Add &quot;{searchQuery}&quot; to Watchlist
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <div className="flex rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50">
+                      <div className="w-1 flex-shrink-0 bg-white" />
+                      <div className="flex-1 px-3 py-2.5">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-white">
+                            IN YOUR WATCHLIST
+                          </span>
+                          <button
+                            onClick={async () => {
+                              const watchlistItem = watchlist.find(
+                                (f) => f.term.toLowerCase() === searchQuery.trim().toLowerCase()
+                              );
+                              if (watchlistItem) {
+                                await handleRemove(watchlistItem);
+                              }
+                            }}
+                            className="p-0.5 transition-colors text-white hover:text-red-400"
+                            aria-label="Remove from watchlist"
+                          >
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                            </svg>
+                          </button>
+                        </div>
+                        <p className="font-medium text-white text-sm leading-snug">
+                          &quot;{searchQuery}&quot;
+                        </p>
+                        <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                          <span>Click star to remove</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              </div>
+            )}
+
+            {/* Two column layout for Favorites */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+              {/* Left Column - Favorite Shows */}
+              <div className="space-y-6">
+                <h2 className="text-white text-sm font-medium border-b border-gray-800 pb-2">
+                  Favorite Shows
+                </h2>
+
+                {/* Live Now */}
               {categorizedShows.liveNow.length > 0 && (
                 <section>
                   <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3 flex items-center gap-2">
@@ -558,74 +623,14 @@ export function MyShowsClient() {
               )}
             </div>
 
-            {/* Right Column - DJ Watchlist */}
-            <div className="space-y-6">
-              <h2 className="text-white text-sm font-medium border-b border-gray-800 pb-2">
-                DJ Watchlist
-              </h2>
+              {/* Right Column - DJ Watchlist */}
+              <div className="space-y-6">
+                <h2 className="text-white text-sm font-medium border-b border-gray-800 pb-2">
+                  DJ Watchlist
+                </h2>
 
-              {/* Add to Watchlist (when searching) */}
-              {isSearching && (
-                <section>
-                  {!watchlistHasTerm ? (
-                    <button
-                      onClick={handleAddToWatchlist}
-                      disabled={addingToWatchlist}
-                      className="w-full py-3 px-4 bg-[#1a1a1a] border border-gray-800/50 rounded-xl text-white text-sm font-medium hover:bg-[#252525] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      {addingToWatchlist ? (
-                        <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                          </svg>
-                          Add &quot;{searchQuery}&quot; to Watchlist
-                        </>
-                      )}
-                    </button>
-                  ) : (
-                    <div className="flex rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50">
-                      <div className="w-1 flex-shrink-0 bg-white" />
-                      <div className="flex-1 px-3 py-2.5">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-white">
-                            IN YOUR WATCHLIST
-                          </span>
-                          <button
-                            onClick={async () => {
-                              const watchlistItem = watchlist.find(
-                                (f) => f.term.toLowerCase() === searchQuery.trim().toLowerCase()
-                              );
-                              if (watchlistItem) {
-                                await handleRemove(watchlistItem);
-                              }
-                            }}
-                            className="p-0.5 transition-colors text-white hover:text-red-400"
-                            aria-label="Remove from watchlist"
-                          >
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                            </svg>
-                          </button>
-                        </div>
-                        <p className="font-medium text-white text-sm leading-snug">
-                          &quot;{searchQuery}&quot;
-                        </p>
-                        <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                          </svg>
-                          <span>Click star to remove</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </section>
-              )}
-
-              {/* Existing Watchlist Items */}
-              {watchlist.length > 0 ? (
+                {/* Existing Watchlist Items */}
+                {watchlist.length > 0 ? (
                 <div className="space-y-2">
                   {watchlist.map((favorite) => (
                     <div
@@ -666,9 +671,10 @@ export function MyShowsClient() {
                     </div>
                   ))}
                 </div>
-              ) : !isSearching ? (
-                <p className="text-gray-600 text-sm py-4">No watchlist items yet. Search for a DJ name to add to your watchlist.</p>
-              ) : null}
+                ) : (
+                  <p className="text-gray-600 text-sm py-4">No watchlist items yet. Search for a DJ name to add to your watchlist.</p>
+                )}
+              </div>
             </div>
           </div>
         )}

@@ -6,7 +6,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useBPM } from '@/contexts/BPMContext';
 import { getAllShows, searchShows } from '@/lib/metadata';
 import { Show } from '@/types';
-import { getStationById, getStationByMetadataKey } from '@/lib/stations';
+import { getStationById, getStationByMetadataKey, getMetadataKeyByStationId } from '@/lib/stations';
 import { BPMBadge } from './BPMBadge';
 
 function getStation(stationId: string | undefined) {
@@ -422,7 +422,8 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
                 {(isExpanded ? liveShows : liveShows.slice(0, 2)).map(({ favorite, show }) => {
                   const station = getStation(show.stationId);
                   const accentColor = station?.accentColor || '#fff';
-                  const bpmData = station?.id ? stationBPM[station.id] : null;
+                  const metadataKey = station?.id ? getMetadataKeyByStationId(station.id) : null;
+                  const bpmData = metadataKey ? stationBPM[metadataKey] : null;
                   return (
                     <div key={show.id} className="flex items-center gap-3">
                       <div
