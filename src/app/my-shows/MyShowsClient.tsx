@@ -368,17 +368,17 @@ export function MyShowsClient() {
 
       {/* Page Title */}
       <div className="p-4 border-b border-gray-900">
-        <div className="max-w-xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <h1 className="text-lg font-medium text-white text-center">My Shows</h1>
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="px-4 py-3 border-b border-gray-900 max-w-xl mx-auto">
+      {/* Search Bar - Full width above columns */}
+      <div className="px-4 py-3 border-b border-gray-900 max-w-4xl mx-auto">
         <SearchBar onSearch={handleSearch} placeholder="Search DJ or show..." />
       </div>
 
-      <main className="max-w-xl mx-auto p-4">
+      <main className="max-w-4xl mx-auto p-4">
         {isSearching ? (
           /* Search Results View */
           <div className="space-y-6">
@@ -551,63 +551,85 @@ export function MyShowsClient() {
             <div className="w-6 h-6 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
           </div>
         ) : (
-          /* Favorites View - Organized by category */
-          <div className="space-y-8">
-            {/* Live Now */}
-            {categorizedShows.liveNow.length > 0 && (
-              <section>
-                <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3 flex items-center gap-2">
-                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                  Live Now ({categorizedShows.liveNow.length})
-                </h2>
-                <div className="space-y-2">
-                  {categorizedShows.liveNow.map(({ favorite, show }) =>
-                    renderFavoriteCard(favorite, show)
-                  )}
-                </div>
-              </section>
-            )}
+          /* Favorites View - Two column layout */
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Left Column - Favorite Shows */}
+            <div className="space-y-6">
+              <h2 className="text-white text-sm font-medium border-b border-gray-800 pb-2">
+                Favorite Shows
+              </h2>
 
-            {/* Coming Up */}
-            {categorizedShows.comingUp.length > 0 && (
-              <section>
-                <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-                  Coming Up ({categorizedShows.comingUp.length})
-                </h2>
-                <div className="space-y-2">
-                  {categorizedShows.comingUp.map(({ favorite, show }) =>
-                    renderFavoriteCard(favorite, show)
-                  )}
-                </div>
-              </section>
-            )}
+              {/* Live Now */}
+              {categorizedShows.liveNow.length > 0 && (
+                <section>
+                  <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                    Live Now ({categorizedShows.liveNow.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {categorizedShows.liveNow.map(({ favorite, show }) =>
+                      renderFavoriteCard(favorite, show)
+                    )}
+                  </div>
+                </section>
+              )}
 
-            {/* Returning Soon (recurring shows not currently scheduled) */}
-            {categorizedShows.returningSoon.length > 0 && (
-              <section>
-                <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-                  Returning Soon ({categorizedShows.returningSoon.length})
-                </h2>
-                <p className="text-gray-600 text-sm mb-3">
-                  Recurring shows not currently scheduled
-                </p>
-                <div className="space-y-2">
-                  {categorizedShows.returningSoon.map((favorite) =>
-                    renderFavoriteCard(favorite)
-                  )}
-                </div>
-              </section>
-            )}
+              {/* Coming Up */}
+              {categorizedShows.comingUp.length > 0 && (
+                <section>
+                  <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+                    Coming Up ({categorizedShows.comingUp.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {categorizedShows.comingUp.map(({ favorite, show }) =>
+                      renderFavoriteCard(favorite, show)
+                    )}
+                  </div>
+                </section>
+              )}
 
-            {/* Watchlist */}
-            {watchlist.length > 0 && (
-              <section>
-                <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-                  Watchlist ({watchlist.length})
-                </h2>
-                <p className="text-gray-600 text-sm mb-3">
-                  Get notified when shows match these search terms
-                </p>
+              {/* Returning Soon */}
+              {categorizedShows.returningSoon.length > 0 && (
+                <section>
+                  <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+                    Returning Soon ({categorizedShows.returningSoon.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {categorizedShows.returningSoon.map((favorite) =>
+                      renderFavoriteCard(favorite)
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {/* One-Time Shows */}
+              {categorizedShows.oneTime.length > 0 && (
+                <section>
+                  <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+                    One-Time Shows ({categorizedShows.oneTime.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {categorizedShows.oneTime.map((favorite) => renderFavoriteCard(favorite))}
+                  </div>
+                </section>
+              )}
+
+              {/* Empty state for shows */}
+              {categorizedShows.liveNow.length === 0 &&
+                categorizedShows.comingUp.length === 0 &&
+                categorizedShows.returningSoon.length === 0 &&
+                categorizedShows.oneTime.length === 0 && (
+                <p className="text-gray-600 text-sm py-4">No favorite shows yet</p>
+              )}
+            </div>
+
+            {/* Right Column - DJ Watchlist */}
+            <div className="space-y-6">
+              <h2 className="text-white text-sm font-medium border-b border-gray-800 pb-2">
+                DJ Watchlist
+              </h2>
+
+              {watchlist.length > 0 ? (
                 <div className="space-y-2">
                   {watchlist.map((favorite) => (
                     <div
@@ -648,23 +670,10 @@ export function MyShowsClient() {
                     </div>
                   ))}
                 </div>
-              </section>
-            )}
-
-            {/* One-Time Shows (not currently scheduled) */}
-            {categorizedShows.oneTime.length > 0 && (
-              <section>
-                <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-                  One-Time Shows ({categorizedShows.oneTime.length})
-                </h2>
-                <p className="text-gray-600 text-sm mb-3">
-                  Not currently scheduled
-                </p>
-                <div className="space-y-2">
-                  {categorizedShows.oneTime.map((favorite) => renderFavoriteCard(favorite))}
-                </div>
-              </section>
-            )}
+              ) : (
+                <p className="text-gray-600 text-sm py-4">No watchlist items yet. Search for a DJ name to add to your watchlist.</p>
+              )}
+            </div>
           </div>
         )}
       </main>

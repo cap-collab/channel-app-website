@@ -258,19 +258,18 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
             </button>
           )}
         </div>
-      </div>
 
-      {/* Search Dropdown Results */}
-      {showDropdown && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-black/50 z-40"
-            onClick={() => setIsOpen(false)}
-          />
+        {/* Search Dropdown Results - inside the relative container */}
+        {showDropdown && (
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-black/50 z-40"
+              onClick={() => setIsOpen(false)}
+            />
 
-          {/* Results Panel */}
-          <div className="absolute top-full left-0 right-0 mt-2 bg-surface-elevated rounded-xl border border-gray-800 shadow-xl z-50 max-h-[60vh] overflow-y-auto">
+            {/* Results Panel */}
+            <div className="absolute top-full left-0 right-0 mt-2 bg-surface-elevated rounded-xl border border-gray-800 shadow-xl z-50 max-h-[60vh] overflow-y-auto">
             {isSearching ? (
               <div className="flex items-center justify-center py-8">
                 <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
@@ -388,7 +387,8 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
             )}
           </div>
         </>
-      )}
+        )}
+      </div>
 
       {/* Favorites Content - only show if there's content */}
       {hasContent && !showsLoading && !favoritesLoading && (
