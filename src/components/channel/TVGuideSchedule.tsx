@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { getAllShows } from '@/lib/metadata';
-import { STATIONS } from '@/lib/stations';
+import { STATIONS, getMetadataKeyByStationId } from '@/lib/stations';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBPM } from '@/contexts/BPMContext';
@@ -355,14 +355,18 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                                 {show.dj}
                               </span>
                             )}
-                            {isLive && stationBPM[station.id]?.bpm && (
-                              <>
-                                {show.dj && <span className="text-gray-600 text-[10px]">•</span>}
-                                <span className="text-gray-400 text-[10px]">
-                                  {Math.round(stationBPM[station.id].bpm!)} BPM
-                                </span>
-                              </>
-                            )}
+                            {isLive && (() => {
+                              const metadataKey = getMetadataKeyByStationId(station.id);
+                              const bpm = metadataKey ? stationBPM[metadataKey]?.bpm : null;
+                              return bpm ? (
+                                <>
+                                  {show.dj && <span className="text-gray-600 text-[10px]">•</span>}
+                                  <span className="text-gray-400 text-[10px]">
+                                    {Math.round(bpm)} BPM
+                                  </span>
+                                </>
+                              ) : null;
+                            })()}
                           </div>
                         </div>
                       );
