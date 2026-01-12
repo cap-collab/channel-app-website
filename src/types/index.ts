@@ -22,6 +22,10 @@ export interface Show {
   imageUrl?: string;
   stationId: string;
   type?: string; // weekly, monthly, restream, playlist
+  // For tipping (broadcast shows only)
+  djUserId?: string;
+  djEmail?: string;
+  broadcastSlotId?: string;
 }
 
 // Metadata response from GitHub

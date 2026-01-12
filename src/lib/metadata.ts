@@ -219,9 +219,14 @@ async function fetchBroadcastShows(): Promise<Show[]> {
         djName?: string;
         startTime: number;
         endTime: number;
+        liveDjUserId?: string;
       }> | undefined;
       const liveDjBio = data.liveDjBio as string | undefined;
       const liveDjPhotoUrl = data.liveDjPhotoUrl as string | undefined;
+      // For tipping
+      const djUserId = data.djUserId as string | undefined;
+      const djEmail = data.djEmail as string | undefined;
+      const liveDjUserId = data.liveDjUserId as string | undefined;
 
       // Handle djSlots (venue broadcasts with multiple DJs)
       if (djSlots && djSlots.length > 0) {
@@ -238,6 +243,10 @@ async function fetchBroadcastShows(): Promise<Show[]> {
             endTime: slotEnd,
             stationId: "broadcast",
             type: status === "live" ? "live" : undefined,
+            // For tipping - use djSlot's liveDjUserId if available, else fall back to show-level
+            djUserId: djSlot.liveDjUserId || liveDjUserId || djUserId,
+            djEmail: djEmail,
+            broadcastSlotId: doc.id,
           });
         }
       } else {
@@ -252,6 +261,10 @@ async function fetchBroadcastShows(): Promise<Show[]> {
           endTime,
           stationId: "broadcast",
           type: status === "live" ? "live" : undefined,
+          // For tipping
+          djUserId: liveDjUserId || djUserId,
+          djEmail: djEmail,
+          broadcastSlotId: doc.id,
         });
       }
     });

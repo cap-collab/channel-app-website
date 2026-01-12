@@ -7,6 +7,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBPM } from '@/contexts/BPMContext';
 import { Show, Station } from '@/types';
+import { TipButton } from './TipButton';
 
 const PIXELS_PER_HOUR = 120;
 const STATION_COLUMN_WIDTH = 100;
@@ -41,13 +42,14 @@ interface TVGuideScheduleProps {
 }
 
 export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideScheduleProps) {
-  const { isAuthenticated } = useAuthContext();
+  const { isAuthenticated, user } = useAuthContext();
   const { toggleFavorite, isShowFavorited } = useFavorites();
   const { stationBPM } = useBPM();
   const [allShows, setAllShows] = useState<Show[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [expandedShowId, setExpandedShowId] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const hasScrolledRef = useRef(false);
 
@@ -237,15 +239,9 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
               onClick={() => station.id !== 'broadcast' && handleStationClick(station)}
               title={station.id !== 'broadcast' ? `Open ${station.name}` : undefined}
             >
-              <div className="flex items-center gap-2 min-w-0">
-                <div
-                  className="w-2 h-2 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: station.accentColor }}
-                />
-                <span className="text-white text-xs font-medium truncate">
-                  {station.name}
-                </span>
-              </div>
+              <span className="text-white text-xs font-medium truncate">
+                {station.name}
+              </span>
             </div>
           ))}
         </div>
@@ -297,6 +293,10 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                       const isFavorited = isShowFavorited(show);
                       const isToggling = togglingId === show.id;
                       const showWidth = parseFloat(style.width);
+                      const isExpanded = expandedShowId === show.id;
+                      const hasDescription = !!show.description || !!show.djBio;
+                      // Check if tipping is available (broadcast shows with DJ info - not limited to live)
+                      const canTip = station.id === 'broadcast' && show.dj && (show.djUserId || show.djEmail) && show.broadcastSlotId;
 
                       return (
                         <div
@@ -311,40 +311,81 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                             backgroundColor: isLive ? `${station.accentColor}30` : undefined,
                           }}
                         >
-                          {/* Favorite star button - show on hover or if favorited */}
-                          {showWidth >= 60 && (
-                            <button
-                              onClick={(e) => handleToggleFavorite(show, e)}
-                              disabled={isToggling}
-                              className={`absolute top-1 right-1 p-0.5 rounded transition-opacity z-10 ${
-                                isFavorited
-                                  ? 'opacity-100'
-                                  : 'opacity-0 group-hover:opacity-100'
-                              }`}
-                              style={{ color: station.accentColor }}
-                              title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
-                            >
-                              {isToggling ? (
-                                <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
-                              ) : (
+                          {/* Action buttons row - top right */}
+                          <div className="absolute top-1 right-1 flex items-center gap-0.5 z-10">
+                            {/* Tip button for live broadcast shows */}
+                            {canTip && showWidth >= 80 && (
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <TipButton
+                                  isAuthenticated={isAuthenticated}
+                                  tipperUserId={user?.uid}
+                                  djUserId={show.djUserId}
+                                  djEmail={show.djEmail}
+                                  djUsername={show.dj!}
+                                  broadcastSlotId={show.broadcastSlotId!}
+                                  showName={show.name}
+                                  compact
+                                />
+                              </div>
+                            )}
+                            {/* Expand chevron for shows with description */}
+                            {hasDescription && showWidth >= 60 && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedShowId(isExpanded ? null : show.id);
+                                }}
+                                className={`p-0.5 rounded transition-opacity text-gray-400 hover:text-white ${
+                                  isExpanded ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                                }`}
+                                title={isExpanded ? 'Hide details' : 'Show details'}
+                              >
                                 <svg
-                                  className="w-3 h-3"
-                                  fill={isFavorited ? 'currentColor' : 'none'}
+                                  className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                  fill="none"
                                   stroke="currentColor"
                                   strokeWidth={2}
                                   viewBox="0 0 24 24"
                                 >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                                  />
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                                 </svg>
-                              )}
-                            </button>
-                          )}
+                              </button>
+                            )}
+                            {/* Favorite star button - show on hover or if favorited */}
+                            {showWidth >= 60 && (
+                              <button
+                                onClick={(e) => handleToggleFavorite(show, e)}
+                                disabled={isToggling}
+                                className={`p-0.5 rounded transition-opacity ${
+                                  isFavorited
+                                    ? 'opacity-100'
+                                    : 'opacity-0 group-hover:opacity-100'
+                                }`}
+                                style={{ color: station.accentColor }}
+                                title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+                              >
+                                {isToggling ? (
+                                  <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <svg
+                                    className="w-3 h-3"
+                                    fill={isFavorited ? 'currentColor' : 'none'}
+                                    stroke="currentColor"
+                                    strokeWidth={2}
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                                    />
+                                  </svg>
+                                )}
+                              </button>
+                            )}
+                          </div>
 
-                          <div className="flex items-center gap-1.5 min-w-0 pr-4">
+                          <div className="flex items-center gap-1.5 min-w-0 pr-12">
                             <span className="text-white text-xs font-medium truncate">
                               {show.name}
                             </span>
@@ -368,6 +409,21 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                               ) : null;
                             })()}
                           </div>
+
+                          {/* Expanded description tooltip */}
+                          {isExpanded && hasDescription && (
+                            <div
+                              className="absolute left-0 top-full mt-1 bg-surface-elevated border border-gray-700 rounded-lg p-3 shadow-xl z-30 min-w-[200px] max-w-[300px]"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {show.djBio && (
+                                <p className="text-gray-300 text-xs mb-2">{show.djBio}</p>
+                              )}
+                              {show.description && (
+                                <p className="text-gray-400 text-xs">{show.description}</p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
