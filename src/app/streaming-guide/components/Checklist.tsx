@@ -15,9 +15,10 @@ interface ChecklistItem {
 }
 
 const checklistItems: ChecklistItem[] = [
-  { id: 'audio-input', label: 'Correct audio input selected', forPath: 'dj_gear' },
-  { id: 'browser-audio', label: 'Browser allowed to share system audio', forPath: 'computer' },
-  { id: 'levels', label: 'Audio levels moving in Channel', forPath: 'both' },
+  { id: 'macos-io', label: 'macOS input & output set to mixer/controller (levels moving in Sound Settings)', forPath: 'dj_gear' },
+  { id: 'chrome-input', label: 'Chrome audio input set to mixer/controller', forPath: 'dj_gear' },
+  { id: 'browser-audio', label: 'Chrome has Screen & System Audio Recording permission for audio only (one-time setup)', forPath: 'computer' },
+  { id: 'levels', label: 'Audio levels moving on this page — and NOT coming from your microphone', forPath: 'both' },
 ];
 
 export function Checklist({ streamingPath }: ChecklistProps) {

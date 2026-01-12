@@ -126,23 +126,40 @@ export function AllGuides() {
         isOpen={openSections.has('dj-gear')}
         onToggle={() => toggleSection('dj-gear')}
       >
-        <div className="space-y-4">
-          <p className="text-gray-300 font-medium">
-            Select your audio input in Chrome (required)
-          </p>
-
-          <ol className="text-gray-400 space-y-2 list-decimal list-inside">
-            <li>Open your private broadcast link in Chrome</li>
-            <li>In the address bar, click the audio / microphone icon (left of the URL)</li>
-            <li>
-              Set <span className="text-white">Audio input</span> to: your mixer, your controller, or your audio interface
-            </li>
-          </ol>
-
-          <div className="p-4 bg-yellow-900/20 border border-yellow-800/50 rounded-lg">
-            <p className="text-yellow-200 text-sm">
-              <span className="font-semibold">Warning:</span> If this is set to &quot;Built-in Microphone&quot;, Channel will only hear your laptop mic.
+        <div className="space-y-6">
+          {/* Step 1 */}
+          <div>
+            <h4 className="text-white font-medium mb-3">Step 1 — Connect your mixer/controller</h4>
+            <p className="text-gray-400 text-sm">
+              Connect your mixer/controller to your computer via USB or USB-C.
             </p>
+          </div>
+
+          {/* Step 2 */}
+          <div className="border-t border-gray-700 pt-6">
+            <h4 className="text-white font-medium mb-3">Step 2 — Set macOS system input and output</h4>
+            <ol className="text-gray-400 text-sm space-y-2 list-decimal list-inside">
+              <li>Click the <span className="text-white">sound icon</span> in your menu bar → <span className="text-white">Sound Settings</span></li>
+              <li>Under <span className="text-white">Input</span>, select your mixer/controller — verify input levels move</li>
+              <li>Under <span className="text-white">Output</span>, select your mixer/controller — verify output levels move</li>
+            </ol>
+          </div>
+
+          {/* Step 3 */}
+          <div className="border-t border-gray-700 pt-6">
+            <h4 className="text-white font-medium mb-3">Step 3 — Set Chrome audio input</h4>
+            <ol className="text-gray-400 text-sm space-y-2 list-decimal list-inside">
+              <li>Open your private broadcast link in Chrome</li>
+              <li>In the address bar, click the <span className="text-white">audio/microphone icon</span> (left of the URL)</li>
+              <li>Set <span className="text-white">Audio input</span> to your mixer/controller</li>
+              <li>Verify levels move on your Go Live Channel page</li>
+            </ol>
+
+            <div className="mt-4 p-4 bg-yellow-900/20 border border-yellow-800/50 rounded-lg">
+              <p className="text-yellow-200 text-sm">
+                <span className="font-semibold">Warning:</span> If this is set to &quot;Built-in Microphone&quot;, Channel will only hear your laptop mic.
+              </p>
+            </div>
           </div>
         </div>
       </AccordionSection>
@@ -156,19 +173,19 @@ export function AllGuides() {
       >
         <div className="space-y-6">
           <div>
-            <h4 className="text-white font-medium mb-3">Step 1 — Enable system audio access (one-time)</h4>
+            <h4 className="text-white font-medium mb-3">Step 1 — Enable Chrome to capture system audio (one-time)</h4>
             <p className="text-gray-400 mb-3">On macOS:</p>
             <ol className="text-gray-400 space-y-2 list-decimal list-inside">
               <li>Open <span className="text-white">System Settings</span></li>
               <li>Go to <span className="text-white">Privacy &amp; Security</span></li>
               <li>Open <span className="text-white">Screen &amp; System Audio Recording</span></li>
-              <li>Enable access for <span className="text-white">Google Chrome</span></li>
+              <li>Enable access for <span className="text-white">Google Chrome</span> (audio only)</li>
               <li>Restart Chrome if prompted</li>
             </ol>
           </div>
 
           <div className="border-t border-gray-700 pt-6">
-            <h4 className="text-white font-medium mb-3">Step 2 — Choose how you share audio</h4>
+            <h4 className="text-white font-medium mb-3">Step 2 — Choose what to share</h4>
 
             <div className="space-y-4">
               <div>
@@ -182,7 +199,7 @@ export function AllGuides() {
 
               <div>
                 <p className="text-gray-300 mb-1">If you play audio from an application</p>
-                <p className="text-gray-500 text-sm mb-2">(iTunes / Apple Music / desktop player)</p>
+                <p className="text-gray-500 text-sm mb-2">(iTunes, Apple Music, Spotify, Serato, Rekordbox)</p>
                 <ul className="text-gray-400 text-sm list-disc list-inside">
                   <li>Select <span className="text-white">System Audio</span></li>
                   <li>Toggle <span className="text-white">&quot;Also share system audio&quot;</span></li>
@@ -200,30 +217,55 @@ export function AllGuides() {
         isOpen={openSections.has('checklist')}
         onToggle={() => toggleSection('checklist')}
       >
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="w-5 h-5 rounded border border-gray-600 flex items-center justify-center">
-              <svg className="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-              </svg>
+        <div className="space-y-6">
+          <div>
+            <p className="text-gray-400 text-sm mb-3">For DJ gear:</p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-5 h-5 rounded border border-gray-600 flex items-center justify-center">
+                  <svg className="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span className="text-gray-300">macOS input &amp; output set to mixer/controller (levels moving in Sound Settings)</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-5 h-5 rounded border border-gray-600 flex items-center justify-center">
+                  <svg className="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span className="text-gray-300">Chrome audio input set to mixer/controller</span>
+              </div>
             </div>
-            <span className="text-gray-300">Correct audio input selected (gear only)</span>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="w-5 h-5 rounded border border-gray-600 flex items-center justify-center">
-              <svg className="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-              </svg>
+
+          <div>
+            <p className="text-gray-400 text-sm mb-3">For computer streaming:</p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-5 h-5 rounded border border-gray-600 flex items-center justify-center">
+                  <svg className="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span className="text-gray-300">Chrome has Screen &amp; System Audio Recording permission for audio only (one-time setup)</span>
+              </div>
             </div>
-            <span className="text-gray-300">Browser allowed to share system audio (computer only)</span>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="w-5 h-5 rounded border border-gray-600 flex items-center justify-center">
-              <svg className="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-              </svg>
+
+          <div>
+            <p className="text-gray-400 text-sm mb-3">For everyone:</p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-5 h-5 rounded border border-gray-600 flex items-center justify-center">
+                  <svg className="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span className="text-gray-300">Audio levels moving on this page — and NOT coming from your microphone</span>
+              </div>
             </div>
-            <span className="text-gray-300">Audio levels moving in Channel</span>
           </div>
 
           <div className="mt-4 p-4 bg-green-900/20 border border-green-800/50 rounded-lg">

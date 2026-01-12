@@ -41,22 +41,47 @@ export function SetupGuide({ streamingPath, onStartOver }: SetupGuideProps) {
 
 function DJGearGuide() {
   return (
-    <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
-      <h3 className="text-lg font-semibold text-white mb-4">
-        Streaming from DJ gear (mixer / controller / audio interface)
-      </h3>
-
-      <div className="space-y-4">
-        <p className="text-gray-300 font-medium">
-          Select your audio input in Chrome (required)
+    <div className="space-y-6">
+      {/* Step 1: Connect your gear */}
+      <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">
+          Step 1 — Connect your mixer/controller
+        </h3>
+        <p className="text-gray-400">
+          Connect your mixer/controller to your computer via USB or USB-C.
         </p>
+      </div>
+
+      {/* Step 2: Set macOS system input and output */}
+      <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">
+          Step 2 — Set macOS system input and output
+        </h3>
+
+        <ol className="text-gray-400 space-y-3 list-decimal list-inside">
+          <li>Click the <span className="text-white">sound icon</span> in your menu bar → <span className="text-white">Sound Settings</span></li>
+          <li>
+            Under <span className="text-white">Input</span>, select your mixer/controller — verify input levels move
+          </li>
+          <li>
+            Under <span className="text-white">Output</span>, select your mixer/controller — verify output levels move
+          </li>
+        </ol>
+      </div>
+
+      {/* Step 3: Set Chrome audio input */}
+      <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">
+          Step 3 — Set Chrome audio input
+        </h3>
 
         <ol className="text-gray-400 space-y-3 list-decimal list-inside">
           <li>Open your private broadcast link in Chrome</li>
-          <li>In the address bar, click the audio / microphone icon (left of the URL)</li>
+          <li>In the address bar, click the <span className="text-white">audio/microphone icon</span> (left of the URL)</li>
           <li>
-            Set <span className="text-white">Audio input</span> to: your mixer, your controller, or your audio interface
+            Set <span className="text-white">Audio input</span> to your mixer/controller
           </li>
+          <li>Verify levels move on your Go Live Channel page</li>
         </ol>
 
         <div className="mt-6 p-4 bg-yellow-900/20 border border-yellow-800/50 rounded-lg">
@@ -75,7 +100,7 @@ function ComputerGuide() {
       {/* Step 1: Enable system audio */}
       <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-white mb-4">
-          Step 1 — Enable system audio access (one-time)
+          Step 1 — Enable Chrome to capture system audio (one-time)
         </h3>
 
         <p className="text-gray-400 mb-4">On macOS:</p>
@@ -84,7 +109,7 @@ function ComputerGuide() {
           <li>Open <span className="text-white">System Settings</span></li>
           <li>Go to <span className="text-white">Privacy &amp; Security</span></li>
           <li>Open <span className="text-white">Screen &amp; System Audio Recording</span></li>
-          <li>Enable access for <span className="text-white">Google Chrome</span></li>
+          <li>Enable access for <span className="text-white">Google Chrome</span> (audio only)</li>
           <li>Restart Chrome if prompted</li>
         </ol>
       </div>
@@ -92,7 +117,7 @@ function ComputerGuide() {
       {/* Step 2: Choose how to share */}
       <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-white mb-4">
-          Step 2 — Choose how you share audio
+          Step 2 — Choose what to share
         </h3>
 
         <div className="space-y-6">
@@ -118,7 +143,7 @@ function ComputerGuide() {
               If you play audio from an application
             </p>
             <p className="text-gray-500 text-sm mb-3">
-              (iTunes / Apple Music / desktop player)
+              (iTunes, Apple Music, Spotify, Serato, Rekordbox)
             </p>
             <ul className="text-gray-400 space-y-1 list-disc list-inside">
               <li>Select <span className="text-white">System Audio</span></li>

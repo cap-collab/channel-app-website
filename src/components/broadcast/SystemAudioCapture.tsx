@@ -70,24 +70,57 @@ export function SystemAudioCapture({ onStream, onError, onBack }: SystemAudioCap
 
         <div className="space-y-4">
           <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
-            <h3 className="text-gray-300 font-medium mb-2">How it works:</h3>
-            <ol className="text-gray-300 text-sm space-y-2 list-decimal list-inside">
-              <li>Click &quot;Start Capture&quot; below</li>
-              <li>A screen share dialog will appear</li>
-              <li>Select any window or screen (we only use the audio)</li>
-              <li>
-                <span className="text-yellow-400 font-medium">Important:</span> Check the
-                &quot;Share audio&quot; or &quot;Share system audio&quot; checkbox
-              </li>
-            </ol>
+            <h3 className="text-gray-300 font-medium mb-3">Choose what to share:</h3>
+            <div className="space-y-4">
+              <div>
+                <p className="text-gray-300 text-sm mb-1">If you play audio from a browser tab</p>
+                <p className="text-gray-500 text-xs mb-2">(SoundCloud, Mixcloud, Bandcamp)</p>
+                <ul className="text-gray-400 text-sm list-disc list-inside">
+                  <li>Select the browser tab</li>
+                  <li>Toggle <span className="text-white">&quot;Also share tab audio&quot;</span></li>
+                </ul>
+              </div>
+              <div className="border-t border-gray-700 pt-4">
+                <p className="text-gray-300 text-sm mb-1">If you play audio from an application</p>
+                <p className="text-gray-500 text-xs mb-2">(iTunes, Apple Music, Spotify, Serato, Rekordbox)</p>
+                <ul className="text-gray-400 text-sm list-disc list-inside">
+                  <li>Select <span className="text-white">System Audio</span></li>
+                  <li>Toggle <span className="text-white">&quot;Also share system audio&quot;</span></li>
+                </ul>
+              </div>
+            </div>
           </div>
 
           <div className="bg-yellow-900/30 border border-yellow-800 rounded-lg p-4">
-            <h3 className="text-yellow-400 font-medium mb-2">macOS Users:</h3>
+            <h3 className="text-yellow-400 font-medium mb-2">macOS Users (one-time setup):</h3>
             <p className="text-gray-300 text-sm">
-              You may need to grant Screen Recording permission in{' '}
-              <span className="text-white">System Preferences → Privacy & Security → Screen Recording</span>
+              You need Screen &amp; System Audio Recording permission in{' '}
+              <span className="text-white">System Settings → Privacy &amp; Security → Screen &amp; System Audio Recording</span>
+              {' '}— enable for Google Chrome (audio only).
             </p>
+          </div>
+
+          {/* Checklist */}
+          <div className="border-t border-gray-700 pt-4">
+            <p className="text-gray-400 text-sm mb-3">Before going live, check:</p>
+            <div className="space-y-2">
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 rounded border border-gray-600 flex items-center justify-center mt-0.5">
+                  <svg className="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span className="text-gray-300 text-sm">Chrome has Screen &amp; System Audio Recording permission for audio only (one-time setup)</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 rounded border border-gray-600 flex items-center justify-center mt-0.5">
+                  <svg className="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span className="text-gray-300 text-sm">Audio levels moving on this page — and NOT coming from your microphone</span>
+              </div>
+            </div>
           </div>
 
           <button
