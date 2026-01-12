@@ -390,8 +390,8 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
         )}
       </div>
 
-      {/* Favorites Content - only show if there's content */}
-      {hasContent && !showsLoading && !favoritesLoading && (
+      {/* Favorites Content - only show if there's content and NOT showing search dropdown */}
+      {hasContent && !showsLoading && !favoritesLoading && !showDropdown && (
         <div className={`bg-surface-card rounded-xl p-4 mt-3 ${!isExpanded ? 'max-h-[180px] overflow-hidden' : ''}`}>
           {/* Header with expand button */}
           <div className="flex items-center justify-between mb-3">

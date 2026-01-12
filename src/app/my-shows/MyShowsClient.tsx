@@ -362,161 +362,325 @@ export function MyShowsClient() {
     );
   };
 
+  // Render search result card
+  const renderSearchResultCard = (show: Show) => {
+    const station = getStation(show.stationId);
+    const accentColor = station?.accentColor || "#fff";
+    const isFavorited = isShowFavorited(show);
+    const isToggling = togglingFavorite === show.id;
+
+    return (
+      <div
+        key={show.id}
+        className="flex rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50"
+      >
+        <div
+          className="w-1 flex-shrink-0"
+          style={{ backgroundColor: accentColor }}
+        />
+        <div className="flex-1 px-3 py-2.5">
+          <div className="flex items-center justify-between mb-1">
+            <span
+              className="text-[10px] font-semibold uppercase tracking-wide"
+              style={{ color: accentColor }}
+            >
+              {station?.name || show.stationId}
+            </span>
+            <button
+              onClick={() => handleToggleFavorite(show)}
+              disabled={isToggling}
+              className="p-0.5 transition-colors disabled:opacity-50"
+              style={{ color: accentColor }}
+              aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}
+            >
+              {isToggling ? (
+                <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
+              ) : (
+                <svg
+                  className="w-4 h-4"
+                  fill={isFavorited ? "currentColor" : "none"}
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                  />
+                </svg>
+              )}
+            </button>
+          </div>
+          <p className="font-medium text-white text-sm leading-snug line-clamp-2">
+            {show.name}
+          </p>
+          <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+            {show.dj && (
+              <>
+                <span className="truncate max-w-[120px]">{show.dj}</span>
+                <span>·</span>
+              </>
+            )}
+            <span>{formatShowTime(show.startTime)}</span>
+          </div>
+          {show.type && (show.type === "weekly" || show.type === "monthly") && (
+            <div className="mt-1.5">
+              <span
+                className="text-[9px] px-1.5 py-0.5 rounded-full"
+                style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
+              >
+                {show.type}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-black">
       <Header currentPage="my-shows" position="sticky" />
 
-      {/* Page Title */}
-      <div className="p-4 border-b border-gray-900">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-lg font-medium text-white text-center">My Shows</h1>
-        </div>
-      </div>
-
-      {/* Search Bar - Full width above columns */}
-      <div className="px-4 py-3 border-b border-gray-900 max-w-4xl mx-auto">
+      {/* Search Bar - Full width */}
+      <div className="px-8 lg:px-16 py-4 border-b border-gray-900">
         <SearchBar onSearch={handleSearch} placeholder="Search DJ or show..." />
       </div>
 
-      <main className="max-w-4xl mx-auto p-4">
-        {isSearching ? (
-          /* Search Results View */
-          <div className="space-y-6">
-            {searchLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="w-6 h-6 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
-              </div>
-            ) : (
-              <>
-                {/* Search Results */}
+      <main className="px-8 lg:px-16 py-6">
+        {!isAuthenticated ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500 mb-6">Sign in to see your saved shows</p>
+          </div>
+        ) : favorites.length === 0 && !isSearching ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500 mb-4">No saved shows yet</p>
+            <p className="text-gray-600 text-sm">Search above to find and save shows</p>
+          </div>
+        ) : showsLoading && !isSearching ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="w-6 h-6 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
+          </div>
+        ) : (
+          /* Two column layout */
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            {/* Left Column - Shows */}
+            <div className="space-y-6">
+              <h2 className="text-white text-sm font-medium border-b border-gray-800 pb-2">
+                Favorite Shows
+              </h2>
+
+              {/* Search Results for Shows */}
+              {isSearching && (
                 <section>
-                  <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-                    Upcoming Shows Matching ({searchResults.length})
-                  </h2>
-                  {searchResults.length === 0 ? (
+                  <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+                    Shows ({searchResults.length})
+                  </h3>
+                  {searchLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
+                    </div>
+                  ) : searchResults.length === 0 ? (
                     <p className="text-gray-600 text-sm py-4">
                       No upcoming shows found for &quot;{searchQuery}&quot;
                     </p>
                   ) : (
                     <div className="space-y-2">
-                      {searchResults.slice(0, 20).map((show) => {
-                        const station = getStation(show.stationId);
-                        const accentColor = station?.accentColor || "#fff";
-                        const isFavorited = isShowFavorited(show);
-                        const isToggling = togglingFavorite === show.id;
-
-                        return (
-                          <div
-                            key={show.id}
-                            className="flex rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50"
-                          >
-                            <div
-                              className="w-1 flex-shrink-0"
-                              style={{ backgroundColor: accentColor }}
-                            />
-                            <div className="flex-1 px-3 py-2.5">
-                              <div className="flex items-center justify-between mb-1">
-                                <span
-                                  className="text-[10px] font-semibold uppercase tracking-wide"
-                                  style={{ color: accentColor }}
-                                >
-                                  {station?.name || show.stationId}
-                                </span>
-                                <button
-                                  onClick={() => handleToggleFavorite(show)}
-                                  disabled={isToggling}
-                                  className="p-0.5 transition-colors disabled:opacity-50"
-                                  style={{ color: accentColor }}
-                                  aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}
-                                >
-                                  {isToggling ? (
-                                    <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
-                                  ) : (
-                                    <svg
-                                      className="w-4 h-4"
-                                      fill={isFavorited ? "currentColor" : "none"}
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                                      />
-                                    </svg>
-                                  )}
-                                </button>
-                              </div>
-                              <p className="font-medium text-white text-sm leading-snug line-clamp-2">
-                                {show.name}
-                              </p>
-                              <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                                {show.dj && (
-                                  <>
-                                    <span className="truncate max-w-[120px]">{show.dj}</span>
-                                    <span>·</span>
-                                  </>
-                                )}
-                                <span>{formatShowTime(show.startTime)}</span>
-                              </div>
-                              {show.type && (show.type === "weekly" || show.type === "monthly") && (
-                                <div className="mt-1.5">
-                                  <span
-                                    className="text-[9px] px-1.5 py-0.5 rounded-full"
-                                    style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
-                                  >
-                                    {show.type}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
+                      {searchResults.slice(0, 15).map((show) => renderSearchResultCard(show))}
                     </div>
                   )}
                 </section>
+              )}
 
-                {/* Add to Watchlist */}
-                {!watchlistHasTerm && (
-                  <button
-                    onClick={handleAddToWatchlist}
-                    disabled={addingToWatchlist}
-                    className="w-full py-3 px-4 bg-[#1a1a1a] border border-gray-800/50 rounded-xl text-white text-sm font-medium hover:bg-[#252525] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {addingToWatchlist ? (
-                      <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add &quot;{searchQuery}&quot; to Watchlist
-                      </>
+              {/* Live Now */}
+              {categorizedShows.liveNow.length > 0 && (
+                <section>
+                  <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                    Live Now ({categorizedShows.liveNow.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {categorizedShows.liveNow.map(({ favorite, show }) =>
+                      renderFavoriteCard(favorite, show)
                     )}
-                  </button>
-                )}
-                {watchlistHasTerm && (
-                  <div className="flex rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50">
-                    <div className="w-1 flex-shrink-0 bg-white" />
-                    <div className="flex-1 px-3 py-2.5">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-white">
-                          IN YOUR WATCHLIST
-                        </span>
-                        <button
-                          onClick={async () => {
-                            const watchlistItem = watchlist.find(
-                              (f) => f.term.toLowerCase() === searchQuery.trim().toLowerCase()
-                            );
-                            if (watchlistItem) {
-                              await handleRemove(watchlistItem);
-                            }
-                          }}
-                          className="p-0.5 transition-colors text-white hover:text-red-400"
-                          aria-label="Remove from watchlist"
-                        >
+                  </div>
+                </section>
+              )}
+
+              {/* Coming Up */}
+              {categorizedShows.comingUp.length > 0 && (
+                <section>
+                  <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+                    Coming Up ({categorizedShows.comingUp.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {categorizedShows.comingUp.map(({ favorite, show }) =>
+                      renderFavoriteCard(favorite, show)
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {/* Returning Soon */}
+              {categorizedShows.returningSoon.length > 0 && (
+                <section>
+                  <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+                    Returning Soon ({categorizedShows.returningSoon.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {categorizedShows.returningSoon.map((favorite) =>
+                      renderFavoriteCard(favorite)
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {/* One-Time Shows */}
+              {categorizedShows.oneTime.length > 0 && (
+                <section>
+                  <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+                    One-Time Shows ({categorizedShows.oneTime.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {categorizedShows.oneTime.map((favorite) => renderFavoriteCard(favorite))}
+                  </div>
+                </section>
+              )}
+
+              {/* Empty state for shows */}
+              {!isSearching &&
+                categorizedShows.liveNow.length === 0 &&
+                categorizedShows.comingUp.length === 0 &&
+                categorizedShows.returningSoon.length === 0 &&
+                categorizedShows.oneTime.length === 0 && (
+                <p className="text-gray-600 text-sm py-4">No favorite shows yet</p>
+              )}
+            </div>
+
+            {/* Right Column - DJ Watchlist */}
+            <div className="space-y-6">
+              <h2 className="text-white text-sm font-medium border-b border-gray-800 pb-2">
+                DJ Watchlist
+              </h2>
+
+              {/* Add to Watchlist (when searching) */}
+              {isSearching && (
+                <section>
+                  {!watchlistHasTerm ? (
+                    <button
+                      onClick={handleAddToWatchlist}
+                      disabled={addingToWatchlist}
+                      className="w-full py-3 px-4 bg-[#1a1a1a] border border-gray-800/50 rounded-xl text-white text-sm font-medium hover:bg-[#252525] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {addingToWatchlist ? (
+                        <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                          </svg>
+                          Add &quot;{searchQuery}&quot; to Watchlist
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <div className="flex rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50">
+                      <div className="w-1 flex-shrink-0 bg-white" />
+                      <div className="flex-1 px-3 py-2.5">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-white">
+                            IN YOUR WATCHLIST
+                          </span>
+                          <button
+                            onClick={async () => {
+                              const watchlistItem = watchlist.find(
+                                (f) => f.term.toLowerCase() === searchQuery.trim().toLowerCase()
+                              );
+                              if (watchlistItem) {
+                                await handleRemove(watchlistItem);
+                              }
+                            }}
+                            className="p-0.5 transition-colors text-white hover:text-red-400"
+                            aria-label="Remove from watchlist"
+                          >
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                            </svg>
+                          </button>
+                        </div>
+                        <p className="font-medium text-white text-sm leading-snug">
+                          &quot;{searchQuery}&quot;
+                        </p>
+                        <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                          <span>Click star to remove</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {/* Existing Watchlist Items */}
+              {watchlist.length > 0 ? (
+                <div className="space-y-2">
+                  {watchlist.map((favorite) => (
+                    <div
+                      key={favorite.id}
+                      className="flex rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50"
+                    >
+                      <div className="w-1 flex-shrink-0 bg-white" />
+                      <div className="flex-1 px-3 py-2.5">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-white">
+                            CHANNEL
+                          </span>
+                          <button
+                            onClick={() => handleRemove(favorite)}
+                            disabled={removing === favorite.id}
+                            className="p-0.5 transition-colors text-gray-600 hover:text-red-400 disabled:opacity-50"
+                            aria-label="Remove from watchlist"
+                          >
+                            {removing === favorite.id ? (
+                              <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
+                            ) : (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+                        <p className="font-medium text-white text-sm leading-snug line-clamp-2">
+                          {favorite.term}
+                        </p>
+                        <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                          <span>Search keyword</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : !isSearching ? (
+                <p className="text-gray-600 text-sm py-4">No watchlist items yet. Search for a DJ name to add to your watchlist.</p>
+              ) : null}
+            </div>
+          </div>
+        )}
+      </main>
+
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
+    </div>
+  );
+}
                           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                           </svg>
