@@ -390,29 +390,23 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                               {show.name}
                             </span>
                           </div>
-                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                            {isLive && (() => {
-                              const metadataKey = getMetadataKeyByStationId(station.id);
-                              const bpm = metadataKey ? stationBPM[metadataKey]?.bpm : null;
-                              return bpm ? (
-                                <span className="text-gray-400 text-[10px] whitespace-nowrap">
-                                  {Math.round(bpm)} BPM
-                                </span>
-                              ) : null;
-                            })()}
-                            {show.dj && (
-                              <>
-                                {isLive && (() => {
-                                  const metadataKey = getMetadataKeyByStationId(station.id);
-                                  const bpm = metadataKey ? stationBPM[metadataKey]?.bpm : null;
-                                  return bpm ? <span className="text-gray-600 text-[10px]">•</span> : null;
-                                })()}
-                                <span className="text-gray-400 text-[10px] truncate min-w-0">
-                                  {show.dj}
-                                </span>
-                              </>
-                            )}
-                          </div>
+                          {show.dj && (
+                            <div className="mt-0.5">
+                              <span className="text-gray-400 text-[10px] truncate">
+                                {show.dj}
+                              </span>
+                            </div>
+                          )}
+                          {/* BPM in bottom right corner */}
+                          {isLive && (() => {
+                            const metadataKey = getMetadataKeyByStationId(station.id);
+                            const bpm = metadataKey ? stationBPM[metadataKey]?.bpm : null;
+                            return bpm ? (
+                              <span className="absolute bottom-1 right-2 text-gray-400 text-[10px] whitespace-nowrap">
+                                {Math.round(bpm)} BPM
+                              </span>
+                            ) : null;
+                          })()}
 
                           {/* Expanded description - inline below content */}
                           {isExpanded && hasDescription && (
