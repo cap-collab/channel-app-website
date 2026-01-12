@@ -137,7 +137,23 @@ export function AllGuides() {
 
           {/* Step 2 */}
           <div className="border-t border-gray-700 pt-6">
-            <h4 className="text-white font-medium mb-3">Step 2 — Set macOS system input and output</h4>
+            <h4 className="text-white font-medium mb-3">Step 2 — Open your private broadcast link</h4>
+            <p className="text-gray-400 text-sm">
+              Open the broadcast link you received in Chrome.
+            </p>
+          </div>
+
+          {/* Step 3 */}
+          <div className="border-t border-gray-700 pt-6">
+            <h4 className="text-white font-medium mb-3">Step 3 — Select &quot;Stream from your gear&quot;</h4>
+            <p className="text-gray-400 text-sm">
+              Choose your mixer/controller from the dropdown.
+            </p>
+          </div>
+
+          {/* Step 4 */}
+          <div className="border-t border-gray-700 pt-6">
+            <h4 className="text-white font-medium mb-3">Step 4 — Set macOS system input and output</h4>
             <ol className="text-gray-400 text-sm space-y-2 list-decimal list-inside">
               <li>Click the <span className="text-white">sound icon</span> in your menu bar → <span className="text-white">Sound Settings</span></li>
               <li>Under <span className="text-white">Input</span>, select your mixer/controller — verify input levels move</li>
@@ -145,11 +161,10 @@ export function AllGuides() {
             </ol>
           </div>
 
-          {/* Step 3 */}
+          {/* Step 5 */}
           <div className="border-t border-gray-700 pt-6">
-            <h4 className="text-white font-medium mb-3">Step 3 — Set Chrome audio input</h4>
+            <h4 className="text-white font-medium mb-3">Step 5 — Set Chrome audio input</h4>
             <ol className="text-gray-400 text-sm space-y-2 list-decimal list-inside">
-              <li>Open your private broadcast link in Chrome</li>
               <li>In the address bar, click the <span className="text-white">audio/microphone icon</span> (left of the URL)</li>
               <li>Set <span className="text-white">Audio input</span> to your mixer/controller</li>
               <li>Verify levels move on your Go Live Channel page</li>
@@ -160,6 +175,14 @@ export function AllGuides() {
                 <span className="font-semibold">Warning:</span> If this is set to &quot;Built-in Microphone&quot;, Channel will only hear your laptop mic.
               </p>
             </div>
+          </div>
+
+          {/* Step 6 */}
+          <div className="border-t border-gray-700 pt-6">
+            <h4 className="text-white font-medium mb-3">Step 6 — Click &quot;Go Live&quot;</h4>
+            <p className="text-gray-400 text-sm">
+              Once you see audio levels moving on your Channel page, you&apos;re ready to go live!
+            </p>
           </div>
         </div>
       </AccordionSection>
@@ -172,6 +195,7 @@ export function AllGuides() {
         onToggle={() => toggleSection('computer')}
       >
         <div className="space-y-6">
+          {/* Step 1 */}
           <div>
             <h4 className="text-white font-medium mb-3">Step 1 — Enable Chrome to capture system audio (one-time)</h4>
             <p className="text-gray-400 mb-3">On macOS:</p>
@@ -184,8 +208,25 @@ export function AllGuides() {
             </ol>
           </div>
 
+          {/* Step 2 */}
           <div className="border-t border-gray-700 pt-6">
-            <h4 className="text-white font-medium mb-3">Step 2 — Choose what to share</h4>
+            <h4 className="text-white font-medium mb-3">Step 2 — Open your private broadcast link</h4>
+            <p className="text-gray-400 text-sm">
+              Open the broadcast link you received in Chrome.
+            </p>
+          </div>
+
+          {/* Step 3 */}
+          <div className="border-t border-gray-700 pt-6">
+            <h4 className="text-white font-medium mb-3">Step 3 — Select &quot;Stream from your computer&quot;</h4>
+            <p className="text-gray-400 text-sm">
+              Click &quot;Start Capture&quot; — a screen share dialog will appear.
+            </p>
+          </div>
+
+          {/* Step 4 */}
+          <div className="border-t border-gray-700 pt-6">
+            <h4 className="text-white font-medium mb-3">Step 4 — Choose what to share</h4>
 
             <div className="space-y-4">
               <div>
@@ -206,6 +247,14 @@ export function AllGuides() {
                 </ul>
               </div>
             </div>
+          </div>
+
+          {/* Step 5 */}
+          <div className="border-t border-gray-700 pt-6">
+            <h4 className="text-white font-medium mb-3">Step 5 — Click &quot;Go Live&quot;</h4>
+            <p className="text-gray-400 text-sm">
+              Once you see audio levels moving on your Channel page, you&apos;re ready to go live!
+            </p>
           </div>
         </div>
       </AccordionSection>

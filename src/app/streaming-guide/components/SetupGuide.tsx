@@ -52,10 +52,30 @@ function DJGearGuide() {
         </p>
       </div>
 
-      {/* Step 2: Set macOS system input and output */}
+      {/* Step 2: Open broadcast link */}
       <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-white mb-4">
-          Step 2 — Set macOS system input and output
+          Step 2 — Open your private broadcast link
+        </h3>
+        <p className="text-gray-400">
+          Open the broadcast link you received in Chrome.
+        </p>
+      </div>
+
+      {/* Step 3: Select streaming method */}
+      <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">
+          Step 3 — Select &quot;Stream from your gear&quot;
+        </h3>
+        <p className="text-gray-400">
+          Choose your mixer/controller from the dropdown.
+        </p>
+      </div>
+
+      {/* Step 4: Set macOS system input and output */}
+      <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">
+          Step 4 — Set macOS system input and output
         </h3>
 
         <ol className="text-gray-400 space-y-3 list-decimal list-inside">
@@ -69,14 +89,13 @@ function DJGearGuide() {
         </ol>
       </div>
 
-      {/* Step 3: Set Chrome audio input */}
+      {/* Step 5: Set Chrome audio input */}
       <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-white mb-4">
-          Step 3 — Set Chrome audio input
+          Step 5 — Set Chrome audio input
         </h3>
 
         <ol className="text-gray-400 space-y-3 list-decimal list-inside">
-          <li>Open your private broadcast link in Chrome</li>
           <li>In the address bar, click the <span className="text-white">audio/microphone icon</span> (left of the URL)</li>
           <li>
             Set <span className="text-white">Audio input</span> to your mixer/controller
@@ -89,6 +108,16 @@ function DJGearGuide() {
             <span className="font-semibold">Warning:</span> If this is set to &quot;Built-in Microphone&quot;, Channel will only hear your laptop mic.
           </p>
         </div>
+      </div>
+
+      {/* Step 6: Go Live */}
+      <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">
+          Step 6 — Click &quot;Go Live&quot;
+        </h3>
+        <p className="text-gray-400">
+          Once you see audio levels moving on your Channel page, you&apos;re ready to go live!
+        </p>
       </div>
     </div>
   );
@@ -114,10 +143,30 @@ function ComputerGuide() {
         </ol>
       </div>
 
-      {/* Step 2: Choose how to share */}
+      {/* Step 2: Open broadcast link */}
       <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-white mb-4">
-          Step 2 — Choose what to share
+          Step 2 — Open your private broadcast link
+        </h3>
+        <p className="text-gray-400">
+          Open the broadcast link you received in Chrome.
+        </p>
+      </div>
+
+      {/* Step 3: Select streaming method */}
+      <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">
+          Step 3 — Select &quot;Stream from your computer&quot;
+        </h3>
+        <p className="text-gray-400">
+          Click &quot;Start Capture&quot; — a screen share dialog will appear.
+        </p>
+      </div>
+
+      {/* Step 4: Choose what to share */}
+      <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">
+          Step 4 — Choose what to share
         </h3>
 
         <div className="space-y-6">
@@ -151,6 +200,16 @@ function ComputerGuide() {
             </ul>
           </div>
         </div>
+      </div>
+
+      {/* Step 5: Verify and Go Live */}
+      <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">
+          Step 5 — Click &quot;Go Live&quot;
+        </h3>
+        <p className="text-gray-400">
+          Once you see audio levels moving on your Channel page, you&apos;re ready to go live!
+        </p>
       </div>
     </div>
   );
