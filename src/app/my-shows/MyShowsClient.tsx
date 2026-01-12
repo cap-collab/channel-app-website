@@ -44,6 +44,27 @@ function formatShowTime(startTime: string): string {
   }
 }
 
+// Format "Last seen X time ago" like iOS
+function formatLastSeen(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (days === 0) {
+    return "Last seen today";
+  } else if (days === 1) {
+    return "Last seen yesterday";
+  } else if (days < 7) {
+    return `Last seen ${days} days ago`;
+  } else if (days < 30) {
+    const weeks = Math.floor(days / 7);
+    return `Last seen ${weeks} week${weeks === 1 ? "" : "s"} ago`;
+  } else {
+    const months = Math.floor(days / 30);
+    return `Last seen ${months} month${months === 1 ? "" : "s"} ago`;
+  }
+}
+
 // Match a favorite against shows to find scheduled instances
 function findMatchingShows(favorite: Favorite, allShows: Show[]): Show[] {
   const term = favorite.term.toLowerCase();
@@ -302,24 +323,37 @@ export function MyShowsClient() {
           <p className="font-medium text-white text-sm leading-snug line-clamp-2">
             {favorite.showName || favorite.term}
           </p>
-          {/* DJ and time */}
+          {/* DJ and time / Last seen */}
           <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
             {favorite.djName && (
               <>
                 <span className="truncate max-w-[120px]">{favorite.djName}</span>
-                {showInfo && <span>·</span>}
+                {(showInfo || favorite.createdAt) && <span>·</span>}
               </>
             )}
-            {showInfo && <span>{formatShowTime(showInfo.startTime)}</span>}
+            {showInfo ? (
+              <span>{formatShowTime(showInfo.startTime)}</span>
+            ) : (
+              <span>{formatLastSeen(favorite.createdAt)}</span>
+            )}
           </div>
-          {/* Show type badge */}
-          {showInfo?.type && (showInfo.type === "weekly" || showInfo.type === "monthly") && (
+          {/* Show type badge - from showInfo or favorite.showType for non-scheduled shows */}
+          {(showInfo?.type && (showInfo.type === "weekly" || showInfo.type === "biweekly" || showInfo.type === "monthly" || showInfo.type === "regular")) ? (
             <div className="mt-1.5">
               <span
                 className="text-[9px] px-1.5 py-0.5 rounded-full"
                 style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
               >
                 {showInfo.type}
+              </span>
+            </div>
+          ) : (!showInfo && favorite.showType && (favorite.showType === "weekly" || favorite.showType === "biweekly" || favorite.showType === "monthly" || favorite.showType === "regular")) && (
+            <div className="mt-1.5">
+              <span
+                className="text-[9px] px-1.5 py-0.5 rounded-full"
+                style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
+              >
+                {favorite.showType}
               </span>
             </div>
           )}
