@@ -385,28 +385,39 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                             )}
                           </div>
 
+                          {/* Line 1: Show name */}
                           <div className="pr-8">
                             <span className="text-white text-xs font-medium line-clamp-1">
                               {show.name}
                             </span>
                           </div>
+                          {/* Line 2: DJ name */}
                           {show.dj && (
-                            <div className="mt-0.5">
-                              <span className="text-gray-400 text-[10px] truncate">
+                            <div className="pr-8 -mt-0.5">
+                              <span className="text-gray-400 text-[10px] line-clamp-1">
                                 {show.dj}
                               </span>
                             </div>
                           )}
-                          {/* BPM in bottom right corner */}
-                          {isLive && (() => {
-                            const metadataKey = getMetadataKeyByStationId(station.id);
-                            const bpm = metadataKey ? stationBPM[metadataKey]?.bpm : null;
-                            return bpm ? (
-                              <span className="absolute bottom-1 right-2 text-gray-400 text-[10px] whitespace-nowrap">
-                                {Math.round(bpm)} BPM
+                          {/* Line 3: Description preview + BPM */}
+                          <div className="flex items-center justify-between gap-1 pr-8 -mt-0.5">
+                            {show.description && !isExpanded ? (
+                              <span className="text-gray-500 text-[10px] truncate min-w-0">
+                                {show.description}
                               </span>
-                            ) : null;
-                          })()}
+                            ) : (
+                              <span />
+                            )}
+                            {isLive && (() => {
+                              const metadataKey = getMetadataKeyByStationId(station.id);
+                              const bpm = metadataKey ? stationBPM[metadataKey]?.bpm : null;
+                              return bpm ? (
+                                <span className="text-gray-400 text-[10px] whitespace-nowrap flex-shrink-0">
+                                  {Math.round(bpm)} BPM
+                                </span>
+                              ) : null;
+                            })()}
+                          </div>
 
                           {/* Expanded description - inline below content */}
                           {isExpanded && hasDescription && (
