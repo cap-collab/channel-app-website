@@ -242,7 +242,20 @@ function ShowBlockComponent({
           </svg>
         </button>
 
-        <div className="px-2 py-1.5 h-full flex flex-col pr-6 overflow-hidden relative">
+        <div className="px-2 py-1.5 h-full flex pr-6 overflow-hidden relative gap-2">
+          {/* Show image thumbnail when card is tall enough */}
+          {show.imageUrl && height > 60 && (
+            <div
+              className="w-10 h-10 flex-shrink-0 rounded overflow-hidden bg-gray-800"
+            >
+              <img
+                src={show.imageUrl}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+          <div className="flex-1 min-w-0 flex flex-col">
           <p
             className="font-medium text-white text-xs leading-tight line-clamp-2"
             title={show.name}
@@ -281,6 +294,7 @@ function ShowBlockComponent({
           {show.description && height > 80 && (
             <p className="text-gray-600 text-[10px] line-clamp-2 mt-1">{show.description}</p>
           )}
+          </div>
         </div>
 
         {/* BPM badge in bottom right corner */}
@@ -288,6 +302,20 @@ function ShowBlockComponent({
           <div className="absolute bottom-1 right-1 text-[10px] text-gray-400 bg-black px-1.5 py-0.5 rounded flex items-center gap-1">
             <span>{badgeContent.icon}</span>
             <span>{badgeContent.text}</span>
+          </div>
+        )}
+
+        {/* Chevron indicator if expandable (has description, image, or promo) */}
+        {(show.description || show.imageUrl || show.promoText) && (
+          <div className="absolute bottom-1 left-1">
+            <svg
+              className="w-3 h-3 text-gray-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
         )}
       </div>
@@ -314,6 +342,17 @@ function ShowBlockComponent({
               />
 
               <div className="flex-1 p-4">
+                {/* Show image */}
+                {show.imageUrl && (
+                  <div className="mb-3 rounded-lg overflow-hidden">
+                    <img
+                      src={show.imageUrl}
+                      alt={show.name}
+                      className="w-full h-32 object-cover"
+                    />
+                  </div>
+                )}
+
                 {/* Station name */}
                 <div className="mb-2">
                   <span
@@ -350,6 +389,28 @@ function ShowBlockComponent({
                   <p className="text-gray-400 text-sm leading-relaxed mb-4">
                     {show.description}
                   </p>
+                )}
+
+                {/* Promo section (broadcast shows only) */}
+                {show.promoText && (
+                  <div className="mb-4 p-3 bg-gray-900 rounded-lg border border-gray-800">
+                    <p className="text-gray-300 text-sm">{show.promoText}</p>
+                    {show.promoUrl && (
+                      <a
+                        href={show.promoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center gap-1 text-sm hover:underline"
+                        style={{ color: accentColor }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Learn more
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
+                    )}
+                  </div>
                 )}
 
                 {/* Stream Now button - only for currently playing shows */}

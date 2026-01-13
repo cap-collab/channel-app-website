@@ -26,6 +26,9 @@ export interface Show {
   djUserId?: string;
   djEmail?: string;
   broadcastSlotId?: string;
+  // Promo info (broadcast shows only)
+  promoText?: string;
+  promoUrl?: string;
 }
 
 // Metadata response from GitHub

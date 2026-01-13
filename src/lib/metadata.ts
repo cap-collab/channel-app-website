@@ -269,6 +269,9 @@ async function fetchBroadcastShows(): Promise<Show[]> {
       const djUserId = data.djUserId as string | undefined;
       const djEmail = data.djEmail as string | undefined;
       const liveDjUserId = data.liveDjUserId as string | undefined;
+      // Promo info
+      const showPromoText = data.showPromoText as string | undefined;
+      const showPromoHyperlink = data.showPromoHyperlink as string | undefined;
 
       // Handle djSlots (venue broadcasts with multiple DJs)
       if (djSlots && djSlots.length > 0) {
@@ -289,6 +292,9 @@ async function fetchBroadcastShows(): Promise<Show[]> {
             djUserId: djSlot.liveDjUserId || liveDjUserId || djUserId,
             djEmail: djEmail,
             broadcastSlotId: doc.id,
+            // Promo info
+            promoText: showPromoText,
+            promoUrl: showPromoHyperlink,
           });
         }
       } else {
@@ -307,6 +313,9 @@ async function fetchBroadcastShows(): Promise<Show[]> {
           djUserId: liveDjUserId || djUserId,
           djEmail: djEmail,
           broadcastSlotId: doc.id,
+          // Promo info
+          promoText: showPromoText,
+          promoUrl: showPromoHyperlink,
         });
       }
     });
