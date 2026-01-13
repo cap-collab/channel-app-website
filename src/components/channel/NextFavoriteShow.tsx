@@ -417,7 +417,7 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
           </div>
 
           {/* Two column layout: Shows on left, Watchlist on right */}
-          <div className="flex gap-2">
+          <div className="flex gap-4">
             {/* Left column: Shows (Live, Coming Up, Returning Soon) */}
             <div className="flex-1 min-w-0 space-y-2">
               {/* Live Now Section */}
@@ -520,7 +520,7 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
 
             {/* Right column: Watchlist */}
             {hasWatchlist && (
-              <div className="w-[140px] flex-shrink-0">
+              <div className="flex-1 min-w-0">
                 <p className="text-gray-500 text-[10px] uppercase tracking-wide mb-1 flex items-center gap-1">
                   <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -528,18 +528,18 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
                   </svg>
                   Watchlist
                 </p>
-                <div className="space-y-1">
-                  {(isExpanded ? watchlist : watchlist.slice(0, 4)).map((fav) => (
-                    <div key={fav.id} className="flex items-center gap-2">
-                      <div className="w-1 h-6 rounded-full flex-shrink-0 bg-black" />
-                      <span className="text-white text-[10px] truncate">
+                <div className="grid grid-cols-2 gap-1">
+                  {(isExpanded ? watchlist : watchlist.slice(0, 6)).map((fav) => (
+                    <div key={fav.id} className="flex items-center gap-1.5">
+                      <div className="w-1 h-5 rounded-full flex-shrink-0 bg-black" />
+                      <span className="text-white text-xs font-medium truncate">
                         {fav.term}
                       </span>
                     </div>
                   ))}
-                  {!isExpanded && watchlist.length > 4 && (
+                  {!isExpanded && watchlist.length > 6 && (
                     <span className="text-gray-500 text-[10px]">
-                      +{watchlist.length - 4} more
+                      +{watchlist.length - 6} more
                     </span>
                   )}
                 </div>

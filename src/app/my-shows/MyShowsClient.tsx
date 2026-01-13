@@ -642,30 +642,26 @@ export function MyShowsClient() {
                   {watchlist.map((favorite) => (
                     <div
                       key={favorite.id}
-                      className="flex rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50"
+                      className="flex items-center rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50"
                     >
-                      <div className="w-1 flex-shrink-0 bg-black" />
-                      <div className="flex-1 px-3 py-2.5">
-                        <div className="flex items-center justify-end mb-1">
-                          <button
-                            onClick={() => handleRemove(favorite)}
-                            disabled={removing === favorite.id}
-                            className="p-0.5 transition-colors text-gray-600 hover:text-red-400 disabled:opacity-50"
-                            aria-label="Remove from watchlist"
-                          >
-                            {removing === favorite.id ? (
-                              <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
-                            ) : (
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            )}
-                          </button>
-                        </div>
-                        <p className="font-medium text-white text-sm leading-snug line-clamp-2">
-                          {favorite.term}
-                        </p>
-                      </div>
+                      <div className="w-1 self-stretch flex-shrink-0 bg-black" />
+                      <p className="flex-1 px-3 py-2.5 font-medium text-white text-sm truncate">
+                        {favorite.term}
+                      </p>
+                      <button
+                        onClick={() => handleRemove(favorite)}
+                        disabled={removing === favorite.id}
+                        className="px-3 py-2.5 transition-colors text-gray-600 hover:text-red-400 disabled:opacity-50"
+                        aria-label="Remove from watchlist"
+                      >
+                        {removing === favorite.id ? (
+                          <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        )}
+                      </button>
                     </div>
                   ))}
                 </div>
