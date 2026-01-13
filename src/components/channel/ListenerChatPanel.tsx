@@ -484,16 +484,16 @@ export function ListenerChatPanel({
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder={isLive ? "Message..." : "Chat available when live"}
+            placeholder="Message..."
             className="flex-1 min-w-0 bg-black text-white text-sm border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500 disabled:text-gray-500 disabled:cursor-not-allowed"
             maxLength={280}
-            disabled={isSending || !isLive}
+            disabled={isSending}
           />
 
           {/* Send button */}
           <button
             type="submit"
-            disabled={!inputValue.trim() || isSending || !isLive}
+            disabled={!inputValue.trim() || isSending}
             className="flex-shrink-0 bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white p-2 rounded-lg transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
