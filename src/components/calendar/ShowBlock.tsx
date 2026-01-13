@@ -230,17 +230,15 @@ function ShowBlockComponent({
 
         {/* Top-right controls: chevron indicator + star */}
         <div className="absolute top-1 right-1 flex items-center gap-0.5 z-10">
-          {/* Chevron indicator if expandable (has additional content beyond name/dj/time) */}
-          {hasExpandableContent && (
-            <svg
-              className="w-3 h-3 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          )}
+          {/* Chevron indicator - ALWAYS show for debugging */}
+          <svg
+            className={`w-3 h-3 ${hasExpandableContent ? 'text-white' : 'text-red-500'}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
           {/* Star icon for quick favorite */}
           <button
             onClick={handleFavoriteClick}
