@@ -307,9 +307,9 @@ function ShowBlockComponent({
 
         {/* Chevron indicator if expandable (has additional content beyond name/dj/time) */}
         {(show.description || show.imageUrl || show.djPhotoUrl || show.djBio || show.promoText) && (
-          <div className="absolute bottom-1 left-1">
+          <div className="absolute bottom-1 left-1 bg-black/60 rounded-sm p-0.5">
             <svg
-              className="w-3 h-3 text-gray-500"
+              className="w-3 h-3 text-white"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
