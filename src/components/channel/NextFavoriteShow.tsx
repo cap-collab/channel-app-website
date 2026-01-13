@@ -40,6 +40,13 @@ function formatShowTime(startTime: string): string {
   }
 }
 
+// Check if text contains the search term as a whole word (word boundary matching)
+function matchesAsWord(text: string, searchTerm: string): boolean {
+  const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const wordBoundaryRegex = new RegExp(`\\b${escaped}\\b`, 'i');
+  return wordBoundaryRegex.test(text);
+}
+
 // Match a favorite against shows to find scheduled instances
 function findMatchingShows(favorite: Favorite, allShows: Show[]): Show[] {
   const term = favorite.term.toLowerCase();
@@ -56,12 +63,12 @@ function findMatchingShows(favorite: Favorite, allShows: Show[]): Show[] {
     const showNameLower = show.name.toLowerCase();
     const showDjLower = show.dj?.toLowerCase();
 
-    // Match by name (bidirectional - either contains the other)
-    const nameMatch = showNameLower.includes(term) || term.includes(showNameLower);
+    // Match by name using word boundary matching (show must contain the search term as a word)
+    const nameMatch = matchesAsWord(showNameLower, term);
     // Also try matching against the stored showName
-    const storedNameMatch = showName && (showNameLower.includes(showName) || showName.includes(showNameLower));
-    // Match by DJ
-    const djMatch = showDjLower && (showDjLower.includes(term) || term.includes(showDjLower));
+    const storedNameMatch = showName && matchesAsWord(showNameLower, showName);
+    // Match by DJ using word boundary matching
+    const djMatch = showDjLower && matchesAsWord(showDjLower, term);
 
     return nameMatch || storedNameMatch || djMatch;
   });

@@ -32,6 +32,16 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "scheduledNotifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "showName", "order": "ASCENDING" },
+        { "fieldPath": "stationId", "order": "ASCENDING" },
+        { "fieldPath": "sent", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

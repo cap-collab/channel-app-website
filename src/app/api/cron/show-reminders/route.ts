@@ -5,6 +5,7 @@ import {
   getUserFavorites,
   getUser,
   setScheduledNotification,
+  getScheduledNotification,
   queryScheduledNotifications,
   updateDocument,
   isRestApiConfigured,
@@ -193,29 +194,11 @@ export async function GET(request: NextRequest) {
           continue;
         }
 
-        // Check if we already sent an email for this show today (final safeguard against duplicates)
-        const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        const recentlySent = await queryScheduledNotifications([
-          { field: "userId", op: "EQUAL", value: notification.data.userId },
-          { field: "showName", op: "EQUAL", value: notification.data.showName },
-          { field: "stationId", op: "EQUAL", value: notification.data.stationId },
-          { field: "sent", op: "EQUAL", value: true },
-        ]);
-
-        // Filter to only those sent in the last 24 hours
-        const sentToday = recentlySent.filter((n) => {
-          const sentAt = n.data.sentAt as Date | string | undefined;
-          if (!sentAt) return false;
-          return new Date(sentAt) > twentyFourHoursAgo;
-        });
-
-        if (sentToday.length > 0) {
-          // Already sent recently, skip and mark as duplicate
-          await updateDocument("scheduledNotifications", notification.id, {
-            sent: true,
-            skipped: true,
-            reason: "duplicate_already_sent",
-          });
+        // Re-fetch the notification to check if it was already sent (race condition safeguard)
+        // This is more reliable than the query-based approach since it uses the deterministic document ID
+        const freshNotification = await getScheduledNotification(notification.id);
+        if (freshNotification?.data.sent === true) {
+          // Already sent by another cron run, skip
           continue;
         }
 

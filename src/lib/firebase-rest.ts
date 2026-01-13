@@ -336,6 +336,31 @@ export async function setScheduledNotification(docId: string, data: Record<strin
   }
 }
 
+// Get a scheduled notification by document ID
+export async function getScheduledNotification(docId: string): Promise<{ id: string; data: Record<string, unknown> } | null> {
+  const token = await getAuthToken();
+  if (!token) return null;
+
+  try {
+    const response = await fetch(
+      `${FIRESTORE_BASE_URL}/scheduledNotifications/${docId}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    if (!response.ok) return null;
+    const doc = await response.json();
+    return {
+      id: docId,
+      data: firestoreDocToObject(doc),
+    };
+  } catch (error) {
+    console.error("Get notification failed:", error);
+    return null;
+  }
+}
+
 // Query scheduledNotifications
 export async function queryScheduledNotifications(
   filters: Array<{ field: string; op: string; value: unknown }>
