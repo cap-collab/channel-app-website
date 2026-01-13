@@ -385,33 +385,46 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                             )}
                           </div>
 
-                          {/* Show name - up to 2 lines, truncate on hover to make room for buttons */}
-                          {(() => {
-                            const metadataKey = getMetadataKeyByStationId(station.id);
-                            const bpm = isLive && metadataKey ? stationBPM[metadataKey]?.bpm : null;
-                            // Show name is short (1 line) if under ~20 chars, so DJ would be on line 2
-                            // Show name is long (2 lines) if over ~20 chars, so DJ would be on line 3
-                            const showNameIsLong = show.name.length > 20;
-                            const djNeedsPadding = bpm && show.dj && showNameIsLong;
+                          {/* Show content with optional DJ photo */}
+                          <div className="flex gap-1.5 h-full">
+                            {/* DJ photo thumbnail on card */}
+                            {show.djPhotoUrl && showWidth >= 80 && (
+                              <img
+                                src={show.djPhotoUrl}
+                                alt={show.dj || 'DJ'}
+                                className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                              />
+                            )}
+                            {/* Show name and DJ */}
+                            <div className="flex-1 min-w-0">
+                              {(() => {
+                                const metadataKey = getMetadataKeyByStationId(station.id);
+                                const bpm = isLive && metadataKey ? stationBPM[metadataKey]?.bpm : null;
+                                // Show name is short (1 line) if under ~20 chars, so DJ would be on line 2
+                                // Show name is long (2 lines) if over ~20 chars, so DJ would be on line 3
+                                const showNameIsLong = show.name.length > 20;
+                                const djNeedsPadding = bpm && show.dj && showNameIsLong;
 
-                            return (
-                              <>
-                                <div className="group-hover:pr-12">
-                                  <span className="text-white text-xs font-medium line-clamp-2 leading-tight">
-                                    {show.name}
-                                  </span>
-                                </div>
-                                {/* DJ name - 1 line only, with right padding for BPM only if on 3rd line */}
-                                {show.dj && (
-                                  <div className={djNeedsPadding ? 'pr-14' : ''}>
-                                    <span className="text-gray-400 text-[10px] line-clamp-1 leading-tight">
-                                      {show.dj}
-                                    </span>
-                                  </div>
-                                )}
-                              </>
-                            );
-                          })()}
+                                return (
+                                  <>
+                                    <div className="group-hover:pr-12">
+                                      <span className="text-white text-xs font-medium line-clamp-2 leading-tight">
+                                        {show.name}
+                                      </span>
+                                    </div>
+                                    {/* DJ name - 1 line only, with right padding for BPM only if on 3rd line */}
+                                    {show.dj && (
+                                      <div className={djNeedsPadding ? 'pr-14' : ''}>
+                                        <span className="text-gray-400 text-[10px] line-clamp-1 leading-tight">
+                                          {show.dj}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          </div>
                           {/* BPM - absolute bottom right */}
                           {isLive && (() => {
                             const metadataKey = getMetadataKeyByStationId(station.id);
