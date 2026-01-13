@@ -224,23 +224,37 @@ function ShowBlockComponent({
           />
         )}
 
-        {/* Star icon for quick favorite */}
-        <button
-          onClick={handleFavoriteClick}
-          className="absolute top-1 right-1 p-0.5 transition-colors z-10"
-          style={{ color: accentColor }}
-          aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}
-        >
-          <svg
-            className="w-3.5 h-3.5"
-            viewBox="0 0 24 24"
-            fill={isFavorited ? "currentColor" : "none"}
-            stroke="currentColor"
-            strokeWidth={2}
+        {/* Top-right controls: chevron indicator + star */}
+        <div className="absolute top-1 right-1 flex items-center gap-0.5 z-10">
+          {/* Chevron indicator if expandable (has additional content beyond name/dj/time) */}
+          {(show.description || show.imageUrl || show.djPhotoUrl || show.djBio || show.promoText) && (
+            <svg
+              className="w-3 h-3 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          )}
+          {/* Star icon for quick favorite */}
+          <button
+            onClick={handleFavoriteClick}
+            className="p-0.5 transition-colors"
+            style={{ color: accentColor }}
+            aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}
           >
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-          </svg>
-        </button>
+            <svg
+              className="w-3.5 h-3.5"
+              viewBox="0 0 24 24"
+              fill={isFavorited ? "currentColor" : "none"}
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+          </button>
+        </div>
 
         <div className="px-2 py-1.5 h-full flex pr-6 overflow-hidden relative gap-2">
           {/* Show image thumbnail when card is tall enough */}
@@ -302,20 +316,6 @@ function ShowBlockComponent({
           <div className="absolute bottom-1 right-1 text-[10px] text-gray-400 bg-black px-1.5 py-0.5 rounded flex items-center gap-1">
             <span>{badgeContent.icon}</span>
             <span>{badgeContent.text}</span>
-          </div>
-        )}
-
-        {/* Chevron indicator if expandable (has additional content beyond name/dj/time) */}
-        {(show.description || show.imageUrl || show.djPhotoUrl || show.djBio || show.promoText) && (
-          <div className="absolute bottom-1 left-1 bg-black/60 rounded-sm p-0.5">
-            <svg
-              className="w-3 h-3 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
           </div>
         )}
       </div>
