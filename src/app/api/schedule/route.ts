@@ -32,9 +32,16 @@ async function enrichBroadcastShowsWithDJProfiles(shows: Show[]): Promise<Show[]
   const profilePromises = Array.from(djUserIds).map(async (userId) => {
     try {
       const userDoc = await adminDb.collection("users").doc(userId).get();
+      console.log(`[API /schedule] Fetching profile for userId: ${userId}, exists: ${userDoc.exists}`);
       if (userDoc.exists) {
         const userData = userDoc.data();
         const djProfile = userData?.djProfile as { bio?: string; photoUrl?: string; promoText?: string; promoHyperlink?: string } | undefined;
+        console.log(`[API /schedule] User ${userId} djProfile:`, djProfile ? {
+          hasBio: !!djProfile.bio,
+          hasPhotoUrl: !!djProfile.photoUrl,
+          hasPromoText: !!djProfile.promoText,
+          hasPromoHyperlink: !!djProfile.promoHyperlink,
+        } : 'none');
         if (djProfile) {
           djProfiles[userId] = {
             bio: djProfile.bio || undefined,
@@ -76,6 +83,20 @@ export async function GET() {
 
     // Enrich broadcast shows with DJ profiles using Admin SDK
     const enrichedShows = await enrichBroadcastShowsWithDJProfiles(shows);
+
+    // Debug: Log broadcast shows with their profile data
+    const broadcastShows = enrichedShows.filter(s => s.stationId === "broadcast");
+    console.log(`[API /schedule] Broadcast shows (${broadcastShows.length}):`,
+      broadcastShows.map(s => ({
+        name: s.name,
+        dj: s.dj,
+        djUserId: s.djUserId,
+        djPhotoUrl: !!s.djPhotoUrl,
+        djBio: !!s.djBio,
+        promoText: !!s.promoText,
+        promoUrl: !!s.promoUrl,
+      }))
+    );
 
     return NextResponse.json({ shows: enrichedShows });
   } catch (error) {
