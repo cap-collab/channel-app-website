@@ -227,6 +227,8 @@ function ShowBlockComponent({
         {/* Top-right controls: chevron indicator + star */}
         <div className="absolute top-1 right-1 flex items-center gap-0.5 z-10">
           {/* Chevron indicator if expandable (has additional content beyond name/dj/time) */}
+          {/* Debug: Check if show has expandable content */}
+          {console.log(`[ShowBlock] ${show.name.substring(0,20)} - desc:${!!show.description} img:${!!show.imageUrl} djPhoto:${!!show.djPhotoUrl} djBio:${!!show.djBio} promo:${!!show.promoText}`)}
           {(show.description || show.imageUrl || show.djPhotoUrl || show.djBio || show.promoText) && (
             <svg
               className="w-3 h-3 text-gray-400"
