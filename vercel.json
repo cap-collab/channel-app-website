@@ -1,10 +1,6 @@
 {
   "crons": [
     {
-      "path": "/api/cron/show-reminders",
-      "schedule": "55 * * * *"
-    },
-    {
       "path": "/api/cron/watchlist-digest",
       "schedule": "0 7 * * *"
     },
