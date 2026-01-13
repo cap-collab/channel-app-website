@@ -50,6 +50,12 @@ const STATION_NAMES: Record<string, string> = {
   subtle: "Subtle Radio",
 };
 
+// Word boundary matching for watchlist terms
+function matchesAsWord(text: string, term: string): boolean {
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${escaped}\\b`, 'i').test(text);
+}
+
 export async function GET(request: NextRequest) {
   if (!verifyCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -122,12 +128,6 @@ export async function GET(request: NextRequest) {
 
       if (watchlistDocs.length === 0) {
         continue;
-      }
-
-      // Word boundary matching for watchlist terms
-      function matchesAsWord(text: string, term: string): boolean {
-        const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        return new RegExp(`\\b${escaped}\\b`, 'i').test(text);
       }
 
       // Find matching shows
