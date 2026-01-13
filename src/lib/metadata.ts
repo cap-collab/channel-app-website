@@ -1,7 +1,7 @@
 import { MetadataResponse, Show, ShowV2 } from "@/types";
 import { getStationByMetadataKey } from "./stations";
 import { db } from "./firebase";
-import { collection, getDocs, getDoc, doc, query, where, orderBy, Timestamp } from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy, Timestamp } from "firebase/firestore";
 
 const METADATA_URL = "https://cap-collab.github.io/channel-metadata/metadata.json";
 const NEWTOWN_SCHEDULE_URL = "https://newtownradio.com/weekly-schedule/";
@@ -217,6 +217,7 @@ async function fetchNewtownDirectly(): Promise<Show[]> {
 }
 
 // Fetch broadcast shows from Firebase
+// Note: DJ profile enrichment (bio, photo, promo) is done in /api/schedule using Admin SDK
 async function fetchBroadcastShows(): Promise<Show[]> {
   if (!db) {
     console.log("[Broadcast] Firebase not initialized");
@@ -241,41 +242,6 @@ async function fetchBroadcastShows(): Promise<Show[]> {
     );
 
     const snapshot = await getDocs(q);
-
-    // Collect all unique DJ user IDs to fetch their profiles
-    const djUserIds = new Set<string>();
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      if (data.djUserId) djUserIds.add(data.djUserId as string);
-      if (data.liveDjUserId) djUserIds.add(data.liveDjUserId as string);
-    });
-
-    // Fetch all DJ profiles in parallel
-    const djProfiles: Record<string, { bio?: string; photoUrl?: string; promoText?: string; promoHyperlink?: string }> = {};
-    if (djUserIds.size > 0 && db) {
-      const profilePromises = Array.from(djUserIds).map(async (userId) => {
-        try {
-          const userDocRef = doc(db!, "users", userId);
-          const userDocSnap = await getDoc(userDocRef);
-          if (userDocSnap.exists()) {
-            const userData = userDocSnap.data();
-            const djProfile = userData.djProfile as { bio?: string; photoUrl?: string; promoText?: string; promoHyperlink?: string } | undefined;
-            if (djProfile) {
-              djProfiles[userId] = {
-                bio: djProfile.bio || undefined,
-                photoUrl: djProfile.photoUrl || undefined,
-                promoText: djProfile.promoText || undefined,
-                promoHyperlink: djProfile.promoHyperlink || undefined,
-              };
-            }
-          }
-        } catch (err) {
-          console.error(`[Broadcast] Failed to fetch DJ profile for ${userId}:`, err);
-        }
-      });
-      await Promise.all(profilePromises);
-    }
-
     const shows: Show[] = [];
 
     snapshot.forEach((doc) => {
@@ -283,7 +249,6 @@ async function fetchBroadcastShows(): Promise<Show[]> {
       const status = data.status as string;
 
       // Skip cancelled slots, but show all others (scheduled, live, paused, completed, missed)
-      // The calendar should display all shows that exist
       if (status === "cancelled") {
         return;
       }
@@ -302,38 +267,28 @@ async function fetchBroadcastShows(): Promise<Show[]> {
       const djUserId = data.djUserId as string | undefined;
       const djEmail = data.djEmail as string | undefined;
       const liveDjUserId = data.liveDjUserId as string | undefined;
-      // Show-level promo (fallback)
+      // Show-level promo (fallback - DJ profile promo added in API)
       const showPromoText = data.showPromoText as string | undefined;
       const showPromoHyperlink = data.showPromoHyperlink as string | undefined;
-
-      // Get DJ profile from the user who is assigned to this slot (or went live)
-      const effectiveDjUserId = liveDjUserId || djUserId;
-      const djProfile = effectiveDjUserId ? djProfiles[effectiveDjUserId] : undefined;
 
       // Handle djSlots (venue broadcasts with multiple DJs)
       if (djSlots && djSlots.length > 0) {
         for (const djSlot of djSlots) {
           const slotStart = new Date(djSlot.startTime).toISOString();
           const slotEnd = new Date(djSlot.endTime).toISOString();
-          // For venue slots, try to get profile from the DJ who claimed this slot
-          const slotDjProfile = djSlot.liveDjUserId ? djProfiles[djSlot.liveDjUserId] : djProfile;
           shows.push({
             id: `broadcast-${doc.id}-${djSlot.startTime}`,
             name: showName,
             dj: djSlot.djName,
-            djBio: slotDjProfile?.bio,
-            djPhotoUrl: slotDjProfile?.photoUrl,
             startTime: slotStart,
             endTime: slotEnd,
             stationId: "broadcast",
             type: status === "live" ? "live" : undefined,
-            // For tipping - use djSlot's liveDjUserId if available, else fall back to show-level
             djUserId: djSlot.liveDjUserId || liveDjUserId || djUserId,
             djEmail: djEmail,
             broadcastSlotId: doc.id,
-            // Promo info - DJ profile promo takes priority over show-level
-            promoText: slotDjProfile?.promoText || showPromoText,
-            promoUrl: slotDjProfile?.promoHyperlink || showPromoHyperlink,
+            promoText: showPromoText,
+            promoUrl: showPromoHyperlink,
           });
         }
       } else {
@@ -342,19 +297,15 @@ async function fetchBroadcastShows(): Promise<Show[]> {
           id: `broadcast-${doc.id}`,
           name: showName,
           dj: djName,
-          djBio: djProfile?.bio,
-          djPhotoUrl: djProfile?.photoUrl,
           startTime,
           endTime,
           stationId: "broadcast",
           type: status === "live" ? "live" : undefined,
-          // For tipping
           djUserId: liveDjUserId || djUserId,
           djEmail: djEmail,
           broadcastSlotId: doc.id,
-          // Promo info - DJ profile promo takes priority over show-level
-          promoText: djProfile?.promoText || showPromoText,
-          promoUrl: djProfile?.promoHyperlink || showPromoHyperlink,
+          promoText: showPromoText,
+          promoUrl: showPromoHyperlink,
         });
       }
     });

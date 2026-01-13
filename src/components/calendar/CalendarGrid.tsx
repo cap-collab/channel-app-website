@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Show } from "@/types";
 import { STATIONS } from "@/lib/stations";
-import { getAllShows } from "@/lib/metadata";
 import { TimeAxis } from "./TimeAxis";
 import { StationColumn } from "./StationColumn";
 import { SearchResultCard } from "./SearchResultCard";
@@ -74,8 +73,12 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
     async function loadShows() {
       try {
         setLoading(true);
-        const allShows = await getAllShows();
-        setShows(allShows);
+        // Fetch from API to get enriched data (DJ profiles via Admin SDK)
+        const response = await fetch("/api/schedule");
+        const data = await response.json();
+        if (data.shows) {
+          setShows(data.shows);
+        }
         setError(null);
       } catch (err) {
         console.error("Failed to load shows:", err);
