@@ -271,17 +271,6 @@ async function fetchBroadcastShows(): Promise<Show[]> {
       const showPromoText = data.showPromoText as string | undefined;
       const showPromoHyperlink = data.showPromoHyperlink as string | undefined;
 
-      // Debug: Log all broadcast slot data
-      console.log(`[Broadcast] Slot ${doc.id}:`, {
-        showName,
-        djName,
-        status,
-        djUserId,
-        liveDjUserId,
-        hasDjSlots: !!djSlots?.length,
-        showPromoText: !!showPromoText,
-      });
-
       // Handle djSlots (venue broadcasts with multiple DJs)
       if (djSlots && djSlots.length > 0) {
         for (const djSlot of djSlots) {

@@ -295,6 +295,7 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                       const showWidth = parseFloat(style.width);
                       const isExpanded = expandedShowId === show.id;
                       const hasDescription = !!show.description || !!show.djBio;
+                      const hasExpandableContent = hasDescription || !!show.djPhotoUrl || !!show.promoText;
                       // Check if tipping is available (broadcast shows with DJ info - not limited to live)
                       const canTip = station.id === 'broadcast' && show.dj && (show.djUserId || show.djEmail) && show.broadcastSlotId;
 
@@ -358,9 +359,21 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                               </button>
                             )}
                           </div>
-                          {/* Always-visible favorite indicator (filled star when favorited) */}
-                          {isFavorited && showWidth >= 60 && (
-                            <div className="absolute top-0.5 right-0.5 group-hover:opacity-0 transition-opacity">
+                          {/* Always-visible indicators: chevron (if expandable) + favorite star */}
+                          <div className="absolute top-0.5 right-0.5 flex items-center gap-0.5 group-hover:opacity-0 transition-opacity">
+                            {/* Chevron indicator if has expandable content */}
+                            {hasExpandableContent && showWidth >= 50 && (
+                              <svg
+                                className="w-3 h-3 text-gray-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            )}
+                            {/* Favorite star */}
+                            {isFavorited && showWidth >= 60 && (
                               <svg
                                 className="w-3 h-3"
                                 fill="currentColor"
@@ -369,8 +382,8 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                               >
                                 <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                               </svg>
-                            </div>
-                          )}
+                            )}
+                          </div>
 
                           {/* Show name - up to 2 lines, truncate on hover to make room for buttons */}
                           {(() => {
@@ -463,14 +476,45 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                                   )}
                                 </div>
 
-                                {/* Description - only show section if there's content */}
-                                {hasDescription && (
-                                  <div className="space-y-3 text-sm leading-relaxed max-h-[40vh] overflow-y-auto">
-                                    {show.djBio && (
-                                      <p className="text-gray-300">{show.djBio}</p>
+                                {/* DJ Photo and Bio */}
+                                {(show.djPhotoUrl || show.djBio) && (
+                                  <div className="flex items-start gap-3 mb-4">
+                                    {show.djPhotoUrl && (
+                                      <img
+                                        src={show.djPhotoUrl}
+                                        alt={show.dj || 'DJ'}
+                                        className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                                      />
                                     )}
-                                    {show.description && (
-                                      <p className="text-gray-400">{show.description}</p>
+                                    {show.djBio && (
+                                      <p className="text-gray-300 text-sm">{show.djBio}</p>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Description */}
+                                {show.description && (
+                                  <p className="text-gray-400 text-sm leading-relaxed mb-4">{show.description}</p>
+                                )}
+
+                                {/* Promo section */}
+                                {show.promoText && (
+                                  <div className="bg-gray-800/50 rounded-lg p-3 mb-4">
+                                    <p className="text-gray-300 text-sm">{show.promoText}</p>
+                                    {show.promoUrl && (
+                                      <a
+                                        href={show.promoUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="mt-2 inline-flex items-center gap-1 text-sm hover:underline"
+                                        style={{ color: station.accentColor }}
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        Learn more
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                        </svg>
+                                      </a>
                                     )}
                                   </div>
                                 )}

@@ -64,9 +64,8 @@ function ShowBlockComponent({
 
   const isFavorited = isShowFavorited(show);
 
-  // Debug: Log show data for chevron visibility
+  // Check if show has expandable content (for chevron indicator)
   const hasExpandableContent = !!(show.description || show.imageUrl || show.djPhotoUrl || show.djBio || show.promoText);
-  console.log(`[ShowBlock] ${show.name.substring(0,25)} - expand:${hasExpandableContent} desc:${!!show.description} img:${!!show.imageUrl} djPhoto:${!!show.djPhotoUrl} djBio:${!!show.djBio} promo:${!!show.promoText}`);
 
   // Check if this show is currently playing
   const now = new Date();
@@ -230,15 +229,17 @@ function ShowBlockComponent({
 
         {/* Top-right controls: chevron indicator + star */}
         <div className="absolute top-1 right-1 flex items-center gap-0.5 z-10">
-          {/* Chevron indicator - ALWAYS show for debugging */}
-          <svg
-            className={`w-3 h-3 ${hasExpandableContent ? 'text-white' : 'text-red-500'}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
+          {/* Chevron indicator if expandable */}
+          {hasExpandableContent && (
+            <svg
+              className="w-3 h-3 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          )}
           {/* Star icon for quick favorite */}
           <button
             onClick={handleFavoriteClick}
