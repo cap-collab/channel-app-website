@@ -644,12 +644,9 @@ export function MyShowsClient() {
                       key={favorite.id}
                       className="flex rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50"
                     >
-                      <div className="w-1 flex-shrink-0 bg-white" />
+                      <div className="w-1 flex-shrink-0 bg-black" />
                       <div className="flex-1 px-3 py-2.5">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-white">
-                            CHANNEL
-                          </span>
+                        <div className="flex items-center justify-end mb-1">
                           <button
                             onClick={() => handleRemove(favorite)}
                             disabled={removing === favorite.id}
