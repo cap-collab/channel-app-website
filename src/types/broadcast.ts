@@ -53,6 +53,8 @@ export interface BroadcastSlot {
   liveDjUsername?: string;     // Their chat username
   liveDjBio?: string;          // DJ bio (from their profile)
   liveDjPhotoUrl?: string;     // DJ profile picture URL
+  liveDjPromoText?: string;    // DJ promo text (from their profile)
+  liveDjPromoHyperlink?: string; // DJ promo link (from their profile)
   // Show-level promo (default for all DJs)
   showPromoText?: string;
   showPromoHyperlink?: string;
@@ -86,6 +88,8 @@ export interface BroadcastSlotSerialized {
   liveDjUsername?: string;
   liveDjBio?: string;
   liveDjPhotoUrl?: string;
+  liveDjPromoText?: string;
+  liveDjPromoHyperlink?: string;
   // Show-level promo
   showPromoText?: string;
   showPromoHyperlink?: string;

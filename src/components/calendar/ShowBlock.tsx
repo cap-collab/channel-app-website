@@ -305,8 +305,8 @@ function ShowBlockComponent({
           </div>
         )}
 
-        {/* Chevron indicator if expandable (has description, image, or promo) */}
-        {(show.description || show.imageUrl || show.promoText) && (
+        {/* Chevron indicator if expandable (has additional content beyond name/dj/time) */}
+        {(show.description || show.imageUrl || show.djPhotoUrl || show.djBio || show.promoText) && (
           <div className="absolute bottom-1 left-1">
             <svg
               className="w-3 h-3 text-gray-500"
@@ -368,14 +368,25 @@ function ShowBlockComponent({
                   {show.name}
                 </h3>
 
-                {/* DJ + Time */}
+                {/* DJ info with photo */}
+                {(show.dj || show.djPhotoUrl) && (
+                  <div className="flex items-center gap-3 mb-3">
+                    {show.djPhotoUrl && (
+                      <img
+                        src={show.djPhotoUrl}
+                        alt={show.dj || "DJ"}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    )}
+                    <div>
+                      {show.dj && <p className="text-white text-sm font-medium">{show.dj}</p>}
+                      {show.djBio && <p className="text-gray-500 text-xs line-clamp-2">{show.djBio}</p>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Time */}
                 <div className="flex items-center gap-1.5 text-sm text-gray-500 mb-3">
-                  {show.dj && (
-                    <>
-                      <span>{show.dj}</span>
-                      <span className="text-gray-700">·</span>
-                    </>
-                  )}
                   <span>
                     {formatDay(showStart)} at{" "}
                     {showStart.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}

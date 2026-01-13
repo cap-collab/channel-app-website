@@ -68,6 +68,8 @@ export async function POST(request: NextRequest) {
       // Extract DJ profile data for the slot
       const djBio = userData?.djProfile?.bio || null;
       const djPhotoUrl = userData?.djProfile?.photoUrl || null;
+      const djPromoText = userData?.djProfile?.promoText || null;
+      const djPromoHyperlink = userData?.djProfile?.promoHyperlink || null;
 
       if (existingChatUsername) {
         // User already has a chatUsername - use it (ignore form input)
@@ -116,6 +118,12 @@ export async function POST(request: NextRequest) {
       }
       if (djPhotoUrl) {
         updateData.liveDjPhotoUrl = djPhotoUrl;
+      }
+      if (djPromoText) {
+        updateData.liveDjPromoText = djPromoText;
+      }
+      if (djPromoHyperlink) {
+        updateData.liveDjPromoHyperlink = djPromoHyperlink;
       }
     } else {
       // Guest/venue DJ - ephemeral username, no registration needed

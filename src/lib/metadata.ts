@@ -269,7 +269,9 @@ async function fetchBroadcastShows(): Promise<Show[]> {
       const djUserId = data.djUserId as string | undefined;
       const djEmail = data.djEmail as string | undefined;
       const liveDjUserId = data.liveDjUserId as string | undefined;
-      // Promo info
+      // Promo info - prioritize live DJ promo over show-level promo
+      const liveDjPromoText = data.liveDjPromoText as string | undefined;
+      const liveDjPromoHyperlink = data.liveDjPromoHyperlink as string | undefined;
       const showPromoText = data.showPromoText as string | undefined;
       const showPromoHyperlink = data.showPromoHyperlink as string | undefined;
 
@@ -292,9 +294,9 @@ async function fetchBroadcastShows(): Promise<Show[]> {
             djUserId: djSlot.liveDjUserId || liveDjUserId || djUserId,
             djEmail: djEmail,
             broadcastSlotId: doc.id,
-            // Promo info
-            promoText: showPromoText,
-            promoUrl: showPromoHyperlink,
+            // Promo info - live DJ promo takes priority over show-level
+            promoText: liveDjPromoText || showPromoText,
+            promoUrl: liveDjPromoHyperlink || showPromoHyperlink,
           });
         }
       } else {
@@ -313,9 +315,9 @@ async function fetchBroadcastShows(): Promise<Show[]> {
           djUserId: liveDjUserId || djUserId,
           djEmail: djEmail,
           broadcastSlotId: doc.id,
-          // Promo info
-          promoText: showPromoText,
-          promoUrl: showPromoHyperlink,
+          // Promo info - live DJ promo takes priority over show-level
+          promoText: liveDjPromoText || showPromoText,
+          promoUrl: liveDjPromoHyperlink || showPromoHyperlink,
         });
       }
     });
