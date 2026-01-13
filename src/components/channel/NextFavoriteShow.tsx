@@ -51,26 +51,26 @@ function matchesAsWord(text: string, searchTerm: string): boolean {
 function findMatchingShows(favorite: Favorite, allShows: Show[]): Show[] {
   const term = favorite.term.toLowerCase();
   const showName = favorite.showName?.toLowerCase();
+  const isStationScoped = !!favorite.stationId;
 
   return allShows.filter((show) => {
-    // Match by station if specified
-    if (favorite.stationId) {
+    const showNameLower = show.name.toLowerCase();
+
+    if (isStationScoped) {
+      // Station-scoped favorite: exact match on show name + same station
       const favStation = getStation(favorite.stationId);
       const showStation = getStation(show.stationId);
       if (favStation?.id !== showStation?.id) return false;
+
+      // Exact match on show name only (no DJ matching)
+      return showNameLower === term || (showName && showNameLower === showName);
+    } else {
+      // Watchlist (cross-station): word boundary matching on show name OR DJ
+      const showDjLower = show.dj?.toLowerCase();
+      const nameMatch = matchesAsWord(showNameLower, term);
+      const djMatch = showDjLower && matchesAsWord(showDjLower, term);
+      return nameMatch || djMatch;
     }
-
-    const showNameLower = show.name.toLowerCase();
-    const showDjLower = show.dj?.toLowerCase();
-
-    // Match by name using word boundary matching (show must contain the search term as a word)
-    const nameMatch = matchesAsWord(showNameLower, term);
-    // Also try matching against the stored showName
-    const storedNameMatch = showName && matchesAsWord(showNameLower, showName);
-    // Match by DJ using word boundary matching
-    const djMatch = showDjLower && matchesAsWord(showDjLower, term);
-
-    return nameMatch || storedNameMatch || djMatch;
   });
 }
 

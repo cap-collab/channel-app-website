@@ -124,6 +124,12 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
+      // Word boundary matching for watchlist terms
+      function matchesAsWord(text: string, term: string): boolean {
+        const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return new RegExp(`\\b${escaped}\\b`, 'i').test(text);
+      }
+
       // Find matching shows
       const since = lastEmailAt ? new Date(lastEmailAt) : new Date(0);
       const matches: Array<{
@@ -144,9 +150,10 @@ export async function GET(request: NextRequest) {
 
         for (const watchlistDoc of watchlistDocs) {
           const termLower = watchlistDoc.term.toLowerCase();
+          // Word boundary matching: "stu" matches "Stu's Show" but NOT "Stuart"
           if (
-            show.name.toLowerCase().includes(termLower) ||
-            show.dj?.toLowerCase().includes(termLower)
+            matchesAsWord(show.name, termLower) ||
+            (show.dj && matchesAsWord(show.dj, termLower))
           ) {
             matches.push({
               showName: show.name,

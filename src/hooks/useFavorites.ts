@@ -103,13 +103,17 @@ export function useFavorites() {
     return () => unsubscribe();
   }, [user]);
 
-  // Check if a show is favorited
+  // Check if a show is favorited (exact match on show name + same station)
   const isShowFavorited = useCallback(
     (show: Show): boolean => {
       return favorites.some(
         (fav) =>
-          fav.term.toLowerCase() === show.name.toLowerCase() ||
-          (show.dj && fav.term.toLowerCase() === show.dj.toLowerCase())
+          // Only match station-scoped favorites (not watchlist)
+          fav.stationId &&
+          // Exact match on show name only
+          fav.term.toLowerCase() === show.name.toLowerCase() &&
+          // Same station
+          fav.stationId === show.stationId
       );
     },
     [favorites]
