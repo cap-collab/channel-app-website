@@ -145,8 +145,8 @@ export function ChannelClient() {
               <NextFavoriteShow onAuthRequired={handleAuthRequired} />
             </div>
 
-            {/* Right column: Chat - stretches to match left column height */}
-            <div className="w-80 border-l border-gray-800 flex flex-col p-4">
+            {/* Right column: Chat - fixed height, scrolls internally */}
+            <div className="w-80 border-l border-gray-800 flex flex-col p-4 max-h-[500px]">
               <ListenerChatPanel
                 isAuthenticated={isAuthenticated}
                 username={username}
