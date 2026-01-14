@@ -120,13 +120,33 @@ export async function createSlot(data: {
   const tokenExpiresAt = Timestamp.fromMillis(data.endTime + 60 * 60 * 1000);
   const broadcastToken = generateToken();
 
+  // Clean djSlots to remove undefined values (Firebase doesn't accept undefined)
+  const cleanedDjSlots = data.djSlots?.map(slot => {
+    const cleaned: Record<string, unknown> = {
+      id: slot.id,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+    };
+    if (slot.djName) cleaned.djName = slot.djName;
+    if (slot.djEmail) cleaned.djEmail = slot.djEmail;
+    if (slot.djUserId) cleaned.djUserId = slot.djUserId;
+    if (slot.djUsername) cleaned.djUsername = slot.djUsername;
+    if (slot.djBio) cleaned.djBio = slot.djBio;
+    if (slot.djPhotoUrl) cleaned.djPhotoUrl = slot.djPhotoUrl;
+    if (slot.djPromoText) cleaned.djPromoText = slot.djPromoText;
+    if (slot.djPromoHyperlink) cleaned.djPromoHyperlink = slot.djPromoHyperlink;
+    if (slot.djThankYouMessage) cleaned.djThankYouMessage = slot.djThankYouMessage;
+    if (slot.djSocialLinks) cleaned.djSocialLinks = slot.djSocialLinks;
+    return cleaned;
+  }) || null;
+
   const slotData: Record<string, unknown> = {
     stationId: STATION_ID,
     showName: data.showName,
     djName: finalDjName || null,
     djEmail: data.djEmail || null,
     djUserId: djUserId || null,
-    djSlots: data.djSlots || null,
+    djSlots: cleanedDjSlots,
     startTime: startTimestamp,
     endTime: endTimestamp,
     broadcastToken,
@@ -187,7 +207,28 @@ export async function updateSlot(
   if (updates.showName !== undefined) updateData.showName = updates.showName;
   if (updates.djName !== undefined) updateData.djName = updates.djName || null;
   if (updates.djEmail !== undefined) updateData.djEmail = updates.djEmail || null;
-  if (updates.djSlots !== undefined) updateData.djSlots = updates.djSlots || null;
+
+  // Clean djSlots to remove undefined values (Firebase doesn't accept undefined)
+  if (updates.djSlots !== undefined) {
+    updateData.djSlots = updates.djSlots?.map(slot => {
+      const cleaned: Record<string, unknown> = {
+        id: slot.id,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+      };
+      if (slot.djName) cleaned.djName = slot.djName;
+      if (slot.djEmail) cleaned.djEmail = slot.djEmail;
+      if (slot.djUserId) cleaned.djUserId = slot.djUserId;
+      if (slot.djUsername) cleaned.djUsername = slot.djUsername;
+      if (slot.djBio) cleaned.djBio = slot.djBio;
+      if (slot.djPhotoUrl) cleaned.djPhotoUrl = slot.djPhotoUrl;
+      if (slot.djPromoText) cleaned.djPromoText = slot.djPromoText;
+      if (slot.djPromoHyperlink) cleaned.djPromoHyperlink = slot.djPromoHyperlink;
+      if (slot.djThankYouMessage) cleaned.djThankYouMessage = slot.djThankYouMessage;
+      if (slot.djSocialLinks) cleaned.djSocialLinks = slot.djSocialLinks;
+      return cleaned;
+    }) || null;
+  }
 
   // Handle time updates - convert to Firestore Timestamps
   if (updates.startTime !== undefined) {

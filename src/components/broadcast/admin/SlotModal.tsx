@@ -454,7 +454,11 @@ export function SlotModal({
   }, [startTime, endTime, startDate, endDate]);
 
   const handleSave = async () => {
-    if (!showName || !startDate || !endDate || !startTime || !endTime) return;
+    console.log('[SlotModal] handleSave called with:', { showName, startDate, endDate, startTime, endTime, broadcastType, djSlotsCount: djSlots.length });
+    if (!showName || !startDate || !endDate || !startTime || !endTime) {
+      console.log('[SlotModal] Validation failed:', { showName: !showName, startDate: !startDate, endDate: !endDate, startTime: !startTime, endTime: !endTime });
+      return;
+    }
 
     setIsSaving(true);
     try {
