@@ -68,11 +68,16 @@ function ChatMessage({
     return null; // Promos shown in pinned bar
   }
 
-  // Love reaction message
+  // Love reaction message - show multiple hearts based on heartCount
   if (message.messageType === 'love' || message.message?.includes(' is ❤️')) {
+    const heartCount = Math.min(message.heartCount || 1, 10);
+    const hearts = '❤️'.repeat(heartCount);
+    const displayMessage = message.message.replace(' is ❤️', ` is ${hearts}`);
+
     return (
-      <div className="py-2 px-4 text-gray-400 text-sm italic">
-        {message.message}
+      <div className="py-2 px-4 flex items-center justify-between">
+        <span className="text-white text-sm">{displayMessage}</span>
+        <span className="text-gray-600 text-xs">{timeAgo}</span>
       </div>
     );
   }

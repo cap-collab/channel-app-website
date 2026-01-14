@@ -67,6 +67,30 @@ function ChatMessage({ message, isOwnMessage, currentLiveDjUsername }: {
     return promoContent;
   }
 
+  // Love reaction message - show multiple hearts based on heartCount
+  if (message.messageType === 'love' || message.message?.includes(' is ❤️')) {
+    const heartCount = Math.min(message.heartCount || 1, 10);
+    const hearts = '❤️'.repeat(heartCount);
+    const displayMessage = message.message.replace(' is ❤️', ` is ${hearts}`);
+
+    return (
+      <div className="py-2 flex items-center justify-between">
+        <span className="text-white text-sm">{displayMessage}</span>
+        <span className="text-gray-600 text-xs ml-2">{timeAgo}</span>
+      </div>
+    );
+  }
+
+  // Tip message
+  if (message.messageType === 'tip') {
+    return (
+      <div className="py-2 flex items-center justify-between">
+        <span className="text-green-400 text-sm font-medium">{message.message}</span>
+        <span className="text-gray-600 text-xs ml-2">{timeAgo}</span>
+      </div>
+    );
+  }
+
   return (
     <div className={`py-2 ${isOwnMessage ? 'opacity-90' : ''}`}>
       <div className="flex items-start gap-2">
