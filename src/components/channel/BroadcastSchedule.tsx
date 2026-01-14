@@ -88,13 +88,22 @@ interface ShowCardProps {
 function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, username }: ShowCardProps) {
   const [expanded, setExpanded] = useState(false);
 
-  // Read DJ profile data directly from the slot (synced when DJ updates their profile)
-  const djBio = slot.originalShow.liveDjBio || null;
-  const djPhotoUrl = slot.originalShow.liveDjPhotoUrl || null;
-  const djPromoHyperlink = slot.originalShow.showPromoHyperlink || null;
+  // Read DJ profile data - for venue DJ slots, use the djSlot's pre-configured data
+  // For regular shows, fall back to the broadcast-level live DJ fields
+  const djBio = slot.isVenueSlot && slot.djSlot
+    ? (slot.djSlot.djBio || null)
+    : (slot.originalShow.liveDjBio || null);
+  const djPhotoUrl = slot.isVenueSlot && slot.djSlot
+    ? (slot.djSlot.djPhotoUrl || null)
+    : (slot.originalShow.liveDjPhotoUrl || null);
+  const djPromoHyperlink = slot.isVenueSlot && slot.djSlot
+    ? (slot.djSlot.djPromoHyperlink || slot.originalShow.showPromoHyperlink || null)
+    : (slot.originalShow.showPromoHyperlink || null);
 
-  // Show tip button if DJ email is assigned (djEmail is set when show is created)
-  const hasDjInfo = slot.originalShow.djEmail;
+  // Show tip button if DJ email is assigned - check djSlot for venue shows
+  const hasDjInfo = slot.isVenueSlot && slot.djSlot
+    ? slot.djSlot.djEmail
+    : slot.originalShow.djEmail;
 
   // Determine if there's enough room to show bio inline (height > 80px)
   const canShowBioInline = height > 80 && djBio;
@@ -152,8 +161,12 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
                   isAuthenticated={isAuthenticated || false}
                   tipperUserId={userId}
                   tipperUsername={username}
-                  djUserId={slot.originalShow.djUserId || slot.originalShow.liveDjUserId || slot.djSlot?.liveDjUserId}
-                  djEmail={slot.originalShow.djEmail}
+                  djUserId={slot.isVenueSlot && slot.djSlot
+                    ? (slot.djSlot.djUserId || slot.djSlot.liveDjUserId)
+                    : (slot.originalShow.djUserId || slot.originalShow.liveDjUserId)}
+                  djEmail={slot.isVenueSlot && slot.djSlot
+                    ? slot.djSlot.djEmail
+                    : slot.originalShow.djEmail}
                   djUsername={slot.djName || 'DJ'}
                   broadcastSlotId={slot.originalShow.id}
                   showName={slot.showName}
