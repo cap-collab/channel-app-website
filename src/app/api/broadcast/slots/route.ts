@@ -120,13 +120,35 @@ export async function POST(request: NextRequest) {
     // Token expires 1 hour after slot ends
     const tokenExpiresAt = Timestamp.fromMillis(endTime + 60 * 60 * 1000);
 
-    const slot: Omit<BroadcastSlot, 'id'> & { djEmail?: string; djUserId?: string; liveDjBio?: string; liveDjPhotoUrl?: string } = {
+    // Clean djSlots to remove undefined values (Firebase doesn't accept undefined)
+    const cleanedDjSlots = djSlots?.map((slot: DJSlot) => {
+      const cleaned: Record<string, unknown> = {
+        id: slot.id,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+      };
+      if (slot.djName) cleaned.djName = slot.djName;
+      if (slot.djEmail) cleaned.djEmail = slot.djEmail;
+      if (slot.djUserId) cleaned.djUserId = slot.djUserId;
+      if (slot.djUsername) cleaned.djUsername = slot.djUsername;
+      if (slot.djBio) cleaned.djBio = slot.djBio;
+      if (slot.djPhotoUrl) cleaned.djPhotoUrl = slot.djPhotoUrl;
+      if (slot.djPromoText) cleaned.djPromoText = slot.djPromoText;
+      if (slot.djPromoHyperlink) cleaned.djPromoHyperlink = slot.djPromoHyperlink;
+      if (slot.djThankYouMessage) cleaned.djThankYouMessage = slot.djThankYouMessage;
+      if (slot.djSocialLinks) cleaned.djSocialLinks = slot.djSocialLinks;
+      return cleaned;
+    }) || null;
+
+    // Build slot object, only including optional fields if they have values
+    // Firebase doesn't accept undefined, so we use null for missing values
+    const slot: Record<string, unknown> = {
       stationId: STATION_ID,
       showName,
-      djName: finalDjName || undefined,
-      djEmail: djEmail || undefined,
-      djUserId: djUserId || undefined,
-      djSlots: djSlots || undefined,
+      djName: finalDjName || null,
+      djEmail: djEmail || null,
+      djUserId: djUserId || null,
+      djSlots: cleanedDjSlots,
       startTime: startTimestamp,
       endTime: endTimestamp,
       broadcastToken: generateToken(),
@@ -135,18 +157,34 @@ export async function POST(request: NextRequest) {
       createdBy: OWNER_UID, // TODO: Get from verified token
       status: 'scheduled',
       broadcastType,
-      liveDjBio: liveDjBio || undefined,
-      liveDjPhotoUrl: liveDjPhotoUrl || undefined,
+      liveDjBio: liveDjBio || null,
+      liveDjPhotoUrl: liveDjPhotoUrl || null,
     };
 
     const docRef = await db.collection('broadcast-slots').add(slot);
 
-    const createdSlot: BroadcastSlot = { id: docRef.id, ...slot };
     // All slots use token URLs
     const broadcastUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com'}/broadcast/live?token=${slot.broadcastToken}`;
 
+    // Serialize for response
+    const serializedSlot: BroadcastSlotSerialized = {
+      id: docRef.id,
+      stationId: STATION_ID,
+      showName,
+      djName: finalDjName,
+      djSlots: djSlots || undefined,
+      startTime,
+      endTime,
+      broadcastToken: slot.broadcastToken as string,
+      tokenExpiresAt: endTime + 60 * 60 * 1000,
+      createdAt: Date.now(),
+      createdBy: OWNER_UID,
+      status: 'scheduled',
+      broadcastType,
+    };
+
     return NextResponse.json({
-      slot: serializeSlot(createdSlot),
+      slot: serializedSlot,
       broadcastUrl,
     });
   } catch (error) {
@@ -173,7 +211,28 @@ export async function PATCH(request: NextRequest) {
     if (status !== undefined) updates.status = status;
     if (showName !== undefined) updates.showName = showName;
     if (djName !== undefined) updates.djName = djName || null;
-    if (djSlots !== undefined) updates.djSlots = djSlots as DJSlot[] || null;
+
+    // Clean djSlots to remove undefined values (Firebase doesn't accept undefined)
+    if (djSlots !== undefined) {
+      updates.djSlots = djSlots?.map((slot: DJSlot) => {
+        const cleaned: Record<string, unknown> = {
+          id: slot.id,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+        };
+        if (slot.djName) cleaned.djName = slot.djName;
+        if (slot.djEmail) cleaned.djEmail = slot.djEmail;
+        if (slot.djUserId) cleaned.djUserId = slot.djUserId;
+        if (slot.djUsername) cleaned.djUsername = slot.djUsername;
+        if (slot.djBio) cleaned.djBio = slot.djBio;
+        if (slot.djPhotoUrl) cleaned.djPhotoUrl = slot.djPhotoUrl;
+        if (slot.djPromoText) cleaned.djPromoText = slot.djPromoText;
+        if (slot.djPromoHyperlink) cleaned.djPromoHyperlink = slot.djPromoHyperlink;
+        if (slot.djThankYouMessage) cleaned.djThankYouMessage = slot.djThankYouMessage;
+        if (slot.djSocialLinks) cleaned.djSocialLinks = slot.djSocialLinks;
+        return cleaned;
+      }) || null;
+    }
 
     // Handle time updates - convert to Firestore Timestamps
     if (startTime !== undefined) {
