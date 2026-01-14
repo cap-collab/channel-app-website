@@ -74,33 +74,8 @@ export function BroadcastClient() {
     return slot.djSlots.find(dj => now >= dj.startTime && now < dj.endTime) || null;
   }, [slot?.djSlots]);
 
-  // Detect DJ slot changes and reset profile state for new DJ
-  useEffect(() => {
-    if (!slot?.djSlots || slot.djSlots.length === 0) return;
-
-    const checkDjSlotChange = () => {
-      const activeDjSlot = getCurrentDjSlot();
-      const newSlotId = activeDjSlot?.id || null;
-
-      // If DJ slot changed and we have a username set (meaning previous DJ completed profile)
-      if (newSlotId !== currentDjSlotId && currentDjSlotId !== null && djUsername) {
-        // New DJ slot started - reset profile for the new DJ
-        setDjUsername('');
-        setInitialPromoText(undefined);
-        setInitialPromoHyperlink(undefined);
-        setInitialThankYouMessage(undefined);
-        setInitialPromoSubmitted(false);
-        setOnboardingStep('profile');
-        console.log('DJ slot changed, prompting new DJ for profile');
-      }
-
-      setCurrentDjSlotId(newSlotId);
-    };
-
-    checkDjSlotChange();
-    const interval = setInterval(checkDjSlotChange, 1000);
-    return () => clearInterval(interval);
-  }, [slot?.djSlots, currentDjSlotId, djUsername, getCurrentDjSlot]);
+  // Track if broadcast is live (set after broadcast hook is initialized)
+  const [isLiveForDjSwitch, setIsLiveForDjSwitch] = useState(false);
 
   // Get the default DJ name for current slot (either from djSlot or single djName)
   const getDefaultDjName = useCallback(() => {
@@ -130,6 +105,68 @@ export function BroadcastClient() {
   const [goLiveMessage, setGoLiveMessage] = useState('');
   const [initialPromoSubmitted, setInitialPromoSubmitted] = useState(false);
 
+  // Sync isLiveForDjSwitch with broadcast.isLive
+  useEffect(() => {
+    setIsLiveForDjSwitch(broadcast.isLive);
+  }, [broadcast.isLive]);
+
+  // Detect DJ slot changes and auto-switch DJ info
+  useEffect(() => {
+    if (!slot?.djSlots || slot.djSlots.length === 0) return;
+
+    const checkDjSlotChange = async () => {
+      const activeDjSlot = getCurrentDjSlot();
+      const newSlotId = activeDjSlot?.id || null;
+
+      // If DJ slot changed
+      if (newSlotId !== currentDjSlotId) {
+        if (activeDjSlot) {
+          // Auto-load DJ info from the pre-configured slot data
+          const username = activeDjSlot.djUserId
+            ? (activeDjSlot.djUsername || activeDjSlot.djName || '')
+            : (activeDjSlot.djName || '');
+          setDjUsername(username);
+          setInitialPromoText(activeDjSlot.djPromoText || activeDjSlot.promoText);
+          setInitialPromoHyperlink(activeDjSlot.djPromoHyperlink || activeDjSlot.promoHyperlink);
+          setInitialThankYouMessage(activeDjSlot.djThankYouMessage);
+          setInitialPromoSubmitted(false);
+          // Skip profile step for venue DJs with pre-configured info
+          if (slot.broadcastType === 'venue') {
+            setOnboardingStep('audio');
+          }
+
+          // If broadcast is live, call switch-dj API to update backend
+          if (isLiveForDjSwitch && slot.id && newSlotId) {
+            try {
+              await fetch('/api/broadcast/switch-dj', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  slotId: slot.id,
+                  djSlotId: newSlotId,
+                }),
+              });
+              console.log('Switched to new DJ slot:', newSlotId, username);
+            } catch (err) {
+              console.error('Failed to switch DJ slot:', err);
+            }
+          }
+        } else {
+          // No active slot - clear info
+          setDjUsername('');
+          setInitialPromoText(undefined);
+          setInitialPromoHyperlink(undefined);
+          setInitialThankYouMessage(undefined);
+        }
+
+        setCurrentDjSlotId(newSlotId);
+      }
+    };
+
+    checkDjSlotChange();
+    const interval = setInterval(checkDjSlotChange, 1000);
+    return () => clearInterval(interval);
+  }, [slot?.djSlots, slot?.id, slot?.broadcastType, currentDjSlotId, getCurrentDjSlot, isLiveForDjSwitch]);
 
   // Check Go Live availability based on slot timing
   useEffect(() => {
@@ -445,8 +482,9 @@ export function BroadcastClient() {
 
   // Live state - use DJControlCenter
   if (broadcast.isLive) {
-    // If djUsername is empty (new DJ slot started), show profile overlay
-    const needsNewDjProfile = !djUsername && slot?.djSlots && slot.djSlots.length > 0;
+    // For venue broadcasts, DJ info is pre-configured - no profile overlay needed
+    // Only show profile overlay for remote broadcasts if username is missing
+    const needsNewDjProfile = !djUsername && slot?.broadcastType !== 'venue' && slot?.djSlots && slot.djSlots.length > 0;
 
     return (
       <>
@@ -503,7 +541,8 @@ export function BroadcastClient() {
   }
 
   // DJ Onboarding - Profile setup (with non-blocking inline login prompt)
-  if (onboardingStep === 'profile') {
+  // For venue broadcasts, skip profile step - DJ info is pre-configured from slot data
+  if (onboardingStep === 'profile' && slot?.broadcastType !== 'venue') {
     return (
       <div className="min-h-screen bg-[#1a1a1a]">
         <BroadcastHeader />

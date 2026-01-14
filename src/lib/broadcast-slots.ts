@@ -45,6 +45,14 @@ function serializeSlot(docId: string, data: Record<string, unknown>): BroadcastS
     createdBy: data.createdBy as string,
     status: data.status as BroadcastSlotSerialized['status'],
     broadcastType: (data.broadcastType as BroadcastType) || 'remote',
+    // Live DJ fields
+    liveDjUserId: data.liveDjUserId as string | undefined,
+    liveDjUsername: data.liveDjUsername as string | undefined,
+    liveDjBio: data.liveDjBio as string | undefined,
+    liveDjPhotoUrl: data.liveDjPhotoUrl as string | undefined,
+    liveDjPromoText: data.liveDjPromoText as string | undefined,
+    liveDjPromoHyperlink: data.liveDjPromoHyperlink as string | undefined,
+    currentDjSlotId: data.currentDjSlotId as string | undefined,
     // Recording fields
     egressId: data.egressId as string | undefined,
     recordingEgressId: data.recordingEgressId as string | undefined,

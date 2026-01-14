@@ -28,6 +28,23 @@ interface LocalDJSlot {
   startTime: string; // HH:mm format
   endDate: string;   // YYYY-MM-DD format
   endTime: string;   // HH:mm format
+  // DJ profile fields (pre-populated via email lookup)
+  djEmail?: string;
+  djUserId?: string;
+  djUsername?: string;
+  djBio?: string;
+  djPhotoUrl?: string;
+  djPromoText?: string;
+  djPromoHyperlink?: string;
+  djThankYouMessage?: string;
+  djSocialLinks?: {
+    soundcloud?: string;
+    instagram?: string;
+    youtube?: string;
+  };
+  // UI state
+  profileFound?: boolean;
+  isLookingUp?: boolean;
 }
 
 // Generate time options in 30-minute increments with simple labels
@@ -220,8 +237,126 @@ export function SlotModal({
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [emailOpened, setEmailOpened] = useState(false);
+  // Remote DJ profile lookup state
+  const [remoteProfileFound, setRemoteProfileFound] = useState(false);
+  const [isLookingUpRemote, setIsLookingUpRemote] = useState(false);
+  const [remoteDjProfile, setRemoteDjProfile] = useState<{
+    djUserId?: string;
+    djUsername?: string;
+    djBio?: string;
+    djPhotoUrl?: string;
+    djPromoText?: string;
+    djPromoHyperlink?: string;
+    djThankYouMessage?: string;
+    djSocialLinks?: { soundcloud?: string; instagram?: string; youtube?: string };
+  } | null>(null);
 
   const isEditing = !!slot;
+
+  // Lookup DJ profile by email (for remote broadcasts)
+  const lookupRemoteDjProfile = async (email: string) => {
+    if (!email || !email.includes('@')) {
+      setRemoteProfileFound(false);
+      setRemoteDjProfile(null);
+      return;
+    }
+
+    setIsLookingUpRemote(true);
+    try {
+      const res = await fetch(`/api/users/lookup-by-email?email=${encodeURIComponent(email)}`);
+      const data = await res.json();
+      if (data.found) {
+        setRemoteProfileFound(true);
+        setRemoteDjProfile({
+          djUserId: data.djUserId,
+          djUsername: data.djUsername,
+          djBio: data.djBio,
+          djPhotoUrl: data.djPhotoUrl,
+          djPromoText: data.djPromoText,
+          djPromoHyperlink: data.djPromoHyperlink,
+          djThankYouMessage: data.djThankYouMessage,
+          djSocialLinks: data.djSocialLinks,
+        });
+        // Auto-fill DJ name if empty
+        if (!djName && data.djName) {
+          setDjName(data.djName);
+        }
+      } else {
+        setRemoteProfileFound(false);
+        setRemoteDjProfile(null);
+      }
+    } catch (error) {
+      console.error('Failed to lookup DJ profile:', error);
+      setRemoteProfileFound(false);
+      setRemoteDjProfile(null);
+    } finally {
+      setIsLookingUpRemote(false);
+    }
+  };
+
+  // Lookup DJ profile for a venue DJ slot
+  const lookupVenueDjProfile = async (slotId: string, email: string) => {
+    if (!email || !email.includes('@')) {
+      // Clear profile fields if email is invalid
+      setDjSlots(prev => prev.map(dj =>
+        dj.id === slotId
+          ? { ...dj, profileFound: false, isLookingUp: false, djUserId: undefined, djUsername: undefined, djBio: undefined, djPhotoUrl: undefined, djPromoText: undefined, djPromoHyperlink: undefined, djThankYouMessage: undefined, djSocialLinks: undefined }
+          : dj
+      ));
+      return;
+    }
+
+    // Set loading state
+    setDjSlots(prev => prev.map(dj =>
+      dj.id === slotId ? { ...dj, isLookingUp: true } : dj
+    ));
+
+    try {
+      const res = await fetch(`/api/users/lookup-by-email?email=${encodeURIComponent(email)}`);
+      const data = await res.json();
+
+      setDjSlots(prev => prev.map(dj => {
+        if (dj.id !== slotId) return dj;
+
+        if (data.found) {
+          return {
+            ...dj,
+            isLookingUp: false,
+            profileFound: true,
+            djUserId: data.djUserId,
+            djUsername: data.djUsername,
+            djBio: data.djBio,
+            djPhotoUrl: data.djPhotoUrl,
+            djPromoText: data.djPromoText,
+            djPromoHyperlink: data.djPromoHyperlink,
+            djThankYouMessage: data.djThankYouMessage,
+            djSocialLinks: data.djSocialLinks,
+            // Auto-fill DJ name if empty
+            djName: dj.djName || data.djName || dj.djName,
+          };
+        } else {
+          return {
+            ...dj,
+            isLookingUp: false,
+            profileFound: false,
+            djUserId: undefined,
+            djUsername: undefined,
+            djBio: undefined,
+            djPhotoUrl: undefined,
+            djPromoText: undefined,
+            djPromoHyperlink: undefined,
+            djThankYouMessage: undefined,
+            djSocialLinks: undefined,
+          };
+        }
+      }));
+    } catch (error) {
+      console.error('Failed to lookup DJ profile:', error);
+      setDjSlots(prev => prev.map(dj =>
+        dj.id === slotId ? { ...dj, isLookingUp: false, profileFound: false } : dj
+      ));
+    }
+  };
 
   // Check if this is an overnight show
   const isOvernight = startDate && endDate && endDate > startDate;
@@ -251,7 +386,7 @@ export function SlotModal({
         setEndTime(snapToHalfHour(end.toTimeString().slice(0, 5)));
         setBroadcastType(slot.broadcastType || 'remote');
 
-        // Convert DJ slots to local format with dates
+        // Convert DJ slots to local format with dates and profile fields
         if (slot.djSlots && slot.djSlots.length > 0) {
           setDjSlots(slot.djSlots.map(dj => {
             const djStart = new Date(dj.startTime);
@@ -263,11 +398,26 @@ export function SlotModal({
               startTime: snapToHalfHour(djStart.toTimeString().slice(0, 5)),
               endDate: formatLocalDate(djEnd),
               endTime: snapToHalfHour(djEnd.toTimeString().slice(0, 5)),
+              // Profile fields
+              djEmail: dj.djEmail,
+              djUserId: dj.djUserId,
+              djUsername: dj.djUsername,
+              djBio: dj.djBio,
+              djPhotoUrl: dj.djPhotoUrl,
+              djPromoText: dj.djPromoText,
+              djPromoHyperlink: dj.djPromoHyperlink,
+              djThankYouMessage: dj.djThankYouMessage,
+              djSocialLinks: dj.djSocialLinks,
+              // Set profileFound if we have a userId
+              profileFound: !!dj.djUserId,
             };
           }));
         } else {
           setDjSlots([]);
         }
+        // Reset remote profile state
+        setRemoteProfileFound(false);
+        setRemoteDjProfile(null);
       } else if (initialStartTime && initialEndTime) {
         // Creating new slot from calendar drag
         setShowName('');
@@ -280,6 +430,9 @@ export function SlotModal({
         setEndTime(snapToHalfHour(initialEndTime.toTimeString().slice(0, 5)));
         setBroadcastType('remote');
         setDjSlots([]);
+        // Reset profile state
+        setRemoteProfileFound(false);
+        setRemoteDjProfile(null);
       }
     }
   }, [isOpen, slot, initialStartTime, initialEndTime]);
@@ -339,13 +492,23 @@ export function SlotModal({
         slotsToSave = ensureFullCoverage(djSlots, startDate, startTime, endDate, endTime);
       }
 
-      // Convert local DJ slots to timestamps using explicit dates
+      // Convert local DJ slots to timestamps using explicit dates, including all profile fields
       const convertedDjSlots: DJSlot[] | undefined = broadcastType === 'venue' && slotsToSave.length > 0
         ? slotsToSave.map(dj => ({
             id: dj.id,
             djName: dj.djName || undefined,
             startTime: new Date(`${dj.startDate}T${dj.startTime}`).getTime(),
             endTime: new Date(`${dj.endDate}T${dj.endTime}`).getTime(),
+            // Pre-populated profile fields from email lookup
+            djEmail: dj.djEmail || undefined,
+            djUserId: dj.djUserId || undefined,
+            djUsername: dj.djUsername || undefined,
+            djBio: dj.djBio || undefined,
+            djPhotoUrl: dj.djPhotoUrl || undefined,
+            djPromoText: dj.djPromoText || undefined,
+            djPromoHyperlink: dj.djPromoHyperlink || undefined,
+            djThankYouMessage: dj.djThankYouMessage || undefined,
+            djSocialLinks: dj.djSocialLinks || undefined,
           }))
         : undefined;
 
@@ -785,7 +948,7 @@ See you on air,
                         type="text"
                         value={dj.djName}
                         onChange={(e) => updateDjSlot(dj.id, 'djName', e.target.value)}
-                        placeholder="DJ Name (optional)"
+                        placeholder="DJ Name"
                         className="flex-1 bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:border-gray-500"
                       />
                       <button
@@ -797,6 +960,33 @@ See you on air,
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </button>
+                    </div>
+                    {/* DJ Email with profile lookup */}
+                    <div className="flex items-center gap-2 ml-6 mb-2">
+                      <input
+                        type="email"
+                        value={dj.djEmail || ''}
+                        onChange={(e) => {
+                          const newEmail = e.target.value;
+                          setDjSlots(prev => prev.map(slot =>
+                            slot.id === dj.id ? { ...slot, djEmail: newEmail } : slot
+                          ));
+                        }}
+                        onBlur={(e) => lookupVenueDjProfile(dj.id, e.target.value)}
+                        placeholder="DJ Email (for tips & profile)"
+                        className="flex-1 bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:border-gray-500"
+                      />
+                      {dj.isLookingUp && (
+                        <span className="text-xs text-gray-400">Looking up...</span>
+                      )}
+                      {!dj.isLookingUp && dj.profileFound && (
+                        <span className="text-xs text-green-400 flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Profile found
+                        </span>
+                      )}
                     </div>
                     {/* Time selection - show dates for multi-day shows */}
                     <div className="flex items-center gap-2 ml-6 flex-wrap">
@@ -853,34 +1043,48 @@ See you on air,
             </div>
           )}
 
-          {/* DJ Name (remote only) */}
+          {/* DJ Name & Email (remote only) */}
           {broadcastType === 'remote' && (
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">DJ Name</label>
-              <input
-                type="text"
-                value={djName}
-                onChange={(e) => setDjName(e.target.value)}
-                placeholder="e.g., DJ Shadow (optional)"
-                className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
-              />
-            </div>
+            <>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">DJ Name</label>
+                <input
+                  type="text"
+                  value={djName}
+                  onChange={(e) => setDjName(e.target.value)}
+                  placeholder="e.g., DJ Shadow"
+                  className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">DJ Email</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="email"
+                    value={djEmail}
+                    onChange={(e) => setDjEmail(e.target.value)}
+                    onBlur={(e) => lookupRemoteDjProfile(e.target.value)}
+                    placeholder="dj@example.com"
+                    className="flex-1 bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
+                  />
+                  {isLookingUpRemote && (
+                    <span className="text-xs text-gray-400">Looking up...</span>
+                  )}
+                  {!isLookingUpRemote && remoteProfileFound && (
+                    <span className="text-xs text-green-400 flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Profile found
+                    </span>
+                  )}
+                </div>
+                <p className="text-gray-500 text-xs mt-1">
+                  Required for tips. Auto-fills DJ profile if account exists.
+                </p>
+              </div>
+            </>
           )}
-
-          {/* DJ Email - same for both venue and remote */}
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">DJ Email</label>
-            <input
-              type="email"
-              value={djEmail}
-              onChange={(e) => setDjEmail(e.target.value)}
-              placeholder="dj@example.com"
-              className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
-            />
-            <p className="text-gray-500 text-xs mt-1">
-              Required for tips. Links to DJ&apos;s profile page.
-            </p>
-          </div>
 
           {/* Status badge (for existing slots) */}
           {isEditing && (

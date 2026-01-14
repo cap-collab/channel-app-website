@@ -15,14 +15,30 @@ export type BroadcastType = 'venue' | 'remote';
 // DJ slot within a venue show
 export interface DJSlot {
   id: string;
-  djName?: string;           // Optional - can be TBD
+  djName?: string;           // Display name (required at creation, can be TBD initially)
   startTime: number;         // Unix timestamp ms
   endTime: number;           // Unix timestamp ms
-  // Live DJ info (filled when DJ claims slot)
+
+  // Pre-populated at setup time via email lookup
+  djEmail?: string;              // DJ's email (for tips fallback & profile lookup)
+  djUserId?: string;             // Firebase UID (if account exists)
+  djUsername?: string;           // Chat username (from chatUsername)
+  djBio?: string;                // Bio text
+  djPhotoUrl?: string;           // Profile picture URL
+  djPromoText?: string;          // Default promo text
+  djPromoHyperlink?: string;     // Default promo link
+  djThankYouMessage?: string;    // Thank you message
+  djSocialLinks?: {              // Social links
+    soundcloud?: string;
+    instagram?: string;
+    youtube?: string;
+  };
+
+  // Runtime fields (set when slot becomes active)
   liveDjUserId?: string;     // Firebase UID of DJ who claimed this slot
-  liveDjUsername?: string;   // Their chat username
-  promoText?: string;        // Promo text to display
-  promoHyperlink?: string;   // Clickable promo link (optional)
+  liveDjUsername?: string;   // Their chat username (or djName if no account)
+  promoText?: string;        // Active promo text (can override default)
+  promoHyperlink?: string;   // Active promo link (can override default)
 }
 
 // Generic timestamp interface that works with both Admin and Client SDK
@@ -55,6 +71,8 @@ export interface BroadcastSlot {
   liveDjPhotoUrl?: string;     // DJ profile picture URL
   liveDjPromoText?: string;    // DJ promo text (from their profile)
   liveDjPromoHyperlink?: string; // DJ promo link (from their profile)
+  // Current DJ slot tracking (for venue multi-DJ shows)
+  currentDjSlotId?: string;      // ID of the currently active DJ slot
   // Show-level promo (default for all DJs)
   showPromoText?: string;
   showPromoHyperlink?: string;
@@ -90,6 +108,8 @@ export interface BroadcastSlotSerialized {
   liveDjPhotoUrl?: string;
   liveDjPromoText?: string;
   liveDjPromoHyperlink?: string;
+  // Current DJ slot tracking (for venue multi-DJ shows)
+  currentDjSlotId?: string;
   // Show-level promo
   showPromoText?: string;
   showPromoHyperlink?: string;
