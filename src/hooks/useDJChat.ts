@@ -44,18 +44,18 @@ export function useDJChat({ broadcastToken, slotId, djUsername }: UseDJChatOptio
   const [error, setError] = useState<string | null>(null);
   const [promoUsed, setPromoUsed] = useState(false);
 
-  // Subscribe to chat messages - filter to only show messages for current broadcast slot
+  // Subscribe to chat messages - show all recent broadcast messages (same as listeners)
   useEffect(() => {
     const app = getFirebaseApp();
     const db = getFirestore(app);
 
     const messagesRef = collection(db, 'chats', 'broadcast', 'messages');
+    const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
 
-    // Query messages for this specific broadcast slot
-    // This ensures we only show messages from the current broadcast, not other DJ's shows
+    // Query all recent messages (not filtered by djSlotId) so DJ sees love messages from listeners
     const q = query(
       messagesRef,
-      where('djSlotId', '==', slotId),
+      where('timestamp', '>=', twentyFourHoursAgo),
       orderBy('timestamp', 'desc'),
       limit(100)
     );
