@@ -60,9 +60,12 @@ export function useDJChat({ broadcastToken, slotId, djUsername }: UseDJChatOptio
       limit(100)
     );
 
+    console.log('[useDJChat] Setting up listener for messages');
+
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
+        console.log('[useDJChat] Received snapshot with', snapshot.docs.length, 'messages');
         const newMessages: ChatMessageSerialized[] = [];
         snapshot.forEach((doc) => {
           const data = doc.data();
