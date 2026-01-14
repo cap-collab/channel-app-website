@@ -30,41 +30,7 @@ function ChatMessage({ message, isOwnMessage, currentLiveDjUsername }: {
   const isCurrentlyLiveDJ = !!(currentLiveDjUsername && message.username.toLowerCase() === currentLiveDjUsername.toLowerCase());
 
   if (message.messageType === 'promo') {
-    const promoContent = (
-      <div className="bg-accent/10 border border-accent/30 rounded-lg p-4 my-2">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-white font-medium">{message.username}</span>
-          {isCurrentlyLiveDJ && (
-            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title="Live DJ"></span>
-          )}
-          <span className="text-gray-500 text-xs ml-auto">{timeAgo}</span>
-        </div>
-        <p className={`text-white font-medium flex items-center gap-2 ${message.promoHyperlink ? 'text-accent hover:text-accent-hover' : ''}`}>
-          {message.promoHyperlink && (
-            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-          )}
-          {message.promoText}
-        </p>
-      </div>
-    );
-
-    // If there's a hyperlink, wrap in anchor tag to make text clickable
-    if (message.promoHyperlink) {
-      return (
-        <a
-          href={normalizeUrl(message.promoHyperlink)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block"
-        >
-          {promoContent}
-        </a>
-      );
-    }
-
-    return promoContent;
+    return null; // Promos shown in pinned bar
   }
 
   // Love reaction message - show multiple hearts based on heartCount
@@ -298,23 +264,21 @@ export function DJChatPanel({
             return content;
           })()}
 
-          {/* Messages (filter out promo messages - they're shown in pinned bar) */}
+          {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-1 min-h-[16rem]">
-            {messages.filter(m => m.messageType !== 'promo').length === 0 ? (
+            {messages.length === 0 ? (
               <p className="text-gray-500 text-center py-8">
                 No messages yet. Start the conversation!
               </p>
             ) : (
-              messages
-                .filter(m => m.messageType !== 'promo')
-                .map((msg) => (
-                  <ChatMessage
-                    key={msg.id}
-                    message={msg}
-                    isOwnMessage={msg.username === djUsername}
-                    currentLiveDjUsername={djUsername}
-                  />
-                ))
+              messages.map((msg) => (
+                <ChatMessage
+                  key={msg.id}
+                  message={msg}
+                  isOwnMessage={msg.username === djUsername}
+                  currentLiveDjUsername={djUsername}
+                />
+              ))
             )}
             <div ref={messagesEndRef} />
           </div>
