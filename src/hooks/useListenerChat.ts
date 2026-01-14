@@ -90,9 +90,9 @@ export function useListenerChat({ username }: UseListenerChatOptions): UseListen
             latestPromo = msg;
           }
 
-          // Count love reactions
+          // Sum up all hearts from love reactions
           if (data.messageType === 'love') {
-            loves++;
+            loves += data.heartCount || 1;
           }
         });
 

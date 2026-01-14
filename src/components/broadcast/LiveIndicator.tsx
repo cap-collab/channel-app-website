@@ -88,7 +88,7 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
       snapshot.forEach((doc) => {
         const data = doc.data();
         if (data.messageType === 'love' || data.message?.includes(' is ❤️')) {
-          loves += 1;
+          loves += data.heartCount || 1;
         } else {
           msgs += 1;
         }
