@@ -240,16 +240,6 @@ export function SlotModal({
   // Remote DJ profile lookup state
   const [remoteProfileFound, setRemoteProfileFound] = useState(false);
   const [isLookingUpRemote, setIsLookingUpRemote] = useState(false);
-  const [remoteDjProfile, setRemoteDjProfile] = useState<{
-    djUserId?: string;
-    djUsername?: string;
-    djBio?: string;
-    djPhotoUrl?: string;
-    djPromoText?: string;
-    djPromoHyperlink?: string;
-    djThankYouMessage?: string;
-    djSocialLinks?: { soundcloud?: string; instagram?: string; youtube?: string };
-  } | null>(null);
 
   const isEditing = !!slot;
 
@@ -257,7 +247,6 @@ export function SlotModal({
   const lookupRemoteDjProfile = async (email: string) => {
     if (!email || !email.includes('@')) {
       setRemoteProfileFound(false);
-      setRemoteDjProfile(null);
       return;
     }
 
@@ -267,28 +256,16 @@ export function SlotModal({
       const data = await res.json();
       if (data.found) {
         setRemoteProfileFound(true);
-        setRemoteDjProfile({
-          djUserId: data.djUserId,
-          djUsername: data.djUsername,
-          djBio: data.djBio,
-          djPhotoUrl: data.djPhotoUrl,
-          djPromoText: data.djPromoText,
-          djPromoHyperlink: data.djPromoHyperlink,
-          djThankYouMessage: data.djThankYouMessage,
-          djSocialLinks: data.djSocialLinks,
-        });
         // Auto-fill DJ name if empty
         if (!djName && data.djName) {
           setDjName(data.djName);
         }
       } else {
         setRemoteProfileFound(false);
-        setRemoteDjProfile(null);
       }
     } catch (error) {
       console.error('Failed to lookup DJ profile:', error);
       setRemoteProfileFound(false);
-      setRemoteDjProfile(null);
     } finally {
       setIsLookingUpRemote(false);
     }
@@ -417,7 +394,6 @@ export function SlotModal({
         }
         // Reset remote profile state
         setRemoteProfileFound(false);
-        setRemoteDjProfile(null);
       } else if (initialStartTime && initialEndTime) {
         // Creating new slot from calendar drag
         setShowName('');
@@ -432,7 +408,6 @@ export function SlotModal({
         setDjSlots([]);
         // Reset profile state
         setRemoteProfileFound(false);
-        setRemoteDjProfile(null);
       }
     }
   }, [isOpen, slot, initialStartTime, initialEndTime]);
