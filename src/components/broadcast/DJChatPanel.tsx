@@ -15,6 +15,9 @@ interface DJChatPanelProps {
   initialPromoSubmitted?: boolean;
   isVenue?: boolean;
   onChangeUsername?: (newUsername: string) => void;
+  // Pre-configured promo from current DJ slot (for venue broadcasts)
+  activePromoText?: string;
+  activePromoHyperlink?: string;
 }
 
 function ChatMessage({ message, isOwnMessage, currentLiveDjUsername }: {
@@ -104,6 +107,8 @@ export function DJChatPanel({
   initialPromoSubmitted = false,
   isVenue = false,
   onChangeUsername,
+  activePromoText,
+  activePromoHyperlink,
 }: DJChatPanelProps) {
   const { messages, isConnected, error, sendMessage, sendPromo, promoUsed } = useDJChat({
     broadcastToken,
@@ -213,19 +218,34 @@ export function DJChatPanel({
             </div>
           )}
 
-          {/* Pinned Promo Bar (like iOS) - shows most recent promo from current broadcast slot only */}
+          {/* Pinned Promo Bar (like iOS) - shows current DJ's promo */}
           {(() => {
-            // Only show promos that match the current slot ID
-            const latestPromo = [...messages].reverse().find(m => m.messageType === 'promo' && m.djSlotId === slotId);
-            if (!latestPromo || !latestPromo.promoText) return null;
-            // Use the current DJ username for display, not the historical username from the message
-            const displayUsername = djUsername || latestPromo.username;
-            const hasHyperlink = !!latestPromo.promoHyperlink;
+            // For venue broadcasts, use the pre-configured promo from current DJ slot
+            // For remote broadcasts, use the latest promo from chat messages
+            let promoTextToShow: string | undefined;
+            let promoHyperlinkToShow: string | undefined;
+
+            if (isVenue && activePromoText) {
+              // Venue: use pre-configured promo from current DJ slot
+              promoTextToShow = activePromoText;
+              promoHyperlinkToShow = activePromoHyperlink;
+            } else {
+              // Remote: use latest promo from chat messages
+              const latestPromo = [...messages].reverse().find(m => m.messageType === 'promo' && m.djSlotId === slotId);
+              if (latestPromo?.promoText) {
+                promoTextToShow = latestPromo.promoText;
+                promoHyperlinkToShow = latestPromo.promoHyperlink;
+              }
+            }
+
+            if (!promoTextToShow) return null;
+
+            const hasHyperlink = !!promoHyperlinkToShow;
 
             const content = (
               <div className={`px-3 py-2.5 bg-accent/10 border-b border-gray-800 flex-shrink-0 ${hasHyperlink ? 'hover:bg-accent/20 cursor-pointer' : ''}`}>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-white font-semibold text-sm">{displayUsername}</span>
+                  <span className="text-white font-semibold text-sm">{djUsername}</span>
                   <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0" title="Live DJ"></span>
                   {hasHyperlink && (
                     <svg className="w-4 h-4 text-accent flex-shrink-0 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -234,7 +254,7 @@ export function DJChatPanel({
                   )}
                 </div>
                 <p className={`text-sm ${hasHyperlink ? 'text-accent' : 'text-white'}`}>
-                  {latestPromo.promoText}
+                  {promoTextToShow}
                 </p>
               </div>
             );
@@ -242,7 +262,7 @@ export function DJChatPanel({
             if (hasHyperlink) {
               return (
                 <a
-                  href={normalizeUrl(latestPromo.promoHyperlink!)}
+                  href={normalizeUrl(promoHyperlinkToShow!)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block transition-colors"

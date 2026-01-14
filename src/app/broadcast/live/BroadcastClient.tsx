@@ -122,9 +122,8 @@ export function BroadcastClient() {
       if (newSlotId !== currentDjSlotId) {
         if (activeDjSlot) {
           // Auto-load DJ info from the pre-configured slot data
-          const username = activeDjSlot.djUserId
-            ? (activeDjSlot.djUsername || activeDjSlot.djName || '')
-            : (activeDjSlot.djName || '');
+          // Use djUsername (chat username from profile) if available, otherwise fall back to djName
+          const username = activeDjSlot.djUsername || activeDjSlot.djName || '';
           setDjUsername(username);
           setInitialPromoText(activeDjSlot.djPromoText || activeDjSlot.promoText);
           setInitialPromoHyperlink(activeDjSlot.djPromoHyperlink || activeDjSlot.promoHyperlink);

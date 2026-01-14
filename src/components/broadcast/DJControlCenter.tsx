@@ -178,6 +178,8 @@ export function DJControlCenter({
                   initialPromoSubmitted={initialPromoSubmitted}
                   isVenue={isVenue}
                   onChangeUsername={onChangeUsername}
+                  activePromoText={promoText}
+                  activePromoHyperlink={promoHyperlink}
                 />
               </div>
             )}

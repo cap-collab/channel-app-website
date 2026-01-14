@@ -57,8 +57,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Copy DJ info from the slot to the broadcast's live fields
-    // If no account linked, use djName as temp chat username (no uniqueness check)
-    const liveDjUsername = djSlot.djUserId ? djSlot.djUsername : djSlot.djName;
+    // Use djUsername (chat username from profile) if available, otherwise fall back to djName
+    // This handles both: DJs with accounts but no chat username set, and DJs without accounts
+    const liveDjUsername = djSlot.djUsername || djSlot.djName;
 
     const updateData: Record<string, unknown> = {
       currentDjSlotId: djSlotId,
