@@ -52,16 +52,19 @@ async function enrichBroadcastShowsWithDJProfiles(shows: Show[]): Promise<Show[]
   await Promise.all(profilePromises);
 
   // Enrich broadcast shows with DJ profile data
+  // For shows that already have pre-configured data (from venue DJ slots), prefer that data
+  // Only use fresh profile data as fallback when slot data is missing
   return shows.map((show) => {
     if (show.stationId === "broadcast" && show.djUserId) {
       const profile = djProfiles[show.djUserId];
       if (profile) {
         return {
           ...show,
-          djBio: profile.bio || show.djBio,
-          djPhotoUrl: profile.photoUrl || show.djPhotoUrl,
-          promoText: profile.promoText || show.promoText,
-          promoUrl: profile.promoHyperlink || show.promoUrl,
+          // Prefer pre-configured slot data, fall back to fresh profile data
+          djBio: show.djBio || profile.bio,
+          djPhotoUrl: show.djPhotoUrl || profile.photoUrl,
+          promoText: show.promoText || profile.promoText,
+          promoUrl: show.promoUrl || profile.promoHyperlink,
         };
       }
     }

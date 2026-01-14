@@ -259,6 +259,12 @@ async function fetchBroadcastShows(): Promise<Show[]> {
       const djName = data.djName as string | undefined;
       const djSlots = data.djSlots as Array<{
         djName?: string;
+        djEmail?: string;
+        djUserId?: string;
+        djBio?: string;
+        djPhotoUrl?: string;
+        djPromoText?: string;
+        djPromoHyperlink?: string;
         startTime: number;
         endTime: number;
         liveDjUserId?: string;
@@ -272,6 +278,7 @@ async function fetchBroadcastShows(): Promise<Show[]> {
       const showPromoHyperlink = data.showPromoHyperlink as string | undefined;
 
       // Handle djSlots (venue broadcasts with multiple DJs)
+      // Use each DJ slot's pre-configured profile fields (not broadcast-level live* fields)
       if (djSlots && djSlots.length > 0) {
         for (const djSlot of djSlots) {
           const slotStart = new Date(djSlot.startTime).toISOString();
@@ -284,11 +291,15 @@ async function fetchBroadcastShows(): Promise<Show[]> {
             endTime: slotEnd,
             stationId: "broadcast",
             type: status === "live" ? "live" : undefined,
-            djUserId: djSlot.liveDjUserId || liveDjUserId || djUserId,
-            djEmail: djEmail,
+            // Use DJ slot's own userId/email for tips (pre-configured at setup)
+            djUserId: djSlot.djUserId || djSlot.liveDjUserId || djUserId,
+            djEmail: djSlot.djEmail || djEmail,
             broadcastSlotId: doc.id,
-            promoText: showPromoText,
-            promoUrl: showPromoHyperlink,
+            // Use DJ slot's pre-configured profile fields, fall back to show-level promo
+            djBio: djSlot.djBio,
+            djPhotoUrl: djSlot.djPhotoUrl,
+            promoText: djSlot.djPromoText || showPromoText,
+            promoUrl: djSlot.djPromoHyperlink || showPromoHyperlink,
           });
         }
       } else {
