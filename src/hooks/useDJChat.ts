@@ -52,7 +52,7 @@ export function useDJChat({ broadcastToken, slotId, djUsername }: UseDJChatOptio
     const messagesRef = collection(db, 'chats', 'broadcast', 'messages');
     const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
 
-    // Query all recent messages (not filtered by djSlotId) so DJ sees love messages from listeners
+    // Query all recent messages - same as listener chat
     const q = query(
       messagesRef,
       where('timestamp', '>=', twentyFourHoursAgo),
@@ -67,10 +67,12 @@ export function useDJChat({ broadcastToken, slotId, djUsername }: UseDJChatOptio
       (snapshot) => {
         console.log('[useDJChat] Received snapshot with', snapshot.docs.length, 'messages');
         const newMessages: ChatMessageSerialized[] = [];
+        let latestPromo: ChatMessageSerialized | null = null;
+
         snapshot.forEach((doc) => {
           const data = doc.data();
           const timestamp = data.timestamp as Timestamp | null;
-          newMessages.push({
+          const msg: ChatMessageSerialized = {
             id: doc.id,
             stationId: data.stationId || 'broadcast',
             username: data.username,
@@ -82,10 +84,12 @@ export function useDJChat({ broadcastToken, slotId, djUsername }: UseDJChatOptio
             messageType: data.messageType || 'chat',
             promoText: data.promoText,
             promoHyperlink: data.promoHyperlink,
-          });
+          };
+          newMessages.push(msg);
 
-          // Check if there's already a promo from this slot
-          if (data.messageType === 'promo' && data.djSlotId === slotId) {
+          // Track the most recent promo
+          if (data.messageType === 'promo' && !latestPromo) {
+            latestPromo = msg;
             setPromoUsed(true);
           }
         });
@@ -96,14 +100,14 @@ export function useDJChat({ broadcastToken, slotId, djUsername }: UseDJChatOptio
         setError(null);
       },
       (err) => {
-        console.error('Chat subscription error:', err);
+        console.error('[useDJChat] Chat subscription error:', err);
         setError('Failed to connect to chat');
         setIsConnected(false);
       }
     );
 
     return () => unsubscribe();
-  }, [slotId]);
+  }, []);
 
   // Send a regular chat message
   const sendMessage = useCallback(async (text: string) => {
