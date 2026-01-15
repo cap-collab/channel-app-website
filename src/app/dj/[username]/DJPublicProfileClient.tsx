@@ -324,7 +324,9 @@ export function DJPublicProfileClient({ username }: Props) {
         // Add DJ to watchlist
         await addToWatchlist(djProfile.chatUsername);
         // Auto-add all their shows to favorites (by name match + userId/email match)
-        await addDJShowsToFavorites(djProfile.chatUsername, djProfile.uid, djProfile.email);
+        console.log(`[handleSubscribe] Calling addDJShowsToFavorites for ${djProfile.chatUsername}, uid: ${djProfile.uid}, email: ${djProfile.email}`);
+        const addedCount = await addDJShowsToFavorites(djProfile.chatUsername, djProfile.uid, djProfile.email);
+        console.log(`[handleSubscribe] Added ${addedCount} shows to favorites`);
       }
     } catch (error) {
       console.error("Error toggling subscription:", error);

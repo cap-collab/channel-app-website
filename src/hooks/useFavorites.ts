@@ -372,6 +372,7 @@ export function useFavorites() {
         seen.add(key);
         return true;
       });
+      console.log(`[addDJShowsToFavorites] ${uniqueShows.length} unique shows to potentially add`);
 
       // Add each show to favorites if not already favorited
       for (const show of uniqueShows) {
@@ -391,6 +392,7 @@ export function useFavorites() {
           );
           const existing = await getDocs(q);
           if (existing.empty) {
+            console.log(`[addDJShowsToFavorites] Adding show to favorites: ${show.name} (${show.stationId})`);
             await addDoc(favoritesRef, {
               term: show.name.toLowerCase(),
               type: "show",
@@ -401,10 +403,15 @@ export function useFavorites() {
               createdBy: "web",
             });
             addedCount++;
+          } else {
+            console.log(`[addDJShowsToFavorites] Show already in Firebase: ${show.name}`);
           }
+        } else {
+          console.log(`[addDJShowsToFavorites] Show already in local favorites: ${show.name}`);
         }
       }
 
+      console.log(`[addDJShowsToFavorites] Done! Added ${addedCount} shows to favorites`);
       return addedCount;
     },
     [user, favorites]
