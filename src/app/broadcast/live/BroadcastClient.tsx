@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useBroadcastToken } from '@/hooks/useBroadcastToken';
 import { useBroadcast } from '@/hooks/useBroadcast';
@@ -57,8 +57,8 @@ export function BroadcastClient() {
   const [initialPromoHyperlink, setInitialPromoHyperlink] = useState<string | undefined>();
   const [initialThankYouMessage, setInitialThankYouMessage] = useState<string | undefined>();
 
-  // Multi-DJ show: track current DJ slot to detect DJ changes
-  const [currentDjSlotId, setCurrentDjSlotId] = useState<string | null>(null);
+  // Multi-DJ show: track current DJ slot to detect DJ changes (use ref to avoid re-render loops)
+  const currentDjSlotIdRef = useRef<string | null>(null);
 
   // Load saved thank you message from user profile when logged in
   useEffect(() => {
@@ -119,7 +119,7 @@ export function BroadcastClient() {
       const newSlotId = activeDjSlot?.id || null;
 
       // If DJ slot changed
-      if (newSlotId !== currentDjSlotId) {
+      if (newSlotId !== currentDjSlotIdRef.current) {
         if (activeDjSlot) {
           // Auto-load DJ info from the pre-configured slot data
           // Use djUsername (chat username from profile) if available, otherwise fall back to djName
@@ -158,14 +158,14 @@ export function BroadcastClient() {
           setInitialThankYouMessage(undefined);
         }
 
-        setCurrentDjSlotId(newSlotId);
+        currentDjSlotIdRef.current = newSlotId;
       }
     };
 
     checkDjSlotChange();
     const interval = setInterval(checkDjSlotChange, 1000);
     return () => clearInterval(interval);
-  }, [slot?.djSlots, slot?.id, slot?.broadcastType, currentDjSlotId, getCurrentDjSlot, isLiveForDjSwitch]);
+  }, [slot?.djSlots, slot?.id, slot?.broadcastType, getCurrentDjSlot, isLiveForDjSwitch]);
 
   // Check Go Live availability based on slot timing
   useEffect(() => {

@@ -40,7 +40,7 @@ interface CustomLink {
 }
 
 interface IrlShow {
-  venue: string;
+  url: string;
   date: string;
 }
 
@@ -137,7 +137,7 @@ export function StudioProfileClient() {
   const [saveSocialSuccess, setSaveSocialSuccess] = useState(false);
 
   // Form state - IRL Shows section
-  const [irlShowsInput, setIrlShowsInput] = useState<IrlShow[]>([{ venue: "", date: "" }, { venue: "", date: "" }]);
+  const [irlShowsInput, setIrlShowsInput] = useState<IrlShow[]>([{ url: "", date: "" }, { url: "", date: "" }]);
   const [savingIrlShows, setSavingIrlShows] = useState(false);
   const [saveIrlShowsSuccess, setSaveIrlShowsSuccess] = useState(false);
 
@@ -203,8 +203,8 @@ export function StudioProfileClient() {
           // IRL Shows - ensure we always have 2 fields
           const irlShows = data.djProfile.irlShows || [];
           setIrlShowsInput([
-            irlShows[0] || { venue: "", date: "" },
-            irlShows[1] || { venue: "", date: "" },
+            irlShows[0] || { url: "", date: "" },
+            irlShows[1] || { url: "", date: "" },
           ]);
           // My Recs - ensure at least one empty field
           const bandcampRecs = data.djProfile.myRecs?.bandcampLinks || [];
@@ -448,9 +448,9 @@ export function StudioProfileClient() {
       const userRef = doc(db, "users", user.uid);
       // Filter out empty shows but always save the array structure
       const validShows = irlShowsInput.filter(
-        (show) => show.venue.trim() || show.date.trim()
+        (show) => show.url.trim() || show.date.trim()
       ).map((show) => ({
-        venue: show.venue.trim(),
+        url: show.url.trim() ? normalizeUrl(show.url.trim()) : "",
         date: show.date.trim(),
       }));
 
@@ -852,9 +852,12 @@ export function StudioProfileClient() {
 
           {/* About section */}
           <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
               About
             </h2>
+            <p className="text-gray-600 text-xs mb-3 px-1">
+              Your bio appears on your public DJ profile and during broadcasts.
+            </p>
             <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
               <div>
                 <label className="block text-gray-400 text-sm mb-2">
@@ -884,9 +887,57 @@ export function StudioProfileClient() {
                 {savingAbout ? "Saving..." : saveAboutSuccess ? "Saved!" : "Save Bio"}
               </button>
             </div>
-            <p className="text-gray-600 text-xs mt-2 px-1">
-              Your bio appears on your public DJ profile and during broadcasts.
+          </section>
+
+          {/* Promo section */}
+          <section>
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
+              Promo
+            </h2>
+            <p className="text-gray-600 text-xs mb-3 px-1">
+              This appears in chat when you&apos;re live on Channel Broadcast.
             </p>
+            <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">
+                  Promo Text
+                </label>
+                <input
+                  type="text"
+                  value={promoTextInput}
+                  onChange={(e) => setPromoTextInput(e.target.value)}
+                  placeholder="e.g., New album out now!"
+                  maxLength={200}
+                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                />
+                <p className="text-gray-600 text-xs mt-1 text-right">
+                  {promoTextInput.length}/200
+                </p>
+              </div>
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">
+                  Promo Hyperlink (optional)
+                </label>
+                <input
+                  type="text"
+                  value={promoHyperlinkInput}
+                  onChange={(e) => setPromoHyperlinkInput(e.target.value)}
+                  placeholder="bandcamp.com/your-album"
+                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                />
+              </div>
+              <button
+                onClick={handleSavePromo}
+                disabled={saving}
+                className={`w-full py-2 rounded-lg font-medium transition-colors ${
+                  saveSuccess
+                    ? "bg-green-600 text-white"
+                    : "bg-white text-black hover:bg-gray-100"
+                } disabled:opacity-50`}
+              >
+                {saving ? "Saving..." : saveSuccess ? "Saved!" : "Save Promo"}
+              </button>
+            </div>
           </section>
 
           {/* Location & Genres section */}
@@ -937,11 +988,96 @@ export function StudioProfileClient() {
             </div>
           </section>
 
-          {/* Social Links section */}
+          {/* Radio Shows section */}
           <section>
             <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+              Radio Shows
+            </h2>
+            <div className="bg-[#1a1a1a] rounded-lg">
+              {loadingBroadcasts ? (
+                <div className="p-4 flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
+                </div>
+              ) : upcomingShows.length === 0 ? (
+                <div className="p-4 text-center">
+                  <p className="text-gray-500">No upcoming shows scheduled</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-800">
+                  {upcomingShows.map((show) => (
+                    <div key={show.id} className="p-4">
+                      <p className="text-white font-medium">{show.showName}</p>
+                      <p className="text-gray-400 text-sm">
+                        {formatBroadcastTime(show.startTime, show.endTime)}
+                      </p>
+                      <p className="text-gray-500 text-xs mt-1">{show.stationName}</p>
+                      {show.status === "live" ? (
+                        <span className="inline-flex items-center gap-1 mt-2 text-red-400 text-xs">
+                          <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                          Live Now
+                        </span>
+                      ) : !show.isExternal && show.broadcastToken && (
+                        <Link
+                          href={`/broadcast/live?token=${show.broadcastToken}`}
+                          className="inline-flex items-center gap-1 mt-2 text-blue-400 hover:text-blue-300 text-sm transition-colors"
+                        >
+                          Go Live &rarr;
+                        </Link>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Thank You Message section */}
+          <section>
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
+              Thank You Message
+            </h2>
+            <p className="text-gray-600 text-xs mb-3 px-1">
+              This message shows to listeners after they tip you.
+            </p>
+            <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">
+                  Message for Tippers
+                </label>
+                <textarea
+                  value={thankYouInput}
+                  onChange={(e) => setThankYouInput(e.target.value)}
+                  placeholder="Thanks for the tip!"
+                  rows={2}
+                  maxLength={200}
+                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none resize-none"
+                />
+                <p className="text-gray-600 text-xs mt-1 text-right">
+                  {thankYouInput.length}/200
+                </p>
+              </div>
+              <button
+                onClick={handleSaveThankYou}
+                disabled={savingThankYou}
+                className={`w-full py-2 rounded-lg font-medium transition-colors ${
+                  saveThankYouSuccess
+                    ? "bg-green-600 text-white"
+                    : "bg-white text-black hover:bg-gray-100"
+                } disabled:opacity-50`}
+              >
+                {savingThankYou ? "Saving..." : saveThankYouSuccess ? "Saved!" : "Save Thank You Message"}
+              </button>
+            </div>
+          </section>
+
+          {/* Social Links section */}
+          <section>
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
               Social Links
             </h2>
+            <p className="text-gray-600 text-xs mb-3 px-1">
+              These links appear on your public DJ profile.
+            </p>
             <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
               <div>
                 <label className="block text-gray-400 text-sm mb-2">
@@ -1096,16 +1232,16 @@ export function StudioProfileClient() {
                 {savingSocial ? "Saving..." : saveSocialSuccess ? "Saved!" : "Save Social Links"}
               </button>
             </div>
-            <p className="text-gray-600 text-xs mt-2 px-1">
-              These links appear on your public DJ profile.
-            </p>
           </section>
 
           {/* IRL Shows section */}
           <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
               IRL Shows
             </h2>
+            <p className="text-gray-600 text-xs mb-3 px-1">
+              Promote your upcoming in-person gigs.
+            </p>
             <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
               {irlShowsInput.map((show, index) => (
                 <div key={index} className="space-y-2">
@@ -1115,13 +1251,13 @@ export function StudioProfileClient() {
                   <div className="flex gap-2">
                     <input
                       type="text"
-                      value={show.venue}
+                      value={show.url}
                       onChange={(e) => {
                         const updated = [...irlShowsInput];
-                        updated[index] = { ...updated[index], venue: e.target.value };
+                        updated[index] = { ...updated[index], url: e.target.value };
                         setIrlShowsInput(updated);
                       }}
-                      placeholder="Venue / Event name"
+                      placeholder="Event URL (e.g., ra.co/events/...)"
                       className="flex-1 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                     />
                     <input
@@ -1150,16 +1286,16 @@ export function StudioProfileClient() {
                 {savingIrlShows ? "Saving..." : saveIrlShowsSuccess ? "Saved!" : "Save IRL Shows"}
               </button>
             </div>
-            <p className="text-gray-600 text-xs mt-2 px-1">
-              Promote your upcoming in-person gigs.
-            </p>
           </section>
 
           {/* My Recs section */}
           <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
               My Recs
             </h2>
+            <p className="text-gray-600 text-xs mb-3 px-1">
+              Share music and events you recommend with your listeners.
+            </p>
             <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-6">
               {/* Bandcamp subsection */}
               <div>
@@ -1266,142 +1402,6 @@ export function StudioProfileClient() {
               >
                 {savingMyRecs ? "Saving..." : saveMyRecsSuccess ? "Saved!" : "Save My Recs"}
               </button>
-            </div>
-            <p className="text-gray-600 text-xs mt-2 px-1">
-              Share music and events you recommend with your listeners.
-            </p>
-          </section>
-
-          {/* Thank You Message section */}
-          <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-              Thank You Message
-            </h2>
-            <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
-              <div>
-                <label className="block text-gray-400 text-sm mb-2">
-                  Message for Tippers
-                </label>
-                <textarea
-                  value={thankYouInput}
-                  onChange={(e) => setThankYouInput(e.target.value)}
-                  placeholder="Thanks for the tip!"
-                  rows={2}
-                  maxLength={200}
-                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none resize-none"
-                />
-                <p className="text-gray-600 text-xs mt-1 text-right">
-                  {thankYouInput.length}/200
-                </p>
-              </div>
-              <button
-                onClick={handleSaveThankYou}
-                disabled={savingThankYou}
-                className={`w-full py-2 rounded-lg font-medium transition-colors ${
-                  saveThankYouSuccess
-                    ? "bg-green-600 text-white"
-                    : "bg-white text-black hover:bg-gray-100"
-                } disabled:opacity-50`}
-              >
-                {savingThankYou ? "Saving..." : saveThankYouSuccess ? "Saved!" : "Save Thank You Message"}
-              </button>
-            </div>
-            <p className="text-gray-600 text-xs mt-2 px-1">
-              This message shows to listeners after they tip you.
-            </p>
-          </section>
-
-          {/* Promo section */}
-          <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-              Promo
-            </h2>
-            <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
-              <div>
-                <label className="block text-gray-400 text-sm mb-2">
-                  Promo Text
-                </label>
-                <input
-                  type="text"
-                  value={promoTextInput}
-                  onChange={(e) => setPromoTextInput(e.target.value)}
-                  placeholder="e.g., New album out now!"
-                  maxLength={200}
-                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
-                />
-                <p className="text-gray-600 text-xs mt-1 text-right">
-                  {promoTextInput.length}/200
-                </p>
-              </div>
-              <div>
-                <label className="block text-gray-400 text-sm mb-2">
-                  Promo Hyperlink (optional)
-                </label>
-                <input
-                  type="text"
-                  value={promoHyperlinkInput}
-                  onChange={(e) => setPromoHyperlinkInput(e.target.value)}
-                  placeholder="bandcamp.com/your-album"
-                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
-                />
-              </div>
-              <button
-                onClick={handleSavePromo}
-                disabled={saving}
-                className={`w-full py-2 rounded-lg font-medium transition-colors ${
-                  saveSuccess
-                    ? "bg-green-600 text-white"
-                    : "bg-white text-black hover:bg-gray-100"
-                } disabled:opacity-50`}
-              >
-                {saving ? "Saving..." : saveSuccess ? "Saved!" : "Save Promo"}
-              </button>
-            </div>
-            <p className="text-gray-600 text-xs mt-2 px-1">
-              This appears in chat when you&apos;re live on Channel Broadcast.
-            </p>
-          </section>
-
-          {/* Upcoming Shows section */}
-          <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-              Upcoming Shows
-            </h2>
-            <div className="bg-[#1a1a1a] rounded-lg">
-              {loadingBroadcasts ? (
-                <div className="p-4 flex items-center justify-center">
-                  <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
-                </div>
-              ) : upcomingShows.length === 0 ? (
-                <div className="p-4 text-center">
-                  <p className="text-gray-500">No upcoming shows scheduled</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-800">
-                  {upcomingShows.map((show) => (
-                    <div key={show.id} className="p-4">
-                      <p className="text-white font-medium">{show.showName}</p>
-                      <p className="text-gray-400 text-sm">
-                        {formatBroadcastTime(show.startTime, show.endTime)}
-                      </p>
-                      <p className="text-gray-500 text-xs mt-1">{show.stationName}</p>
-                      {show.status === "live" ? (
-                        <span className="inline-flex items-center gap-1 mt-2 text-red-400 text-xs">
-                          <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                          Live Now
-                        </span>
-                      ) : !show.isExternal && show.broadcastToken && (
-                        <Link
-                          href={`/broadcast/live?token=${show.broadcastToken}`}
-                          className="inline-flex items-center gap-1 mt-2 text-blue-400 hover:text-blue-300 text-sm transition-colors"
-                        >
-                          Go Live &rarr;
-                        </Link>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </section>
 
