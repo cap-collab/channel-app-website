@@ -93,6 +93,14 @@ export function DJPublicProfileClient({ username }: Props) {
         const doc = snapshot.docs[0];
         const data = doc.data();
 
+        // Check if user has DJ role
+        const userRole = data.role;
+        if (userRole !== 'dj' && userRole !== 'broadcaster' && userRole !== 'admin') {
+          setNotFound(true);
+          setLoading(false);
+          return;
+        }
+
         setDjProfile({
           chatUsername: data.chatUsername,
           djProfile: {
