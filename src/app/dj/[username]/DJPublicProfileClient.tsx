@@ -83,20 +83,28 @@ export function DJPublicProfileClient({ username }: Props) {
         const decodedUsername = decodeURIComponent(username);
         const usersRef = collection(db, "users");
 
-        // Try exact match first
-        let q = query(usersRef, where("chatUsername", "==", decodedUsername));
-        let snapshot = await getDocs(q);
+        // Generate case variations to try (Firestore queries are case-sensitive)
+        const variations = [
+          decodedUsername,
+          decodedUsername.toUpperCase(),
+          decodedUsername.toLowerCase(),
+          decodedUsername.replace(/-/g, " "), // DJ-Cap -> DJ Cap
+          decodedUsername.replace(/-/g, " ").toUpperCase(), // DJ-Cap -> DJ CAP
+          decodedUsername.replace(/-/g, " ").split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" "), // dj-cap -> Dj Cap
+        ];
 
-        // If not found, try with spaces replaced by URL param (e.g., "DJ-Cap" -> "DJ Cap")
-        if (snapshot.empty) {
-          const withSpaces = decodedUsername.replace(/-/g, " ");
-          if (withSpaces !== decodedUsername) {
-            q = query(usersRef, where("chatUsername", "==", withSpaces));
-            snapshot = await getDocs(q);
-          }
+        // Remove duplicates
+        const uniqueVariations = [...new Set(variations)];
+
+        let snapshot = null;
+
+        for (const variation of uniqueVariations) {
+          const q = query(usersRef, where("chatUsername", "==", variation));
+          snapshot = await getDocs(q);
+          if (!snapshot.empty) break;
         }
 
-        if (snapshot.empty) {
+        if (!snapshot || snapshot.empty) {
           setNotFound(true);
           setLoading(false);
           return;
