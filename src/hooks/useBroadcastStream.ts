@@ -496,20 +496,20 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
     }
   }, [isPlaying, play, pause]);
 
-  // Subscribe to activity counts
+  // Subscribe to activity counts - filter by show start time so counts reset per show
   useEffect(() => {
     const app = getFirebaseApp();
     const db = getFirestore(app);
 
     // Subscribe to chat messages for message count
     const messagesRef = collection(db, 'chats', 'broadcast', 'messages');
-    const now = Date.now();
-    const oneHourAgo = now - 60 * 60 * 1000;
+    // Use show start time if available, otherwise fall back to 24 hours ago
+    const showStartTime = currentShow?.startTime || (Date.now() - 24 * 60 * 60 * 1000);
 
-    // Count messages in the last hour
+    // Count messages since the show started
     const messagesQuery = query(
       messagesRef,
-      where('timestamp', '>', new Date(oneHourAgo)),
+      where('timestamp', '>', new Date(showStartTime)),
       orderBy('timestamp', 'desc'),
       limit(100)
     );
@@ -530,7 +530,7 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
     });
 
     return () => unsubMessages();
-  }, []);
+  }, [currentShow?.startTime]);
 
   // Subscribe to listener count from Firebase Realtime Database (matches iOS ListenerCountService)
   useEffect(() => {

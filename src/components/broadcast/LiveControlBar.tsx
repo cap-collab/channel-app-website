@@ -27,25 +27,26 @@ interface LiveControlBarProps {
   isLive: boolean;
   tipTotalCents: number;
   tipCount: number;
+  showStartTime?: number; // Unix timestamp ms - love count resets per show
 }
 
-export function LiveControlBar({ stream, isLive, tipTotalCents, tipCount }: LiveControlBarProps) {
+export function LiveControlBar({ stream, isLive, tipTotalCents, tipCount, showStartTime }: LiveControlBarProps) {
   const level = useAudioLevel(stream);
   const [listenerCount, setListenerCount] = useState(0);
   const [loveCount, setLoveCount] = useState(0);
 
-  // Subscribe to activity counts
+  // Subscribe to activity counts - filter by show start time so counts reset per show
   useEffect(() => {
     const app = getFirebaseApp();
     const db = getFirestore(app);
 
     const messagesRef = collection(db, 'chats', 'broadcast', 'messages');
-    const now = Date.now();
-    const oneHourAgo = now - 60 * 60 * 1000;
+    // Use show start time if available, otherwise fall back to 24 hours ago
+    const startTime = showStartTime || (Date.now() - 24 * 60 * 60 * 1000);
 
     const messagesQuery = query(
       messagesRef,
-      where('timestamp', '>', new Date(oneHourAgo)),
+      where('timestamp', '>', new Date(startTime)),
       orderBy('timestamp', 'desc'),
       limit(100)
     );
@@ -62,7 +63,7 @@ export function LiveControlBar({ stream, isLive, tipTotalCents, tipCount }: Live
     });
 
     return () => unsubMessages();
-  }, []);
+  }, [showStartTime]);
 
   // Subscribe to listener count
   useEffect(() => {

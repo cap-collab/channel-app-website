@@ -94,6 +94,7 @@ export function DJControlCenter({
         isLive={isLive}
         tipTotalCents={tipTotalCents}
         tipCount={tipCount}
+        showStartTime={slot?.startTime}
       />
 
       {/* Main Content */}

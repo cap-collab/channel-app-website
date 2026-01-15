@@ -105,8 +105,8 @@ export function ChannelClient() {
     listenerCount,
   } = useBroadcastStream();
 
-  // Get love count from chat
-  const { loveCount } = useListenerChat({ username });
+  // Get love count from chat - pass currentShow start time so love count resets per show
+  const { loveCount } = useListenerChat({ username, currentShowStartTime: currentShow?.startTime });
 
   const handleAuthRequired = useCallback(() => {
     setShowAuthModal(true);

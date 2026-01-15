@@ -23,6 +23,7 @@ function getFirebaseApp() {
 
 interface UseListenerChatOptions {
   username?: string;
+  currentShowStartTime?: number; // Unix timestamp ms - love count resets per show
 }
 
 interface UseListenerChatReturn {
@@ -35,7 +36,7 @@ interface UseListenerChatReturn {
   sendLove: (showName?: string) => Promise<void>;
 }
 
-export function useListenerChat({ username }: UseListenerChatOptions): UseListenerChatReturn {
+export function useListenerChat({ username, currentShowStartTime }: UseListenerChatOptions): UseListenerChatReturn {
   const [messages, setMessages] = useState<ChatMessageSerialized[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,12 +71,13 @@ export function useListenerChat({ username }: UseListenerChatOptions): UseListen
         snapshot.forEach((doc) => {
           const data = doc.data();
           const timestamp = data.timestamp as Timestamp | null;
+          const msgTimestamp = timestamp ? timestamp.toMillis() : Date.now();
           const msg: ChatMessageSerialized = {
             id: doc.id,
             stationId: data.stationId || 'broadcast',
             username: data.username,
             message: data.message,
-            timestamp: timestamp ? timestamp.toMillis() : Date.now(),
+            timestamp: msgTimestamp,
             heartCount: data.heartCount || 1,
             isDJ: data.isDJ || false,
             djSlotId: data.djSlotId,
@@ -90,9 +92,12 @@ export function useListenerChat({ username }: UseListenerChatOptions): UseListen
             latestPromo = msg;
           }
 
-          // Sum up all hearts from love reactions
+          // Sum up hearts from love reactions - only count loves from current show
           if (data.messageType === 'love') {
-            loves += data.heartCount || 1;
+            const isFromCurrentShow = !currentShowStartTime || msgTimestamp >= currentShowStartTime;
+            if (isFromCurrentShow) {
+              loves += data.heartCount || 1;
+            }
           }
         });
 
@@ -111,7 +116,7 @@ export function useListenerChat({ username }: UseListenerChatOptions): UseListen
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [currentShowStartTime]);
 
   // Send a regular chat message
   const sendMessage = useCallback(async (text: string) => {
