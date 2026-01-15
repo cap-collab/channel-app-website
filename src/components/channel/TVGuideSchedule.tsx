@@ -306,12 +306,12 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                           key={show.id}
                           className={`absolute top-0.5 bottom-0.5 rounded px-1.5 py-0.5 transition-all group overflow-hidden cursor-pointer ${
                             isLive
-                              ? 'bg-white/15 border border-white/20'
-                              : 'bg-white/5 hover:bg-white/10'
+                              ? 'border border-white/20'
+                              : 'hover:bg-white/10'
                           }`}
                           style={{
                             ...style,
-                            backgroundColor: isLive ? `${station.accentColor}30` : undefined,
+                            backgroundColor: isLive ? `${station.accentColor}30` : 'rgba(255,255,255,0.05)',
                           }}
                           onClick={() => setExpandedShowId(isExpanded ? null : show.id)}
                         >
@@ -389,7 +389,7 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                           </div>
 
                           {/* Show content with optional DJ photo */}
-                          <div className="flex gap-1.5 h-full">
+                          <div className="flex gap-1.5 h-full overflow-hidden">
                             {/* DJ photo thumbnail on card */}
                             {show.djPhotoUrl && showWidth >= 80 && (
                               <img
@@ -399,7 +399,7 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                               />
                             )}
                             {/* Show name and DJ */}
-                            <div className="flex-1 min-w-0">
+                            <div className="flex-1 min-w-0 overflow-hidden">
                               {(() => {
                                 const metadataKey = getMetadataKeyByStationId(station.id);
                                 const bpm = isLive && metadataKey ? stationBPM[metadataKey]?.bpm : null;
@@ -410,15 +410,15 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
 
                                 return (
                                   <>
-                                    <div className="group-hover:pr-12">
-                                      <span className="text-white text-xs font-medium line-clamp-2 leading-tight">
+                                    <div className="group-hover:pr-12 overflow-hidden">
+                                      <span className="text-white text-xs font-medium line-clamp-2 leading-tight block">
                                         {show.name}
                                       </span>
                                     </div>
                                     {/* DJ name - 1 line only, with right padding for BPM only if on 3rd line */}
                                     {show.dj && (
-                                      <div className={djNeedsPadding ? 'pr-14' : ''}>
-                                        <span className="text-gray-400 text-[10px] line-clamp-1 leading-tight">
+                                      <div className={`overflow-hidden ${djNeedsPadding ? 'pr-14' : ''}`}>
+                                        <span className="text-gray-400 text-[10px] line-clamp-1 leading-tight block">
                                           {show.dj}
                                         </span>
                                       </div>
