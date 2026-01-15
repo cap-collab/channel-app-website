@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     const statusFilter = searchParams.get('status'); // 'pending', 'transferred', 'reallocated_to_pool', or null for all
 
     // Get all tips
-    let tipsQuery = db.collection('tips').where('status', '==', 'succeeded');
+    const tipsQuery = db.collection('tips').where('status', '==', 'succeeded');
     const tipsSnapshot = await tipsQuery.get();
 
     // Calculate stats and build tips list
