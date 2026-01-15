@@ -5,6 +5,41 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { calculateTotalCharge } from '@/lib/stripe-client';
 
+// Info modal for unclaimed support disclosure
+function UnclaimedSupportInfoModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative z-10 bg-[#1a1a1a] border border-white/20 rounded-xl p-5 w-full max-w-[380px]">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        <h3 className="text-white font-medium text-lg mb-4">About unclaimed support</h3>
+
+        <p className="text-gray-300 text-sm leading-relaxed">
+          If a DJ hasn&apos;t completed payout setup, Channel holds support and continues attempting payout for up to 60 days. After that, unclaimed support is reallocated to the DJ Support Pool.
+        </p>
+
+        <Link
+          href="/terms#tips"
+          target="_blank"
+          className="inline-block mt-4 text-accent hover:underline text-sm"
+        >
+          Read more in Terms
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 interface TipModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -36,6 +71,7 @@ export function TipModal({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showInfoModal, setShowInfoModal] = useState(false);
 
   const currentAmount = isCustom ? (parseFloat(customAmount) * 100 || 0) : selectedAmount;
   const { tipAmountCents, platformFeeCents, totalCents } = calculateTotalCharge(currentAmount);
@@ -205,6 +241,21 @@ export function TipModal({
           </div>
         )}
 
+        {/* Unclaimed support disclosure */}
+        <div className="mb-3 flex items-center gap-1.5 text-xs text-gray-400">
+          <span>Unclaimed support may be reallocated.</span>
+          <button
+            type="button"
+            onClick={() => setShowInfoModal(true)}
+            className="text-gray-400 hover:text-gray-300 transition-colors"
+            aria-label="Learn more about unclaimed support"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </button>
+        </div>
+
         {/* Terms agreement */}
         <div className="mb-3">
           <label className="flex items-center gap-2 cursor-pointer">
@@ -240,6 +291,12 @@ export function TipModal({
         </button>
 
         <p className="text-xs text-gray-500 text-center mt-3">Secure payment via Stripe</p>
+
+        {/* Info modal for unclaimed support */}
+        <UnclaimedSupportInfoModal
+          isOpen={showInfoModal}
+          onClose={() => setShowInfoModal(false)}
+        />
       </div>
     </div>
   );

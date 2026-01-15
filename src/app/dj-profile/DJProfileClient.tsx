@@ -58,7 +58,7 @@ export function DJProfileClient() {
   }, [searchParams]);
 
   // Pending payout info
-  const { pendingCents, pendingCount, transferredCents, loading: payoutLoading } = usePendingPayout({
+  const { pendingCents, pendingCount, transferredCents, daysUntilExpiry, loading: payoutLoading } = usePendingPayout({
     djUserId: user?.uid || '',
   });
 
@@ -478,6 +478,36 @@ export function DJProfileClient() {
 
       <main className="max-w-xl mx-auto p-4">
         <div className="space-y-8">
+          {/* Pending tips banner - show if DJ has pending tips and no Stripe */}
+          {!payoutLoading && !djProfile.stripeAccountId && pendingCents > 0 && (
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-yellow-500/20 flex-shrink-0">
+                  <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-yellow-400 font-medium">Connect Stripe to receive support</h3>
+                  <p className="text-yellow-400/80 text-sm mt-1">
+                    ${(pendingCents / 100).toFixed(2)} pending
+                    {daysUntilExpiry !== null && ` · ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''} left`}
+                  </p>
+                  <p className="text-gray-400 text-xs mt-2">
+                    Tips expire after 60 days if not claimed.
+                  </p>
+                </div>
+                <button
+                  onClick={handleConnectStripe}
+                  disabled={connectingStripe}
+                  className="px-4 py-2 bg-yellow-500 text-black rounded-lg font-medium hover:bg-yellow-400 transition-colors disabled:opacity-50 flex-shrink-0"
+                >
+                  {connectingStripe ? 'Connecting...' : 'Connect'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Profile section */}
           <section>
             <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">

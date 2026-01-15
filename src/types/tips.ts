@@ -33,8 +33,22 @@ export interface TipTransaction {
   // 'pending_dj_account' = DJ not found yet, waiting for account creation
   // 'transferred' = successfully sent to DJ
   // 'failed' = transfer failed
-  payoutStatus: 'pending' | 'pending_dj_account' | 'transferred' | 'failed';
+  // 'reallocated_to_pool' = DJ never connected Stripe, tip reallocated after 60 days
+  payoutStatus: 'pending' | 'pending_dj_account' | 'transferred' | 'failed' | 'reallocated_to_pool';
   transferredAt?: Timestamp;
+  reallocatedAt?: Timestamp;
+}
+
+// Support Pool Reallocation record
+export interface SupportPoolReallocation {
+  id: string;
+  tipId: string;
+  djUserId: string;
+  djUsername: string;
+  djEmail?: string;
+  amountCents: number;
+  originalTipDate: Timestamp;
+  reallocatedAt: Timestamp;
 }
 
 // Serialized version for client-side use
@@ -61,6 +75,7 @@ export interface TipTransactionSerialized {
   stripeTransferId?: string;
   status: 'pending' | 'succeeded' | 'failed';
 
-  payoutStatus: 'pending' | 'pending_dj_account' | 'transferred' | 'failed';
+  payoutStatus: 'pending' | 'pending_dj_account' | 'transferred' | 'failed' | 'reallocated_to_pool';
   transferredAt?: number;
+  reallocatedAt?: number;
 }
