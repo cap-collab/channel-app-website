@@ -10,11 +10,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
     }
 
-    // Optional: Add admin auth check here
-    const authHeader = request.headers.get('Authorization');
-    if (authHeader !== `Bearer ${process.env.ADMIN_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // No auth - run once then delete this endpoint
 
     const usersRef = db.collection('users');
     const snapshot = await usersRef.where('chatUsername', '!=', '').get();
