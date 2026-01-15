@@ -50,7 +50,7 @@ export async function sendShowStartingEmail({
     return false;
   }
 
-  const displayName = djName || showName;
+  const displayName = showName;
 
   try {
     const { error } = await resend.emails.send({
@@ -78,7 +78,7 @@ export async function sendShowStartingEmail({
             <div class="content">
               <h1>${displayName} <span style="color: #888;">is live</span></h1>
               <p class="station">on ${stationName}</p>
-              ${djName ? `<p class="show-name">${showName}</p>` : ""}
+              ${djName ? `<p class="show-name">${djName}</p>` : ""}
               <a href="${listenUrl}" class="listen-btn">Tune In</a>
             </div>
             <div class="footer">
@@ -379,7 +379,8 @@ export async function sendWatchlistDigestEmail({
         .map(
           (match) => `
           <div style="background: #1a1a1a; border-radius: 8px; padding: 16px; margin-bottom: 8px;">
-            <div style="font-weight: 600; margin-bottom: 4px;">${match.djName || match.showName}</div>
+            <div style="font-weight: 600; margin-bottom: 4px;">${match.showName}</div>
+            ${match.djName ? `<div style="color: #aaa; font-size: 12px; margin-bottom: 4px;">${match.djName}</div>` : ""}
             <div style="color: #888; font-size: 13px;">${match.stationName} · ${new Date(match.startTime).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })} at ${new Date(match.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</div>
           </div>
         `
