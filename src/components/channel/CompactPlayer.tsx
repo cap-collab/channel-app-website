@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
 
@@ -15,6 +16,10 @@ interface CompactPlayerProps {
   isAuthenticated: boolean;
   username?: string;
   error?: string | null;
+  // Favorites
+  isShowFavorited?: boolean;
+  onToggleFavorite?: () => Promise<void>;
+  onAuthRequired?: () => void;
 }
 
 export function CompactPlayer({
@@ -26,7 +31,12 @@ export function CompactPlayer({
   onTogglePlay,
   listenerCount,
   loveCount,
+  isAuthenticated,
+  isShowFavorited,
+  onToggleFavorite,
+  onAuthRequired,
 }: CompactPlayerProps) {
+  const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
   const stationName = 'Channel Broadcast';
   const showName = currentShow?.showName || (isLive ? 'Live Now' : 'Offline');
   // Use djName (scheduled DJ name) to match what's shown in the schedule/calendar
@@ -97,6 +107,42 @@ export function CompactPlayer({
           </svg>
           {isLive ? loveCount : 0}
         </span>
+
+        {/* Favorite button - only show when live with a show */}
+        {isLive && currentShow && onToggleFavorite && (
+          <button
+            onClick={async () => {
+              if (!isAuthenticated) {
+                onAuthRequired?.();
+                return;
+              }
+              setIsTogglingFavorite(true);
+              await onToggleFavorite();
+              setIsTogglingFavorite(false);
+            }}
+            disabled={isTogglingFavorite}
+            className="w-8 h-8 flex items-center justify-center text-accent hover:text-accent/80 transition-colors disabled:opacity-50"
+            title={isShowFavorited ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            {isTogglingFavorite ? (
+              <div className="w-4 h-4 border-2 border-gray-600 border-t-accent rounded-full animate-spin" />
+            ) : (
+              <svg
+                className="w-4 h-4"
+                fill={isShowFavorited ? 'currentColor' : 'none'}
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                />
+              </svg>
+            )}
+          </button>
+        )}
 
         {/* Share button */}
         <button

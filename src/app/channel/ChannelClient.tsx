@@ -13,8 +13,10 @@ import { TipThankYouModal } from '@/components/channel/TipThankYouModal';
 import { AuthModal } from '@/components/AuthModal';
 import { useBroadcastStream } from '@/hooks/useBroadcastStream';
 import { useListenerChat } from '@/hooks/useListenerChat';
+import { useFavorites } from '@/hooks/useFavorites';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { saveTipToLocalStorage } from '@/lib/tip-history-storage';
+import { Show } from '@/types';
 
 interface TipSuccessData {
   djUsername: string;
@@ -108,6 +110,27 @@ export function ChannelClient() {
   // Get love count from chat - pass currentShow start time so love count resets per show
   const { loveCount } = useListenerChat({ username, currentShowStartTime: currentShow?.startTime });
 
+  // Favorites for the current show
+  const { isShowFavorited, toggleFavorite } = useFavorites();
+
+  // Convert currentShow to Show type for favorites
+  const currentShowAsShow: Show | null = currentShow ? {
+    id: currentShow.id,
+    name: currentShow.showName,
+    dj: currentDJ || currentShow.djName,
+    startTime: new Date(currentShow.startTime).toISOString(),
+    endTime: new Date(currentShow.endTime).toISOString(),
+    stationId: 'broadcast',
+  } : null;
+
+  const isCurrentShowFavorited = currentShowAsShow ? isShowFavorited(currentShowAsShow) : false;
+
+  const handleToggleCurrentShowFavorite = useCallback(async () => {
+    if (currentShowAsShow) {
+      await toggleFavorite(currentShowAsShow);
+    }
+  }, [currentShowAsShow, toggleFavorite]);
+
   const handleAuthRequired = useCallback(() => {
     setShowAuthModal(true);
   }, []);
@@ -139,10 +162,13 @@ export function ChannelClient() {
                 isAuthenticated={isAuthenticated}
                 username={username}
                 error={error}
+                isShowFavorited={isCurrentShowFavorited}
+                onToggleFavorite={handleToggleCurrentShowFavorite}
+                onAuthRequired={handleAuthRequired}
               />
 
               {/* Search + Favorites */}
-              <NextFavoriteShow onAuthRequired={handleAuthRequired} />
+              <NextFavoriteShow onAuthRequired={handleAuthRequired} currentShow={currentShowAsShow} currentDJ={currentDJ} />
             </div>
 
             {/* Right column: Chat - fixed height, scrolls internally */}
@@ -185,12 +211,15 @@ export function ChannelClient() {
               isAuthenticated={isAuthenticated}
               username={username}
               error={error}
+              isShowFavorited={isCurrentShowFavorited}
+              onToggleFavorite={handleToggleCurrentShowFavorite}
+              onAuthRequired={handleAuthRequired}
             />
           </div>
 
           {/* Search + Favorites */}
           <div className="flex-shrink-0 px-4 pb-2">
-            <NextFavoriteShow onAuthRequired={handleAuthRequired} />
+            <NextFavoriteShow onAuthRequired={handleAuthRequired} currentShow={currentShowAsShow} currentDJ={currentDJ} />
           </div>
 
           {/* Tab navigation */}

@@ -76,11 +76,15 @@ function findMatchingShows(favorite: Favorite, allShows: Show[]): Show[] {
 
 interface NextFavoriteShowProps {
   onAuthRequired?: () => void;
+  currentShow?: Show | null;
+  currentDJ?: string | null;
 }
 
-export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
+export function NextFavoriteShow({ onAuthRequired, currentShow, currentDJ }: NextFavoriteShowProps) {
   const { isAuthenticated } = useAuthContext();
   const { favorites, loading: favoritesLoading, toggleFavorite, isShowFavorited, addToWatchlist, isInWatchlist } = useFavorites();
+  const [addingShowToFavorites, setAddingShowToFavorites] = useState(false);
+  const [addingDJToWatchlist, setAddingDJToWatchlist] = useState(false);
   const [allShows, setAllShows] = useState<Show[]>([]);
   const [showsLoading, setShowsLoading] = useState(true);
 
@@ -167,8 +171,40 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
     setIsOpen(false);
   };
 
+  // Handler to add current show to favorites
+  const handleAddCurrentShowToFavorites = useCallback(async () => {
+    if (!isAuthenticated) {
+      onAuthRequired?.();
+      return;
+    }
+    if (!currentShow) return;
+    setAddingShowToFavorites(true);
+    await toggleFavorite(currentShow);
+    setAddingShowToFavorites(false);
+  }, [isAuthenticated, onAuthRequired, currentShow, toggleFavorite]);
+
+  // Handler to add current DJ to watchlist
+  const handleAddDJToWatchlist = useCallback(async () => {
+    if (!isAuthenticated) {
+      onAuthRequired?.();
+      return;
+    }
+    const djName = currentDJ || currentShow?.dj;
+    if (!djName) return;
+    setAddingDJToWatchlist(true);
+    await addToWatchlist(djName);
+    setAddingDJToWatchlist(false);
+  }, [isAuthenticated, onAuthRequired, currentDJ, currentShow, addToWatchlist]);
+
   const watchlistHasTerm = isInWatchlist(query.trim());
   const showDropdown = isOpen && query.trim().length > 0;
+
+  // Check if current show is favorited
+  const isCurrentShowFavorited = currentShow ? isShowFavorited(currentShow) : false;
+
+  // Check if current DJ is in watchlist
+  const djName = currentDJ || currentShow?.dj;
+  const isDJInWatchlist = djName ? isInWatchlist(djName) : false;
 
   // Expanded state
   const [isExpanded, setIsExpanded] = useState(false);
@@ -230,7 +266,10 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
   const hasUpcomingShows = upcomingShows.length > 0;
   const hasReturningSoon = returningSoon.length > 0;
   const hasWatchlist = watchlist.length > 0;
-  const hasContent = hasLiveShows || hasUpcomingShows || hasReturningSoon || hasWatchlist;
+  // Show the favorites section if there's content, OR if there's a current show/DJ to add
+  const hasShowToAdd = currentShow && !isCurrentShowFavorited;
+  const hasDJToFollow = djName && !isDJInWatchlist;
+  const hasContent = hasLiveShows || hasUpcomingShows || hasReturningSoon || hasWatchlist || hasShowToAdd || hasDJToFollow;
 
   return (
     <div ref={containerRef} className="relative">
@@ -409,8 +448,8 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
                 Favorite Shows
               </h3>
             </div>
-            {/* Right: Watchlist title */}
-            {hasWatchlist && (
+            {/* Right: Watchlist title - show if watchlist exists OR if there's a DJ to follow */}
+            {(hasWatchlist || (djName && !isDJInWatchlist)) && (
               <div className="flex-1 min-w-0">
                 <h3 className="text-gray-500 text-[10px] uppercase tracking-wide flex items-center gap-1">
                   <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -536,10 +575,28 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
                   </div>
                 </div>
               )}
+
+              {/* Add current show to favorites button */}
+              {currentShow && !isCurrentShowFavorited && (
+                <button
+                  onClick={handleAddCurrentShowToFavorites}
+                  disabled={addingShowToFavorites}
+                  className="mt-2 flex items-center gap-1.5 text-[10px] text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+                >
+                  {addingShowToFavorites ? (
+                    <div className="w-3 h-3 border border-gray-600 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                  )}
+                  <span>Add &quot;{currentShow.name}&quot; to favorites</span>
+                </button>
+              )}
             </div>
 
             {/* Right column: Watchlist */}
-            {hasWatchlist && (
+            {hasWatchlist ? (
               <div className="flex-1 min-w-0">
                 <div className="grid grid-cols-2 gap-1">
                   {(isExpanded ? watchlist : watchlist.slice(0, 6)).map((fav) => (
@@ -556,8 +613,44 @@ export function NextFavoriteShow({ onAuthRequired }: NextFavoriteShowProps) {
                     </span>
                   )}
                 </div>
+
+                {/* Follow current DJ button */}
+                {djName && !isDJInWatchlist && (
+                  <button
+                    onClick={handleAddDJToWatchlist}
+                    disabled={addingDJToWatchlist}
+                    className="mt-2 flex items-center gap-1.5 text-[10px] text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+                  >
+                    {addingDJToWatchlist ? (
+                      <div className="w-3 h-3 border border-gray-600 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                      </svg>
+                    )}
+                    <span>Follow {djName}</span>
+                  </button>
+                )}
               </div>
-            )}
+            ) : djName && !isDJInWatchlist ? (
+              /* Show Follow DJ button even if no watchlist items exist yet */
+              <div className="flex-1 min-w-0">
+                <button
+                  onClick={handleAddDJToWatchlist}
+                  disabled={addingDJToWatchlist}
+                  className="flex items-center gap-1.5 text-[10px] text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+                >
+                  {addingDJToWatchlist ? (
+                    <div className="w-3 h-3 border border-gray-600 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                  )}
+                  <span>Follow {djName}</span>
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       )}
