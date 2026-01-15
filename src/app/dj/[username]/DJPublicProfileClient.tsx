@@ -79,32 +79,15 @@ export function DJPublicProfileClient({ username }: Props) {
       }
 
       try {
-        // Decode URL-encoded username and try to find by chatUsername
-        const decodedUsername = decodeURIComponent(username);
+        // Normalize the URL param: lowercase, remove spaces/hyphens
+        const normalized = decodeURIComponent(username).replace(/[\s-]+/g, "").toLowerCase();
         const usersRef = collection(db, "users");
 
-        // Generate case variations to try (Firestore queries are case-sensitive)
-        const variations = [
-          decodedUsername,
-          decodedUsername.toUpperCase(),
-          decodedUsername.toLowerCase(),
-          decodedUsername.replace(/-/g, " "), // DJ-Cap -> DJ Cap
-          decodedUsername.replace(/-/g, " ").toUpperCase(), // DJ-Cap -> DJ CAP
-          decodedUsername.replace(/-/g, " ").split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" "), // dj-cap -> Dj Cap
-        ];
+        // Query by normalized username (single query)
+        const q = query(usersRef, where("chatUsernameNormalized", "==", normalized));
+        const snapshot = await getDocs(q);
 
-        // Remove duplicates
-        const uniqueVariations = Array.from(new Set(variations));
-
-        let snapshot = null;
-
-        for (const variation of uniqueVariations) {
-          const q = query(usersRef, where("chatUsername", "==", variation));
-          snapshot = await getDocs(q);
-          if (!snapshot.empty) break;
-        }
-
-        if (!snapshot || snapshot.empty) {
+        if (snapshot.empty) {
           setNotFound(true);
           setLoading(false);
           return;

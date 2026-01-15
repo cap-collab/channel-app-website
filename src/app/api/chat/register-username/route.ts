@@ -100,9 +100,10 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // Update user document with chatUsername
+        // Update user document with chatUsername and normalized version for lookups
         transaction.set(userDocRef, {
           chatUsername: trimmedUsername,
+          chatUsernameNormalized: handle,
           lastSeenAt: FieldValue.serverTimestamp(),
         }, { merge: true });
       });
