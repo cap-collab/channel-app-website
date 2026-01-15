@@ -13,6 +13,27 @@ import { BroadcastSlotSerialized } from "@/types/broadcast";
 import { usePendingPayout } from "@/hooks/usePendingPayout";
 import { normalizeUrl } from "@/lib/url";
 import { uploadDJPhoto, deleteDJPhoto, validatePhoto } from "@/lib/photo-upload";
+import { Show } from "@/types";
+import { getStationById } from "@/lib/stations";
+
+// Helper: word boundary match (same as watchlist)
+function matchesAsWord(text: string, term: string): boolean {
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`\\b${escaped}\\b`, "i").test(text);
+}
+
+interface UpcomingShow {
+  id: string;
+  showName: string;
+  djName?: string;
+  startTime: number;
+  endTime: number;
+  status: string;
+  stationId: string;
+  stationName: string;
+  isExternal: boolean;
+  broadcastToken?: string;
+}
 
 interface DJProfile {
   bio: string | null;
@@ -104,9 +125,10 @@ export function StudioProfileClient() {
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Upcoming broadcasts
-  const [upcomingBroadcasts, setUpcomingBroadcasts] = useState<BroadcastSlotSerialized[]>([]);
+  // Upcoming shows (broadcasts + external radio shows)
+  const [upcomingShows, setUpcomingShows] = useState<UpcomingShow[]>([]);
   const [loadingBroadcasts, setLoadingBroadcasts] = useState(true);
+  const [allShows, setAllShows] = useState<Show[]>([]);
 
   // Load user profile and DJ profile data
   useEffect(() => {
@@ -147,7 +169,24 @@ export function StudioProfileClient() {
     return () => unsubscribe();
   }, [user]);
 
-  // Load upcoming broadcasts for this DJ
+  // Fetch schedule to get shows from all stations
+  useEffect(() => {
+    async function fetchSchedule() {
+      try {
+        const res = await fetch("/api/schedule");
+        if (res.ok) {
+          const data = await res.json();
+          setAllShows(data.shows || []);
+        }
+      } catch (error) {
+        console.error("Error fetching schedule:", error);
+      }
+    }
+
+    fetchSchedule();
+  }, []);
+
+  // Load upcoming shows for this DJ (broadcast slots + external radio shows)
   useEffect(() => {
     if (!user || !db || !user.email) {
       setLoadingBroadcasts(false);
@@ -166,32 +205,76 @@ export function StudioProfileClient() {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const slots: BroadcastSlotSerialized[] = [];
+        const shows: UpcomingShow[] = [];
+        const seenIds = new Set<string>();
+
+        // 1. Add broadcast slots from Firebase
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
           const isMySlot =
             data.liveDjUserId === user.uid ||
+            data.djUserId === user.uid ||
             data.djEmail?.toLowerCase() === user.email?.toLowerCase();
 
           if (isMySlot) {
-            slots.push({
-              id: docSnap.id,
+            const id = `broadcast-${docSnap.id}`;
+            seenIds.add(id);
+            shows.push({
+              id,
               stationId: data.stationId || "broadcast",
+              stationName: "Channel Broadcast",
               showName: data.showName || "Broadcast",
               djName: data.djName,
-              djEmail: data.djEmail,
               startTime: (data.startTime as Timestamp).toMillis(),
               endTime: (data.endTime as Timestamp).toMillis(),
-              broadcastToken: data.broadcastToken,
-              tokenExpiresAt: (data.tokenExpiresAt as Timestamp).toMillis(),
-              createdAt: (data.createdAt as Timestamp).toMillis(),
-              createdBy: data.createdBy,
               status: data.status,
-              broadcastType: data.broadcastType,
+              isExternal: false,
+              broadcastToken: data.broadcastToken,
             });
           }
         });
-        setUpcomingBroadcasts(slots);
+
+        // 2. Add external radio shows that match by DJ name (using watchlist strategy)
+        if (chatUsername) {
+          const nowMs = Date.now();
+          for (const show of allShows) {
+            // Skip broadcast shows (already handled above)
+            if (show.stationId === "broadcast") continue;
+
+            // Skip shows that have already ended
+            const endTime = new Date(show.endTime).getTime();
+            if (endTime <= nowMs) continue;
+
+            // Match by DJ name or show name containing the DJ name (same as watchlist)
+            const djMatch = show.dj && matchesAsWord(show.dj, chatUsername);
+            const showNameMatch = matchesAsWord(show.name, chatUsername);
+
+            if (djMatch || showNameMatch) {
+              const id = `external-${show.id}`;
+              if (seenIds.has(id)) continue;
+              seenIds.add(id);
+
+              const station = getStationById(show.stationId);
+              const startTime = new Date(show.startTime).getTime();
+              shows.push({
+                id,
+                showName: show.name,
+                djName: show.dj || chatUsername,
+                startTime: startTime,
+                endTime: endTime,
+                status: startTime <= nowMs && endTime > nowMs ? "live" : "scheduled",
+                stationId: show.stationId,
+                stationName: station?.name || show.stationId,
+                isExternal: true,
+              });
+            }
+          }
+        }
+
+        // Sort by start time
+        shows.sort((a, b) => a.startTime - b.startTime);
+
+        setUpcomingShows(shows);
         setLoadingBroadcasts(false);
       },
       (err) => {
@@ -201,7 +284,7 @@ export function StudioProfileClient() {
     );
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, chatUsername, allShows]);
 
   // Sync DJ profile data to broadcast slots
   const syncProfileToSlots = async (bio?: string | null, photoUrl?: string | null) => {
@@ -908,41 +991,37 @@ export function StudioProfileClient() {
             </p>
           </section>
 
-          {/* Upcoming Broadcasts section */}
+          {/* Upcoming Shows section */}
           <section>
             <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-              Upcoming Broadcasts
+              Upcoming Shows
             </h2>
             <div className="bg-[#1a1a1a] rounded-lg">
               {loadingBroadcasts ? (
                 <div className="p-4 flex items-center justify-center">
                   <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
                 </div>
-              ) : upcomingBroadcasts.length === 0 ? (
+              ) : upcomingShows.length === 0 ? (
                 <div className="p-4 text-center">
-                  <p className="text-gray-500">No upcoming broadcasts scheduled</p>
+                  <p className="text-gray-500">No upcoming shows scheduled</p>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-800">
-                  {upcomingBroadcasts.map((broadcast) => (
-                    <div key={broadcast.id} className="p-4">
-                      <p className="text-white font-medium">{broadcast.showName}</p>
+                  {upcomingShows.map((show) => (
+                    <div key={show.id} className="p-4">
+                      <p className="text-white font-medium">{show.showName}</p>
                       <p className="text-gray-400 text-sm">
-                        {formatBroadcastTime(broadcast.startTime, broadcast.endTime)}
+                        {formatBroadcastTime(show.startTime, show.endTime)}
                       </p>
-                      {broadcast.djEmail && (
-                        <p className="text-gray-500 text-xs mt-1">
-                          DJ: {broadcast.djEmail}
-                        </p>
-                      )}
-                      {broadcast.status === "live" ? (
+                      <p className="text-gray-500 text-xs mt-1">{show.stationName}</p>
+                      {show.status === "live" ? (
                         <span className="inline-flex items-center gap-1 mt-2 text-red-400 text-xs">
                           <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                           Live Now
                         </span>
-                      ) : broadcast.broadcastToken && (
+                      ) : !show.isExternal && show.broadcastToken && (
                         <Link
-                          href={`/broadcast/live?token=${broadcast.broadcastToken}`}
+                          href={`/broadcast/live?token=${show.broadcastToken}`}
                           className="inline-flex items-center gap-1 mt-2 text-blue-400 hover:text-blue-300 text-sm transition-colors"
                         >
                           Go Live &rarr;

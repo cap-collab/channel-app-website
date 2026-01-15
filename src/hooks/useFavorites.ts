@@ -276,19 +276,31 @@ export function useFavorites() {
   // Matches by: DJ name in metadata, djUserId/djEmail in broadcast-slots
   const addDJShowsToFavorites = useCallback(
     async (djName: string, djUserId?: string, djEmail?: string): Promise<number> => {
-      if (!user || !db) return 0;
+      if (!user || !db) {
+        console.log("[addDJShowsToFavorites] No user or db");
+        return 0;
+      }
+
+      console.log(`[addDJShowsToFavorites] Starting for DJ: ${djName}, userId: ${djUserId}, email: ${djEmail}`);
 
       let addedCount = 0;
       const favoritesRef = collection(db, "users", user.uid, "favorites");
 
       // 1. Get all shows from metadata (includes broadcast shows)
-      const allShows = await getAllShows();
+      let allShows: Show[] = [];
+      try {
+        allShows = await getAllShows();
+        console.log(`[addDJShowsToFavorites] Fetched ${allShows.length} total shows from metadata`);
+      } catch (error) {
+        console.error("[addDJShowsToFavorites] Error fetching shows from metadata:", error);
+      }
 
       // Filter shows that match the DJ name
       const matchingShowsByName = allShows.filter((show) => {
         if (!show.dj) return false;
         return matchesAsWord(show.dj, djName);
       });
+      console.log(`[addDJShowsToFavorites] Found ${matchingShowsByName.length} shows matching DJ name "${djName}"`);
 
       // 2. Get broadcast slots that match by djUserId or djEmail (more reliable than name match)
       const broadcastMatches: Show[] = [];
@@ -337,6 +349,7 @@ export function useFavorites() {
           if (matchesUserId || matchesEmail || matchInSlots) {
             const startTime = (data.startTime as Timestamp).toDate().toISOString();
             const endTime = (data.endTime as Timestamp).toDate().toISOString();
+            console.log(`[addDJShowsToFavorites] Found broadcast match: ${data.showName}`);
             broadcastMatches.push({
               id: `broadcast-${docSnap.id}`,
               name: data.showName as string,
@@ -348,6 +361,7 @@ export function useFavorites() {
           }
         });
       }
+      console.log(`[addDJShowsToFavorites] Found ${broadcastMatches.length} broadcast slots matching userId/email`);
 
       // Combine and deduplicate shows (by name + stationId)
       const allMatchingShows = [...matchingShowsByName, ...broadcastMatches];
