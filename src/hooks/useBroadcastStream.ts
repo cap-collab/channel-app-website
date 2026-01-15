@@ -177,7 +177,8 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
             showPromoHyperlink: data.showPromoHyperlink,
           };
           setCurrentShow(slot);
-          setCurrentDJ(slot.liveDjUsername || slot.djName || null);
+          // Use djName (scheduled DJ name) to match what's shown in the schedule/calendar
+          setCurrentDJ(slot.djName || null);
           setIsLive(true);
           // Prewarm token as soon as we detect a live broadcast
           prewarmToken();

@@ -29,7 +29,8 @@ export function CompactPlayer({
 }: CompactPlayerProps) {
   const stationName = 'Channel Broadcast';
   const showName = currentShow?.showName || (isLive ? 'Live Now' : 'Offline');
-  const djName = currentDJ || currentShow?.djName || currentShow?.liveDjUsername;
+  // Use djName (scheduled DJ name) to match what's shown in the schedule/calendar
+  const djName = currentDJ || currentShow?.djName;
 
   return (
     <div className="flex items-center gap-3 bg-surface-card rounded-xl p-3">
