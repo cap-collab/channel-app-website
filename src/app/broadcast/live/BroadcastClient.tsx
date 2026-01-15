@@ -129,10 +129,6 @@ export function BroadcastClient() {
           setInitialPromoHyperlink(activeDjSlot.djPromoHyperlink || activeDjSlot.promoHyperlink);
           setInitialThankYouMessage(activeDjSlot.djThankYouMessage);
           setInitialPromoSubmitted(false);
-          // Skip profile step for venue DJs with pre-configured info
-          if (slot.broadcastType === 'venue') {
-            setOnboardingStep('audio');
-          }
 
           // If broadcast is live, call switch-dj API to update backend
           if (isLiveForDjSwitch && slot.id && newSlotId) {
@@ -518,36 +514,47 @@ export function BroadcastClient() {
         />
 
         {/* New DJ profile overlay for multi-DJ shows */}
-        {needsNewDjProfile && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="relative">
-              <div className="absolute -top-12 left-0 right-0 text-center">
-                <span className="inline-flex items-center gap-2 bg-red-600 text-white text-sm font-medium px-3 py-1 rounded-full">
-                  <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
-                  Broadcast is live
-                </span>
+        {needsNewDjProfile && (() => {
+          const activeDjSlot = getCurrentDjSlot();
+          return (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="relative">
+                <div className="absolute -top-12 left-0 right-0 text-center">
+                  <span className="inline-flex items-center gap-2 bg-red-600 text-white text-sm font-medium px-3 py-1 rounded-full">
+                    <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+                    Broadcast is live
+                  </span>
+                </div>
+                <DJProfileSetup
+                  defaultUsername={getDefaultDjName()}
+                  defaultPromoText={activeDjSlot?.djPromoText || activeDjSlot?.promoText || slot?.showPromoText}
+                  defaultPromoHyperlink={activeDjSlot?.djPromoHyperlink || activeDjSlot?.promoHyperlink || slot?.showPromoHyperlink}
+                  defaultThankYouMessage={activeDjSlot?.djThankYouMessage}
+                  broadcastType={slot?.broadcastType}
+                  onComplete={handleProfileComplete}
+                />
               </div>
-              <DJProfileSetup
-                defaultUsername={getDefaultDjName()}
-                broadcastType={slot?.broadcastType}
-                onComplete={handleProfileComplete}
-              />
             </div>
-          </div>
-        )}
+          );
+        })()}
       </>
     );
   }
 
   // DJ Onboarding - Profile setup (with non-blocking inline login prompt)
-  // For venue broadcasts, skip profile step - DJ info is pre-configured from slot data
-  if (onboardingStep === 'profile' && slot?.broadcastType !== 'venue') {
+  // All broadcasts show the profile step so DJs can confirm their info and accept terms
+  if (onboardingStep === 'profile') {
+    // Get active DJ slot for pre-filling profile data
+    const activeDjSlot = getCurrentDjSlot();
     return (
       <div className="min-h-screen bg-[#1a1a1a]">
         <BroadcastHeader />
         <div className="flex items-center justify-center p-8 min-h-[calc(100vh-60px)]">
         <DJProfileSetup
           defaultUsername={getDefaultDjName()}
+          defaultPromoText={activeDjSlot?.djPromoText || activeDjSlot?.promoText || slot?.showPromoText}
+          defaultPromoHyperlink={activeDjSlot?.djPromoHyperlink || activeDjSlot?.promoHyperlink || slot?.showPromoHyperlink}
+          defaultThankYouMessage={activeDjSlot?.djThankYouMessage}
           broadcastType={slot?.broadcastType}
           onComplete={handleProfileComplete}
         />

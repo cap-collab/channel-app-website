@@ -29,17 +29,20 @@ import { normalizeUrl } from '@/lib/url';
 
 interface DJProfileSetupProps {
   defaultUsername?: string;
+  defaultPromoText?: string;
+  defaultPromoHyperlink?: string;
+  defaultThankYouMessage?: string;
   broadcastType?: 'venue' | 'remote';
   onComplete: (username: string, promoText?: string, promoHyperlink?: string, thankYouMessage?: string) => void;
 }
 
-export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: DJProfileSetupProps) {
+export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromoHyperlink, defaultThankYouMessage, broadcastType, onComplete }: DJProfileSetupProps) {
   const { user, isAuthenticated, signInWithGoogle, signInWithApple, sendEmailLink, emailSent, resetEmailSent, loading: authLoading } = useAuthContext();
   const { chatUsername: savedUsername, djProfile, loading: profileLoading } = useUserProfile(user?.uid);
   const [username, setUsername] = useState(defaultUsername || '');
-  const [promoText, setPromoText] = useState('');
-  const [promoHyperlink, setPromoHyperlink] = useState('');
-  const [thankYouMessage, setThankYouMessage] = useState('');
+  const [promoText, setPromoText] = useState(defaultPromoText || '');
+  const [promoHyperlink, setPromoHyperlink] = useState(defaultPromoHyperlink || '');
+  const [thankYouMessage, setThankYouMessage] = useState(defaultThankYouMessage || '');
   const [error, setError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
