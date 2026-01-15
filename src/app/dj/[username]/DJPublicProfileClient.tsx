@@ -7,7 +7,9 @@ import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { AuthModal } from "@/components/AuthModal";
+import { TipModal } from "@/components/channel/TipModal";
 import { Show } from "@/types";
 import { getStationById } from "@/lib/stations";
 
@@ -50,13 +52,15 @@ function matchesAsWord(text: string, term: string): boolean {
 }
 
 export function DJPublicProfileClient({ username }: Props) {
-  const { isAuthenticated } = useAuthContext();
+  const { user, isAuthenticated } = useAuthContext();
+  const { chatUsername } = useUserProfile(user?.uid);
   const { isInWatchlist, addToWatchlist, removeFromWatchlist, loading: favoritesLoading } = useFavorites();
 
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showTipModal, setShowTipModal] = useState(false);
 
   // Live status
   const [liveOnChannel, setLiveOnChannel] = useState(false);
@@ -468,12 +472,12 @@ export function DJPublicProfileClient({ username }: Props) {
             </button>
 
             {profile.djProfile.stripeAccountId && (
-              <Link
-                href={`/channel?tip=${profile.uid}`}
+              <button
+                onClick={() => setShowTipModal(true)}
                 className="flex-1 py-3 rounded-xl font-medium text-center bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:opacity-90 transition-opacity"
               >
                 Tip
-              </Link>
+              </button>
             )}
           </section>
 
@@ -545,6 +549,19 @@ export function DJPublicProfileClient({ username }: Props) {
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
       />
+
+      {showTipModal && profile && (
+        <TipModal
+          isOpen={showTipModal}
+          onClose={() => setShowTipModal(false)}
+          djUsername={profile.chatUsername}
+          djUserId={profile.uid}
+          broadcastSlotId=""
+          showName={`Tip for ${profile.chatUsername}`}
+          tipperUserId={user?.uid}
+          tipperUsername={chatUsername || undefined}
+        />
+      )}
     </div>
   );
 }
