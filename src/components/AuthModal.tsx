@@ -14,6 +14,109 @@ interface AuthModalProps {
 
 type ModalView = "main" | "emailInput" | "methodChoice" | "password" | "forgotPassword";
 
+// Isolated password form component to prevent focus loss from parent re-renders
+function PasswordForm({
+  email,
+  isNewUser,
+  onSubmit,
+  onForgotPassword,
+  onBack,
+  loading,
+}: {
+  email: string;
+  isNewUser: boolean;
+  onSubmit: (password: string) => Promise<void>;
+  onForgotPassword: () => void;
+  onBack: () => void;
+  loading: boolean;
+}) {
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    passwordRef.current?.focus();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password) return;
+    if (isNewUser && (password !== confirmPassword || password.length < 6)) return;
+    await onSubmit(password);
+  };
+
+  const isValid = password && (!isNewUser || (password === confirmPassword && password.length >= 6));
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <p className="text-white/60 text-sm">{email}</p>
+
+      {isNewUser && (
+        <p className="text-sm text-white/50">
+          Create a password for your new account
+        </p>
+      )}
+
+      <div>
+        <input
+          ref={passwordRef}
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Password"
+          className="w-full px-4 py-3 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/30 focus:bg-white/[0.08] transition-all"
+        />
+      </div>
+
+      {isNewUser && (
+        <div>
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Confirm password"
+            className="w-full px-4 py-3 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/30 focus:bg-white/[0.08] transition-all"
+          />
+          {confirmPassword && password !== confirmPassword && (
+            <p className="text-red-400 text-xs mt-1">Passwords don&apos;t match</p>
+          )}
+          <p className="text-white/40 text-xs mt-2">Password must be at least 6 characters</p>
+        </div>
+      )}
+
+      <button
+        type="submit"
+        disabled={loading || !isValid}
+        className="w-full py-3 bg-white text-black rounded-xl font-medium hover:bg-white/90 transition-all disabled:opacity-50"
+      >
+        {loading ? (
+          <div className="w-5 h-5 border-2 border-gray-400 border-t-black rounded-full animate-spin mx-auto" />
+        ) : isNewUser ? (
+          "Create Account"
+        ) : (
+          "Sign In"
+        )}
+      </button>
+
+      <button
+        type="button"
+        onClick={onForgotPassword}
+        className="w-full py-2 text-white/50 text-sm hover:text-white transition-colors"
+      >
+        Forgot password?
+      </button>
+
+      <button
+        type="button"
+        onClick={onBack}
+        className="w-full py-2 text-white/50 text-sm hover:text-white transition-colors"
+      >
+        Back
+      </button>
+    </form>
+  );
+}
+
 export function AuthModal({
   isOpen,
   onClose,
@@ -37,27 +140,15 @@ export function AuthModal({
   } = useAuthContext();
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [enableNotifications, setEnableNotifications] = useState(true);
   const [view, setView] = useState<ModalView>("main");
   const [isNewUser, setIsNewUser] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
-  const passwordInputRef = useRef<HTMLInputElement>(null);
-
-  // Focus password input when entering password view
-  useEffect(() => {
-    if (view === "password") {
-      passwordInputRef.current?.focus();
-    }
-  }, [view]);
 
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setEmail("");
-      setPassword("");
-      setConfirmPassword("");
       setView("main");
       setIsNewUser(false);
       setForgotPasswordEmail("");
@@ -94,14 +185,10 @@ export function AuthModal({
     await sendEmailLink(email.trim(), enableNotifications);
   };
 
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handlePasswordSubmit = async (password: string) => {
     if (!email.trim() || !password) return;
 
     if (isNewUser) {
-      if (password !== confirmPassword) {
-        return;
-      }
       const user = await createAccountWithPassword(email.trim(), password, enableNotifications);
       if (user) {
         onClose();
@@ -124,8 +211,6 @@ export function AuthModal({
   const goBack = () => {
     if (view === "password" || view === "methodChoice") {
       setView("emailInput");
-      setPassword("");
-      setConfirmPassword("");
     } else if (view === "emailInput" || view === "forgotPassword") {
       setView("main");
       setEmail("");
@@ -425,75 +510,17 @@ export function AuthModal({
 
         {/* Password entry view */}
         {view === "password" && (
-          <form onSubmit={handlePasswordSubmit} className="space-y-4">
-            <p className="text-white/60 text-sm">{email}</p>
-
-            {isNewUser && (
-              <p className="text-sm text-white/50">
-                Create a password for your new account
-              </p>
-            )}
-
-            <div>
-              <input
-                ref={passwordInputRef}
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                className="w-full px-4 py-3 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/30 focus:bg-white/[0.08] transition-all"
-              />
-            </div>
-
-            {isNewUser && (
-              <div>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm password"
-                  className="w-full px-4 py-3 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/30 focus:bg-white/[0.08] transition-all"
-                />
-                {confirmPassword && password !== confirmPassword && (
-                  <p className="text-red-400 text-xs mt-1">Passwords don&apos;t match</p>
-                )}
-                <p className="text-white/40 text-xs mt-2">Password must be at least 6 characters</p>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading || !password || (isNewUser && (password !== confirmPassword || password.length < 6))}
-              className="w-full py-3 bg-white text-black rounded-xl font-medium hover:bg-white/90 transition-all disabled:opacity-50"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-gray-400 border-t-black rounded-full animate-spin mx-auto" />
-              ) : isNewUser ? (
-                "Create Account"
-              ) : (
-                "Sign In"
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setForgotPasswordEmail(email);
-                setView("forgotPassword");
-              }}
-              className="w-full py-2 text-white/50 text-sm hover:text-white transition-colors"
-            >
-              Forgot password?
-            </button>
-
-            <button
-              type="button"
-              onClick={goBack}
-              className="w-full py-2 text-white/50 text-sm hover:text-white transition-colors"
-            >
-              Back
-            </button>
-          </form>
+          <PasswordForm
+            email={email}
+            isNewUser={isNewUser}
+            onSubmit={handlePasswordSubmit}
+            onForgotPassword={() => {
+              setForgotPasswordEmail(email);
+              setView("forgotPassword");
+            }}
+            onBack={goBack}
+            loading={loading}
+          />
         )}
 
         {/* Forgot password view */}
