@@ -93,7 +93,8 @@ export function useListenerChat({ username, currentShowStartTime }: UseListenerC
           }
 
           // Sum up hearts from love reactions - only count loves from current show
-          if (data.messageType === 'love') {
+          // Check both messageType and message content for backwards compatibility
+          if (data.messageType === 'love' || data.message?.includes(' is ❤️')) {
             const isFromCurrentShow = !currentShowStartTime || msgTimestamp >= currentShowStartTime;
             if (isFromCurrentShow) {
               loves += data.heartCount || 1;
