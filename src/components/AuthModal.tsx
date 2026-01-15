@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useAuthContext } from "@/contexts/AuthContext";
 
@@ -43,6 +43,14 @@ export function AuthModal({
   const [view, setView] = useState<ModalView>("main");
   const [isNewUser, setIsNewUser] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus password input when entering password view
+  useEffect(() => {
+    if (view === "password") {
+      passwordInputRef.current?.focus();
+    }
+  }, [view]);
 
   // Reset state when modal closes
   useEffect(() => {
@@ -428,11 +436,11 @@ export function AuthModal({
 
             <div>
               <input
+                ref={passwordInputRef}
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password"
-                autoFocus={!password}
                 className="w-full px-4 py-3 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/30 focus:bg-white/[0.08] transition-all"
               />
             </div>
