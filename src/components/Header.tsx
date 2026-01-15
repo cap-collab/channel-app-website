@@ -9,7 +9,7 @@ import { MobileMenu, MobileMenuItem } from "@/components/MobileMenu";
 import { useBroadcastLiveStatus } from "@/hooks/useBroadcastLiveStatus";
 import { useUserRole, isDJ } from "@/hooks/useUserRole";
 
-type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal" | "radio-portal" | "my-shows" | "streaming-guide" | "stripe-setup";
+type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal" | "radio-portal" | "my-shows" | "streaming-guide" | "stripe-setup" | "studio";
 
 interface HeaderProps {
   currentPage?: CurrentPage;
@@ -36,8 +36,7 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
     items.push({ label: "iOS Beta", href: "https://testflight.apple.com/join/HcKTJ1nH", external: true });
 
     // Static menu items - always show all, highlight current
-    items.push({ label: "DJ Portal", href: "/dj-portal", active: currentPage === "dj-portal" });
-    items.push({ label: "Radio Portal", href: "/radio-portal", active: currentPage === "radio-portal" || currentPage === "broadcast-admin" });
+    items.push({ label: "DJ Studio", href: "/studio/join", active: currentPage === "studio" || currentPage === "dj-portal" });
 
     // Always show auth option in mobile menu
     items.push({ type: "auth" });
@@ -66,20 +65,12 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
           <div className="flex items-center gap-3 md:gap-4">
             {/* Navigation links - static menu, highlight current page in white */}
             <Link
-              href="/dj-portal"
+              href="/studio/join"
               className={`hidden sm:inline-block text-sm transition-colors ${
-                currentPage === "dj-portal" ? "text-white" : "text-gray-400 hover:text-white"
+                currentPage === "studio" || currentPage === "dj-portal" ? "text-white" : "text-gray-400 hover:text-white"
               }`}
             >
-              DJ Portal
-            </Link>
-            <Link
-              href="/radio-portal"
-              className={`hidden sm:inline-block text-sm transition-colors ${
-                currentPage === "radio-portal" || currentPage === "broadcast-admin" ? "text-white" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              Radio Portal
+              DJ Studio
             </Link>
 
             {/* Sign In - only on non-home pages when not authenticated */}
@@ -188,11 +179,11 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
                     </Link>
                     {isDJ(role) && (
                       <Link
-                        href="/dj-profile"
+                        href="/studio"
                         onClick={() => setShowUserMenu(false)}
                         className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                       >
-                        DJ Profile
+                        DJ Studio
                       </Link>
                     )}
                     <Link
