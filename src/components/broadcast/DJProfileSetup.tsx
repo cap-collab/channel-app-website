@@ -112,17 +112,21 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
     }
   }, [username, needsUsernameCheck, debouncedCheckUsername]);
 
-  // Pre-fill username from saved chatUsername - this takes PRIORITY over defaultUsername
-  // When a logged-in DJ goes live, their chatUsername becomes their DJ username
+  // Pre-fill from logged-in user's profile - ONLY for remote broadcasts
+  // Venue broadcasts use the slot's pre-configured DJ data (passed via defaults)
+  const isVenueBroadcast = broadcastType === 'venue';
+
+  // Pre-fill username from saved chatUsername - only for remote broadcasts
   useEffect(() => {
-    if (savedUsername) {
+    if (savedUsername && !isVenueBroadcast) {
       setUsername(savedUsername);
     }
-  }, [savedUsername]);
+  }, [savedUsername, isVenueBroadcast]);
 
-  // Pre-fill promo text/hyperlink and thank you message from DJ profile (if available and not already set)
+  // Pre-fill promo text/hyperlink and thank you message from logged-in user's DJ profile
+  // Only for remote broadcasts (venue uses slot's pre-configured data)
   useEffect(() => {
-    if (djProfile && !promoText) {
+    if (djProfile && !isVenueBroadcast && !promoText) {
       if (djProfile.promoText) {
         setPromoText(djProfile.promoText);
       }
@@ -133,7 +137,7 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
         setThankYouMessage(djProfile.thankYouMessage);
       }
     }
-  }, [djProfile, promoText]);
+  }, [djProfile, promoText, isVenueBroadcast]);
 
   // Get valid username for saving during sign-in (if valid)
   // Must match validateUsername() validation rules
