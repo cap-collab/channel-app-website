@@ -132,6 +132,26 @@ export async function POST(request: NextRequest) {
       console.log(`[reconcile] Updated tip ${tipDoc.id} with djUserId ${userId}`);
     }
 
+    // Check for pending DJ role assignments (from studio/join applications)
+    const pendingDJRoleSnapshot = await db.collection('pending-dj-roles')
+      .where('email', '==', email.toLowerCase())
+      .get();
+
+    if (!pendingDJRoleSnapshot.empty && !djRoleAssigned) {
+      const currentRole = userData?.role;
+      if (!currentRole || currentRole === 'user') {
+        await db.collection('users').doc(userId).update({ role: 'dj' });
+        djRoleAssigned = true;
+        console.log(`[reconcile] Assigned DJ role to user ${userId} from pending-dj-roles`);
+      }
+
+      // Delete the pending record(s)
+      for (const doc of pendingDJRoleSnapshot.docs) {
+        await doc.ref.delete();
+        console.log(`[reconcile] Deleted pending-dj-role ${doc.id}`);
+      }
+    }
+
     console.log(`[reconcile] Completed: ${slotsUpdated} slots, ${djSlotsUpdated} DJ slots, ${tipsUpdated} tips updated, djRole=${djRoleAssigned} for ${email}`);
 
     return NextResponse.json({

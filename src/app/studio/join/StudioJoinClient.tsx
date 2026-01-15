@@ -1,14 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { TimeSlotPicker } from '@/components/dj-portal/TimeSlotPicker';
 import { DJApplicationFormData, TimeSlot, LocationType } from '@/types/dj-application';
+import { AuthModal } from '@/components/AuthModal';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
 
 export function StudioJoinClient() {
+  const { user, isAuthenticated } = useAuthContext();
   const [formData, setFormData] = useState<DJApplicationFormData>({
     djName: '',
     email: '',
@@ -27,6 +32,49 @@ export function StudioJoinClient() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [status, setStatus] = useState<FormStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [assigningRole, setAssigningRole] = useState(false);
+
+  // Pre-fill form with user data when logged in
+  useEffect(() => {
+    if (user) {
+      setFormData((prev) => ({
+        ...prev,
+        email: user.email || prev.email,
+        djName: prev.djName || user.displayName || '',
+      }));
+    }
+  }, [user]);
+
+  // Assign DJ role when user logs in on this page
+  useEffect(() => {
+    async function assignDJRole() {
+      if (!user || !db || assigningRole) return;
+
+      setAssigningRole(true);
+      try {
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists()) {
+          const data = userSnap.data();
+          // Only upgrade role if they're currently a regular user
+          if (!data.role || data.role === 'user') {
+            await setDoc(userRef, { role: 'dj' }, { merge: true });
+          }
+        } else {
+          // New user - set DJ role
+          await setDoc(userRef, { role: 'dj' }, { merge: true });
+        }
+      } catch (error) {
+        console.error('Failed to assign DJ role:', error);
+      } finally {
+        setAssigningRole(false);
+      }
+    }
+
+    assignDJRole();
+  }, [user, assigningRole]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -100,6 +148,19 @@ export function StudioJoinClient() {
     return true;
   };
 
+  // Assign DJ role by email for non-logged-in users
+  const assignDJRoleByEmail = async (email: string) => {
+    try {
+      await fetch('/api/users/assign-dj-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+    } catch (error) {
+      console.error('Failed to assign DJ role by email:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
@@ -118,6 +179,21 @@ export function StudioJoinClient() {
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || 'Failed to submit application');
+      }
+
+      // Assign DJ role - either by user ID if logged in, or by email
+      if (user && db) {
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          const data = userSnap.data();
+          if (!data.role || data.role === 'user') {
+            await setDoc(userRef, { role: 'dj' }, { merge: true });
+          }
+        }
+      } else {
+        // Store email for DJ role assignment when they create an account
+        await assignDJRoleByEmail(formData.email);
       }
 
       setStatus('success');
@@ -176,34 +252,79 @@ export function StudioJoinClient() {
 
       <main className="p-4 md:p-8">
         <div className="max-w-2xl mx-auto">
-          {/* Intro */}
+          {/* Hero Section */}
           <div className="mb-12">
-            <h1 className="text-3xl font-bold mb-6">DJ Studio</h1>
+            <h1 className="text-3xl font-bold mb-2">DJ Studio</h1>
+            <p className="text-xl text-gray-300 mb-8">Create your DJ channel</p>
+
             <div className="space-y-4 text-gray-400 leading-relaxed">
-              <p>
-                Channel lets DJs broadcast live sets from wherever they play.
-              </p>
-              <p>
-                If you want to play a live set on Channel, you can apply below. We&apos;re onboarding
-                DJs progressively and keeping things intentional — good sound, clear context, and
-                respect for the moment.
-              </p>
-              <p>
-                A live set can be streamed from home or from a venue. If your DJ setup connects to a
-                computer, you already have what you need. Check our{' '}
-                <Link href="/streaming-guide" className="text-white underline hover:text-gray-300 transition-colors">
-                  streaming setup guide
-                </Link>{' '}
-                to see if you&apos;re ready.
-              </p>
+              <p>Channel lets DJs:</p>
+              <ul className="list-disc list-inside space-y-2 ml-2">
+                <li>create a public DJ profile with all your links, events, and sets</li>
+                <li>live stream or record sets from home or from a venue</li>
+                <li>notify fans when you play, live or on any radio</li>
+                <li>chat with fans, receive tips, and reward them</li>
+              </ul>
             </div>
           </div>
 
-          {/* Form */}
-          <div className="border-t border-gray-800 pt-12">
-            <h2 className="text-2xl font-semibold mb-8">Apply for a Live Set</h2>
+          {/* Get Started / Login Section */}
+          <div className="border-t border-gray-800 pt-12 mb-12">
+            <h2 className="text-2xl font-semibold mb-4">Get started</h2>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            {isAuthenticated ? (
+              <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-6 mb-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <p className="text-white font-medium">You&apos;re logged in as {user?.email}</p>
+                </div>
+                <p className="text-gray-400 text-sm">
+                  You now have access to DJ features. Visit your{' '}
+                  <Link href="/dj-profile" className="text-white underline hover:text-gray-300">
+                    DJ profile
+                  </Link>{' '}
+                  to set up your channel.
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="text-gray-400 mb-4">Log in to:</p>
+                <ul className="list-disc list-inside space-y-2 ml-2 text-gray-400 mb-6">
+                  <li>claim your DJ name and URL</li>
+                  <li>create your DJ profile</li>
+                  <li>schedule or record a live set</li>
+                </ul>
+
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="bg-white text-black px-8 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
+                >
+                  Log in
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Channel Broadcast Application Section */}
+          <div className="border-t border-gray-800 pt-12">
+            <h2 className="text-2xl font-semibold mb-4">Want to play on Channel Broadcast?</h2>
+            <p className="text-gray-400 mb-4">
+              Apply to schedule a live set on our radio. If you&apos;re unsure about your setup, check the{' '}
+              <Link href="/streaming-guide" className="text-white underline hover:text-gray-300 transition-colors">
+                streaming guide
+              </Link>{' '}
+              or reach out at{' '}
+              <a href="mailto:info@channel-app.com" className="text-white underline hover:text-gray-300 transition-colors">
+                info@channel-app.com
+              </a>.
+            </p>
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-6 mt-8">
               {/* DJ Name */}
               <div>
                 <label
@@ -238,7 +359,8 @@ export function StudioJoinClient() {
                   value={formData.email}
                   onChange={handleInputChange}
                   placeholder="you@example.com"
-                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
+                  disabled={isAuthenticated}
+                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60"
                 />
               </div>
 
@@ -510,6 +632,13 @@ export function StudioJoinClient() {
           </div>
         </div>
       </main>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        message="Sign in to create your DJ profile"
+      />
     </div>
   );
 }
