@@ -209,27 +209,27 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
   const validateUsername = (value: string): string | null => {
     const trimmed = value.trim();
     if (trimmed.length < 2) {
-      return 'Username must be at least 2 characters';
+      return 'DJ name must be at least 2 characters';
     }
     if (trimmed.length > 20) {
-      return 'Username must be 20 characters or less';
+      return 'DJ name must be 20 characters or less';
     }
 
     // Must contain at least 2 alphanumeric characters (when spaces removed)
     const handle = trimmed.replace(/\s+/g, '');
     if (handle.length < 2) {
-      return 'Username must have at least 2 characters (excluding spaces)';
+      return 'DJ name must have at least 2 characters (excluding spaces)';
     }
 
     // Alphanumeric and single spaces only
     if (!/^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(trimmed)) {
-      return 'Username can only contain letters, numbers, and spaces';
+      return 'DJ name can only contain letters, numbers, and spaces';
     }
 
     // Check reserved usernames against normalized handle
     const reserved = ['channel', 'admin', 'system', 'moderator', 'mod'];
     if (reserved.includes(handle.toLowerCase())) {
-      return 'This username is reserved';
+      return 'This name is reserved';
     }
     return null;
   };
@@ -265,18 +265,18 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
     // For logged-in remote DJs without chatUsername, check username availability
     if (needsUsernameCheck) {
       if (checkingUsername) {
-        setError('Please wait while we check username availability');
+        setError('Please wait while we check DJ name availability');
         return;
       }
       if (usernameAvailable === false) {
-        setError(usernameCheckError || 'Username is not available. Please choose another.');
+        setError(usernameCheckError || 'DJ name is not available. Please choose another.');
         return;
       }
       if (usernameAvailable === null) {
         // Force a check if not yet checked
         await checkUsernameAvailability(username);
         if (usernameAvailable === false) {
-          setError(usernameCheckError || 'Username is not available. Please choose another.');
+          setError(usernameCheckError || 'DJ name is not available. Please choose another.');
           return;
         }
       }
@@ -325,7 +325,7 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
         Your DJ Profile
       </h2>
       <p className="text-gray-400 mb-8">
-        Set up your chat identity for this broadcast.
+        Enter your DJ name for this broadcast.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -386,13 +386,13 @@ export function DJProfileSetup({ defaultUsername, broadcastType, onComplete }: D
             needsUsernameCheck && usernameCheckError ? 'text-red-400' : 'text-gray-500'
           }`}>
             {isUsernameLocked
-              ? 'This is your Channel username'
+              ? 'This is your Channel DJ name'
               : needsUsernameCheck && usernameCheckError
               ? usernameCheckError
               : needsUsernameCheck && usernameAvailable
-              ? 'Username is available!'
+              ? 'DJ name is available!'
               : needsUsernameCheck
-              ? 'This username will be registered to your account'
+              ? 'This will be your DJ name in chat'
               : '2-20 characters, letters, numbers, and spaces'
             }
           </p>
