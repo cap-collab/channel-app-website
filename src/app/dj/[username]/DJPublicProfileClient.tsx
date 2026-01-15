@@ -15,6 +15,7 @@ import { getStationById } from "@/lib/stations";
 
 interface DJProfile {
   chatUsername: string;
+  email: string;
   djProfile: {
     bio: string | null;
     photoUrl: string | null;
@@ -54,7 +55,7 @@ function matchesAsWord(text: string, term: string): boolean {
 export function DJPublicProfileClient({ username }: Props) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
-  const { isInWatchlist, addToWatchlist, removeFromWatchlist, loading: favoritesLoading } = useFavorites();
+  const { isInWatchlist, addToWatchlist, removeFromWatchlist, addDJShowsToFavorites, loading: favoritesLoading } = useFavorites();
 
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -110,6 +111,7 @@ export function DJPublicProfileClient({ username }: Props) {
 
         setDjProfile({
           chatUsername: data.chatUsername,
+          email: data.email || "",
           djProfile: {
             bio: data.djProfile?.bio || null,
             photoUrl: data.djProfile?.photoUrl || null,
@@ -258,7 +260,10 @@ export function DJPublicProfileClient({ username }: Props) {
       if (isSubscribed) {
         await removeFromWatchlist(djProfile.chatUsername);
       } else {
+        // Add DJ to watchlist
         await addToWatchlist(djProfile.chatUsername);
+        // Auto-add all their shows to favorites (by name match + userId/email match)
+        await addDJShowsToFavorites(djProfile.chatUsername, djProfile.uid, djProfile.email);
       }
     } catch (error) {
       console.error("Error toggling subscription:", error);

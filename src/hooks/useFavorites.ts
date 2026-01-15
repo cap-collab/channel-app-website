@@ -11,10 +11,13 @@ import {
   serverTimestamp,
   where,
   getDocs,
+  orderBy,
+  Timestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Show } from "@/types";
+import { getAllShows } from "@/lib/metadata";
 
 export interface Favorite {
   id: string;
@@ -32,6 +35,12 @@ export interface Favorite {
 export function isRecurringFavorite(favorite: Favorite): boolean {
   const showType = favorite.showType?.toLowerCase();
   return showType === "regular" || showType === "weekly" || showType === "biweekly" || showType === "monthly";
+}
+
+// Word boundary matching for DJ names (same as watchlist-digest cron)
+function matchesAsWord(text: string, term: string): boolean {
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`\\b${escaped}\\b`, "i").test(text);
 }
 
 export function useFavorites() {
@@ -263,6 +272,130 @@ export function useFavorites() {
     [favorites]
   );
 
+  // Add all shows for a DJ to favorites (called when subscribing to a DJ)
+  // Matches by: DJ name in metadata, djUserId/djEmail in broadcast-slots
+  const addDJShowsToFavorites = useCallback(
+    async (djName: string, djUserId?: string, djEmail?: string): Promise<number> => {
+      if (!user || !db) return 0;
+
+      let addedCount = 0;
+      const favoritesRef = collection(db, "users", user.uid, "favorites");
+
+      // 1. Get all shows from metadata (includes broadcast shows)
+      const allShows = await getAllShows();
+
+      // Filter shows that match the DJ name
+      const matchingShowsByName = allShows.filter((show) => {
+        if (!show.dj) return false;
+        return matchesAsWord(show.dj, djName);
+      });
+
+      // 2. Get broadcast slots that match by djUserId or djEmail (more reliable than name match)
+      const broadcastMatches: Show[] = [];
+      if (djUserId || djEmail) {
+        const now = new Date();
+        const slotsRef = collection(db, "broadcast-slots");
+        const q = query(
+          slotsRef,
+          where("endTime", ">", Timestamp.fromDate(now)),
+          orderBy("endTime", "asc")
+        );
+
+        const snapshot = await getDocs(q);
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const status = data.status as string;
+          if (status === "cancelled") return;
+
+          // Check if this slot belongs to the DJ by userId or email
+          const slotDjUserId = data.djUserId as string | undefined;
+          const slotDjEmail = data.djEmail as string | undefined;
+          const slotLiveDjUserId = data.liveDjUserId as string | undefined;
+
+          const matchesUserId = djUserId && (slotDjUserId === djUserId || slotLiveDjUserId === djUserId);
+          const matchesEmail = djEmail && slotDjEmail === djEmail;
+
+          // Also check djSlots for venue broadcasts
+          const djSlots = data.djSlots as Array<{
+            djUserId?: string;
+            djEmail?: string;
+            liveDjUserId?: string;
+            djName?: string;
+            startTime: number;
+            endTime: number;
+          }> | undefined;
+
+          let matchInSlots = false;
+          if (djSlots && djSlots.length > 0) {
+            matchInSlots = djSlots.some((slot) => {
+              const slotMatchUserId = djUserId && (slot.djUserId === djUserId || slot.liveDjUserId === djUserId);
+              const slotMatchEmail = djEmail && slot.djEmail === djEmail;
+              return slotMatchUserId || slotMatchEmail;
+            });
+          }
+
+          if (matchesUserId || matchesEmail || matchInSlots) {
+            const startTime = (data.startTime as Timestamp).toDate().toISOString();
+            const endTime = (data.endTime as Timestamp).toDate().toISOString();
+            broadcastMatches.push({
+              id: `broadcast-${docSnap.id}`,
+              name: data.showName as string,
+              dj: data.djName as string | undefined,
+              startTime,
+              endTime,
+              stationId: "broadcast",
+            });
+          }
+        });
+      }
+
+      // Combine and deduplicate shows (by name + stationId)
+      const allMatchingShows = [...matchingShowsByName, ...broadcastMatches];
+      const seen = new Set<string>();
+      const uniqueShows = allMatchingShows.filter((show) => {
+        const key = `${show.name.toLowerCase()}-${show.stationId}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      // Add each show to favorites if not already favorited
+      for (const show of uniqueShows) {
+        // Check if already favorited (same name + station)
+        const isAlreadyFavorited = favorites.some(
+          (fav) =>
+            fav.stationId === show.stationId &&
+            fav.term.toLowerCase() === show.name.toLowerCase()
+        );
+
+        if (!isAlreadyFavorited) {
+          // Also check Firebase to avoid race conditions
+          const q = query(
+            favoritesRef,
+            where("term", "==", show.name.toLowerCase()),
+            where("stationId", "==", show.stationId)
+          );
+          const existing = await getDocs(q);
+          if (existing.empty) {
+            await addDoc(favoritesRef, {
+              term: show.name.toLowerCase(),
+              type: "show",
+              showName: show.name,
+              djName: show.dj || null,
+              stationId: show.stationId,
+              createdAt: serverTimestamp(),
+              createdBy: "web",
+            });
+            addedCount++;
+          }
+        }
+      }
+
+      return addedCount;
+    },
+    [user, favorites]
+  );
+
   return {
     favorites,
     loading,
@@ -273,5 +406,6 @@ export function useFavorites() {
     addToWatchlist,
     removeFromWatchlist,
     isInWatchlist,
+    addDJShowsToFavorites,
   };
 }
