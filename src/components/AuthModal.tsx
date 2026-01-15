@@ -56,7 +56,8 @@ export function AuthModal({
       resetEmailSent();
       resetPasswordResetSent();
     }
-  }, [isOpen, resetEmailSent, resetPasswordResetSent]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const handleGoogleSignIn = async () => {
     const user = await signInWithGoogle(enableNotifications);

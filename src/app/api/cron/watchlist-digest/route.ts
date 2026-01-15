@@ -7,6 +7,7 @@ import {
   updateUser,
   addUserFavorite,
   isRestApiConfigured,
+  queryCollection,
 } from "@/lib/firebase-rest";
 
 // Verify request is from Vercel Cron
@@ -48,7 +49,14 @@ const STATION_NAMES: Record<string, string> = {
   rinsefr: "Rinse FR",
   dublab: "dublab",
   subtle: "Subtle Radio",
+  broadcast: "Channel Broadcast",
 };
+
+// Extended show type that includes user linking info for broadcast shows
+interface BroadcastShow extends Show {
+  djUserId?: string;
+  djEmail?: string;
+}
 
 // Word boundary matching for watchlist terms
 function matchesAsWord(text: string, term: string): boolean {
@@ -84,8 +92,8 @@ export async function GET(request: NextRequest) {
 
     const metadata: Metadata = await metadataResponse.json();
 
-    // Get all shows from all stations
-    const allShows: Show[] = [];
+    // Get all shows from all stations (external metadata)
+    const allShows: BroadcastShow[] = [];
     for (const [stationKey, shows] of Object.entries(metadata.stations)) {
       if (Array.isArray(shows)) {
         for (const show of shows) {
@@ -100,8 +108,69 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get all users with watchlist notifications enabled
-    const users = await queryUsersWhere("emailNotifications.watchlistMatch", "EQUAL", true);
+    // Also fetch Channel Broadcast shows from Firebase
+    const now = new Date();
+    const broadcastSlots = await queryCollection(
+      "broadcast-slots",
+      [{ field: "endTime", op: "GREATER_THAN", value: now }],
+      500
+    );
+
+    console.log(`[watchlist-digest] Found ${broadcastSlots.length} upcoming broadcast slots`);
+
+    for (const slot of broadcastSlots) {
+      const data = slot.data;
+      const status = data.status as string;
+      if (status === "cancelled") continue;
+
+      const startTime = data.startTime as Date;
+      const showName = data.showName as string;
+      const djName = data.djName as string | undefined;
+      const djUserId = data.djUserId as string | undefined;
+      const djEmail = data.djEmail as string | undefined;
+
+      allShows.push({
+        name: showName,
+        dj: djName,
+        startTime: startTime?.toISOString() || now.toISOString(),
+        stationId: "broadcast",
+        stationName: "Channel Broadcast",
+        djUserId,
+        djEmail,
+      });
+    }
+
+    console.log(`[watchlist-digest] Total shows to check: ${allShows.length}`);
+
+    // Get ALL users who have watchlist items (type="search" favorites)
+    // We need to query all users and check their favorites
+    // First get users with email notifications enabled (for email sending)
+    const usersWithNotifications = await queryUsersWhere("emailNotifications.watchlistMatch", "EQUAL", true);
+
+    // Also get users who may have watchlist items but no email notifications
+    // We'll process them for auto-favoriting but won't send emails
+    const allUsersWithWatchlist = new Map<string, { wantsEmail: boolean }>();
+
+    for (const user of usersWithNotifications) {
+      allUsersWithWatchlist.set(user.id, { wantsEmail: true });
+    }
+
+    // Query all users who have any favorites of type "search" (watchlist items)
+    // This is a workaround since we can't directly query subcollections
+    // We'll check each user's favorites during processing
+    const allUsers = await queryUsersWhere("createdAt", "GREATER_THAN", new Date(0));
+    for (const user of allUsers) {
+      if (!allUsersWithWatchlist.has(user.id)) {
+        allUsersWithWatchlist.set(user.id, { wantsEmail: false });
+      }
+    }
+
+    console.log(`[watchlist-digest] Processing ${allUsersWithWatchlist.size} users`);
+
+    const users = Array.from(allUsersWithWatchlist.entries()).map(([id, info]) => ({
+      id,
+      ...info,
+    }));
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -109,15 +178,18 @@ export async function GET(request: NextRequest) {
     let emailsSent = 0;
     let usersProcessed = 0;
 
+    let showsAddedToFavorites = 0;
+
     for (const user of users) {
       const userData = await getUser(user.id);
       if (!userData) continue;
 
-      // Check if we already sent a digest today
+      const userEmail = userData.email as string | undefined;
+      const userId = user.id;
+
+      // Check if we already processed this user today (for email)
       const lastEmailAt = userData.lastWatchlistEmailAt as Date | string | undefined;
-      if (lastEmailAt && new Date(lastEmailAt) >= today) {
-        continue; // Already sent today
-      }
+      const alreadySentEmailToday = lastEmailAt && new Date(lastEmailAt) >= today;
 
       // Get user's watchlist (search type favorites)
       const favorites = await getUserFavorites(user.id, "search");
@@ -131,6 +203,8 @@ export async function GET(request: NextRequest) {
       }
 
       // Find matching shows
+      // For auto-favoriting, we check all future shows
+      // For emails, we check since last email
       const since = lastEmailAt ? new Date(lastEmailAt) : new Date(0);
       const matches: Array<{
         showName: string;
@@ -140,32 +214,56 @@ export async function GET(request: NextRequest) {
         startTime: Date;
         searchTerm: string;
         watchlistDocId: string;
+        isNewForEmail: boolean;
       }> = [];
 
       for (const show of allShows) {
         const showStart = new Date(show.startTime);
+        const broadcastShow = show as BroadcastShow;
 
-        // Only include future shows or shows from since last email
-        if (showStart < since) continue;
+        // Skip past shows
+        if (showStart < now) continue;
 
+        let matched = false;
+        let matchedTerm = "";
+
+        // Check each watchlist term
         for (const watchlistDoc of watchlistDocs) {
           const termLower = watchlistDoc.term.toLowerCase();
+
           // Word boundary matching: "stu" matches "Stu's Show" but NOT "Stuart"
           if (
             matchesAsWord(show.name, termLower) ||
             (show.dj && matchesAsWord(show.dj, termLower))
           ) {
-            matches.push({
-              showName: show.name,
-              djName: show.dj,
-              stationName: show.stationName,
-              stationId: show.stationId,
-              startTime: showStart,
-              searchTerm: watchlistDoc.term,
-              watchlistDocId: watchlistDoc.id,
-            });
-            break; // Don't add same show multiple times
+            matched = true;
+            matchedTerm = watchlistDoc.term;
+            break;
           }
+        }
+
+        // For broadcast shows, also check if user's ID or email matches the DJ
+        if (!matched && show.stationId === "broadcast") {
+          if (
+            (broadcastShow.djUserId && broadcastShow.djUserId === userId) ||
+            (broadcastShow.djEmail && userEmail && broadcastShow.djEmail.toLowerCase() === userEmail.toLowerCase())
+          ) {
+            matched = true;
+            matchedTerm = "your broadcast";
+          }
+        }
+
+        if (matched) {
+          matches.push({
+            showName: show.name,
+            djName: show.dj,
+            stationName: show.stationName,
+            stationId: show.stationId,
+            startTime: showStart,
+            searchTerm: matchedTerm,
+            watchlistDocId: "",
+            isNewForEmail: showStart >= since,
+          });
         }
       }
 
@@ -173,18 +271,22 @@ export async function GET(request: NextRequest) {
         // Sort by start time
         matches.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
-        // Deduplicate shows by name (keep first occurrence)
+        // Deduplicate shows by name + station (keep first occurrence)
         const uniqueMatches = matches.filter(
           (match, index, self) =>
-            index === self.findIndex((m) => m.showName.toLowerCase() === match.showName.toLowerCase())
+            index === self.findIndex(
+              (m) => m.showName.toLowerCase() === match.showName.toLowerCase() && m.stationId === match.stationId
+            )
         );
 
         // Add matched shows to favorites (as type "show")
         for (const match of uniqueMatches) {
-          // Check if show already favorited
+          // Check if show already favorited (same name + station)
           const existingFavorites = await getUserFavorites(user.id, "show");
           const alreadyFavorited = existingFavorites.some(
-            (f) => (f.data.term as string)?.toLowerCase() === match.showName.toLowerCase()
+            (f) =>
+              (f.data.term as string)?.toLowerCase() === match.showName.toLowerCase() &&
+              (f.data.stationId as string) === match.stationId
           );
 
           if (!alreadyFavorited) {
@@ -198,29 +300,38 @@ export async function GET(request: NextRequest) {
               createdBy: "system",
               matchedFromWatchlist: match.searchTerm,
             });
+            showsAddedToFavorites++;
+            console.log(`[watchlist-digest] Added "${match.showName}" to favorites for user ${user.id}`);
           }
         }
 
-        // Send digest email (max 10 matches)
-        const success = await sendWatchlistDigestEmail({
-          to: userData.email as string,
-          matches: uniqueMatches.slice(0, 10),
-        });
-
-        if (success) {
-          await updateUser(user.id, {
-            lastWatchlistEmailAt: new Date(),
+        // Only send email if user wants notifications and hasn't received one today
+        const newMatchesForEmail = uniqueMatches.filter((m) => m.isNewForEmail);
+        if (user.wantsEmail && !alreadySentEmailToday && newMatchesForEmail.length > 0) {
+          // Send digest email (max 10 matches)
+          const success = await sendWatchlistDigestEmail({
+            to: userData.email as string,
+            matches: newMatchesForEmail.slice(0, 10),
           });
-          emailsSent++;
+
+          if (success) {
+            await updateUser(user.id, {
+              lastWatchlistEmailAt: new Date(),
+            });
+            emailsSent++;
+          }
         }
       }
 
       usersProcessed++;
     }
 
+    console.log(`[watchlist-digest] Done: ${usersProcessed} users, ${emailsSent} emails, ${showsAddedToFavorites} shows added to favorites`);
+
     return NextResponse.json({
       usersProcessed,
       emailsSent,
+      showsAddedToFavorites,
     });
   } catch (error) {
     console.error("Error in watchlist-digest cron:", error);
