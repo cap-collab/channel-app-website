@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 
 // POST - Backfill chatUsernameNormalized for all existing users
-export async function POST(_request: NextRequest) {
+export async function POST() {
   try {
     const db = getAdminDb();
 
