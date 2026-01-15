@@ -94,7 +94,7 @@ export function DJPublicProfileClient({ username }: Props) {
         ];
 
         // Remove duplicates
-        const uniqueVariations = [...new Set(variations)];
+        const uniqueVariations = Array.from(new Set(variations));
 
         let snapshot = null;
 
