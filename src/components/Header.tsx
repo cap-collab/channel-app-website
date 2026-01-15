@@ -27,19 +27,20 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
   const getMobileMenuItems = (): MobileMenuItem[] => {
     const items: MobileMenuItem[] = [];
 
-    // Live Now button - first when live and not on /channel
-    if (isLive && currentPage !== "channel") {
-      items.push({ label: "🔴 Live Now", href: "/channel" });
+    // Home button - Live Now when live, standard Home when offline
+    if (isLive) {
+      items.push({ label: "🔴 Live Now", href: "/channel", active: currentPage === "channel" });
+    } else {
+      items.push({ label: "Home", href: "/channel", active: currentPage === "channel" });
     }
 
-    // iOS Beta always first (after Live Now if present)
-    items.push({ label: "iOS Beta", href: "https://testflight.apple.com/join/HcKTJ1nH", external: true });
-
-    // Static menu items - always show all, highlight current
-    // Hide DJ Studio link for users who already have DJ access
+    // DJ Studio link - hide for users who already have DJ access
     if (!isDJ(role)) {
       items.push({ label: "DJ Studio", href: "/studio/join", active: currentPage === "studio" || currentPage === "dj-portal" });
     }
+
+    // iOS Beta
+    items.push({ label: "iOS Beta", href: "https://testflight.apple.com/join/HcKTJ1nH", external: true });
 
     // Always show auth option in mobile menu
     items.push({ type: "auth" });
@@ -55,19 +56,42 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
     <>
       <header className={`${positionClass} z-50 bg-black/80 backdrop-blur-md border-b border-gray-900`}>
         <div className="px-4 py-3 flex items-center justify-between">
-          <Link href="/">
-            <Image
-              src="/logo-white.svg"
-              alt="CHANNEL"
-              width={140}
-              height={28}
-              className="h-7 w-auto"
-              priority
-            />
-          </Link>
-          <div className="flex items-center gap-3 md:gap-4">
-            {/* Navigation links - static menu, highlight current page in white */}
-            {/* Hide DJ Studio link for users who already have DJ access */}
+          {/* Left side: Logo and nav links */}
+          <div className="flex items-center gap-4 md:gap-6">
+            <Link href="/channel">
+              <Image
+                src="/logo-white.svg"
+                alt="CHANNEL"
+                width={140}
+                height={28}
+                className="h-7 w-auto"
+                priority
+              />
+            </Link>
+
+            {/* Home button - Live Now with animation when live, standard Home when offline */}
+            {isLive ? (
+              <Link
+                href="/channel"
+                className={`hidden sm:inline-flex items-center gap-1.5 bg-red-600 text-white px-3 sm:px-4 py-1.5 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(239,68,68,0.4)] transition-all whitespace-nowrap animate-pulse ${
+                  currentPage === "channel" ? "ring-2 ring-white/30" : ""
+                }`}
+              >
+                <span className="w-2 h-2 bg-white rounded-full" />
+                Live Now
+              </Link>
+            ) : (
+              <Link
+                href="/channel"
+                className={`hidden sm:inline-block text-sm transition-colors ${
+                  currentPage === "channel" ? "text-white" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                Home
+              </Link>
+            )}
+
+            {/* DJ Studio link - hide for users who already have DJ access */}
             {!isDJ(role) && (
               <Link
                 href="/studio/join"
@@ -78,30 +102,10 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
                 DJ Studio
               </Link>
             )}
+          </div>
 
-            {/* Sign In - only on non-home pages when not authenticated */}
-            {/* Sign In button hidden */}
-            {false && currentPage !== "home" && !isAuthenticated && !loading && (
-              <button
-                onClick={() => setShowAuthModal(true)}
-                className="hidden sm:inline-block text-gray-400 hover:text-white text-sm transition-colors"
-              >
-                Sign In
-              </button>
-            )}
-
-            {/* Live Now button - only show when broadcast is live and not on /channel */}
-            {isLive && currentPage !== "channel" && (
-              <Link
-                href="/channel"
-                className="hidden sm:inline-flex items-center gap-1.5 bg-red-600 text-white px-3 sm:px-4 py-1.5 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(239,68,68,0.4)] transition-all whitespace-nowrap animate-pulse"
-              >
-                <span className="w-2 h-2 bg-white rounded-full" />
-                Live Now
-              </Link>
-            )}
-
-            {/* Main CTA button - iOS Beta on all pages */}
+          <div className="flex items-center gap-3 md:gap-4">
+            {/* iOS Beta button */}
             <a
               href="https://testflight.apple.com/join/HcKTJ1nH"
               target="_blank"
@@ -181,7 +185,7 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
                       onClick={() => setShowUserMenu(false)}
                       className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                     >
-                      My Support
+                      Inbox
                     </Link>
                     {isDJ(role) && (
                       <Link
