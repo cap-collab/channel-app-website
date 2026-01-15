@@ -34,6 +34,16 @@ interface UpcomingShow {
   broadcastToken?: string;
 }
 
+interface CustomLink {
+  label: string;
+  url: string;
+}
+
+interface IrlShow {
+  venue: string;
+  date: string;
+}
+
 interface DJProfile {
   bio: string | null;
   promoText: string | null;
@@ -49,6 +59,14 @@ interface DJProfile {
     bandcamp?: string;
     youtube?: string;
     bookingEmail?: string;
+    mixcloud?: string;
+    residentAdvisor?: string;
+    customLinks?: CustomLink[];
+  };
+  irlShows?: IrlShow[];
+  myRecs?: {
+    bandcampLinks?: string[];
+    eventLinks?: string[];
   };
 }
 
@@ -70,6 +88,8 @@ export function StudioProfileClient() {
     location: null,
     genres: [],
     socialLinks: {},
+    irlShows: [],
+    myRecs: { bandcampLinks: [], eventLinks: [] },
   });
 
   // Photo upload state
@@ -110,8 +130,22 @@ export function StudioProfileClient() {
   const [bandcampInput, setBandcampInput] = useState("");
   const [youtubeInput, setYoutubeInput] = useState("");
   const [bookingEmailInput, setBookingEmailInput] = useState("");
+  const [mixcloudInput, setMixcloudInput] = useState("");
+  const [residentAdvisorInput, setResidentAdvisorInput] = useState("");
+  const [customLinksInput, setCustomLinksInput] = useState<CustomLink[]>([]);
   const [savingSocial, setSavingSocial] = useState(false);
   const [saveSocialSuccess, setSaveSocialSuccess] = useState(false);
+
+  // Form state - IRL Shows section
+  const [irlShowsInput, setIrlShowsInput] = useState<IrlShow[]>([{ venue: "", date: "" }, { venue: "", date: "" }]);
+  const [savingIrlShows, setSavingIrlShows] = useState(false);
+  const [saveIrlShowsSuccess, setSaveIrlShowsSuccess] = useState(false);
+
+  // Form state - My Recs section
+  const [bandcampRecsInput, setBandcampRecsInput] = useState<string[]>([""]);
+  const [eventRecsInput, setEventRecsInput] = useState<string[]>([""]);
+  const [savingMyRecs, setSavingMyRecs] = useState(false);
+  const [saveMyRecsSuccess, setSaveMyRecsSuccess] = useState(false);
 
   // Form state - Thank You Message section
   const [thankYouInput, setThankYouInput] = useState("");
@@ -149,6 +183,8 @@ export function StudioProfileClient() {
             location: data.djProfile.location || null,
             genres: data.djProfile.genres || [],
             socialLinks: data.djProfile.socialLinks || {},
+            irlShows: data.djProfile.irlShows || [],
+            myRecs: data.djProfile.myRecs || { bandcampLinks: [], eventLinks: [] },
           });
           setBioInput(data.djProfile.bio || "");
           setPromoTextInput(data.djProfile.promoText || "");
@@ -161,6 +197,20 @@ export function StudioProfileClient() {
           setBandcampInput(data.djProfile.socialLinks?.bandcamp || "");
           setYoutubeInput(data.djProfile.socialLinks?.youtube || "");
           setBookingEmailInput(data.djProfile.socialLinks?.bookingEmail || "");
+          setMixcloudInput(data.djProfile.socialLinks?.mixcloud || "");
+          setResidentAdvisorInput(data.djProfile.socialLinks?.residentAdvisor || "");
+          setCustomLinksInput(data.djProfile.socialLinks?.customLinks || []);
+          // IRL Shows - ensure we always have 2 fields
+          const irlShows = data.djProfile.irlShows || [];
+          setIrlShowsInput([
+            irlShows[0] || { venue: "", date: "" },
+            irlShows[1] || { venue: "", date: "" },
+          ]);
+          // My Recs - ensure at least one empty field
+          const bandcampRecs = data.djProfile.myRecs?.bandcampLinks || [];
+          setBandcampRecsInput(bandcampRecs.length > 0 ? bandcampRecs : [""]);
+          const eventRecs = data.djProfile.myRecs?.eventLinks || [];
+          setEventRecsInput(eventRecs.length > 0 ? eventRecs : [""]);
         }
       }
     });
@@ -359,6 +409,14 @@ export function StudioProfileClient() {
 
     try {
       const userRef = doc(db, "users", user.uid);
+      // Filter out empty custom links
+      const validCustomLinks = customLinksInput.filter(
+        (link) => link.label.trim() && link.url.trim()
+      ).map((link) => ({
+        label: link.label.trim(),
+        url: normalizeUrl(link.url.trim()),
+      }));
+
       await updateDoc(userRef, {
         "djProfile.socialLinks": {
           instagram: instagramInput.trim() || null,
@@ -366,6 +424,9 @@ export function StudioProfileClient() {
           bandcamp: bandcampInput.trim() ? normalizeUrl(bandcampInput.trim()) : null,
           youtube: youtubeInput.trim() ? normalizeUrl(youtubeInput.trim()) : null,
           bookingEmail: bookingEmailInput.trim() || null,
+          mixcloud: mixcloudInput.trim() ? normalizeUrl(mixcloudInput.trim()) : null,
+          residentAdvisor: residentAdvisorInput.trim() ? normalizeUrl(residentAdvisorInput.trim()) : null,
+          customLinks: validCustomLinks.length > 0 ? validCustomLinks : null,
         },
       });
       setSaveSocialSuccess(true);
@@ -374,6 +435,65 @@ export function StudioProfileClient() {
       console.error("Error saving social links:", error);
     } finally {
       setSavingSocial(false);
+    }
+  };
+
+  const handleSaveIrlShows = async () => {
+    if (!user || !db) return;
+
+    setSavingIrlShows(true);
+    setSaveIrlShowsSuccess(false);
+
+    try {
+      const userRef = doc(db, "users", user.uid);
+      // Filter out empty shows but always save the array structure
+      const validShows = irlShowsInput.filter(
+        (show) => show.venue.trim() || show.date.trim()
+      ).map((show) => ({
+        venue: show.venue.trim(),
+        date: show.date.trim(),
+      }));
+
+      await updateDoc(userRef, {
+        "djProfile.irlShows": validShows,
+      });
+      setSaveIrlShowsSuccess(true);
+      setTimeout(() => setSaveIrlShowsSuccess(false), 2000);
+    } catch (error) {
+      console.error("Error saving IRL shows:", error);
+    } finally {
+      setSavingIrlShows(false);
+    }
+  };
+
+  const handleSaveMyRecs = async () => {
+    if (!user || !db) return;
+
+    setSavingMyRecs(true);
+    setSaveMyRecsSuccess(false);
+
+    try {
+      const userRef = doc(db, "users", user.uid);
+      // Filter out empty links and normalize URLs
+      const validBandcampLinks = bandcampRecsInput
+        .filter((url) => url.trim())
+        .map((url) => normalizeUrl(url.trim()));
+      const validEventLinks = eventRecsInput
+        .filter((url) => url.trim())
+        .map((url) => normalizeUrl(url.trim()));
+
+      await updateDoc(userRef, {
+        "djProfile.myRecs": {
+          bandcampLinks: validBandcampLinks.length > 0 ? validBandcampLinks : null,
+          eventLinks: validEventLinks.length > 0 ? validEventLinks : null,
+        },
+      });
+      setSaveMyRecsSuccess(true);
+      setTimeout(() => setSaveMyRecsSuccess(false), 2000);
+    } catch (error) {
+      console.error("Error saving my recs:", error);
+    } finally {
+      setSavingMyRecs(false);
     }
   };
 
@@ -873,6 +993,30 @@ export function StudioProfileClient() {
               </div>
               <div>
                 <label className="block text-gray-400 text-sm mb-2">
+                  Mixcloud
+                </label>
+                <input
+                  type="text"
+                  value={mixcloudInput}
+                  onChange={(e) => setMixcloudInput(e.target.value)}
+                  placeholder="https://mixcloud.com/yourname"
+                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">
+                  Resident Advisor
+                </label>
+                <input
+                  type="text"
+                  value={residentAdvisorInput}
+                  onChange={(e) => setResidentAdvisorInput(e.target.value)}
+                  placeholder="https://ra.co/dj/yourname"
+                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">
                   Booking Email
                 </label>
                 <input
@@ -883,6 +1027,63 @@ export function StudioProfileClient() {
                   className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
               </div>
+
+              {/* Custom Links */}
+              <div className="border-t border-gray-800 pt-4">
+                <label className="block text-gray-400 text-sm mb-2">
+                  Other Links
+                </label>
+                <div className="space-y-3">
+                  {customLinksInput.map((link, index) => (
+                    <div key={index} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={link.label}
+                        onChange={(e) => {
+                          const updated = [...customLinksInput];
+                          updated[index] = { ...updated[index], label: e.target.value };
+                          setCustomLinksInput(updated);
+                        }}
+                        placeholder="Label"
+                        className="w-1/3 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        value={link.url}
+                        onChange={(e) => {
+                          const updated = [...customLinksInput];
+                          updated[index] = { ...updated[index], url: e.target.value };
+                          setCustomLinksInput(updated);
+                        }}
+                        placeholder="URL"
+                        className="flex-1 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                      />
+                      <button
+                        onClick={() => {
+                          const updated = customLinksInput.filter((_, i) => i !== index);
+                          setCustomLinksInput(updated);
+                        }}
+                        className="px-3 py-2 text-gray-500 hover:text-red-400 transition-colors"
+                        aria-label="Remove link"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setCustomLinksInput([...customLinksInput, { label: "", url: "" }])}
+                    className="text-gray-400 hover:text-white text-sm transition-colors flex items-center gap-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Link
+                  </button>
+                </div>
+              </div>
+
               <button
                 onClick={handleSaveSocialLinks}
                 disabled={savingSocial}
@@ -897,6 +1098,177 @@ export function StudioProfileClient() {
             </div>
             <p className="text-gray-600 text-xs mt-2 px-1">
               These links appear on your public DJ profile.
+            </p>
+          </section>
+
+          {/* IRL Shows section */}
+          <section>
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+              IRL Shows
+            </h2>
+            <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
+              {irlShowsInput.map((show, index) => (
+                <div key={index} className="space-y-2">
+                  <label className="block text-gray-400 text-sm">
+                    Show {index + 1}
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={show.venue}
+                      onChange={(e) => {
+                        const updated = [...irlShowsInput];
+                        updated[index] = { ...updated[index], venue: e.target.value };
+                        setIrlShowsInput(updated);
+                      }}
+                      placeholder="Venue / Event name"
+                      className="flex-1 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                    />
+                    <input
+                      type="text"
+                      value={show.date}
+                      onChange={(e) => {
+                        const updated = [...irlShowsInput];
+                        updated[index] = { ...updated[index], date: e.target.value };
+                        setIrlShowsInput(updated);
+                      }}
+                      placeholder="Date"
+                      className="w-32 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              ))}
+              <button
+                onClick={handleSaveIrlShows}
+                disabled={savingIrlShows}
+                className={`w-full py-2 rounded-lg font-medium transition-colors ${
+                  saveIrlShowsSuccess
+                    ? "bg-green-600 text-white"
+                    : "bg-white text-black hover:bg-gray-100"
+                } disabled:opacity-50`}
+              >
+                {savingIrlShows ? "Saving..." : saveIrlShowsSuccess ? "Saved!" : "Save IRL Shows"}
+              </button>
+            </div>
+            <p className="text-gray-600 text-xs mt-2 px-1">
+              Promote your upcoming in-person gigs.
+            </p>
+          </section>
+
+          {/* My Recs section */}
+          <section>
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+              My Recs
+            </h2>
+            <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-6">
+              {/* Bandcamp subsection */}
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">
+                  Bandcamp
+                </label>
+                <div className="space-y-2">
+                  {bandcampRecsInput.map((url, index) => (
+                    <div key={index} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={url}
+                        onChange={(e) => {
+                          const updated = [...bandcampRecsInput];
+                          updated[index] = e.target.value;
+                          setBandcampRecsInput(updated);
+                        }}
+                        placeholder="https://artist.bandcamp.com/album"
+                        className="flex-1 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                      />
+                      {bandcampRecsInput.length > 1 && (
+                        <button
+                          onClick={() => {
+                            const updated = bandcampRecsInput.filter((_, i) => i !== index);
+                            setBandcampRecsInput(updated);
+                          }}
+                          className="px-3 py-2 text-gray-500 hover:text-red-400 transition-colors"
+                          aria-label="Remove link"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setBandcampRecsInput([...bandcampRecsInput, ""])}
+                    className="text-gray-400 hover:text-white text-sm transition-colors flex items-center gap-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Bandcamp Link
+                  </button>
+                </div>
+              </div>
+
+              {/* Events subsection */}
+              <div className="border-t border-gray-800 pt-4">
+                <label className="block text-gray-400 text-sm mb-2">
+                  Events
+                </label>
+                <div className="space-y-2">
+                  {eventRecsInput.map((url, index) => (
+                    <div key={index} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={url}
+                        onChange={(e) => {
+                          const updated = [...eventRecsInput];
+                          updated[index] = e.target.value;
+                          setEventRecsInput(updated);
+                        }}
+                        placeholder="https://ra.co/events/..."
+                        className="flex-1 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                      />
+                      {eventRecsInput.length > 1 && (
+                        <button
+                          onClick={() => {
+                            const updated = eventRecsInput.filter((_, i) => i !== index);
+                            setEventRecsInput(updated);
+                          }}
+                          className="px-3 py-2 text-gray-500 hover:text-red-400 transition-colors"
+                          aria-label="Remove link"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setEventRecsInput([...eventRecsInput, ""])}
+                    className="text-gray-400 hover:text-white text-sm transition-colors flex items-center gap-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Event Link
+                  </button>
+                </div>
+              </div>
+
+              <button
+                onClick={handleSaveMyRecs}
+                disabled={savingMyRecs}
+                className={`w-full py-2 rounded-lg font-medium transition-colors ${
+                  saveMyRecsSuccess
+                    ? "bg-green-600 text-white"
+                    : "bg-white text-black hover:bg-gray-100"
+                } disabled:opacity-50`}
+              >
+                {savingMyRecs ? "Saving..." : saveMyRecsSuccess ? "Saved!" : "Save My Recs"}
+              </button>
+            </div>
+            <p className="text-gray-600 text-xs mt-2 px-1">
+              Share music and events you recommend with your listeners.
             </p>
           </section>
 
