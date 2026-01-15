@@ -183,6 +183,27 @@ export async function POST(request: NextRequest) {
       broadcastType,
     };
 
+    // Process watchlist matches for this new show (async, don't block response)
+    // This adds the show to favorites for users who have the DJ on their watchlist
+    const processWatchlistUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com'}/api/broadcast/process-watchlist`;
+    fetch(processWatchlistUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-secret': process.env.CRON_SECRET || '',
+      },
+      body: JSON.stringify({
+        showName,
+        djName: finalDjName,
+        djUserId,
+        djEmail,
+        startTime,
+        stationId: STATION_ID,
+      }),
+    }).catch((err) => {
+      console.error('[slots POST] Error triggering watchlist processing:', err);
+    });
+
     return NextResponse.json({
       slot: serializedSlot,
       broadcastUrl,
