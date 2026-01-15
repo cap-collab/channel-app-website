@@ -19,7 +19,8 @@ interface CustomLink {
 }
 
 interface IrlShow {
-  venue: string;
+  url?: string;
+  venue?: string; // legacy field
   date: string;
 }
 
@@ -31,6 +32,8 @@ interface DJProfile {
     photoUrl: string | null;
     location: string | null;
     genres: string[];
+    promoText: string | null;
+    promoHyperlink: string | null;
     socialLinks: {
       instagram?: string;
       soundcloud?: string;
@@ -144,6 +147,8 @@ export function DJPublicProfileClient({ username }: Props) {
             photoUrl: data.djProfile?.photoUrl || null,
             location: data.djProfile?.location || null,
             genres: data.djProfile?.genres || [],
+            promoText: data.djProfile?.promoText || null,
+            promoHyperlink: data.djProfile?.promoHyperlink || null,
             socialLinks: data.djProfile?.socialLinks || {},
             stripeAccountId: data.djProfile?.stripeAccountId || null,
             irlShows: data.djProfile?.irlShows || [],
@@ -483,6 +488,30 @@ export function DJPublicProfileClient({ username }: Props) {
             {/* Name */}
             <h2 className="text-2xl font-bold text-white mb-2">{profile.chatUsername}</h2>
 
+            {/* Subscribe/Tip Buttons */}
+            <div className="flex gap-3 justify-center mb-4">
+              <button
+                onClick={handleSubscribe}
+                disabled={subscribing || favoritesLoading}
+                className={`px-6 py-2.5 rounded-xl font-medium transition-colors ${
+                  isSubscribed
+                    ? "bg-gray-800 text-white hover:bg-gray-700"
+                    : "bg-white text-black hover:bg-gray-100"
+                } disabled:opacity-50`}
+              >
+                {subscribing ? "..." : isSubscribed ? "Subscribed" : "Subscribe"}
+              </button>
+
+              {profile.djProfile.stripeAccountId && (
+                <button
+                  onClick={() => setShowTipModal(true)}
+                  className="px-6 py-2.5 rounded-xl font-medium text-center bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:opacity-90 transition-opacity"
+                >
+                  Tip
+                </button>
+              )}
+            </div>
+
             {/* Location */}
             {profile.djProfile.location && (
               <p className="text-gray-400 text-sm mb-2">{profile.djProfile.location}</p>
@@ -507,6 +536,29 @@ export function DJPublicProfileClient({ username }: Props) {
               <p className="text-gray-400 text-sm max-w-md mx-auto mb-4">
                 {profile.djProfile.bio}
               </p>
+            )}
+
+            {/* Promo */}
+            {profile.djProfile.promoText && (
+              <div className="mb-4">
+                {profile.djProfile.promoHyperlink ? (
+                  <a
+                    href={profile.djProfile.promoHyperlink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg text-white text-sm font-medium hover:opacity-90 transition-opacity"
+                  >
+                    {profile.djProfile.promoText}
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                ) : (
+                  <span className="inline-block px-4 py-2 bg-gray-800 rounded-lg text-gray-300 text-sm">
+                    {profile.djProfile.promoText}
+                  </span>
+                )}
+              </div>
             )}
 
             {/* Social Links */}
@@ -622,31 +674,7 @@ export function DJPublicProfileClient({ username }: Props) {
             )}
           </section>
 
-          {/* B) Relationship Actions */}
-          <section className="flex gap-3">
-            <button
-              onClick={handleSubscribe}
-              disabled={subscribing || favoritesLoading}
-              className={`flex-1 py-3 rounded-xl font-medium transition-colors ${
-                isSubscribed
-                  ? "bg-gray-800 text-white hover:bg-gray-700"
-                  : "bg-white text-black hover:bg-gray-100"
-              } disabled:opacity-50`}
-            >
-              {subscribing ? "..." : isSubscribed ? "Subscribed" : "Subscribe"}
-            </button>
-
-            {profile.djProfile.stripeAccountId && (
-              <button
-                onClick={() => setShowTipModal(true)}
-                className="flex-1 py-3 rounded-xl font-medium text-center bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:opacity-90 transition-opacity"
-              >
-                Tip
-              </button>
-            )}
-          </section>
-
-          {/* C) DJ Status */}
+          {/* B) DJ Status */}
           {(liveOnChannel || liveElsewhere) && (
             <section>
               {liveOnChannel && (
@@ -858,19 +886,32 @@ export function DJPublicProfileClient({ username }: Props) {
           )}
 
           {/* E) IRL Shows */}
-          {profile.djProfile.irlShows && profile.djProfile.irlShows.length > 0 && profile.djProfile.irlShows.some(show => show.venue || show.date) && (
+          {profile.djProfile.irlShows && profile.djProfile.irlShows.length > 0 && profile.djProfile.irlShows.some(show => show.url || show.venue || show.date) && (
             <section>
               <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
                 IRL Shows
               </h2>
               <div className="bg-[#1a1a1a] rounded-lg divide-y divide-gray-800">
                 {profile.djProfile.irlShows
-                  .filter(show => show.venue || show.date)
+                  .filter(show => show.url || show.venue || show.date)
                   .map((show, i) => (
                     <div key={i} className="p-4 flex items-center justify-between">
-                      <span className="text-white">{show.venue}</span>
                       {show.date && (
-                        <span className="text-gray-400 text-sm">{show.date}</span>
+                        <span className="text-gray-400 text-sm flex-shrink-0 mr-3">{show.date}</span>
+                      )}
+                      {show.url ? (
+                        <a
+                          href={show.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:text-blue-300 text-sm transition-colors truncate flex-1 text-right"
+                        >
+                          {show.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                        </a>
+                      ) : show.venue ? (
+                        <span className="text-white text-sm flex-1 text-right">{show.venue}</span>
+                      ) : (
+                        <span className="text-gray-500 text-sm flex-1 text-right">-</span>
                       )}
                     </div>
                   ))}
