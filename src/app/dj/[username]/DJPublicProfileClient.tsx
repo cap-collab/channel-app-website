@@ -79,10 +79,22 @@ export function DJPublicProfileClient({ username }: Props) {
       }
 
       try {
-        // Try to find by chatUsername first
+        // Decode URL-encoded username and try to find by chatUsername
+        const decodedUsername = decodeURIComponent(username);
         const usersRef = collection(db, "users");
-        const q = query(usersRef, where("chatUsername", "==", username));
-        const snapshot = await getDocs(q);
+
+        // Try exact match first
+        let q = query(usersRef, where("chatUsername", "==", decodedUsername));
+        let snapshot = await getDocs(q);
+
+        // If not found, try with spaces replaced by URL param (e.g., "DJ-Cap" -> "DJ Cap")
+        if (snapshot.empty) {
+          const withSpaces = decodedUsername.replace(/-/g, " ");
+          if (withSpaces !== decodedUsername) {
+            q = query(usersRef, where("chatUsername", "==", withSpaces));
+            snapshot = await getDocs(q);
+          }
+        }
 
         if (snapshot.empty) {
           setNotFound(true);
