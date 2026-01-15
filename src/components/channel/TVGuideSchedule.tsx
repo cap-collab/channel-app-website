@@ -239,7 +239,7 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
               onClick={() => station.id !== 'broadcast' && handleStationClick(station)}
               title={station.id !== 'broadcast' ? `Open ${station.name}` : undefined}
             >
-              <span className="text-white text-xs font-medium truncate">
+              <span className="text-white text-xs font-medium line-clamp-2 leading-tight">
                 {station.name}
               </span>
             </div>
