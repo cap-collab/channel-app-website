@@ -36,7 +36,10 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
     items.push({ label: "iOS Beta", href: "https://testflight.apple.com/join/HcKTJ1nH", external: true });
 
     // Static menu items - always show all, highlight current
-    items.push({ label: "DJ Studio", href: "/studio/join", active: currentPage === "studio" || currentPage === "dj-portal" });
+    // Hide DJ Studio link for users who already have DJ access
+    if (!isDJ(role)) {
+      items.push({ label: "DJ Studio", href: "/studio/join", active: currentPage === "studio" || currentPage === "dj-portal" });
+    }
 
     // Always show auth option in mobile menu
     items.push({ type: "auth" });
@@ -64,14 +67,17 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
           </Link>
           <div className="flex items-center gap-3 md:gap-4">
             {/* Navigation links - static menu, highlight current page in white */}
-            <Link
-              href="/studio/join"
-              className={`hidden sm:inline-block text-sm transition-colors ${
-                currentPage === "studio" || currentPage === "dj-portal" ? "text-white" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              DJ Studio
-            </Link>
+            {/* Hide DJ Studio link for users who already have DJ access */}
+            {!isDJ(role) && (
+              <Link
+                href="/studio/join"
+                className={`hidden sm:inline-block text-sm transition-colors ${
+                  currentPage === "studio" || currentPage === "dj-portal" ? "text-white" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                DJ Studio
+              </Link>
+            )}
 
             {/* Sign In - only on non-home pages when not authenticated */}
             {/* Sign In button hidden */}
