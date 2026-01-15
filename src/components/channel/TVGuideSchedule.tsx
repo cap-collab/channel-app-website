@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { STATIONS, getMetadataKeyByStationId } from '@/lib/stations';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import { useBPM } from '@/contexts/BPMContext';
 import { Show, Station } from '@/types';
 import { TipButton } from './TipButton';
@@ -42,6 +43,7 @@ interface TVGuideScheduleProps {
 
 export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideScheduleProps) {
   const { isAuthenticated, user } = useAuthContext();
+  const { chatUsername } = useUserProfile(user?.uid);
   const { toggleFavorite, isShowFavorited } = useFavorites();
   const { stationBPM } = useBPM();
   const [allShows, setAllShows] = useState<Show[]>([]);
@@ -321,6 +323,7 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                                 <TipButton
                                   isAuthenticated={isAuthenticated}
                                   tipperUserId={user?.uid}
+                                  tipperUsername={chatUsername || undefined}
                                   djUserId={show.djUserId}
                                   djEmail={show.djEmail}
                                   djUsername={show.dj!}
@@ -566,6 +569,7 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                                     <TipButton
                                       isAuthenticated={isAuthenticated}
                                       tipperUserId={user?.uid}
+                                      tipperUsername={chatUsername || undefined}
                                       djUserId={show.djUserId}
                                       djEmail={show.djEmail}
                                       djUsername={show.dj!}
