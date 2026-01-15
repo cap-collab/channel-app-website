@@ -497,7 +497,7 @@ export function NextFavoriteShow({ onAuthRequired, currentShow, currentDJ }: Nex
                             style={{ backgroundColor: accentColor }}
                           />
                           <div className="flex-1 min-w-0">
-                            <p className="text-white text-xs font-medium truncate">{favorite.showName || show.name}</p>
+                            <p className="text-white text-xs truncate"><span className="font-medium">{favorite.showName || show.name}</span>{show.dj && <span className="text-gray-400"> · {show.dj}</span>}</p>
                             <p className="text-[10px]" style={{ color: accentColor }}>
                               {station?.name || show.stationId}
                             </p>
@@ -527,7 +527,7 @@ export function NextFavoriteShow({ onAuthRequired, currentShow, currentDJ }: Nex
                             style={{ backgroundColor: accentColor }}
                           />
                           <div className="flex-1 min-w-0">
-                            <p className="text-white text-xs font-medium truncate">{favorite.showName || show.name}</p>
+                            <p className="text-white text-xs truncate"><span className="font-medium">{favorite.showName || show.name}</span>{show.dj && <span className="text-gray-400"> · {show.dj}</span>}</p>
                             <div className="flex items-center gap-1 text-[10px]">
                               <span style={{ color: accentColor }}>{station?.name || show.stationId}</span>
                               <span className="text-gray-600">·</span>
