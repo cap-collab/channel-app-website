@@ -54,11 +54,19 @@ export async function POST(request: NextRequest) {
     });
 
     // Start room composite egress for HLS streaming
-    const hlsEgress = await egressClient.startRoomCompositeEgress(
-      room,
-      { segments: segmentOutput },
-      { audioOnly: true }
-    );
+    console.log('Starting HLS egress for room:', room);
+    let hlsEgress;
+    try {
+      hlsEgress = await egressClient.startRoomCompositeEgress(
+        room,
+        { segments: segmentOutput },
+        { audioOnly: true }
+      );
+      console.log('HLS egress started:', hlsEgress.egressId);
+    } catch (hlsError) {
+      console.error('Failed to start HLS egress:', hlsError);
+      throw hlsError;
+    }
 
     // Start a second egress for MP4 file recording (works on iOS/Safari + SoundCloud)
     const recordingS3Upload = new S3Upload({

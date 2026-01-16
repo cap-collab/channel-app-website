@@ -149,8 +149,23 @@ export async function POST(request: NextRequest) {
       };
 
       // Get current recordings array and append the new one
-      const currentRecordings = slot.recordings || [];
+      // Handle case where existing recordings might have Firestore Timestamps
+      // Also filter out undefined values (Firestore doesn't accept undefined)
+      const currentRecordings = (slot.recordings || []).map((rec: { egressId: string; url?: string; status: string; duration?: number; startedAt: number | { toMillis: () => number }; endedAt?: number | { toMillis: () => number } }) => {
+        const cleanRec: Record<string, unknown> = {
+          egressId: rec.egressId,
+          status: rec.status,
+          startedAt: typeof rec.startedAt === 'number' ? rec.startedAt : rec.startedAt?.toMillis?.() || Date.now(),
+        };
+        if (rec.url) cleanRec.url = rec.url;
+        if (rec.duration !== undefined) cleanRec.duration = rec.duration;
+        if (rec.endedAt) {
+          cleanRec.endedAt = typeof rec.endedAt === 'number' ? rec.endedAt : rec.endedAt?.toMillis?.();
+        }
+        return cleanRec;
+      });
       updateData.recordings = [...currentRecordings, newRecording];
+      console.log('[go-live] Recordings array:', { existing: currentRecordings.length, new: newRecording.egressId, recordings: updateData.recordings });
 
       // Create egress-to-slot mapping for webhook lookup
       // This allows the webhook to find the slot even with multiple recordings
@@ -165,8 +180,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    await doc.ref.update(updateData);
-    console.log('[go-live] ✅ Slot updated to live:', { slotId: doc.id, updateData });
+    try {
+      console.log('[go-live] Attempting Firestore update with data:', JSON.stringify(updateData, null, 2));
+      await doc.ref.update(updateData);
+      console.log('[go-live] ✅ Slot updated to live:', { slotId: doc.id });
+    } catch (updateError) {
+      console.error('[go-live] ❌ Firestore update failed:', updateError);
+      return NextResponse.json({ error: 'Failed to update slot status' }, { status: 500 });
+    }
 
     // If DJ is logged in, update lastSeenAt and reconcile any pending tips
     // Note: chatUsername registration is handled earlier in this function

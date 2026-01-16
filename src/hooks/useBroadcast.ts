@@ -139,6 +139,7 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
   // Start egress (go live)
   const startEgress = useCallback(async () => {
     try {
+      console.log('📡 Starting egress for room:', ROOM_NAME);
       const res = await fetch('/api/livekit/egress', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -146,8 +147,10 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
       });
 
       const data = await res.json();
+      console.log('📡 Egress API response:', { status: res.status, data });
 
       if (data.error) {
+        console.error('📡 ❌ Egress API returned error:', data.error);
         setState(prev => ({ ...prev, error: data.error }));
         return false;
       }
@@ -156,9 +159,16 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
 
       // Update Firestore slot status to 'live' via API (uses Admin SDK, no auth required)
       console.log('📡 broadcastToken value:', broadcastToken);
+      console.log('📡 Egress response:', { egressId: data.egressId, recordingEgressId: data.recordingEgressId });
       if (broadcastToken) {
         try {
-          console.log('📡 Calling go-live API...');
+          console.log('📡 Calling go-live API with:', {
+            broadcastToken: broadcastToken?.slice(0, 10) + '...',
+            djUsername: djInfo?.username,
+            djUserId: djInfo?.userId,
+            egressId: data.egressId,
+            recordingEgressId: data.recordingEgressId,
+          });
           const goLiveRes = await fetch('/api/broadcast/go-live', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -173,17 +183,18 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
           });
 
           if (goLiveRes.ok) {
-            console.log('📡 Updated slot status to live with DJ info:', djInfo?.username);
+            const responseData = await goLiveRes.json();
+            console.log('📡 ✅ Updated slot status to live:', responseData);
           } else {
             const errorData = await goLiveRes.json();
-            console.error('📡 Failed to update slot status:', errorData.error);
+            console.error('📡 ❌ Failed to update slot status:', errorData.error);
           }
         } catch (apiError) {
-          console.error('📡 Failed to update slot status:', apiError);
+          console.error('📡 ❌ Failed to update slot status:', apiError);
           // Don't fail the broadcast if status update fails
         }
       } else {
-        console.warn('📡 No broadcastToken provided - slot status will NOT be updated to live!');
+        console.warn('📡 ⚠️ No broadcastToken provided - slot status will NOT be updated to live!');
       }
 
       setState(prev => ({
