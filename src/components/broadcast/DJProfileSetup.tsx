@@ -412,7 +412,7 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
           </p>
           <ul className="text-gray-400 text-sm space-y-1 mb-4 ml-4">
             {broadcastType === 'venue' && (
-              <li>• The venue has authorized this livestream and any related recording.</li>
+              <li>• The venue and promoters have authorized this livestream and any related recording.</li>
             )}
             <li>• Channel may record this broadcast and replay it or make it available on Channel websites and channels.</li>
             <li>• All DJs listed on this broadcast are aware of and consent to being livestreamed, recorded, and used by Channel.</li>
