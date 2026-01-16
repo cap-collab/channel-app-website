@@ -100,13 +100,14 @@ export function NowPlayingCard({
         </div>
       </div>
 
-      {/* Show title row with stats and favorite button */}
-      <div className="flex items-center gap-3">
-        <h2 className="text-white text-2xl font-bold truncate">{showName}</h2>
+      {/* Show title - allow 2 lines on mobile */}
+      <h2 className="text-white text-2xl font-bold line-clamp-2 lg:truncate lg:line-clamp-none">{showName}</h2>
 
-        {/* Stats - grey, right after show name */}
-        {isLive && (
-          <div className="flex items-center gap-3 flex-shrink-0">
+      {/* Stats row: heart/listener on left, favorite on right */}
+      {isLive && (
+        <div className="flex items-center gap-3">
+          {/* Stats - grey, aligned left */}
+          <div className="flex items-center gap-3">
             <div className="flex items-center gap-1 text-gray-400">
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
@@ -120,50 +121,50 @@ export function NowPlayingCard({
               <span className="text-sm">{listenerCount}</span>
             </div>
           </div>
-        )}
 
-        {/* Spacer */}
-        <div className="flex-1" />
+          {/* Spacer */}
+          <div className="flex-1" />
 
-        {/* Favorite button - aligned right on same line */}
-        {isLive && currentShow && onToggleFavorite && (
-          <button
-            onClick={async () => {
-              if (!isAuthenticated) {
-                onAuthRequired?.();
-                return;
-              }
-              setIsTogglingFavorite(true);
-              await onToggleFavorite();
-              setIsTogglingFavorite(false);
-            }}
-            disabled={isTogglingFavorite}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 text-accent transition-colors disabled:opacity-50 flex-shrink-0"
-            title={isShowFavorited ? 'Remove from favorites' : 'Add to favorites'}
-          >
-            {isTogglingFavorite ? (
-              <div className="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
-            ) : (
-              <svg
-                className="w-4 h-4"
-                fill={isShowFavorited ? 'currentColor' : 'none'}
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                />
-              </svg>
-            )}
-            <span className="text-sm">
-              {isShowFavorited ? 'Favorited' : 'Favorite'}
-            </span>
-          </button>
-        )}
-      </div>
+          {/* Favorite button - aligned right, icon only on mobile */}
+          {currentShow && onToggleFavorite && (
+            <button
+              onClick={async () => {
+                if (!isAuthenticated) {
+                  onAuthRequired?.();
+                  return;
+                }
+                setIsTogglingFavorite(true);
+                await onToggleFavorite();
+                setIsTogglingFavorite(false);
+              }}
+              disabled={isTogglingFavorite}
+              className="flex items-center gap-1.5 p-2 lg:px-3 lg:py-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 text-accent transition-colors disabled:opacity-50 flex-shrink-0"
+              title={isShowFavorited ? 'Remove from favorites' : 'Add to favorites'}
+            >
+              {isTogglingFavorite ? (
+                <div className="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+              ) : (
+                <svg
+                  className="w-4 h-4"
+                  fill={isShowFavorited ? 'currentColor' : 'none'}
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                  />
+                </svg>
+              )}
+              <span className="text-sm hidden lg:inline">
+                {isShowFavorited ? 'Favorited' : 'Favorite'}
+              </span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* DJ Section */}
       {isLive && djName && (
@@ -183,9 +184,9 @@ export function NowPlayingCard({
             </div>
           )}
 
-          {/* DJ Info */}
+          {/* DJ Info - allow 2 lines on mobile */}
           <div className="flex-1 min-w-0">
-            <p className="text-white font-medium truncate">{djName}</p>
+            <p className="text-white font-medium line-clamp-2 lg:truncate lg:line-clamp-none">{djName}</p>
             {/* B3B indicator */}
             {djProfiles && djProfiles.length > 1 && (
               <p className="text-gray-500 text-xs">
@@ -194,7 +195,7 @@ export function NowPlayingCard({
             )}
           </div>
 
-          {/* DJ Action buttons - all pink */}
+          {/* DJ Action buttons - all pink, icon only on mobile */}
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Add to Watchlist */}
             {onToggleWatchlist && (
@@ -207,7 +208,7 @@ export function NowPlayingCard({
                   await onToggleWatchlist();
                 }}
                 disabled={isTogglingWatchlist}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 ${
+                className={`flex items-center gap-1.5 p-2 lg:px-3 lg:py-1.5 rounded-lg transition-colors disabled:opacity-50 ${
                   isDJInWatchlist
                     ? 'bg-accent/20 text-accent'
                     : 'bg-accent/10 hover:bg-accent/20 text-accent'
@@ -225,37 +226,37 @@ export function NowPlayingCard({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                 )}
-                <span className="text-sm">
+                <span className="text-sm hidden lg:inline">
                   {isDJInWatchlist ? 'Following' : 'Follow'}
                 </span>
               </button>
             )}
 
-            {/* DJ Profile links - supports B3B with multiple DJs */}
+            {/* DJ Profile links - supports B3B with multiple DJs, icon only on mobile */}
             {djProfiles && djProfiles.length > 0 ? (
               djProfiles.map((profile) => (
                 <Link
                   key={profile.username}
                   href={`/dj/@${encodeURIComponent(profile.username)}`}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 text-accent transition-colors"
+                  className="flex items-center gap-1.5 p-2 lg:px-3 lg:py-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 text-accent transition-colors"
                   title={`View ${profile.username}'s profile`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
-                  <span className="text-sm">Profile</span>
+                  <span className="text-sm hidden lg:inline">Profile</span>
                 </Link>
               ))
             ) : djProfileUsername ? (
               <Link
                 href={`/dj/@${encodeURIComponent(djProfileUsername)}`}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 text-accent transition-colors"
+                className="flex items-center gap-1.5 p-2 lg:px-3 lg:py-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 text-accent transition-colors"
                 title={`View ${djProfileUsername}'s profile`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                <span className="text-sm">Profile</span>
+                <span className="text-sm hidden lg:inline">Profile</span>
               </Link>
             ) : null}
           </div>
