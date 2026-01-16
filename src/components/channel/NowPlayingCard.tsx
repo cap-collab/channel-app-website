@@ -261,7 +261,7 @@ export function NowPlayingCard({
       )}
 
       {/* Audio Visualizer - show when live (even if not playing), hide when offline */}
-      {isLive && <AudioVisualizer isPlaying={isPlaying} />}
+      {isLive && <AudioVisualizer />}
     </div>
   );
 }

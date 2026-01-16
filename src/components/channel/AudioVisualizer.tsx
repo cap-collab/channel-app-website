@@ -3,11 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 
 interface AudioVisualizerProps {
-  isPlaying: boolean;
   className?: string;
 }
 
-export function AudioVisualizer({ isPlaying, className = '' }: AudioVisualizerProps) {
+export function AudioVisualizer({ className = '' }: AudioVisualizerProps) {
   const [level, setLevel] = useState(0);
   const [peakLevel, setPeakLevel] = useState(0);
   const animationRef = useRef<number>();
@@ -15,16 +14,8 @@ export function AudioVisualizer({ isPlaying, className = '' }: AudioVisualizerPr
   const peakHoldRef = useRef<number>(0);
   const peakDecayRef = useRef<number>(0);
 
+  // Always animate when component is mounted (it's only rendered when live)
   useEffect(() => {
-    if (!isPlaying) {
-      setLevel(0);
-      setPeakLevel(0);
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-      return;
-    }
-
     const animate = (timestamp: number) => {
       // Throttle updates to ~30fps
       if (timestamp - lastUpdateRef.current < 33) {
@@ -61,7 +52,7 @@ export function AudioVisualizer({ isPlaying, className = '' }: AudioVisualizerPr
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isPlaying]);
+  }, []);
 
   // Convert level to dB display (-60 to 0 dB range)
   const levelDb = level > 0 ? Math.max(-60, 20 * Math.log10(level)) : -60;
@@ -80,13 +71,11 @@ export function AudioVisualizer({ isPlaying, className = '' }: AudioVisualizerPr
           className="absolute inset-y-0 left-0 rounded-full transition-all duration-75"
           style={{
             width: `${levelPercent}%`,
-            background: isPlaying
-              ? 'linear-gradient(to right, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 50%, #D94099 85%, #ff4080 100%)'
-              : 'rgba(255,255,255,0.2)',
+            background: 'linear-gradient(to right, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 50%, #D94099 85%, #ff4080 100%)',
           }}
         />
         {/* Peak indicator */}
-        {isPlaying && peakPercent > 0 && (
+        {peakPercent > 0 && (
           <div
             className="absolute top-0 bottom-0 w-0.5 bg-accent transition-all duration-75"
             style={{ left: `${peakPercent}%` }}
