@@ -54,6 +54,7 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [addingWatchlistForDJ, setAddingWatchlistForDJ] = useState<string | null>(null);
+  const [addingWatchlistForQuery, setAddingWatchlistForQuery] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -119,6 +120,18 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
     setAddingWatchlistForDJ(null);
   }, [isAuthenticated, onAuthRequired, addToWatchlist]);
 
+  const handleAddQueryToWatchlist = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      onAuthRequired?.();
+      return;
+    }
+    if (!query.trim()) return;
+    setAddingWatchlistForQuery(true);
+    await addToWatchlist(query.trim());
+    setAddingWatchlistForQuery(false);
+  }, [isAuthenticated, onAuthRequired, query, addToWatchlist]);
+
   const clearSearch = () => {
     setQuery('');
     setResults([]);
@@ -126,6 +139,14 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
   };
 
   const showDropdown = isOpen && query.trim().length > 0;
+  const queryInWatchlist = isInWatchlist(query.trim());
+
+  // Extract unique DJ names from results for the watchlist section
+  const uniqueDJs = results
+    .map((show) => show.dj)
+    .filter((dj): dj is string => !!dj)
+    .filter((dj, index, self) => self.indexOf(dj) === index)
+    .slice(0, 5);
 
   return (
     <div ref={containerRef} className="relative flex-1 max-w-md">
@@ -185,6 +206,84 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
               </div>
             ) : (
               <>
+                {/* Watchlist Section - always show when there's a query */}
+                <div className="p-3 border-b border-gray-800">
+                  <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-2 px-1">
+                    Watchlist
+                  </h3>
+                  <div className="space-y-1">
+                    {/* Add search query to watchlist */}
+                    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white text-sm font-medium truncate">&quot;{query}&quot;</p>
+                        <p className="text-gray-500 text-xs">Add to watchlist</p>
+                      </div>
+                      <button
+                        onClick={handleAddQueryToWatchlist}
+                        disabled={addingWatchlistForQuery || queryInWatchlist}
+                        className={`p-1.5 rounded transition-colors ${
+                          queryInWatchlist
+                            ? 'text-accent cursor-default'
+                            : 'text-gray-500 hover:text-white hover:bg-white/10'
+                        } disabled:opacity-50`}
+                        title={queryInWatchlist ? `"${query}" is in your watchlist` : `Add "${query}" to watchlist`}
+                      >
+                        {addingWatchlistForQuery ? (
+                          <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
+                        ) : queryInWatchlist ? (
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* DJ names from search results */}
+                    {uniqueDJs.map((djName) => {
+                      const djInWatchlist = isInWatchlist(djName);
+                      const isAddingWatchlist = addingWatchlistForDJ === djName;
+
+                      return (
+                        <div
+                          key={djName}
+                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm font-medium truncate">{djName}</p>
+                            <p className="text-gray-500 text-xs">DJ</p>
+                          </div>
+                          <button
+                            onClick={(e) => handleAddToWatchlist(djName, e)}
+                            disabled={isAddingWatchlist || djInWatchlist}
+                            className={`p-1.5 rounded transition-colors ${
+                              djInWatchlist
+                                ? 'text-accent cursor-default'
+                                : 'text-gray-500 hover:text-white hover:bg-white/10'
+                            } disabled:opacity-50`}
+                            title={djInWatchlist ? `${djName} is in your watchlist` : `Add ${djName} to watchlist`}
+                          >
+                            {isAddingWatchlist ? (
+                              <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
+                            ) : djInWatchlist ? (
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {/* Shows Section */}
                 {results.length > 0 && (
                   <div className="p-3">
@@ -197,8 +296,6 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
                         const accentColor = station?.accentColor || '#fff';
                         const isFavorited = isShowFavorited(show);
                         const isToggling = togglingId === show.id;
-                        const djInWatchlist = show.dj ? isInWatchlist(show.dj) : false;
-                        const isAddingWatchlist = addingWatchlistForDJ === show.dj;
 
                         return (
                           <div
@@ -230,61 +327,32 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
                               </div>
                             </div>
 
-                            {/* Action buttons */}
-                            <div className="flex items-center gap-1 flex-shrink-0">
-                              {/* Add DJ to Watchlist button */}
-                              {show.dj && (
-                                <button
-                                  onClick={(e) => handleAddToWatchlist(show.dj!, e)}
-                                  disabled={isAddingWatchlist || djInWatchlist}
-                                  className={`p-1.5 rounded transition-colors ${
-                                    djInWatchlist
-                                      ? 'text-accent cursor-default'
-                                      : 'text-gray-500 hover:text-white hover:bg-white/10'
-                                  } disabled:opacity-50`}
-                                  title={djInWatchlist ? `${show.dj} is in your watchlist` : `Add ${show.dj} to watchlist`}
+                            {/* Favorite button (star) */}
+                            <button
+                              onClick={(e) => handleToggleFavorite(show, e)}
+                              disabled={isToggling}
+                              className="p-1.5 transition-colors disabled:opacity-50"
+                              style={{ color: accentColor }}
+                              title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+                            >
+                              {isToggling ? (
+                                <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
+                              ) : (
+                                <svg
+                                  className="w-4 h-4"
+                                  fill={isFavorited ? 'currentColor' : 'none'}
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
                                 >
-                                  {isAddingWatchlist ? (
-                                    <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
-                                  ) : djInWatchlist ? (
-                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                                    </svg>
-                                  ) : (
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                                    </svg>
-                                  )}
-                                </button>
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                                  />
+                                </svg>
                               )}
-
-                              {/* Favorite button */}
-                              <button
-                                onClick={(e) => handleToggleFavorite(show, e)}
-                                disabled={isToggling}
-                                className="p-1.5 transition-colors disabled:opacity-50"
-                                style={{ color: accentColor }}
-                                title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
-                              >
-                                {isToggling ? (
-                                  <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
-                                ) : (
-                                  <svg
-                                    className="w-4 h-4"
-                                    fill={isFavorited ? 'currentColor' : 'none'}
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                                    />
-                                  </svg>
-                                )}
-                              </button>
-                            </div>
+                            </button>
                           </div>
                         );
                       })}
@@ -292,7 +360,7 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
                   </div>
                 )}
 
-                {/* No results */}
+                {/* No results message for shows */}
                 {results.length === 0 && !isLoading && (
                   <div className="p-4 text-center text-gray-500 text-sm">
                     No upcoming shows found for &quot;{query}&quot;
