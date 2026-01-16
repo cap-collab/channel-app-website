@@ -4,44 +4,52 @@ import { useEffect, useRef, useState } from 'react';
 
 interface AudioVisualizerProps {
   isPlaying: boolean;
-  barCount?: number;
   className?: string;
 }
 
-export function AudioVisualizer({ isPlaying, barCount = 24, className = '' }: AudioVisualizerProps) {
-  const [bars, setBars] = useState<number[]>(() => Array(barCount).fill(0.1));
+export function AudioVisualizer({ isPlaying, className = '' }: AudioVisualizerProps) {
+  const [level, setLevel] = useState(0);
+  const [peakLevel, setPeakLevel] = useState(0);
   const animationRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
+  const peakHoldRef = useRef<number>(0);
+  const peakDecayRef = useRef<number>(0);
 
   useEffect(() => {
     if (!isPlaying) {
-      // When not playing, show minimal static bars
-      setBars(Array(barCount).fill(0.1));
+      setLevel(0);
+      setPeakLevel(0);
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
       return;
     }
 
-    // Animate bars with pseudo-random values to simulate audio
     const animate = (timestamp: number) => {
-      // Throttle updates to ~30fps for performance
+      // Throttle updates to ~30fps
       if (timestamp - lastUpdateRef.current < 33) {
         animationRef.current = requestAnimationFrame(animate);
         return;
       }
       lastUpdateRef.current = timestamp;
 
-      setBars(prevBars =>
-        prevBars.map((_, i) => {
-          // Create wave-like pattern with some randomness
-          const baseWave = Math.sin(timestamp / 200 + i * 0.5) * 0.3 + 0.5;
-          const randomFactor = Math.random() * 0.4;
-          // Bars in the middle tend to be taller (typical audio frequency distribution)
-          const centerBias = 1 - Math.abs(i - barCount / 2) / (barCount / 2) * 0.3;
-          return Math.min(1, Math.max(0.1, baseWave * centerBias + randomFactor));
-        })
-      );
+      // Simulate audio level with smooth transitions
+      const baseLevel = Math.sin(timestamp / 300) * 0.2 + 0.5;
+      const randomBurst = Math.random() > 0.85 ? Math.random() * 0.3 : 0;
+      const newLevel = Math.min(1, Math.max(0.1, baseLevel + randomBurst + Math.random() * 0.2));
+
+      setLevel(newLevel);
+
+      // Peak hold logic
+      if (newLevel > peakDecayRef.current) {
+        peakDecayRef.current = newLevel;
+        peakHoldRef.current = timestamp;
+        setPeakLevel(newLevel);
+      } else if (timestamp - peakHoldRef.current > 1000) {
+        // Decay peak after 1 second hold
+        peakDecayRef.current = Math.max(0, peakDecayRef.current - 0.02);
+        setPeakLevel(peakDecayRef.current);
+      }
 
       animationRef.current = requestAnimationFrame(animate);
     };
@@ -53,20 +61,54 @@ export function AudioVisualizer({ isPlaying, barCount = 24, className = '' }: Au
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isPlaying, barCount]);
+  }, [isPlaying]);
+
+  // Convert level to dB display (-60 to 0 dB range)
+  const levelDb = level > 0 ? Math.max(-60, 20 * Math.log10(level)) : -60;
+  const levelPercent = ((levelDb + 60) / 60) * 100;
+  const peakPercent = peakLevel > 0 ? ((Math.max(-60, 20 * Math.log10(peakLevel)) + 60) / 60) * 100 : 0;
+
+  // dB markers
+  const dbMarkers = [-48, -36, -24, -12, -6, 0];
 
   return (
-    <div className={`flex items-end justify-center gap-[2px] h-12 ${className}`}>
-      {bars.map((height, i) => (
+    <div className={`space-y-1 ${className}`}>
+      {/* Level bar */}
+      <div className="relative h-3 bg-gray-800 rounded-full overflow-hidden">
+        {/* Gradient fill - white to pink */}
         <div
-          key={i}
-          className="w-1 bg-accent rounded-t transition-all duration-75"
+          className="absolute inset-y-0 left-0 rounded-full transition-all duration-75"
           style={{
-            height: `${height * 100}%`,
-            opacity: isPlaying ? 0.8 + height * 0.2 : 0.3
+            width: `${levelPercent}%`,
+            background: isPlaying
+              ? 'linear-gradient(to right, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 50%, #D94099 85%, #ff4080 100%)'
+              : 'rgba(255,255,255,0.2)',
           }}
         />
-      ))}
+        {/* Peak indicator */}
+        {isPlaying && peakPercent > 0 && (
+          <div
+            className="absolute top-0 bottom-0 w-0.5 bg-accent transition-all duration-75"
+            style={{ left: `${peakPercent}%` }}
+          />
+        )}
+      </div>
+
+      {/* dB scale markers */}
+      <div className="relative h-3 flex items-center">
+        {dbMarkers.map((db) => {
+          const position = ((db + 60) / 60) * 100;
+          return (
+            <div
+              key={db}
+              className="absolute flex flex-col items-center"
+              style={{ left: `${position}%`, transform: 'translateX(-50%)' }}
+            >
+              <span className="text-[9px] text-gray-500">{db}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

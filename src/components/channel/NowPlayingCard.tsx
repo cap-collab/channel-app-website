@@ -108,38 +108,32 @@ export function NowPlayingCard({
         </div>
       </div>
 
-      {/* Show title (large) */}
-      <div>
-        <h2 className="text-white text-2xl font-bold truncate">{showName}</h2>
+      {/* Show title row with stats on the right */}
+      <div className="flex items-center gap-4">
+        <h2 className="text-white text-2xl font-bold truncate flex-1">{showName}</h2>
+
+        {/* Stats - aligned right, only show when live */}
+        {isLive && (
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="flex items-center gap-1.5 text-gray-400">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+              </svg>
+              <span className="text-sm">{loveCount}</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-gray-400">
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 3a9 9 0 00-9 9v7c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2H5v-1a7 7 0 1114 0v1h-2c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-7a9 9 0 00-9-9z" />
+              </svg>
+              <span className="text-sm">{listenerCount}</span>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Stats row: Love count, Listener count, Favorite button */}
-      <div className="flex items-center gap-4">
-        {/* Love count - only show when live */}
-        {isLive && (
-          <div className="flex items-center gap-1.5 text-gray-400">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-            </svg>
-            <span className="text-sm">{loveCount}</span>
-          </div>
-        )}
-
-        {/* Listener count - only show when live */}
-        {isLive && (
-          <div className="flex items-center gap-1.5 text-gray-400">
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 3a9 9 0 00-9 9v7c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2H5v-1a7 7 0 1114 0v1h-2c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-7a9 9 0 00-9-9z" />
-            </svg>
-            <span className="text-sm">{listenerCount}</span>
-          </div>
-        )}
-
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {/* Favorite button (star) */}
-        {isLive && currentShow && onToggleFavorite && (
+      {/* Favorite button row */}
+      {isLive && currentShow && onToggleFavorite && (
+        <div className="flex items-center">
           <button
             onClick={async () => {
               if (!isAuthenticated) {
@@ -151,14 +145,14 @@ export function NowPlayingCard({
               setIsTogglingFavorite(false);
             }}
             disabled={isTogglingFavorite}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 text-accent transition-colors disabled:opacity-50"
             title={isShowFavorited ? 'Remove from favorites' : 'Add to favorites'}
           >
             {isTogglingFavorite ? (
-              <div className="w-4 h-4 border-2 border-gray-600 border-t-accent rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
             ) : (
               <svg
-                className="w-4 h-4 text-accent"
+                className="w-4 h-4"
                 fill={isShowFavorited ? 'currentColor' : 'none'}
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -171,12 +165,12 @@ export function NowPlayingCard({
                 />
               </svg>
             )}
-            <span className="text-sm text-gray-300">
+            <span className="text-sm">
               {isShowFavorited ? 'Favorited' : 'Favorite'}
             </span>
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* DJ Section */}
       {isLive && djName && (
@@ -207,7 +201,7 @@ export function NowPlayingCard({
             )}
           </div>
 
-          {/* DJ Action buttons */}
+          {/* DJ Action buttons - all pink */}
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Add to Watchlist */}
             {onToggleWatchlist && (
@@ -223,12 +217,12 @@ export function NowPlayingCard({
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 ${
                   isDJInWatchlist
                     ? 'bg-accent/20 text-accent'
-                    : 'bg-white/5 hover:bg-white/10 text-gray-300'
+                    : 'bg-accent/10 hover:bg-accent/20 text-accent'
                 }`}
                 title={isDJInWatchlist ? `${djName} is in your watchlist` : `Add ${djName} to watchlist`}
               >
                 {isTogglingWatchlist ? (
-                  <div className="w-4 h-4 border-2 border-gray-600 border-t-accent rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
                 ) : isDJInWatchlist ? (
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
@@ -250,7 +244,7 @@ export function NowPlayingCard({
                 <Link
                   key={profile.username}
                   href={`/dj/@${encodeURIComponent(profile.username)}`}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 text-accent transition-colors"
                   title={`View ${profile.username}'s profile`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -262,7 +256,7 @@ export function NowPlayingCard({
             ) : djProfileUsername ? (
               <Link
                 href={`/dj/@${encodeURIComponent(djProfileUsername)}`}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 text-accent transition-colors"
                 title={`View ${djProfileUsername}'s profile`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
