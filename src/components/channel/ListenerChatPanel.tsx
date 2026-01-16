@@ -19,6 +19,7 @@ interface ListenerChatPanelProps {
   broadcastSlotId?: string;
   isLive?: boolean;
   profileLoading?: boolean;
+  currentShowStartTime?: number;    // Unix timestamp ms - for filtering promo messages
   onSetUsername?: (username: string) => Promise<{ success: boolean; error?: string }>;
 }
 
@@ -283,10 +284,12 @@ export function ListenerChatPanel({
   broadcastSlotId,
   isLive = false,
   profileLoading = false,
+  currentShowStartTime,
   onSetUsername,
 }: ListenerChatPanelProps) {
   const { messages, isConnected, error, currentPromo, sendMessage, sendLove } = useListenerChat({
     username,
+    currentShowStartTime,
   });
 
   const [inputValue, setInputValue] = useState('');

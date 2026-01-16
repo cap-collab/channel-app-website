@@ -182,20 +182,20 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
           setCurrentShow(slot);
 
           // Find current DJ name:
-          // 1. For venue slots with djSlots, find the DJ whose time slot is currently active
-          // 2. Fall back to djName (scheduled DJ name)
-          // 3. Fall back to liveDjUsername (who's actually broadcasting)
+          // Priority: djSlot.djUsername > djSlot.liveDjUsername > djSlot.djName > slot.liveDjUsername > slot.djName
+          // This ensures we use the DJ's chat username if available, not just the admin-set name
           let djNameToUse: string | null = null;
           if (slot.djSlots && slot.djSlots.length > 0) {
             const now = Date.now();
             const currentDjSlot = slot.djSlots.find(
               (djSlot) => djSlot.startTime <= now && djSlot.endTime > now
             );
-            if (currentDjSlot?.djName) {
-              djNameToUse = currentDjSlot.djName;
+            if (currentDjSlot) {
+              // Priority: djUsername (chat username) > liveDjUsername > djName (admin-set)
+              djNameToUse = currentDjSlot.djUsername || currentDjSlot.liveDjUsername || currentDjSlot.djName || null;
             }
           }
-          setCurrentDJ(djNameToUse || slot.djName || slot.liveDjUsername || null);
+          setCurrentDJ(djNameToUse || slot.liveDjUsername || slot.djName || null);
           setIsLive(true);
           // Prewarm token as soon as we detect a live broadcast
           prewarmToken();

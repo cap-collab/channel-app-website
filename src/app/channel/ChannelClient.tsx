@@ -255,6 +255,7 @@ export function ChannelClient() {
                 broadcastSlotId={currentShow?.id}
                 isLive={isLive}
                 profileLoading={profileLoading}
+                currentShowStartTime={currentShow?.startTime}
                 onSetUsername={setChatUsername}
               />
             </div>
@@ -307,6 +308,7 @@ export function ChannelClient() {
                 broadcastSlotId={currentShow?.id}
                 isLive={isLive}
                 profileLoading={profileLoading}
+                currentShowStartTime={currentShow?.startTime}
                 onSetUsername={setChatUsername}
               />
             </div>

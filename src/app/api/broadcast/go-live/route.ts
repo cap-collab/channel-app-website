@@ -56,6 +56,23 @@ export async function POST(request: NextRequest) {
     // Update slot to live status with DJ info and egress IDs
     const updateData: Record<string, unknown> = { status: 'live' };
 
+    // Find current DJ slot for venue broadcasts (use its pre-configured profile data)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let currentDjSlot: any = null;
+    if (slot.djSlots && slot.djSlots.length > 0) {
+      currentDjSlot = slot.djSlots.find(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (djSlot: any) => {
+          const slotStart = typeof djSlot.startTime === 'number' ? djSlot.startTime : djSlot.startTime?.toMillis?.() || 0;
+          const slotEnd = typeof djSlot.endTime === 'number' ? djSlot.endTime : djSlot.endTime?.toMillis?.() || 0;
+          return slotStart <= now && slotEnd > now;
+        }
+      );
+      if (currentDjSlot) {
+        console.log('[go-live] Found current DJ slot:', { djSlotId: currentDjSlot.id, djName: currentDjSlot.djName, djUsername: currentDjSlot.djUsername });
+      }
+    }
+
     // Determine liveDjUsername based on login status and existing chatUsername
     // Rule: Logged-in users MUST use their chatUsername (or register a new one)
     if (djUserId) {
@@ -65,13 +82,21 @@ export async function POST(request: NextRequest) {
       const userData = userDoc.data();
       const existingChatUsername = userData?.chatUsername;
 
-      // Extract DJ profile data for the slot
-      const djBio = userData?.djProfile?.bio || null;
-      const djPhotoUrl = userData?.djProfile?.photoUrl || null;
-      const djPromoText = userData?.djProfile?.promoText || null;
-      const djPromoHyperlink = userData?.djProfile?.promoHyperlink || null;
+      // Extract DJ profile data - PRIORITY: DJ slot profile > logged-in user profile
+      // This ensures venue broadcasts use the pre-configured DJ info, not whoever logs in
+      const djBio = currentDjSlot?.djBio || userData?.djProfile?.bio || null;
+      const djPhotoUrl = currentDjSlot?.djPhotoUrl || userData?.djProfile?.photoUrl || null;
+      const djPromoText = currentDjSlot?.djPromoText || currentDjSlot?.promoText || userData?.djProfile?.promoText || null;
+      const djPromoHyperlink = currentDjSlot?.djPromoHyperlink || currentDjSlot?.promoHyperlink || userData?.djProfile?.promoHyperlink || null;
 
-      if (existingChatUsername) {
+      // For username: use DJ slot's djUsername if available, then existingChatUsername, then djName
+      const slotUsername = currentDjSlot?.djUsername || currentDjSlot?.djName;
+
+      if (slotUsername) {
+        // Venue broadcast: use the pre-configured DJ slot username
+        updateData.liveDjUsername = slotUsername;
+        console.log('[go-live] Using DJ slot username:', { djUserId, slotUsername });
+      } else if (existingChatUsername) {
         // User already has a chatUsername - use it (ignore form input)
         updateData.liveDjUsername = existingChatUsername;
         console.log('[go-live] Using existing chatUsername:', { djUserId, chatUsername: existingChatUsername });
@@ -112,7 +137,7 @@ export async function POST(request: NextRequest) {
 
       updateData.liveDjUserId = djUserId;
 
-      // Add DJ profile data to the slot
+      // Add DJ profile data to the slot (from DJ slot config or user profile)
       if (djBio) {
         updateData.liveDjBio = djBio;
       }
@@ -127,10 +152,29 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // Guest/venue DJ - ephemeral username, no registration needed
-      if (djUsername) {
+      // Use DJ slot username if available, otherwise use form input
+      const slotUsername = currentDjSlot?.djUsername || currentDjSlot?.djName;
+      if (slotUsername) {
+        updateData.liveDjUsername = slotUsername;
+      } else if (djUsername) {
         updateData.liveDjUsername = djUsername.trim();
       }
-      console.log('[go-live] Guest/venue DJ with ephemeral username:', { djUsername });
+
+      // Also set profile data from DJ slot for guest DJs
+      if (currentDjSlot?.djBio) {
+        updateData.liveDjBio = currentDjSlot.djBio;
+      }
+      if (currentDjSlot?.djPhotoUrl) {
+        updateData.liveDjPhotoUrl = currentDjSlot.djPhotoUrl;
+      }
+      if (currentDjSlot?.djPromoText || currentDjSlot?.promoText) {
+        updateData.liveDjPromoText = currentDjSlot.djPromoText || currentDjSlot.promoText;
+      }
+      if (currentDjSlot?.djPromoHyperlink || currentDjSlot?.promoHyperlink) {
+        updateData.liveDjPromoHyperlink = currentDjSlot.djPromoHyperlink || currentDjSlot.promoHyperlink;
+      }
+
+      console.log('[go-live] Guest/venue DJ with ephemeral username:', { djUsername: updateData.liveDjUsername });
     }
 
     if (egressId) {
