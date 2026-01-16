@@ -93,14 +93,9 @@ export function CompactPlayer({
           {isLive && (
             <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0" />
           )}
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <p className="text-gray-400 truncate">
-            {showName}{djName ? ` • ${djName}` : ''}
-          </p>
-          {/* Listener and love counts inline - always show when live */}
+          {/* Listener and love counts - on same line as station name */}
           {isLive && (
-            <span className="flex items-center gap-2 text-gray-400 flex-shrink-0">
+            <span className="flex items-center gap-2 text-gray-400 text-sm flex-shrink-0">
               <span className="flex items-center gap-1">
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 3a9 9 0 00-9 9v7c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2H5v-1a7 7 0 1114 0v1h-2c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-7a9 9 0 00-9-9z" />
@@ -116,6 +111,9 @@ export function CompactPlayer({
             </span>
           )}
         </div>
+        <p className="text-gray-400 text-sm truncate">
+          {showName}{djName ? ` • ${djName}` : ''}
+        </p>
       </div>
 
       {/* Controls */}

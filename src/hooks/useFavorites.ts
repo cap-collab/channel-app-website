@@ -202,8 +202,9 @@ export function useFavorites() {
   );
 
   // Add a search term to watchlist and auto-add matching shows to favorites
+  // Optional djUserId/djEmail for more reliable matching of broadcast shows
   const addToWatchlist = useCallback(
-    async (term: string): Promise<boolean> => {
+    async (term: string, djUserId?: string, djEmail?: string): Promise<boolean> => {
       if (!user || !db) return false;
 
       try {
@@ -230,7 +231,7 @@ export function useFavorites() {
         });
 
         // Also find and add matching shows to favorites
-        console.log(`[addToWatchlist] Searching for shows matching "${term}"`);
+        console.log(`[addToWatchlist] Searching for shows matching "${term}"${djUserId ? `, userId: ${djUserId}` : ""}${djEmail ? `, email: ${djEmail}` : ""}`);
         const allShows = await getAllShows();
 
         // Find shows where DJ name matches the term (word boundary match)
@@ -246,8 +247,69 @@ export function useFavorites() {
         });
         console.log(`[addToWatchlist] Found ${nameMatches.length} shows matching show name "${term}"`);
 
-        // Combine and dedupe
-        const allMatches = [...matchingShows, ...nameMatches];
+        // If djUserId or djEmail provided, also match broadcast-slots by userId/email
+        const broadcastMatches: Show[] = [];
+        if (djUserId || djEmail) {
+          const now = new Date();
+          const slotsRef = collection(db, "broadcast-slots");
+          const slotsQuery = query(
+            slotsRef,
+            where("endTime", ">", Timestamp.fromDate(now)),
+            orderBy("endTime", "asc")
+          );
+
+          const snapshot = await getDocs(slotsQuery);
+          snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            const status = data.status as string;
+            if (status === "cancelled") return;
+
+            // Check if this slot belongs to the DJ by userId or email
+            const slotDjUserId = data.djUserId as string | undefined;
+            const slotDjEmail = data.djEmail as string | undefined;
+            const slotLiveDjUserId = data.liveDjUserId as string | undefined;
+
+            const matchesUserId = djUserId && (slotDjUserId === djUserId || slotLiveDjUserId === djUserId);
+            const matchesEmail = djEmail && slotDjEmail?.toLowerCase() === djEmail.toLowerCase();
+
+            // Also check djSlots for venue broadcasts
+            const djSlots = data.djSlots as Array<{
+              djUserId?: string;
+              djEmail?: string;
+              liveDjUserId?: string;
+              djName?: string;
+              startTime: number;
+              endTime: number;
+            }> | undefined;
+
+            let matchInSlots = false;
+            if (djSlots && djSlots.length > 0) {
+              matchInSlots = djSlots.some((slot) => {
+                const slotMatchUserId = djUserId && (slot.djUserId === djUserId || slot.liveDjUserId === djUserId);
+                const slotMatchEmail = djEmail && slot.djEmail?.toLowerCase() === djEmail.toLowerCase();
+                return slotMatchUserId || slotMatchEmail;
+              });
+            }
+
+            if (matchesUserId || matchesEmail || matchInSlots) {
+              const startTime = (data.startTime as Timestamp).toDate().toISOString();
+              const endTime = (data.endTime as Timestamp).toDate().toISOString();
+              console.log(`[addToWatchlist] Found broadcast match by userId/email: ${data.showName}`);
+              broadcastMatches.push({
+                id: `broadcast-${docSnap.id}`,
+                name: data.showName as string,
+                dj: data.djName as string | undefined,
+                startTime,
+                endTime,
+                stationId: "broadcast",
+              });
+            }
+          });
+          console.log(`[addToWatchlist] Found ${broadcastMatches.length} broadcast slots matching userId/email`);
+        }
+
+        // Combine and dedupe all matches
+        const allMatches = [...matchingShows, ...nameMatches, ...broadcastMatches];
         const seen = new Set<string>();
         const uniqueShows = allMatches.filter((show) => {
           const key = `${show.name.toLowerCase()}-${show.stationId}`;

@@ -81,7 +81,7 @@ function matchesAsWord(text: string, term: string): boolean {
 export function DJPublicProfileClient({ username }: Props) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
-  const { isInWatchlist, addToWatchlist, removeFromWatchlist, addDJShowsToFavorites, toggleFavorite, isShowFavorited, loading: favoritesLoading } = useFavorites();
+  const { isInWatchlist, addToWatchlist, removeFromWatchlist, toggleFavorite, isShowFavorited, loading: favoritesLoading } = useFavorites();
 
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -346,12 +346,9 @@ export function DJPublicProfileClient({ username }: Props) {
       if (isSubscribed) {
         await removeFromWatchlist(djProfile.chatUsername);
       } else {
-        // Add DJ to watchlist
-        await addToWatchlist(djProfile.chatUsername);
-        // Auto-add all their shows to favorites (by name match + userId/email match)
-        console.log(`[handleSubscribe] Calling addDJShowsToFavorites for ${djProfile.chatUsername}, uid: ${djProfile.uid}, email: ${djProfile.email}`);
-        const addedCount = await addDJShowsToFavorites(djProfile.chatUsername, djProfile.uid, djProfile.email);
-        console.log(`[handleSubscribe] Added ${addedCount} shows to favorites`);
+        // Add DJ to watchlist - this also auto-adds matching shows to favorites
+        // (by word-boundary name match + userId/email match for broadcast slots)
+        await addToWatchlist(djProfile.chatUsername, djProfile.uid, djProfile.email);
       }
     } catch (error) {
       console.error("Error toggling subscription:", error);

@@ -111,7 +111,7 @@ export function ChannelClient() {
   const { loveCount } = useListenerChat({ username, currentShowStartTime: currentShow?.startTime });
 
   // Favorites for the current show
-  const { isShowFavorited, toggleFavorite, isInWatchlist, addToWatchlist, addDJShowsToFavorites } = useFavorites();
+  const { isShowFavorited, toggleFavorite, isInWatchlist, addToWatchlist } = useFavorites();
 
   // Watchlist state for current DJ
   const [isTogglingWatchlist, setIsTogglingWatchlist] = useState(false);
@@ -155,23 +155,22 @@ export function ChannelClient() {
   // Check if DJ is in watchlist
   const isDJInWatchlist = watchlistDJName ? isInWatchlist(watchlistDJName) : false;
 
-  // Handle adding DJ to watchlist (also adds their shows to favorites)
+  // Handle adding DJ to watchlist (also adds their shows to favorites via addToWatchlist)
   const handleToggleWatchlist = useCallback(async () => {
     if (!watchlistDJName) return;
 
     setIsTogglingWatchlist(true);
     try {
-      // Add DJ name to watchlist
-      await addToWatchlist(watchlistDJName);
-      // Also add their shows to favorites using userId/email if available
+      // Get userId/email for more reliable broadcast-slot matching
       // For venue slots, get info from the current DJ slot; for remote, from the show itself
       const djUserId = currentDjSlot?.djUserId || currentDjSlot?.liveDjUserId || currentShow?.djUserId || currentShow?.liveDjUserId;
       const djEmail = currentDjSlot?.djEmail || currentShow?.djEmail;
-      await addDJShowsToFavorites(watchlistDJName, djUserId, djEmail);
+      // Add DJ name to watchlist - this also auto-adds matching shows to favorites
+      await addToWatchlist(watchlistDJName, djUserId, djEmail);
     } finally {
       setIsTogglingWatchlist(false);
     }
-  }, [watchlistDJName, addToWatchlist, addDJShowsToFavorites, currentShow, currentDjSlot]);
+  }, [watchlistDJName, addToWatchlist, currentShow, currentDjSlot]);
 
   // Determine if DJ has a public profile worth showing
   // For venue slots, check the current DJ slot's liveDjUsername or djUsername
