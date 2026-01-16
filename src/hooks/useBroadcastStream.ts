@@ -177,8 +177,22 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
             showPromoHyperlink: data.showPromoHyperlink,
           };
           setCurrentShow(slot);
-          // Use djName (scheduled DJ name) to match what's shown in the schedule/calendar
-          setCurrentDJ(slot.djName || null);
+
+          // Find current DJ name:
+          // 1. For venue slots with djSlots, find the DJ whose time slot is currently active
+          // 2. Fall back to djName (scheduled DJ name)
+          // 3. Fall back to liveDjUsername (who's actually broadcasting)
+          let djNameToUse: string | null = null;
+          if (slot.djSlots && slot.djSlots.length > 0) {
+            const now = Date.now();
+            const currentDjSlot = slot.djSlots.find(
+              (djSlot) => djSlot.startTime <= now && djSlot.endTime > now
+            );
+            if (currentDjSlot?.djName) {
+              djNameToUse = currentDjSlot.djName;
+            }
+          }
+          setCurrentDJ(djNameToUse || slot.djName || slot.liveDjUsername || null);
           setIsLive(true);
           // Prewarm token as soon as we detect a live broadcast
           prewarmToken();

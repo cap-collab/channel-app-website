@@ -117,7 +117,7 @@ export function ChannelClient() {
   const currentShowAsShow: Show | null = currentShow ? {
     id: currentShow.id,
     name: currentShow.showName,
-    dj: currentDJ || currentShow.djName,
+    dj: currentDJ || currentShow.djName || currentShow.liveDjUsername,
     startTime: new Date(currentShow.startTime).toISOString(),
     endTime: new Date(currentShow.endTime).toISOString(),
     stationId: 'broadcast',
