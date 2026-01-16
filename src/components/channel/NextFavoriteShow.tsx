@@ -192,7 +192,8 @@ export function NextFavoriteShow({ onAuthRequired, currentShow, currentDJ }: Nex
     const djName = currentDJ || currentShow?.dj;
     if (!djName) return;
     setAddingDJToWatchlist(true);
-    await addToWatchlist(djName);
+    // Pass djUserId/djEmail if available for more reliable broadcast-slot matching
+    await addToWatchlist(djName, currentShow?.djUserId, currentShow?.djEmail);
     setAddingDJToWatchlist(false);
   }, [isAuthenticated, onAuthRequired, currentDJ, currentShow, addToWatchlist]);
 
