@@ -111,7 +111,10 @@ export function ChannelClient() {
   const { loveCount } = useListenerChat({ username, currentShowStartTime: currentShow?.startTime });
 
   // Favorites for the current show
-  const { isShowFavorited, toggleFavorite } = useFavorites();
+  const { isShowFavorited, toggleFavorite, isInWatchlist, addToWatchlist, addDJShowsToFavorites } = useFavorites();
+
+  // Watchlist state for current DJ
+  const [isTogglingWatchlist, setIsTogglingWatchlist] = useState(false);
 
   // Convert currentShow to Show type for favorites
   const currentShowAsShow: Show | null = currentShow ? {
@@ -134,6 +137,46 @@ export function ChannelClient() {
   const handleAuthRequired = useCallback(() => {
     setShowAuthModal(true);
   }, []);
+
+  // Get current DJ slot info for venue broadcasts with multiple DJs
+  const currentDjSlot = (() => {
+    if (currentShow?.djSlots && currentShow.djSlots.length > 0) {
+      const now = Date.now();
+      return currentShow.djSlots.find(
+        (djSlot) => djSlot.startTime <= now && djSlot.endTime > now
+      );
+    }
+    return null;
+  })();
+
+  // Get DJ name for watchlist - use currentDJ which is already the display name
+  const watchlistDJName = currentDJ || currentShow?.djName;
+
+  // Check if DJ is in watchlist
+  const isDJInWatchlist = watchlistDJName ? isInWatchlist(watchlistDJName) : false;
+
+  // Handle adding DJ to watchlist (also adds their shows to favorites)
+  const handleToggleWatchlist = useCallback(async () => {
+    if (!watchlistDJName) return;
+
+    setIsTogglingWatchlist(true);
+    try {
+      // Add DJ name to watchlist
+      await addToWatchlist(watchlistDJName);
+      // Also add their shows to favorites using userId/email if available
+      // For venue slots, get info from the current DJ slot; for remote, from the show itself
+      const djUserId = currentDjSlot?.djUserId || currentDjSlot?.liveDjUserId || currentShow?.djUserId || currentShow?.liveDjUserId;
+      const djEmail = currentDjSlot?.djEmail || currentShow?.djEmail;
+      await addDJShowsToFavorites(watchlistDJName, djUserId, djEmail);
+    } finally {
+      setIsTogglingWatchlist(false);
+    }
+  }, [watchlistDJName, addToWatchlist, addDJShowsToFavorites, currentShow, currentDjSlot]);
+
+  // Determine if DJ has a public profile worth showing
+  // For venue slots, check the current DJ slot's liveDjUsername or djUsername
+  // For remote broadcasts, check liveDjUsername at the show level
+  const djProfileUsername = currentDjSlot?.liveDjUsername || currentDjSlot?.djUsername || currentShow?.liveDjUsername || null;
 
   return (
     <div className="min-h-[100dvh] text-white relative flex flex-col">
@@ -165,6 +208,10 @@ export function ChannelClient() {
                 isShowFavorited={isCurrentShowFavorited}
                 onToggleFavorite={handleToggleCurrentShowFavorite}
                 onAuthRequired={handleAuthRequired}
+                isDJInWatchlist={isDJInWatchlist}
+                onToggleWatchlist={handleToggleWatchlist}
+                isTogglingWatchlist={isTogglingWatchlist}
+                djProfileUsername={djProfileUsername}
               />
 
               {/* Search + Favorites */}
@@ -214,6 +261,10 @@ export function ChannelClient() {
               isShowFavorited={isCurrentShowFavorited}
               onToggleFavorite={handleToggleCurrentShowFavorite}
               onAuthRequired={handleAuthRequired}
+              isDJInWatchlist={isDJInWatchlist}
+              onToggleWatchlist={handleToggleWatchlist}
+              isTogglingWatchlist={isTogglingWatchlist}
+              djProfileUsername={djProfileUsername}
             />
           </div>
 

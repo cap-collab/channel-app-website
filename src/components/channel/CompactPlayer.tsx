@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import Image from 'next/image';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
 
@@ -20,6 +21,12 @@ interface CompactPlayerProps {
   isShowFavorited?: boolean;
   onToggleFavorite?: () => Promise<void>;
   onAuthRequired?: () => void;
+  // Watchlist
+  isDJInWatchlist?: boolean;
+  onToggleWatchlist?: () => Promise<void>;
+  isTogglingWatchlist?: boolean;
+  // DJ Profile
+  djProfileUsername?: string | null; // username to link to if DJ has a profile
 }
 
 export function CompactPlayer({
@@ -35,6 +42,10 @@ export function CompactPlayer({
   isShowFavorited,
   onToggleFavorite,
   onAuthRequired,
+  isDJInWatchlist,
+  onToggleWatchlist,
+  isTogglingWatchlist,
+  djProfileUsername,
 }: CompactPlayerProps) {
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
   const stationName = 'Channel Broadcast';
@@ -83,32 +94,35 @@ export function CompactPlayer({
             <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0" />
           )}
         </div>
-        <p className="text-gray-400 text-sm truncate">
-          {showName}{djName ? ` • ${djName}` : ''}
-        </p>
+        <div className="flex items-center gap-2 text-sm">
+          <p className="text-gray-400 truncate">
+            {showName}{djName ? ` • ${djName}` : ''}
+          </p>
+          {/* Listener and love counts inline */}
+          {isLive && (listenerCount > 0 || loveCount > 0) && (
+            <span className="flex items-center gap-2 text-gray-500 flex-shrink-0">
+              {listenerCount > 0 && (
+                <span className="flex items-center gap-1">
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 3a9 9 0 00-9 9v7c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2H5v-1a7 7 0 1114 0v1h-2c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-7a9 9 0 00-9-9z" />
+                  </svg>
+                  {listenerCount}
+                </span>
+              )}
+              <span className="flex items-center gap-1">
+                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                </svg>
+                {loveCount}
+              </span>
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Controls */}
-      <div className="flex items-center gap-2 flex-shrink-0">
-        {/* Listener count */}
-        {listenerCount > 0 && (
-          <span className="text-gray-400 text-sm flex items-center gap-1">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 3a9 9 0 00-9 9v7c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2H5v-1a7 7 0 1114 0v1h-2c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-7a9 9 0 00-9-9z" />
-            </svg>
-            {listenerCount}
-          </span>
-        )}
-
-        {/* Love count - always show, greyed out when offline */}
-        <span className={`text-sm flex items-center gap-1 ${isLive && loveCount > 0 ? 'text-accent' : 'text-gray-600'}`}>
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-          </svg>
-          {isLive ? loveCount : 0}
-        </span>
-
-        {/* Favorite button - only show when live with a show */}
+      <div className="flex items-center gap-1 flex-shrink-0">
+        {/* Favorite button (star) - only show when live with a show */}
         {isLive && currentShow && onToggleFavorite && (
           <button
             onClick={async () => {
@@ -144,21 +158,48 @@ export function CompactPlayer({
           </button>
         )}
 
-        {/* Share button */}
-        <button
-          onClick={() => {
-            navigator.share?.({
-              title: 'Channel Broadcast',
-              text: `Listen to ${showName} on Channel Broadcast`,
-              url: window.location.href,
-            });
-          }}
-          className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-          </svg>
-        </button>
+        {/* Watchlist button (+) - add DJ to watchlist and their shows to favorites */}
+        {isLive && currentShow && djName && onToggleWatchlist && (
+          <button
+            onClick={async () => {
+              if (!isAuthenticated) {
+                onAuthRequired?.();
+                return;
+              }
+              await onToggleWatchlist();
+            }}
+            disabled={isTogglingWatchlist}
+            className={`w-8 h-8 flex items-center justify-center transition-colors disabled:opacity-50 ${
+              isDJInWatchlist ? 'text-green-500 hover:text-green-400' : 'text-gray-400 hover:text-white'
+            }`}
+            title={isDJInWatchlist ? `${djName} is in your watchlist` : `Add ${djName} to watchlist`}
+          >
+            {isTogglingWatchlist ? (
+              <div className="w-4 h-4 border-2 border-gray-600 border-t-green-500 rounded-full animate-spin" />
+            ) : isDJInWatchlist ? (
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            )}
+          </button>
+        )}
+
+        {/* DJ Profile link - only show when DJ has a public profile */}
+        {isLive && djProfileUsername && (
+          <Link
+            href={`/dj/${encodeURIComponent(djProfileUsername)}`}
+            className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+            title={`View ${djProfileUsername}'s profile`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </Link>
+        )}
       </div>
     </div>
   );
