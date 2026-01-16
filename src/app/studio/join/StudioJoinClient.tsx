@@ -666,6 +666,7 @@ export function StudioJoinClient() {
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         message="Sign in to create your DJ profile"
+        includeDjTerms
       />
     </div>
   );
