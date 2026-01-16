@@ -79,7 +79,7 @@ export function NowPlayingCard({
         </div>
       )}
 
-      {/* Header row: Play button + Station info */}
+      {/* Header row: Play button + Show name (when live) or Station info (when offline) */}
       <div className="flex items-center gap-3">
         {/* Play/Pause button */}
         <button
@@ -103,63 +103,67 @@ export function NowPlayingCard({
           )}
         </button>
 
-        {/* Station logo */}
-        <Image
-          src="/apple-touch-icon.png"
-          alt="Channel"
-          width={48}
-          height={48}
-          className="rounded-lg flex-shrink-0"
-        />
+        {isLive ? (
+          <>
+            {/* Show name - when live, display next to play button */}
+            <h2 className="text-white text-2xl font-bold line-clamp-2 lg:truncate lg:line-clamp-none flex-1 min-w-0">{showName}</h2>
 
-        {/* Station name */}
-        <div className="flex-1 min-w-0">
-          <p className="text-white font-semibold">{stationName}</p>
-        </div>
-      </div>
-
-      {/* Show title row with favorite button */}
-      <div className="flex items-center gap-3">
-        {/* Show title - allow 2 lines on mobile */}
-        <h2 className="text-white text-2xl font-bold line-clamp-2 lg:truncate lg:line-clamp-none flex-1">{showName}</h2>
-
-        {/* Favorite button - aligned right, icon only on mobile */}
-        {isLive && currentShow && onToggleFavorite && (
-          <button
-            onClick={async () => {
-              if (!isAuthenticated) {
-                onAuthRequired?.();
-                return;
-              }
-              setIsTogglingFavorite(true);
-              await onToggleFavorite();
-              setIsTogglingFavorite(false);
-            }}
-            disabled={isTogglingFavorite}
-            className="flex items-center gap-1.5 p-2 lg:px-3 lg:py-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 text-accent transition-colors disabled:opacity-50 flex-shrink-0"
-            title={isShowFavorited ? 'Remove from favorites' : 'Add to favorites'}
-          >
-            {isTogglingFavorite ? (
-              <div className="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
-            ) : (
-              <svg
-                className="w-4 h-4"
-                fill={isShowFavorited ? 'currentColor' : 'none'}
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            {/* Favorite button - aligned right */}
+            {currentShow && onToggleFavorite && (
+              <button
+                onClick={async () => {
+                  if (!isAuthenticated) {
+                    onAuthRequired?.();
+                    return;
+                  }
+                  setIsTogglingFavorite(true);
+                  await onToggleFavorite();
+                  setIsTogglingFavorite(false);
+                }}
+                disabled={isTogglingFavorite}
+                className="flex items-center gap-1.5 p-2 lg:px-3 lg:py-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 text-accent transition-colors disabled:opacity-50 flex-shrink-0"
+                title={isShowFavorited ? 'Remove from favorites' : 'Add to favorites'}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                />
-              </svg>
+                {isTogglingFavorite ? (
+                  <div className="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+                ) : (
+                  <svg
+                    className="w-4 h-4"
+                    fill={isShowFavorited ? 'currentColor' : 'none'}
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                    />
+                  </svg>
+                )}
+                <span className="text-sm hidden lg:inline">
+                  {isShowFavorited ? 'Favorited' : 'Favorite'}
+                </span>
+              </button>
             )}
-            <span className="text-sm hidden lg:inline">
-              {isShowFavorited ? 'Favorited' : 'Favorite'}
-            </span>
-          </button>
+          </>
+        ) : (
+          <>
+            {/* Station logo - when offline */}
+            <Image
+              src="/apple-touch-icon.png"
+              alt="Channel"
+              width={48}
+              height={48}
+              className="rounded-lg flex-shrink-0"
+            />
+
+            {/* Station name - when offline */}
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-semibold">{stationName}</p>
+              <p className="text-gray-400 text-sm">Offline</p>
+            </div>
+          </>
         )}
       </div>
 

@@ -7,7 +7,6 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { Header } from '@/components/Header';
 import { NowPlayingCard } from '@/components/channel/NowPlayingCard';
 import { ComingUpNext } from '@/components/channel/ComingUpNext';
-import { NextFavoriteShow } from '@/components/channel/NextFavoriteShow';
 import { TVGuideSchedule } from '@/components/channel/TVGuideSchedule';
 import { ListenerChatPanel } from '@/components/channel/ListenerChatPanel';
 import { TipThankYouModal } from '@/components/channel/TipThankYouModal';
@@ -292,11 +291,6 @@ export function ChannelClient() {
               djProfileUsername={djProfileUsername}
               djProfiles={djProfiles}
             />
-          </div>
-
-          {/* Search bar (mobile) */}
-          <div className="flex-shrink-0 px-4 pb-2">
-            <NextFavoriteShow onAuthRequired={handleAuthRequired} currentShow={currentShowAsShow} currentDJ={currentDJ} />
           </div>
 
           {/* Chat */}
