@@ -60,7 +60,25 @@ export function NowPlayingCard({
   const djPhotoUrl = djProfiles?.[0]?.photoUrl || currentShow?.liveDjPhotoUrl;
 
   return (
-    <div className="bg-surface-card rounded-xl p-4 space-y-4">
+    <div className="bg-surface-card rounded-xl p-4 space-y-4 relative">
+      {/* Stats - top right corner of card */}
+      {isLive && (
+        <div className="absolute top-4 right-4 flex items-center gap-3">
+          <div className="flex items-center gap-1 text-gray-400">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+            </svg>
+            <span className="text-sm">{loveCount}</span>
+          </div>
+          <div className="flex items-center gap-1 text-gray-400">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 3a9 9 0 00-9 9v7c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2H5v-1a7 7 0 1114 0v1h-2c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-7a9 9 0 00-9-9z" />
+            </svg>
+            <span className="text-sm">{listenerCount}</span>
+          </div>
+        </div>
+      )}
+
       {/* Header row: Play button + Station info */}
       <div className="flex items-center gap-3">
         {/* Play/Pause button */}
@@ -100,71 +118,50 @@ export function NowPlayingCard({
         </div>
       </div>
 
-      {/* Show title - allow 2 lines on mobile */}
-      <h2 className="text-white text-2xl font-bold line-clamp-2 lg:truncate lg:line-clamp-none">{showName}</h2>
+      {/* Show title row with favorite button */}
+      <div className="flex items-center gap-3">
+        {/* Show title - allow 2 lines on mobile */}
+        <h2 className="text-white text-2xl font-bold line-clamp-2 lg:truncate lg:line-clamp-none flex-1">{showName}</h2>
 
-      {/* Stats row: heart/listener on left, favorite on right */}
-      {isLive && (
-        <div className="flex items-center gap-3">
-          {/* Stats - grey, aligned left */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 text-gray-400">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+        {/* Favorite button - aligned right, icon only on mobile */}
+        {isLive && currentShow && onToggleFavorite && (
+          <button
+            onClick={async () => {
+              if (!isAuthenticated) {
+                onAuthRequired?.();
+                return;
+              }
+              setIsTogglingFavorite(true);
+              await onToggleFavorite();
+              setIsTogglingFavorite(false);
+            }}
+            disabled={isTogglingFavorite}
+            className="flex items-center gap-1.5 p-2 lg:px-3 lg:py-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 text-accent transition-colors disabled:opacity-50 flex-shrink-0"
+            title={isShowFavorited ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            {isTogglingFavorite ? (
+              <div className="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+            ) : (
+              <svg
+                className="w-4 h-4"
+                fill={isShowFavorited ? 'currentColor' : 'none'}
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                />
               </svg>
-              <span className="text-sm">{loveCount}</span>
-            </div>
-            <div className="flex items-center gap-1 text-gray-400">
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 3a9 9 0 00-9 9v7c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2H5v-1a7 7 0 1114 0v1h-2c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-7a9 9 0 00-9-9z" />
-              </svg>
-              <span className="text-sm">{listenerCount}</span>
-            </div>
-          </div>
-
-          {/* Spacer */}
-          <div className="flex-1" />
-
-          {/* Favorite button - aligned right, icon only on mobile */}
-          {currentShow && onToggleFavorite && (
-            <button
-              onClick={async () => {
-                if (!isAuthenticated) {
-                  onAuthRequired?.();
-                  return;
-                }
-                setIsTogglingFavorite(true);
-                await onToggleFavorite();
-                setIsTogglingFavorite(false);
-              }}
-              disabled={isTogglingFavorite}
-              className="flex items-center gap-1.5 p-2 lg:px-3 lg:py-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 text-accent transition-colors disabled:opacity-50 flex-shrink-0"
-              title={isShowFavorited ? 'Remove from favorites' : 'Add to favorites'}
-            >
-              {isTogglingFavorite ? (
-                <div className="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
-              ) : (
-                <svg
-                  className="w-4 h-4"
-                  fill={isShowFavorited ? 'currentColor' : 'none'}
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                  />
-                </svg>
-              )}
-              <span className="text-sm hidden lg:inline">
-                {isShowFavorited ? 'Favorited' : 'Favorite'}
-              </span>
-            </button>
-          )}
-        </div>
-      )}
+            )}
+            <span className="text-sm hidden lg:inline">
+              {isShowFavorited ? 'Favorited' : 'Favorite'}
+            </span>
+          </button>
+        )}
+      </div>
 
       {/* DJ Section */}
       {isLive && djName && (
