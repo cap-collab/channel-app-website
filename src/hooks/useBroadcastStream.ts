@@ -173,6 +173,9 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
             broadcastType: data.broadcastType,
             liveDjUserId: data.liveDjUserId,
             liveDjUsername: data.liveDjUsername,
+            liveDjPhotoUrl: data.liveDjPhotoUrl,
+            liveDjPromoText: data.liveDjPromoText,
+            liveDjPromoHyperlink: data.liveDjPromoHyperlink,
             showPromoText: data.showPromoText,
             showPromoHyperlink: data.showPromoHyperlink,
           };

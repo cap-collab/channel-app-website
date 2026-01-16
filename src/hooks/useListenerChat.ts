@@ -88,8 +88,9 @@ export function useListenerChat({ username, currentShowStartTime }: UseListenerC
           };
           newMessages.push(msg);
 
-          // Track the most recent promo from the current DJ
-          if (data.messageType === 'promo' && !latestPromo) {
+          // Track the most recent promo - only if from current broadcast slot
+          // If no currentShowStartTime is provided, don't show any promo
+          if (data.messageType === 'promo' && !latestPromo && currentShowStartTime && msgTimestamp >= currentShowStartTime) {
             latestPromo = msg;
           }
 
