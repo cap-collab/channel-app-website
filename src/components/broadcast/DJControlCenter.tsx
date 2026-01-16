@@ -168,7 +168,7 @@ export function DJControlCenter({
 
             {/* Right Column - Chat */}
             {slot && (
-              <div className="lg:w-96 lg:flex-shrink-0 lg:h-full flex flex-col overflow-hidden">
+              <div className="lg:w-96 lg:flex-shrink-0 lg:h-full lg:min-h-0 flex flex-col overflow-hidden">
                 <DJChatPanel
                   broadcastToken={broadcastToken}
                   slotId={slot.id}
