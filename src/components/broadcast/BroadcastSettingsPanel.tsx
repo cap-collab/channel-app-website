@@ -36,7 +36,7 @@ export function BroadcastSettingsPanel({
     setError(null);
 
     try {
-      const normalizedHyperlink = tempPromoHyperlink ? normalizeUrl(tempPromoHyperlink) : '';
+      const normalizedHyperlink = tempPromoHyperlink.trim() ? normalizeUrl(tempPromoHyperlink.trim()) : '';
       const response = await fetch('/api/broadcast/dj-promo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

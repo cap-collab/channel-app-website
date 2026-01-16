@@ -30,8 +30,9 @@ export async function POST(request: NextRequest) {
 
     // Normalize and validate hyperlink if provided
     let normalizedHyperlink: string | undefined = undefined;
-    if (promoHyperlink) {
-      normalizedHyperlink = normalizeUrl(promoHyperlink);
+    const trimmedHyperlink = promoHyperlink?.trim();
+    if (trimmedHyperlink) {
+      normalizedHyperlink = normalizeUrl(trimmedHyperlink);
 
       // Validate URL format
       try {

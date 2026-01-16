@@ -242,8 +242,8 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
   };
 
   const validateUrl = (value: string): string | null => {
-    if (!value) return null; // Optional field
-    const normalized = normalizeUrl(value);
+    if (!value || !value.trim()) return null; // Optional field
+    const normalized = normalizeUrl(value.trim());
     try {
       const url = new URL(normalized);
       if (!['http:', 'https:'].includes(url.protocol)) {
