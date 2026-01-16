@@ -12,6 +12,23 @@ export type BroadcastSlotStatus = 'scheduled' | 'live' | 'paused' | 'completed' 
 // Broadcast type - venue uses permanent URL, remote gets unique token
 export type BroadcastType = 'venue' | 'remote';
 
+// Individual DJ profile for B3B scenarios (multiple DJs sharing one slot)
+export interface DJProfileInfo {
+  email?: string;           // For lookup and tips fallback
+  userId?: string;          // Firebase UID (if account exists)
+  username?: string;        // Chat username
+  bio?: string;             // Bio text
+  photoUrl?: string;        // Profile picture URL
+  promoText?: string;       // Promo text
+  promoHyperlink?: string;  // Promo link
+  thankYouMessage?: string; // Thank you message for tips
+  socialLinks?: {
+    soundcloud?: string;
+    instagram?: string;
+    youtube?: string;
+  };
+}
+
 // DJ slot within a venue show
 export interface DJSlot {
   id: string;
@@ -33,6 +50,9 @@ export interface DJSlot {
     instagram?: string;
     youtube?: string;
   };
+
+  // B3B support: multiple DJs sharing the same slot
+  djProfiles?: DJProfileInfo[];  // Array of DJ profiles for B3B scenarios
 
   // Runtime fields (set when slot becomes active)
   liveDjUserId?: string;     // Firebase UID of DJ who claimed this slot

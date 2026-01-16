@@ -26,7 +26,9 @@ interface CompactPlayerProps {
   onToggleWatchlist?: () => Promise<void>;
   isTogglingWatchlist?: boolean;
   // DJ Profile
-  djProfileUsername?: string | null; // username to link to if DJ has a profile
+  djProfileUsername?: string | null; // username to link to if DJ has a profile (legacy single DJ)
+  // B3B support: multiple DJ profiles
+  djProfiles?: Array<{ username: string; photoUrl?: string }>;
 }
 
 export function CompactPlayer({
@@ -46,6 +48,7 @@ export function CompactPlayer({
   onToggleWatchlist,
   isTogglingWatchlist,
   djProfileUsername,
+  djProfiles,
 }: CompactPlayerProps) {
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
   const stationName = 'Channel Broadcast';
@@ -179,10 +182,24 @@ export function CompactPlayer({
           </button>
         )}
 
-        {/* DJ Profile link - only show when DJ has a public profile */}
-        {isLive && djProfileUsername && (
+        {/* DJ Profile links - supports B3B with multiple DJs */}
+        {isLive && djProfiles && djProfiles.length > 0 ? (
+          djProfiles.map((profile) => (
+            <Link
+              key={profile.username}
+              href={`/dj/@${encodeURIComponent(profile.username)}`}
+              className="w-8 h-8 flex items-center justify-center text-accent hover:text-accent/80 transition-colors"
+              title={`View ${profile.username}'s profile`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </Link>
+          ))
+        ) : isLive && djProfileUsername ? (
+          // Fallback for legacy single DJ
           <Link
-            href={`/dj/${encodeURIComponent(djProfileUsername)}`}
+            href={`/dj/@${encodeURIComponent(djProfileUsername)}`}
             className="w-8 h-8 flex items-center justify-center text-accent hover:text-accent/80 transition-colors"
             title={`View ${djProfileUsername}'s profile`}
           >
@@ -190,7 +207,7 @@ export function CompactPlayer({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </Link>
-        )}
+        ) : null}
       </div>
     </div>
   );

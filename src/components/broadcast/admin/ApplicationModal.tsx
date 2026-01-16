@@ -81,7 +81,7 @@ Time: ${formattedStart} – ${formattedEnd} ${djTz}
 
 Your DJ profile is what listeners see on our calendar, in your show details, and while you're live. A complete profile helps people connect with you and support your work.
 
-Please take a few minutes to set up your DJ profile:
+Please take a few minutes to set up your DJ profile. IMPORTANT: Sign up using THIS email address (${application.email}) so we can link your profile to your scheduled show.
 → https://channel-app.com/studio
 
 • Connect Stripe so you can receive listener support during your set. If Stripe isn't connected, listeners can still send support — but payouts will be delayed until you finish setup.

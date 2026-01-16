@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -177,6 +177,31 @@ export function ChannelClient() {
   // For remote broadcasts, check liveDjUsername at the show level
   const djProfileUsername = currentDjSlot?.liveDjUsername || currentDjSlot?.djUsername || currentShow?.liveDjUsername || null;
 
+  // Get all DJ profiles for B3B support (multiple DJs sharing the same slot)
+  const djProfiles = useMemo(() => {
+    if (!currentDjSlot) return [];
+
+    // Check djProfiles array first (B3B support)
+    if (currentDjSlot.djProfiles && currentDjSlot.djProfiles.length > 0) {
+      return currentDjSlot.djProfiles
+        .filter(p => p.username)
+        .map(p => ({ username: p.username!, photoUrl: p.photoUrl }));
+    }
+
+    // Fallback: single DJ from legacy fields
+    const singleUsername = currentDjSlot.liveDjUsername || currentDjSlot.djUsername;
+    if (singleUsername) {
+      return [{ username: singleUsername, photoUrl: currentDjSlot.djPhotoUrl }];
+    }
+
+    // Also check show-level for remote broadcasts
+    if (currentShow?.liveDjUsername) {
+      return [{ username: currentShow.liveDjUsername, photoUrl: currentShow.liveDjPhotoUrl }];
+    }
+
+    return [];
+  }, [currentDjSlot, currentShow]);
+
   return (
     <div className="min-h-[100dvh] text-white relative flex flex-col">
       <AnimatedBackground />
@@ -211,6 +236,7 @@ export function ChannelClient() {
                 onToggleWatchlist={handleToggleWatchlist}
                 isTogglingWatchlist={isTogglingWatchlist}
                 djProfileUsername={djProfileUsername}
+                djProfiles={djProfiles}
               />
 
               {/* Search + Favorites */}
@@ -264,6 +290,7 @@ export function ChannelClient() {
               onToggleWatchlist={handleToggleWatchlist}
               isTogglingWatchlist={isTogglingWatchlist}
               djProfileUsername={djProfileUsername}
+              djProfiles={djProfiles}
             />
           </div>
 

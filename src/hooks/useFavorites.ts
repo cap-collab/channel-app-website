@@ -301,14 +301,32 @@ export function useFavorites() {
               djName?: string;
               startTime: number;
               endTime: number;
+              // B3B support: multiple DJ profiles per slot
+              djProfiles?: Array<{
+                userId?: string;
+                email?: string;
+              }>;
             }> | undefined;
 
             let matchInSlots = false;
             if (djSlots && djSlots.length > 0) {
               matchInSlots = djSlots.some((slot) => {
+                // Check legacy single-DJ fields
                 const slotMatchUserId = resolvedDjUserId && (slot.djUserId === resolvedDjUserId || slot.liveDjUserId === resolvedDjUserId);
                 const slotMatchEmail = resolvedDjEmail && slot.djEmail?.toLowerCase() === resolvedDjEmail.toLowerCase();
-                return slotMatchUserId || slotMatchEmail;
+
+                if (slotMatchUserId || slotMatchEmail) return true;
+
+                // Check djProfiles array for B3B support
+                if (slot.djProfiles && slot.djProfiles.length > 0) {
+                  return slot.djProfiles.some(profile => {
+                    const profileMatchUserId = resolvedDjUserId && profile.userId === resolvedDjUserId;
+                    const profileMatchEmail = resolvedDjEmail && profile.email?.toLowerCase() === resolvedDjEmail.toLowerCase();
+                    return profileMatchUserId || profileMatchEmail;
+                  });
+                }
+
+                return false;
               });
             }
 

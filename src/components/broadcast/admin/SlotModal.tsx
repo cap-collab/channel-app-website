@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BroadcastSlotSerialized, BroadcastType, DJSlot } from '@/types/broadcast';
+import { BroadcastSlotSerialized, BroadcastType, DJSlot, DJProfileInfo } from '@/types/broadcast';
 
 interface SlotModalProps {
   slot?: BroadcastSlotSerialized | null;
@@ -21,6 +21,26 @@ interface SlotModalProps {
   initialEndTime?: Date;
 }
 
+// Individual DJ profile for B3B (with UI state)
+interface LocalDJProfile {
+  email: string;
+  userId?: string;
+  username?: string;
+  bio?: string;
+  photoUrl?: string;
+  promoText?: string;
+  promoHyperlink?: string;
+  thankYouMessage?: string;
+  socialLinks?: {
+    soundcloud?: string;
+    instagram?: string;
+    youtube?: string;
+  };
+  // UI state
+  profileFound?: boolean;
+  isLookingUp?: boolean;
+}
+
 interface LocalDJSlot {
   id: string;
   djName: string;
@@ -28,7 +48,7 @@ interface LocalDJSlot {
   startTime: string; // HH:mm format
   endDate: string;   // YYYY-MM-DD format
   endTime: string;   // HH:mm format
-  // DJ profile fields (pre-populated via email lookup)
+  // Legacy single-DJ fields (backwards compatibility, populated from first profile)
   djEmail?: string;
   djUserId?: string;
   djUsername?: string;
@@ -42,9 +62,11 @@ interface LocalDJSlot {
     instagram?: string;
     youtube?: string;
   };
-  // UI state
+  // UI state for legacy single-DJ
   profileFound?: boolean;
   isLookingUp?: boolean;
+  // B3B support: multiple DJ profiles
+  djProfiles: LocalDJProfile[];
 }
 
 // Generate time options in 30-minute increments with simple labels
@@ -176,6 +198,7 @@ function ensureFullCoverage(
         startTime: snapToHalfHour(timestampToTime(currentTs)),
         endDate: timestampToDate(slotStartTs),
         endTime: snapToHalfHour(timestampToTime(slotStartTs)),
+        djProfiles: [{ email: '' }],
       });
     }
 
@@ -192,6 +215,7 @@ function ensureFullCoverage(
       startTime: snapToHalfHour(timestampToTime(currentTs)),
       endDate: showEndDate,
       endTime: showEndTime,
+      djProfiles: [{ email: '' }],
     });
   }
 
@@ -206,6 +230,7 @@ function ensureFullCoverage(
         startTime: showStartTime,
         endDate: result[0].startDate,
         endTime: result[0].startTime,
+        djProfiles: [{ email: '' }],
       });
     } else if (firstSlotStart < showStartTs) {
       result[0].startDate = showStartDate;
@@ -271,22 +296,38 @@ export function SlotModal({
     }
   };
 
-  // Lookup DJ profile for a venue DJ slot
-  const lookupVenueDjProfile = async (slotId: string, email: string) => {
+  // Lookup DJ profile for a specific DJ in a B3B slot
+  const lookupDjProfileInSlot = async (slotId: string, profileIndex: number, email: string) => {
     if (!email || !email.includes('@')) {
       // Clear profile fields if email is invalid
-      setDjSlots(prev => prev.map(dj =>
-        dj.id === slotId
-          ? { ...dj, profileFound: false, isLookingUp: false, djUserId: undefined, djUsername: undefined, djBio: undefined, djPhotoUrl: undefined, djPromoText: undefined, djPromoHyperlink: undefined, djThankYouMessage: undefined, djSocialLinks: undefined }
-          : dj
-      ));
+      setDjSlots(prev => prev.map(dj => {
+        if (dj.id !== slotId) return dj;
+        const updatedProfiles = [...dj.djProfiles];
+        updatedProfiles[profileIndex] = {
+          ...updatedProfiles[profileIndex],
+          profileFound: false,
+          isLookingUp: false,
+          userId: undefined,
+          username: undefined,
+          bio: undefined,
+          photoUrl: undefined,
+          promoText: undefined,
+          promoHyperlink: undefined,
+          thankYouMessage: undefined,
+          socialLinks: undefined,
+        };
+        return { ...dj, djProfiles: updatedProfiles };
+      }));
       return;
     }
 
     // Set loading state
-    setDjSlots(prev => prev.map(dj =>
-      dj.id === slotId ? { ...dj, isLookingUp: true } : dj
-    ));
+    setDjSlots(prev => prev.map(dj => {
+      if (dj.id !== slotId) return dj;
+      const updatedProfiles = [...dj.djProfiles];
+      updatedProfiles[profileIndex] = { ...updatedProfiles[profileIndex], isLookingUp: true };
+      return { ...dj, djProfiles: updatedProfiles };
+    }));
 
     try {
       const res = await fetch(`/api/users/lookup-by-email?email=${encodeURIComponent(email)}`);
@@ -294,45 +335,81 @@ export function SlotModal({
 
       setDjSlots(prev => prev.map(dj => {
         if (dj.id !== slotId) return dj;
+        const updatedProfiles = [...dj.djProfiles];
 
         if (data.found) {
-          return {
-            ...dj,
+          updatedProfiles[profileIndex] = {
+            ...updatedProfiles[profileIndex],
             isLookingUp: false,
             profileFound: true,
-            djUserId: data.djUserId,
-            djUsername: data.djUsername,
-            djBio: data.djBio,
-            djPhotoUrl: data.djPhotoUrl,
-            djPromoText: data.djPromoText,
-            djPromoHyperlink: data.djPromoHyperlink,
-            djThankYouMessage: data.djThankYouMessage,
-            djSocialLinks: data.djSocialLinks,
-            // Auto-fill DJ name if empty
-            djName: dj.djName || data.djName || dj.djName,
+            userId: data.djUserId,
+            username: data.djUsername,
+            bio: data.djBio,
+            photoUrl: data.djPhotoUrl,
+            promoText: data.djPromoText,
+            promoHyperlink: data.djPromoHyperlink,
+            thankYouMessage: data.djThankYouMessage,
+            socialLinks: data.djSocialLinks,
           };
         } else {
-          return {
-            ...dj,
+          updatedProfiles[profileIndex] = {
+            ...updatedProfiles[profileIndex],
             isLookingUp: false,
             profileFound: false,
-            djUserId: undefined,
-            djUsername: undefined,
-            djBio: undefined,
-            djPhotoUrl: undefined,
-            djPromoText: undefined,
-            djPromoHyperlink: undefined,
-            djThankYouMessage: undefined,
-            djSocialLinks: undefined,
+            userId: undefined,
+            username: undefined,
+            bio: undefined,
+            photoUrl: undefined,
+            promoText: undefined,
+            promoHyperlink: undefined,
+            thankYouMessage: undefined,
+            socialLinks: undefined,
           };
         }
+
+        return { ...dj, djProfiles: updatedProfiles };
       }));
     } catch (error) {
       console.error('Failed to lookup DJ profile:', error);
-      setDjSlots(prev => prev.map(dj =>
-        dj.id === slotId ? { ...dj, isLookingUp: false, profileFound: false } : dj
-      ));
+      setDjSlots(prev => prev.map(dj => {
+        if (dj.id !== slotId) return dj;
+        const updatedProfiles = [...dj.djProfiles];
+        updatedProfiles[profileIndex] = { ...updatedProfiles[profileIndex], isLookingUp: false, profileFound: false };
+        return { ...dj, djProfiles: updatedProfiles };
+      }));
     }
+  };
+
+  // Add a new DJ profile to a slot (for B3B)
+  const addDjProfileToSlot = (slotId: string) => {
+    setDjSlots(prev => prev.map(dj =>
+      dj.id === slotId
+        ? { ...dj, djProfiles: [...dj.djProfiles, { email: '' }] }
+        : dj
+    ));
+  };
+
+  // Remove a DJ profile from a slot
+  const removeDjProfileFromSlot = (slotId: string, profileIndex: number) => {
+    setDjSlots(prev => prev.map(dj => {
+      if (dj.id !== slotId) return dj;
+      // Don't remove if it's the last profile
+      if (dj.djProfiles.length <= 1) return dj;
+      return {
+        ...dj,
+        djProfiles: dj.djProfiles.filter((_, i) => i !== profileIndex),
+      };
+    }));
+  };
+
+  // Update a DJ profile's email in a slot
+  const updateDjProfileEmail = (slotId: string, profileIndex: number, email: string) => {
+    setDjSlots(prev => prev.map(dj => {
+      if (dj.id !== slotId) return dj;
+      const updatedProfiles = [...dj.djProfiles];
+      updatedProfiles[profileIndex] = { ...updatedProfiles[profileIndex], email };
+      return { ...dj, djProfiles: updatedProfiles };
+    }));
   };
 
   // Check if this is an overnight show
@@ -368,6 +445,42 @@ export function SlotModal({
           setDjSlots(slot.djSlots.map(dj => {
             const djStart = new Date(dj.startTime);
             const djEnd = new Date(dj.endTime);
+
+            // Convert djProfiles array or create from legacy single-DJ fields
+            let djProfiles: LocalDJProfile[] = [];
+            if (dj.djProfiles && dj.djProfiles.length > 0) {
+              // Use existing djProfiles array
+              djProfiles = dj.djProfiles.map(p => ({
+                email: p.email || '',
+                userId: p.userId,
+                username: p.username,
+                bio: p.bio,
+                photoUrl: p.photoUrl,
+                promoText: p.promoText,
+                promoHyperlink: p.promoHyperlink,
+                thankYouMessage: p.thankYouMessage,
+                socialLinks: p.socialLinks,
+                profileFound: !!p.userId,
+              }));
+            } else if (dj.djEmail) {
+              // Migrate from legacy single-DJ fields
+              djProfiles = [{
+                email: dj.djEmail,
+                userId: dj.djUserId,
+                username: dj.djUsername,
+                bio: dj.djBio,
+                photoUrl: dj.djPhotoUrl,
+                promoText: dj.djPromoText,
+                promoHyperlink: dj.djPromoHyperlink,
+                thankYouMessage: dj.djThankYouMessage,
+                socialLinks: dj.djSocialLinks,
+                profileFound: !!dj.djUserId,
+              }];
+            } else {
+              // No DJ info, start with empty profile
+              djProfiles = [{ email: '' }];
+            }
+
             return {
               id: dj.id,
               djName: dj.djName || '',
@@ -375,7 +488,7 @@ export function SlotModal({
               startTime: snapToHalfHour(djStart.toTimeString().slice(0, 5)),
               endDate: formatLocalDate(djEnd),
               endTime: snapToHalfHour(djEnd.toTimeString().slice(0, 5)),
-              // Profile fields
+              // Legacy fields (from first profile for backwards compat)
               djEmail: dj.djEmail,
               djUserId: dj.djUserId,
               djUsername: dj.djUsername,
@@ -385,8 +498,9 @@ export function SlotModal({
               djPromoHyperlink: dj.djPromoHyperlink,
               djThankYouMessage: dj.djThankYouMessage,
               djSocialLinks: dj.djSocialLinks,
-              // Set profileFound if we have a userId
               profileFound: !!dj.djUserId,
+              // B3B support
+              djProfiles,
             };
           }));
         } else {
@@ -473,22 +587,44 @@ export function SlotModal({
 
       // Convert local DJ slots to timestamps using explicit dates, including all profile fields
       const convertedDjSlots: DJSlot[] | undefined = broadcastType === 'venue' && slotsToSave.length > 0
-        ? slotsToSave.map(dj => ({
-            id: dj.id,
-            djName: dj.djName || undefined,
-            startTime: new Date(`${dj.startDate}T${dj.startTime}`).getTime(),
-            endTime: new Date(`${dj.endDate}T${dj.endTime}`).getTime(),
-            // Pre-populated profile fields from email lookup
-            djEmail: dj.djEmail || undefined,
-            djUserId: dj.djUserId || undefined,
-            djUsername: dj.djUsername || undefined,
-            djBio: dj.djBio || undefined,
-            djPhotoUrl: dj.djPhotoUrl || undefined,
-            djPromoText: dj.djPromoText || undefined,
-            djPromoHyperlink: dj.djPromoHyperlink || undefined,
-            djThankYouMessage: dj.djThankYouMessage || undefined,
-            djSocialLinks: dj.djSocialLinks || undefined,
-          }))
+        ? slotsToSave.map(dj => {
+            // Get first profile for legacy single-DJ fields (backwards compatibility)
+            const firstProfile = dj.djProfiles.find(p => p.email) || dj.djProfiles[0];
+
+            // Convert djProfiles array to DJProfileInfo format (filter out empty emails)
+            const djProfiles: DJProfileInfo[] = dj.djProfiles
+              .filter(p => p.email)
+              .map(p => ({
+                email: p.email || undefined,
+                userId: p.userId || undefined,
+                username: p.username || undefined,
+                bio: p.bio || undefined,
+                photoUrl: p.photoUrl || undefined,
+                promoText: p.promoText || undefined,
+                promoHyperlink: p.promoHyperlink || undefined,
+                thankYouMessage: p.thankYouMessage || undefined,
+                socialLinks: p.socialLinks || undefined,
+              }));
+
+            return {
+              id: dj.id,
+              djName: dj.djName || undefined,
+              startTime: new Date(`${dj.startDate}T${dj.startTime}`).getTime(),
+              endTime: new Date(`${dj.endDate}T${dj.endTime}`).getTime(),
+              // Legacy single-DJ fields (from first profile for backwards compatibility)
+              djEmail: firstProfile?.email || undefined,
+              djUserId: firstProfile?.userId || undefined,
+              djUsername: firstProfile?.username || undefined,
+              djBio: firstProfile?.bio || undefined,
+              djPhotoUrl: firstProfile?.photoUrl || undefined,
+              djPromoText: firstProfile?.promoText || undefined,
+              djPromoHyperlink: firstProfile?.promoHyperlink || undefined,
+              djThankYouMessage: firstProfile?.thankYouMessage || undefined,
+              djSocialLinks: firstProfile?.socialLinks || undefined,
+              // B3B support: all DJ profiles
+              djProfiles: djProfiles.length > 0 ? djProfiles : undefined,
+            };
+          })
         : undefined;
 
       await onSave({
@@ -579,7 +715,7 @@ Time: ${formattedStart} – ${formattedEnd} ${djTz}
 
 Your DJ profile is what listeners see on our calendar, in your show details, and while you're live. A complete profile helps people connect with you and support your work.
 
-Please take a few minutes to set up your DJ profile:
+Please take a few minutes to set up your DJ profile. IMPORTANT: Sign up using THIS email address (${djEmail}) so we can link your profile to your scheduled show.
 → https://channel-app.com/studio
 
 • Connect Stripe so you can receive listener support during your set. If Stripe isn't connected, listeners can still send support — but payouts will be delayed until you finish setup.
@@ -642,6 +778,7 @@ See you on air,
         startTime: startTime,
         endDate: endDate,
         endTime: endTime,
+        djProfiles: [{ email: '' }],
       }]);
     } else {
       // New slot starts at last slot's end, ends at show end
@@ -653,6 +790,7 @@ See you on air,
         startTime: lastSlot.endTime,
         endDate: endDate,
         endTime: endTime,
+        djProfiles: [{ email: '' }],
       }]);
     }
   };
@@ -940,32 +1078,50 @@ See you on air,
                         </svg>
                       </button>
                     </div>
-                    {/* DJ Email with profile lookup */}
-                    <div className="flex items-center gap-2 ml-6 mb-2">
-                      <input
-                        type="email"
-                        value={dj.djEmail || ''}
-                        onChange={(e) => {
-                          const newEmail = e.target.value;
-                          setDjSlots(prev => prev.map(slot =>
-                            slot.id === dj.id ? { ...slot, djEmail: newEmail } : slot
-                          ));
-                        }}
-                        onBlur={(e) => lookupVenueDjProfile(dj.id, e.target.value)}
-                        placeholder="DJ Email (for tips & profile)"
-                        className="flex-1 bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:border-gray-500"
-                      />
-                      {dj.isLookingUp && (
-                        <span className="text-xs text-gray-400">Looking up...</span>
-                      )}
-                      {!dj.isLookingUp && dj.profileFound && (
-                        <span className="text-xs text-green-400 flex items-center gap-1">
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                          Profile found
-                        </span>
-                      )}
+                    {/* DJ Emails with profile lookup (supports B3B with multiple DJs) */}
+                    <div className="space-y-2 ml-6 mb-2">
+                      {dj.djProfiles.map((profile, profileIndex) => (
+                        <div key={profileIndex} className="flex items-center gap-2">
+                          <input
+                            type="email"
+                            value={profile.email}
+                            onChange={(e) => updateDjProfileEmail(dj.id, profileIndex, e.target.value)}
+                            onBlur={(e) => lookupDjProfileInSlot(dj.id, profileIndex, e.target.value)}
+                            placeholder={dj.djProfiles.length > 1 ? `DJ ${profileIndex + 1} Email` : "DJ Email (for tips & profile)"}
+                            className="flex-1 bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:border-gray-500"
+                          />
+                          {profile.isLookingUp && (
+                            <span className="text-xs text-gray-400">Looking up...</span>
+                          )}
+                          {!profile.isLookingUp && profile.profileFound && (
+                            <span className="text-xs text-green-400 flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              {profile.username || 'Found'}
+                            </span>
+                          )}
+                          {dj.djProfiles.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeDjProfileFromSlot(dj.id, profileIndex)}
+                              className="p-1 text-gray-500 hover:text-red-400 transition-colors"
+                              title="Remove this DJ"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => addDjProfileToSlot(dj.id)}
+                        className="text-xs text-gray-400 hover:text-gray-300 transition-colors"
+                      >
+                        + Add another DJ (B3B)
+                      </button>
                     </div>
                     {/* Time selection - show dates for multi-day shows */}
                     <div className="flex items-center gap-2 ml-6 flex-wrap">
