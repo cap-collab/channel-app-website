@@ -216,13 +216,11 @@ export function NextFavoriteShow({ onAuthRequired, currentShow, currentDJ }: Nex
   const watchlist = favorites.filter((f) => f.type === 'search');
 
   // Find live, upcoming, and returning soon shows
-  const { liveShows, upcomingShows, returningSoon, watchlistMatches } = useMemo(() => {
+  const { liveShows, upcomingShows, returningSoon } = useMemo(() => {
     const now = new Date();
     const live: { favorite: Favorite; show: Show }[] = [];
     const upcoming: { favorite: Favorite; show: Show }[] = [];
     const returning: Favorite[] = [];
-    const watchlistLive: { favorite: Favorite; show: Show }[] = [];
-    const watchlistUpcoming: { favorite: Favorite; show: Show }[] = [];
 
     for (const favorite of stationShows) {
       const matchingShows = findMatchingShows(favorite, allShows);
@@ -251,36 +249,8 @@ export function NextFavoriteShow({ onAuthRequired, currentShow, currentDJ }: Nex
       }
     }
 
-    // Also check watchlist items for matches against all shows
-    for (const favorite of watchlist) {
-      const matchingShows = findMatchingShows(favorite, allShows);
-
-      // Find currently live shows
-      const currentlyLive = matchingShows.filter((show) => {
-        const start = new Date(show.startTime);
-        const end = new Date(show.endTime);
-        return start <= now && end > now;
-      });
-
-      if (currentlyLive.length > 0) {
-        watchlistLive.push({ favorite, show: currentlyLive[0] });
-      }
-
-      // Find upcoming shows (future)
-      const upcomingMatches = matchingShows
-        .filter((show) => new Date(show.startTime) > now)
-        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-
-      if (upcomingMatches.length > 0) {
-        watchlistUpcoming.push({ favorite, show: upcomingMatches[0] });
-      }
-    }
-
-    // Sort all by show start time
+    // Sort upcoming by show start time
     upcoming.sort(
-      (a, b) => new Date(a.show.startTime).getTime() - new Date(b.show.startTime).getTime()
-    );
-    watchlistUpcoming.sort(
       (a, b) => new Date(a.show.startTime).getTime() - new Date(b.show.startTime).getTime()
     );
 
@@ -288,9 +258,8 @@ export function NextFavoriteShow({ onAuthRequired, currentShow, currentDJ }: Nex
       liveShows: live,
       upcomingShows: upcoming,
       returningSoon: returning,
-      watchlistMatches: { live: watchlistLive, upcoming: watchlistUpcoming },
     };
-  }, [stationShows, watchlist, allShows]);
+  }, [stationShows, allShows]);
 
   // Check if there's content to show
   const hasLiveShows = liveShows.length > 0;
@@ -629,92 +598,22 @@ export function NextFavoriteShow({ onAuthRequired, currentShow, currentDJ }: Nex
 
             {/* Right column: Watchlist */}
             {hasWatchlist ? (
-              <div className="flex-1 min-w-0 space-y-2">
-                {/* Watchlist Live Now */}
-                {watchlistMatches.live.length > 0 && (
-                  <div>
-                    <p className="text-red-400 text-[10px] uppercase tracking-wide mb-1 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                      Live Now
-                    </p>
-                    <div className="space-y-1">
-                      {(isExpanded ? watchlistMatches.live : watchlistMatches.live.slice(0, 2)).map(({ favorite, show }) => {
-                        const station = getStation(show.stationId);
-                        const accentColor = station?.accentColor || '#fff';
-                        return (
-                          <div key={show.id} className="flex items-center gap-2">
-                            <div
-                              className="w-1 h-8 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: accentColor }}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-white text-xs truncate"><span className="font-medium">{show.name}</span>{show.dj && <span className="text-gray-400"> · {show.dj}</span>}</p>
-                              <p className="text-[10px] text-gray-500">
-                                watching &quot;{favorite.term}&quot;
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
+              <div className="flex-1 min-w-0">
+                <div className="grid grid-cols-2 gap-1">
+                  {(isExpanded ? watchlist : watchlist.slice(0, 6)).map((fav) => (
+                    <div key={fav.id} className="flex items-center gap-1.5">
+                      <div className="w-1 h-5 rounded-full flex-shrink-0 bg-gray-700" />
+                      <span className="text-white text-xs font-medium truncate">
+                        {fav.term}
+                      </span>
                     </div>
-                  </div>
-                )}
-
-                {/* Watchlist Upcoming */}
-                {watchlistMatches.upcoming.length > 0 && (
-                  <div>
-                    <p className="text-gray-500 text-[10px] uppercase tracking-wide mb-1">Coming Up</p>
-                    <div className="space-y-1">
-                      {(isExpanded ? watchlistMatches.upcoming : watchlistMatches.upcoming.slice(0, 3)).map(({ favorite, show }) => {
-                        const station = getStation(show.stationId);
-                        const accentColor = station?.accentColor || '#fff';
-                        return (
-                          <div key={show.id} className="flex items-center gap-2">
-                            <div
-                              className="w-1 h-8 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: accentColor }}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-white text-xs truncate"><span className="font-medium">{show.name}</span>{show.dj && <span className="text-gray-400"> · {show.dj}</span>}</p>
-                              <div className="flex items-center gap-1 text-[10px]">
-                                <span className="text-gray-500">&quot;{favorite.term}&quot;</span>
-                                <span className="text-gray-600">·</span>
-                                <span className="text-gray-400">{formatShowTime(show.startTime)}</span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Watchlist items without matches */}
-                {(() => {
-                  const matchedTerms = new Set([
-                    ...watchlistMatches.live.map(m => m.favorite.term),
-                    ...watchlistMatches.upcoming.map(m => m.favorite.term),
-                  ]);
-                  const unmatchedWatchlist = watchlist.filter(f => !matchedTerms.has(f.term));
-                  if (unmatchedWatchlist.length === 0) return null;
-                  return (
-                    <div className="grid grid-cols-2 gap-1">
-                      {(isExpanded ? unmatchedWatchlist : unmatchedWatchlist.slice(0, 6)).map((fav) => (
-                        <div key={fav.id} className="flex items-center gap-1.5">
-                          <div className="w-1 h-5 rounded-full flex-shrink-0 bg-gray-700" />
-                          <span className="text-gray-400 text-xs truncate">
-                            {fav.term}
-                          </span>
-                        </div>
-                      ))}
-                      {!isExpanded && unmatchedWatchlist.length > 6 && (
-                        <span className="text-gray-500 text-[10px]">
-                          +{unmatchedWatchlist.length - 6} more
-                        </span>
-                      )}
-                    </div>
-                  );
-                })()}
+                  ))}
+                  {!isExpanded && watchlist.length > 6 && (
+                    <span className="text-gray-500 text-[10px]">
+                      +{watchlist.length - 6} more
+                    </span>
+                  )}
+                </div>
 
                 {/* Follow current DJ button */}
                 {hasDJToFollow && (

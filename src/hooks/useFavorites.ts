@@ -201,7 +201,7 @@ export function useFavorites() {
     [isShowFavorited, addFavorite, removeFavorite]
   );
 
-  // Add a search term to watchlist
+  // Add a search term to watchlist and auto-add matching shows to favorites
   const addToWatchlist = useCallback(
     async (term: string): Promise<boolean> => {
       if (!user || !db) return false;
@@ -212,11 +212,13 @@ export function useFavorites() {
         // Check if already exists
         const q = query(
           favoritesRef,
-          where("term", "==", term.toLowerCase())
+          where("term", "==", term.toLowerCase()),
+          where("type", "==", "search")
         );
         const existing = await getDocs(q);
         if (!existing.empty) return true;
 
+        // Add the watchlist term
         await addDoc(favoritesRef, {
           term: term.toLowerCase(),
           type: "search",
@@ -226,6 +228,59 @@ export function useFavorites() {
           createdAt: serverTimestamp(),
           createdBy: "web",
         });
+
+        // Also find and add matching shows to favorites
+        console.log(`[addToWatchlist] Searching for shows matching "${term}"`);
+        const allShows = await getAllShows();
+
+        // Find shows where DJ name matches the term (word boundary match)
+        const matchingShows = allShows.filter((show) => {
+          if (!show.dj) return false;
+          return matchesAsWord(show.dj, term);
+        });
+        console.log(`[addToWatchlist] Found ${matchingShows.length} shows matching DJ "${term}"`);
+
+        // Also find shows where show name matches
+        const nameMatches = allShows.filter((show) => {
+          return matchesAsWord(show.name, term);
+        });
+        console.log(`[addToWatchlist] Found ${nameMatches.length} shows matching show name "${term}"`);
+
+        // Combine and dedupe
+        const allMatches = [...matchingShows, ...nameMatches];
+        const seen = new Set<string>();
+        const uniqueShows = allMatches.filter((show) => {
+          const key = `${show.name.toLowerCase()}-${show.stationId}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+
+        // Add each matching show to favorites
+        let addedCount = 0;
+        for (const show of uniqueShows) {
+          // Check if already favorited
+          const existingFav = query(
+            favoritesRef,
+            where("term", "==", show.name.toLowerCase()),
+            where("stationId", "==", show.stationId)
+          );
+          const favExists = await getDocs(existingFav);
+          if (favExists.empty) {
+            console.log(`[addToWatchlist] Auto-adding show to favorites: ${show.name} (${show.stationId})`);
+            await addDoc(favoritesRef, {
+              term: show.name.toLowerCase(),
+              type: "show",
+              showName: show.name,
+              djName: show.dj || null,
+              stationId: show.stationId,
+              createdAt: serverTimestamp(),
+              createdBy: "web",
+            });
+            addedCount++;
+          }
+        }
+        console.log(`[addToWatchlist] Auto-added ${addedCount} shows to favorites`);
 
         return true;
       } catch (error) {
