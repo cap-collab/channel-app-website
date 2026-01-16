@@ -6,6 +6,8 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { Header } from '@/components/Header';
 import { CompactPlayer } from '@/components/channel/CompactPlayer';
+import { NowPlayingCard } from '@/components/channel/NowPlayingCard';
+import { ComingUpNext } from '@/components/channel/ComingUpNext';
 import { NextFavoriteShow } from '@/components/channel/NextFavoriteShow';
 import { TVGuideSchedule } from '@/components/channel/TVGuideSchedule';
 import { ListenerChatPanel } from '@/components/channel/ListenerChatPanel';
@@ -212,12 +214,12 @@ export function ChannelClient() {
       <main className="max-w-7xl mx-auto flex-1 min-h-0 w-full flex flex-col">
         {/* Desktop layout */}
         <div className="hidden lg:flex lg:flex-col lg:h-full">
-          {/* Top section: Player + Search + Favorites | Chat */}
+          {/* Top section: Now Playing + Coming Up Next | Chat */}
           <div className="flex-shrink-0 flex border-b border-gray-800 items-stretch">
-            {/* Left column: Player + Search/Favorites */}
+            {/* Left column: Now Playing Card + Coming Up Next */}
             <div className="flex-1 p-4 space-y-4">
-              {/* Compact Player */}
-              <CompactPlayer
+              {/* Now Playing Card (larger player panel) */}
+              <NowPlayingCard
                 isPlaying={isPlaying}
                 isLoading={isLoading}
                 isLive={isLive}
@@ -239,12 +241,12 @@ export function ChannelClient() {
                 djProfiles={djProfiles}
               />
 
-              {/* Search + Favorites */}
-              <NextFavoriteShow onAuthRequired={handleAuthRequired} currentShow={currentShowAsShow} currentDJ={currentDJ} />
+              {/* Coming Up Next (next 2 shows) */}
+              <ComingUpNext onAuthRequired={handleAuthRequired} />
             </div>
 
-            {/* Right column: Chat - fixed height, scrolls internally */}
-            <div className="w-80 border-l border-gray-800 flex flex-col p-4 max-h-[500px]">
+            {/* Right column: Chat - scrolls internally */}
+            <div className="w-96 border-l border-gray-800 flex flex-col p-4">
               <ListenerChatPanel
                 isAuthenticated={isAuthenticated}
                 username={username}

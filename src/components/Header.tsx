@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/AuthModal";
 import { MobileMenu, MobileMenuItem } from "@/components/MobileMenu";
+import { HeaderSearch } from "@/components/HeaderSearch";
 import { useBroadcastLiveStatus } from "@/hooks/useBroadcastLiveStatus";
 import { useUserRole, isDJ } from "@/hooks/useUserRole";
 
@@ -102,6 +103,11 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
                 DJ Studio
               </Link>
             )}
+          </div>
+
+          {/* Center: Search bar - hidden on mobile */}
+          <div className="hidden md:flex flex-1 justify-center px-4">
+            <HeaderSearch onAuthRequired={() => setShowAuthModal(true)} />
           </div>
 
           <div className="flex items-center gap-3 md:gap-4">
