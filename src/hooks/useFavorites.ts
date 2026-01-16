@@ -203,6 +203,7 @@ export function useFavorites() {
 
   // Add a search term to watchlist and auto-add matching shows to favorites
   // Optional djUserId/djEmail for more reliable matching of broadcast shows
+  // If not provided, will try to look up a DJ by normalized username matching the term
   const addToWatchlist = useCallback(
     async (term: string, djUserId?: string, djEmail?: string): Promise<boolean> => {
       if (!user || !db) return false;
@@ -230,8 +231,28 @@ export function useFavorites() {
           createdBy: "web",
         });
 
+        // If no djUserId/djEmail provided, try to find a DJ by normalized username
+        let resolvedDjUserId = djUserId;
+        let resolvedDjEmail = djEmail;
+        if (!djUserId && !djEmail) {
+          // Normalize the search term the same way as chatUsernameNormalized
+          const normalizedTerm = term.replace(/[\s-]+/g, "").toLowerCase();
+          const usersRef = collection(db, "users");
+          const djQuery = query(
+            usersRef,
+            where("chatUsernameNormalized", "==", normalizedTerm)
+          );
+          const djSnapshot = await getDocs(djQuery);
+          if (!djSnapshot.empty) {
+            const djDoc = djSnapshot.docs[0];
+            resolvedDjUserId = djDoc.id;
+            resolvedDjEmail = djDoc.data().email as string | undefined;
+            console.log(`[addToWatchlist] Found DJ by username "${term}": userId=${resolvedDjUserId}, email=${resolvedDjEmail}`);
+          }
+        }
+
         // Also find and add matching shows to favorites
-        console.log(`[addToWatchlist] Searching for shows matching "${term}"${djUserId ? `, userId: ${djUserId}` : ""}${djEmail ? `, email: ${djEmail}` : ""}`);
+        console.log(`[addToWatchlist] Searching for shows matching "${term}"${resolvedDjUserId ? `, userId: ${resolvedDjUserId}` : ""}${resolvedDjEmail ? `, email: ${resolvedDjEmail}` : ""}`);
         const allShows = await getAllShows();
 
         // Find shows where DJ name matches the term (word boundary match)
@@ -247,9 +268,9 @@ export function useFavorites() {
         });
         console.log(`[addToWatchlist] Found ${nameMatches.length} shows matching show name "${term}"`);
 
-        // If djUserId or djEmail provided, also match broadcast-slots by userId/email
+        // If djUserId or djEmail available (passed or resolved), also match broadcast-slots by userId/email
         const broadcastMatches: Show[] = [];
-        if (djUserId || djEmail) {
+        if (resolvedDjUserId || resolvedDjEmail) {
           const now = new Date();
           const slotsRef = collection(db, "broadcast-slots");
           const slotsQuery = query(
@@ -269,8 +290,8 @@ export function useFavorites() {
             const slotDjEmail = data.djEmail as string | undefined;
             const slotLiveDjUserId = data.liveDjUserId as string | undefined;
 
-            const matchesUserId = djUserId && (slotDjUserId === djUserId || slotLiveDjUserId === djUserId);
-            const matchesEmail = djEmail && slotDjEmail?.toLowerCase() === djEmail.toLowerCase();
+            const matchesUserId = resolvedDjUserId && (slotDjUserId === resolvedDjUserId || slotLiveDjUserId === resolvedDjUserId);
+            const matchesEmail = resolvedDjEmail && slotDjEmail?.toLowerCase() === resolvedDjEmail.toLowerCase();
 
             // Also check djSlots for venue broadcasts
             const djSlots = data.djSlots as Array<{
@@ -285,8 +306,8 @@ export function useFavorites() {
             let matchInSlots = false;
             if (djSlots && djSlots.length > 0) {
               matchInSlots = djSlots.some((slot) => {
-                const slotMatchUserId = djUserId && (slot.djUserId === djUserId || slot.liveDjUserId === djUserId);
-                const slotMatchEmail = djEmail && slot.djEmail?.toLowerCase() === djEmail.toLowerCase();
+                const slotMatchUserId = resolvedDjUserId && (slot.djUserId === resolvedDjUserId || slot.liveDjUserId === resolvedDjUserId);
+                const slotMatchEmail = resolvedDjEmail && slot.djEmail?.toLowerCase() === resolvedDjEmail.toLowerCase();
                 return slotMatchUserId || slotMatchEmail;
               });
             }

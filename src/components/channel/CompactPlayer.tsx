@@ -90,9 +90,6 @@ export function CompactPlayer({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <p className="text-white font-medium truncate">{stationName}</p>
-          {isLive && (
-            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0" />
-          )}
           {/* Listener and love counts - on same line as station name */}
           {isLive && (
             <span className="flex items-center gap-2 text-gray-400 text-sm flex-shrink-0">
