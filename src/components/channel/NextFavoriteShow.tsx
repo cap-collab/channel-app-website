@@ -268,7 +268,8 @@ export function NextFavoriteShow({ onAuthRequired, currentShow, currentDJ }: Nex
   const hasWatchlist = watchlist.length > 0;
   // Show the favorites section if there's content, OR if there's a current show/DJ to add
   const hasShowToAdd = currentShow && !isCurrentShowFavorited;
-  const hasDJToFollow = djName && !isDJInWatchlist;
+  // Show "Follow DJ" button if there's a DJ and either not authenticated OR not already in watchlist
+  const hasDJToFollow = djName && (!isAuthenticated || !isDJInWatchlist);
   const hasContent = hasLiveShows || hasUpcomingShows || hasReturningSoon || hasWatchlist || hasShowToAdd || hasDJToFollow;
 
   return (
@@ -449,7 +450,7 @@ export function NextFavoriteShow({ onAuthRequired, currentShow, currentDJ }: Nex
               </h3>
             </div>
             {/* Right: Watchlist title - show if watchlist exists OR if there's a DJ to follow */}
-            {(hasWatchlist || (djName && !isDJInWatchlist)) && (
+            {(hasWatchlist || hasDJToFollow) && (
               <div className="flex-1 min-w-0">
                 <h3 className="text-gray-500 text-[10px] uppercase tracking-wide flex items-center gap-1">
                   <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -615,7 +616,7 @@ export function NextFavoriteShow({ onAuthRequired, currentShow, currentDJ }: Nex
                 </div>
 
                 {/* Follow current DJ button */}
-                {djName && !isDJInWatchlist && (
+                {hasDJToFollow && (
                   <button
                     onClick={handleAddDJToWatchlist}
                     disabled={addingDJToWatchlist}
@@ -628,11 +629,11 @@ export function NextFavoriteShow({ onAuthRequired, currentShow, currentDJ }: Nex
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                       </svg>
                     )}
-                    <span>Follow {djName}</span>
+                    <span>+ add {djName} to watchlist</span>
                   </button>
                 )}
               </div>
-            ) : djName && !isDJInWatchlist ? (
+            ) : hasDJToFollow ? (
               /* Show Follow DJ button even if no watchlist items exist yet */
               <div className="flex-1 min-w-0">
                 <button
@@ -647,7 +648,7 @@ export function NextFavoriteShow({ onAuthRequired, currentShow, currentDJ }: Nex
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                     </svg>
                   )}
-                  <span>Follow {djName}</span>
+                  <span>+ add {djName} to watchlist</span>
                 </button>
               </div>
             ) : null}
