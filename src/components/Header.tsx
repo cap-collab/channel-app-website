@@ -111,12 +111,12 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
           </div>
 
           <div className="flex items-center gap-3 md:gap-4">
-            {/* iOS Beta button */}
+            {/* iOS Beta button - hidden on mobile, shown on desktop */}
             <a
               href="https://testflight.apple.com/join/HcKTJ1nH"
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-white text-black px-3 sm:px-4 py-1.5 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all whitespace-nowrap"
+              className="hidden md:block bg-white text-black px-3 sm:px-4 py-1.5 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all whitespace-nowrap"
             >
               iOS Beta
             </a>

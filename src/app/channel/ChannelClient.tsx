@@ -5,7 +5,6 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { Header } from '@/components/Header';
-import { CompactPlayer } from '@/components/channel/CompactPlayer';
 import { NowPlayingCard } from '@/components/channel/NowPlayingCard';
 import { ComingUpNext } from '@/components/channel/ComingUpNext';
 import { NextFavoriteShow } from '@/components/channel/NextFavoriteShow';
@@ -30,7 +29,6 @@ interface TipSuccessData {
 export function ChannelClient() {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername, loading: profileLoading, setChatUsername } = useUserProfile(user?.uid);
-  const [activeTab, setActiveTab] = useState<'chat' | 'schedule'>('schedule');
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -270,10 +268,10 @@ export function ChannelClient() {
         </div>
 
         {/* Mobile layout */}
-        <div className="lg:hidden flex flex-col h-full">
-          {/* Compact Player */}
+        <div className="lg:hidden flex flex-col overflow-y-auto">
+          {/* Now Playing Card (full info like desktop) */}
           <div className="flex-shrink-0 p-4 pb-2">
-            <CompactPlayer
+            <NowPlayingCard
               isPlaying={isPlaying}
               isLoading={isLoading}
               isLive={isLive}
@@ -296,42 +294,14 @@ export function ChannelClient() {
             />
           </div>
 
-          {/* Search + Favorites */}
+          {/* Search bar (mobile) */}
           <div className="flex-shrink-0 px-4 pb-2">
             <NextFavoriteShow onAuthRequired={handleAuthRequired} currentShow={currentShowAsShow} currentDJ={currentDJ} />
           </div>
 
-          {/* Tab navigation */}
-          <div className="flex-shrink-0 flex border-b border-gray-800">
-            <button
-              onClick={() => setActiveTab('schedule')}
-              className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                activeTab === 'schedule'
-                  ? 'text-white border-b-2 border-accent'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              Schedule
-            </button>
-            <button
-              onClick={() => setActiveTab('chat')}
-              className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                activeTab === 'chat'
-                  ? 'text-white border-b-2 border-accent'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              Chat
-            </button>
-          </div>
-
-          {/* Tab content - min-h-0 is critical for flex children to shrink properly */}
-          <div className="flex-1 min-h-0">
-            {activeTab === 'schedule' ? (
-              <div className="h-full overflow-y-auto p-4">
-                <TVGuideSchedule onAuthRequired={handleAuthRequired} />
-              </div>
-            ) : (
+          {/* Chat */}
+          <div className="flex-shrink-0 px-4 pb-4">
+            <div className="bg-surface-card rounded-xl overflow-hidden" style={{ height: '300px' }}>
               <ListenerChatPanel
                 isAuthenticated={isAuthenticated}
                 username={username}
@@ -345,7 +315,17 @@ export function ChannelClient() {
                 profileLoading={profileLoading}
                 onSetUsername={setChatUsername}
               />
-            )}
+            </div>
+          </div>
+
+          {/* Coming Up Next */}
+          <div className="flex-shrink-0 px-4 pb-4">
+            <ComingUpNext onAuthRequired={handleAuthRequired} />
+          </div>
+
+          {/* TV Guide Schedule at the bottom */}
+          <div className="flex-shrink-0 p-4 pt-0">
+            <TVGuideSchedule onAuthRequired={handleAuthRequired} />
           </div>
         </div>
       </main>
