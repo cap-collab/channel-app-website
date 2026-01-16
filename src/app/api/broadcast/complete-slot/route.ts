@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { BroadcastSlot } from '@/types/broadcast';
+import { BroadcastSlot, Recording } from '@/types/broadcast';
 
 // POST - Mark a slot as completed (called when slot end time passes)
 export async function POST(request: NextRequest) {
@@ -60,7 +60,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, status: slot.status });
     }
 
-    await slotRef.update({ status: newStatus });
+    // Update status and mark any active recordings as 'processing'
+    const updateData: Record<string, unknown> = { status: newStatus };
+
+    // Mark all active recordings as 'processing' (they'll be updated to 'ready' by webhook)
+    if (slot.recordings && slot.recordings.length > 0) {
+      const updatedRecordings = slot.recordings.map((rec: Recording) => {
+        if (rec.status === 'recording') {
+          return { ...rec, status: 'processing' as const, endedAt: Date.now() };
+        }
+        return rec;
+      });
+      updateData.recordings = updatedRecordings;
+    }
+
+    // Also update legacy field if present
+    if (slot.recordingStatus === 'recording') {
+      updateData.recordingStatus = 'processing';
+    }
+
+    await slotRef.update(updateData);
     console.log(`Slot ${slotId} marked as ${newStatus}`);
 
     return NextResponse.json({ success: true, status: newStatus });

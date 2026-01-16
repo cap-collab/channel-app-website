@@ -98,10 +98,12 @@ export interface BroadcastSlot {
   showPromoHyperlink?: string;
   // Recording (for downloadable audio files)
   egressId?: string;              // HLS egress ID
-  recordingEgressId?: string;     // MP4 file egress ID
-  recordingUrl?: string;          // Public URL to download file
-  recordingStatus?: 'recording' | 'processing' | 'ready' | 'failed';
-  recordingDuration?: number;     // Duration in seconds
+  recordingEgressId?: string;     // MP4 file egress ID (legacy, for backward compat)
+  recordingUrl?: string;          // Public URL to download file (legacy)
+  recordingStatus?: 'recording' | 'processing' | 'ready' | 'failed';  // Legacy
+  recordingDuration?: number;     // Duration in seconds (legacy)
+  // Multiple recordings support (stop/restart creates new recordings)
+  recordings?: Recording[];
 }
 
 // Serialized version for API responses (timestamps as numbers)
@@ -139,10 +141,22 @@ export interface BroadcastSlotSerialized {
   recordingUrl?: string;
   recordingStatus?: 'recording' | 'processing' | 'ready' | 'failed';
   recordingDuration?: number;
+  // Multiple recordings support
+  recordings?: Recording[];
 }
 
 // Recording status type
 export type RecordingStatus = 'recording' | 'processing' | 'ready' | 'failed';
+
+// Individual recording within a broadcast (supports multiple recordings per slot)
+export interface Recording {
+  egressId: string;
+  url?: string;
+  status: RecordingStatus;
+  duration?: number;  // seconds
+  startedAt: number;  // Unix timestamp ms
+  endedAt?: number;   // Unix timestamp ms
+}
 
 // State for the broadcast hook
 export interface BroadcastState {

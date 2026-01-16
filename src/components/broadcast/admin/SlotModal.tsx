@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BroadcastSlotSerialized, BroadcastType, DJSlot, DJProfileInfo } from '@/types/broadcast';
+import { BroadcastSlotSerialized, BroadcastType, DJSlot, DJProfileInfo, Recording } from '@/types/broadcast';
 
 interface SlotModalProps {
   slot?: BroadcastSlotSerialized | null;
@@ -1264,28 +1264,57 @@ See you on air,
           {/* Recording download (for completed slots with recording) */}
           {isEditing && slot?.status === 'completed' && (
             <div className="bg-black rounded-lg p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-sm text-gray-400">Recording</span>
-                  {slot.recordingStatus === 'ready' && slot.recordingUrl ? (
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-gray-500">
-                        {slot.recordingDuration
-                          ? `${Math.floor(slot.recordingDuration / 60)}:${String(Math.floor(slot.recordingDuration % 60)).padStart(2, '0')}`
-                          : 'Ready'}
-                      </span>
+              <span className="text-sm text-gray-400">Recordings</span>
+
+              {/* Multiple recordings (new format) */}
+              {slot.recordings && slot.recordings.length > 0 ? (
+                <div className="mt-2 space-y-2">
+                  {slot.recordings.map((recording: Recording, index: number) => (
+                    <div key={recording.egressId} className="flex items-center justify-between bg-gray-800/50 rounded-lg p-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400">Recording {index + 1}</span>
+                        {recording.status === 'ready' && recording.duration && (
+                          <span className="text-xs text-gray-500">
+                            ({Math.floor(recording.duration / 60)}:{String(Math.floor(recording.duration % 60)).padStart(2, '0')})
+                          </span>
+                        )}
+                        {recording.status === 'recording' && (
+                          <span className="text-xs text-yellow-500">Recording...</span>
+                        )}
+                        {recording.status === 'processing' && (
+                          <span className="text-xs text-blue-400">Processing...</span>
+                        )}
+                        {recording.status === 'failed' && (
+                          <span className="text-xs text-red-400">Failed</span>
+                        )}
+                      </div>
+                      {recording.status === 'ready' && recording.url && (
+                        <a
+                          href={recording.url}
+                          download
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-colors flex items-center gap-1"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                          Download
+                        </a>
+                      )}
                     </div>
-                  ) : slot.recordingStatus === 'recording' ? (
-                    <p className="text-xs text-yellow-500 mt-1">Recording in progress...</p>
-                  ) : slot.recordingStatus === 'processing' ? (
-                    <p className="text-xs text-blue-400 mt-1">Processing...</p>
-                  ) : slot.recordingStatus === 'failed' ? (
-                    <p className="text-xs text-red-400 mt-1">Recording failed</p>
-                  ) : (
-                    <p className="text-xs text-gray-500 mt-1">No recording available</p>
-                  )}
+                  ))}
                 </div>
-                {slot.recordingStatus === 'ready' && slot.recordingUrl && (
+              ) : slot.recordingStatus === 'ready' && slot.recordingUrl ? (
+                /* Legacy single recording format (backward compatibility) */
+                <div className="flex items-center justify-between mt-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">
+                      {slot.recordingDuration
+                        ? `${Math.floor(slot.recordingDuration / 60)}:${String(Math.floor(slot.recordingDuration % 60)).padStart(2, '0')}`
+                        : 'Ready'}
+                    </span>
+                  </div>
                   <a
                     href={slot.recordingUrl}
                     download
@@ -1298,8 +1327,16 @@ See you on air,
                     </svg>
                     Download
                   </a>
-                )}
-              </div>
+                </div>
+              ) : slot.recordingStatus === 'recording' ? (
+                <p className="text-xs text-yellow-500 mt-1">Recording in progress...</p>
+              ) : slot.recordingStatus === 'processing' ? (
+                <p className="text-xs text-blue-400 mt-1">Processing...</p>
+              ) : slot.recordingStatus === 'failed' ? (
+                <p className="text-xs text-red-400 mt-1">Recording failed</p>
+              ) : (
+                <p className="text-xs text-gray-500 mt-1">No recording available</p>
+              )}
             </div>
           )}
         </div>

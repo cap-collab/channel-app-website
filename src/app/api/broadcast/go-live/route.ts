@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update slot to live status with DJ info and egress IDs
-    const updateData: Record<string, string | null> = { status: 'live' };
+    const updateData: Record<string, unknown> = { status: 'live' };
 
     // Determine liveDjUsername based on login status and existing chatUsername
     // Rule: Logged-in users MUST use their chatUsername (or register a new one)
@@ -137,8 +137,32 @@ export async function POST(request: NextRequest) {
       updateData.egressId = egressId;
     }
     if (recordingEgressId) {
+      // Legacy fields for backward compatibility
       updateData.recordingEgressId = recordingEgressId;
       updateData.recordingStatus = 'recording';
+
+      // Create new recording entry for the recordings array
+      const newRecording = {
+        egressId: recordingEgressId,
+        status: 'recording',
+        startedAt: Date.now(),
+      };
+
+      // Get current recordings array and append the new one
+      const currentRecordings = slot.recordings || [];
+      updateData.recordings = [...currentRecordings, newRecording];
+
+      // Create egress-to-slot mapping for webhook lookup
+      // This allows the webhook to find the slot even with multiple recordings
+      try {
+        await db.collection('recording-egress-map').doc(recordingEgressId).set({
+          slotId: doc.id,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+        console.log('[go-live] Created egress-to-slot mapping:', { egressId: recordingEgressId, slotId: doc.id });
+      } catch (mapError) {
+        console.error('[go-live] Failed to create egress mapping (non-fatal):', mapError);
+      }
     }
 
     await doc.ref.update(updateData);

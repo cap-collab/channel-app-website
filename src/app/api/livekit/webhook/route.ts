@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { WebhookReceiver } from 'livekit-server-sdk';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { Recording } from '@/types/broadcast';
 
 const apiKey = process.env.LIVEKIT_API_KEY || '';
 const apiSecret = process.env.LIVEKIT_API_SECRET || '';
@@ -32,30 +33,76 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ received: true, warning: 'DB not configured' });
         }
 
-        // Find the slot with this recording egress ID
-        const slotsRef = db.collection('broadcast-slots');
-        const snapshot = await slotsRef
-          .where('recordingEgressId', '==', egress.egressId)
-          .limit(1)
-          .get();
+        // Construct public URL from filename
+        const recordingUrl = `${r2PublicUrl}/${mp4File.filename}`;
 
-        if (!snapshot.empty) {
-          const slotDoc = snapshot.docs[0];
+        // Duration is in nanoseconds, convert to seconds
+        const durationNs = mp4File.duration ? Number(mp4File.duration) : 0;
+        const durationSec = Math.round(durationNs / 1_000_000_000);
 
-          // Construct public URL from filename
-          const recordingUrl = `${r2PublicUrl}/${mp4File.filename}`;
+        // Find the slot using the egress-to-slot mapping (supports multiple recordings)
+        let slotId: string | null = null;
+        const mappingDoc = await db.collection('recording-egress-map').doc(egress.egressId).get();
+        if (mappingDoc.exists) {
+          slotId = mappingDoc.data()?.slotId;
+        }
 
-          // Duration is in nanoseconds, convert to seconds
-          const durationNs = mp4File.duration ? Number(mp4File.duration) : 0;
-          const durationSec = Math.round(durationNs / 1_000_000_000);
+        // Fallback: try legacy recordingEgressId field for backward compatibility
+        if (!slotId) {
+          const slotsRef = db.collection('broadcast-slots');
+          const legacySnapshot = await slotsRef
+            .where('recordingEgressId', '==', egress.egressId)
+            .limit(1)
+            .get();
+          if (!legacySnapshot.empty) {
+            slotId = legacySnapshot.docs[0].id;
+          }
+        }
 
-          await slotDoc.ref.update({
-            recordingUrl,
-            recordingStatus: 'ready',
-            recordingDuration: durationSec,
-          });
+        if (slotId) {
+          const slotRef = db.collection('broadcast-slots').doc(slotId);
+          const slotDoc = await slotRef.get();
 
-          console.log(`Recording saved for slot ${slotDoc.id}: ${recordingUrl} (${durationSec}s)`);
+          if (slotDoc.exists) {
+            const slotData = slotDoc.data();
+            const recordings: Recording[] = slotData?.recordings || [];
+
+            // Find and update the specific recording in the array
+            const updatedRecordings = recordings.map((rec: Recording) => {
+              if (rec.egressId === egress.egressId) {
+                return {
+                  ...rec,
+                  url: recordingUrl,
+                  status: 'ready' as const,
+                  duration: durationSec,
+                  endedAt: Date.now(),
+                };
+              }
+              return rec;
+            });
+
+            // Update the slot with the updated recordings array
+            // Also update legacy fields if this matches the current recordingEgressId
+            const updateData: Record<string, unknown> = {
+              recordings: updatedRecordings,
+            };
+
+            if (slotData?.recordingEgressId === egress.egressId) {
+              updateData.recordingUrl = recordingUrl;
+              updateData.recordingStatus = 'ready';
+              updateData.recordingDuration = durationSec;
+            }
+
+            await slotRef.update(updateData);
+            console.log(`Recording saved for slot ${slotId}: ${recordingUrl} (${durationSec}s)`);
+
+            // Clean up the mapping document
+            try {
+              await db.collection('recording-egress-map').doc(egress.egressId).delete();
+            } catch (cleanupError) {
+              console.error('Failed to clean up egress mapping:', cleanupError);
+            }
+          }
         } else {
           console.log('No slot found for egress:', egress.egressId);
         }
