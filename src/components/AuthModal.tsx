@@ -10,6 +10,8 @@ interface AuthModalProps {
   message?: string;
   /** Render inline (not as a modal overlay) */
   inline?: boolean;
+  /** Include DJ Terms in the agreement footer */
+  includeDjTerms?: boolean;
 }
 
 type ModalView = "main" | "emailInput" | "methodChoice" | "password" | "forgotPassword";
@@ -122,6 +124,7 @@ export function AuthModal({
   onClose,
   message = "Sign in to save favorites and get alerts",
   inline = false,
+  includeDjTerms = false,
 }: AuthModalProps) {
   const {
     sendEmailLink,
@@ -569,8 +572,16 @@ export function AuthModal({
             By signing in, you agree to our{" "}
             <Link href="/terms" className="text-white/60 hover:text-white underline">
               Terms of Use
-            </Link>{" "}
-            and{" "}
+            </Link>
+            {includeDjTerms && (
+              <>
+                ,{" "}
+                <Link href="/dj-terms" className="text-white/60 hover:text-white underline">
+                  DJ Terms
+                </Link>
+              </>
+            )}
+            {" "}and{" "}
             <Link href="/privacy" className="text-white/60 hover:text-white underline">
               Privacy Policy
             </Link>

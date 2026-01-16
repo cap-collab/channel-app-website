@@ -564,10 +564,10 @@ export function SlotModal({
 
     const displayDjName = djName || 'there';
 
-    const subject = `You're scheduled to DJ on Channel — ${formattedDate}`;
+    const subject = `You're scheduled to livestream on Channel — ${formattedDate}`;
     const body = `Hi ${displayDjName},
 
-You're officially scheduled to DJ on Channel!
+You're officially scheduled to livestream on Channel!
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Show: ${showName}
@@ -580,15 +580,15 @@ Time: ${formattedStart} – ${formattedEnd} ${djTz}
 Your DJ profile is what listeners see on our calendar, in your show details, and while you're live. A complete profile helps people connect with you and support your work.
 
 Please take a few minutes to set up your DJ profile:
-→ https://channel-app.com/dj-profile
+→ https://channel-app.com/studio
 
-• Connect Stripe so you can receive listener support during your set
+• Connect Stripe so you can receive listener support during your set. If Stripe isn't connected, listeners can still send support — but payouts will be delayed until you finish setup.
   See our setup guide: https://channel-app.com/stripe-setup
+
 • Add a profile photo (this shows up during your set)
 • Write a short bio (who you are / what you play)
-• Add a promo link (Event, Bandcamp, SoundCloud, Instagram, website, etc.)
-
-If Stripe isn't connected, listeners can still send support — but payouts will be delayed until you finish setup.
+• Add a promo text
+• Add anything you want to show on your personal DJ page
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

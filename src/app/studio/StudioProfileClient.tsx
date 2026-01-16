@@ -693,6 +693,7 @@ export function StudioProfileClient() {
         <AuthModal
           isOpen={showAuthModal}
           onClose={() => setShowAuthModal(false)}
+          includeDjTerms
         />
       </div>
     );
@@ -1509,6 +1510,7 @@ export function StudioProfileClient() {
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
+        includeDjTerms
       />
     </div>
   );
