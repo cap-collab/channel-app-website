@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "Channel Broadcast Terms for DJs & Broadcasters - Channel Media, Inc.",
 };
 
-export default function BroadcastTermsPage() {
+export default function DJTermsPage() {
   return (
     <div className="legal-container">
       <Link href="/" className="inline-block text-gray-500 text-sm mb-8 hover:text-white">

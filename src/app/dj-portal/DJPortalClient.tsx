@@ -464,7 +464,7 @@ export function DJPortalClient() {
                   <span className="text-sm text-gray-300">
                     I have read and agree to the{' '}
                     <Link
-                      href="/broadcast-terms"
+                      href="/dj-terms"
                       target="_blank"
                       className="text-white underline hover:text-gray-300"
                     >

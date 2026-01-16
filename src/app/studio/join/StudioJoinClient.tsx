@@ -30,6 +30,7 @@ export function StudioJoinClient() {
     needsSetupSupport: false,
   });
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [agreedToDJTerms, setAgreedToDJTerms] = useState(false);
   const [status, setStatus] = useState<FormStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -282,13 +283,40 @@ export function StudioJoinClient() {
                   </div>
                   <p className="text-white font-medium">You&apos;re logged in as {user?.email}</p>
                 </div>
-                <p className="text-gray-400 text-sm">
-                  You now have access to DJ features. Visit your{' '}
-                  <Link href="/dj-profile" className="text-white underline hover:text-gray-300">
-                    DJ profile
-                  </Link>{' '}
-                  to set up your channel.
-                </p>
+
+                {/* DJ Terms Agreement */}
+                <label className="flex items-start gap-3 cursor-pointer my-4">
+                  <input
+                    type="checkbox"
+                    checked={agreedToDJTerms}
+                    onChange={(e) => setAgreedToDJTerms(e.target.checked)}
+                    className="mt-1 w-5 h-5 rounded border-gray-600 bg-gray-900 text-green-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                  />
+                  <span className="text-sm text-gray-300">
+                    I have read and agree to the{' '}
+                    <Link
+                      href="/dj-terms"
+                      target="_blank"
+                      className="text-white underline hover:text-gray-300"
+                    >
+                      DJ Terms
+                    </Link>
+                  </span>
+                </label>
+
+                {agreedToDJTerms ? (
+                  <p className="text-gray-400 text-sm">
+                    You now have access to DJ features. Visit your{' '}
+                    <Link href="/dj-profile" className="text-white underline hover:text-gray-300">
+                      DJ profile
+                    </Link>{' '}
+                    to set up your channel.
+                  </p>
+                ) : (
+                  <p className="text-gray-500 text-sm">
+                    Please accept the DJ Terms to access your DJ profile.
+                  </p>
+                )}
               </div>
             ) : (
               <>
@@ -586,7 +614,7 @@ export function StudioJoinClient() {
                   <span className="text-sm text-gray-300">
                     I have read and agree to the{' '}
                     <Link
-                      href="/broadcast-terms"
+                      href="/dj-terms"
                       target="_blank"
                       className="text-white underline hover:text-gray-300"
                     >

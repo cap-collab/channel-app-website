@@ -426,7 +426,15 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
               className="mt-0.5 w-5 h-5 rounded border-gray-600 bg-gray-800 text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
             />
             <span className="text-gray-300 text-sm">
-              I confirm and agree
+              I confirm and agree to the{' '}
+              <a
+                href="/dj-terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-white underline hover:text-gray-300"
+              >
+                DJ Terms
+              </a>
             </span>
           </label>
         </div>
