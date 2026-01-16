@@ -94,46 +94,39 @@ export function NowPlayingCard({
           className="rounded-lg flex-shrink-0"
         />
 
-        {/* Station name + Live indicator */}
+        {/* Station name */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-white font-semibold">{stationName}</p>
-            {isLive && (
-              <span className="flex items-center gap-1 text-xs text-red-400">
-                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                LIVE
-              </span>
-            )}
-          </div>
+          <p className="text-white font-semibold">{stationName}</p>
         </div>
       </div>
 
-      {/* Show title row with stats on the right */}
-      <div className="flex items-center gap-4">
-        <h2 className="text-white text-2xl font-bold truncate flex-1">{showName}</h2>
+      {/* Show title row with stats and favorite button */}
+      <div className="flex items-center gap-3">
+        <h2 className="text-white text-2xl font-bold truncate">{showName}</h2>
 
-        {/* Stats - aligned right, only show when live */}
+        {/* Stats - grey, right after show name */}
         {isLive && (
           <div className="flex items-center gap-3 flex-shrink-0">
-            <div className="flex items-center gap-1.5 text-gray-400">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-center gap-1 text-gray-400">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
               </svg>
               <span className="text-sm">{loveCount}</span>
             </div>
-            <div className="flex items-center gap-1.5 text-gray-400">
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <div className="flex items-center gap-1 text-gray-400">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 3a9 9 0 00-9 9v7c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2H5v-1a7 7 0 1114 0v1h-2c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-7a9 9 0 00-9-9z" />
               </svg>
               <span className="text-sm">{listenerCount}</span>
             </div>
           </div>
         )}
-      </div>
 
-      {/* Favorite button row */}
-      {isLive && currentShow && onToggleFavorite && (
-        <div className="flex items-center">
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Favorite button - aligned right on same line */}
+        {isLive && currentShow && onToggleFavorite && (
           <button
             onClick={async () => {
               if (!isAuthenticated) {
@@ -145,7 +138,7 @@ export function NowPlayingCard({
               setIsTogglingFavorite(false);
             }}
             disabled={isTogglingFavorite}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 text-accent transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 text-accent transition-colors disabled:opacity-50 flex-shrink-0"
             title={isShowFavorited ? 'Remove from favorites' : 'Add to favorites'}
           >
             {isTogglingFavorite ? (
@@ -169,8 +162,8 @@ export function NowPlayingCard({
               {isShowFavorited ? 'Favorited' : 'Favorite'}
             </span>
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* DJ Section */}
       {isLive && djName && (
@@ -269,8 +262,8 @@ export function NowPlayingCard({
         </div>
       )}
 
-      {/* Audio Visualizer */}
-      <AudioVisualizer isPlaying={isPlaying && isLive} />
+      {/* Audio Visualizer - show when live (even if not playing), hide when offline */}
+      {isLive && <AudioVisualizer isPlaying={isPlaying} />}
     </div>
   );
 }
