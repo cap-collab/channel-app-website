@@ -683,25 +683,35 @@ export function SlotModal({
     return parts.find(p => p.type === 'timeZoneName')?.value || timezone;
   };
 
-  // Open mailto with DJ onboarding email
+  // Open mailto with DJ onboarding email (for remote broadcasts)
   const openDjEmail = () => {
     if (!slot || !djEmail) return;
+    openDjEmailWithDetails(djEmail, djName || 'there', slot.startTime, slot.endTime);
+  };
+
+  // Open mailto for a specific DJ in a venue slot
+  const openDjEmailForSlot = (targetEmail: string, targetDjName: string, slotStartTime: number, slotEndTime: number) => {
+    if (!slot || !targetEmail) return;
+    openDjEmailWithDetails(targetEmail, targetDjName || 'there', slotStartTime, slotEndTime);
+  };
+
+  // Shared email generation logic
+  const openDjEmailWithDetails = (targetEmail: string, targetDjName: string, slotStart: number, slotEnd: number) => {
+    if (!slot) return;
 
     const broadcastUrl = `${window.location.origin}/broadcast/live?token=${slot.broadcastToken}`;
     const djTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone; // Use admin's timezone as default
-    const djTz = getTimezoneAbbr(djTimezone, slot.startTime);
-    const formattedDate = formatTimeInTimezone(slot.startTime, djTimezone, {
+    const djTz = getTimezoneAbbr(djTimezone, slotStart);
+    const formattedDate = formatTimeInTimezone(slotStart, djTimezone, {
       weekday: 'long',
       month: 'long',
       day: 'numeric',
     });
-    const formattedStart = formatTimeInTimezone(slot.startTime, djTimezone, { hour: 'numeric', minute: '2-digit' });
-    const formattedEnd = formatTimeInTimezone(slot.endTime, djTimezone, { hour: 'numeric', minute: '2-digit' });
-
-    const displayDjName = djName || 'there';
+    const formattedStart = formatTimeInTimezone(slotStart, djTimezone, { hour: 'numeric', minute: '2-digit' });
+    const formattedEnd = formatTimeInTimezone(slotEnd, djTimezone, { hour: 'numeric', minute: '2-digit' });
 
     const subject = `You're scheduled to livestream on Channel — ${formattedDate}`;
-    const body = `Hi ${displayDjName},
+    const body = `Hi ${targetDjName},
 
 You're officially scheduled to livestream on Channel!
 
@@ -715,7 +725,7 @@ Time: ${formattedStart} – ${formattedEnd} ${djTz}
 
 Your DJ profile is what listeners see on our calendar, in your show details, and while you're live. A complete profile helps people connect with you and support your work.
 
-Please take a few minutes to set up your DJ profile. IMPORTANT: Sign up using THIS email address (${djEmail}) so we can link your profile to your scheduled show.
+Please take a few minutes to set up your DJ profile. IMPORTANT: Sign up using THIS email address (${targetEmail}) so we can link your profile to your scheduled show.
 → https://channel-app.com/studio
 
 • Connect Stripe so you can receive listener support during your set. If Stripe isn't connected, listeners can still send support — but payouts will be delayed until you finish setup.
@@ -760,7 +770,7 @@ That's it — we're excited to have you on Channel.
 See you on air,
 – The Channel Team`;
 
-    const mailto = `mailto:${djEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const mailto = `mailto:${targetEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.open(mailto, '_blank');
     setEmailOpened(true);
     setTimeout(() => setEmailOpened(false), 2000);
@@ -1100,6 +1110,20 @@ See you on air,
                               </svg>
                               {profile.username || 'Found'}
                             </span>
+                          )}
+                          {isEditing && profile.email && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const slotStartTs = new Date(`${dj.startDate}T${dj.startTime}`).getTime();
+                                const slotEndTs = new Date(`${dj.endDate}T${dj.endTime}`).getTime();
+                                openDjEmailForSlot(profile.email, dj.djName || 'there', slotStartTs, slotEndTs);
+                              }}
+                              className="px-2 py-0.5 rounded text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+                              title="Send onboarding email"
+                            >
+                              Email
+                            </button>
                           )}
                           {dj.djProfiles.length > 1 && (
                             <button
