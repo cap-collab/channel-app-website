@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useAudioElementLevel } from '@/hooks/useAudioElementLevel';
 
 interface AudioVisualizerProps {
   className?: string;
+  audioElement?: HTMLAudioElement | null;
 }
 
-export function AudioVisualizer({ className = '' }: AudioVisualizerProps) {
+export function AudioVisualizer({ className = '', audioElement }: AudioVisualizerProps) {
+  const realLevel = useAudioElementLevel(audioElement ?? null);
   const [level, setLevel] = useState(0);
   const [peakLevel, setPeakLevel] = useState(0);
   const animationRef = useRef<number>();
@@ -14,8 +17,31 @@ export function AudioVisualizer({ className = '' }: AudioVisualizerProps) {
   const peakHoldRef = useRef<number>(0);
   const peakDecayRef = useRef<number>(0);
 
-  // Always animate when component is mounted (it's only rendered when live)
+  // Use real audio level when available, otherwise simulate
+  const hasRealAudio = audioElement !== undefined && audioElement !== null;
+
+  // Update level from real audio
   useEffect(() => {
+    if (hasRealAudio) {
+      setLevel(realLevel);
+
+      // Peak hold logic for real audio
+      const now = performance.now();
+      if (realLevel > peakDecayRef.current) {
+        peakDecayRef.current = realLevel;
+        peakHoldRef.current = now;
+        setPeakLevel(realLevel);
+      } else if (now - peakHoldRef.current > 1000) {
+        peakDecayRef.current = Math.max(0, peakDecayRef.current - 0.02);
+        setPeakLevel(peakDecayRef.current);
+      }
+    }
+  }, [realLevel, hasRealAudio]);
+
+  // Simulated animation (fallback when no audio element)
+  useEffect(() => {
+    if (hasRealAudio) return;
+
     const animate = (timestamp: number) => {
       // Throttle updates to ~30fps
       if (timestamp - lastUpdateRef.current < 33) {
@@ -37,7 +63,6 @@ export function AudioVisualizer({ className = '' }: AudioVisualizerProps) {
         peakHoldRef.current = timestamp;
         setPeakLevel(newLevel);
       } else if (timestamp - peakHoldRef.current > 1000) {
-        // Decay peak after 1 second hold
         peakDecayRef.current = Math.max(0, peakDecayRef.current - 0.02);
         setPeakLevel(peakDecayRef.current);
       }
@@ -52,7 +77,7 @@ export function AudioVisualizer({ className = '' }: AudioVisualizerProps) {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, []);
+  }, [hasRealAudio]);
 
   // Convert level to dB display (-60 to 0 dB range)
   const levelDb = level > 0 ? Math.max(-60, 20 * Math.log10(level)) : -60;

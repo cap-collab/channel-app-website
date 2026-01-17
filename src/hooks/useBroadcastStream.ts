@@ -118,6 +118,7 @@ interface UseBroadcastStreamReturn {
   loveCount: number;
   listenerCount: number;
   messageCount: number;
+  audioElement: HTMLAudioElement | null;
 }
 
 export function useBroadcastStream(): UseBroadcastStreamReturn {
@@ -578,5 +579,6 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
     loveCount,
     listenerCount,
     messageCount,
+    audioElement: audioElementRef.current,
   };
 }
