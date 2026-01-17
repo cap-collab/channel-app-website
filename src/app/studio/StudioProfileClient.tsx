@@ -348,6 +348,7 @@ export function StudioProfileClient() {
     photoUrl?: string | null;
     promoText?: string | null;
     promoHyperlink?: string | null;
+    thankYouMessage?: string | null;
   }) => {
     if (!user) return;
     try {
@@ -516,9 +517,11 @@ export function StudioProfileClient() {
 
     try {
       const userRef = doc(db, "users", user.uid);
+      const newThankYouMessage = thankYouInput.trim() || null;
       await updateDoc(userRef, {
-        "djProfile.thankYouMessage": thankYouInput.trim() || null,
+        "djProfile.thankYouMessage": newThankYouMessage,
       });
+      await syncProfileToSlots({ thankYouMessage: newThankYouMessage });
       setSaveThankYouSuccess(true);
       setTimeout(() => setSaveThankYouSuccess(false), 2000);
     } catch (error) {

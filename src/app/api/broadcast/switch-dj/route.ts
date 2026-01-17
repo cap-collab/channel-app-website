@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
 
     // Look up user profile by email if DJ slot has an email
     let userProfileData: Record<string, unknown> | null = null;
+    let foundUserId: string | null = null;
     if (djSlot.djEmail) {
       const userByEmailSnapshot = await db.collection('users')
         .where('email', '==', djSlot.djEmail)
@@ -65,8 +66,9 @@ export async function POST(request: NextRequest) {
         .get();
 
       if (!userByEmailSnapshot.empty) {
+        foundUserId = userByEmailSnapshot.docs[0].id;
         userProfileData = userByEmailSnapshot.docs[0].data();
-        console.log('[switch-dj] Found user profile by email:', { djEmail: djSlot.djEmail, hasProfile: !!userProfileData?.djProfile });
+        console.log('[switch-dj] Found user profile by email:', { djEmail: djSlot.djEmail, foundUserId, hasProfile: !!userProfileData?.djProfile });
       }
     }
 
@@ -78,15 +80,17 @@ export async function POST(request: NextRequest) {
     const liveDjPhotoUrl = djSlot.djPhotoUrl || djProfile?.photoUrl || null;
     const liveDjPromoText = djSlot.djPromoText || djProfile?.promoText || null;
     const liveDjPromoHyperlink = djSlot.djPromoHyperlink || djProfile?.promoHyperlink || null;
+    const liveDjThankYouMessage = djSlot.djThankYouMessage || djProfile?.thankYouMessage || null;
 
     const updateData: Record<string, unknown> = {
       currentDjSlotId: djSlotId,
-      liveDjUserId: djSlot.djUserId || null,
+      liveDjUserId: djSlot.djUserId || foundUserId || null,
       liveDjUsername,
       liveDjBio,
       liveDjPhotoUrl,
       liveDjPromoText,
       liveDjPromoHyperlink,
+      liveDjThankYouMessage,
       djEmail: djSlot.djEmail || null,
       updatedAt: FieldValue.serverTimestamp(),
     };

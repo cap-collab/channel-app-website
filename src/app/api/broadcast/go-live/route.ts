@@ -88,6 +88,7 @@ export async function POST(request: NextRequest) {
       const djPhotoUrl = currentDjSlot?.djPhotoUrl || userData?.djProfile?.photoUrl || null;
       const djPromoText = currentDjSlot?.djPromoText || currentDjSlot?.promoText || userData?.djProfile?.promoText || null;
       const djPromoHyperlink = currentDjSlot?.djPromoHyperlink || currentDjSlot?.promoHyperlink || userData?.djProfile?.promoHyperlink || null;
+      const djThankYouMessage = currentDjSlot?.djThankYouMessage || userData?.djProfile?.thankYouMessage || null;
 
       // For username: use DJ slot's djUsername if available, then existingChatUsername, then djName
       const slotUsername = currentDjSlot?.djUsername || currentDjSlot?.djName;
@@ -150,11 +151,15 @@ export async function POST(request: NextRequest) {
       if (djPromoHyperlink) {
         updateData.liveDjPromoHyperlink = djPromoHyperlink;
       }
+      if (djThankYouMessage) {
+        updateData.liveDjThankYouMessage = djThankYouMessage;
+      }
     } else {
       // Guest/venue DJ - not logged in, but may have a profile via email
       // Try to look up user by DJ slot email or root slot email
       const djEmail = currentDjSlot?.djEmail || slot.djEmail;
       let userProfileData: Record<string, unknown> | null = null;
+      let foundUserId: string | null = null;
 
       if (djEmail) {
         const userByEmailSnapshot = await db.collection('users')
@@ -163,8 +168,9 @@ export async function POST(request: NextRequest) {
           .get();
 
         if (!userByEmailSnapshot.empty) {
+          foundUserId = userByEmailSnapshot.docs[0].id;
           userProfileData = userByEmailSnapshot.docs[0].data();
-          console.log('[go-live] Found user profile by email:', { djEmail, hasProfile: !!userProfileData?.djProfile });
+          console.log('[go-live] Found user profile by email:', { djEmail, foundUserId, hasProfile: !!userProfileData?.djProfile });
         }
       }
 
@@ -184,6 +190,7 @@ export async function POST(request: NextRequest) {
       const djPhotoUrl = currentDjSlot?.djPhotoUrl || djProfile?.photoUrl || null;
       const djPromoText = currentDjSlot?.djPromoText || currentDjSlot?.promoText || djProfile?.promoText || null;
       const djPromoHyperlink = currentDjSlot?.djPromoHyperlink || currentDjSlot?.promoHyperlink || djProfile?.promoHyperlink || null;
+      const djThankYouMessage = currentDjSlot?.djThankYouMessage || djProfile?.thankYouMessage || null;
 
       if (djBio) {
         updateData.liveDjBio = djBio;
@@ -197,8 +204,16 @@ export async function POST(request: NextRequest) {
       if (djPromoHyperlink) {
         updateData.liveDjPromoHyperlink = djPromoHyperlink;
       }
+      if (djThankYouMessage) {
+        updateData.liveDjThankYouMessage = djThankYouMessage;
+      }
 
-      console.log('[go-live] Guest/venue DJ:', { djUsername: updateData.liveDjUsername, djEmail, hasUserProfile: !!userProfileData });
+      // Also set liveDjUserId if we found a user by email (for profile button linking)
+      if (foundUserId) {
+        updateData.liveDjUserId = foundUserId;
+      }
+
+      console.log('[go-live] Guest/venue DJ:', { djUsername: updateData.liveDjUsername, djEmail, hasUserProfile: !!userProfileData, liveDjUserId: updateData.liveDjUserId });
     }
 
     if (egressId) {
