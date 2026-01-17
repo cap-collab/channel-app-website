@@ -69,7 +69,7 @@ export function NowPlayingCard({
     <div className="bg-surface-card rounded-xl p-4 space-y-4 relative">
       {/* Stats - top right corner of card */}
       {isLive && (
-        <div className="absolute top-4 right-5 flex items-center gap-3">
+        <div className="absolute top-3 right-4 flex items-center gap-3">
           <BPMBadge bpm={broadcastBPM} />
           <div className="flex items-center gap-1 text-gray-400">
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -130,7 +130,7 @@ export function NowPlayingCard({
                   setIsTogglingFavorite(false);
                 }}
                 disabled={isTogglingFavorite}
-                className="flex items-center gap-1.5 p-2 lg:px-3 lg:py-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 text-accent transition-colors disabled:opacity-50 flex-shrink-0 ml-2"
+                className="flex items-center gap-1.5 p-2 lg:px-3 lg:py-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 text-accent transition-colors disabled:opacity-50 flex-shrink-0 mt-6"
                 title={isShowFavorited ? 'Remove from favorites' : 'Add to favorites'}
               >
                 {isTogglingFavorite ? (
