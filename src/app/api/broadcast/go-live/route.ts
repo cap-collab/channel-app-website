@@ -151,30 +151,54 @@ export async function POST(request: NextRequest) {
         updateData.liveDjPromoHyperlink = djPromoHyperlink;
       }
     } else {
-      // Guest/venue DJ - ephemeral username, no registration needed
+      // Guest/venue DJ - not logged in, but may have a profile via email
+      // Try to look up user by DJ slot email or root slot email
+      const djEmail = currentDjSlot?.djEmail || slot.djEmail;
+      let userProfileData: Record<string, unknown> | null = null;
+
+      if (djEmail) {
+        const userByEmailSnapshot = await db.collection('users')
+          .where('email', '==', djEmail)
+          .limit(1)
+          .get();
+
+        if (!userByEmailSnapshot.empty) {
+          userProfileData = userByEmailSnapshot.docs[0].data();
+          console.log('[go-live] Found user profile by email:', { djEmail, hasProfile: !!userProfileData?.djProfile });
+        }
+      }
+
       // Use DJ slot username if available, otherwise use form input
       const slotUsername = currentDjSlot?.djUsername || currentDjSlot?.djName;
       if (slotUsername) {
         updateData.liveDjUsername = slotUsername;
+      } else if (userProfileData?.chatUsername) {
+        updateData.liveDjUsername = userProfileData.chatUsername;
       } else if (djUsername) {
         updateData.liveDjUsername = djUsername.trim();
       }
 
-      // Also set profile data from DJ slot for guest DJs
-      if (currentDjSlot?.djBio) {
-        updateData.liveDjBio = currentDjSlot.djBio;
+      // Set profile data - priority: DJ slot config > user profile by email
+      const djProfile = userProfileData?.djProfile as Record<string, unknown> | undefined;
+      const djBio = currentDjSlot?.djBio || djProfile?.bio || null;
+      const djPhotoUrl = currentDjSlot?.djPhotoUrl || djProfile?.photoUrl || null;
+      const djPromoText = currentDjSlot?.djPromoText || currentDjSlot?.promoText || djProfile?.promoText || null;
+      const djPromoHyperlink = currentDjSlot?.djPromoHyperlink || currentDjSlot?.promoHyperlink || djProfile?.promoHyperlink || null;
+
+      if (djBio) {
+        updateData.liveDjBio = djBio;
       }
-      if (currentDjSlot?.djPhotoUrl) {
-        updateData.liveDjPhotoUrl = currentDjSlot.djPhotoUrl;
+      if (djPhotoUrl) {
+        updateData.liveDjPhotoUrl = djPhotoUrl;
       }
-      if (currentDjSlot?.djPromoText || currentDjSlot?.promoText) {
-        updateData.liveDjPromoText = currentDjSlot.djPromoText || currentDjSlot.promoText;
+      if (djPromoText) {
+        updateData.liveDjPromoText = djPromoText;
       }
-      if (currentDjSlot?.djPromoHyperlink || currentDjSlot?.promoHyperlink) {
-        updateData.liveDjPromoHyperlink = currentDjSlot.djPromoHyperlink || currentDjSlot.promoHyperlink;
+      if (djPromoHyperlink) {
+        updateData.liveDjPromoHyperlink = djPromoHyperlink;
       }
 
-      console.log('[go-live] Guest/venue DJ with ephemeral username:', { djUsername: updateData.liveDjUsername });
+      console.log('[go-live] Guest/venue DJ:', { djUsername: updateData.liveDjUsername, djEmail, hasUserProfile: !!userProfileData });
     }
 
     if (egressId) {

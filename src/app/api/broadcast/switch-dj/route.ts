@@ -56,19 +56,37 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Look up user profile by email if DJ slot has an email
+    let userProfileData: Record<string, unknown> | null = null;
+    if (djSlot.djEmail) {
+      const userByEmailSnapshot = await db.collection('users')
+        .where('email', '==', djSlot.djEmail)
+        .limit(1)
+        .get();
+
+      if (!userByEmailSnapshot.empty) {
+        userProfileData = userByEmailSnapshot.docs[0].data();
+        console.log('[switch-dj] Found user profile by email:', { djEmail: djSlot.djEmail, hasProfile: !!userProfileData?.djProfile });
+      }
+    }
+
     // Copy DJ info from the slot to the broadcast's live fields
-    // Use djUsername (chat username from profile) if available, otherwise fall back to djName
-    // This handles both: DJs with accounts but no chat username set, and DJs without accounts
-    const liveDjUsername = djSlot.djUsername || djSlot.djName;
+    // Priority: DJ slot config > user profile by email
+    const djProfile = userProfileData?.djProfile as Record<string, unknown> | undefined;
+    const liveDjUsername = djSlot.djUsername || djSlot.djName || userProfileData?.chatUsername || null;
+    const liveDjBio = djSlot.djBio || djProfile?.bio || null;
+    const liveDjPhotoUrl = djSlot.djPhotoUrl || djProfile?.photoUrl || null;
+    const liveDjPromoText = djSlot.djPromoText || djProfile?.promoText || null;
+    const liveDjPromoHyperlink = djSlot.djPromoHyperlink || djProfile?.promoHyperlink || null;
 
     const updateData: Record<string, unknown> = {
       currentDjSlotId: djSlotId,
       liveDjUserId: djSlot.djUserId || null,
-      liveDjUsername: liveDjUsername || null,
-      liveDjBio: djSlot.djBio || null,
-      liveDjPhotoUrl: djSlot.djPhotoUrl || null,
-      liveDjPromoText: djSlot.djPromoText || null,
-      liveDjPromoHyperlink: djSlot.djPromoHyperlink || null,
+      liveDjUsername,
+      liveDjBio,
+      liveDjPhotoUrl,
+      liveDjPromoText,
+      liveDjPromoHyperlink,
       djEmail: djSlot.djEmail || null,
       updatedAt: FieldValue.serverTimestamp(),
     };
