@@ -343,7 +343,12 @@ export function StudioProfileClient() {
   }, [user, chatUsername, allShows]);
 
   // Sync DJ profile data to broadcast slots
-  const syncProfileToSlots = async (bio?: string | null, photoUrl?: string | null) => {
+  const syncProfileToSlots = async (updates: {
+    bio?: string | null;
+    photoUrl?: string | null;
+    promoText?: string | null;
+    promoHyperlink?: string | null;
+  }) => {
     if (!user) return;
     try {
       await fetch('/api/dj-profile/sync-slots', {
@@ -351,8 +356,7 @@ export function StudioProfileClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user.uid,
-          ...(bio !== undefined && { bio }),
-          ...(photoUrl !== undefined && { photoUrl }),
+          ...updates,
         }),
       });
     } catch (error) {
@@ -372,7 +376,7 @@ export function StudioProfileClient() {
       await updateDoc(userRef, {
         "djProfile.bio": newBio,
       });
-      await syncProfileToSlots(newBio, undefined);
+      await syncProfileToSlots({ bio: newBio });
       setSaveAboutSuccess(true);
       setTimeout(() => setSaveAboutSuccess(false), 2000);
     } catch (error) {
@@ -532,11 +536,13 @@ export function StudioProfileClient() {
 
     try {
       const userRef = doc(db, "users", user.uid);
-      const normalizedHyperlink = promoHyperlinkInput.trim() ? normalizeUrl(promoHyperlinkInput.trim()) : null;
+      const newPromoText = promoTextInput.trim() || null;
+      const newPromoHyperlink = promoHyperlinkInput.trim() ? normalizeUrl(promoHyperlinkInput.trim()) : null;
       await updateDoc(userRef, {
-        "djProfile.promoText": promoTextInput.trim() || null,
-        "djProfile.promoHyperlink": normalizedHyperlink,
+        "djProfile.promoText": newPromoText,
+        "djProfile.promoHyperlink": newPromoHyperlink,
       });
+      await syncProfileToSlots({ promoText: newPromoText, promoHyperlink: newPromoHyperlink });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
     } catch (error) {
@@ -677,7 +683,7 @@ export function StudioProfileClient() {
         "djProfile.photoUrl": result.url,
       });
 
-      await syncProfileToSlots(undefined, result.url);
+      await syncProfileToSlots({ photoUrl: result.url });
     } catch (error) {
       console.error("Error uploading photo:", error);
       setPhotoError('Failed to upload photo');
@@ -700,7 +706,7 @@ export function StudioProfileClient() {
         "djProfile.photoUrl": null,
       });
 
-      await syncProfileToSlots(undefined, null);
+      await syncProfileToSlots({ photoUrl: null });
     } catch (error) {
       console.error("Error removing photo:", error);
       setPhotoError('Failed to remove photo');

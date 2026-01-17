@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { userId, bio, photoUrl } = body;
+    const { userId, bio, photoUrl, promoText, promoHyperlink } = body;
 
     if (!userId) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 });
@@ -24,6 +24,12 @@ export async function POST(request: NextRequest) {
     }
     if (photoUrl !== undefined) {
       updateData.liveDjPhotoUrl = photoUrl || null;
+    }
+    if (promoText !== undefined) {
+      updateData.liveDjPromoText = promoText || null;
+    }
+    if (promoHyperlink !== undefined) {
+      updateData.liveDjPromoHyperlink = promoHyperlink || null;
     }
 
     // If nothing to update, return early
@@ -91,7 +97,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Update all matching slots
+    // Update all matching slots (root-level fields)
     const updatePromises = slotsToUpdate.map((doc) =>
       doc.ref.update(updateData)
     );
@@ -100,6 +106,49 @@ export async function POST(request: NextRequest) {
 
     console.log(`[sync-slots] Updated ${slotsToUpdate.length} slots for user ${userId} (email: ${userEmail || 'none'}):`, updateData);
     console.log(`[sync-slots] Query results: byDjUserId=${byDjUserId.size}, byLiveDjUserId=${byLiveDjUserId.size}, byDjEmail=${byDjEmail?.size || 0}`);
+
+    // Also update djSlots array entries where djEmail matches (for venue broadcasts)
+    // We need to query all upcoming slots and check their djSlots arrays
+    if (userEmail) {
+      const allUpcomingSlotsSnapshot = await db.collection('broadcast-slots')
+        .where('endTime', '>', now)
+        .get();
+
+      let djSlotsUpdated = 0;
+
+      for (const doc of allUpcomingSlotsSnapshot.docs) {
+        const data = doc.data();
+        const djSlots = data.djSlots;
+
+        if (!djSlots || !Array.isArray(djSlots)) continue;
+
+        // Check if any djSlot has this user's email
+        let hasMatch = false;
+        const updatedDjSlots = djSlots.map((slot: Record<string, unknown>) => {
+          if (slot.djEmail?.toString().toLowerCase() === userEmail.toLowerCase()) {
+            hasMatch = true;
+            return {
+              ...slot,
+              ...(bio !== undefined && { djBio: bio || null }),
+              ...(photoUrl !== undefined && { djPhotoUrl: photoUrl || null }),
+              ...(promoText !== undefined && { djPromoText: promoText || null }),
+              ...(promoHyperlink !== undefined && { djPromoHyperlink: promoHyperlink || null }),
+            };
+          }
+          return slot;
+        });
+
+        if (hasMatch) {
+          await doc.ref.update({ djSlots: updatedDjSlots });
+          djSlotsUpdated++;
+          console.log(`[sync-slots] Updated djSlots array in slot ${doc.id} for email ${userEmail}`);
+        }
+      }
+
+      if (djSlotsUpdated > 0) {
+        console.log(`[sync-slots] Updated djSlots arrays in ${djSlotsUpdated} venue broadcasts`);
+      }
+    }
 
     return NextResponse.json({
       success: true,
