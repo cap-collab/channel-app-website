@@ -189,7 +189,24 @@ export async function POST(request: NextRequest) {
         });
 
         if (hasMatch) {
-          await doc.ref.update({ djSlots: updatedDjSlots });
+          // Check if the current live DJ slot matches this user's email
+          // If so, also update the root-level live fields
+          const currentDjSlotId = data.currentDjSlotId;
+          const currentDjSlot = djSlots.find((s: Record<string, unknown>) => s.id === currentDjSlotId);
+          const isCurrentDj = currentDjSlot?.djEmail?.toString().toLowerCase() === userEmail.toLowerCase();
+
+          const slotUpdate: Record<string, unknown> = { djSlots: updatedDjSlots };
+
+          // If this is the currently live DJ, update root-level fields too
+          if (isCurrentDj && data.status === 'live') {
+            if (bio !== undefined) slotUpdate.liveDjBio = bio || null;
+            if (photoUrl !== undefined) slotUpdate.liveDjPhotoUrl = photoUrl || null;
+            if (promoText !== undefined) slotUpdate.liveDjPromoText = promoText || null;
+            if (promoHyperlink !== undefined) slotUpdate.liveDjPromoHyperlink = promoHyperlink || null;
+            console.log(`[sync-slots] Also updating live fields for current DJ in slot ${doc.id}`);
+          }
+
+          await doc.ref.update(slotUpdate);
           djSlotsUpdated++;
           console.log(`[sync-slots] Updated djSlots array in slot ${doc.id} for email ${userEmail}`);
         }
