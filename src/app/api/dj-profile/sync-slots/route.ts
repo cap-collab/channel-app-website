@@ -50,25 +50,40 @@ export async function POST(request: NextRequest) {
       .where('djUserId', '==', userId)
       .where('endTime', '>', now);
 
-    // Query 2: Slots where liveDjUserId matches (slots they've gone live on)
+    // Query 2: Slots where liveDjUserId matches (upcoming slots they've gone live on)
     const byLiveDjUserIdQuery = db.collection('broadcast-slots')
       .where('liveDjUserId', '==', userId)
       .where('endTime', '>', now);
 
-    // Query 3: Slots where djEmail matches (slots assigned by email before DJ logged in)
+    // Query 3: Currently LIVE slots where liveDjUserId matches (regardless of end time)
+    const byLiveDjUserIdLiveQuery = db.collection('broadcast-slots')
+      .where('liveDjUserId', '==', userId)
+      .where('status', '==', 'live');
+
+    // Query 4: Slots where djEmail matches (slots assigned by email before DJ logged in)
     const byDjEmailQuery = userEmail
       ? db.collection('broadcast-slots')
           .where('djEmail', '==', userEmail)
           .where('endTime', '>', now)
       : null;
 
-    const queries = [byDjUserIdQuery.get(), byLiveDjUserIdQuery.get()];
+    // Query 5: Currently LIVE slots where djEmail matches (regardless of end time)
+    const byDjEmailLiveQuery = userEmail
+      ? db.collection('broadcast-slots')
+          .where('djEmail', '==', userEmail)
+          .where('status', '==', 'live')
+      : null;
+
+    const queries = [byDjUserIdQuery.get(), byLiveDjUserIdQuery.get(), byLiveDjUserIdLiveQuery.get()];
     if (byDjEmailQuery) {
       queries.push(byDjEmailQuery.get());
     }
+    if (byDjEmailLiveQuery) {
+      queries.push(byDjEmailLiveQuery.get());
+    }
 
     const results = await Promise.all(queries);
-    const [byDjUserId, byLiveDjUserId, byDjEmail] = results;
+    const [byDjUserId, byLiveDjUserId, byLiveDjUserIdLive, byDjEmail, byDjEmailLive] = results;
 
     // Collect unique slot IDs to update
     const slotIds = new Set<string>();
@@ -88,8 +103,24 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    byLiveDjUserIdLive.forEach((doc) => {
+      if (!slotIds.has(doc.id)) {
+        slotIds.add(doc.id);
+        slotsToUpdate.push(doc);
+      }
+    });
+
     if (byDjEmail) {
       byDjEmail.forEach((doc) => {
+        if (!slotIds.has(doc.id)) {
+          slotIds.add(doc.id);
+          slotsToUpdate.push(doc);
+        }
+      });
+    }
+
+    if (byDjEmailLive) {
+      byDjEmailLive.forEach((doc) => {
         if (!slotIds.has(doc.id)) {
           slotIds.add(doc.id);
           slotsToUpdate.push(doc);
@@ -108,15 +139,34 @@ export async function POST(request: NextRequest) {
     console.log(`[sync-slots] Query results: byDjUserId=${byDjUserId.size}, byLiveDjUserId=${byLiveDjUserId.size}, byDjEmail=${byDjEmail?.size || 0}`);
 
     // Also update djSlots array entries where djEmail matches (for venue broadcasts)
-    // We need to query all upcoming slots and check their djSlots arrays
+    // Query upcoming slots AND currently live slots
     if (userEmail) {
-      const allUpcomingSlotsSnapshot = await db.collection('broadcast-slots')
-        .where('endTime', '>', now)
-        .get();
+      const [upcomingSnapshot, liveSnapshot] = await Promise.all([
+        db.collection('broadcast-slots').where('endTime', '>', now).get(),
+        db.collection('broadcast-slots').where('status', '==', 'live').get(),
+      ]);
+
+      // Combine and deduplicate
+      const allSlotIds = new Set<string>();
+      const allSlotsToCheck: FirebaseFirestore.QueryDocumentSnapshot[] = [];
+
+      upcomingSnapshot.forEach((doc) => {
+        if (!allSlotIds.has(doc.id)) {
+          allSlotIds.add(doc.id);
+          allSlotsToCheck.push(doc);
+        }
+      });
+
+      liveSnapshot.forEach((doc) => {
+        if (!allSlotIds.has(doc.id)) {
+          allSlotIds.add(doc.id);
+          allSlotsToCheck.push(doc);
+        }
+      });
 
       let djSlotsUpdated = 0;
 
-      for (const doc of allUpcomingSlotsSnapshot.docs) {
+      for (const doc of allSlotsToCheck) {
         const data = doc.data();
         const djSlots = data.djSlots;
 
