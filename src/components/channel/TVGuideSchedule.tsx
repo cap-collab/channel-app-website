@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import Image from 'next/image';
 import { STATIONS, getMetadataKeyByStationId } from '@/lib/stations';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -392,10 +393,13 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                           <div className="flex gap-1.5 h-full overflow-hidden">
                             {/* DJ photo thumbnail on card */}
                             {show.djPhotoUrl && showWidth >= 80 && (
-                              <img
+                              <Image
                                 src={show.djPhotoUrl}
                                 alt={show.dj || 'DJ'}
+                                width={40}
+                                height={40}
                                 className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                                unoptimized
                               />
                             )}
                             {/* Show name and DJ */}
@@ -496,10 +500,13 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                                 {(show.djPhotoUrl || show.djBio) && (
                                   <div className="flex items-start gap-3 mb-4">
                                     {show.djPhotoUrl && (
-                                      <img
+                                      <Image
                                         src={show.djPhotoUrl}
                                         alt={show.dj || 'DJ'}
+                                        width={48}
+                                        height={48}
                                         className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                                        unoptimized
                                       />
                                     )}
                                     {show.djBio && (

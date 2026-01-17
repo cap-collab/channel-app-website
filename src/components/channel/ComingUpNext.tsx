@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import Image from 'next/image';
 import { useFavorites, Favorite } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -289,10 +290,13 @@ export function ComingUpNext({ onAuthRequired }: ComingUpNextProps) {
                     {(show.djPhotoUrl || show.djBio) && (
                       <div className="flex items-start gap-3 mb-4">
                         {show.djPhotoUrl && (
-                          <img
+                          <Image
                             src={show.djPhotoUrl}
                             alt={show.dj || 'DJ'}
+                            width={64}
+                            height={64}
                             className="w-16 h-16 rounded-full object-cover flex-shrink-0"
+                            unoptimized
                           />
                         )}
                         {show.djBio && (
