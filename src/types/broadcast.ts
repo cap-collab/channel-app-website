@@ -22,6 +22,7 @@ export interface DJProfileInfo {
   promoText?: string;       // Promo text
   promoHyperlink?: string;  // Promo link
   thankYouMessage?: string; // Thank you message for tips
+  hasProfile?: boolean;     // Whether the DJ has a public profile page (user exists with dj/broadcaster/admin role)
   socialLinks?: {
     soundcloud?: string;
     instagram?: string;

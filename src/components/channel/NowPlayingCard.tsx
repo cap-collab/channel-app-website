@@ -5,6 +5,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
 import { AudioVisualizer } from './AudioVisualizer';
+import { BPMBadge } from './BPMBadge';
+import { useBPM } from '@/contexts/BPMContext';
 
 interface NowPlayingCardProps {
   isPlaying: boolean;
@@ -26,11 +28,9 @@ interface NowPlayingCardProps {
   isDJInWatchlist?: boolean;
   onToggleWatchlist?: () => Promise<void>;
   isTogglingWatchlist?: boolean;
-  // DJ Profile
-  djProfileUsername?: string | null;
-  // B3B support: multiple DJ profiles
-  djProfiles?: Array<{ username: string; photoUrl?: string }>;
-  // Whether the DJ has a valid identity (email or userId) - controls profile button visibility
+  // B3B support: multiple DJ profiles (only show profile icon if hasProfile is true)
+  djProfiles?: Array<{ username: string; photoUrl?: string; hasProfile?: boolean }>;
+  // Whether the DJ has a valid identity (email or userId) - controls tip button visibility
   hasDjIdentity?: boolean;
   // Audio stream for level visualization
   audioStream?: MediaStream | null;
@@ -56,6 +56,8 @@ export function NowPlayingCard({
   audioStream,
 }: NowPlayingCardProps) {
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
+  const { stationBPM } = useBPM();
+  const broadcastBPM = stationBPM['broadcast']?.bpm || null;
   const stationName = 'Channel Broadcast';
   const showName = currentShow?.showName || (isLive ? 'Live Now' : 'Offline');
   const djName = currentDJ || currentShow?.djName;
@@ -110,7 +112,10 @@ export function NowPlayingCard({
         {isLive ? (
           <>
             {/* Show name - when live, display next to play button */}
-            <h2 className="text-white text-2xl font-bold line-clamp-2 lg:truncate lg:line-clamp-none flex-1 min-w-0">{showName}</h2>
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <h2 className="text-white text-2xl font-bold line-clamp-2 lg:truncate lg:line-clamp-none">{showName}</h2>
+              <BPMBadge bpm={broadcastBPM} />
+            </div>
 
             {/* Favorite button - aligned right */}
             {currentShow && onToggleFavorite && (
@@ -238,9 +243,9 @@ export function NowPlayingCard({
             )}
 
             {/* DJ Profile links - supports B3B with multiple DJs, icon only on mobile */}
-            {/* djProfiles is pre-filtered to only include DJs with identity (email/userId) */}
-            {djProfiles && djProfiles.length > 0 ? (
-              djProfiles.map((profile) => (
+            {/* djProfiles is pre-filtered to only include DJs with hasProfile: true */}
+            {djProfiles && djProfiles.filter(p => p.hasProfile).length > 0 ? (
+              djProfiles.filter(p => p.hasProfile).map((profile) => (
                 <Link
                   key={profile.username}
                   href={`/dj/@${encodeURIComponent(profile.username)}`}

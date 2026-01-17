@@ -107,8 +107,24 @@ export function ChannelClient() {
     audioStream,
   } = useBroadcastStream();
 
-  // Get love count from chat - pass currentShow start time so love count resets per show
-  const { loveCount } = useListenerChat({ username, currentShowStartTime: currentShow?.startTime });
+  // Get current DJ slot info for venue broadcasts with multiple DJs
+  // Placed early so we can use it for currentDjSlotStartTime
+  const currentDjSlot = useMemo(() => {
+    if (currentShow?.djSlots && currentShow.djSlots.length > 0) {
+      const now = Date.now();
+      return currentShow.djSlots.find(
+        (djSlot) => djSlot.startTime <= now && djSlot.endTime > now
+      );
+    }
+    return null;
+  }, [currentShow?.djSlots]);
+
+  // For venue broadcasts, use DJ slot start time so promo/love resets per DJ
+  // For remote broadcasts or shows without DJ slots, use show start time
+  const currentDjSlotStartTime = currentDjSlot?.startTime || currentShow?.startTime;
+
+  // Get love count from chat - pass DJ slot start time so love count resets per DJ
+  const { loveCount } = useListenerChat({ username, currentShowStartTime: currentDjSlotStartTime });
 
   // Favorites for the current show
   const { isShowFavorited, toggleFavorite, isInWatchlist, addToWatchlist } = useFavorites();
@@ -138,17 +154,6 @@ export function ChannelClient() {
     setShowAuthModal(true);
   }, []);
 
-  // Get current DJ slot info for venue broadcasts with multiple DJs
-  const currentDjSlot = (() => {
-    if (currentShow?.djSlots && currentShow.djSlots.length > 0) {
-      const now = Date.now();
-      return currentShow.djSlots.find(
-        (djSlot) => djSlot.startTime <= now && djSlot.endTime > now
-      );
-    }
-    return null;
-  })();
-
   // Get DJ name for watchlist - use currentDJ which is already the display name
   const watchlistDJName = currentDJ || currentShow?.djName;
 
@@ -172,34 +177,39 @@ export function ChannelClient() {
     }
   }, [watchlistDJName, addToWatchlist, currentShow, currentDjSlot]);
 
-  // Determine if DJ has a public profile worth showing
-  // For venue slots, check the current DJ slot's liveDjUsername or djUsername
-  // For remote broadcasts, check liveDjUsername at the show level
-  const djProfileUsername = currentDjSlot?.liveDjUsername || currentDjSlot?.djUsername || currentShow?.liveDjUsername || null;
-
   // Get all DJ profiles for B3B support (multiple DJs sharing the same slot)
-  // Only include DJs who have identity (email or userId) - they get profile buttons
+  // Only include DJs who have identity (email or userId)
+  // hasProfile indicates if they have a public profile page (set when slot is created)
   const djProfiles = useMemo(() => {
-    if (!currentDjSlot) return [];
-
-    // B3B: check djProfiles array, filter to only DJs with identity
-    if (currentDjSlot.djProfiles && currentDjSlot.djProfiles.length > 0) {
-      return currentDjSlot.djProfiles
-        .filter(p => p.username && (p.email || p.userId))  // MUST have identity
-        .map(p => ({ username: p.username!, photoUrl: p.photoUrl }));
-    }
-
-    // Single DJ: check slot-level identity
-    if (currentDjSlot.djEmail || currentDjSlot.djUserId) {
-      const username = currentDjSlot.liveDjUsername || currentDjSlot.djUsername;
-      if (username) {
-        return [{ username, photoUrl: currentDjSlot.djPhotoUrl }];
+    // Venue broadcasts: use slot-level data only
+    if (currentDjSlot) {
+      // B3B: check djProfiles array, filter to only DJs with identity
+      if (currentDjSlot.djProfiles && currentDjSlot.djProfiles.length > 0) {
+        return currentDjSlot.djProfiles
+          .filter(p => p.username && (p.email || p.userId))  // MUST have identity
+          .map(p => ({ username: p.username!, photoUrl: p.photoUrl, hasProfile: p.hasProfile }));
       }
+
+      // Single DJ slot: check slot-level identity
+      // For single DJ slots, hasProfile is determined by whether they have a userId (registered user)
+      // The profile page requires dj/broadcaster/admin role, which is checked when userId exists
+      if (currentDjSlot.djEmail || currentDjSlot.djUserId || currentDjSlot.liveDjUserId) {
+        const username = currentDjSlot.liveDjUsername || currentDjSlot.djUsername;
+        if (username) {
+          // hasProfile requires a userId (registered user with DJ role)
+          const hasProfile = !!(currentDjSlot.djUserId || currentDjSlot.liveDjUserId);
+          return [{ username, photoUrl: currentDjSlot.djPhotoUrl, hasProfile }];
+        }
+      }
+
+      // Venue slot exists but DJ has no identity - no profile button
+      return [];
     }
 
-    // Remote broadcasts: check show-level
+    // Remote broadcasts (no djSlots): check show-level
     if (currentShow?.liveDjUsername && (currentShow.djEmail || currentShow.djUserId || currentShow.liveDjUserId)) {
-      return [{ username: currentShow.liveDjUsername, photoUrl: currentShow.liveDjPhotoUrl }];
+      // For remote broadcasts, liveDjUserId means the DJ logged in and went live, so they have a profile
+      return [{ username: currentShow.liveDjUsername, photoUrl: currentShow.liveDjPhotoUrl, hasProfile: !!currentShow.liveDjUserId }];
     }
 
     return [];
@@ -283,7 +293,6 @@ export function ChannelClient() {
                 isDJInWatchlist={isDJInWatchlist}
                 onToggleWatchlist={handleToggleWatchlist}
                 isTogglingWatchlist={isTogglingWatchlist}
-                djProfileUsername={djProfileUsername}
                 djProfiles={djProfiles}
                 hasDjIdentity={hasDjIdentity}
                 audioStream={audioStream}
@@ -306,7 +315,7 @@ export function ChannelClient() {
                 broadcastSlotId={currentShow?.id}
                 isLive={isLive}
                 profileLoading={profileLoading}
-                currentShowStartTime={currentShow?.startTime}
+                currentShowStartTime={currentDjSlotStartTime}
                 onSetUsername={setChatUsername}
               />
             </div>
@@ -340,7 +349,6 @@ export function ChannelClient() {
               isDJInWatchlist={isDJInWatchlist}
               onToggleWatchlist={handleToggleWatchlist}
               isTogglingWatchlist={isTogglingWatchlist}
-              djProfileUsername={djProfileUsername}
               djProfiles={djProfiles}
               hasDjIdentity={hasDjIdentity}
               audioStream={audioStream}
@@ -361,7 +369,7 @@ export function ChannelClient() {
                 broadcastSlotId={currentShow?.id}
                 isLive={isLive}
                 profileLoading={profileLoading}
-                currentShowStartTime={currentShow?.startTime}
+                currentShowStartTime={currentDjSlotStartTime}
                 onSetUsername={setChatUsername}
               />
             </div>
