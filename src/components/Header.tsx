@@ -111,16 +111,6 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
           </div>
 
           <div className="flex items-center gap-3 md:gap-4">
-            {/* iOS Beta button - hidden on mobile, shown on desktop */}
-            <a
-              href="https://testflight.apple.com/join/HcKTJ1nH"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden md:block bg-white text-black px-3 sm:px-4 py-1.5 rounded-lg text-sm font-semibold hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(255,255,255,0.2)] transition-all whitespace-nowrap"
-            >
-              iOS Beta
-            </a>
-
             {/* User/Guest icon - hidden on mobile (sign in is in mobile menu), visible on desktop */}
             <div className="relative hidden md:block">
               {loading ? (
@@ -209,6 +199,15 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
                     >
                       Settings
                     </Link>
+                    <a
+                      href="https://testflight.apple.com/join/HcKTJ1nH"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setShowUserMenu(false)}
+                      className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                    >
+                      iOS Beta
+                    </a>
                     <button
                       onClick={() => {
                         signOut();

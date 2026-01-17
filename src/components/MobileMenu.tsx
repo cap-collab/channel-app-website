@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useUserRole, isDJ } from "@/hooks/useUserRole";
 
 export type MobileMenuItem =
   | { label: string; href?: string; onClick?: () => void; type?: "link"; external?: boolean; active?: boolean }
@@ -16,6 +17,7 @@ interface MobileMenuProps {
 export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { user, isAuthenticated, signOut, loading } = useAuthContext();
+  const { role } = useUserRole(user);
 
   const handleItemClick = (item: MobileMenuItem) => {
     if (item.onClick) {
@@ -88,12 +90,37 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                         My Favorites
                       </Link>
                       <Link
+                        href="/inbox"
+                        onClick={() => setIsOpen(false)}
+                        className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                      >
+                        Inbox
+                      </Link>
+                      {isDJ(role) && (
+                        <Link
+                          href="/studio"
+                          onClick={() => setIsOpen(false)}
+                          className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                        >
+                          DJ Studio
+                        </Link>
+                      )}
+                      <Link
                         href="/settings"
                         onClick={() => setIsOpen(false)}
                         className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                       >
                         Settings
                       </Link>
+                      <a
+                        href="https://testflight.apple.com/join/HcKTJ1nH"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setIsOpen(false)}
+                        className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                      >
+                        iOS Beta
+                      </a>
                       <button
                         onClick={() => {
                           signOut();
