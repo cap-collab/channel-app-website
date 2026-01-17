@@ -93,14 +93,13 @@ export function DJChatPanel({
   djUsername,
   userId,
   isCollapsed = false,
-  onToggleCollapse,
   initialPromoSubmitted = false,
   isVenue = false,
   onChangeUsername,
   activePromoText,
   activePromoHyperlink,
 }: DJChatPanelProps) {
-  const { messages, isConnected, error, sendMessage, sendPromo, promoUsed } = useDJChat({
+  const { messages, error, sendMessage, sendPromo, promoUsed } = useDJChat({
     broadcastToken,
     slotId,
     djUsername,
@@ -162,8 +161,6 @@ export function DJChatPanel({
       setIsSending(false);
     }
   };
-
-  const unreadCount = isCollapsed ? messages.filter(m => Date.now() - m.timestamp < 60000).length : 0;
 
   return (
     <div className="bg-[#252525] rounded-xl overflow-hidden flex flex-col lg:h-full lg:min-h-0">
@@ -292,7 +289,6 @@ export function DJChatPanel({
 
           </div>
         </div>
-      )}
 
       {/* Promo Modal */}
       {showPromoModal && (
