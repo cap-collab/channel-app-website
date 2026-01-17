@@ -175,15 +175,19 @@ export function DJChatPanel({
 
           {/* Pinned Promo Bar (like iOS) - shows current DJ's promo */}
           {(() => {
-            // For venue broadcasts, use the pre-configured promo from current DJ slot
+            // For venue broadcasts, use the pre-configured promo from current DJ slot ONLY
+            // If venue DJ has no promo, show nothing (don't inherit from previous DJ's chat messages)
             // For remote broadcasts, use the latest promo from chat messages
             let promoTextToShow: string | undefined;
             let promoHyperlinkToShow: string | undefined;
 
-            if (isVenue && activePromoText) {
-              // Venue: use pre-configured promo from current DJ slot
-              promoTextToShow = activePromoText;
-              promoHyperlinkToShow = activePromoHyperlink;
+            if (isVenue) {
+              // Venue: only use pre-configured promo from current DJ slot
+              // If no promo configured, show nothing
+              if (activePromoText) {
+                promoTextToShow = activePromoText;
+                promoHyperlinkToShow = activePromoHyperlink;
+              }
             } else {
               // Remote: use latest promo from chat messages
               const latestPromo = [...messages].reverse().find(m => m.messageType === 'promo' && m.djSlotId === slotId);
