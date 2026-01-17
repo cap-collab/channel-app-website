@@ -177,28 +177,76 @@ export function ChannelClient() {
   const djProfileUsername = currentDjSlot?.liveDjUsername || currentDjSlot?.djUsername || currentShow?.liveDjUsername || null;
 
   // Get all DJ profiles for B3B support (multiple DJs sharing the same slot)
+  // Only include DJs who have identity (email or userId) - they get profile buttons
   const djProfiles = useMemo(() => {
     if (!currentDjSlot) return [];
 
-    // Check djProfiles array first (B3B support)
+    // B3B: check djProfiles array, filter to only DJs with identity
     if (currentDjSlot.djProfiles && currentDjSlot.djProfiles.length > 0) {
       return currentDjSlot.djProfiles
-        .filter(p => p.username)
+        .filter(p => p.username && (p.email || p.userId))  // MUST have identity
         .map(p => ({ username: p.username!, photoUrl: p.photoUrl }));
     }
 
-    // Fallback: single DJ from legacy fields
-    const singleUsername = currentDjSlot.liveDjUsername || currentDjSlot.djUsername;
-    if (singleUsername) {
-      return [{ username: singleUsername, photoUrl: currentDjSlot.djPhotoUrl }];
+    // Single DJ: check slot-level identity
+    if (currentDjSlot.djEmail || currentDjSlot.djUserId) {
+      const username = currentDjSlot.liveDjUsername || currentDjSlot.djUsername;
+      if (username) {
+        return [{ username, photoUrl: currentDjSlot.djPhotoUrl }];
+      }
     }
 
-    // Also check show-level for remote broadcasts
-    if (currentShow?.liveDjUsername) {
+    // Remote broadcasts: check show-level
+    if (currentShow?.liveDjUsername && (currentShow.djEmail || currentShow.djUserId || currentShow.liveDjUserId)) {
       return [{ username: currentShow.liveDjUsername, photoUrl: currentShow.liveDjPhotoUrl }];
     }
 
     return [];
+  }, [currentDjSlot, currentShow]);
+
+  // Check if ANY DJ has identity (for tip button visibility)
+  const hasDjIdentity = useMemo(() => {
+    if (!currentDjSlot) {
+      // Remote broadcast: check show-level
+      return !!(currentShow?.djEmail || currentShow?.djUserId || currentShow?.liveDjUserId);
+    }
+
+    // B3B: check if any profile has identity
+    if (currentDjSlot.djProfiles && currentDjSlot.djProfiles.length > 0) {
+      return currentDjSlot.djProfiles.some(p => p.email || p.userId);
+    }
+
+    // Single DJ: check slot-level
+    return !!(currentDjSlot.djEmail || currentDjSlot.djUserId);
+  }, [currentDjSlot, currentShow]);
+
+  // For tipping: get the DJ with identity from djProfiles (for B3B) or slot-level
+  // For now, just pick the first DJ with identity - in the future we could prefer DJ with Stripe
+  const { currentDJEmail, currentDJUserId } = useMemo(() => {
+    // B3B: check djProfiles first
+    if (currentDjSlot?.djProfiles && currentDjSlot.djProfiles.length > 0) {
+      const djWithIdentity = currentDjSlot.djProfiles.find(p => p.email || p.userId);
+      if (djWithIdentity) {
+        return {
+          currentDJEmail: djWithIdentity.email || null,
+          currentDJUserId: djWithIdentity.userId || null
+        };
+      }
+    }
+
+    // Single DJ slot: use slot-level fields
+    if (currentDjSlot) {
+      return {
+        currentDJEmail: currentDjSlot.djEmail || null,
+        currentDJUserId: currentDjSlot.djUserId || currentDjSlot.liveDjUserId || null
+      };
+    }
+
+    // Remote broadcast: use show-level fields
+    return {
+      currentDJEmail: currentShow?.djEmail || null,
+      currentDJUserId: currentShow?.djUserId || currentShow?.liveDjUserId || null
+    };
   }, [currentDjSlot, currentShow]);
 
   return (
@@ -236,6 +284,7 @@ export function ChannelClient() {
                 isTogglingWatchlist={isTogglingWatchlist}
                 djProfileUsername={djProfileUsername}
                 djProfiles={djProfiles}
+                hasDjIdentity={hasDjIdentity}
               />
 
               {/* Coming Up Next (next 2 shows) */}
@@ -249,8 +298,8 @@ export function ChannelClient() {
                 username={username}
                 userId={user?.uid}
                 currentDJ={currentDJ}
-                currentDJUserId={currentShow?.djUserId || currentShow?.liveDjUserId}
-                currentDJEmail={currentShow?.djEmail}
+                currentDJUserId={currentDJUserId}
+                currentDJEmail={currentDJEmail}
                 showName={currentShow?.showName}
                 broadcastSlotId={currentShow?.id}
                 isLive={isLive}
@@ -291,6 +340,7 @@ export function ChannelClient() {
               isTogglingWatchlist={isTogglingWatchlist}
               djProfileUsername={djProfileUsername}
               djProfiles={djProfiles}
+              hasDjIdentity={hasDjIdentity}
             />
           </div>
 
@@ -302,8 +352,8 @@ export function ChannelClient() {
                 username={username}
                 userId={user?.uid}
                 currentDJ={currentDJ}
-                currentDJUserId={currentShow?.djUserId || currentShow?.liveDjUserId}
-                currentDJEmail={currentShow?.djEmail}
+                currentDJUserId={currentDJUserId}
+                currentDJEmail={currentDJEmail}
                 showName={currentShow?.showName}
                 broadcastSlotId={currentShow?.id}
                 isLive={isLive}

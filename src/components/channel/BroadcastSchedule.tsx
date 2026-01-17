@@ -100,10 +100,20 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
     ? (slot.djSlot.djPromoHyperlink || slot.originalShow.showPromoHyperlink || null)
     : (slot.originalShow.showPromoHyperlink || null);
 
-  // Show tip button if DJ email is assigned - check djSlot for venue shows
-  const hasDjInfo = slot.isVenueSlot && slot.djSlot
-    ? slot.djSlot.djEmail
-    : slot.originalShow.djEmail;
+  // Show tip button if ANY DJ has identity (email or userId)
+  // For B3B slots, check djProfiles array; for single DJ, check slot-level fields
+  const hasDjInfo = (() => {
+    if (slot.isVenueSlot && slot.djSlot) {
+      // B3B: check if any profile has identity
+      if (slot.djSlot.djProfiles && slot.djSlot.djProfiles.length > 0) {
+        return slot.djSlot.djProfiles.some(p => p.email || p.userId);
+      }
+      // Single DJ: check slot-level
+      return !!(slot.djSlot.djEmail || slot.djSlot.djUserId || slot.djSlot.liveDjUserId);
+    }
+    // Remote broadcast
+    return !!(slot.originalShow.djEmail || slot.originalShow.djUserId || slot.originalShow.liveDjUserId);
+  })();
 
   // Determine if there's enough room to show bio inline (height > 80px)
   const canShowBioInline = height > 80 && djBio;
