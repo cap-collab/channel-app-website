@@ -180,7 +180,6 @@ export function ComingUpNext({ onAuthRequired }: ComingUpNextProps) {
           const isToggling = togglingId === show.id;
           const isExpanded = expandedShowId === show.id;
           const { day, time } = formatShowTime(show.startTime);
-          const hasExpandableContent = !!show.description || !!show.djBio || !!show.djPhotoUrl || !!show.promoText;
           const canTip = station?.id === 'broadcast' && show.dj && (show.djUserId || show.djEmail) && show.broadcastSlotId;
 
           return (
