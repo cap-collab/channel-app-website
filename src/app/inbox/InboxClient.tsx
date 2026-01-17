@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import { getTipHistoryFromLocalStorage, groupTipsByDJ, DJTipGroup } from '@/lib/tip-history-storage';
 
 interface APITipGroup {
@@ -52,7 +53,8 @@ interface ReceivedTipGroup {
 type TabType = 'sent' | 'received';
 
 export function InboxClient() {
-  const { user, isAuthenticated, djProfile } = useAuthContext();
+  const { user, isAuthenticated } = useAuthContext();
+  const { djProfile } = useUserProfile(user?.uid);
   const [activeTab, setActiveTab] = useState<TabType>('sent');
   const [djGroups, setDjGroups] = useState<DJTipGroup[]>([]);
   const [receivedGroups, setReceivedGroups] = useState<ReceivedTipGroup[]>([]);
