@@ -35,13 +35,16 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
       items.push({ label: "Home", href: "/channel", active: currentPage === "channel" });
     }
 
-    // DJ Studio link - hide for users who already have DJ access
-    if (!isDJ(role)) {
+    // DJ Studio link - hide for users who already have DJ access, and only show when not signed in
+    // (signed-in users get DJ Studio in the auth section if they're a DJ)
+    if (!isAuthenticated && !isDJ(role)) {
       items.push({ label: "DJ Studio", href: "/studio/join", active: currentPage === "studio" || currentPage === "dj-portal" });
     }
 
-    // iOS Beta
-    items.push({ label: "iOS Beta", href: "https://testflight.apple.com/join/HcKTJ1nH", external: true });
+    // iOS Beta - only show when not signed in (signed-in users have it in the auth section)
+    if (!isAuthenticated) {
+      items.push({ label: "iOS Beta", href: "https://testflight.apple.com/join/HcKTJ1nH", external: true });
+    }
 
     // Always show auth option in mobile menu
     items.push({ type: "auth" });

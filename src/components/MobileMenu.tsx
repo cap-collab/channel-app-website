@@ -74,14 +74,6 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                 if (isAuthenticated && user) {
                   return (
                     <div key={index}>
-                      <div className="px-4 py-2 border-b border-gray-800">
-                        <p className="text-white text-sm font-medium truncate">
-                          {user.displayName || user.email?.split("@")[0]}
-                        </p>
-                        <p className="text-gray-500 text-xs truncate">
-                          {user.email}
-                        </p>
-                      </div>
                       <Link
                         href="/my-shows"
                         onClick={() => setIsOpen(false)}
