@@ -138,6 +138,14 @@ export async function POST(request: NextRequest) {
 
       updateData.liveDjUserId = djUserId;
 
+      // Set chatUsername for profile URL (only if user has one)
+      if (existingChatUsername) {
+        updateData.liveDjChatUsername = existingChatUsername;
+      } else if (djUsername) {
+        // They just registered this username
+        updateData.liveDjChatUsername = djUsername.trim();
+      }
+
       // Add DJ profile data to the slot (from DJ slot config or user profile)
       if (djBio) {
         updateData.liveDjBio = djBio;
@@ -208,12 +216,15 @@ export async function POST(request: NextRequest) {
         updateData.liveDjThankYouMessage = djThankYouMessage;
       }
 
-      // Also set liveDjUserId if we found a user by email (for profile button linking)
+      // Also set liveDjUserId and chatUsername if we found a user by email (for profile button linking)
       if (foundUserId) {
         updateData.liveDjUserId = foundUserId;
       }
+      if (userProfileData?.chatUsername) {
+        updateData.liveDjChatUsername = userProfileData.chatUsername;
+      }
 
-      console.log('[go-live] Guest/venue DJ:', { djUsername: updateData.liveDjUsername, djEmail, hasUserProfile: !!userProfileData, liveDjUserId: updateData.liveDjUserId });
+      console.log('[go-live] Guest/venue DJ:', { djUsername: updateData.liveDjUsername, djEmail, hasUserProfile: !!userProfileData, liveDjUserId: updateData.liveDjUserId, liveDjChatUsername: updateData.liveDjChatUsername });
     }
 
     if (egressId) {

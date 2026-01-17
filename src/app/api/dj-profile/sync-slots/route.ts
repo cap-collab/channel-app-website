@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { userId, bio, photoUrl, promoText, promoHyperlink, thankYouMessage } = body;
+    const { userId, bio, photoUrl, promoText, promoHyperlink, thankYouMessage, chatUsername } = body;
 
     if (!userId) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 });
@@ -34,6 +34,9 @@ export async function POST(request: NextRequest) {
     if (thankYouMessage !== undefined) {
       updateData.liveDjThankYouMessage = thankYouMessage || null;
     }
+    if (chatUsername !== undefined) {
+      updateData.liveDjChatUsername = chatUsername || null;
+    }
 
     // If nothing to update, return early
     if (Object.keys(updateData).length === 0) {
@@ -46,7 +49,9 @@ export async function POST(request: NextRequest) {
 
     // Get user's email for djEmail query
     const userDoc = await db.collection('users').doc(userId).get();
-    const userEmail = userDoc.data()?.email;
+    const userData = userDoc.data();
+    const userEmail = userData?.email;
+    const userChatUsername = userData?.chatUsername;
 
     // Query 1: Slots where djUserId matches (upcoming scheduled slots)
     const byDjUserIdQuery = db.collection('broadcast-slots')
@@ -187,6 +192,8 @@ export async function POST(request: NextRequest) {
               ...(promoText !== undefined && { djPromoText: promoText || null }),
               ...(promoHyperlink !== undefined && { djPromoHyperlink: promoHyperlink || null }),
               ...(thankYouMessage !== undefined && { djThankYouMessage: thankYouMessage || null }),
+              // Always sync chatUsername from user profile for profile button URL
+              ...(userChatUsername && { djChatUsername: userChatUsername }),
             };
           }
           return slot;
@@ -208,6 +215,8 @@ export async function POST(request: NextRequest) {
             if (promoText !== undefined) slotUpdate.liveDjPromoText = promoText || null;
             if (promoHyperlink !== undefined) slotUpdate.liveDjPromoHyperlink = promoHyperlink || null;
             if (thankYouMessage !== undefined) slotUpdate.liveDjThankYouMessage = thankYouMessage || null;
+            // Always sync chatUsername for profile button URL
+            if (userChatUsername) slotUpdate.liveDjChatUsername = userChatUsername;
             console.log(`[sync-slots] Also updating live fields for current DJ in slot ${doc.id}`);
           }
 

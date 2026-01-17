@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
     // Priority: DJ slot config > user profile by email
     const djProfile = userProfileData?.djProfile as Record<string, unknown> | undefined;
     const liveDjUsername = djSlot.djUsername || djSlot.djName || userProfileData?.chatUsername || null;
+    const liveDjChatUsername = userProfileData?.chatUsername || null;
     const liveDjBio = djSlot.djBio || djProfile?.bio || null;
     const liveDjPhotoUrl = djSlot.djPhotoUrl || djProfile?.photoUrl || null;
     const liveDjPromoText = djSlot.djPromoText || djProfile?.promoText || null;
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
       currentDjSlotId: djSlotId,
       liveDjUserId: djSlot.djUserId || foundUserId || null,
       liveDjUsername,
+      liveDjChatUsername,
       liveDjBio,
       liveDjPhotoUrl,
       liveDjPromoText,
