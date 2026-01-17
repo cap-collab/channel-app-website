@@ -53,7 +53,6 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [addingWatchlistForDJ, setAddingWatchlistForDJ] = useState<string | null>(null);
   const [addingWatchlistForQuery, setAddingWatchlistForQuery] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -108,17 +107,6 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
     setTogglingId(null);
   }, [isAuthenticated, onAuthRequired, toggleFavorite]);
 
-  const handleAddToWatchlist = useCallback(async (djName: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!isAuthenticated) {
-      onAuthRequired?.();
-      return;
-    }
-    if (!djName.trim()) return;
-    setAddingWatchlistForDJ(djName);
-    await addToWatchlist(djName.trim());
-    setAddingWatchlistForDJ(null);
-  }, [isAuthenticated, onAuthRequired, addToWatchlist]);
 
   const handleAddQueryToWatchlist = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -141,12 +129,6 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
   const showDropdown = isOpen && query.trim().length > 0;
   const queryInWatchlist = isInWatchlist(query.trim());
 
-  // Extract unique DJ names from results for the watchlist section
-  const uniqueDJs = results
-    .map((show) => show.dj)
-    .filter((dj): dj is string => !!dj)
-    .filter((dj, index, self) => self.indexOf(dj) === index)
-    .slice(0, 5);
 
   return (
     <div ref={containerRef} className="relative flex-1 max-w-md">
@@ -206,17 +188,16 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
               </div>
             ) : (
               <>
-                {/* Watchlist Section - always show when there's a query */}
+                {/* Add to Watchlist Section - always show when there's a query */}
                 <div className="p-3 border-b border-gray-800">
                   <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-2 px-1">
-                    Watchlist
+                    Add to Watchlist
                   </h3>
                   <div className="space-y-1">
                     {/* Add search query to watchlist */}
                     <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors">
                       <div className="flex-1 min-w-0">
                         <p className="text-white text-sm font-medium truncate">&quot;{query}&quot;</p>
-                        <p className="text-gray-500 text-xs">Add to watchlist</p>
                       </div>
                       <button
                         onClick={handleAddQueryToWatchlist}
@@ -241,46 +222,6 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
                         )}
                       </button>
                     </div>
-
-                    {/* DJ names from search results */}
-                    {uniqueDJs.map((djName) => {
-                      const djInWatchlist = isInWatchlist(djName);
-                      const isAddingWatchlist = addingWatchlistForDJ === djName;
-
-                      return (
-                        <div
-                          key={djName}
-                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white text-sm font-medium truncate">{djName}</p>
-                            <p className="text-gray-500 text-xs">DJ</p>
-                          </div>
-                          <button
-                            onClick={(e) => handleAddToWatchlist(djName, e)}
-                            disabled={isAddingWatchlist || djInWatchlist}
-                            className={`p-1.5 rounded transition-colors ${
-                              djInWatchlist
-                                ? 'text-accent cursor-default'
-                                : 'text-gray-500 hover:text-white hover:bg-white/10'
-                            } disabled:opacity-50`}
-                            title={djInWatchlist ? `${djName} is in your watchlist` : `Add ${djName} to watchlist`}
-                          >
-                            {isAddingWatchlist ? (
-                              <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
-                            ) : djInWatchlist ? (
-                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                              </svg>
-                            ) : (
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                              </svg>
-                            )}
-                          </button>
-                        </div>
-                      );
-                    })}
                   </div>
                 </div>
 
