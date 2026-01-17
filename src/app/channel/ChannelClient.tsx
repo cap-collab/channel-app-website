@@ -194,7 +194,8 @@ export function ChannelClient() {
       // For single DJ slots, hasProfile is determined by whether they have a userId (registered user)
       // The profile page requires dj/broadcaster/admin role, which is checked when userId exists
       if (currentDjSlot.djEmail || currentDjSlot.djUserId || currentDjSlot.liveDjUserId) {
-        const username = currentDjSlot.liveDjUsername || currentDjSlot.djUsername;
+        // Use djUsername (chatUsername) for the profile URL - NOT liveDjUsername which may be a display name
+        const username = currentDjSlot.djUsername;
         if (username) {
           // hasProfile requires a userId (registered user with DJ role)
           const hasProfile = !!(currentDjSlot.djUserId || currentDjSlot.liveDjUserId);
@@ -207,9 +208,10 @@ export function ChannelClient() {
     }
 
     // Remote broadcasts (no djSlots): check show-level
-    if (currentShow?.liveDjUsername && (currentShow.djEmail || currentShow.djUserId || currentShow.liveDjUserId)) {
+    // Use djUsername (chatUsername) for the profile URL - NOT liveDjUsername which may be a display name
+    if (currentShow?.djUsername && (currentShow.djEmail || currentShow.djUserId || currentShow.liveDjUserId)) {
       // For remote broadcasts, liveDjUserId means the DJ logged in and went live, so they have a profile
-      return [{ username: currentShow.liveDjUsername, photoUrl: currentShow.liveDjPhotoUrl, hasProfile: !!currentShow.liveDjUserId }];
+      return [{ username: currentShow.djUsername, photoUrl: currentShow.liveDjPhotoUrl, hasProfile: !!currentShow.liveDjUserId }];
     }
 
     return [];

@@ -35,7 +35,9 @@ function serializeSlot(docId: string, data: Record<string, unknown>): BroadcastS
     stationId: data.stationId as string,
     showName: data.showName as string,
     djName: data.djName as string | undefined,
+    djUserId: data.djUserId as string | undefined,
     djEmail: data.djEmail as string | undefined,
+    djUsername: data.djUsername as string | undefined,
     djSlots: data.djSlots as DJSlot[] | undefined,
     startTime: (data.startTime as { toMillis: () => number })?.toMillis() || 0,
     endTime: (data.endTime as { toMillis: () => number })?.toMillis() || 0,
@@ -95,6 +97,7 @@ export async function createSlot(data: {
 
   // Look up DJ info by email if provided
   let djUserId: string | null = null;
+  let djUsername: string | null = null;
   let finalDjName = data.djName;
   let liveDjBio: string | null = null;
   let liveDjPhotoUrl: string | null = null;
@@ -105,6 +108,7 @@ export async function createSlot(data: {
       const djInfo = await res.json();
       if (djInfo) {
         djUserId = djInfo.djUserId;
+        djUsername = djInfo.djUsername;  // chatUsername for profile URL
         finalDjName = djInfo.djName || data.djName;
         liveDjBio = djInfo.liveDjBio;
         liveDjPhotoUrl = djInfo.liveDjPhotoUrl;
@@ -146,6 +150,7 @@ export async function createSlot(data: {
     djName: finalDjName || null,
     djEmail: data.djEmail || null,
     djUserId: djUserId || null,
+    djUsername: djUsername || null,
     djSlots: cleanedDjSlots,
     startTime: startTimestamp,
     endTime: endTimestamp,
@@ -168,6 +173,7 @@ export async function createSlot(data: {
     djName: finalDjName,
     djEmail: data.djEmail,
     djUserId: djUserId || undefined,
+    djUsername: djUsername || undefined,
     djSlots: data.djSlots,
     startTime: data.startTime,
     endTime: data.endTime,
