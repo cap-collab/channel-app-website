@@ -258,8 +258,8 @@ export function NowPlayingCard({
         </div>
       )}
 
-      {/* Audio Visualizer - show when live (even if not playing), hide when offline */}
-      {isLive && <AudioVisualizer stream={audioStream} />}
+      {/* Audio Visualizer - show on desktop only when live */}
+      {isLive && <AudioVisualizer stream={audioStream} className="hidden lg:block" />}
     </div>
   );
 }
