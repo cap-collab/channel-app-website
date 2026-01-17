@@ -29,7 +29,7 @@ export function BPMBadge({ bpm }: BPMBadgeProps) {
           fill="none"
         />
       </svg>
-      <span className="text-[11px] font-medium text-white/70">
+      <span className="text-xs font-medium text-white/70 whitespace-nowrap">
         {bpm} BPM
       </span>
     </div>
