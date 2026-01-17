@@ -137,9 +137,9 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
                 </button>
               ) : (
                 <button
-                  onClick={() => setShowAuthModal(true)}
+                  onClick={() => setShowUserMenu(!showUserMenu)}
                   className="w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-600 transition-colors flex items-center justify-center"
-                  aria-label="Sign in"
+                  aria-label="Menu"
                 >
                   <svg
                     className="w-4 h-4 text-gray-400"
@@ -151,12 +151,43 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                      d="M4 6h16M4 12h16M4 18h16"
                     />
                   </svg>
                 </button>
               )}
 
+              {/* Menu for logged out users */}
+              {showUserMenu && !isAuthenticated && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowUserMenu(false)}
+                  />
+                  <div className="absolute right-0 top-10 z-50 bg-black border border-gray-800 rounded-lg py-1 min-w-[160px]">
+                    <a
+                      href="https://testflight.apple.com/join/HcKTJ1nH"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setShowUserMenu(false)}
+                      className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                    >
+                      iOS Beta
+                    </a>
+                    <button
+                      onClick={() => {
+                        setShowAuthModal(true);
+                        setShowUserMenu(false);
+                      }}
+                      className="w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                    >
+                      Sign In
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* Menu for logged in users */}
               {showUserMenu && isAuthenticated && user && (
                 <>
                   <div
