@@ -50,9 +50,7 @@ export function NowPlayingCard({
   isDJInWatchlist,
   onToggleWatchlist,
   isTogglingWatchlist,
-  djProfileUsername,
   djProfiles,
-  hasDjIdentity,
 }: NowPlayingCardProps) {
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
   const stationName = 'Channel Broadcast';
