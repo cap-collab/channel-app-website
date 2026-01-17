@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useAudioLevel } from '@/hooks/useAudioLevel';
 
 interface AudioVisualizerProps {
@@ -10,6 +11,19 @@ interface AudioVisualizerProps {
 export function AudioVisualizer({ className = '', stream }: AudioVisualizerProps) {
   // Use the same hook as the DJ's LiveControlBar
   const level = useAudioLevel(stream ?? null);
+  const [hasEverMoved, setHasEverMoved] = useState(false);
+
+  // Track if the meter has ever shown movement
+  useEffect(() => {
+    if (level > 0.01) {
+      setHasEverMoved(true);
+    }
+  }, [level]);
+
+  // Don't render if there's no stream or if the meter has never moved
+  if (!stream || !hasEverMoved) {
+    return null;
+  }
 
   // Convert level to percentage width
   const width = Math.min(level * 100, 100);
