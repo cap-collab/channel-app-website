@@ -372,10 +372,6 @@ export function ChannelClient() {
             <ComingUpNext onAuthRequired={handleAuthRequired} />
           </div>
 
-          {/* TV Guide Schedule at the bottom */}
-          <div className="flex-shrink-0 p-4 pt-0">
-            <TVGuideSchedule onAuthRequired={handleAuthRequired} />
-          </div>
         </div>
       </main>
 
