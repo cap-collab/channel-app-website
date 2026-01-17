@@ -4,6 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
+import { BPMBadge } from './BPMBadge';
+import { useBPM } from '@/contexts/BPMContext';
 
 interface CompactPlayerProps {
   isPlaying: boolean;
@@ -51,6 +53,8 @@ export function CompactPlayer({
   djProfiles,
 }: CompactPlayerProps) {
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
+  const { stationBPM } = useBPM();
+  const broadcastBPM = stationBPM['broadcast']?.bpm || null;
   const stationName = 'Channel Broadcast';
   const showName = currentShow?.showName || (isLive ? 'Live Now' : 'Offline');
   // Use djName (scheduled DJ name) to match what's shown in the schedule/calendar
@@ -111,9 +115,12 @@ export function CompactPlayer({
             </span>
           )}
         </div>
-        <p className="text-gray-400 text-sm truncate">
-          {showName}{djName ? ` • ${djName}` : ''}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-gray-400 text-sm truncate">
+            {showName}{djName ? ` • ${djName}` : ''}
+          </p>
+          {isLive && <BPMBadge bpm={broadcastBPM} />}
+        </div>
       </div>
 
       {/* Controls */}
