@@ -169,7 +169,7 @@ export function ComingUpNext({ onAuthRequired }: ComingUpNextProps) {
     <div className="bg-surface-card rounded-xl p-4">
       <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3">Coming Up Next</h3>
       <div className="space-y-2">
-        {upcomingShows.map(({ show, isFavorite, source }) => {
+        {upcomingShows.map(({ show, isFavorite }) => {
           const station = getStation(show.stationId);
           const accentColor = station?.accentColor || '#D94099';
           const isToggling = togglingId === show.id;
@@ -193,12 +193,9 @@ export function ComingUpNext({ onAuthRequired }: ComingUpNextProps) {
               {/* Show info */}
               <div className="flex-1 min-w-0">
                 <p className="text-white text-sm font-medium truncate">{show.name}</p>
-                <p className="text-gray-500 text-xs truncate">
-                  {show.dj || 'TBA'}
-                  {source === 'favorite' && (
-                    <span className="ml-2 text-accent">from favorites</span>
-                  )}
-                </p>
+                {show.dj && (
+                  <p className="text-gray-500 text-xs truncate">{show.dj}</p>
+                )}
               </div>
 
               {/* Favorite button (star) */}

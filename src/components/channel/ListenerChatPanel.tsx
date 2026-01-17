@@ -294,7 +294,7 @@ export function ListenerChatPanel({
   activePromoHyperlink,
   isVenue = false,
 }: ListenerChatPanelProps) {
-  const { messages, isConnected, error, currentPromo, sendMessage, sendLove } = useListenerChat({
+  const { messages, error, currentPromo, sendMessage, sendLove } = useListenerChat({
     username,
     currentShowStartTime,
   });
@@ -391,11 +391,6 @@ export function ListenerChatPanel({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
           <span className="text-white font-medium">Chat</span>
-          {isConnected ? (
-            <span className="w-2 h-2 bg-green-500 rounded-full" />
-          ) : (
-            <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
-          )}
         </div>
       </div>
 
