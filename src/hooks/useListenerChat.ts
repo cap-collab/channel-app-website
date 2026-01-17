@@ -53,11 +53,11 @@ export function useListenerChat({ username, currentShowStartTime }: UseListenerC
     const db = getFirestore(app);
 
     const messagesRef = collection(db, 'chats', 'broadcast', 'messages');
-    // Use show start time if available, otherwise fall back to 24 hours ago
-    const queryStartTime = currentShowStartTime || (Date.now() - 24 * 60 * 60 * 1000);
+    // Always fetch messages from the last 24 hours so users can see chat history
+    const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
     const q = query(
       messagesRef,
-      where('timestamp', '>=', new Date(queryStartTime)),
+      where('timestamp', '>=', new Date(twentyFourHoursAgo)),
       orderBy('timestamp', 'desc'),
       limit(100)
     );

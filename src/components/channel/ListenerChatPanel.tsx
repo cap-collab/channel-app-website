@@ -21,6 +21,10 @@ interface ListenerChatPanelProps {
   profileLoading?: boolean;
   currentShowStartTime?: number;    // Unix timestamp ms - for filtering promo messages
   onSetUsername?: (username: string) => Promise<{ success: boolean; error?: string }>;
+  // Pre-configured promo from venue DJ slot (takes precedence over chat promos)
+  activePromoText?: string;
+  activePromoHyperlink?: string;
+  isVenue?: boolean;
 }
 
 // Reserved usernames that cannot be registered (case-insensitive)
@@ -286,6 +290,9 @@ export function ListenerChatPanel({
   profileLoading = false,
   currentShowStartTime,
   onSetUsername,
+  activePromoText,
+  activePromoHyperlink,
+  isVenue = false,
 }: ListenerChatPanelProps) {
   const { messages, isConnected, error, currentPromo, sendMessage, sendLove } = useListenerChat({
     username,
@@ -400,12 +407,37 @@ export function ListenerChatPanel({
       )}
 
       {/* Pinned promo bar - only show when live and there's promo text */}
-      {isLive && currentPromo && currentPromo.promoText && (() => {
-        const hasHyperlink = !!currentPromo.promoHyperlink;
+      {/* For venue broadcasts: use pre-configured promo from DJ slot (if any) */}
+      {/* For remote broadcasts: use latest promo from chat messages */}
+      {isLive && (() => {
+        // Determine which promo to show
+        let promoTextToShow: string | undefined;
+        let promoHyperlinkToShow: string | undefined;
+        let promoUsername: string | undefined;
+
+        if (isVenue) {
+          // Venue: only use pre-configured promo from current DJ slot
+          if (activePromoText) {
+            promoTextToShow = activePromoText;
+            promoHyperlinkToShow = activePromoHyperlink;
+            promoUsername = currentDJ || undefined;
+          }
+        } else {
+          // Remote: use latest promo from chat messages
+          if (currentPromo?.promoText) {
+            promoTextToShow = currentPromo.promoText;
+            promoHyperlinkToShow = currentPromo.promoHyperlink;
+            promoUsername = currentPromo.username;
+          }
+        }
+
+        if (!promoTextToShow || !promoUsername) return null;
+
+        const hasHyperlink = !!promoHyperlinkToShow;
         const content = (
           <div className={`px-4 py-3 bg-accent/10 border-b border-gray-800 flex-shrink-0 ${hasHyperlink ? 'hover:bg-accent/20 cursor-pointer' : ''}`}>
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-white font-semibold text-sm">{currentPromo.username}</span>
+              <span className="text-white font-semibold text-sm">{promoUsername}</span>
               <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title="Live DJ" />
               {hasHyperlink && (
                 <svg className="w-4 h-4 text-accent flex-shrink-0 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -414,7 +446,7 @@ export function ListenerChatPanel({
               )}
             </div>
             <p className={`text-sm ${hasHyperlink ? 'text-accent' : 'text-white'}`}>
-              {currentPromo.promoText}
+              {promoTextToShow}
             </p>
           </div>
         );
@@ -422,7 +454,7 @@ export function ListenerChatPanel({
         if (hasHyperlink) {
           return (
             <a
-              href={normalizeUrl(currentPromo.promoHyperlink!)}
+              href={normalizeUrl(promoHyperlinkToShow!)}
               target="_blank"
               rel="noopener noreferrer"
               className="block transition-colors"

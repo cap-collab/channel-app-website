@@ -317,6 +317,9 @@ export function ChannelClient() {
                 profileLoading={profileLoading}
                 currentShowStartTime={currentDjSlotStartTime}
                 onSetUsername={setChatUsername}
+                isVenue={currentShow?.broadcastType === 'venue'}
+                activePromoText={currentDjSlot?.promoText || currentDjSlot?.djPromoText}
+                activePromoHyperlink={currentDjSlot?.promoHyperlink || currentDjSlot?.djPromoHyperlink}
               />
             </div>
           </div>
@@ -371,6 +374,9 @@ export function ChannelClient() {
                 profileLoading={profileLoading}
                 currentShowStartTime={currentDjSlotStartTime}
                 onSetUsername={setChatUsername}
+                isVenue={currentShow?.broadcastType === 'venue'}
+                activePromoText={currentDjSlot?.promoText || currentDjSlot?.djPromoText}
+                activePromoHyperlink={currentDjSlot?.promoHyperlink || currentDjSlot?.djPromoHyperlink}
               />
             </div>
           </div>
