@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
+import { AudioVisualizer } from './AudioVisualizer';
 import { BPMBadge } from './BPMBadge';
 import { useBPM } from '@/contexts/BPMContext';
 
@@ -31,6 +32,8 @@ interface NowPlayingCardProps {
   djProfiles?: Array<{ username: string; usernameNormalized?: string; photoUrl?: string; hasProfile?: boolean }>;
   // Whether the DJ has a valid identity (email or userId) - controls tip button visibility
   hasDjIdentity?: boolean;
+  // Audio stream for level visualization
+  audioStream?: MediaStream | null;
 }
 
 export function NowPlayingCard({
@@ -50,6 +53,7 @@ export function NowPlayingCard({
   onToggleWatchlist,
   isTogglingWatchlist,
   djProfiles,
+  audioStream,
 }: NowPlayingCardProps) {
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
   const { stationBPM } = useBPM();
@@ -258,6 +262,9 @@ export function NowPlayingCard({
           </div>
         </div>
       )}
+
+      {/* Audio Visualizer - show on desktop only when live */}
+      {isLive && <AudioVisualizer stream={audioStream} className="hidden lg:block" />}
     </div>
   );
 }
