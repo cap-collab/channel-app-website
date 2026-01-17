@@ -158,6 +158,13 @@ export function StudioProfileClient() {
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // DJ Name setup state (for users without a chat username)
+  const [djNameInput, setDjNameInput] = useState("");
+  const [djNameAvailable, setDjNameAvailable] = useState<boolean | null>(null);
+  const [djNameError, setDjNameError] = useState<string | null>(null);
+  const [checkingDjName, setCheckingDjName] = useState(false);
+  const [savingDjName, setSavingDjName] = useState(false);
+
   // Upcoming shows (broadcasts + external radio shows)
   const [upcomingShows, setUpcomingShows] = useState<UpcomingShow[]>([]);
   const [loadingBroadcasts, setLoadingBroadcasts] = useState(true);
@@ -539,6 +546,74 @@ export function StudioProfileClient() {
     }
   };
 
+  // Check DJ name availability with debounce
+  const checkDjNameAvailability = async (name: string) => {
+    if (!user) return;
+
+    const trimmed = name.trim();
+    if (trimmed.length < 2) {
+      setDjNameAvailable(null);
+      setDjNameError(trimmed.length > 0 ? "DJ name must be at least 2 characters" : null);
+      return;
+    }
+
+    setCheckingDjName(true);
+    setDjNameError(null);
+
+    try {
+      const res = await fetch(`/api/chat/check-username?username=${encodeURIComponent(trimmed)}&userId=${user.uid}`);
+      const data = await res.json();
+
+      if (data.available) {
+        setDjNameAvailable(true);
+        setDjNameError(null);
+      } else {
+        setDjNameAvailable(false);
+        setDjNameError(data.reason || "Name not available");
+      }
+    } catch {
+      setDjNameError("Failed to check availability");
+      setDjNameAvailable(null);
+    } finally {
+      setCheckingDjName(false);
+    }
+  };
+
+  // Save DJ name (registers as chat username)
+  const handleSaveDjName = async () => {
+    if (!user || !djNameInput.trim() || !djNameAvailable) return;
+
+    setSavingDjName(true);
+    setDjNameError(null);
+
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/chat/register-username', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ username: djNameInput.trim() }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setDjNameError(data.error || "Failed to save DJ name");
+        return;
+      }
+
+      // Success - chatUsername will be updated via Firestore listener
+      setDjNameInput("");
+      setDjNameAvailable(null);
+    } catch {
+      setDjNameError("Failed to save DJ name");
+    } finally {
+      setSavingDjName(false);
+    }
+  };
+
   const handleConnectStripe = async () => {
     if (!user) return;
 
@@ -752,6 +827,73 @@ export function StudioProfileClient() {
       </header>
 
       <main className="max-w-xl mx-auto p-4">
+        {/* DJ Name Setup Banner - shown when chatUsername is not set */}
+        {!chatUsername && (
+          <div className="mb-6 bg-gradient-to-r from-purple-900/50 to-blue-900/50 border border-purple-500/30 rounded-lg p-4">
+            <h2 className="text-white font-medium mb-1">Set Your DJ Name</h2>
+            <p className="text-gray-400 text-sm mb-4">
+              Choose a name for your profile and personal URL. This will also be your chat username.
+            </p>
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    value={djNameInput}
+                    onChange={(e) => {
+                      setDjNameInput(e.target.value);
+                      // Debounce the availability check
+                      const value = e.target.value;
+                      setTimeout(() => {
+                        if (value === e.target.value) {
+                          checkDjNameAvailability(value);
+                        }
+                      }, 300);
+                    }}
+                    placeholder="e.g., DJ Cool"
+                    maxLength={20}
+                    className="w-full bg-black border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-purple-500 focus:outline-none"
+                  />
+                  {checkingDjName && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
+                    </div>
+                  )}
+                  {!checkingDjName && djNameAvailable === true && djNameInput.trim() && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                  {!checkingDjName && djNameAvailable === false && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-red-500">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={handleSaveDjName}
+                  disabled={savingDjName || !djNameAvailable || !djNameInput.trim()}
+                  className="bg-white text-black px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {savingDjName ? "Saving..." : "Save"}
+                </button>
+              </div>
+              {djNameError && (
+                <p className="text-red-400 text-sm">{djNameError}</p>
+              )}
+              {djNameAvailable && djNameInput.trim() && (
+                <p className="text-gray-500 text-sm">
+                  Your profile URL will be: <span className="text-purple-400">/dj/{djNameInput.trim().replace(/\s+/g, '').toLowerCase()}</span>
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="space-y-8">
           {/* Profile section */}
           <section>
@@ -760,9 +902,9 @@ export function StudioProfileClient() {
             </h2>
             <div className="bg-[#1a1a1a] rounded-lg divide-y divide-gray-800">
               <div className="p-4 flex items-center justify-between">
-                <span className="text-gray-400">Chat Username</span>
+                <span className="text-gray-400">DJ Name</span>
                 <span className="text-white">
-                  {chatUsername ? `@${chatUsername}` : "Not set"}
+                  {chatUsername || <span className="text-gray-600">Not set</span>}
                 </span>
               </div>
               <div className="p-4 flex items-center justify-between">
@@ -773,10 +915,10 @@ export function StudioProfileClient() {
                 <div className="p-4 flex items-center justify-between">
                   <span className="text-gray-400">Public Profile</span>
                   <Link
-                    href={`/dj/${chatUsername}`}
+                    href={`/dj/${chatUsername.replace(/\s+/g, '').toLowerCase()}`}
                     className="text-blue-400 hover:text-blue-300 text-sm transition-colors"
                   >
-                    /dj/{chatUsername} &rarr;
+                    /dj/{chatUsername.replace(/\s+/g, '').toLowerCase()} &rarr;
                   </Link>
                 </div>
               )}
