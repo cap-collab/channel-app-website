@@ -131,6 +131,7 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
   const [loveCount, setLoveCount] = useState(0);
   const [listenerCount, setListenerCount] = useState(0);
   const [messageCount, setMessageCount] = useState(0);
+  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
 
   const roomRef = useRef<Room | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
@@ -258,7 +259,9 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
         // Audio element should already exist from play() warmup
         // Create one as fallback just in case
         if (!audioElementRef.current) {
-          audioElementRef.current = new Audio();
+          const audio = new Audio();
+          audioElementRef.current = audio;
+          setAudioElement(audio);
         }
 
         // Attach the track to the audio element
@@ -311,7 +314,9 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
 
     // Create audio element if needed
     if (!audioElementRef.current) {
-      audioElementRef.current = new Audio();
+      const audio = new Audio();
+      audioElementRef.current = audio;
+      setAudioElement(audio);
     }
 
     // Set mobile-friendly attributes
@@ -579,6 +584,6 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
     loveCount,
     listenerCount,
     messageCount,
-    audioElement: audioElementRef.current,
+    audioElement,
   };
 }

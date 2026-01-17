@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
 import { useAudioElementLevel } from '@/hooks/useAudioElementLevel';
 
 interface AudioVisualizerProps {
@@ -9,119 +8,33 @@ interface AudioVisualizerProps {
 }
 
 export function AudioVisualizer({ className = '', audioElement }: AudioVisualizerProps) {
-  const realLevel = useAudioElementLevel(audioElement ?? null);
-  const [level, setLevel] = useState(0);
-  const [peakLevel, setPeakLevel] = useState(0);
-  const animationRef = useRef<number>();
-  const lastUpdateRef = useRef<number>(0);
-  const peakHoldRef = useRef<number>(0);
-  const peakDecayRef = useRef<number>(0);
+  const level = useAudioElementLevel(audioElement ?? null);
 
-  // Use real audio level when available, otherwise simulate
-  const hasRealAudio = audioElement !== undefined && audioElement !== null;
+  // Convert level to percentage width
+  const width = Math.min(level * 100, 100);
 
-  // Update level from real audio
-  useEffect(() => {
-    if (hasRealAudio) {
-      setLevel(realLevel);
-
-      // Peak hold logic for real audio
-      const now = performance.now();
-      if (realLevel > peakDecayRef.current) {
-        peakDecayRef.current = realLevel;
-        peakHoldRef.current = now;
-        setPeakLevel(realLevel);
-      } else if (now - peakHoldRef.current > 1000) {
-        peakDecayRef.current = Math.max(0, peakDecayRef.current - 0.02);
-        setPeakLevel(peakDecayRef.current);
-      }
+  // Determine color based on level - matches DJ's LiveControlBar
+  const getGradient = () => {
+    if (level > 0.8) {
+      return 'from-green-500 via-yellow-500 to-red-500';
+    } else if (level > 0.5) {
+      return 'from-green-500 via-yellow-500 to-yellow-500';
     }
-  }, [realLevel, hasRealAudio]);
-
-  // Simulated animation (fallback when no audio element)
-  useEffect(() => {
-    if (hasRealAudio) return;
-
-    const animate = (timestamp: number) => {
-      // Throttle updates to ~30fps
-      if (timestamp - lastUpdateRef.current < 33) {
-        animationRef.current = requestAnimationFrame(animate);
-        return;
-      }
-      lastUpdateRef.current = timestamp;
-
-      // Simulate audio level with smooth transitions
-      const baseLevel = Math.sin(timestamp / 300) * 0.2 + 0.5;
-      const randomBurst = Math.random() > 0.85 ? Math.random() * 0.3 : 0;
-      const newLevel = Math.min(1, Math.max(0.1, baseLevel + randomBurst + Math.random() * 0.2));
-
-      setLevel(newLevel);
-
-      // Peak hold logic
-      if (newLevel > peakDecayRef.current) {
-        peakDecayRef.current = newLevel;
-        peakHoldRef.current = timestamp;
-        setPeakLevel(newLevel);
-      } else if (timestamp - peakHoldRef.current > 1000) {
-        peakDecayRef.current = Math.max(0, peakDecayRef.current - 0.02);
-        setPeakLevel(peakDecayRef.current);
-      }
-
-      animationRef.current = requestAnimationFrame(animate);
-    };
-
-    animationRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [hasRealAudio]);
-
-  // Convert level to dB display (-60 to 0 dB range)
-  const levelDb = level > 0 ? Math.max(-60, 20 * Math.log10(level)) : -60;
-  const levelPercent = ((levelDb + 60) / 60) * 100;
-  const peakPercent = peakLevel > 0 ? ((Math.max(-60, 20 * Math.log10(peakLevel)) + 60) / 60) * 100 : 0;
-
-  // dB markers
-  const dbMarkers = [-48, -36, -24, -12, -6, 0];
+    return 'from-green-500 to-green-500';
+  };
 
   return (
-    <div className={`space-y-1 ${className}`}>
-      {/* Level bar */}
-      <div className="relative h-3 bg-gray-800 rounded-full overflow-hidden">
-        {/* Gradient fill - white to pink */}
+    <div className={className}>
+      <div className="h-3 bg-gray-800 rounded-full overflow-hidden">
         <div
-          className="absolute inset-y-0 left-0 rounded-full transition-all duration-75"
-          style={{
-            width: `${levelPercent}%`,
-            background: 'linear-gradient(to right, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 50%, #D94099 85%, #ff4080 100%)',
-          }}
+          className={`h-full bg-gradient-to-r ${getGradient()} transition-all duration-75`}
+          style={{ width: `${width}%` }}
         />
-        {/* Peak indicator */}
-        {peakPercent > 0 && (
-          <div
-            className="absolute top-0 bottom-0 w-0.5 bg-accent transition-all duration-75"
-            style={{ left: `${peakPercent}%` }}
-          />
-        )}
       </div>
-
-      {/* dB scale markers */}
-      <div className="relative h-3 flex items-center">
-        {dbMarkers.map((db) => {
-          const position = ((db + 60) / 60) * 100;
-          return (
-            <div
-              key={db}
-              className="absolute flex flex-col items-center"
-              style={{ left: `${position}%`, transform: 'translateX(-50%)' }}
-            >
-              <span className="text-[9px] text-gray-500">{db}</span>
-            </div>
-          );
-        })}
+      <div className="flex justify-between mt-0.5 text-[9px] text-gray-500">
+        <span>-60dB</span>
+        <span>-12dB</span>
+        <span>0dB</span>
       </div>
     </div>
   );
