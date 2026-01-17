@@ -31,8 +31,17 @@ export function useAudioLevel(stream: MediaStream | null) {
     const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
     // Animation loop to read levels
-    const updateLevel = () => {
-      if (!analyserRef.current) return;
+    const updateLevel = async () => {
+      if (!analyserRef.current || !audioContextRef.current) return;
+
+      // Resume audio context if it got suspended (e.g., when audio was paused)
+      if (audioContextRef.current.state === 'suspended') {
+        try {
+          await audioContextRef.current.resume();
+        } catch {
+          // Ignore resume errors
+        }
+      }
 
       analyserRef.current.getByteFrequencyData(dataArray);
 
