@@ -32,8 +32,8 @@ interface NowPlayingCardProps {
   djProfiles?: Array<{ username: string; photoUrl?: string }>;
   // Whether the DJ has a valid identity (email or userId) - controls profile button visibility
   hasDjIdentity?: boolean;
-  // Audio element for real level visualization
-  audioElement?: HTMLAudioElement | null;
+  // Audio stream for level visualization
+  audioStream?: MediaStream | null;
 }
 
 export function NowPlayingCard({
@@ -53,7 +53,7 @@ export function NowPlayingCard({
   onToggleWatchlist,
   isTogglingWatchlist,
   djProfiles,
-  audioElement,
+  audioStream,
 }: NowPlayingCardProps) {
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
   const stationName = 'Channel Broadcast';
@@ -259,7 +259,7 @@ export function NowPlayingCard({
       )}
 
       {/* Audio Visualizer - show when live (even if not playing), hide when offline */}
-      {isLive && <AudioVisualizer audioElement={audioElement} />}
+      {isLive && <AudioVisualizer stream={audioStream} />}
     </div>
   );
 }

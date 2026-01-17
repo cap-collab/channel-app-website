@@ -104,7 +104,7 @@ export function ChannelClient() {
     error,
     toggle,
     listenerCount,
-    audioElement,
+    audioStream,
   } = useBroadcastStream();
 
   // Get love count from chat - pass currentShow start time so love count resets per show
@@ -286,7 +286,7 @@ export function ChannelClient() {
                 djProfileUsername={djProfileUsername}
                 djProfiles={djProfiles}
                 hasDjIdentity={hasDjIdentity}
-                audioElement={audioElement}
+                audioStream={audioStream}
               />
 
               {/* Coming Up Next (next 2 shows) */}
@@ -343,7 +343,7 @@ export function ChannelClient() {
               djProfileUsername={djProfileUsername}
               djProfiles={djProfiles}
               hasDjIdentity={hasDjIdentity}
-              audioElement={audioElement}
+              audioStream={audioStream}
             />
           </div>
 

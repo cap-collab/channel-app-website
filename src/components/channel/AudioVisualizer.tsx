@@ -1,14 +1,15 @@
 'use client';
 
-import { useAudioElementLevel } from '@/hooks/useAudioElementLevel';
+import { useAudioLevel } from '@/hooks/useAudioLevel';
 
 interface AudioVisualizerProps {
   className?: string;
-  audioElement?: HTMLAudioElement | null;
+  stream?: MediaStream | null;
 }
 
-export function AudioVisualizer({ className = '', audioElement }: AudioVisualizerProps) {
-  const level = useAudioElementLevel(audioElement ?? null);
+export function AudioVisualizer({ className = '', stream }: AudioVisualizerProps) {
+  // Use the same hook as the DJ's LiveControlBar
+  const level = useAudioLevel(stream ?? null);
 
   // Convert level to percentage width
   const width = Math.min(level * 100, 100);

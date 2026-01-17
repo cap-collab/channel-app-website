@@ -118,7 +118,7 @@ interface UseBroadcastStreamReturn {
   loveCount: number;
   listenerCount: number;
   messageCount: number;
-  audioElement: HTMLAudioElement | null;
+  audioStream: MediaStream | null;
 }
 
 export function useBroadcastStream(): UseBroadcastStreamReturn {
@@ -131,7 +131,7 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
   const [loveCount, setLoveCount] = useState(0);
   const [listenerCount, setListenerCount] = useState(0);
   const [messageCount, setMessageCount] = useState(0);
-  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
 
   const roomRef = useRef<Room | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
@@ -259,13 +259,17 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
         // Audio element should already exist from play() warmup
         // Create one as fallback just in case
         if (!audioElementRef.current) {
-          const audio = new Audio();
-          audioElementRef.current = audio;
-          setAudioElement(audio);
+          audioElementRef.current = new Audio();
         }
 
         // Attach the track to the audio element
         track.attach(audioElementRef.current);
+
+        // Get MediaStream from the track for audio level visualization
+        const mediaStreamTrack = track.mediaStreamTrack;
+        if (mediaStreamTrack) {
+          setAudioStream(new MediaStream([mediaStreamTrack]));
+        }
 
         // Set playsinline for iOS
         (audioElementRef.current as HTMLAudioElement & { playsInline: boolean }).playsInline = true;
@@ -314,14 +318,29 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
 
     // Create audio element if needed
     if (!audioElementRef.current) {
-      const audio = new Audio();
-      audioElementRef.current = audio;
-      setAudioElement(audio);
+      audioElementRef.current = new Audio();
     }
 
     // Set mobile-friendly attributes
     audioElementRef.current.setAttribute('playsinline', 'true');
     audioElementRef.current.setAttribute('webkit-playsinline', 'true');
+    // Enable CORS for captureStream to work
+    audioElementRef.current.crossOrigin = 'anonymous';
+
+    // Helper to capture audio stream from element for visualization
+    const captureAudioStream = () => {
+      if (audioElementRef.current) {
+        try {
+          // captureStream() returns a MediaStream we can analyze
+          const stream = (audioElementRef.current as HTMLAudioElement & { captureStream?: () => MediaStream }).captureStream?.();
+          if (stream) {
+            setAudioStream(stream);
+          }
+        } catch (err) {
+          console.warn('Could not capture audio stream:', err);
+        }
+      }
+    };
 
     // Use HLS for mobile/Safari - more reliable than WebRTC
     if (useHLS) {
@@ -332,6 +351,7 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
           console.log('🎵 Using native HLS (Safari)');
           audioElementRef.current.src = HLS_URL;
           await audioElementRef.current.play();
+          captureAudioStream();
           setIsPlaying(true);
           setIsLoading(false);
         } else if (Hls.isSupported()) {
@@ -349,6 +369,7 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
             console.log('🎵 HLS manifest loaded');
             try {
               await audioElementRef.current!.play();
+              captureAudioStream();
               setIsPlaying(true);
               setIsLoading(false);
             } catch (err) {
@@ -584,6 +605,6 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
     loveCount,
     listenerCount,
     messageCount,
-    audioElement,
+    audioStream,
   };
 }
