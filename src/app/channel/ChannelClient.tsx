@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { Header } from '@/components/Header';
+import { HeaderSearch } from '@/components/HeaderSearch';
 import { NowPlayingCard } from '@/components/channel/NowPlayingCard';
 import { ComingUpNext } from '@/components/channel/ComingUpNext';
 import { TVGuideSchedule } from '@/components/channel/TVGuideSchedule';
@@ -334,6 +335,11 @@ export function ChannelClient() {
 
         {/* Mobile layout */}
         <div className="lg:hidden flex flex-col overflow-y-auto">
+          {/* Search bar - mobile only */}
+          <div className="flex-shrink-0 px-4 pt-3 pb-2">
+            <HeaderSearch onAuthRequired={handleAuthRequired} />
+          </div>
+
           {/* Now Playing Card (full info like desktop) */}
           <div className="flex-shrink-0 p-4 pb-2">
             <NowPlayingCard
