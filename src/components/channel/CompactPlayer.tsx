@@ -28,7 +28,7 @@ interface CompactPlayerProps {
   onToggleWatchlist?: () => Promise<void>;
   isTogglingWatchlist?: boolean;
   // B3B support: multiple DJ profiles (only show profile icon if hasProfile is true)
-  djProfiles?: Array<{ username: string; photoUrl?: string; hasProfile?: boolean }>;
+  djProfiles?: Array<{ username: string; usernameNormalized?: string; photoUrl?: string; hasProfile?: boolean }>;
 }
 
 export function CompactPlayer({
@@ -192,7 +192,7 @@ export function CompactPlayer({
           djProfiles.filter(p => p.hasProfile).map((profile) => (
             <Link
               key={profile.username}
-              href={`/dj/@${encodeURIComponent(profile.username)}`}
+              href={`/dj/${profile.usernameNormalized || profile.username.replace(/\s+/g, '').toLowerCase()}`}
               className="w-8 h-8 flex items-center justify-center text-accent hover:text-accent/80 transition-colors"
               title={`View ${profile.username}'s profile`}
             >

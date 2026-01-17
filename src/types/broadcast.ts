@@ -17,6 +17,7 @@ export interface DJProfileInfo {
   email?: string;           // For lookup and tips fallback
   userId?: string;          // Firebase UID (if account exists)
   username?: string;        // Chat username
+  usernameNormalized?: string; // Normalized username for URL (lowercase, no spaces)
   bio?: string;             // Bio text
   photoUrl?: string;        // Profile picture URL
   promoText?: string;       // Promo text

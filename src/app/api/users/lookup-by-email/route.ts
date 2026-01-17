@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
       // User identity
       djUserId: userDoc.id,
       djUsername: userData.chatUsername || null,
+      djUsernameNormalized: userData.chatUsernameNormalized || null,
       djName: userData.chatUsername || userData.displayName || null,
       // DJ profile fields
       djBio: djProfile.bio || null,

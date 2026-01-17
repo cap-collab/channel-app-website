@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
-import { AudioVisualizer } from './AudioVisualizer';
 import { BPMBadge } from './BPMBadge';
 import { useBPM } from '@/contexts/BPMContext';
 
@@ -29,11 +28,9 @@ interface NowPlayingCardProps {
   onToggleWatchlist?: () => Promise<void>;
   isTogglingWatchlist?: boolean;
   // B3B support: multiple DJ profiles (only show profile icon if hasProfile is true)
-  djProfiles?: Array<{ username: string; photoUrl?: string; hasProfile?: boolean }>;
+  djProfiles?: Array<{ username: string; usernameNormalized?: string; photoUrl?: string; hasProfile?: boolean }>;
   // Whether the DJ has a valid identity (email or userId) - controls tip button visibility
   hasDjIdentity?: boolean;
-  // Audio stream for level visualization
-  audioStream?: MediaStream | null;
 }
 
 export function NowPlayingCard({
@@ -53,7 +50,6 @@ export function NowPlayingCard({
   onToggleWatchlist,
   isTogglingWatchlist,
   djProfiles,
-  audioStream,
 }: NowPlayingCardProps) {
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
   const { stationBPM } = useBPM();
@@ -248,7 +244,7 @@ export function NowPlayingCard({
               djProfiles.filter(p => p.hasProfile).map((profile) => (
                 <Link
                   key={profile.username}
-                  href={`/dj/@${encodeURIComponent(profile.username)}`}
+                  href={`/dj/${profile.usernameNormalized || profile.username.replace(/\s+/g, '').toLowerCase()}`}
                   className="flex items-center gap-1.5 p-2 lg:px-3 lg:py-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 text-accent transition-colors"
                   title={`View ${profile.username}'s profile`}
                 >
@@ -262,9 +258,6 @@ export function NowPlayingCard({
           </div>
         </div>
       )}
-
-      {/* Audio Visualizer - show on desktop only when live */}
-      {isLive && <AudioVisualizer stream={audioStream} className="hidden lg:block" />}
     </div>
   );
 }

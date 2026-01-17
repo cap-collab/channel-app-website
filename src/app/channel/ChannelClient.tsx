@@ -188,7 +188,7 @@ export function ChannelClient() {
       if (currentDjSlot.djProfiles && currentDjSlot.djProfiles.length > 0) {
         return currentDjSlot.djProfiles
           .filter(p => p.username && (p.email || p.userId))  // MUST have identity
-          .map(p => ({ username: p.username!, photoUrl: p.photoUrl, hasProfile: p.hasProfile }));
+          .map(p => ({ username: p.username!, usernameNormalized: p.usernameNormalized, photoUrl: p.photoUrl, hasProfile: p.hasProfile }));
       }
 
       // Single DJ slot: check slot-level identity

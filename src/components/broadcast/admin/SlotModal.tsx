@@ -26,6 +26,7 @@ interface LocalDJProfile {
   email: string;
   userId?: string;
   username?: string;
+  usernameNormalized?: string;
   bio?: string;
   photoUrl?: string;
   promoText?: string;
@@ -309,6 +310,7 @@ export function SlotModal({
           isLookingUp: false,
           userId: undefined,
           username: undefined,
+          usernameNormalized: undefined,
           bio: undefined,
           photoUrl: undefined,
           promoText: undefined,
@@ -344,6 +346,7 @@ export function SlotModal({
             profileFound: true,
             userId: data.djUserId,
             username: data.djUsername,
+            usernameNormalized: data.djUsernameNormalized,
             bio: data.djBio,
             photoUrl: data.djPhotoUrl,
             promoText: data.djPromoText,
@@ -358,6 +361,7 @@ export function SlotModal({
             profileFound: false,
             userId: undefined,
             username: undefined,
+            usernameNormalized: undefined,
             bio: undefined,
             photoUrl: undefined,
             promoText: undefined,
@@ -454,6 +458,7 @@ export function SlotModal({
                 email: p.email || '',
                 userId: p.userId,
                 username: p.username,
+                usernameNormalized: p.usernameNormalized,
                 bio: p.bio,
                 photoUrl: p.photoUrl,
                 promoText: p.promoText,
@@ -598,6 +603,7 @@ export function SlotModal({
                 email: p.email || undefined,
                 userId: p.userId || undefined,
                 username: p.username || undefined,
+                usernameNormalized: p.usernameNormalized || undefined,
                 bio: p.bio || undefined,
                 photoUrl: p.photoUrl || undefined,
                 promoText: p.promoText || undefined,
