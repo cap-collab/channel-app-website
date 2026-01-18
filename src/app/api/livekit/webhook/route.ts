@@ -11,6 +11,13 @@ function generateSlug(showName: string): string {
     .replace(/^-|-$/g, '');
 }
 
+// Helper to remove undefined values from an object
+function removeUndefined<T extends Record<string, unknown>>(obj: T): T {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== undefined)
+  ) as T;
+}
+
 // Extract DJ info from broadcast slot data
 function extractDJs(slotData: Record<string, unknown>): ArchiveDJ[] {
   const djs: ArchiveDJ[] = [];
@@ -22,22 +29,22 @@ function extractDJs(slotData: Record<string, unknown>): ArchiveDJ[] {
       if (slot.djProfiles && Array.isArray(slot.djProfiles)) {
         for (const profile of slot.djProfiles) {
           if (profile.username || profile.email || profile.userId) {
-            djs.push({
+            djs.push(removeUndefined({
               name: profile.username || slot.djName || 'Unknown DJ',
-              username: profile.username,
-              userId: profile.userId,
-              photoUrl: profile.photoUrl,
-            });
+              username: profile.username || undefined,
+              userId: profile.userId || undefined,
+              photoUrl: profile.photoUrl || undefined,
+            }));
           }
         }
       } else if (slot.djName) {
         // Single DJ in this slot
-        djs.push({
+        djs.push(removeUndefined({
           name: slot.djName,
-          username: slot.djUsername,
-          userId: slot.djUserId || slot.liveDjUserId,
-          photoUrl: slot.djPhotoUrl,
-        });
+          username: slot.djUsername || undefined,
+          userId: slot.djUserId || slot.liveDjUserId || undefined,
+          photoUrl: slot.djPhotoUrl || undefined,
+        }));
       }
     }
   }
@@ -46,12 +53,12 @@ function extractDJs(slotData: Record<string, unknown>): ArchiveDJ[] {
   if (djs.length === 0) {
     const djName = slotData.liveDjUsername || slotData.djName || slotData.djUsername;
     if (djName) {
-      djs.push({
+      djs.push(removeUndefined({
         name: djName as string,
         username: (slotData.djUsername || slotData.liveDjUsername) as string | undefined,
         userId: (slotData.liveDjUserId || slotData.djUserId) as string | undefined,
         photoUrl: slotData.liveDjPhotoUrl as string | undefined,
-      });
+      }));
     }
   }
 
