@@ -97,8 +97,8 @@ function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSeek, onA
           <p className="text-gray-500 text-xs mt-1 hidden sm:block">{formatDate(archive.recordedAt)}</p>
         </div>
 
-        {/* Action buttons - desktop: row, mobile: column with reversed order */}
-        <div className="flex-shrink-0 flex items-center gap-2 max-sm:flex-col-reverse">
+        {/* Action buttons */}
+        <div className="flex-shrink-0 flex items-center gap-2">
           {/* Add to watchlist button */}
           <button
             onClick={(e) => {
@@ -106,18 +106,18 @@ function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSeek, onA
               e.stopPropagation();
               onAddToWatchlist();
             }}
-            className="px-3 h-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
+            className="sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            <span className="font-medium">Add to watchlist</span>
+            <span className="font-medium hidden sm:inline">Add to watchlist</span>
           </button>
 
           {/* Copy link button */}
           <button
             onClick={handleShare}
-            className={`px-3 h-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs ${
+            className={`sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs ${
               copied
                 ? 'bg-green-500/20 text-green-400'
                 : 'bg-white/10 hover:bg-white/20 text-white'
@@ -128,14 +128,14 @@ function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSeek, onA
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                <span className="font-medium">Copied!</span>
+                <span className="font-medium hidden sm:inline">Copied!</span>
               </>
             ) : (
               <>
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
-                <span className="font-medium">Copy link</span>
+                <span className="font-medium hidden sm:inline">Copy link</span>
               </>
             )}
           </button>
