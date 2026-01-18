@@ -6,6 +6,9 @@ import Image from 'next/image';
 import { Header } from '@/components/Header';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { ArchiveSerialized } from '@/types/broadcast';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { AuthModal } from '@/components/AuthModal';
+import { WatchlistModal } from '@/components/WatchlistModal';
 
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -37,9 +40,10 @@ interface ArchiveCardProps {
   onAudioRef: (el: HTMLAudioElement | null) => void;
   onTimeUpdate: () => void;
   onEnded: () => void;
+  onAddToWatchlist: () => void;
 }
 
-function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSeek, onAudioRef, onTimeUpdate, onEnded }: ArchiveCardProps) {
+function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSeek, onAudioRef, onTimeUpdate, onEnded, onAddToWatchlist }: ArchiveCardProps) {
   const [copied, setCopied] = useState(false);
 
   const handleShare = async (e: React.MouseEvent) => {
@@ -93,31 +97,49 @@ function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSeek, onA
           <p className="text-gray-500 text-xs mt-1">{formatDate(archive.recordedAt)}</p>
         </div>
 
-        {/* Copy link button */}
-        <button
-          onClick={handleShare}
-          className={`flex-shrink-0 px-3 h-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs ${
-            copied
-              ? 'bg-green-500/20 text-green-400'
-              : 'bg-white/10 hover:bg-white/20 text-white'
-          }`}
-        >
-          {copied ? (
-            <>
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span className="font-medium">Copied!</span>
-            </>
-          ) : (
-            <>
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-              <span className="font-medium">Copy link</span>
-            </>
-          )}
-        </button>
+        {/* Action buttons */}
+        <div className="flex-shrink-0 flex items-center gap-2">
+          {/* Add to watchlist button */}
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onAddToWatchlist();
+            }}
+            className="px-3 h-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            <span className="font-medium">Add to watchlist</span>
+          </button>
+
+          {/* Copy link button */}
+          <button
+            onClick={handleShare}
+            className={`px-3 h-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs ${
+              copied
+                ? 'bg-green-500/20 text-green-400'
+                : 'bg-white/10 hover:bg-white/20 text-white'
+            }`}
+          >
+            {copied ? (
+              <>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="font-medium">Copied!</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <span className="font-medium">Copy link</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* DJ names - below the top row so they can expand freely */}
@@ -188,12 +210,16 @@ function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSeek, onA
 }
 
 export function ArchivesClient() {
+  const { user } = useAuthContext();
   const [archives, setArchives] = useState<ArchiveSerialized[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [currentTimes, setCurrentTimes] = useState<Record<string, number>>({});
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showWatchlistModal, setShowWatchlistModal] = useState(false);
+  const [selectedArchive, setSelectedArchive] = useState<ArchiveSerialized | null>(null);
 
   useEffect(() => {
     async function fetchArchives() {
@@ -255,6 +281,22 @@ export function ArchivesClient() {
     setCurrentTimes(prev => ({ ...prev, [archiveId]: 0 }));
   };
 
+  const handleAddToWatchlist = (archive: ArchiveSerialized) => {
+    setSelectedArchive(archive);
+    if (!user) {
+      setShowAuthModal(true);
+    } else {
+      setShowWatchlistModal(true);
+    }
+  };
+
+  const handleAuthSuccess = () => {
+    setShowAuthModal(false);
+    if (selectedArchive) {
+      setShowWatchlistModal(true);
+    }
+  };
+
   return (
     <div className="min-h-[100dvh] text-white relative flex flex-col">
       <AnimatedBackground />
@@ -295,11 +337,41 @@ export function ArchivesClient() {
                 onAudioRef={(el) => { audioRefs.current[archive.id] = el; }}
                 onTimeUpdate={() => handleTimeUpdate(archive.id)}
                 onEnded={() => handleEnded(archive.id)}
+                onAddToWatchlist={() => handleAddToWatchlist(archive)}
               />
             ))}
           </div>
         )}
       </main>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => {
+          setShowAuthModal(false);
+          if (user && selectedArchive) {
+            handleAuthSuccess();
+          }
+        }}
+        message="Sign in to add DJs to your watchlist"
+      />
+
+      {/* Watchlist Modal */}
+      {selectedArchive && (
+        <WatchlistModal
+          isOpen={showWatchlistModal}
+          onClose={() => {
+            setShowWatchlistModal(false);
+            setSelectedArchive(null);
+          }}
+          djs={selectedArchive.djs.map((dj) => ({
+            name: dj.name,
+            username: dj.username,
+            userId: dj.userId,
+            email: dj.email,
+          }))}
+        />
+      )}
     </div>
   );
 }

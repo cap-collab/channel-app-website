@@ -237,6 +237,7 @@ export interface ArchiveDJ {
   name: string;                // Display name
   username?: string;           // Chat username for profile link
   userId?: string;             // Firebase UID
+  email?: string;              // DJ email (for watchlist matching)
   photoUrl?: string;           // Profile photo
 }
 
