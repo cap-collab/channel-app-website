@@ -254,6 +254,7 @@ export interface Archive {
   createdAt: number;             // Unix ms - when archive was created
   stationId: string;             // 'channel-main'
   showImageUrl?: string;         // Show image (from broadcast slot)
+  streamCount?: number;          // Number of streams (counted after 5+ min playback)
 }
 
 // Serialized version for API responses (same as Archive since all fields are already serialized)

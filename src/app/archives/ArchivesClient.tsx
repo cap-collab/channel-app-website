@@ -209,6 +209,8 @@ function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSeek, onA
   );
 }
 
+const STREAM_COUNT_THRESHOLD = 300; // 5 minutes in seconds
+
 export function ArchivesClient() {
   const { user } = useAuthContext();
   const [archives, setArchives] = useState<ArchiveSerialized[]>([]);
@@ -220,6 +222,11 @@ export function ArchivesClient() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showWatchlistModal, setShowWatchlistModal] = useState(false);
   const [selectedArchive, setSelectedArchive] = useState<ArchiveSerialized | null>(null);
+
+  // Track cumulative playback time and whether stream has been counted
+  const playbackTimeRef = useRef<Record<string, number>>({});
+  const streamCountedRef = useRef<Set<string>>(new Set());
+  const lastTimeRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     async function fetchArchives() {
@@ -272,7 +279,29 @@ export function ArchivesClient() {
   const handleTimeUpdate = (archiveId: string) => {
     const audio = audioRefs.current[archiveId];
     if (audio) {
-      setCurrentTimes(prev => ({ ...prev, [archiveId]: audio.currentTime }));
+      const currentTime = audio.currentTime;
+      setCurrentTimes(prev => ({ ...prev, [archiveId]: currentTime }));
+
+      // Track cumulative playback time
+      const lastTime = lastTimeRef.current[archiveId] || 0;
+      const timeDelta = currentTime - lastTime;
+
+      // Only count forward playback (not seeking backwards)
+      if (timeDelta > 0 && timeDelta < 2) {
+        playbackTimeRef.current[archiveId] = (playbackTimeRef.current[archiveId] || 0) + timeDelta;
+
+        // Check if we've reached the threshold and haven't counted yet
+        if (
+          playbackTimeRef.current[archiveId] >= STREAM_COUNT_THRESHOLD &&
+          !streamCountedRef.current.has(archiveId)
+        ) {
+          streamCountedRef.current.add(archiveId);
+          // Fire and forget - don't await
+          fetch(`/api/archives/${archiveId}/stream`, { method: 'POST' }).catch(console.error);
+        }
+      }
+
+      lastTimeRef.current[archiveId] = currentTime;
     }
   };
 
