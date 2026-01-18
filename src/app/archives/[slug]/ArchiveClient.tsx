@@ -154,7 +154,7 @@ export function ArchiveClient({ slug }: Props) {
             onPause={() => setIsPlaying(false)}
           />
 
-          {/* Top row: Photo, info, and share button */}
+          {/* Top row: Photo, show name, date, and share button */}
           <div className="flex items-start gap-4">
             {/* Show Image or DJ Photo */}
             <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
@@ -175,31 +175,10 @@ export function ArchiveClient({ slug }: Props) {
               )}
             </div>
 
-            {/* Show info */}
+            {/* Show name and date */}
             <div className="flex-1 min-w-0">
               <h1 className="text-white font-semibold">{archive.showName}</h1>
-              <p className="text-gray-400 text-sm">
-                {archive.djs.map((dj, index) => (
-                  <span key={index}>
-                    {dj.username ? (
-                      <Link
-                        href={`/dj/${dj.username}`}
-                        className="hover:text-white transition-colors"
-                      >
-                        @{dj.username}
-                      </Link>
-                    ) : (
-                      <span>{dj.name}</span>
-                    )}
-                    {index < archive.djs.length - 1 && ', '}
-                  </span>
-                ))}
-              </p>
-              <div className="flex items-center gap-3 mt-1 text-gray-500 text-xs">
-                <span>{formatDate(archive.recordedAt)}</span>
-                <span>•</span>
-                <span>{formatDuration(archive.duration)}</span>
-              </div>
+              <p className="text-gray-500 text-xs mt-1">{formatDate(archive.recordedAt)}</p>
             </div>
 
             {/* Copy link button */}
@@ -228,6 +207,25 @@ export function ArchiveClient({ slug }: Props) {
               )}
             </button>
           </div>
+
+          {/* DJ names - below the top row so they can expand freely */}
+          <p className="text-gray-400 text-sm mt-2 ml-20">
+            {archive.djs.map((dj, index) => (
+              <span key={index}>
+                {dj.username ? (
+                  <Link
+                    href={`/dj/${dj.username}`}
+                    className="hover:text-white transition-colors"
+                  >
+                    @{dj.username}
+                  </Link>
+                ) : (
+                  <span>{dj.name}</span>
+                )}
+                {index < archive.djs.length - 1 && ', '}
+              </span>
+            ))}
+          </p>
 
           {/* Audio player - expanded section */}
           <div className="mt-4 flex items-center gap-4">
