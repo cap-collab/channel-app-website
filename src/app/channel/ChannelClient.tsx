@@ -8,6 +8,7 @@ import { Header } from '@/components/Header';
 import { HeaderSearch } from '@/components/HeaderSearch';
 import { NowPlayingCard } from '@/components/channel/NowPlayingCard';
 import { ComingUpNext } from '@/components/channel/ComingUpNext';
+import { WhatsOnNow } from '@/components/channel/WhatsOnNow';
 import { TVGuideSchedule } from '@/components/channel/TVGuideSchedule';
 import { ListenerChatPanel } from '@/components/channel/ListenerChatPanel';
 import { TipThankYouModal } from '@/components/channel/TipThankYouModal';
@@ -392,6 +393,11 @@ export function ChannelClient() {
           {/* Coming Up Next */}
           <div className="flex-shrink-0 px-4 pb-4">
             <ComingUpNext onAuthRequired={handleAuthRequired} />
+          </div>
+
+          {/* What's On Now - mobile horizontal scroll cards */}
+          <div className="flex-shrink-0 px-4 pb-4">
+            <WhatsOnNow onAuthRequired={handleAuthRequired} />
           </div>
 
         </div>
