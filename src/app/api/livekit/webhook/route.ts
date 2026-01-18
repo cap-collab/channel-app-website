@@ -1,7 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { WebhookReceiver } from 'livekit-server-sdk';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { Recording } from '@/types/broadcast';
+import { Recording, ArchiveDJ, STATION_ID } from '@/types/broadcast';
+
+// Generate URL-friendly slug from show name
+function generateSlug(showName: string): string {
+  return showName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+// Extract DJ info from broadcast slot data
+function extractDJs(slotData: Record<string, unknown>): ArchiveDJ[] {
+  const djs: ArchiveDJ[] = [];
+
+  // Check for venue broadcasts with djSlots
+  if (slotData.djSlots && Array.isArray(slotData.djSlots)) {
+    for (const slot of slotData.djSlots) {
+      // Check for B3B (multiple DJs in one slot)
+      if (slot.djProfiles && Array.isArray(slot.djProfiles)) {
+        for (const profile of slot.djProfiles) {
+          if (profile.username || profile.email || profile.userId) {
+            djs.push({
+              name: profile.username || slot.djName || 'Unknown DJ',
+              username: profile.username,
+              userId: profile.userId,
+              photoUrl: profile.photoUrl,
+            });
+          }
+        }
+      } else if (slot.djName) {
+        // Single DJ in this slot
+        djs.push({
+          name: slot.djName,
+          username: slot.djUsername,
+          userId: slot.djUserId || slot.liveDjUserId,
+          photoUrl: slot.djPhotoUrl,
+        });
+      }
+    }
+  }
+
+  // If no DJs found from djSlots, try top-level DJ info (remote broadcasts)
+  if (djs.length === 0) {
+    const djName = slotData.liveDjUsername || slotData.djName || slotData.djUsername;
+    if (djName) {
+      djs.push({
+        name: djName as string,
+        username: (slotData.djUsername || slotData.liveDjUsername) as string | undefined,
+        userId: (slotData.liveDjUserId || slotData.djUserId) as string | undefined,
+        photoUrl: slotData.liveDjPhotoUrl as string | undefined,
+      });
+    }
+  }
+
+  return djs;
+}
 
 const apiKey = process.env.LIVEKIT_API_KEY || '';
 const apiSecret = process.env.LIVEKIT_API_SECRET || '';
@@ -95,6 +150,64 @@ export async function POST(request: NextRequest) {
 
             await slotRef.update(updateData);
             console.log(`Recording saved for slot ${slotId}: ${recordingUrl} (${durationSec}s)`);
+
+            // Create archive for the recording
+            try {
+              const showName = (slotData?.showName as string) || 'Untitled Show';
+              const baseSlug = generateSlug(showName);
+
+              // Check for existing archives with same slug and find next available number
+              const archivesRef = db.collection('archives');
+              const existingArchives = await archivesRef
+                .where('slug', '>=', baseSlug)
+                .where('slug', '<=', baseSlug + '\uf8ff')
+                .get();
+
+              let slug = baseSlug;
+              if (!existingArchives.empty) {
+                // Find the highest numbered slug
+                let maxNumber = 0;
+                existingArchives.docs.forEach(doc => {
+                  const existingSlug = doc.data().slug;
+                  if (existingSlug === baseSlug) {
+                    maxNumber = Math.max(maxNumber, 1);
+                  } else {
+                    const match = existingSlug.match(new RegExp(`^${baseSlug}-(\\d+)$`));
+                    if (match) {
+                      maxNumber = Math.max(maxNumber, parseInt(match[1], 10));
+                    }
+                  }
+                });
+                if (maxNumber > 0) {
+                  slug = `${baseSlug}-${maxNumber + 1}`;
+                }
+              }
+
+              // Extract DJ info from the slot
+              const djs = extractDJs(slotData || {});
+
+              // Get the recorded time from the slot's startTime
+              const startTime = slotData?.startTime;
+              const recordedAt = startTime?.toMillis ? startTime.toMillis() : Date.now();
+
+              // Create the archive document
+              await archivesRef.add({
+                slug,
+                broadcastSlotId: slotId,
+                showName,
+                djs,
+                recordingUrl,
+                duration: durationSec,
+                recordedAt,
+                createdAt: Date.now(),
+                stationId: (slotData?.stationId as string) || STATION_ID,
+              });
+
+              console.log(`Archive created: ${slug} for show "${showName}"`);
+            } catch (archiveError) {
+              console.error('Failed to create archive:', archiveError);
+              // Don't fail the webhook if archive creation fails
+            }
 
             // Clean up the mapping document
             try {

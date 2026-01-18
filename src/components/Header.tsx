@@ -10,7 +10,7 @@ import { HeaderSearch } from "@/components/HeaderSearch";
 import { useBroadcastLiveStatus } from "@/hooks/useBroadcastLiveStatus";
 import { useUserRole, isDJ } from "@/hooks/useUserRole";
 
-type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal" | "radio-portal" | "my-shows" | "streaming-guide" | "stripe-setup" | "studio";
+type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal" | "radio-portal" | "my-shows" | "streaming-guide" | "stripe-setup" | "studio" | "archives";
 
 interface HeaderProps {
   currentPage?: CurrentPage;
@@ -40,6 +40,9 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
     if (!isAuthenticated && !isDJ(role)) {
       items.push({ label: "DJ Studio", href: "/studio/join", active: currentPage === "studio" || currentPage === "dj-portal" });
     }
+
+    // Archives link
+    items.push({ label: "Archives", href: "/archives", active: currentPage === "archives" });
 
     // iOS Beta - only show when not signed in (signed-in users have it in the auth section)
     if (!isAuthenticated) {
@@ -106,6 +109,16 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
                 DJ Studio
               </Link>
             )}
+
+            {/* Archives link */}
+            <Link
+              href="/archives"
+              className={`hidden sm:inline-block text-sm transition-colors ${
+                currentPage === "archives" ? "text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Archives
+            </Link>
           </div>
 
           {/* Center: Search bar - hidden on mobile */}

@@ -228,6 +228,31 @@ export interface ChatMessageSerialized {
   promoHyperlink?: string;
 }
 
+// Archive DJ info (simplified for archive display)
+export interface ArchiveDJ {
+  name: string;                // Display name
+  username?: string;           // Chat username for profile link
+  userId?: string;             // Firebase UID
+  photoUrl?: string;           // Profile photo
+}
+
+// Archive stored in Firestore
+export interface Archive {
+  id: string;                    // Firestore doc ID (auto-generated)
+  slug: string;                  // URL-friendly show name (e.g., "deep-house-sessions" or "deep-house-sessions-2")
+  broadcastSlotId: string;       // Reference to original broadcast-slot
+  showName: string;              // Original show title
+  djs: ArchiveDJ[];              // DJ information (supports multiple DJs for B3B)
+  recordingUrl: string;          // MP4 URL from R2
+  duration: number;              // Duration in seconds
+  recordedAt: number;            // Unix ms - when the show was recorded
+  createdAt: number;             // Unix ms - when archive was created
+  stationId: string;             // 'channel-main'
+}
+
+// Serialized version for API responses (same as Archive since all fields are already serialized)
+export type ArchiveSerialized = Archive;
+
 // Constants
 export const ROOM_NAME = 'channel-radio';
 export const STATION_ID = 'channel-main';  // Default station for now
