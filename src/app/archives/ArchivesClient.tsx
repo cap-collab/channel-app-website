@@ -6,8 +6,6 @@ import Image from 'next/image';
 import { Header } from '@/components/Header';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { ArchiveSerialized } from '@/types/broadcast';
-import { useAuthContext } from '@/contexts/AuthContext';
-import { AuthModal } from '@/components/AuthModal';
 import { WatchlistModal } from '@/components/WatchlistModal';
 
 function formatDuration(seconds: number): string {
@@ -212,14 +210,12 @@ function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSeek, onA
 const STREAM_COUNT_THRESHOLD = 300; // 5 minutes in seconds
 
 export function ArchivesClient() {
-  const { user } = useAuthContext();
   const [archives, setArchives] = useState<ArchiveSerialized[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [currentTimes, setCurrentTimes] = useState<Record<string, number>>({});
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
-  const [showAuthModal, setShowAuthModal] = useState(false);
   const [showWatchlistModal, setShowWatchlistModal] = useState(false);
   const [selectedArchive, setSelectedArchive] = useState<ArchiveSerialized | null>(null);
 
@@ -312,18 +308,7 @@ export function ArchivesClient() {
 
   const handleAddToWatchlist = (archive: ArchiveSerialized) => {
     setSelectedArchive(archive);
-    if (!user) {
-      setShowAuthModal(true);
-    } else {
-      setShowWatchlistModal(true);
-    }
-  };
-
-  const handleAuthSuccess = () => {
-    setShowAuthModal(false);
-    if (selectedArchive) {
-      setShowWatchlistModal(true);
-    }
+    setShowWatchlistModal(true);
   };
 
   return (
@@ -372,18 +357,6 @@ export function ArchivesClient() {
           </div>
         )}
       </main>
-
-      {/* Auth Modal */}
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => {
-          setShowAuthModal(false);
-          if (user && selectedArchive) {
-            handleAuthSuccess();
-          }
-        }}
-        message="Sign in to add DJs to your watchlist"
-      />
 
       {/* Watchlist Modal */}
       {selectedArchive && (
