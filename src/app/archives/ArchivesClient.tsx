@@ -89,10 +89,29 @@ function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSeek, onA
           )}
         </div>
 
-        {/* Show name and date */}
+        {/* Show name, date, and DJs */}
         <div className="flex-1 min-w-0">
           <h2 className="text-white font-semibold">{archive.showName}</h2>
           <p className="text-gray-500 text-xs hidden sm:block">{formatDate(archive.recordedAt)}</p>
+          {/* DJ names */}
+          <p className="text-gray-400 text-sm mt-0.5">
+            {archive.djs.map((dj, index) => (
+              <span key={index}>
+                {dj.username ? (
+                  <Link
+                    href={`/dj/${dj.username}`}
+                    className="hover:text-white transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    @{dj.username}
+                  </Link>
+                ) : (
+                  <span>{dj.name}</span>
+                )}
+                {index < archive.djs.length - 1 && ', '}
+              </span>
+            ))}
+          </p>
         </div>
 
         {/* Action buttons */}
@@ -139,26 +158,6 @@ function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSeek, onA
           </button>
         </div>
       </div>
-
-      {/* DJ names - below the top row so they can expand freely */}
-      <p className="text-gray-400 text-sm max-sm:mt-0.5 sm:mt-1 ml-20">
-        {archive.djs.map((dj, index) => (
-          <span key={index}>
-            {dj.username ? (
-              <Link
-                href={`/dj/${dj.username}`}
-                className="hover:text-white transition-colors"
-                onClick={(e) => e.stopPropagation()}
-              >
-                @{dj.username}
-              </Link>
-            ) : (
-              <span>{dj.name}</span>
-            )}
-            {index < archive.djs.length - 1 && ', '}
-          </span>
-        ))}
-      </p>
 
       {/* Audio player */}
       <div className="mt-1.5 flex items-center gap-4">
