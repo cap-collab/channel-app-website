@@ -70,19 +70,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
     }
 
-    // Find the broadcast slot by show name
+    // Find the broadcast slot by show name (simple query without orderBy to avoid index requirement)
     const slotsRef = db.collection('broadcast-slots');
     const snapshot = await slotsRef
       .where('showName', '==', showName)
-      .orderBy('startTime', 'desc')
-      .limit(1)
       .get();
 
     if (snapshot.empty) {
       return NextResponse.json({ error: `No broadcast slot found for show: ${showName}` }, { status: 404 });
     }
 
-    const slotDoc = snapshot.docs[0];
+    // Sort by startTime manually to get the most recent
+    const sortedDocs = snapshot.docs.sort((a, b) => {
+      const aTime = a.data().startTime?.toMillis?.() || 0;
+      const bTime = b.data().startTime?.toMillis?.() || 0;
+      return bTime - aTime;
+    });
+
+    const slotDoc = sortedDocs[0];
     const slotData = slotDoc.data();
     const slotId = slotDoc.id;
 
@@ -174,6 +179,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error creating archive:', error);
-    return NextResponse.json({ error: 'Failed to create archive' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: 'Failed to create archive', details: errorMessage }, { status: 500 });
   }
 }
