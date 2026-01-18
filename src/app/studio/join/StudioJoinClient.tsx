@@ -255,8 +255,7 @@ export function StudioJoinClient() {
         <div className="max-w-2xl mx-auto">
           {/* Hero Section */}
           <div className="mb-12">
-            <h1 className="text-3xl font-bold mb-2">DJ Studio</h1>
-            <p className="text-xl text-gray-300 mb-8">Create your DJ channel</p>
+            <h1 className="text-3xl font-bold mb-8">DJ Studio</h1>
 
             <div className="space-y-4 text-gray-400 leading-relaxed">
               <p>Channel lets DJs:</p>
