@@ -48,7 +48,15 @@ function DJGearGuide() {
           Step 1 — Connect your mixer/controller
         </h3>
         <p className="text-gray-400">
-          Connect your mixer/controller to your computer via USB or USB-C.
+          Connect your mixer/controller to your computer via USB or{' '}
+          <a
+            href="https://www.amazon.com/dp/B0D4524MSB?psc=1&smid=A1YK04EZPMQTFQ&ref_=chk_typ_imgToDp"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-white underline hover:text-gray-300"
+          >
+            USB-C
+          </a>.
         </p>
       </div>
 

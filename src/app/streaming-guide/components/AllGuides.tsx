@@ -74,7 +74,7 @@ export function AllGuides() {
                     To connect your audio interface to Mac (MOTU M2 only comes with USB-C to USB-A).
                     Must support data transfer, not charging only.{' '}
                     <a
-                      href="https://www.amazon.com/dp/B0D44Q73JP"
+                      href="https://www.amazon.com/dp/B0D4524MSB?psc=1&smid=A1YK04EZPMQTFQ&ref_=chk_typ_imgToDp"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-white underline hover:text-gray-300"
@@ -131,7 +131,15 @@ export function AllGuides() {
           <div>
             <h4 className="text-white font-medium mb-3">Step 1 — Connect your mixer/controller</h4>
             <p className="text-gray-400 text-sm">
-              Connect your mixer/controller to your computer via USB or USB-C.
+              Connect your mixer/controller to your computer via USB or{' '}
+              <a
+                href="https://www.amazon.com/dp/B0D4524MSB?psc=1&smid=A1YK04EZPMQTFQ&ref_=chk_typ_imgToDp"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-white underline hover:text-gray-300"
+              >
+                USB-C
+              </a>.
             </p>
           </div>
 
