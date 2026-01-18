@@ -10,10 +10,8 @@ export async function GET() {
     }
 
     const archivesRef = db.collection('archives');
-    const snapshot = await archivesRef
-      .orderBy('recordedAt', 'desc')
-      .limit(100)
-      .get();
+    // Get all archives without orderBy to avoid index requirement
+    const snapshot = await archivesRef.get();
 
     const archives: ArchiveSerialized[] = snapshot.docs.map((doc) => {
       const data = doc.data();
@@ -31,7 +29,13 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({ archives });
+    // Sort by recordedAt descending (most recent first)
+    archives.sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0));
+
+    // Limit to 100
+    const limitedArchives = archives.slice(0, 100);
+
+    return NextResponse.json({ archives: limitedArchives });
   } catch (error) {
     console.error('Error fetching archives:', error);
     return NextResponse.json({ error: 'Failed to fetch archives' }, { status: 500 });
