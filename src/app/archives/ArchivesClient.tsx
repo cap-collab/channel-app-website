@@ -92,7 +92,7 @@ function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSeek, onA
         {/* Show name and date */}
         <div className="flex-1 min-w-0">
           <h2 className="text-white font-semibold">{archive.showName}</h2>
-          <p className="text-gray-500 text-xs mt-1 hidden sm:block">{formatDate(archive.recordedAt)}</p>
+          <p className="text-gray-500 text-xs hidden sm:block">{formatDate(archive.recordedAt)}</p>
         </div>
 
         {/* Action buttons */}
@@ -141,7 +141,7 @@ function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSeek, onA
       </div>
 
       {/* DJ names - below the top row so they can expand freely */}
-      <p className="text-gray-400 text-sm mt-2 ml-20">
+      <p className="text-gray-400 text-sm max-sm:mt-0.5 sm:mt-1 ml-20">
         {archive.djs.map((dj, index) => (
           <span key={index}>
             {dj.username ? (
