@@ -25,8 +25,8 @@ function formatDuration(seconds: number): string {
 function formatDate(timestamp: number): string {
   const date = new Date(timestamp);
   return date.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
+    weekday: 'short',
+    month: 'short',
     day: 'numeric',
     year: 'numeric',
   });
@@ -148,7 +148,7 @@ export function ArchiveClient({ slug }: Props) {
       <AnimatedBackground />
       <Header currentPage="archives" position="sticky" />
 
-      <main className="max-w-2xl mx-auto flex-1 w-full px-4 py-6">
+      <main className="max-w-4xl mx-auto flex-1 w-full px-4 py-6">
         {/* Back link */}
         <Link
           href="/archives"
@@ -160,23 +160,32 @@ export function ArchiveClient({ slug }: Props) {
           Back to Archives
         </Link>
 
-        {/* Archive card */}
-        <div className="bg-surface-card rounded-2xl p-6">
-          {/* Header with DJ info */}
-          <div className="flex items-start gap-4 mb-6">
+        {/* Archive card - expanded version matching list card style */}
+        <div className="bg-surface-card rounded-xl p-4">
+          <audio
+            ref={audioRef}
+            src={archive.recordingUrl}
+            onTimeUpdate={handleTimeUpdate}
+            onEnded={() => setIsPlaying(false)}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+          />
+
+          {/* Top row: Photo, info, and share button */}
+          <div className="flex items-start gap-4">
             {/* DJ Photo */}
-            <div className="w-20 h-20 rounded-xl bg-gray-800 flex-shrink-0 overflow-hidden">
+            <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
               {archive.djs[0]?.photoUrl ? (
                 <Image
                   src={archive.djs[0].photoUrl}
                   alt={archive.djs[0].name}
-                  width={80}
-                  height={80}
+                  width={64}
+                  height={64}
                   className="w-full h-full object-cover"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
-                  <svg className="w-10 h-10 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                   </svg>
                 </div>
@@ -185,95 +194,82 @@ export function ArchiveClient({ slug }: Props) {
 
             {/* Show info */}
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-bold text-white mb-1">{archive.showName}</h1>
-              <div className="flex flex-wrap gap-2">
+              <h1 className="text-white font-semibold">{archive.showName}</h1>
+              <p className="text-gray-400 text-sm">
                 {archive.djs.map((dj, index) => (
                   <span key={index}>
                     {dj.username ? (
                       <Link
                         href={`/dj/${dj.username}`}
-                        className="text-gray-400 hover:text-white transition-colors"
+                        className="hover:text-white transition-colors"
                       >
                         @{dj.username}
                       </Link>
                     ) : (
-                      <span className="text-gray-400">{dj.name}</span>
+                      <span>{dj.name}</span>
                     )}
-                    {index < archive.djs.length - 1 && <span className="text-gray-600">, </span>}
+                    {index < archive.djs.length - 1 && ', '}
                   </span>
                 ))}
-              </div>
-              <p className="text-gray-500 text-sm mt-2">{formatDate(archive.recordedAt)}</p>
-            </div>
-          </div>
-
-          {/* Audio player */}
-          <div className="bg-black/30 rounded-xl p-4">
-            <audio
-              ref={audioRef}
-              src={archive.recordingUrl}
-              onTimeUpdate={handleTimeUpdate}
-              onEnded={() => setIsPlaying(false)}
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-            />
-
-            {/* Play button and progress */}
-            <div className="flex items-center gap-4">
-              <button
-                onClick={handlePlayPause}
-                className="w-12 h-12 rounded-full bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0"
-              >
-                {isPlaying ? (
-                  <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                )}
-              </button>
-
-              <div className="flex-1">
-                <input
-                  type="range"
-                  min={0}
-                  max={archive.duration || 100}
-                  value={currentTime}
-                  onChange={handleSeek}
-                  className="w-full h-1 bg-gray-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>{formatDuration(Math.floor(currentTime))}</span>
-                  <span>{formatDuration(archive.duration)}</span>
-                </div>
+              </p>
+              <div className="flex items-center gap-3 mt-1 text-gray-500 text-xs">
+                <span>{formatDate(archive.recordedAt)}</span>
+                <span>•</span>
+                <span>{formatDuration(archive.duration)}</span>
               </div>
             </div>
-          </div>
 
-          {/* Share button */}
-          <div className="mt-4 flex justify-end">
+            {/* Share button */}
             <button
               onClick={handleShare}
-              className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-colors"
+              className="flex-shrink-0 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+              title={copied ? 'Copied!' : 'Share'}
             >
               {copied ? (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Copied!
-                </>
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
               ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                  </svg>
-                  Share
-                </>
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
               )}
             </button>
+          </div>
+
+          {/* Audio player - expanded section */}
+          <div className="mt-4 flex items-center gap-4">
+            {/* Play/Pause button */}
+            <button
+              onClick={handlePlayPause}
+              className="w-12 h-12 rounded-full bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0"
+            >
+              {isPlaying ? (
+                <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              )}
+            </button>
+
+            {/* Progress bar */}
+            <div className="flex-1">
+              <input
+                type="range"
+                min={0}
+                max={archive.duration || 100}
+                value={currentTime}
+                onChange={handleSeek}
+                className="w-full h-1 bg-gray-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>{formatDuration(Math.floor(currentTime))}</span>
+                <span>{formatDuration(archive.duration)}</span>
+              </div>
+            </div>
           </div>
         </div>
       </main>
