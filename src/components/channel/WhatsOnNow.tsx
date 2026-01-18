@@ -7,7 +7,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useBPM } from '@/contexts/BPMContext';
 import { Show, Station } from '@/types';
-import { STATIONS, getStationById, getMetadataKeyByStationId } from '@/lib/stations';
+import { STATIONS, getMetadataKeyByStationId } from '@/lib/stations';
 import { TipButton } from './TipButton';
 
 interface WhatsOnNowProps {
