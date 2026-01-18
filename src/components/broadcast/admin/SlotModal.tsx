@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { BroadcastSlotSerialized, BroadcastType, DJSlot, DJProfileInfo, Recording } from '@/types/broadcast';
+import { uploadShowImage, validatePhoto } from '@/lib/photo-upload';
 
 interface SlotModalProps {
   slot?: BroadcastSlotSerialized | null;
@@ -15,6 +17,7 @@ interface SlotModalProps {
     startTime: number;
     endTime: number;
     broadcastType: BroadcastType;
+    showImageUrl?: string;
   }) => Promise<void>;
   onDelete?: (slotId: string) => Promise<void>;
   initialStartTime?: Date;
@@ -266,6 +269,11 @@ export function SlotModal({
   // Remote DJ profile lookup state
   const [remoteProfileFound, setRemoteProfileFound] = useState(false);
   const [isLookingUpRemote, setIsLookingUpRemote] = useState(false);
+  // Show image state
+  const [showImageUrl, setShowImageUrl] = useState<string | undefined>(undefined);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const isEditing = !!slot;
 
@@ -437,6 +445,7 @@ export function SlotModal({
         setShowName(slot.showName || '');
         setDjName(slot.djName || '');
         setDjEmail(slot.djEmail || '');
+        setShowImageUrl(slot.showImageUrl);
         // Use local date formatting to avoid timezone issues
         setStartDate(formatLocalDate(start));
         setEndDate(formatLocalDate(end));
@@ -518,6 +527,7 @@ export function SlotModal({
         setShowName('');
         setDjName('');
         setDjEmail('');
+        setShowImageUrl(undefined);
         // Use local date formatting to avoid timezone issues
         setStartDate(formatLocalDate(initialStartTime));
         setEndDate(formatLocalDate(initialEndTime));
@@ -525,8 +535,9 @@ export function SlotModal({
         setEndTime(snapToHalfHour(initialEndTime.toTimeString().slice(0, 5)));
         setBroadcastType('remote');
         setDjSlots([]);
-        // Reset profile state
+        // Reset profile/image state
         setRemoteProfileFound(false);
+        setImageUploadError(null);
       }
     }
   }, [isOpen, slot, initialStartTime, initialEndTime]);
@@ -571,6 +582,48 @@ export function SlotModal({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startTime, endTime, startDate, endDate]);
+
+  // Handle show image upload
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file
+    const validation = validatePhoto(file);
+    if (!validation.valid) {
+      setImageUploadError(validation.error || 'Invalid file');
+      return;
+    }
+
+    setIsUploadingImage(true);
+    setImageUploadError(null);
+
+    try {
+      // Generate a temporary ID for new slots, or use existing slot ID
+      const uploadId = slot?.id || `temp-${Date.now()}`;
+      const result = await uploadShowImage(uploadId, file);
+
+      if (result.success && result.url) {
+        setShowImageUrl(result.url);
+      } else {
+        setImageUploadError(result.error || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Image upload failed:', error);
+      setImageUploadError('Failed to upload image');
+    } finally {
+      setIsUploadingImage(false);
+      // Reset file input
+      if (imageInputRef.current) {
+        imageInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setShowImageUrl(undefined);
+    setImageUploadError(null);
+  };
 
   const handleSave = async () => {
     console.log('[SlotModal] handleSave called with:', { showName, startDate, endDate, startTime, endTime, broadcastType, djSlotsCount: djSlots.length });
@@ -641,6 +694,7 @@ export function SlotModal({
         startTime: startDateTime,
         endTime: endDateTime,
         broadcastType,
+        showImageUrl,
       });
       onClose();
     } catch (error) {
@@ -958,6 +1012,83 @@ See you on air,
               placeholder="e.g., Sunday Sessions"
               className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
             />
+          </div>
+
+          {/* Show Image */}
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Show Image</label>
+            <div className="flex items-start gap-3">
+              {/* Image preview or placeholder */}
+              {showImageUrl ? (
+                <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+                  <Image
+                    src={showImageUrl}
+                    alt="Show image"
+                    fill
+                    className="object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="absolute top-1 right-1 p-1 bg-black/70 hover:bg-black rounded-full transition-colors"
+                    title="Remove image"
+                  >
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ) : (
+                <div className="w-20 h-20 rounded-lg bg-black border border-gray-700 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              )}
+
+              {/* Upload button and info */}
+              <div className="flex-1">
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/webp"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  id="show-image-upload"
+                />
+                <label
+                  htmlFor="show-image-upload"
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-colors ${
+                    isUploadingImage
+                      ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                      : 'bg-accent hover:bg-accent-hover text-white'
+                  }`}
+                >
+                  {isUploadingImage ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      {showImageUrl ? 'Change Image' : 'Upload Image'}
+                    </>
+                  )}
+                </label>
+                <p className="text-gray-500 text-xs mt-1">
+                  PNG, JPG, or WebP. Used in archives.
+                </p>
+                {imageUploadError && (
+                  <p className="text-red-400 text-xs mt-1">{imageUploadError}</p>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Date & Time */}

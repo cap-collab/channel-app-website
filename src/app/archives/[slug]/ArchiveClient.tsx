@@ -173,12 +173,12 @@ export function ArchiveClient({ slug }: Props) {
 
           {/* Top row: Photo, info, and share button */}
           <div className="flex items-start gap-4">
-            {/* DJ Photo */}
+            {/* Show Image or DJ Photo */}
             <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
-              {archive.djs[0]?.photoUrl ? (
+              {(archive.showImageUrl || archive.djs[0]?.photoUrl) ? (
                 <Image
-                  src={archive.djs[0].photoUrl}
-                  alt={archive.djs[0].name}
+                  src={archive.showImageUrl || archive.djs[0]?.photoUrl || ''}
+                  alt={archive.showImageUrl ? archive.showName : archive.djs[0]?.name || 'Show'}
                   width={64}
                   height={64}
                   className="w-full h-full object-cover"

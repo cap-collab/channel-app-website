@@ -99,6 +99,8 @@ export interface BroadcastSlot {
   // Show-level promo (default for all DJs)
   showPromoText?: string;
   showPromoHyperlink?: string;
+  // Show image (used for archives)
+  showImageUrl?: string;
   // Recording (for downloadable audio files)
   egressId?: string;              // HLS egress ID
   recordingEgressId?: string;     // MP4 file egress ID (legacy, for backward compat)
@@ -139,6 +141,8 @@ export interface BroadcastSlotSerialized {
   // Show-level promo
   showPromoText?: string;
   showPromoHyperlink?: string;
+  // Show image (used for archives)
+  showImageUrl?: string;
   // Recording (for downloadable audio files)
   egressId?: string;
   recordingEgressId?: string;
@@ -248,6 +252,7 @@ export interface Archive {
   recordedAt: number;            // Unix ms - when the show was recorded
   createdAt: number;             // Unix ms - when archive was created
   stationId: string;             // 'channel-main'
+  showImageUrl?: string;         // Show image (from broadcast slot)
 }
 
 // Serialized version for API responses (same as Archive since all fields are already serialized)

@@ -61,6 +61,68 @@ export async function uploadDJPhoto(userId: string, file: File): Promise<UploadP
 }
 
 /**
+ * Upload a show image to Firebase Storage
+ */
+export async function uploadShowImage(slotId: string, file: File): Promise<UploadPhotoResult> {
+  if (!storage) {
+    return { success: false, error: 'Storage not configured' };
+  }
+
+  // Validate file
+  const validation = validatePhoto(file);
+  if (!validation.valid) {
+    return { success: false, error: validation.error };
+  }
+
+  try {
+    // Generate filename with extension
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const filename = `show-image.${ext}`;
+    const photoRef = ref(storage, `show-images/${slotId}/${filename}`);
+
+    // Upload with metadata
+    await uploadBytes(photoRef, file, {
+      contentType: file.type,
+      customMetadata: {
+        uploadedAt: new Date().toISOString(),
+      },
+    });
+
+    // Get download URL
+    const url = await getDownloadURL(photoRef);
+    return { success: true, url };
+  } catch (error) {
+    console.error('Show image upload failed:', error);
+    return { success: false, error: 'Failed to upload image. Please try again.' };
+  }
+}
+
+/**
+ * Delete a show image from Firebase Storage
+ */
+export async function deleteShowImage(slotId: string): Promise<boolean> {
+  if (!storage) return false;
+
+  try {
+    // Try common extensions
+    const extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    for (const ext of extensions) {
+      try {
+        const photoRef = ref(storage, `show-images/${slotId}/show-image.${ext}`);
+        await deleteObject(photoRef);
+        return true;
+      } catch {
+        // Continue trying other extensions
+      }
+    }
+    return false;
+  } catch (error) {
+    console.error('Show image delete failed:', error);
+    return false;
+  }
+}
+
+/**
  * Delete a DJ profile photo from Firebase Storage
  */
 export async function deleteDJPhoto(userId: string, photoUrl: string): Promise<boolean> {

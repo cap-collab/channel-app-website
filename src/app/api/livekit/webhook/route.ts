@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
               const recordedAt = startTime?.toMillis ? startTime.toMillis() : Date.now();
 
               // Create the archive document
-              await archivesRef.add({
+              const archiveDoc: Record<string, unknown> = {
                 slug,
                 broadcastSlotId: slotId,
                 showName,
@@ -208,7 +208,14 @@ export async function POST(request: NextRequest) {
                 recordedAt,
                 createdAt: Date.now(),
                 stationId: (slotData?.stationId as string) || STATION_ID,
-              });
+              };
+
+              // Include show image if available
+              if (slotData?.showImageUrl) {
+                archiveDoc.showImageUrl = slotData.showImageUrl;
+              }
+
+              await archivesRef.add(archiveDoc);
 
               console.log(`Archive created: ${slug} for show "${showName}"`);
             } catch (archiveError) {

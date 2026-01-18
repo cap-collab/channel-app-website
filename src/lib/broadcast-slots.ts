@@ -55,6 +55,8 @@ function serializeSlot(docId: string, data: Record<string, unknown>): BroadcastS
     liveDjPromoText: data.liveDjPromoText as string | undefined,
     liveDjPromoHyperlink: data.liveDjPromoHyperlink as string | undefined,
     currentDjSlotId: data.currentDjSlotId as string | undefined,
+    // Show image
+    showImageUrl: data.showImageUrl as string | undefined,
     // Recording fields
     egressId: data.egressId as string | undefined,
     recordingEgressId: data.recordingEgressId as string | undefined,
@@ -92,6 +94,7 @@ export async function createSlot(data: {
   endTime: number;
   createdBy: string;
   broadcastType?: BroadcastType;
+  showImageUrl?: string;
 }): Promise<{ slot: BroadcastSlotSerialized; broadcastUrl: string }> {
   if (!db) throw new Error('Firestore not initialized');
 
@@ -162,6 +165,7 @@ export async function createSlot(data: {
     broadcastType,
     liveDjBio: liveDjBio || null,
     liveDjPhotoUrl: liveDjPhotoUrl || null,
+    showImageUrl: data.showImageUrl || null,
   };
 
   const docRef = await addDoc(collection(db, COLLECTION), slotData);
@@ -185,6 +189,7 @@ export async function createSlot(data: {
     broadcastType,
     liveDjBio: liveDjBio || undefined,
     liveDjPhotoUrl: liveDjPhotoUrl || undefined,
+    showImageUrl: data.showImageUrl,
   };
 
   // All slots use token URLs
@@ -203,6 +208,7 @@ export async function updateSlot(
     djSlots: DJSlot[];
     startTime: number;
     endTime: number;
+    showImageUrl: string;
   }>
 ): Promise<void> {
   if (!db) throw new Error('Firestore not initialized');
@@ -244,6 +250,11 @@ export async function updateSlot(
     updateData.endTime = Timestamp.fromMillis(updates.endTime);
     // Also update token expiry (end time + 1 hour)
     updateData.tokenExpiresAt = Timestamp.fromMillis(updates.endTime + 60 * 60 * 1000);
+  }
+
+  // Handle show image URL
+  if (updates.showImageUrl !== undefined) {
+    updateData.showImageUrl = updates.showImageUrl || null;
   }
 
   await updateDoc(doc(db, COLLECTION, slotId), updateData);

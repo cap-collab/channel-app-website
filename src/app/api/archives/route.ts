@@ -26,6 +26,7 @@ export async function GET() {
         recordedAt: data.recordedAt,
         createdAt: data.createdAt,
         stationId: data.stationId || 'channel-main',
+        showImageUrl: data.showImageUrl,
       };
     });
 

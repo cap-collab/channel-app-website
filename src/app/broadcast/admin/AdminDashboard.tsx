@@ -123,6 +123,7 @@ export function AdminDashboard() {
     startTime: number;
     endTime: number;
     broadcastType: BroadcastType;
+    showImageUrl?: string;
   }) => {
     if (!user) return;
 
@@ -149,6 +150,7 @@ export function AdminDashboard() {
           djSlots: data.djSlots,
           startTime: data.startTime,
           endTime: data.endTime,
+          showImageUrl: data.showImageUrl,
         });
         // For updates, we use the existing slot's token
         createdSlot = { ...selectedSlot, ...data, broadcastToken: selectedSlot.broadcastToken };
