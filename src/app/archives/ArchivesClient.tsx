@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
 import { Header } from '@/components/Header';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
@@ -68,7 +67,7 @@ function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSeek, onA
 
   return (
     <div className="bg-surface-card rounded-xl p-4">
-      {/* Top row: Photo, show name, date, and share button */}
+      {/* Top row: Photo, title column with buttons floated right */}
       <div className="flex items-start gap-4">
         {/* Show Image or DJ Photo */}
         <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
@@ -89,73 +88,63 @@ function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSeek, onA
           )}
         </div>
 
-        {/* Show name, date, and DJs */}
+        {/* Title column - buttons float right, DJ names can wrap below them */}
         <div className="flex-1 min-w-0">
+          {/* Action buttons - floated right */}
+          <div className="float-right flex items-start gap-2 ml-2">
+            {/* Add to watchlist button */}
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onAddToWatchlist();
+              }}
+              className="sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="font-medium hidden sm:inline">Add to watchlist</span>
+            </button>
+
+            {/* Copy link button */}
+            <button
+              onClick={handleShare}
+              className={`sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs ${
+                copied
+                  ? 'bg-green-500/20 text-green-400'
+                  : 'bg-white/10 hover:bg-white/20 text-white'
+              }`}
+            >
+              {copied ? (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="font-medium hidden sm:inline">Copied!</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  <span className="font-medium hidden sm:inline">Copy link</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Show name */}
           <h2 className="text-white font-semibold">{archive.showName}</h2>
+
+          {/* DJ names - will wrap below buttons naturally */}
+          {archive.djs.length > 0 && (
+            <p className="text-gray-400 text-sm">
+              {archive.djs.map(dj => dj.name).join(', ')}
+            </p>
+          )}
+
           <p className="text-gray-500 text-xs hidden sm:block">{formatDate(archive.recordedAt)}</p>
-          {/* DJ names */}
-          <p className="text-gray-400 text-sm mt-0.5">
-            {archive.djs.map((dj, index) => (
-              <span key={index}>
-                {dj.username ? (
-                  <Link
-                    href={`/dj/${dj.username}`}
-                    className="hover:text-white transition-colors"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    @{dj.username}
-                  </Link>
-                ) : (
-                  <span>{dj.name}</span>
-                )}
-                {index < archive.djs.length - 1 && ', '}
-              </span>
-            ))}
-          </p>
-        </div>
-
-        {/* Action buttons */}
-        <div className="flex-shrink-0 flex items-center gap-2">
-          {/* Add to watchlist button */}
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onAddToWatchlist();
-            }}
-            className="sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            <span className="font-medium hidden sm:inline">Add to watchlist</span>
-          </button>
-
-          {/* Copy link button */}
-          <button
-            onClick={handleShare}
-            className={`sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs ${
-              copied
-                ? 'bg-green-500/20 text-green-400'
-                : 'bg-white/10 hover:bg-white/20 text-white'
-            }`}
-          >
-            {copied ? (
-              <>
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span className="font-medium hidden sm:inline">Copied!</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-                <span className="font-medium hidden sm:inline">Copy link</span>
-              </>
-            )}
-          </button>
         </div>
       </div>
 
