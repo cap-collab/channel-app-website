@@ -4,21 +4,27 @@ import { FieldValue } from 'firebase-admin/firestore';
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { slug } = await params;
     const db = getAdminDb();
     if (!db) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
     }
 
-    const archiveRef = db.collection('archives').doc(id);
-    const doc = await archiveRef.get();
+    // Find archive by slug
+    const archivesRef = db.collection('archives');
+    const snapshot = await archivesRef
+      .where('slug', '==', slug)
+      .limit(1)
+      .get();
 
-    if (!doc.exists) {
+    if (snapshot.empty) {
       return NextResponse.json({ error: 'Archive not found' }, { status: 404 });
     }
+
+    const archiveRef = snapshot.docs[0].ref;
 
     // Increment the stream count
     await archiveRef.update({

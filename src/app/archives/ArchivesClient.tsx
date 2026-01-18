@@ -276,7 +276,7 @@ export function ArchivesClient() {
     }
   };
 
-  const handleTimeUpdate = (archiveId: string) => {
+  const handleTimeUpdate = (archiveId: string, archiveSlug: string) => {
     const audio = audioRefs.current[archiveId];
     if (audio) {
       const currentTime = audio.currentTime;
@@ -297,7 +297,7 @@ export function ArchivesClient() {
         ) {
           streamCountedRef.current.add(archiveId);
           // Fire and forget - don't await
-          fetch(`/api/archives/${archiveId}/stream`, { method: 'POST' }).catch(console.error);
+          fetch(`/api/archives/${archiveSlug}/stream`, { method: 'POST' }).catch(console.error);
         }
       }
 
@@ -364,7 +364,7 @@ export function ArchivesClient() {
                 currentTime={currentTimes[archive.id] || 0}
                 onSeek={(time) => handleSeek(archive.id, time)}
                 onAudioRef={(el) => { audioRefs.current[archive.id] = el; }}
-                onTimeUpdate={() => handleTimeUpdate(archive.id)}
+                onTimeUpdate={() => handleTimeUpdate(archive.id, archive.slug)}
                 onEnded={() => handleEnded(archive.id)}
                 onAddToWatchlist={() => handleAddToWatchlist(archive)}
               />
