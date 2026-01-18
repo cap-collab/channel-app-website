@@ -161,7 +161,7 @@ function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSeek, onA
       </p>
 
       {/* Audio player */}
-      <div className="mt-4 flex items-center gap-4">
+      <div className="mt-2 sm:mt-3 flex items-center gap-4">
         {/* Play/Pause button */}
         <button
           onClick={onPlayPause}
