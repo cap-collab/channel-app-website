@@ -305,7 +305,7 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                       return (
                         <div
                           key={show.id}
-                          className={`absolute top-0.5 bottom-0.5 rounded px-1.5 py-0.5 transition-all group overflow-hidden cursor-pointer ${
+                          className={`absolute top-0.5 bottom-0.5 rounded px-1.5 py-0.5 transition-all group cursor-pointer ${
                             isLive
                               ? 'border border-white/20'
                               : 'hover:bg-white/10'
@@ -313,6 +313,8 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                           style={{
                             ...style,
                             backgroundColor: isLive ? `${station.accentColor}30` : 'rgba(255,255,255,0.05)',
+                            overflow: 'hidden',
+                            isolation: 'isolate',
                           }}
                           onClick={() => setExpandedShowId(isExpanded ? null : show.id)}
                         >
@@ -390,7 +392,7 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                           </div>
 
                           {/* Show content with optional DJ photo */}
-                          <div className="flex gap-1.5 h-full overflow-hidden">
+                          <div className="flex gap-1.5 h-full overflow-hidden pointer-events-none">
                             {/* DJ photo thumbnail on card */}
                             {show.djPhotoUrl && showWidth >= 80 && (
                               <Image
@@ -414,15 +416,15 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
 
                                 return (
                                   <>
-                                    <div className="group-hover:pr-12 overflow-hidden">
-                                      <span className="text-white text-xs font-medium line-clamp-2 leading-tight block">
+                                    <div className="group-hover:pr-12 overflow-hidden w-full">
+                                      <span className="text-white text-xs font-medium line-clamp-2 leading-tight block break-words">
                                         {show.name}
                                       </span>
                                     </div>
                                     {/* DJ name - 1 line only, with right padding for BPM only if on 3rd line */}
                                     {show.dj && (
-                                      <div className={`overflow-hidden ${djNeedsPadding ? 'pr-14' : ''}`}>
-                                        <span className="text-gray-400 text-[10px] line-clamp-1 leading-tight block">
+                                      <div className={`overflow-hidden w-full ${djNeedsPadding ? 'pr-14' : ''}`}>
+                                        <span className="text-gray-400 text-[10px] truncate leading-tight block">
                                           {show.dj}
                                         </span>
                                       </div>
