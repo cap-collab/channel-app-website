@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { TimeSlotPicker } from '@/components/dj-portal/TimeSlotPicker';
 import { DJApplicationFormData, TimeSlot, LocationType } from '@/types/dj-application';
 import { AuthModal } from '@/components/AuthModal';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useUserRole, isDJ } from '@/hooks/useUserRole';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -14,6 +15,9 @@ type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
 
 export function StudioJoinClient() {
   const { user, isAuthenticated } = useAuthContext();
+  const { role, loading: roleLoading } = useUserRole(user);
+  const userIsDJ = isDJ(role);
+  const wasAuthenticatedRef = useRef(isAuthenticated);
   const [formData, setFormData] = useState<DJApplicationFormData>({
     djName: '',
     email: '',
@@ -29,12 +33,12 @@ export function StudioJoinClient() {
     comments: '',
     needsSetupSupport: false,
   });
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [agreedToDJTerms, setAgreedToDJTerms] = useState(false);
   const [status, setStatus] = useState<FormStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [assigningRole, setAssigningRole] = useState(false);
+  const [upgradingToDJ, setUpgradingToDJ] = useState(false);
+  const [upgradeError, setUpgradeError] = useState('');
 
   // Pre-fill form with user data when logged in
   useEffect(() => {
@@ -47,35 +51,65 @@ export function StudioJoinClient() {
     }
   }, [user]);
 
-  // Assign DJ role when user logs in on this page
+  // Assign DJ role after user signs up through AuthModal on this page
+  // The AuthModal includes DJ terms, so signing up = accepting DJ terms
   useEffect(() => {
-    async function assignDJRole() {
-      if (!user || !db || assigningRole) return;
+    async function assignDJRoleAfterSignup() {
+      if (!user || !db || roleLoading) return;
 
-      setAssigningRole(true);
-      try {
-        const userRef = doc(db, 'users', user.uid);
-        const userSnap = await getDoc(userRef);
+      // Only assign if user just signed up (not already a DJ) and modal was just closed
+      if (!wasAuthenticatedRef.current && isAuthenticated && !userIsDJ) {
+        try {
+          const userRef = doc(db, 'users', user.uid);
+          const userSnap = await getDoc(userRef);
 
-        if (userSnap.exists()) {
-          const data = userSnap.data();
-          // Only upgrade role if they're currently a regular user
-          if (!data.role || data.role === 'user') {
-            await setDoc(userRef, { role: 'dj' }, { merge: true });
+          if (userSnap.exists()) {
+            const data = userSnap.data();
+            if (!data.role || data.role === 'user') {
+              await setDoc(userRef, {
+                role: 'dj',
+                djTermsAcceptedAt: new Date()
+              }, { merge: true });
+              // Force page reload to get updated role
+              window.location.reload();
+            }
           }
-        } else {
-          // New user - set DJ role
-          await setDoc(userRef, { role: 'dj' }, { merge: true });
+        } catch (error) {
+          console.error('Failed to assign DJ role after signup:', error);
         }
-      } catch (error) {
-        console.error('Failed to assign DJ role:', error);
-      } finally {
-        setAssigningRole(false);
       }
+      wasAuthenticatedRef.current = isAuthenticated;
     }
 
-    assignDJRole();
-  }, [user, assigningRole]);
+    assignDJRoleAfterSignup();
+  }, [user, isAuthenticated, userIsDJ, roleLoading]);
+
+  // Handle upgrade to DJ for logged-in non-DJ users
+  const handleUpgradeToDJ = async () => {
+    if (!user || !db || !agreedToDJTerms) {
+      setUpgradeError('Please accept the DJ Terms to continue');
+      return;
+    }
+
+    setUpgradingToDJ(true);
+    setUpgradeError('');
+
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await setDoc(userRef, {
+        role: 'dj',
+        djTermsAcceptedAt: new Date()
+      }, { merge: true });
+      // Force page reload to get updated role
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to upgrade to DJ:', error);
+      setUpgradeError('Failed to upgrade. Please try again.');
+    } finally {
+      setUpgradingToDJ(false);
+    }
+  };
+
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -142,24 +176,7 @@ export function StudioJoinClient() {
       setErrorMessage('Please select at least one preferred time slot');
       return false;
     }
-    if (!agreedToTerms) {
-      setErrorMessage('You must agree to the Broadcast Terms to apply');
-      return false;
-    }
     return true;
-  };
-
-  // Assign DJ role by email for non-logged-in users
-  const assignDJRoleByEmail = async (email: string) => {
-    try {
-      await fetch('/api/users/assign-dj-role', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-    } catch (error) {
-      console.error('Failed to assign DJ role by email:', error);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -180,21 +197,6 @@ export function StudioJoinClient() {
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || 'Failed to submit application');
-      }
-
-      // Assign DJ role - either by user ID if logged in, or by email
-      if (user && db) {
-        const userRef = doc(db, 'users', user.uid);
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-          const data = userSnap.data();
-          if (!data.role || data.role === 'user') {
-            await setDoc(userRef, { role: 'dj' }, { merge: true });
-          }
-        }
-      } else {
-        // Store email for DJ role assignment when they create an account
-        await assignDJRoleByEmail(formData.email);
       }
 
       setStatus('success');
@@ -258,11 +260,8 @@ export function StudioJoinClient() {
             <h1 className="text-3xl font-bold mb-4">DJ Studio</h1>
             <p className="text-xl text-gray-300 mb-6">Create your DJ profile on Channel</p>
 
-            <p className="text-gray-400 leading-relaxed mb-6">
-              Think of Channel as SoundCloud + Linktree + live radio — built for DJs and their communities.
-            </p>
             <p className="text-gray-400 leading-relaxed mb-8">
-              Sign up to claim your online DJ profile, livestream or record your sets, and connect directly with listeners — anywhere and anytime you play.
+              Think of Channel as SoundCloud + Linktree + live radio — built for DJs and their communities.
             </p>
 
             <h2 className="text-lg font-semibold mb-4">What you get when you sign up</h2>
@@ -320,136 +319,144 @@ export function StudioJoinClient() {
             </div>
           </div>
 
-          {/* Sign Up Section */}
-          <div className="border-t border-gray-800 pt-12 mb-12">
-            <h2 className="text-2xl font-semibold mb-4">Sign up</h2>
+          {/* Sign Up / Upgrade Section - Only show if not already a DJ */}
+          {!userIsDJ && (
+            <div className="border-t border-gray-800 pt-12 mb-12">
+              {isAuthenticated ? (
+                // State B: Logged in, NOT a DJ - show upgrade section
+                <>
+                  <h2 className="text-2xl font-semibold mb-4">Upgrade to DJ Profile</h2>
+                  <p className="text-gray-400 mb-6">
+                    You&apos;re logged in as {user?.email}. Accept the DJ Terms to unlock your DJ profile.
+                  </p>
 
-            {isAuthenticated ? (
-              <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-6 mb-6">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <p className="text-white font-medium">You&apos;re logged in as {user?.email}</p>
-                </div>
+                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+                    <label className="flex items-start gap-3 cursor-pointer mb-4">
+                      <input
+                        type="checkbox"
+                        checked={agreedToDJTerms}
+                        onChange={(e) => setAgreedToDJTerms(e.target.checked)}
+                        className="mt-1 w-5 h-5 rounded border-gray-600 bg-gray-800 text-white focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                      />
+                      <span className="text-sm text-gray-300">
+                        I have read and agree to the{' '}
+                        <Link
+                          href="/dj-terms"
+                          target="_blank"
+                          className="text-white underline hover:text-gray-300"
+                        >
+                          DJ Terms
+                        </Link>
+                      </span>
+                    </label>
 
-                {/* DJ Terms Agreement */}
-                <label className="flex items-start gap-3 cursor-pointer my-4">
-                  <input
-                    type="checkbox"
-                    checked={agreedToDJTerms}
-                    onChange={(e) => setAgreedToDJTerms(e.target.checked)}
-                    className="mt-1 w-5 h-5 rounded border-gray-600 bg-gray-900 text-green-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                  />
-                  <span className="text-sm text-gray-300">
-                    I have read and agree to the{' '}
-                    <Link
-                      href="/dj-terms"
-                      target="_blank"
-                      className="text-white underline hover:text-gray-300"
+                    {upgradeError && (
+                      <p className="text-red-400 text-sm mb-4">{upgradeError}</p>
+                    )}
+
+                    <button
+                      onClick={handleUpgradeToDJ}
+                      disabled={!agreedToDJTerms || upgradingToDJ}
+                      className="bg-white text-black px-8 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
-                      DJ Terms
-                    </Link>
-                  </span>
-                </label>
-
-                {agreedToDJTerms ? (
-                  <p className="text-gray-400 text-sm">
-                    You now have access to DJ features. Visit your{' '}
-                    <Link href="/dj-profile" className="text-white underline hover:text-gray-300">
-                      DJ profile
-                    </Link>{' '}
-                    to set up your channel.
-                  </p>
-                ) : (
-                  <p className="text-gray-500 text-sm">
-                    Please accept the DJ Terms to access your DJ profile.
-                  </p>
-                )}
-              </div>
-            ) : (
-              <>
-                <p className="text-gray-400 mb-6">Create your account to:</p>
-                <div className="space-y-3 mb-6">
-                  <div className="flex items-center gap-3">
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    <span className="text-gray-300">Claim your DJ name &amp; public URL</span>
+                      {upgradingToDJ ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                          Upgrading...
+                        </>
+                      ) : (
+                        'Upgrade to DJ'
+                      )}
+                    </button>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                    </svg>
-                    <span className="text-gray-300">Notify your fans about upcoming shows, events, or new releases</span>
+                </>
+              ) : (
+                // State A: Not logged in - show sign up section
+                <>
+                  <h2 className="text-2xl font-semibold mb-4">Sign up</h2>
+                  <p className="text-gray-400 mb-6">Create your account to:</p>
+                  <div className="space-y-3 mb-6">
+                    <div className="flex items-center gap-3">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      <span className="text-gray-300">Claim your DJ name &amp; public URL</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                      </svg>
+                      <span className="text-gray-300">Notify your fans about upcoming shows, events, or new releases</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z" />
+                      </svg>
+                      <span className="text-gray-300">Schedule or record a live set</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                      </svg>
+                      <span className="text-gray-300">Publish and replay your sets</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z" />
-                    </svg>
-                    <span className="text-gray-300">Schedule or record a live set</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                    </svg>
-                    <span className="text-gray-300">Publish and replay your sets</span>
-                  </div>
-                </div>
 
-                <button
-                  onClick={() => setShowAuthModal(true)}
-                  className="bg-white text-black px-8 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
-                >
-                  Sign up
-                </button>
-                <p className="text-gray-500 text-sm mt-3">Free. No commitment. Your profile stays private unless you choose to promote it.</p>
-              </>
-            )}
-          </div>
+                  <button
+                    onClick={() => setShowAuthModal(true)}
+                    className="bg-white text-black px-8 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
+                  >
+                    Sign up
+                  </button>
+                  <p className="text-gray-500 text-sm mt-3">Free. No commitment. Your profile stays private unless you choose to promote it.</p>
+                </>
+              )}
+            </div>
+          )}
 
-          {/* After You Sign Up Section */}
-          <div className="border-t border-gray-800 pt-12 mb-12">
-            <h2 className="text-2xl font-semibold mb-4">After you sign up</h2>
-            <p className="text-gray-400 mb-4">
-              Once your account is created, you can claim your own DJ URL.{' '}
-              <Link href="/dj/djcap" className="text-white underline hover:text-gray-300">
-                See an example DJ profile →
-              </Link>
-            </p>
-            <p className="text-gray-400 mb-4">Anyone following you on Channel will be notified every time you:</p>
-            <ul className="list-disc list-inside space-y-2 ml-2 text-gray-400 mb-6">
-              <li>Play on a radio</li>
-              <li>Promote a new event or set</li>
-              <li>Release a new record</li>
-            </ul>
-            <p className="text-gray-400">
-              You can also apply to livestream or record a set on Channel Broadcast:
-            </p>
-            <ul className="list-disc list-inside space-y-2 ml-2 text-gray-400 mt-2">
-              <li>Live sets air on <Link href="/channel" className="text-white underline hover:text-gray-300">channel-app.com/channel</Link></li>
-              <li>Recordings are available on <Link href="/archives" className="text-white underline hover:text-gray-300">channel-app.com/archives</Link></li>
-            </ul>
-          </div>
+          {/* After You Sign Up Section - Only show for non-DJs */}
+          {!userIsDJ && (
+            <div className="border-t border-gray-800 pt-12 mb-12">
+              <h2 className="text-2xl font-semibold mb-4">After you sign up</h2>
+              <p className="text-gray-400 mb-4">
+                Once your account is created, you can claim your own DJ URL.{' '}
+                <Link href="/dj/djcap" className="text-white underline hover:text-gray-300">
+                  See an example DJ profile →
+                </Link>
+              </p>
+              <p className="text-gray-400 mb-4">Anyone following you on Channel will be notified every time you:</p>
+              <ul className="list-disc list-inside space-y-2 ml-2 text-gray-400 mb-6">
+                <li>Play on a radio</li>
+                <li>Promote a new event or set</li>
+                <li>Release a new record</li>
+              </ul>
+              <p className="text-gray-400">
+                You can also apply to livestream or record a set on Channel Broadcast:
+              </p>
+              <ul className="list-disc list-inside space-y-2 ml-2 text-gray-400 mt-2">
+                <li>Live sets air on <Link href="/channel" className="text-white underline hover:text-gray-300">channel-app.com/channel</Link></li>
+                <li>Recordings are available on <Link href="/archives" className="text-white underline hover:text-gray-300">channel-app.com/archives</Link></li>
+              </ul>
+            </div>
+          )}
 
-          {/* Channel Broadcast Application Section */}
-          <div className="border-t border-gray-800 pt-12">
-            <h2 className="text-2xl font-semibold mb-4">Want to play on Channel Broadcast?</h2>
-            <p className="text-gray-400 mb-4">
-              Apply to schedule a live set on our radio. If you&apos;re unsure about your setup, check the{' '}
-              <Link href="/streaming-guide" className="text-white underline hover:text-gray-300 transition-colors">
-                streaming guide
-              </Link>{' '}
-              or reach out at{' '}
-              <a href="mailto:info@channel-app.com" className="text-white underline hover:text-gray-300 transition-colors">
-                info@channel-app.com
-              </a>.
-            </p>
+          {/* Channel Broadcast Application Section - Only show for DJs */}
+          {userIsDJ && (
+            <div className="border-t border-gray-800 pt-12">
+              <h2 className="text-2xl font-semibold mb-4">Apply to Channel Broadcast</h2>
+              <p className="text-gray-400 mb-4">
+                Apply to schedule a live set on our radio. If you&apos;re unsure about your setup, check the{' '}
+                <Link href="/streaming-guide" className="text-white underline hover:text-gray-300 transition-colors">
+                  streaming guide
+                </Link>{' '}
+                or reach out at{' '}
+                <a href="mailto:info@channel-app.com" className="text-white underline hover:text-gray-300 transition-colors">
+                  info@channel-app.com
+                </a>.
+              </p>
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-6 mt-8">
+              {/* Form */}
+              <form onSubmit={handleSubmit} className="space-y-6 mt-8">
               {/* DJ Name */}
               <div>
                 <label
@@ -699,28 +706,9 @@ export function StudioJoinClient() {
                 />
               </div>
 
-              {/* Terms Agreement */}
+              {/* Help text */}
               <div className="pt-6 border-t border-gray-800">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={agreedToTerms}
-                    onChange={(e) => setAgreedToTerms(e.target.checked)}
-                    className="mt-1 w-5 h-5 rounded border-gray-700 bg-[#1a1a1a] text-white focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                  />
-                  <span className="text-sm text-gray-300">
-                    I have read and agree to the{' '}
-                    <Link
-                      href="/dj-terms"
-                      target="_blank"
-                      className="text-white underline hover:text-gray-300"
-                    >
-                      Channel Broadcast Terms for DJs &amp; Broadcasters
-                    </Link>
-                    , including responsibilities for content rights, licensing, and venue authorization. *
-                  </span>
-                </label>
-                <p className="text-sm text-gray-500 leading-relaxed mt-4">
+                <p className="text-sm text-gray-500 leading-relaxed">
                   If you have questions or aren&apos;t sure whether your setup works, reach out at{' '}
                   <a
                     href="mailto:info@channel-app.com"
@@ -755,6 +743,7 @@ export function StudioJoinClient() {
               </button>
             </form>
           </div>
+          )}
         </div>
       </main>
 

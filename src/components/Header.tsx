@@ -35,11 +35,8 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
       items.push({ label: "Home", href: "/channel", active: currentPage === "channel" });
     }
 
-    // DJ Studio link - hide for users who already have DJ access, and only show when not signed in
-    // (signed-in users get DJ Studio in the auth section if they're a DJ)
-    if (!isAuthenticated && !isDJ(role)) {
-      items.push({ label: "DJ Studio", href: "/studio/join", active: currentPage === "studio" || currentPage === "dj-portal" });
-    }
+    // DJ Studio link - always visible for everyone
+    items.push({ label: "DJ Studio", href: "/studio/join", active: currentPage === "studio" || currentPage === "dj-portal" });
 
     // Archives link
     items.push({ label: "Archives", href: "/archives", active: currentPage === "archives" });
@@ -98,17 +95,15 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
               </Link>
             )}
 
-            {/* DJ Studio link - hide for users who already have DJ access */}
-            {!isDJ(role) && (
-              <Link
-                href="/studio/join"
-                className={`hidden sm:inline-block text-sm transition-colors ${
-                  currentPage === "studio" || currentPage === "dj-portal" ? "text-white" : "text-gray-400 hover:text-white"
-                }`}
-              >
-                DJ Studio
-              </Link>
-            )}
+            {/* DJ Studio link - always visible */}
+            <Link
+              href="/studio/join"
+              className={`hidden sm:inline-block text-sm transition-colors ${
+                currentPage === "studio" || currentPage === "dj-portal" ? "text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              DJ Studio
+            </Link>
 
             {/* Archives link */}
             <Link
@@ -236,7 +231,7 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
                         onClick={() => setShowUserMenu(false)}
                         className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                       >
-                        DJ Studio
+                        DJ Profile
                       </Link>
                     )}
                     <Link

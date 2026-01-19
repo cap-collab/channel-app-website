@@ -140,7 +140,13 @@ export async function POST(request: NextRequest) {
     if (!pendingDJRoleSnapshot.empty && !djRoleAssigned) {
       const currentRole = userData?.role;
       if (!currentRole || currentRole === 'user') {
-        await db.collection('users').doc(userId).update({ role: 'dj' });
+        // Get the djTermsAcceptedAt from the pending record
+        const pendingData = pendingDJRoleSnapshot.docs[0].data();
+        const updateData: { role: string; djTermsAcceptedAt?: FirebaseFirestore.Timestamp } = { role: 'dj' };
+        if (pendingData.djTermsAcceptedAt) {
+          updateData.djTermsAcceptedAt = pendingData.djTermsAcceptedAt;
+        }
+        await db.collection('users').doc(userId).update(updateData);
         djRoleAssigned = true;
         console.log(`[reconcile] Assigned DJ role to user ${userId} from pending-dj-roles`);
       }

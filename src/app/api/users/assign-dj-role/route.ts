@@ -33,7 +33,10 @@ export async function POST(request: NextRequest) {
       const currentRole = userData.role;
 
       if (!currentRole || currentRole === 'user') {
-        await userDoc.ref.update({ role: 'dj' });
+        await userDoc.ref.update({
+          role: 'dj',
+          djTermsAcceptedAt: Timestamp.now()
+        });
         console.log(`[assign-dj-role] Assigned DJ role directly to existing user ${userDoc.id} (${normalizedEmail})`);
       }
 
@@ -52,6 +55,7 @@ export async function POST(request: NextRequest) {
         email: normalizedEmail,
         createdAt: Timestamp.now(),
         source: 'studio-join-application',
+        djTermsAcceptedAt: Timestamp.now(),
       });
       console.log(`[assign-dj-role] Created pending DJ role for ${normalizedEmail}`);
     } else {

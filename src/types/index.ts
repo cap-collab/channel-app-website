@@ -61,6 +61,7 @@ export interface UserDocument {
   lastSeenAt: Date;
   timezone: string;
   role?: 'user' | 'dj' | 'broadcaster' | 'admin';
+  djTermsAcceptedAt?: Date;
   googleCalendar?: {
     accessToken: string;
     refreshToken: string;
