@@ -501,7 +501,7 @@ export function DJPublicProfileClient({ username }: Props) {
 
                 <button
                   onClick={() => setShowTipModal(true)}
-                  className="px-6 py-2.5 rounded-xl font-medium text-center bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:opacity-90 transition-opacity"
+                  className="px-6 py-2.5 rounded-xl font-medium text-center bg-white text-black hover:bg-gray-100 transition-colors"
                 >
                   Tip
                 </button>
