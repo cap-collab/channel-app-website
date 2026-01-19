@@ -59,6 +59,22 @@ export function WhatsOnNow({ onAuthRequired }: WhatsOnNowProps) {
     return broadcastStation ? [broadcastStation, ...otherStations] : otherStations;
   }, []);
 
+  // Get broadcast station reference for always-showing it
+  const broadcastStation = useMemo(() => {
+    return STATIONS.find((s) => s.id === 'broadcast');
+  }, []);
+
+  // Check if broadcast has any live show right now
+  const hasBroadcastLive = useMemo(() => {
+    const now = currentTime;
+    return allShows.some((show) => {
+      if (show.stationId !== 'broadcast') return false;
+      const start = new Date(show.startTime);
+      const end = new Date(show.endTime);
+      return start <= now && end > now;
+    });
+  }, [allShows, currentTime]);
+
   // Get shows for each station: current show + upcoming shows
   const stationShows = useMemo(() => {
     const now = currentTime;
@@ -100,7 +116,9 @@ export function WhatsOnNow({ onAuthRequired }: WhatsOnNowProps) {
     );
   }
 
-  if (stationShows.size === 0) {
+  // Show empty state only if no stations have content AND broadcast is not available
+  // (broadcast station row is always shown, even when empty)
+  if (stationShows.size === 0 && !broadcastStation) {
     return (
       <div className="bg-surface-card rounded-xl p-4">
         <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3">What&apos;s On Now</h3>
@@ -120,7 +138,11 @@ export function WhatsOnNow({ onAuthRequired }: WhatsOnNowProps) {
       <div className="space-y-2">
         {orderedStations.map((station) => {
           const shows = stationShows.get(station.id);
-          if (!shows || shows.length === 0) return null;
+          const isBroadcast = station.id === 'broadcast';
+
+          // For broadcast station: always show, even when empty
+          // For other stations: skip if no shows
+          if (!isBroadcast && (!shows || shows.length === 0)) return null;
 
           const accentColor = station.accentColor || '#D94099';
           const metadataKey = getMetadataKeyByStationId(station.id);
@@ -147,7 +169,26 @@ export function WhatsOnNow({ onAuthRequired }: WhatsOnNowProps) {
               {/* Horizontal scrollable shows */}
               <div className="flex-1 overflow-x-auto py-2 pr-2">
                 <div className="flex gap-2">
-                  {shows.map((show) => (
+                  {/* Show empty card for broadcast when nothing is live */}
+                  {isBroadcast && !hasBroadcastLive && (
+                    <div className="flex-shrink-0 w-48 p-2 rounded-lg bg-white/5">
+                      <div className="flex items-center gap-1 mb-1">
+                        <span className="text-gray-500 text-[10px]">OFFLINE</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="w-9 h-9 rounded bg-white/5 flex items-center justify-center flex-shrink-0">
+                          <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-gray-500 text-xs font-medium">Nothing live now</p>
+                          <p className="text-gray-600 text-[10px]">Check back soon</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {shows?.map((show) => (
                     <ShowCard
                       key={show.id}
                       show={show}
