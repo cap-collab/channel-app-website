@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Show, Station } from '@/types';
@@ -45,6 +46,11 @@ export function ExpandedShowCard({
   timeDisplay,
 }: ExpandedShowCardProps) {
   const accentColor = station.accentColor || '#D94099';
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+
+  const handleImageError = (imageUrl: string) => {
+    setFailedImages(prev => new Set(prev).add(imageUrl));
+  };
 
   return (
     <>
@@ -102,7 +108,7 @@ export function ExpandedShowCard({
 
         {/* Show image + name header */}
         <div className="flex items-start gap-3 mb-3">
-          {show.imageUrl && (
+          {show.imageUrl && !failedImages.has(show.imageUrl) && (
             <Image
               src={show.imageUrl}
               alt={show.name}
@@ -110,6 +116,7 @@ export function ExpandedShowCard({
               height={64}
               className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
               unoptimized
+              onError={() => handleImageError(show.imageUrl!)}
             />
           )}
           <div className="flex-1 min-w-0 pr-16">
@@ -138,9 +145,9 @@ export function ExpandedShowCard({
         </div>
 
         {/* DJ Photo and Bio */}
-        {(show.djPhotoUrl || show.djBio) && (
+        {((show.djPhotoUrl && !failedImages.has(show.djPhotoUrl)) || show.djBio) && (
           <div className="flex items-start gap-3 mb-4">
-            {show.djPhotoUrl && (
+            {show.djPhotoUrl && !failedImages.has(show.djPhotoUrl) && (
               <Image
                 src={show.djPhotoUrl}
                 alt={show.dj || 'DJ'}
@@ -148,6 +155,7 @@ export function ExpandedShowCard({
                 height={64}
                 className="w-16 h-16 rounded-full object-cover flex-shrink-0"
                 unoptimized
+                onError={() => handleImageError(show.djPhotoUrl!)}
               />
             )}
             {show.djBio && (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
@@ -170,6 +170,16 @@ export function StudioProfileClient() {
   const [loadingBroadcasts, setLoadingBroadcasts] = useState(true);
   const [allShows, setAllShows] = useState<Show[]>([]);
 
+  // Auto-save debounce refs
+  const bioDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const promoDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const detailsDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const thankYouDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const socialDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const irlShowsDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const myRecsDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const initialLoadRef = useRef(true);
+
   // Load user profile and DJ profile data
   useEffect(() => {
     if (!user || !db) return;
@@ -193,31 +203,35 @@ export function StudioProfileClient() {
             irlShows: data.djProfile.irlShows || [],
             myRecs: data.djProfile.myRecs || { bandcampLinks: [], eventLinks: [] },
           });
-          setBioInput(data.djProfile.bio || "");
-          setPromoTextInput(data.djProfile.promoText || "");
-          setPromoHyperlinkInput(data.djProfile.promoHyperlink || "");
-          setThankYouInput(data.djProfile.thankYouMessage || "");
-          setLocationInput(data.djProfile.location || "");
-          setGenresInput((data.djProfile.genres || []).join(", "));
-          setInstagramInput(data.djProfile.socialLinks?.instagram || "");
-          setSoundcloudInput(data.djProfile.socialLinks?.soundcloud || "");
-          setBandcampInput(data.djProfile.socialLinks?.bandcamp || "");
-          setYoutubeInput(data.djProfile.socialLinks?.youtube || "");
-          setBookingEmailInput(data.djProfile.socialLinks?.bookingEmail || "");
-          setMixcloudInput(data.djProfile.socialLinks?.mixcloud || "");
-          setResidentAdvisorInput(data.djProfile.socialLinks?.residentAdvisor || "");
-          setCustomLinksInput(data.djProfile.socialLinks?.customLinks || []);
-          // IRL Shows - ensure we always have 2 fields
-          const irlShows = data.djProfile.irlShows || [];
-          setIrlShowsInput([
-            irlShows[0] || { url: "", date: "" },
-            irlShows[1] || { url: "", date: "" },
-          ]);
-          // My Recs - ensure at least one empty field
-          const bandcampRecs = data.djProfile.myRecs?.bandcampLinks || [];
-          setBandcampRecsInput(bandcampRecs.length > 0 ? bandcampRecs : [""]);
-          const eventRecs = data.djProfile.myRecs?.eventLinks || [];
-          setEventRecsInput(eventRecs.length > 0 ? eventRecs : [""]);
+          // Only set input values on initial load to avoid overwriting user edits
+          if (initialLoadRef.current) {
+            setBioInput(data.djProfile.bio || "");
+            setPromoTextInput(data.djProfile.promoText || "");
+            setPromoHyperlinkInput(data.djProfile.promoHyperlink || "");
+            setThankYouInput(data.djProfile.thankYouMessage || "");
+            setLocationInput(data.djProfile.location || "");
+            setGenresInput((data.djProfile.genres || []).join(", "));
+            setInstagramInput(data.djProfile.socialLinks?.instagram || "");
+            setSoundcloudInput(data.djProfile.socialLinks?.soundcloud || "");
+            setBandcampInput(data.djProfile.socialLinks?.bandcamp || "");
+            setYoutubeInput(data.djProfile.socialLinks?.youtube || "");
+            setBookingEmailInput(data.djProfile.socialLinks?.bookingEmail || "");
+            setMixcloudInput(data.djProfile.socialLinks?.mixcloud || "");
+            setResidentAdvisorInput(data.djProfile.socialLinks?.residentAdvisor || "");
+            setCustomLinksInput(data.djProfile.socialLinks?.customLinks || []);
+            // IRL Shows - ensure we always have 2 fields
+            const irlShows = data.djProfile.irlShows || [];
+            setIrlShowsInput([
+              irlShows[0] || { url: "", date: "" },
+              irlShows[1] || { url: "", date: "" },
+            ]);
+            // My Recs - ensure at least one empty field
+            const bandcampRecs = data.djProfile.myRecs?.bandcampLinks || [];
+            setBandcampRecsInput(bandcampRecs.length > 0 ? bandcampRecs : [""]);
+            const eventRecs = data.djProfile.myRecs?.eventLinks || [];
+            setEventRecsInput(eventRecs.length > 0 ? eventRecs : [""]);
+            initialLoadRef.current = false;
+          }
         }
       }
     });
@@ -343,7 +357,7 @@ export function StudioProfileClient() {
   }, [user, chatUsername, allShows]);
 
   // Sync DJ profile data to broadcast slots
-  const syncProfileToSlots = async (updates: {
+  const syncProfileToSlots = useCallback(async (updates: {
     bio?: string | null;
     photoUrl?: string | null;
     promoText?: string | null;
@@ -363,9 +377,9 @@ export function StudioProfileClient() {
     } catch (error) {
       console.error("Error syncing profile to slots:", error);
     }
-  };
+  }, [user]);
 
-  const handleSaveAbout = async () => {
+  const saveAbout = useCallback(async (bio: string) => {
     if (!user || !db) return;
 
     setSavingAbout(true);
@@ -373,7 +387,7 @@ export function StudioProfileClient() {
 
     try {
       const userRef = doc(db, "users", user.uid);
-      const newBio = bioInput.trim() || null;
+      const newBio = bio.trim() || null;
       await updateDoc(userRef, {
         "djProfile.bio": newBio,
       });
@@ -385,9 +399,9 @@ export function StudioProfileClient() {
     } finally {
       setSavingAbout(false);
     }
-  };
+  }, [user, syncProfileToSlots]);
 
-  const handleSaveDetails = async () => {
+  const saveDetails = useCallback(async (location: string, genres: string) => {
     if (!user || !db) return;
 
     setSavingDetails(true);
@@ -395,13 +409,13 @@ export function StudioProfileClient() {
 
     try {
       const userRef = doc(db, "users", user.uid);
-      const genresArray = genresInput
+      const genresArray = genres
         .split(",")
         .map((g) => g.trim())
         .filter((g) => g.length > 0);
 
       await updateDoc(userRef, {
-        "djProfile.location": locationInput.trim() || null,
+        "djProfile.location": location.trim() || null,
         "djProfile.genres": genresArray,
       });
       setSaveDetailsSuccess(true);
@@ -411,9 +425,18 @@ export function StudioProfileClient() {
     } finally {
       setSavingDetails(false);
     }
-  };
+  }, [user]);
 
-  const handleSaveSocialLinks = async () => {
+  const saveSocialLinks = useCallback(async (
+    instagram: string,
+    soundcloud: string,
+    bandcamp: string,
+    youtube: string,
+    bookingEmail: string,
+    mixcloud: string,
+    residentAdvisor: string,
+    customLinks: CustomLink[]
+  ) => {
     if (!user || !db) return;
 
     setSavingSocial(true);
@@ -422,7 +445,7 @@ export function StudioProfileClient() {
     try {
       const userRef = doc(db, "users", user.uid);
       // Filter out empty custom links
-      const validCustomLinks = customLinksInput.filter(
+      const validCustomLinks = customLinks.filter(
         (link) => link.label.trim() && link.url.trim()
       ).map((link) => ({
         label: link.label.trim(),
@@ -431,13 +454,13 @@ export function StudioProfileClient() {
 
       await updateDoc(userRef, {
         "djProfile.socialLinks": {
-          instagram: instagramInput.trim() || null,
-          soundcloud: soundcloudInput.trim() ? normalizeUrl(soundcloudInput.trim()) : null,
-          bandcamp: bandcampInput.trim() ? normalizeUrl(bandcampInput.trim()) : null,
-          youtube: youtubeInput.trim() ? normalizeUrl(youtubeInput.trim()) : null,
-          bookingEmail: bookingEmailInput.trim() || null,
-          mixcloud: mixcloudInput.trim() ? normalizeUrl(mixcloudInput.trim()) : null,
-          residentAdvisor: residentAdvisorInput.trim() ? normalizeUrl(residentAdvisorInput.trim()) : null,
+          instagram: instagram.trim() || null,
+          soundcloud: soundcloud.trim() ? normalizeUrl(soundcloud.trim()) : null,
+          bandcamp: bandcamp.trim() ? normalizeUrl(bandcamp.trim()) : null,
+          youtube: youtube.trim() ? normalizeUrl(youtube.trim()) : null,
+          bookingEmail: bookingEmail.trim() || null,
+          mixcloud: mixcloud.trim() ? normalizeUrl(mixcloud.trim()) : null,
+          residentAdvisor: residentAdvisor.trim() ? normalizeUrl(residentAdvisor.trim()) : null,
           customLinks: validCustomLinks.length > 0 ? validCustomLinks : null,
         },
       });
@@ -448,9 +471,9 @@ export function StudioProfileClient() {
     } finally {
       setSavingSocial(false);
     }
-  };
+  }, [user]);
 
-  const handleSaveIrlShows = async () => {
+  const saveIrlShows = useCallback(async (shows: IrlShow[]) => {
     if (!user || !db) return;
 
     setSavingIrlShows(true);
@@ -459,7 +482,7 @@ export function StudioProfileClient() {
     try {
       const userRef = doc(db, "users", user.uid);
       // Filter out empty shows but always save the array structure
-      const validShows = irlShowsInput.filter(
+      const validShows = shows.filter(
         (show) => show.url.trim() || show.date.trim()
       ).map((show) => ({
         url: show.url.trim() ? normalizeUrl(show.url.trim()) : "",
@@ -476,9 +499,9 @@ export function StudioProfileClient() {
     } finally {
       setSavingIrlShows(false);
     }
-  };
+  }, [user]);
 
-  const handleSaveMyRecs = async () => {
+  const saveMyRecs = useCallback(async (bandcampRecs: string[], eventRecs: string[]) => {
     if (!user || !db) return;
 
     setSavingMyRecs(true);
@@ -487,10 +510,10 @@ export function StudioProfileClient() {
     try {
       const userRef = doc(db, "users", user.uid);
       // Filter out empty links and normalize URLs
-      const validBandcampLinks = bandcampRecsInput
+      const validBandcampLinks = bandcampRecs
         .filter((url) => url.trim())
         .map((url) => normalizeUrl(url.trim()));
-      const validEventLinks = eventRecsInput
+      const validEventLinks = eventRecs
         .filter((url) => url.trim())
         .map((url) => normalizeUrl(url.trim()));
 
@@ -507,9 +530,9 @@ export function StudioProfileClient() {
     } finally {
       setSavingMyRecs(false);
     }
-  };
+  }, [user]);
 
-  const handleSaveThankYou = async () => {
+  const saveThankYou = useCallback(async (message: string) => {
     if (!user || !db) return;
 
     setSavingThankYou(true);
@@ -517,7 +540,7 @@ export function StudioProfileClient() {
 
     try {
       const userRef = doc(db, "users", user.uid);
-      const newThankYouMessage = thankYouInput.trim() || null;
+      const newThankYouMessage = message.trim() || null;
       await updateDoc(userRef, {
         "djProfile.thankYouMessage": newThankYouMessage,
       });
@@ -529,9 +552,9 @@ export function StudioProfileClient() {
     } finally {
       setSavingThankYou(false);
     }
-  };
+  }, [user, syncProfileToSlots]);
 
-  const handleSavePromo = async () => {
+  const savePromo = useCallback(async (promoText: string, promoHyperlink: string) => {
     if (!user || !db) return;
 
     setSaving(true);
@@ -539,8 +562,8 @@ export function StudioProfileClient() {
 
     try {
       const userRef = doc(db, "users", user.uid);
-      const newPromoText = promoTextInput.trim() || null;
-      const newPromoHyperlink = promoHyperlinkInput.trim() ? normalizeUrl(promoHyperlinkInput.trim()) : null;
+      const newPromoText = promoText.trim() || null;
+      const newPromoHyperlink = promoHyperlink.trim() ? normalizeUrl(promoHyperlink.trim()) : null;
       await updateDoc(userRef, {
         "djProfile.promoText": newPromoText,
         "djProfile.promoHyperlink": newPromoHyperlink,
@@ -553,7 +576,66 @@ export function StudioProfileClient() {
     } finally {
       setSaving(false);
     }
-  };
+  }, [user, syncProfileToSlots]);
+
+  // Auto-save bio with debounce
+  useEffect(() => {
+    if (initialLoadRef.current) return;
+    if (bioDebounceRef.current) clearTimeout(bioDebounceRef.current);
+    bioDebounceRef.current = setTimeout(() => saveAbout(bioInput), 1000);
+    return () => { if (bioDebounceRef.current) clearTimeout(bioDebounceRef.current); };
+  }, [bioInput, saveAbout]);
+
+  // Auto-save promo with debounce
+  useEffect(() => {
+    if (initialLoadRef.current) return;
+    if (promoDebounceRef.current) clearTimeout(promoDebounceRef.current);
+    promoDebounceRef.current = setTimeout(() => savePromo(promoTextInput, promoHyperlinkInput), 1000);
+    return () => { if (promoDebounceRef.current) clearTimeout(promoDebounceRef.current); };
+  }, [promoTextInput, promoHyperlinkInput, savePromo]);
+
+  // Auto-save details with debounce
+  useEffect(() => {
+    if (initialLoadRef.current) return;
+    if (detailsDebounceRef.current) clearTimeout(detailsDebounceRef.current);
+    detailsDebounceRef.current = setTimeout(() => saveDetails(locationInput, genresInput), 1000);
+    return () => { if (detailsDebounceRef.current) clearTimeout(detailsDebounceRef.current); };
+  }, [locationInput, genresInput, saveDetails]);
+
+  // Auto-save thank you with debounce
+  useEffect(() => {
+    if (initialLoadRef.current) return;
+    if (thankYouDebounceRef.current) clearTimeout(thankYouDebounceRef.current);
+    thankYouDebounceRef.current = setTimeout(() => saveThankYou(thankYouInput), 1000);
+    return () => { if (thankYouDebounceRef.current) clearTimeout(thankYouDebounceRef.current); };
+  }, [thankYouInput, saveThankYou]);
+
+  // Auto-save social links with debounce
+  useEffect(() => {
+    if (initialLoadRef.current) return;
+    if (socialDebounceRef.current) clearTimeout(socialDebounceRef.current);
+    socialDebounceRef.current = setTimeout(() => saveSocialLinks(
+      instagramInput, soundcloudInput, bandcampInput, youtubeInput,
+      bookingEmailInput, mixcloudInput, residentAdvisorInput, customLinksInput
+    ), 1000);
+    return () => { if (socialDebounceRef.current) clearTimeout(socialDebounceRef.current); };
+  }, [instagramInput, soundcloudInput, bandcampInput, youtubeInput, bookingEmailInput, mixcloudInput, residentAdvisorInput, customLinksInput, saveSocialLinks]);
+
+  // Auto-save IRL shows with debounce
+  useEffect(() => {
+    if (initialLoadRef.current) return;
+    if (irlShowsDebounceRef.current) clearTimeout(irlShowsDebounceRef.current);
+    irlShowsDebounceRef.current = setTimeout(() => saveIrlShows(irlShowsInput), 1000);
+    return () => { if (irlShowsDebounceRef.current) clearTimeout(irlShowsDebounceRef.current); };
+  }, [irlShowsInput, saveIrlShows]);
+
+  // Auto-save my recs with debounce
+  useEffect(() => {
+    if (initialLoadRef.current) return;
+    if (myRecsDebounceRef.current) clearTimeout(myRecsDebounceRef.current);
+    myRecsDebounceRef.current = setTimeout(() => saveMyRecs(bandcampRecsInput, eventRecsInput), 1000);
+    return () => { if (myRecsDebounceRef.current) clearTimeout(myRecsDebounceRef.current); };
+  }, [bandcampRecsInput, eventRecsInput, saveMyRecs]);
 
   // Check DJ name availability with debounce
   const checkDjNameAvailability = async (name: string) => {
@@ -1023,21 +1105,15 @@ export function StudioProfileClient() {
                   maxLength={500}
                   className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none resize-none"
                 />
-                <p className="text-gray-600 text-xs mt-1 text-right">
-                  {bioInput.length}/500
-                </p>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-gray-600 text-xs">
+                    {savingAbout ? "Saving..." : saveAboutSuccess ? "Saved" : ""}
+                  </span>
+                  <span className="text-gray-600 text-xs">
+                    {bioInput.length}/500
+                  </span>
+                </div>
               </div>
-              <button
-                onClick={handleSaveAbout}
-                disabled={savingAbout}
-                className={`w-full py-2 rounded-lg font-medium transition-colors ${
-                  saveAboutSuccess
-                    ? "bg-green-600 text-white"
-                    : "bg-white text-black hover:bg-gray-100"
-                } disabled:opacity-50`}
-              >
-                {savingAbout ? "Saving..." : saveAboutSuccess ? "Saved!" : "Save Bio"}
-              </button>
             </div>
           </section>
 
@@ -1077,18 +1153,10 @@ export function StudioProfileClient() {
                   placeholder="bandcamp.com/your-album"
                   className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
+                <p className="text-gray-600 text-xs mt-1">
+                  {saving ? "Saving..." : saveSuccess ? "Saved" : ""}
+                </p>
               </div>
-              <button
-                onClick={handleSavePromo}
-                disabled={saving}
-                className={`w-full py-2 rounded-lg font-medium transition-colors ${
-                  saveSuccess
-                    ? "bg-green-600 text-white"
-                    : "bg-white text-black hover:bg-gray-100"
-                } disabled:opacity-50`}
-              >
-                {saving ? "Saving..." : saveSuccess ? "Saved!" : "Save Promo"}
-              </button>
             </div>
           </section>
 
@@ -1122,21 +1190,15 @@ export function StudioProfileClient() {
                   placeholder="e.g., House, Techno, Ambient"
                   className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
-                <p className="text-gray-600 text-xs mt-1">
-                  Separate genres with commas
-                </p>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-gray-600 text-xs">
+                    {savingDetails ? "Saving..." : saveDetailsSuccess ? "Saved" : ""}
+                  </span>
+                  <span className="text-gray-600 text-xs">
+                    Separate genres with commas
+                  </span>
+                </div>
               </div>
-              <button
-                onClick={handleSaveDetails}
-                disabled={savingDetails}
-                className={`w-full py-2 rounded-lg font-medium transition-colors ${
-                  saveDetailsSuccess
-                    ? "bg-green-600 text-white"
-                    : "bg-white text-black hover:bg-gray-100"
-                } disabled:opacity-50`}
-              >
-                {savingDetails ? "Saving..." : saveDetailsSuccess ? "Saved!" : "Save Details"}
-              </button>
             </div>
           </section>
 
@@ -1204,21 +1266,15 @@ export function StudioProfileClient() {
                   maxLength={200}
                   className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none resize-none"
                 />
-                <p className="text-gray-600 text-xs mt-1 text-right">
-                  {thankYouInput.length}/200
-                </p>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-gray-600 text-xs">
+                    {savingThankYou ? "Saving..." : saveThankYouSuccess ? "Saved" : ""}
+                  </span>
+                  <span className="text-gray-600 text-xs">
+                    {thankYouInput.length}/200
+                  </span>
+                </div>
               </div>
-              <button
-                onClick={handleSaveThankYou}
-                disabled={savingThankYou}
-                className={`w-full py-2 rounded-lg font-medium transition-colors ${
-                  saveThankYouSuccess
-                    ? "bg-green-600 text-white"
-                    : "bg-white text-black hover:bg-gray-100"
-                } disabled:opacity-50`}
-              >
-                {savingThankYou ? "Saving..." : saveThankYouSuccess ? "Saved!" : "Save Thank You Message"}
-              </button>
             </div>
           </section>
 
@@ -1370,19 +1426,10 @@ export function StudioProfileClient() {
                     Add Link
                   </button>
                 </div>
+                <p className="text-gray-600 text-xs mt-2">
+                  {savingSocial ? "Saving..." : saveSocialSuccess ? "Saved" : ""}
+                </p>
               </div>
-
-              <button
-                onClick={handleSaveSocialLinks}
-                disabled={savingSocial}
-                className={`w-full py-2 rounded-lg font-medium transition-colors ${
-                  saveSocialSuccess
-                    ? "bg-green-600 text-white"
-                    : "bg-white text-black hover:bg-gray-100"
-                } disabled:opacity-50`}
-              >
-                {savingSocial ? "Saving..." : saveSocialSuccess ? "Saved!" : "Save Social Links"}
-              </button>
             </div>
           </section>
 
@@ -1426,17 +1473,9 @@ export function StudioProfileClient() {
                   </div>
                 </div>
               ))}
-              <button
-                onClick={handleSaveIrlShows}
-                disabled={savingIrlShows}
-                className={`w-full py-2 rounded-lg font-medium transition-colors ${
-                  saveIrlShowsSuccess
-                    ? "bg-green-600 text-white"
-                    : "bg-white text-black hover:bg-gray-100"
-                } disabled:opacity-50`}
-              >
-                {savingIrlShows ? "Saving..." : saveIrlShowsSuccess ? "Saved!" : "Save IRL Shows"}
-              </button>
+              <p className="text-gray-600 text-xs">
+                {savingIrlShows ? "Saving..." : saveIrlShowsSuccess ? "Saved" : ""}
+              </p>
             </div>
           </section>
 
@@ -1541,19 +1580,10 @@ export function StudioProfileClient() {
                     Add Event Link
                   </button>
                 </div>
+                <p className="text-gray-600 text-xs mt-2">
+                  {savingMyRecs ? "Saving..." : saveMyRecsSuccess ? "Saved" : ""}
+                </p>
               </div>
-
-              <button
-                onClick={handleSaveMyRecs}
-                disabled={savingMyRecs}
-                className={`w-full py-2 rounded-lg font-medium transition-colors ${
-                  saveMyRecsSuccess
-                    ? "bg-green-600 text-white"
-                    : "bg-white text-black hover:bg-gray-100"
-                } disabled:opacity-50`}
-              >
-                {savingMyRecs ? "Saving..." : saveMyRecsSuccess ? "Saved!" : "Save My Recs"}
-              </button>
             </div>
           </section>
 

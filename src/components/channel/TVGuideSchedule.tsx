@@ -54,8 +54,14 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [addingToWatchlist, setAddingToWatchlist] = useState<string | null>(null);
   const [expandedShowId, setExpandedShowId] = useState<string | null>(null);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const hasScrolledRef = useRef(false);
+
+  // Handler for image load errors
+  const handleImageError = useCallback((imageUrl: string) => {
+    setFailedImages(prev => new Set(prev).add(imageUrl));
+  }, []);
 
   // Fetch shows on mount via API route (avoids CORS issues with Newtown scraping)
   useEffect(() => {
@@ -407,7 +413,7 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                           {/* Show content with optional show image or DJ photo */}
                           <div className="flex gap-1.5 h-full overflow-hidden pointer-events-none">
                             {/* Show image thumbnail (priority) or DJ photo fallback */}
-                            {show.imageUrl && showWidth >= 80 ? (
+                            {show.imageUrl && showWidth >= 80 && !failedImages.has(show.imageUrl) ? (
                               <Image
                                 src={show.imageUrl}
                                 alt={show.name}
@@ -415,8 +421,9 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                                 height={36}
                                 className="w-9 h-9 rounded object-cover flex-shrink-0"
                                 unoptimized
+                                onError={() => handleImageError(show.imageUrl!)}
                               />
-                            ) : show.djPhotoUrl && showWidth >= 80 ? (
+                            ) : show.djPhotoUrl && showWidth >= 80 && !failedImages.has(show.djPhotoUrl) ? (
                               <Image
                                 src={show.djPhotoUrl}
                                 alt={show.dj || 'DJ'}
@@ -424,6 +431,7 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                                 height={40}
                                 className="w-10 h-10 rounded-full object-cover flex-shrink-0"
                                 unoptimized
+                                onError={() => handleImageError(show.djPhotoUrl!)}
                               />
                             ) : null}
                             {/* Show name and DJ */}
