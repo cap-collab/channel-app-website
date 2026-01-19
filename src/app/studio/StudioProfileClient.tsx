@@ -9,6 +9,7 @@ import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useUserRole, isDJ } from "@/hooks/useUserRole";
 import { AuthModal } from "@/components/AuthModal";
+import { Header } from "@/components/Header";
 import { usePendingPayout } from "@/hooks/usePendingPayout";
 import { normalizeUrl } from "@/lib/url";
 import { uploadDJPhoto, deleteDJPhoto, validatePhoto } from "@/lib/photo-upload";
@@ -831,18 +832,7 @@ export function StudioProfileClient() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-black">
-        <header className="p-4 border-b border-gray-900">
-          <div className="max-w-xl mx-auto flex items-center justify-between">
-            <Link
-              href="/channel"
-              className="text-gray-600 hover:text-white text-sm transition-colors"
-            >
-              &larr; Back
-            </Link>
-            <h1 className="text-lg font-medium text-white">DJ Studio</h1>
-            <div className="w-10" />
-          </div>
-        </header>
+        <Header currentPage="studio" position="sticky" />
         <main className="max-w-xl mx-auto p-4">
           <div className="text-center py-12">
             <p className="text-gray-500 mb-6">
@@ -869,18 +859,7 @@ export function StudioProfileClient() {
   if (!isDJ(role)) {
     return (
       <div className="min-h-screen bg-black">
-        <header className="p-4 border-b border-gray-900">
-          <div className="max-w-xl mx-auto flex items-center justify-between">
-            <Link
-              href="/channel"
-              className="text-gray-600 hover:text-white text-sm transition-colors"
-            >
-              &larr; Back
-            </Link>
-            <h1 className="text-lg font-medium text-white">DJ Studio</h1>
-            <div className="w-10" />
-          </div>
-        </header>
+        <Header currentPage="studio" position="sticky" />
         <main className="max-w-xl mx-auto p-4">
           <div className="text-center py-12">
             <p className="text-gray-500 mb-4">
@@ -903,19 +882,7 @@ export function StudioProfileClient() {
 
   return (
     <div className="min-h-screen bg-black">
-      {/* Header */}
-      <header className="p-4 border-b border-gray-900">
-        <div className="max-w-xl mx-auto flex items-center justify-between">
-          <Link
-            href="/channel"
-            className="text-gray-600 hover:text-white text-sm transition-colors"
-          >
-            &larr; Back
-          </Link>
-          <h1 className="text-lg font-medium text-white">DJ Studio</h1>
-          <div className="w-10" />
-        </div>
-      </header>
+      <Header currentPage="studio" position="sticky" />
 
       <main className="max-w-xl mx-auto p-4">
         {/* DJ Name Setup Banner - shown when chatUsername is not set */}

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { Header } from "@/components/Header";
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { getTipHistoryFromLocalStorage, groupTipsByDJ, DJTipGroup } from '@/lib/tip-history-storage';
 
@@ -189,19 +189,7 @@ export function InboxClient() {
 
   return (
     <div className="min-h-screen bg-black">
-      {/* Header */}
-      <header className="p-4 border-b border-gray-900">
-        <div className="max-w-xl mx-auto flex items-center justify-between">
-          <Link
-            href="/channel"
-            className="text-gray-600 hover:text-white text-sm transition-colors"
-          >
-            &larr; Back
-          </Link>
-          <h1 className="text-lg font-medium text-white">Inbox</h1>
-          <div className="w-10" />
-        </div>
-      </header>
+      <Header position="sticky" />
 
       <main className="max-w-xl mx-auto p-4">
         {/* Tabs - only show if user is a DJ */}

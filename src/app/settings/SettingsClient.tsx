@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { doc, onSnapshot, updateDoc, deleteDoc } from "firebase/firestore";
+import { Header } from "@/components/Header";
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/AuthModal";
@@ -97,19 +97,7 @@ export function SettingsClient() {
 
   return (
     <div className="min-h-screen bg-black">
-      {/* Header */}
-      <header className="p-4 border-b border-gray-900">
-        <div className="max-w-xl mx-auto flex items-center justify-between">
-          <Link
-            href="/channel"
-            className="text-gray-600 hover:text-white text-sm transition-colors"
-          >
-            ← Back
-          </Link>
-          <h1 className="text-lg font-medium text-white">Settings</h1>
-          <div className="w-10" />
-        </div>
-      </header>
+      <Header position="sticky" />
 
       <main className="max-w-xl mx-auto p-4">
         {!isAuthenticated ? (
