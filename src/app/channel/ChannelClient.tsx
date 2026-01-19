@@ -367,10 +367,11 @@ export function ChannelClient() {
             />
           </div>
 
-          {/* Chat */}
-          <div className="flex-shrink-0 px-4 pb-4">
-            <div className="bg-surface-card rounded-xl overflow-hidden" style={{ height: '300px' }}>
-              <ListenerChatPanel
+          {/* Chat - hide on mobile when logged out AND offline */}
+          {(isAuthenticated || isLive) && (
+            <div className="flex-shrink-0 px-4 pb-4">
+              <div className="bg-surface-card rounded-xl overflow-hidden" style={{ height: '300px' }}>
+                <ListenerChatPanel
                 isAuthenticated={isAuthenticated}
                 username={username}
                 userId={user?.uid}
@@ -386,9 +387,10 @@ export function ChannelClient() {
                 isVenue={currentShow?.broadcastType === 'venue'}
                 activePromoText={currentDjSlot?.promoText || currentDjSlot?.djPromoText}
                 activePromoHyperlink={currentDjSlot?.promoHyperlink || currentDjSlot?.djPromoHyperlink}
-              />
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Coming Up Next */}
           <div className="flex-shrink-0 px-4 pb-4">
