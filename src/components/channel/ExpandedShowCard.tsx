@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Show, Station } from '@/types';
 import { TipButton } from './TipButton';
 import { WatchlistModal } from '@/components/WatchlistModal';
+import { AuthModal } from '@/components/AuthModal';
 import { useFavorites } from '@/hooks/useFavorites';
 
 interface ExpandedShowCardProps {
@@ -43,6 +44,7 @@ export function ExpandedShowCard({
   const accentColor = station.accentColor || '#D94099';
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const [showWatchlistModal, setShowWatchlistModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const { addToWatchlist, isInWatchlist } = useFavorites();
   const [isAddingDirect, setIsAddingDirect] = useState(false);
 
@@ -63,11 +65,18 @@ export function ExpandedShowCard({
     if (hasSingleDjWithProfile) {
       // Direct add without popup
       if (djInWatchlist) return;
+
+      // Check authentication first
+      if (!isAuthenticated) {
+        setShowAuthModal(true);
+        return;
+      }
+
       setIsAddingDirect(true);
       await addToWatchlist(show.dj!, show.djUserId, show.djEmail);
       setIsAddingDirect(false);
     } else {
-      // Show the modal
+      // Show the modal (it handles auth internally)
       setShowWatchlistModal(true);
     }
   };
@@ -291,6 +300,13 @@ export function ExpandedShowCard({
         onClose={() => setShowWatchlistModal(false)}
         showName={show.name}
         djs={djsList}
+      />
+
+      {/* Auth Modal - shown when user tries to add without being logged in */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        message="Sign in to add to your watchlist"
       />
     </>
   );
