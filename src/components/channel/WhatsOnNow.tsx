@@ -203,7 +203,12 @@ function ShowCard({
   userId,
   chatUsername,
 }: ShowCardProps) {
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const canTip = station.id === 'broadcast' && show.dj && (show.djUserId || show.djEmail) && show.broadcastSlotId;
+
+  const handleImageError = (imageUrl: string) => {
+    setFailedImages(prev => new Set(prev).add(imageUrl));
+  };
 
   // Format time for upcoming shows
   const formatTime = (startTime: string): string => {
@@ -237,7 +242,7 @@ function ShowCard({
         {/* Show content */}
         <div className="flex gap-2">
           {/* Show image (priority) or DJ photo thumbnail (fallback) */}
-          {show.imageUrl ? (
+          {show.imageUrl && !failedImages.has(show.imageUrl) ? (
             <Image
               src={show.imageUrl}
               alt={show.name}
@@ -245,8 +250,9 @@ function ShowCard({
               height={36}
               className="w-9 h-9 rounded object-cover flex-shrink-0"
               unoptimized
+              onError={() => handleImageError(show.imageUrl!)}
             />
-          ) : show.djPhotoUrl ? (
+          ) : show.djPhotoUrl && !failedImages.has(show.djPhotoUrl) ? (
             <Image
               src={show.djPhotoUrl}
               alt={show.dj || 'DJ'}
@@ -254,6 +260,7 @@ function ShowCard({
               height={36}
               className="w-9 h-9 rounded-full object-cover flex-shrink-0"
               unoptimized
+              onError={() => handleImageError(show.djPhotoUrl!)}
             />
           ) : null}
 
