@@ -39,6 +39,13 @@ export function StudioJoinClient() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [upgradingToDJ, setUpgradingToDJ] = useState(false);
   const [upgradeError, setUpgradeError] = useState('');
+  // Track which fields came from DJ profile (to disable them)
+  const [profileFields, setProfileFields] = useState<{
+    djName: boolean;
+    soundcloud: boolean;
+    instagram: boolean;
+    youtube: boolean;
+  }>({ djName: false, soundcloud: false, instagram: false, youtube: false });
 
   // Pre-fill form with user data when logged in
   useEffect(() => {
@@ -83,6 +90,44 @@ export function StudioJoinClient() {
 
     assignDJRoleAfterSignup();
   }, [user, isAuthenticated, userIsDJ, roleLoading]);
+
+  // Fetch DJ profile to pre-fill form (for DJ users)
+  useEffect(() => {
+    async function fetchDJProfile() {
+      if (!user || !db || !userIsDJ) return;
+
+      try {
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists()) {
+          const data = userSnap.data();
+          const chatUsername = data.chatUsername;
+          const socialLinks = data.djProfile?.socialLinks || {};
+
+          // Pre-fill form and track which fields came from profile
+          setFormData((prev) => ({
+            ...prev,
+            djName: chatUsername || data.displayName || user.displayName || prev.djName,
+            soundcloud: socialLinks.soundcloud || prev.soundcloud,
+            instagram: socialLinks.instagram || prev.instagram,
+            youtube: socialLinks.youtube || prev.youtube,
+          }));
+
+          setProfileFields({
+            djName: !!(chatUsername || data.displayName),
+            soundcloud: !!socialLinks.soundcloud,
+            instagram: !!socialLinks.instagram,
+            youtube: !!socialLinks.youtube,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch DJ profile:', error);
+      }
+    }
+
+    fetchDJProfile();
+  }, [user, userIsDJ]);
 
   // Handle upgrade to DJ for logged-in non-DJ users
   const handleUpgradeToDJ = async () => {
@@ -197,6 +242,52 @@ export function StudioJoinClient() {
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || 'Failed to submit application');
+      }
+
+      // Save new fields to DJ profile (only if user didn't have them before)
+      if (user && db) {
+        const updates: Record<string, unknown> = {};
+
+        // Save DJ name to chatUsername if it's new
+        if (!profileFields.djName && formData.djName.trim()) {
+          updates.chatUsername = formData.djName.trim();
+        }
+
+        // Build socialLinks updates
+        const socialLinksUpdates: Record<string, string> = {};
+        if (!profileFields.soundcloud && formData.soundcloud?.trim()) {
+          socialLinksUpdates.soundcloud = formData.soundcloud.trim();
+        }
+        if (!profileFields.instagram && formData.instagram?.trim()) {
+          socialLinksUpdates.instagram = formData.instagram.trim();
+        }
+        if (!profileFields.youtube && formData.youtube?.trim()) {
+          socialLinksUpdates.youtube = formData.youtube.trim();
+        }
+
+        // Only update if there's something new to save
+        if (Object.keys(updates).length > 0 || Object.keys(socialLinksUpdates).length > 0) {
+          try {
+            const userRef = doc(db, 'users', user.uid);
+            const userSnap = await getDoc(userRef);
+            const currentData = userSnap.data();
+            const currentSocialLinks = currentData?.djProfile?.socialLinks || {};
+
+            await setDoc(userRef, {
+              ...updates,
+              djProfile: {
+                ...currentData?.djProfile,
+                socialLinks: {
+                  ...currentSocialLinks,
+                  ...socialLinksUpdates,
+                },
+              },
+            }, { merge: true });
+          } catch (profileError) {
+            // Don't fail the whole submission if profile update fails
+            console.error('Failed to update DJ profile:', profileError);
+          }
+        }
       }
 
       setStatus('success');
@@ -474,7 +565,8 @@ export function StudioJoinClient() {
                   value={formData.djName}
                   onChange={handleInputChange}
                   placeholder="Your DJ name"
-                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
+                  disabled={profileFields.djName}
+                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -633,7 +725,8 @@ export function StudioJoinClient() {
                     value={formData.soundcloud}
                     onChange={handleInputChange}
                     placeholder="https://soundcloud.com/yourname"
-                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
+                    disabled={profileFields.soundcloud}
+                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
 
@@ -651,7 +744,8 @@ export function StudioJoinClient() {
                     value={formData.instagram}
                     onChange={handleInputChange}
                     placeholder="@yourhandle"
-                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
+                    disabled={profileFields.instagram}
+                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
 
@@ -669,7 +763,8 @@ export function StudioJoinClient() {
                     value={formData.youtube}
                     onChange={handleInputChange}
                     placeholder="https://youtube.com/@yourname"
-                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
+                    disabled={profileFields.youtube}
+                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
