@@ -191,8 +191,8 @@ export function ExpandedShowCard({
           </div>
         )}
 
-        {/* Actions - 3 buttons, smaller font, each on one line */}
-        <div className="flex items-center gap-2 mt-5 pt-4 border-t border-gray-800">
+        {/* Actions - 3 buttons, smaller font, single line */}
+        <div className="flex items-center gap-1.5 mt-5 pt-4 border-t border-gray-800 flex-nowrap">
           {/* 1. Add to Watchlist button */}
           {show.dj && (
             <button
@@ -201,22 +201,22 @@ export function ExpandedShowCard({
                 onAddToWatchlist();
               }}
               disabled={isAddingToWatchlist || djInWatchlist}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-xs disabled:opacity-60"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-xs disabled:opacity-60 whitespace-nowrap flex-shrink-0"
               style={{ color: djInWatchlist ? undefined : accentColor }}
             >
               {isAddingToWatchlist ? (
-                <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
               ) : djInWatchlist ? (
-                <svg className="w-3.5 h-3.5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3 h-3 text-gray-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                 </svg>
               ) : (
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
               )}
               <span className={djInWatchlist ? 'text-gray-400' : 'text-white'}>
-                {djInWatchlist ? 'In Watchlist' : 'Add to Watchlist'}
+                {djInWatchlist ? 'Watching' : 'Watchlist'}
               </span>
             </button>
           )}
@@ -226,10 +226,10 @@ export function ExpandedShowCard({
             <Link
               href={`/dj/${show.djUsername}`}
               onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-xs"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-xs whitespace-nowrap flex-shrink-0"
             >
               <svg
-                className="w-3.5 h-3.5"
+                className="w-3 h-3 flex-shrink-0"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -237,13 +237,13 @@ export function ExpandedShowCard({
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
-              <span className="text-white">View Profile</span>
+              <span className="text-white">Profile</span>
             </Link>
           )}
 
           {/* 3. Tip button */}
           {canTip && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-xs">
+            <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-xs whitespace-nowrap flex-shrink-0">
               <TipButton
                 isAuthenticated={isAuthenticated}
                 tipperUserId={tipperUserId}
