@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useFavorites, Favorite } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -195,6 +196,18 @@ export function ComingUpNext({ onAuthRequired }: ComingUpNextProps) {
                 style={{ backgroundColor: accentColor }}
               />
 
+              {/* Show image thumbnail */}
+              {show.imageUrl && (
+                <Image
+                  src={show.imageUrl}
+                  alt={show.name}
+                  width={48}
+                  height={48}
+                  className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                  unoptimized
+                />
+              )}
+
               {/* Time - day on top, time below */}
               <div className="flex-shrink-0 w-20 text-center">
                 <p className="text-gray-400 text-xs">{day}</p>
@@ -291,6 +304,20 @@ export function ComingUpNext({ onAuthRequired }: ComingUpNextProps) {
                       </span>
                     </div>
 
+                    {/* Show Image */}
+                    {show.imageUrl && (
+                      <div className="mb-4">
+                        <Image
+                          src={show.imageUrl}
+                          alt={show.name}
+                          width={400}
+                          height={225}
+                          className="w-full rounded-lg object-cover"
+                          unoptimized
+                        />
+                      </div>
+                    )}
+
                     {/* DJ Photo and Bio */}
                     {(show.djPhotoUrl || show.djBio) && (
                       <div className="flex items-start gap-3 mb-4">
@@ -386,6 +413,20 @@ export function ComingUpNext({ onAuthRequired }: ComingUpNextProps) {
                           broadcastSlotId={show.broadcastSlotId!}
                           showName={show.name}
                         />
+                      )}
+
+                      {/* View DJ profile button */}
+                      {show.djUsername && (
+                        <Link
+                          href={`/dj/${show.djUsername}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-sm text-white"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          View DJ profile
+                        </Link>
                       )}
                     </div>
                   </div>

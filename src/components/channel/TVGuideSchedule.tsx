@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { STATIONS, getMetadataKeyByStationId } from '@/lib/stations';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -391,10 +392,19 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                             )}
                           </div>
 
-                          {/* Show content with optional DJ photo */}
+                          {/* Show content with optional show image or DJ photo */}
                           <div className="flex gap-1.5 h-full overflow-hidden pointer-events-none">
-                            {/* DJ photo thumbnail on card */}
-                            {show.djPhotoUrl && showWidth >= 80 && (
+                            {/* Show image thumbnail (priority) or DJ photo fallback */}
+                            {show.imageUrl && showWidth >= 80 ? (
+                              <Image
+                                src={show.imageUrl}
+                                alt={show.name}
+                                width={36}
+                                height={36}
+                                className="w-9 h-9 rounded object-cover flex-shrink-0"
+                                unoptimized
+                              />
+                            ) : show.djPhotoUrl && showWidth >= 80 ? (
                               <Image
                                 src={show.djPhotoUrl}
                                 alt={show.dj || 'DJ'}
@@ -403,7 +413,7 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                                 className="w-10 h-10 rounded-full object-cover flex-shrink-0"
                                 unoptimized
                               />
-                            )}
+                            ) : null}
                             {/* Show name and DJ */}
                             <div className="flex-1 min-w-0 overflow-hidden">
                               {(() => {
@@ -498,6 +508,20 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                                   )}
                                 </div>
 
+                                {/* Show Image */}
+                                {show.imageUrl && (
+                                  <div className="mb-4">
+                                    <Image
+                                      src={show.imageUrl}
+                                      alt={show.name}
+                                      width={400}
+                                      height={225}
+                                      className="w-full rounded-lg object-cover"
+                                      unoptimized
+                                    />
+                                  </div>
+                                )}
+
                                 {/* DJ Photo and Bio */}
                                 {(show.djPhotoUrl || show.djBio) && (
                                   <div className="flex items-start gap-3 mb-4">
@@ -585,6 +609,20 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                                       broadcastSlotId={show.broadcastSlotId!}
                                       showName={show.name}
                                     />
+                                  )}
+
+                                  {/* View DJ profile button */}
+                                  {show.djUsername && (
+                                    <Link
+                                      href={`/dj/${show.djUsername}`}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-sm text-white"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                      </svg>
+                                      View DJ profile
+                                    </Link>
                                   )}
                                 </div>
                               </div>

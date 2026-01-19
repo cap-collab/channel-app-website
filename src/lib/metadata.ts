@@ -261,6 +261,7 @@ async function fetchBroadcastShows(): Promise<Show[]> {
         djName?: string;
         djEmail?: string;
         djUserId?: string;
+        djUsername?: string;
         djBio?: string;
         djPhotoUrl?: string;
         djPromoText?: string;
@@ -272,10 +273,13 @@ async function fetchBroadcastShows(): Promise<Show[]> {
       // For tipping
       const djUserId = data.djUserId as string | undefined;
       const djEmail = data.djEmail as string | undefined;
+      const djUsername = data.djUsername as string | undefined;
       const liveDjUserId = data.liveDjUserId as string | undefined;
       // Show-level promo (fallback - DJ profile promo added in API)
       const showPromoText = data.showPromoText as string | undefined;
       const showPromoHyperlink = data.showPromoHyperlink as string | undefined;
+      // Show image
+      const showImageUrl = data.showImageUrl as string | undefined;
 
       // Handle djSlots (venue broadcasts with multiple DJs)
       // Use each DJ slot's pre-configured profile fields (not broadcast-level live* fields)
@@ -294,12 +298,14 @@ async function fetchBroadcastShows(): Promise<Show[]> {
             // Use DJ slot's own userId/email for tips (pre-configured at setup)
             djUserId: djSlot.djUserId || djSlot.liveDjUserId || djUserId,
             djEmail: djSlot.djEmail || djEmail,
+            djUsername: djSlot.djUsername || djUsername,
             broadcastSlotId: doc.id,
             // Use DJ slot's pre-configured profile fields, fall back to show-level promo
             djBio: djSlot.djBio,
             djPhotoUrl: djSlot.djPhotoUrl,
             promoText: djSlot.djPromoText || showPromoText,
             promoUrl: djSlot.djPromoHyperlink || showPromoHyperlink,
+            imageUrl: showImageUrl,
           });
         }
       } else {
@@ -314,9 +320,11 @@ async function fetchBroadcastShows(): Promise<Show[]> {
           type: status === "live" ? "live" : undefined,
           djUserId: liveDjUserId || djUserId,
           djEmail: djEmail,
+          djUsername: djUsername,
           broadcastSlotId: doc.id,
           promoText: showPromoText,
           promoUrl: showPromoHyperlink,
+          imageUrl: showImageUrl,
         });
       }
     });

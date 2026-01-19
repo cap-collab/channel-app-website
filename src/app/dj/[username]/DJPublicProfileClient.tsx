@@ -66,6 +66,8 @@ interface UpcomingShow {
   stationName: string;
   // For external shows (from /api/schedule)
   isExternal?: boolean;
+  // Show image (from broadcast slot)
+  showImageUrl?: string;
 }
 
 interface Props {
@@ -273,6 +275,7 @@ export function DJPublicProfileClient({ username }: Props) {
                 stationId: "broadcast",
                 stationName: "Channel Broadcast",
                 isExternal: false,
+                showImageUrl: data.showImageUrl,
               });
             }
           });
@@ -314,6 +317,7 @@ export function DJPublicProfileClient({ username }: Props) {
             stationId: show.stationId,
             stationName: station?.name || show.stationId,
             isExternal: true,
+            showImageUrl: show.imageUrl,
           });
         }
       });
@@ -757,17 +761,32 @@ export function DJPublicProfileClient({ username }: Props) {
                         )}
                       </button>
 
-                      <p className="text-white font-medium pr-10">{broadcast.showName}</p>
-                      <p className="text-gray-400 text-sm">
-                        {formatBroadcastTime(broadcast.startTime, broadcast.endTime)}
-                      </p>
-                      <p className="text-gray-500 text-xs mt-1">{broadcast.stationName}</p>
-                      {isLive && (
-                        <span className="inline-flex items-center gap-1 mt-2 text-red-400 text-xs">
-                          <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                          Live Now
-                        </span>
-                      )}
+                      <div className="flex gap-3">
+                        {/* Show image thumbnail */}
+                        {broadcast.showImageUrl && (
+                          <Image
+                            src={broadcast.showImageUrl}
+                            alt={broadcast.showName}
+                            width={48}
+                            height={48}
+                            className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                            unoptimized
+                          />
+                        )}
+                        <div className="flex-1 min-w-0 pr-8">
+                          <p className="text-white font-medium">{broadcast.showName}</p>
+                          <p className="text-gray-400 text-sm">
+                            {formatBroadcastTime(broadcast.startTime, broadcast.endTime)}
+                          </p>
+                          <p className="text-gray-500 text-xs mt-1">{broadcast.stationName}</p>
+                          {isLive && (
+                            <span className="inline-flex items-center gap-1 mt-2 text-red-400 text-xs">
+                              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                              Live Now
+                            </span>
+                          )}
+                        </div>
+                      </div>
 
                       {/* Popup modal for expanded show details */}
                       {isExpanded && (
@@ -821,6 +840,20 @@ export function DJPublicProfileClient({ username }: Props) {
                                 </>
                               )}
                             </div>
+
+                            {/* Show Image */}
+                            {broadcast.showImageUrl && (
+                              <div className="mb-4">
+                                <Image
+                                  src={broadcast.showImageUrl}
+                                  alt={broadcast.showName}
+                                  width={400}
+                                  height={225}
+                                  className="w-full rounded-lg object-cover"
+                                  unoptimized
+                                />
+                              </div>
+                            )}
 
                             {/* DJ Photo and Bio */}
                             {(profile.djProfile.photoUrl || profile.djProfile.bio) && (

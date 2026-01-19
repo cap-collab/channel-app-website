@@ -19,6 +19,7 @@ export interface Show {
   dj?: string;
   djBio?: string;
   djPhotoUrl?: string;
+  djUsername?: string; // For DJ profile URL (broadcast shows only)
   imageUrl?: string;
   stationId: string;
   type?: string; // weekly, monthly, restream, playlist
