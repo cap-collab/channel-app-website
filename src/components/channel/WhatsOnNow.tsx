@@ -236,8 +236,17 @@ function ShowCard({
 
         {/* Show content */}
         <div className="flex gap-2">
-          {/* DJ photo thumbnail */}
-          {show.djPhotoUrl && (
+          {/* Show image (priority) or DJ photo thumbnail (fallback) */}
+          {show.imageUrl ? (
+            <Image
+              src={show.imageUrl}
+              alt={show.name}
+              width={36}
+              height={36}
+              className="w-9 h-9 rounded object-cover flex-shrink-0"
+              unoptimized
+            />
+          ) : show.djPhotoUrl ? (
             <Image
               src={show.djPhotoUrl}
               alt={show.dj || 'DJ'}
@@ -246,7 +255,7 @@ function ShowCard({
               className="w-9 h-9 rounded-full object-cover flex-shrink-0"
               unoptimized
             />
-          )}
+          ) : null}
 
           {/* Show info */}
           <div className="flex-1 min-w-0">
