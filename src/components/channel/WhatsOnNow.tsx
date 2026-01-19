@@ -17,12 +17,11 @@ interface WhatsOnNowProps {
 export function WhatsOnNow({ onAuthRequired }: WhatsOnNowProps) {
   const { isAuthenticated, user } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
-  const { addToWatchlist, isInWatchlist, isShowFavorited, toggleFavorite } = useFavorites();
+  const { isShowFavorited, toggleFavorite } = useFavorites();
   const { stationBPM } = useBPM();
   const [allShows, setAllShows] = useState<Show[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [addingToWatchlist, setAddingToWatchlist] = useState<string | null>(null);
   const [togglingFavoriteId, setTogglingFavoriteId] = useState<string | null>(null);
   const [expandedShowId, setExpandedShowId] = useState<string | null>(null);
 
@@ -42,16 +41,6 @@ export function WhatsOnNow({ onAuthRequired }: WhatsOnNowProps) {
     }, 60000);
     return () => clearInterval(interval);
   }, []);
-
-  const handleAddToWatchlist = useCallback(async (djName: string, djUserId?: string, djEmail?: string) => {
-    if (!isAuthenticated) {
-      onAuthRequired?.();
-      return;
-    }
-    setAddingToWatchlist(djName);
-    await addToWatchlist(djName, djUserId, djEmail);
-    setAddingToWatchlist(null);
-  }, [isAuthenticated, onAuthRequired, addToWatchlist]);
 
   const handleToggleFavorite = useCallback(async (show: Show) => {
     if (!isAuthenticated) {
@@ -170,9 +159,6 @@ export function WhatsOnNow({ onAuthRequired }: WhatsOnNowProps) {
                       isFavorited={isShowFavorited(show)}
                       isTogglingFavorite={togglingFavoriteId === show.id}
                       onToggleFavorite={handleToggleFavorite}
-                      djInWatchlist={show.dj ? isInWatchlist(show.dj) : false}
-                      isAddingToWatchlist={addingToWatchlist === show.dj}
-                      onAddToWatchlist={handleAddToWatchlist}
                       isAuthenticated={isAuthenticated}
                       userId={user?.uid}
                       chatUsername={chatUsername}
@@ -198,9 +184,6 @@ interface ShowCardProps {
   isFavorited: boolean;
   isTogglingFavorite: boolean;
   onToggleFavorite: (show: Show) => void;
-  djInWatchlist: boolean;
-  isAddingToWatchlist: boolean;
-  onAddToWatchlist: (djName: string, djUserId?: string, djEmail?: string) => void;
   isAuthenticated: boolean;
   userId?: string;
   chatUsername?: string | null;
@@ -216,9 +199,6 @@ function ShowCard({
   isFavorited,
   isTogglingFavorite,
   onToggleFavorite,
-  djInWatchlist,
-  isAddingToWatchlist,
-  onAddToWatchlist,
   isAuthenticated,
   userId,
   chatUsername,

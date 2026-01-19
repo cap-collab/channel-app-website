@@ -105,7 +105,7 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
       setState(prev => ({ ...prev, error: message }));
       return false;
     }
-  }, [participantIdentity, checkRoomStatus]);
+  }, [participantIdentity, checkRoomStatus, slotId, state.isLive]);
 
   // Publish audio to the room
   const publishAudio = useCallback(async (stream: MediaStream) => {
