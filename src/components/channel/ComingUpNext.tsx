@@ -233,7 +233,7 @@ export function ComingUpNext({ onAuthRequired }: ComingUpNextProps) {
                 )}
               </div>
 
-              {/* Add to Watchlist button */}
+              {/* Add to Watchlist button - hidden on mobile */}
               {show.dj && !djInWatchlist && (
                 <button
                   onClick={(e) => {
@@ -241,7 +241,7 @@ export function ComingUpNext({ onAuthRequired }: ComingUpNextProps) {
                     handleAddToWatchlist(show.dj!, show.djUserId, show.djEmail);
                   }}
                   disabled={isAdding}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-xs flex-shrink-0 disabled:opacity-50"
+                  className="hidden md:flex items-center gap-1 px-2 py-1 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-xs flex-shrink-0 disabled:opacity-50"
                   style={{ color: accentColor }}
                 >
                   {isAdding ? (
@@ -255,10 +255,10 @@ export function ComingUpNext({ onAuthRequired }: ComingUpNextProps) {
                 </button>
               )}
 
-              {/* Show checkmark if DJ already in watchlist */}
+              {/* Show checkmark if DJ already in watchlist - hidden on mobile */}
               {show.dj && djInWatchlist && (
                 <div
-                  className="flex items-center gap-1 px-2 py-1 text-xs flex-shrink-0"
+                  className="hidden md:flex items-center gap-1 px-2 py-1 text-xs flex-shrink-0"
                   style={{ color: accentColor }}
                 >
                   <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
