@@ -5,6 +5,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Show, Station } from '@/types';
 import { TipButton } from './TipButton';
+import { WatchlistModal } from '@/components/WatchlistModal';
+import { useFavorites } from '@/hooks/useFavorites';
 
 interface ExpandedShowCardProps {
   show: Show;
@@ -15,10 +17,6 @@ interface ExpandedShowCardProps {
   isFavorited: boolean;
   isTogglingFavorite: boolean;
   onToggleFavorite: (e: React.MouseEvent) => void;
-  // Watchlist functionality
-  djInWatchlist: boolean;
-  isAddingToWatchlist: boolean;
-  onAddToWatchlist: () => void;
   // Tip functionality
   canTip: boolean;
   isAuthenticated: boolean;
@@ -36,9 +34,6 @@ export function ExpandedShowCard({
   isFavorited,
   isTogglingFavorite,
   onToggleFavorite,
-  djInWatchlist,
-  isAddingToWatchlist,
-  onAddToWatchlist,
   canTip,
   isAuthenticated,
   tipperUserId,
@@ -47,16 +42,50 @@ export function ExpandedShowCard({
 }: ExpandedShowCardProps) {
   const accentColor = station.accentColor || '#D94099';
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const [showWatchlistModal, setShowWatchlistModal] = useState(false);
+  const { addToWatchlist, isInWatchlist } = useFavorites();
+  const [isAddingDirect, setIsAddingDirect] = useState(false);
 
   const handleImageError = (imageUrl: string) => {
     setFailedImages(prev => new Set(prev).add(imageUrl));
   };
 
+  // Determine if we should skip the popup:
+  // Only skip if there's exactly 1 DJ AND that DJ has an official profile (djUsername)
+  const hasSingleDjWithProfile = show.dj && show.djUsername && !show.dj.includes(',') && !show.dj.includes('&');
+
+  // Check if the DJ is already in watchlist (for direct add case)
+  const djInWatchlist = show.dj ? isInWatchlist(show.dj) : false;
+
+  const handleWatchlistClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (hasSingleDjWithProfile) {
+      // Direct add without popup
+      if (djInWatchlist) return;
+      setIsAddingDirect(true);
+      await addToWatchlist(show.dj!, show.djUserId, show.djEmail);
+      setIsAddingDirect(false);
+    } else {
+      // Show the modal
+      setShowWatchlistModal(true);
+    }
+  };
+
+  // Build DJs list for the modal - parse from show.dj string
+  const djsList = show.dj
+    ? show.dj.split(/[,&]/).map((name) => ({
+        name: name.trim(),
+        userId: show.djUserId,
+        email: show.djEmail,
+      }))
+    : [];
+
   return (
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 z-40"
+        className="fixed inset-0 bg-black/80 z-40"
         onClick={(e) => {
           e.stopPropagation();
           onClose();
@@ -64,7 +93,7 @@ export function ExpandedShowCard({
       />
       {/* Popup */}
       <div
-        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-[#1a1a1a] border border-gray-700 rounded-xl p-5 max-w-md w-[90vw] shadow-2xl"
+        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-[#121212] border border-gray-700 rounded-xl p-5 max-w-md w-[90vw] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top right: Favorite button + Close button */}
@@ -193,33 +222,28 @@ export function ExpandedShowCard({
 
         {/* Actions - 3 buttons, smaller font, single line */}
         <div className="flex items-center gap-1.5 mt-5 pt-4 border-t border-gray-800 flex-nowrap">
-          {/* 1. Add to Watchlist button */}
-          {show.dj && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddToWatchlist();
-              }}
-              disabled={isAddingToWatchlist || djInWatchlist}
-              className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-xs disabled:opacity-60 whitespace-nowrap flex-shrink-0"
-              style={{ color: djInWatchlist ? undefined : accentColor }}
-            >
-              {isAddingToWatchlist ? (
-                <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-              ) : djInWatchlist ? (
-                <svg className="w-3 h-3 text-gray-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                </svg>
-              ) : (
-                <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              )}
-              <span className={djInWatchlist ? 'text-gray-400' : 'text-white'}>
-                {djInWatchlist ? 'Watching' : 'Watchlist'}
-              </span>
-            </button>
-          )}
+          {/* 1. Add to Watchlist button - always shown */}
+          <button
+            onClick={handleWatchlistClick}
+            disabled={isAddingDirect || !!(hasSingleDjWithProfile && djInWatchlist)}
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-xs disabled:opacity-60 whitespace-nowrap flex-shrink-0"
+            style={{ color: (hasSingleDjWithProfile && djInWatchlist) ? undefined : accentColor }}
+          >
+            {isAddingDirect ? (
+              <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            ) : (hasSingleDjWithProfile && djInWatchlist) ? (
+              <svg className="w-3 h-3 text-gray-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+              </svg>
+            ) : (
+              <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            )}
+            <span className={(hasSingleDjWithProfile && djInWatchlist) ? 'text-gray-400' : 'text-white'}>
+              {(hasSingleDjWithProfile && djInWatchlist) ? 'Watching' : 'Watchlist'}
+            </span>
+          </button>
 
           {/* 2. View Profile button (pink person icon) */}
           {show.djUsername && (
@@ -260,6 +284,14 @@ export function ExpandedShowCard({
           )}
         </div>
       </div>
+
+      {/* Watchlist Modal */}
+      <WatchlistModal
+        isOpen={showWatchlistModal}
+        onClose={() => setShowWatchlistModal(false)}
+        showName={show.name}
+        djs={djsList}
+      />
     </>
   );
 }

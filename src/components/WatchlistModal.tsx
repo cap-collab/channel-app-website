@@ -16,12 +16,20 @@ interface WatchlistModalProps {
   isOpen: boolean;
   onClose: () => void;
   djs: DJ[];
+  showName?: string;
 }
 
-export function WatchlistModal({ isOpen, onClose, djs }: WatchlistModalProps) {
+export function WatchlistModal({ isOpen, onClose, djs, showName }: WatchlistModalProps) {
   const { user } = useAuthContext();
   const { addToWatchlist, isInWatchlist } = useFavorites();
-  const [djNames, setDjNames] = useState<string[]>(djs.map((dj) => dj.name));
+
+  // Build items list: show name first (if provided), then DJs
+  const initialItems = [
+    ...(showName ? [{ name: showName, type: 'show' as const }] : []),
+    ...djs.map((dj) => ({ name: dj.name, type: 'dj' as const, dj })),
+  ];
+
+  const [itemNames, setItemNames] = useState<string[]>(initialItems.map((item) => item.name));
   const [loadingIndex, setLoadingIndex] = useState<number | null>(null);
   const [addedIndices, setAddedIndices] = useState<Set<number>>(new Set());
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -30,7 +38,7 @@ export function WatchlistModal({ isOpen, onClose, djs }: WatchlistModalProps) {
   if (!isOpen) return null;
 
   const handleNameChange = (index: number, value: string) => {
-    setDjNames((prev) => {
+    setItemNames((prev) => {
       const updated = [...prev];
       updated[index] = value;
       return updated;
@@ -38,7 +46,7 @@ export function WatchlistModal({ isOpen, onClose, djs }: WatchlistModalProps) {
   };
 
   const handleAddSingle = async (index: number) => {
-    const name = djNames[index].trim();
+    const name = itemNames[index].trim();
     if (!name || isInWatchlist(name)) return;
 
     // If not logged in, show auth modal and save pending action
@@ -50,8 +58,10 @@ export function WatchlistModal({ isOpen, onClose, djs }: WatchlistModalProps) {
 
     setLoadingIndex(index);
     try {
-      const dj = djs[index];
-      await addToWatchlist(name, dj?.userId, dj?.email);
+      const item = initialItems[index];
+      // Only pass userId/email for DJ items
+      const djInfo = item.type === 'dj' ? item.dj : undefined;
+      await addToWatchlist(name, djInfo?.userId, djInfo?.email);
       setAddedIndices((prev) => new Set(prev).add(index));
     } catch (error) {
       console.error("Error adding to watchlist:", error);
@@ -72,7 +82,7 @@ export function WatchlistModal({ isOpen, onClose, djs }: WatchlistModalProps) {
     }
   };
 
-  const allInWatchlist = djNames.every(
+  const allInWatchlist = itemNames.every(
     (name, index) =>
       (name.trim() && isInWatchlist(name.trim())) || addedIndices.has(index)
   );
@@ -89,17 +99,22 @@ export function WatchlistModal({ isOpen, onClose, djs }: WatchlistModalProps) {
         >
           <h2 className="text-xl font-bold text-white mb-2">Add to Watchlist</h2>
           <p className="text-white/50 text-sm mb-6">
-            Get notified when these DJs have upcoming shows.
+            Get notified when these shows or DJs are on the schedule.
           </p>
 
           <div className="space-y-3 mb-6">
-            {djNames.map((name, index) => {
+            {itemNames.map((name, index) => {
               const inWatchlist = isInWatchlist(name.trim());
               const justAdded = addedIndices.has(index);
               const isLoading = loadingIndex === index;
+              const itemType = initialItems[index]?.type;
 
               return (
                 <div key={index} className="flex items-center gap-2">
+                  {/* Label for item type */}
+                  <span className="text-white/40 text-xs w-10 flex-shrink-0">
+                    {itemType === 'show' ? 'Show' : 'DJ'}
+                  </span>
                   <input
                     type="text"
                     value={name}

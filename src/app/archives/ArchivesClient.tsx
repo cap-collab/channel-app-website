@@ -354,6 +354,7 @@ export function ArchivesClient() {
             setShowWatchlistModal(false);
             setSelectedArchive(null);
           }}
+          showName={selectedArchive.showName}
           djs={selectedArchive.djs.map((dj) => ({
             name: dj.name,
             username: dj.username,

@@ -277,9 +277,6 @@ export function ComingUpNext({ onAuthRequired }: ComingUpNextProps) {
                   isFavorited={isShowFavorited(show)}
                   isTogglingFavorite={togglingFavoriteId === show.id}
                   onToggleFavorite={(e) => handleToggleFavorite(show, e)}
-                  djInWatchlist={djInWatchlist}
-                  isAddingToWatchlist={isAdding}
-                  onAddToWatchlist={() => handleAddToWatchlist(show.dj!, show.djUserId, show.djEmail)}
                   canTip={!!canTip}
                   isAuthenticated={isAuthenticated}
                   tipperUserId={user?.uid}

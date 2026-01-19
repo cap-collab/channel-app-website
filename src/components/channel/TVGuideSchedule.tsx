@@ -46,13 +46,12 @@ interface TVGuideScheduleProps {
 export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideScheduleProps) {
   const { isAuthenticated, user } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
-  const { toggleFavorite, isShowFavorited, addToWatchlist, isInWatchlist } = useFavorites();
+  const { toggleFavorite, isShowFavorited } = useFavorites();
   const { stationBPM } = useBPM();
   const [allShows, setAllShows] = useState<Show[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [addingToWatchlist, setAddingToWatchlist] = useState<string | null>(null);
   const [expandedShowId, setExpandedShowId] = useState<string | null>(null);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -200,17 +199,6 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
     await toggleFavorite(show);
     setTogglingId(null);
   }, [isAuthenticated, onAuthRequired, toggleFavorite]);
-
-  // Handle add to watchlist
-  const handleAddToWatchlist = useCallback(async (djName: string, djUserId?: string, djEmail?: string) => {
-    if (!isAuthenticated) {
-      onAuthRequired?.();
-      return;
-    }
-    setAddingToWatchlist(djName);
-    await addToWatchlist(djName, djUserId, djEmail);
-    setAddingToWatchlist(null);
-  }, [isAuthenticated, onAuthRequired, addToWatchlist]);
 
   const timelineWidth = timelineHours.length * PIXELS_PER_HOUR;
 
@@ -485,9 +473,6 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                               isFavorited={isFavorited}
                               isTogglingFavorite={isToggling}
                               onToggleFavorite={(e) => handleToggleFavorite(show, e)}
-                              djInWatchlist={show.dj ? isInWatchlist(show.dj) : false}
-                              isAddingToWatchlist={addingToWatchlist === show.dj}
-                              onAddToWatchlist={() => show.dj && handleAddToWatchlist(show.dj, show.djUserId, show.djEmail)}
                               canTip={!!canTip}
                               isAuthenticated={isAuthenticated}
                               tipperUserId={user?.uid}

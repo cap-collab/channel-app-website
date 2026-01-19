@@ -291,9 +291,6 @@ function ShowCard({
             e.stopPropagation();
             onToggleFavorite(show);
           }}
-          djInWatchlist={djInWatchlist}
-          isAddingToWatchlist={isAddingToWatchlist}
-          onAddToWatchlist={() => show.dj && onAddToWatchlist(show.dj, show.djUserId, show.djEmail)}
           canTip={!!canTip}
           isAuthenticated={isAuthenticated}
           tipperUserId={userId}
