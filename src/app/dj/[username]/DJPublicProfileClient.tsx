@@ -814,17 +814,29 @@ export function DJPublicProfileClient({ username }: Props) {
                               </svg>
                             </button>
 
-                            {/* Show name */}
-                            <h3 className="text-white text-lg font-semibold pr-8 mb-1">
-                              {broadcast.showName}
-                            </h3>
-
-                            {/* DJ name */}
-                            {broadcast.djName && (
-                              <p className="text-gray-400 text-sm mb-3">
-                                by {broadcast.djName}
-                              </p>
-                            )}
+                            {/* Show image + name header */}
+                            <div className="flex items-start gap-3 mb-3">
+                              {broadcast.showImageUrl && (
+                                <Image
+                                  src={broadcast.showImageUrl}
+                                  alt={broadcast.showName}
+                                  width={64}
+                                  height={64}
+                                  className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                                  unoptimized
+                                />
+                              )}
+                              <div className="flex-1 min-w-0 pr-6">
+                                <h3 className="text-white text-lg font-semibold mb-1">
+                                  {broadcast.showName}
+                                </h3>
+                                {broadcast.djName && (
+                                  <p className="text-gray-400 text-sm">
+                                    by {broadcast.djName}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
 
                             {/* Station & time */}
                             <div className="flex items-center gap-2 text-xs text-gray-500 mb-4">
@@ -840,20 +852,6 @@ export function DJPublicProfileClient({ username }: Props) {
                                 </>
                               )}
                             </div>
-
-                            {/* Show Image */}
-                            {broadcast.showImageUrl && (
-                              <div className="mb-4">
-                                <Image
-                                  src={broadcast.showImageUrl}
-                                  alt={broadcast.showName}
-                                  width={400}
-                                  height={225}
-                                  className="w-full rounded-lg object-cover"
-                                  unoptimized
-                                />
-                              </div>
-                            )}
 
                             {/* DJ Photo and Bio */}
                             {(profile.djProfile.photoUrl || profile.djProfile.bio) && (

@@ -481,17 +481,29 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                                   </svg>
                                 </button>
 
-                                {/* Show name */}
-                                <h3 className="text-white text-lg font-semibold pr-8 mb-1">
-                                  {show.name}
-                                </h3>
-
-                                {/* DJ name */}
-                                {show.dj && (
-                                  <p className="text-gray-400 text-sm mb-3">
-                                    by {show.dj}
-                                  </p>
-                                )}
+                                {/* Show image + name header */}
+                                <div className="flex items-start gap-3 mb-3">
+                                  {show.imageUrl && (
+                                    <Image
+                                      src={show.imageUrl}
+                                      alt={show.name}
+                                      width={64}
+                                      height={64}
+                                      className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                                      unoptimized
+                                    />
+                                  )}
+                                  <div className="flex-1 min-w-0 pr-6">
+                                    <h3 className="text-white text-lg font-semibold mb-1">
+                                      {show.name}
+                                    </h3>
+                                    {show.dj && (
+                                      <p className="text-gray-400 text-sm">
+                                        by {show.dj}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
 
                                 {/* Station & time */}
                                 <div className="flex items-center gap-2 text-xs text-gray-500 mb-4">
@@ -507,20 +519,6 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                                     </>
                                   )}
                                 </div>
-
-                                {/* Show Image */}
-                                {show.imageUrl && (
-                                  <div className="mb-4">
-                                    <Image
-                                      src={show.imageUrl}
-                                      alt={show.name}
-                                      width={400}
-                                      height={225}
-                                      className="w-full rounded-lg object-cover"
-                                      unoptimized
-                                    />
-                                  </div>
-                                )}
 
                                 {/* DJ Photo and Bio */}
                                 {(show.djPhotoUrl || show.djBio) && (
