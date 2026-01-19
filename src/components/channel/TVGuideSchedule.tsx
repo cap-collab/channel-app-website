@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { STATIONS, getMetadataKeyByStationId } from '@/lib/stations';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -10,6 +9,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { useBPM } from '@/contexts/BPMContext';
 import { Show, Station } from '@/types';
 import { TipButton } from './TipButton';
+import { ExpandedShowCard } from './ExpandedShowCard';
 
 const PIXELS_PER_HOUR = 120;
 const STATION_COLUMN_WIDTH = 100;
@@ -46,12 +46,13 @@ interface TVGuideScheduleProps {
 export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideScheduleProps) {
   const { isAuthenticated, user } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
-  const { toggleFavorite, isShowFavorited } = useFavorites();
+  const { toggleFavorite, isShowFavorited, addToWatchlist, isInWatchlist } = useFavorites();
   const { stationBPM } = useBPM();
   const [allShows, setAllShows] = useState<Show[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [addingToWatchlist, setAddingToWatchlist] = useState<string | null>(null);
   const [expandedShowId, setExpandedShowId] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const hasScrolledRef = useRef(false);
@@ -193,6 +194,17 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
     await toggleFavorite(show);
     setTogglingId(null);
   }, [isAuthenticated, onAuthRequired, toggleFavorite]);
+
+  // Handle add to watchlist
+  const handleAddToWatchlist = useCallback(async (djName: string, djUserId?: string, djEmail?: string) => {
+    if (!isAuthenticated) {
+      onAuthRequired?.();
+      return;
+    }
+    setAddingToWatchlist(djName);
+    await addToWatchlist(djName, djUserId, djEmail);
+    setAddingToWatchlist(null);
+  }, [isAuthenticated, onAuthRequired, addToWatchlist]);
 
   const timelineWidth = timelineHours.length * PIXELS_PER_HOUR;
 
@@ -457,174 +469,23 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
 
                           {/* Popup modal for expanded show details */}
                           {isExpanded && (
-                            <>
-                              {/* Backdrop */}
-                              <div
-                                className="fixed inset-0 bg-black/60 z-40"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setExpandedShowId(null);
-                                }}
-                              />
-                              {/* Popup */}
-                              <div
-                                className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-[#1a1a1a] border border-gray-700 rounded-xl p-5 max-w-md w-[90vw] shadow-2xl"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {/* Close button */}
-                                <button
-                                  onClick={() => setExpandedShowId(null)}
-                                  className="absolute top-3 right-3 text-gray-400 hover:text-white transition-colors"
-                                >
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                </button>
-
-                                {/* Show image + name header */}
-                                <div className="flex items-start gap-3 mb-3">
-                                  {show.imageUrl && (
-                                    <Image
-                                      src={show.imageUrl}
-                                      alt={show.name}
-                                      width={64}
-                                      height={64}
-                                      className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-                                      unoptimized
-                                    />
-                                  )}
-                                  <div className="flex-1 min-w-0 pr-6">
-                                    <h3 className="text-white text-lg font-semibold mb-1">
-                                      {show.name}
-                                    </h3>
-                                    {show.dj && (
-                                      <p className="text-gray-400 text-sm">
-                                        by {show.dj}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* Station & time */}
-                                <div className="flex items-center gap-2 text-xs text-gray-500 mb-4">
-                                  <span>{station.name}</span>
-                                  <span>•</span>
-                                  <span>
-                                    {new Date(show.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} - {new Date(show.endTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                                  </span>
-                                  {isLive && (
-                                    <>
-                                      <span>•</span>
-                                      <span className="text-red-500 font-medium">LIVE</span>
-                                    </>
-                                  )}
-                                </div>
-
-                                {/* DJ Photo and Bio */}
-                                {(show.djPhotoUrl || show.djBio) && (
-                                  <div className="flex items-start gap-3 mb-4">
-                                    {show.djPhotoUrl && (
-                                      <Image
-                                        src={show.djPhotoUrl}
-                                        alt={show.dj || 'DJ'}
-                                        width={48}
-                                        height={48}
-                                        className="w-12 h-12 rounded-full object-cover flex-shrink-0"
-                                        unoptimized
-                                      />
-                                    )}
-                                    {show.djBio && (
-                                      <p className="text-gray-300 text-sm">{show.djBio}</p>
-                                    )}
-                                  </div>
-                                )}
-
-                                {/* Description */}
-                                {show.description && (
-                                  <p className="text-gray-400 text-sm leading-relaxed mb-4">{show.description}</p>
-                                )}
-
-                                {/* Promo section */}
-                                {show.promoText && (
-                                  <div className="bg-gray-800/50 rounded-lg p-3 mb-4">
-                                    <p className="text-gray-300 text-sm">{show.promoText}</p>
-                                    {show.promoUrl && (
-                                      <a
-                                        href={show.promoUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="mt-2 inline-flex items-center gap-1 text-sm hover:underline"
-                                        style={{ color: station.accentColor }}
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        Learn more
-                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                        </svg>
-                                      </a>
-                                    )}
-                                  </div>
-                                )}
-
-                                {/* Actions */}
-                                <div className="flex items-center gap-3 mt-5 pt-4 border-t border-gray-800">
-                                  {/* Favorite button */}
-                                  <button
-                                    onClick={(e) => handleToggleFavorite(show, e)}
-                                    disabled={isToggling}
-                                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-sm"
-                                    style={{ color: station.accentColor }}
-                                  >
-                                    {isToggling ? (
-                                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                    ) : (
-                                      <svg
-                                        className="w-4 h-4"
-                                        fill={isFavorited ? 'currentColor' : 'none'}
-                                        stroke="currentColor"
-                                        strokeWidth={2}
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                                        />
-                                      </svg>
-                                    )}
-                                    <span className="text-white">{isFavorited ? 'Favorited' : 'Favorite'}</span>
-                                  </button>
-
-                                  {/* Tip button */}
-                                  {canTip && (
-                                    <TipButton
-                                      isAuthenticated={isAuthenticated}
-                                      tipperUserId={user?.uid}
-                                      tipperUsername={chatUsername || undefined}
-                                      djUserId={show.djUserId}
-                                      djEmail={show.djEmail}
-                                      djUsername={show.dj!}
-                                      broadcastSlotId={show.broadcastSlotId!}
-                                      showName={show.name}
-                                    />
-                                  )}
-
-                                  {/* View DJ profile button */}
-                                  {show.djUsername && (
-                                    <Link
-                                      href={`/dj/${show.djUsername}`}
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-sm text-white"
-                                    >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                      </svg>
-                                      View DJ profile
-                                    </Link>
-                                  )}
-                                </div>
-                              </div>
-                            </>
+                            <ExpandedShowCard
+                              show={show}
+                              station={station}
+                              isLive={isLive}
+                              onClose={() => setExpandedShowId(null)}
+                              isFavorited={isFavorited}
+                              isTogglingFavorite={isToggling}
+                              onToggleFavorite={(e) => handleToggleFavorite(show, e)}
+                              djInWatchlist={show.dj ? isInWatchlist(show.dj) : false}
+                              isAddingToWatchlist={addingToWatchlist === show.dj}
+                              onAddToWatchlist={() => show.dj && handleAddToWatchlist(show.dj, show.djUserId, show.djEmail)}
+                              canTip={!!canTip}
+                              isAuthenticated={isAuthenticated}
+                              tipperUserId={user?.uid}
+                              tipperUsername={chatUsername || undefined}
+                              timeDisplay={`${new Date(show.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} - ${new Date(show.endTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`}
+                            />
                           )}
                         </div>
                       );

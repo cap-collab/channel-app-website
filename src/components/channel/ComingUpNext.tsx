@@ -2,13 +2,12 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { useFavorites, Favorite } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { Show } from '@/types';
 import { getStationById, getStationByMetadataKey } from '@/lib/stations';
-import { TipButton } from './TipButton';
+import { ExpandedShowCard } from './ExpandedShowCard';
 
 function getStation(stationId: string | undefined) {
   if (!stationId) return undefined;
@@ -80,10 +79,11 @@ interface ComingUpNextProps {
 export function ComingUpNext({ onAuthRequired }: ComingUpNextProps) {
   const { isAuthenticated, user } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
-  const { favorites, loading: favoritesLoading, addToWatchlist, isInWatchlist } = useFavorites();
+  const { favorites, loading: favoritesLoading, addToWatchlist, isInWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
   const [allShows, setAllShows] = useState<Show[]>([]);
   const [showsLoading, setShowsLoading] = useState(true);
   const [addingToWatchlist, setAddingToWatchlist] = useState<string | null>(null);
+  const [togglingFavoriteId, setTogglingFavoriteId] = useState<string | null>(null);
   const [expandedShowId, setExpandedShowId] = useState<string | null>(null);
 
   // Fetch all shows on mount
@@ -104,6 +104,17 @@ export function ComingUpNext({ onAuthRequired }: ComingUpNextProps) {
     await addToWatchlist(djName, djUserId, djEmail);
     setAddingToWatchlist(null);
   }, [isAuthenticated, onAuthRequired, addToWatchlist]);
+
+  const handleToggleFavorite = useCallback(async (show: Show, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      onAuthRequired?.();
+      return;
+    }
+    setTogglingFavoriteId(show.id);
+    await toggleFavorite(show);
+    setTogglingFavoriteId(null);
+  }, [isAuthenticated, onAuthRequired, toggleFavorite]);
 
   // Compute the next 2 shows: combine featured broadcast shows + user favorites
   const upcomingShows = useMemo(() => {
@@ -258,177 +269,23 @@ export function ComingUpNext({ onAuthRequired }: ComingUpNextProps) {
               )}
 
               {/* Popup modal for expanded show details */}
-              {isExpanded && (
-                <>
-                  {/* Backdrop */}
-                  <div
-                    className="fixed inset-0 bg-black/60 z-40"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setExpandedShowId(null);
-                    }}
-                  />
-                  {/* Popup */}
-                  <div
-                    className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-[#1a1a1a] border border-gray-700 rounded-xl p-5 max-w-md w-[90vw] shadow-2xl"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {/* Close button */}
-                    <button
-                      onClick={() => setExpandedShowId(null)}
-                      className="absolute top-3 right-3 text-gray-400 hover:text-white transition-colors"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-
-                    {/* Show image + name header */}
-                    <div className="flex items-start gap-3 mb-3">
-                      {show.imageUrl && (
-                        <Image
-                          src={show.imageUrl}
-                          alt={show.name}
-                          width={64}
-                          height={64}
-                          className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-                          unoptimized
-                        />
-                      )}
-                      <div className="flex-1 min-w-0 pr-6">
-                        <h3 className="text-white text-lg font-semibold mb-1">
-                          {show.name}
-                        </h3>
-                        {show.dj && (
-                          <p className="text-gray-400 text-sm">
-                            by {show.dj}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Station & time */}
-                    <div className="flex items-center gap-2 text-xs text-gray-500 mb-4">
-                      <span>{station?.name}</span>
-                      <span>•</span>
-                      <span>
-                        {day} {time}
-                      </span>
-                    </div>
-
-                    {/* DJ Photo and Bio */}
-                    {(show.djPhotoUrl || show.djBio) && (
-                      <div className="flex items-start gap-3 mb-4">
-                        {show.djPhotoUrl && (
-                          <Image
-                            src={show.djPhotoUrl}
-                            alt={show.dj || 'DJ'}
-                            width={64}
-                            height={64}
-                            className="w-16 h-16 rounded-full object-cover flex-shrink-0"
-                            unoptimized
-                          />
-                        )}
-                        {show.djBio && (
-                          <p className="text-gray-300 text-sm">{show.djBio}</p>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Description */}
-                    {show.description && (
-                      <p className="text-gray-400 text-sm leading-relaxed mb-4">{show.description}</p>
-                    )}
-
-                    {/* Promo section */}
-                    {show.promoText && (
-                      <div className="bg-gray-800/50 rounded-lg p-3 mb-4">
-                        <p className="text-gray-300 text-sm">{show.promoText}</p>
-                        {show.promoUrl && (
-                          <a
-                            href={show.promoUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mt-2 inline-flex items-center gap-1 text-sm hover:underline"
-                            style={{ color: accentColor }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            Learn more
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                          </a>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-3 mt-5 pt-4 border-t border-gray-800">
-                      {/* Add DJ to Watchlist button */}
-                      {show.dj && !djInWatchlist && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAddToWatchlist(show.dj!, show.djUserId, show.djEmail);
-                          }}
-                          disabled={isAdding}
-                          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-sm"
-                          style={{ color: accentColor }}
-                        >
-                          {isAdding ? (
-                            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
-                          )}
-                          <span className="text-white">Add {show.dj} to Watchlist</span>
-                        </button>
-                      )}
-
-                      {/* Show checkmark if DJ already in watchlist */}
-                      {show.dj && djInWatchlist && (
-                        <div
-                          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 text-sm"
-                          style={{ color: accentColor }}
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                          </svg>
-                          <span className="text-gray-400">{show.dj} in Watchlist</span>
-                        </div>
-                      )}
-
-                      {/* Tip button */}
-                      {canTip && (
-                        <TipButton
-                          isAuthenticated={isAuthenticated}
-                          tipperUserId={user?.uid}
-                          tipperUsername={chatUsername || undefined}
-                          djUserId={show.djUserId}
-                          djEmail={show.djEmail}
-                          djUsername={show.dj!}
-                          broadcastSlotId={show.broadcastSlotId!}
-                          showName={show.name}
-                        />
-                      )}
-
-                      {/* View DJ profile button */}
-                      {show.djUsername && (
-                        <Link
-                          href={`/dj/${show.djUsername}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-sm text-white"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                          View DJ profile
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                </>
+              {isExpanded && station && (
+                <ExpandedShowCard
+                  show={show}
+                  station={station}
+                  onClose={() => setExpandedShowId(null)}
+                  isFavorited={isShowFavorited(show)}
+                  isTogglingFavorite={togglingFavoriteId === show.id}
+                  onToggleFavorite={(e) => handleToggleFavorite(show, e)}
+                  djInWatchlist={djInWatchlist}
+                  isAddingToWatchlist={isAdding}
+                  onAddToWatchlist={() => handleAddToWatchlist(show.dj!, show.djUserId, show.djEmail)}
+                  canTip={!!canTip}
+                  isAuthenticated={isAuthenticated}
+                  tipperUserId={user?.uid}
+                  tipperUsername={chatUsername || undefined}
+                  timeDisplay={`${day} ${time}`}
+                />
               )}
             </div>
           );
