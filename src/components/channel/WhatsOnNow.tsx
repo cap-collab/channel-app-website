@@ -176,7 +176,6 @@ export function WhatsOnNow({ onAuthRequired }: WhatsOnNowProps) {
                       isAuthenticated={isAuthenticated}
                       userId={user?.uid}
                       chatUsername={chatUsername}
-                      bpm={bpm}
                     />
                   ))}
                 </div>
@@ -205,7 +204,6 @@ interface ShowCardProps {
   isAuthenticated: boolean;
   userId?: string;
   chatUsername?: string | null;
-  bpm: number | null;
 }
 
 function ShowCard({
@@ -224,9 +222,7 @@ function ShowCard({
   isAuthenticated,
   userId,
   chatUsername,
-  bpm,
 }: ShowCardProps) {
-  const accentColor = station.accentColor || '#D94099';
   const canTip = station.id === 'broadcast' && show.dj && (show.djUserId || show.djEmail) && show.broadcastSlotId;
 
   // Format time for upcoming shows
