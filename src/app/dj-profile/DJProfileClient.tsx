@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
@@ -83,6 +83,12 @@ export function DJProfileClient() {
   const [upcomingBroadcasts, setUpcomingBroadcasts] = useState<BroadcastSlotSerialized[]>([]);
   const [loadingBroadcasts, setLoadingBroadcasts] = useState(true);
 
+  // Auto-save debounce refs
+  const bioDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const thankYouDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const promoDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const initialLoadRef = useRef(true);
+
   // Load user profile and DJ profile data
   useEffect(() => {
     if (!user || !db) return;
@@ -101,10 +107,14 @@ export function DJProfileClient() {
             thankYouMessage: data.djProfile.thankYouMessage || null,
             photoUrl: data.djProfile.photoUrl || null,
           });
-          setBioInput(data.djProfile.bio || "");
-          setPromoTextInput(data.djProfile.promoText || "");
-          setPromoHyperlinkInput(data.djProfile.promoHyperlink || "");
-          setThankYouInput(data.djProfile.thankYouMessage || "");
+          // Only set input values on initial load to avoid overwriting user edits
+          if (initialLoadRef.current) {
+            setBioInput(data.djProfile.bio || "");
+            setPromoTextInput(data.djProfile.promoText || "");
+            setPromoHyperlinkInput(data.djProfile.promoHyperlink || "");
+            setThankYouInput(data.djProfile.thankYouMessage || "");
+            initialLoadRef.current = false;
+          }
         }
       }
     });
@@ -174,7 +184,7 @@ export function DJProfileClient() {
   }, [user]);
 
   // Sync DJ profile data to broadcast slots
-  const syncProfileToSlots = async (bio?: string | null, photoUrl?: string | null) => {
+  const syncProfileToSlots = useCallback(async (bio?: string | null, photoUrl?: string | null) => {
     if (!user) return;
     try {
       await fetch('/api/dj-profile/sync-slots', {
@@ -189,9 +199,9 @@ export function DJProfileClient() {
     } catch (error) {
       console.error("Error syncing profile to slots:", error);
     }
-  };
+  }, [user]);
 
-  const handleSaveAbout = async () => {
+  const saveAbout = useCallback(async (bio: string) => {
     if (!user || !db) return;
 
     setSavingAbout(true);
@@ -199,7 +209,7 @@ export function DJProfileClient() {
 
     try {
       const userRef = doc(db, "users", user.uid);
-      const newBio = bioInput.trim() || null;
+      const newBio = bio.trim() || null;
       await updateDoc(userRef, {
         "djProfile.bio": newBio,
       });
@@ -212,9 +222,9 @@ export function DJProfileClient() {
     } finally {
       setSavingAbout(false);
     }
-  };
+  }, [user, syncProfileToSlots]);
 
-  const handleSaveThankYou = async () => {
+  const saveThankYou = useCallback(async (message: string) => {
     if (!user || !db) return;
 
     setSavingThankYou(true);
@@ -223,7 +233,7 @@ export function DJProfileClient() {
     try {
       const userRef = doc(db, "users", user.uid);
       await updateDoc(userRef, {
-        "djProfile.thankYouMessage": thankYouInput.trim() || null,
+        "djProfile.thankYouMessage": message.trim() || null,
       });
       setSaveThankYouSuccess(true);
       setTimeout(() => setSaveThankYouSuccess(false), 2000);
@@ -232,9 +242,9 @@ export function DJProfileClient() {
     } finally {
       setSavingThankYou(false);
     }
-  };
+  }, [user]);
 
-  const handleSavePromo = async () => {
+  const savePromo = useCallback(async (text: string, hyperlink: string) => {
     if (!user || !db) return;
 
     setSaving(true);
@@ -242,9 +252,9 @@ export function DJProfileClient() {
 
     try {
       const userRef = doc(db, "users", user.uid);
-      const normalizedHyperlink = promoHyperlinkInput.trim() ? normalizeUrl(promoHyperlinkInput.trim()) : null;
+      const normalizedHyperlink = hyperlink.trim() ? normalizeUrl(hyperlink.trim()) : null;
       await updateDoc(userRef, {
-        "djProfile.promoText": promoTextInput.trim() || null,
+        "djProfile.promoText": text.trim() || null,
         "djProfile.promoHyperlink": normalizedHyperlink,
       });
       setSaveSuccess(true);
@@ -254,7 +264,64 @@ export function DJProfileClient() {
     } finally {
       setSaving(false);
     }
-  };
+  }, [user]);
+
+  // Auto-save bio with debounce
+  useEffect(() => {
+    if (initialLoadRef.current) return;
+
+    if (bioDebounceRef.current) {
+      clearTimeout(bioDebounceRef.current);
+    }
+
+    bioDebounceRef.current = setTimeout(() => {
+      saveAbout(bioInput);
+    }, 1000);
+
+    return () => {
+      if (bioDebounceRef.current) {
+        clearTimeout(bioDebounceRef.current);
+      }
+    };
+  }, [bioInput, saveAbout]);
+
+  // Auto-save thank you message with debounce
+  useEffect(() => {
+    if (initialLoadRef.current) return;
+
+    if (thankYouDebounceRef.current) {
+      clearTimeout(thankYouDebounceRef.current);
+    }
+
+    thankYouDebounceRef.current = setTimeout(() => {
+      saveThankYou(thankYouInput);
+    }, 1000);
+
+    return () => {
+      if (thankYouDebounceRef.current) {
+        clearTimeout(thankYouDebounceRef.current);
+      }
+    };
+  }, [thankYouInput, saveThankYou]);
+
+  // Auto-save promo with debounce
+  useEffect(() => {
+    if (initialLoadRef.current) return;
+
+    if (promoDebounceRef.current) {
+      clearTimeout(promoDebounceRef.current);
+    }
+
+    promoDebounceRef.current = setTimeout(() => {
+      savePromo(promoTextInput, promoHyperlinkInput);
+    }, 1000);
+
+    return () => {
+      if (promoDebounceRef.current) {
+        clearTimeout(promoDebounceRef.current);
+      }
+    };
+  }, [promoTextInput, promoHyperlinkInput, savePromo]);
 
   const handleConnectStripe = async () => {
     if (!user) return;
@@ -616,21 +683,15 @@ export function DJProfileClient() {
                   maxLength={500}
                   className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none resize-none"
                 />
-                <p className="text-gray-600 text-xs mt-1 text-right">
-                  {bioInput.length}/500
-                </p>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-gray-600 text-xs">
+                    {savingAbout ? "Saving..." : saveAboutSuccess ? "Saved" : ""}
+                  </span>
+                  <span className="text-gray-600 text-xs">
+                    {bioInput.length}/500
+                  </span>
+                </div>
               </div>
-              <button
-                onClick={handleSaveAbout}
-                disabled={savingAbout}
-                className={`w-full py-2 rounded-lg font-medium transition-colors ${
-                  saveAboutSuccess
-                    ? "bg-green-600 text-white"
-                    : "bg-white text-black hover:bg-gray-100"
-                } disabled:opacity-50`}
-              >
-                {savingAbout ? "Saving..." : saveAboutSuccess ? "Saved!" : "Save Bio"}
-              </button>
             </div>
             <p className="text-gray-600 text-xs mt-2 px-1">
               Your bio appears on your DJ profile during broadcasts.
@@ -655,21 +716,15 @@ export function DJProfileClient() {
                   maxLength={200}
                   className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none resize-none"
                 />
-                <p className="text-gray-600 text-xs mt-1 text-right">
-                  {thankYouInput.length}/200
-                </p>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-gray-600 text-xs">
+                    {savingThankYou ? "Saving..." : saveThankYouSuccess ? "Saved" : ""}
+                  </span>
+                  <span className="text-gray-600 text-xs">
+                    {thankYouInput.length}/200
+                  </span>
+                </div>
               </div>
-              <button
-                onClick={handleSaveThankYou}
-                disabled={savingThankYou}
-                className={`w-full py-2 rounded-lg font-medium transition-colors ${
-                  saveThankYouSuccess
-                    ? "bg-green-600 text-white"
-                    : "bg-white text-black hover:bg-gray-100"
-                } disabled:opacity-50`}
-              >
-                {savingThankYou ? "Saving..." : saveThankYouSuccess ? "Saved!" : "Save Thank You Message"}
-              </button>
             </div>
             <p className="text-gray-600 text-xs mt-2 px-1">
               This message shows to listeners after they tip you.
@@ -709,18 +764,10 @@ export function DJProfileClient() {
                   placeholder="bandcamp.com/your-album"
                   className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
+                <p className="text-gray-600 text-xs mt-1">
+                  {saving ? "Saving..." : saveSuccess ? "Saved" : ""}
+                </p>
               </div>
-              <button
-                onClick={handleSavePromo}
-                disabled={saving}
-                className={`w-full py-2 rounded-lg font-medium transition-colors ${
-                  saveSuccess
-                    ? "bg-green-600 text-white"
-                    : "bg-white text-black hover:bg-gray-100"
-                } disabled:opacity-50`}
-              >
-                {saving ? "Saving..." : saveSuccess ? "Saved!" : "Save Promo"}
-              </button>
             </div>
             <p className="text-gray-600 text-xs mt-2 px-1">
               This appears in chat when you&apos;re live on Channel Broadcast.
