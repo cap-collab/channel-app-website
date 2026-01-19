@@ -455,7 +455,6 @@ export function DJPublicProfileClient({ username }: Props) {
           >
             &larr; Back
           </Link>
-          <h1 className="text-lg font-medium text-white">@{profile.chatUsername}</h1>
           <div className="w-10" />
         </div>
       </header>
@@ -485,28 +484,31 @@ export function DJPublicProfileClient({ username }: Props) {
             {/* Name */}
             <h2 className="text-2xl font-bold text-white mb-2">{profile.chatUsername}</h2>
 
-            {/* Subscribe/Tip Buttons */}
-            <div className="flex gap-3 justify-center mb-4">
-              <button
-                onClick={handleSubscribe}
-                disabled={subscribing || favoritesLoading}
-                className={`px-6 py-2.5 rounded-xl font-medium transition-colors ${
-                  isSubscribed
-                    ? "bg-gray-800 text-white hover:bg-gray-700"
-                    : "bg-white text-black hover:bg-gray-100"
-                } disabled:opacity-50`}
-              >
-                {subscribing ? "..." : isSubscribed ? "Subscribed" : "Subscribe"}
-              </button>
+            {/* Watchlist/Tip Buttons */}
+            <div className="flex flex-col items-center gap-2 mb-4">
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={handleSubscribe}
+                  disabled={subscribing || favoritesLoading}
+                  className={`px-6 py-2.5 rounded-xl font-medium transition-colors ${
+                    isSubscribed
+                      ? "bg-gray-800 text-white hover:bg-gray-700"
+                      : "bg-white text-black hover:bg-gray-100"
+                  } disabled:opacity-50`}
+                >
+                  {subscribing ? "..." : isSubscribed ? "In watchlist" : "Add to watchlist"}
+                </button>
 
-              {profile.djProfile.stripeAccountId && (
                 <button
                   onClick={() => setShowTipModal(true)}
                   className="px-6 py-2.5 rounded-xl font-medium text-center bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:opacity-90 transition-opacity"
                 >
                   Tip
                 </button>
-              )}
+              </div>
+              <p className="text-gray-500 text-xs text-center max-w-xs">
+                Receive emails when this DJ is adding a new event or playing live on any stations
+              </p>
             </div>
 
             {/* Location */}
