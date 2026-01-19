@@ -39,17 +39,23 @@ export function useAudioLevel(stream: MediaStream | null) {
 
       // Only read data if context is running
       if (audioContext.state === 'running') {
-        analyser.getByteFrequencyData(dataArray);
+        // Use time-domain data (waveform) for accurate level metering
+        // This gives us actual sample amplitudes, not frequency magnitudes
+        analyser.getByteTimeDomainData(dataArray);
 
-        // Calculate RMS (root mean square) for more accurate level
-        let sum = 0;
+        // Calculate peak level from waveform data
+        // Byte time domain data is centered at 128 (silence = 128, range 0-255)
+        let peak = 0;
         for (let i = 0; i < dataArray.length; i++) {
-          sum += dataArray[i] * dataArray[i];
+          // Get absolute deviation from center (128)
+          const amplitude = Math.abs(dataArray[i] - 128);
+          if (amplitude > peak) {
+            peak = amplitude;
+          }
         }
-        const rms = Math.sqrt(sum / dataArray.length);
 
-        // Normalize to 0-1 range (255 is max for Uint8Array)
-        const normalizedLevel = Math.min(rms / 128, 1);
+        // Normalize to 0-1 range (max deviation is 128)
+        const normalizedLevel = Math.min(peak / 128, 1);
         setLevel(normalizedLevel);
       }
 
@@ -75,12 +81,15 @@ export function useAudioLevel(stream: MediaStream | null) {
     // Create audio context and analyser
     const audioContext = new AudioContext();
     const analyser = audioContext.createAnalyser();
-    analyser.fftSize = 256;
-    analyser.smoothingTimeConstant = 0.8;
+    // Use larger FFT size for more accurate time-domain sampling
+    analyser.fftSize = 2048;
+    // Lower smoothing for more responsive metering
+    analyser.smoothingTimeConstant = 0.3;
 
     audioContextRef.current = audioContext;
     analyserRef.current = analyser;
-    dataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
+    // For time-domain data, we use fftSize (not frequencyBinCount)
+    dataArrayRef.current = new Uint8Array(analyser.fftSize);
 
     // Connect stream to analyser
     const source = audioContext.createMediaStreamSource(stream);
