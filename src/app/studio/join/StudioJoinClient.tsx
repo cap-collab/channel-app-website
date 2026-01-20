@@ -513,33 +513,7 @@ export function StudioJoinClient() {
             </div>
           )}
 
-          {/* After You Sign Up Section - Only show for non-DJs */}
-          {!userIsDJ && (
-            <div className="border-t border-gray-800 pt-12 mb-12">
-              <h2 className="text-2xl font-semibold mb-4">After you sign up</h2>
-              <p className="text-gray-400 mb-4">
-                Once your account is created, you can claim your own DJ URL.{' '}
-                <Link href="/dj/djcap" className="text-white underline hover:text-gray-300">
-                  See an example DJ profile →
-                </Link>
-              </p>
-              <p className="text-gray-400 mb-4">Anyone following you on Channel will be notified every time you:</p>
-              <ul className="list-disc list-inside space-y-2 ml-2 text-gray-400 mb-6">
-                <li>Play on a radio</li>
-                <li>Promote a new event or set</li>
-                <li>Release a new record</li>
-              </ul>
-              <p className="text-gray-400">
-                You can also apply to livestream or record a set on Channel Broadcast:
-              </p>
-              <ul className="list-disc list-inside space-y-2 ml-2 text-gray-400 mt-2">
-                <li>Live sets air on <Link href="/channel" className="text-white underline hover:text-gray-300">channel-app.com/channel</Link></li>
-                <li>Recordings are available on <Link href="/archives" className="text-white underline hover:text-gray-300">channel-app.com/archives</Link></li>
-              </ul>
-            </div>
-          )}
-
-          {/* Channel Broadcast Application Section - Only show for DJs */}
+{/* Channel Broadcast Application Section - Only show for DJs */}
           {userIsDJ && (
             <div className="border-t border-gray-800 pt-12">
               <h2 className="text-2xl font-semibold mb-4">Apply to Channel Broadcast</h2>
