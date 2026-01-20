@@ -199,13 +199,23 @@ async function fetchNewtownDirectly(): Promise<Show[]> {
     // Sort by start time
     shows.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
-    console.log(`[Newtown Recovery] Parsed ${shows.length} shows`);
+    // Deduplicate shows by startTime (Newtown's calendar HTML contains duplicates)
+    const seenStartTimes = new Set<string>();
+    const uniqueShows = shows.filter((show) => {
+      if (seenStartTimes.has(show.startTime)) {
+        return false;
+      }
+      seenStartTimes.add(show.startTime);
+      return true;
+    });
+
+    console.log(`[Newtown Recovery] Parsed ${shows.length} shows, ${uniqueShows.length} unique`);
 
     // Cache the result
-    newtownRecoveryCache = shows;
+    newtownRecoveryCache = uniqueShows;
     newtownRecoveryCacheTimestamp = now;
 
-    return shows;
+    return uniqueShows;
   } catch (error) {
     console.error("[Newtown Recovery] Failed:", error);
     // Return cached data if available
