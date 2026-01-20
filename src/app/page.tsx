@@ -14,62 +14,37 @@ import { Header } from "@/components/Header";
 
 const faqItems = [
   {
-    question: "What is Channel?",
+    question: "What is Channel, and who is it for?",
     answer:
-      "Channel is a live-streaming app for DJ culture. It's where select live DJ sets are broadcast, and where listeners can tune in together, in real time.\n\nChannel isn't about passive listening. It's about presence, shared moments, and supporting the people behind the music.",
-  },
-  {
-    question: "Who is Channel for?",
-    answer:
-      "Channel is built for DJs, venues, and curators who want deeper relationships with their audience — and for listeners who care about independent culture.",
+      "Channel is a live-streaming app for DJ content. It's built for DJs, venues, and producers who want deeper relationships with their community, and for listeners who care about independent DJ culture.",
   },
   {
     question: "How is Channel different from other streaming apps?",
     answer:
-      "Channel is not social audio, and it's not a feed.\n\nEverything on Channel is live, intentional, and anchored in a real moment — a DJ set, a venue, a curator. Listeners aren't just tuning in; they're showing up together while it's happening.",
+      "Everything on Channel is built to support the ecosystem around DJs — including promoters, venues, producers, and their communities. We prioritize live, community-driven experiences over passive streaming.",
   },
   {
     question: "Can I listen on Channel today?",
     answer:
-      "Yes. Channel is live on the web, and available on iOS via TestFlight while we continue expanding access.\n\nYou can tune into live sets, see what's coming up, and join the chat during broadcasts.",
-  },
-  {
-    question: "Who can broadcast on Channel?",
-    answer:
-      "Channel is open to DJs, venues, and curators who want to host live broadcasts.\n\nIf your DJ setup connects to a computer — through a controller, a mixer with USB, or a simple audio interface — you already have what you need to go live. Check our streaming setup guide for details.\n\nIf you already have a radio stream, we can feature you as well.\n\nWe onboard progressively to keep the experience intentional and high-quality.",
+      "Yes. Channel is live on the web (channel-app.com/channel) and available on iOS via TestFlight while we continue expanding access.\n\nYou can tune into live sets, see what's coming up, and join the chat.",
     hasLink: true,
   },
   {
-    question: "Do I need special equipment to go live?",
+    question: "Who can broadcast on Channel, and what do I need?",
     answer:
-      "No. Most everyday DJ setups already work. No cameras required, and no complex software needed to get started.\n\nSee our streaming setup guide for more details on what equipment works.",
+      "Channel is open to DJs, producers, and venues who want to host or record live broadcasts. Sign up and apply here. If your setup connects to a computer, you're likely ready. Check our streaming guide for more info.",
     hasLink: true,
   },
   {
-    question: "Can listeners interact during live sets?",
+    question: "Can listeners interact and support DJs?",
     answer:
-      "Yes. Listeners can tune in, join the chat, send love, and connect with others — while the music is playing.\n\nParticipation is there to support the moment, not distract from it.",
-  },
-  {
-    question: "How does support work on Channel?",
-    answer:
-      "Channel enables direct support for DJs, curators, and venues through tipping, exclusive drops, and community-driven features.\n\nWe don't run ads. Support flows to the people creating the culture.",
-  },
-  {
-    question: "Why isn't Channel fully available on the App Store yet?",
-    answer:
-      "Channel is currently in beta on iOS.\n\nWe're rolling out access thoughtfully to make sure broadcasts are authorized, the live experience feels right, and the community features work as intended.\n\nThe web version is already live.",
+      "Yes. Listeners can join the chat, send love, and support DJs directly through tipping and community features. Channel does not run ads.",
   },
   {
     question: "How can I get involved?",
     answer:
-      "If you're a DJ, venue, or curator and want to host live broadcasts, reach out at info@channel-app.com\n\nIf you're a radio and want to be featured on Channel, reach out.\n\nIf you're a listener, tune in, show up in the chat, and invite people who care about DJ culture.",
+      "If you're a DJ, producer, venue, or radio and want to broadcast or be featured, reach out at info@channel-app.com.\n\nIf you're a listener, tune in, join the chat, and invite people who care about DJ culture.",
     hasLink: true,
-  },
-  {
-    question: "What's next?",
-    answer:
-      "More live broadcasts. More venues. More ways to support the people behind the music.\n\nChannel is built alongside the community using it.",
   },
 ];
 

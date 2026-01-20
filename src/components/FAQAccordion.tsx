@@ -17,8 +17,10 @@ function renderAnswer(answer: string, hasLink?: boolean) {
   if (hasLink) {
     // Define link patterns to replace
     const linkPatterns = [
-      { text: "Fill out our application form", href: "/apply" },
-      { text: "streaming setup guide", href: "/streaming-guide" },
+      { text: "TestFlight", href: "https://testflight.apple.com/join/HcKTJ1nH", external: true },
+      { text: "Sign up and apply here", href: "/studio/join" },
+      { text: "streaming guide", href: "/streaming-guide" },
+      { text: "tune in", href: "/channel" },
     ];
 
     // Split and rebuild with links
@@ -32,15 +34,29 @@ function renderAnswer(answer: string, hasLink?: boolean) {
           segments.forEach((segment, i) => {
             if (segment) newResult.push(segment);
             if (i < segments.length - 1) {
-              newResult.push(
-                <Link
-                  key={`${pattern.href}-${i}`}
-                  href={pattern.href}
-                  className="text-white underline hover:text-gray-300 transition-colors"
-                >
-                  {pattern.text}
-                </Link>
-              );
+              if ('external' in pattern && pattern.external) {
+                newResult.push(
+                  <a
+                    key={`${pattern.href}-${i}`}
+                    href={pattern.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-white underline hover:text-gray-300 transition-colors"
+                  >
+                    {pattern.text}
+                  </a>
+                );
+              } else {
+                newResult.push(
+                  <Link
+                    key={`${pattern.href}-${i}`}
+                    href={pattern.href}
+                    className="text-white underline hover:text-gray-300 transition-colors"
+                  >
+                    {pattern.text}
+                  </Link>
+                );
+              }
             }
           });
         } else {
