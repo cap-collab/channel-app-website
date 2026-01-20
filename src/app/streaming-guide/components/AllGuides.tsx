@@ -258,7 +258,23 @@ export function AllGuides() {
 
           {/* Step 5 */}
           <div className="border-t border-gray-700 pt-6">
-            <h4 className="text-white font-medium mb-3">Step 5 — Click &quot;Go Live&quot;</h4>
+            <h4 className="text-white font-medium mb-3">Step 5 — Set Chrome audio input</h4>
+            <ol className="text-gray-400 text-sm space-y-2 list-decimal list-inside">
+              <li>In the address bar, click the <span className="text-white">microphone icon</span> (left of the URL), then click <span className="text-white">Microphone</span></li>
+              <li>Allow Chrome and channel-app.com to capture your audio</li>
+            </ol>
+            <p className="text-gray-500 text-xs mt-2">
+              Or copy-paste{' '}
+              <code className="text-white bg-gray-800 px-1.5 py-0.5 rounded text-xs">
+                chrome://settings/content/siteDetails?site=https%3A%2F%2Fchannel-app.com
+              </code>
+              {' '}and verify microphone is allowed
+            </p>
+          </div>
+
+          {/* Step 6 */}
+          <div className="border-t border-gray-700 pt-6">
+            <h4 className="text-white font-medium mb-3">Step 6 — Verify levels move on your Go Live Channel page</h4>
             <p className="text-gray-400 text-sm">
               Once you see audio levels moving on your Channel page, you&apos;re ready to go live!
             </p>

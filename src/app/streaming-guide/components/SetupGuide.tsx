@@ -264,14 +264,52 @@ function ComputerGuide() {
         </div>
       </div>
 
-      {/* Step 5: Verify and Go Live */}
+      {/* Step 5: Set Chrome audio input */}
       <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-white mb-4">
-          Step 5 — Click &quot;Go Live&quot;
+          Step 5 — Set Chrome audio input
         </h3>
-        <p className="text-gray-400">
+
+        <ol className="text-gray-400 space-y-4 list-decimal list-inside">
+          <li>
+            In the address bar, click the <span className="text-white">microphone icon</span> (left of the URL), then click <span className="text-white">Microphone</span>
+            <img
+              src="/streaming-guide/chrome-site-info.png"
+              alt="Click microphone icon in address bar"
+              className={imgClass}
+            />
+          </li>
+          <li>
+            Allow Chrome and channel-app.com to capture your audio
+            <img
+              src="/streaming-guide/chrome-site-settings.png"
+              alt="Chrome site settings for channel-app.com"
+              className={imgClass}
+            />
+            <p className="text-gray-500 text-xs mt-2">
+              Or copy-paste{' '}
+              <code className="text-white bg-gray-800 px-1.5 py-0.5 rounded text-xs">
+                chrome://settings/content/siteDetails?site=https%3A%2F%2Fchannel-app.com
+              </code>
+              {' '}and verify microphone is allowed
+            </p>
+          </li>
+        </ol>
+      </div>
+
+      {/* Step 6: Verify levels */}
+      <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">
+          Step 6 — Verify levels move on your Go Live Channel page
+        </h3>
+        <p className="text-gray-400 mb-3">
           Once you see audio levels moving on your Channel page, you&apos;re ready to go live!
         </p>
+        <img
+          src="/streaming-guide/go-live-ready.png"
+          alt="Audio levels moving on Go Live page"
+          className="rounded-lg border border-gray-700 max-w-md"
+        />
       </div>
     </div>
   );
