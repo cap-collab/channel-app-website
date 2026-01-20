@@ -38,7 +38,8 @@ export function AllGuides() {
           <div>
             <h4 className="text-white font-medium mb-2">Have DJ gear with USB output?</h4>
             <p className="text-gray-400 text-sm">
-              Great. Your mixer can send audio directly to your computer. You&apos;re ready.
+              Either your mixer/controller has a built-in USB output, or you have an audio interface connected to your mixer.
+              Either way, your gear can send audio directly to your computer. You&apos;re ready.
               Skip to &quot;Setup for DJ gear&quot; below.
             </p>
           </div>
@@ -131,15 +132,7 @@ export function AllGuides() {
           <div>
             <h4 className="text-white font-medium mb-3">Step 1 — Connect your mixer/controller</h4>
             <p className="text-gray-400 text-sm">
-              Connect your mixer/controller to your computer via USB or{' '}
-              <a
-                href="https://www.amazon.com/dp/B0D4524MSB?psc=1&smid=A1YK04EZPMQTFQ&ref_=chk_typ_imgToDp"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-white underline hover:text-gray-300"
-              >
-                USB-C
-              </a>.
+              Connect your mixer/controller to your computer via USB or USB-C.
             </p>
           </div>
 
@@ -147,7 +140,7 @@ export function AllGuides() {
           <div className="border-t border-gray-700 pt-6">
             <h4 className="text-white font-medium mb-3">Step 2 — Open your private broadcast link</h4>
             <p className="text-gray-400 text-sm">
-              Open the broadcast link you received in Chrome.
+              Open the broadcast link you received by email in Chrome.
             </p>
           </div>
 
@@ -155,7 +148,7 @@ export function AllGuides() {
           <div className="border-t border-gray-700 pt-6">
             <h4 className="text-white font-medium mb-3">Step 3 — Select &quot;Stream from your gear&quot;</h4>
             <p className="text-gray-400 text-sm">
-              Choose your mixer/controller from the dropdown.
+              Choose your mixer/controller or audio interface from the dropdown.
             </p>
           </div>
 
@@ -164,9 +157,15 @@ export function AllGuides() {
             <h4 className="text-white font-medium mb-3">Step 4 — Set macOS system input and output</h4>
             <ol className="text-gray-400 text-sm space-y-2 list-decimal list-inside">
               <li>Click the <span className="text-white">sound icon</span> in your menu bar → <span className="text-white">Sound Settings</span></li>
-              <li>Under <span className="text-white">Input</span>, select your mixer/controller — verify input levels move</li>
+              <li>Under <span className="text-white">Input</span>, select your mixer/controller or audio interface — verify input levels move</li>
               <li>Under <span className="text-white">Output</span>, select your mixer/controller — verify output levels move</li>
             </ol>
+
+            <div className="mt-4 p-4 bg-yellow-900/20 border border-yellow-800/50 rounded-lg">
+              <p className="text-yellow-200 text-sm">
+                <span className="font-semibold">Warning:</span> If this is set to &quot;Built-in Microphone&quot;, Channel will only hear your laptop mic.
+              </p>
+            </div>
           </div>
 
           {/* Step 5 */}
@@ -284,7 +283,7 @@ export function AllGuides() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <span className="text-gray-300">macOS input &amp; output set to mixer/controller (levels moving in Sound Settings)</span>
+                <span className="text-gray-300">macOS input &amp; output set to your mixer/controller or audio interface (levels moving in Sound Settings)</span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-5 h-5 rounded border border-gray-600 flex items-center justify-center">
@@ -292,7 +291,7 @@ export function AllGuides() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <span className="text-gray-300">Chrome audio input set to mixer/controller</span>
+                <span className="text-gray-300">Chrome audio input set to your mixer/controller</span>
               </div>
             </div>
           </div>

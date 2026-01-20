@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import { Suspense } from 'react';
 import { StreamingGuideClient } from './StreamingGuideClient';
 
 export const metadata: Metadata = {
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function StreamingGuidePage() {
-  return <StreamingGuideClient />;
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black" />}>
+      <StreamingGuideClient />
+    </Suspense>
+  );
 }

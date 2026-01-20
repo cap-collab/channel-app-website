@@ -15,8 +15,8 @@ interface ChecklistItem {
 }
 
 const checklistItems: ChecklistItem[] = [
-  { id: 'macos-io', label: 'macOS input & output set to mixer/controller (levels moving in Sound Settings)', forPath: 'dj_gear' },
-  { id: 'chrome-input', label: 'Chrome audio input set to mixer/controller', forPath: 'dj_gear' },
+  { id: 'macos-io', label: 'macOS input & output set to your mixer/controller or audio interface (levels moving in Sound Settings)', forPath: 'dj_gear' },
+  { id: 'chrome-input', label: 'Chrome audio input set to your mixer/controller', forPath: 'dj_gear' },
   { id: 'browser-audio', label: 'Chrome has Screen & System Audio Recording permission for audio only (one-time setup)', forPath: 'computer' },
   { id: 'levels', label: 'Audio levels moving on the Channel Go Live page — and NOT coming from your microphone', forPath: 'both' },
 ];

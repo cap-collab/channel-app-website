@@ -48,15 +48,7 @@ function DJGearGuide() {
           Step 1 — Connect your mixer/controller
         </h3>
         <p className="text-gray-400">
-          Connect your mixer/controller to your computer via USB or{' '}
-          <a
-            href="https://www.amazon.com/dp/B0D4524MSB?psc=1&smid=A1YK04EZPMQTFQ&ref_=chk_typ_imgToDp"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-white underline hover:text-gray-300"
-          >
-            USB-C
-          </a>.
+          Connect your mixer/controller to your computer via USB or USB-C.
         </p>
       </div>
 
@@ -66,7 +58,7 @@ function DJGearGuide() {
           Step 2 — Open your private broadcast link
         </h3>
         <p className="text-gray-400">
-          Open the broadcast link you received in Chrome.
+          Open the broadcast link you received by email in Chrome.
         </p>
       </div>
 
@@ -76,7 +68,7 @@ function DJGearGuide() {
           Step 3 — Select &quot;Stream from your gear&quot;
         </h3>
         <p className="text-gray-400">
-          Choose your mixer/controller from the dropdown.
+          Choose your mixer/controller or audio interface from the dropdown.
         </p>
       </div>
 
@@ -89,12 +81,18 @@ function DJGearGuide() {
         <ol className="text-gray-400 space-y-3 list-decimal list-inside">
           <li>Click the <span className="text-white">sound icon</span> in your menu bar → <span className="text-white">Sound Settings</span></li>
           <li>
-            Under <span className="text-white">Input</span>, select your mixer/controller — verify input levels move
+            Under <span className="text-white">Input</span>, select your mixer/controller or audio interface — verify input levels move
           </li>
           <li>
             Under <span className="text-white">Output</span>, select your mixer/controller — verify output levels move
           </li>
         </ol>
+
+        <div className="mt-6 p-4 bg-yellow-900/20 border border-yellow-800/50 rounded-lg">
+          <p className="text-yellow-200 text-sm">
+            <span className="font-semibold">Warning:</span> If this is set to &quot;Built-in Microphone&quot;, Channel will only hear your laptop mic.
+          </p>
+        </div>
       </div>
 
       {/* Step 5: Set Chrome audio input */}

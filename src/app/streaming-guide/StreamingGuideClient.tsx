@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/Header';
 import { QuestionCard } from './components/QuestionCard';
 import { InfoCard } from './components/InfoCard';
@@ -18,17 +19,70 @@ type QuestionnaireState =
 type StreamingPath = 'computer' | 'dj_gear';
 type ViewMode = 'questionnaire' | 'all-guides';
 
+// URL parameter values for direct linking
+type SetupParam = 'computer' | 'dj-gear' | 'need-interface';
+
 interface StreamingGuideState {
   questionnaireState: QuestionnaireState;
   streamingPath: StreamingPath | null;
 }
 
+function getInitialStateFromParam(setup: SetupParam | null): { state: StreamingGuideState; viewMode: ViewMode } {
+  switch (setup) {
+    case 'computer':
+      return {
+        state: { questionnaireState: 'guide', streamingPath: 'computer' },
+        viewMode: 'questionnaire',
+      };
+    case 'dj-gear':
+      return {
+        state: { questionnaireState: 'guide', streamingPath: 'dj_gear' },
+        viewMode: 'questionnaire',
+      };
+    case 'need-interface':
+      return {
+        state: { questionnaireState: 'result_needs_interface', streamingPath: 'dj_gear' },
+        viewMode: 'questionnaire',
+      };
+    default:
+      return {
+        state: { questionnaireState: 'q1_has_gear', streamingPath: null },
+        viewMode: 'questionnaire',
+      };
+  }
+}
+
 export function StreamingGuideClient() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const setupParam = searchParams.get('setup') as SetupParam | null;
+
   const [viewMode, setViewMode] = useState<ViewMode>('questionnaire');
   const [state, setState] = useState<StreamingGuideState>({
     questionnaireState: 'q1_has_gear',
     streamingPath: null,
   });
+  const [initialized, setInitialized] = useState(false);
+
+  // Initialize state from URL params on mount
+  useEffect(() => {
+    if (!initialized) {
+      const initial = getInitialStateFromParam(setupParam);
+      setState(initial.state);
+      setViewMode(initial.viewMode);
+      setInitialized(true);
+    }
+  }, [setupParam, initialized]);
+
+  const updateUrl = (setup: SetupParam | null) => {
+    const url = new URL(window.location.href);
+    if (setup) {
+      url.searchParams.set('setup', setup);
+    } else {
+      url.searchParams.delete('setup');
+    }
+    router.replace(url.pathname + url.search, { scroll: false });
+  };
 
   const handleQ1Answer = (hasGear: boolean) => {
     if (hasGear) {
@@ -43,15 +97,21 @@ export function StreamingGuideClient() {
       setState({ questionnaireState: 'result_usb_ready', streamingPath: 'dj_gear' });
     } else {
       setState({ questionnaireState: 'result_needs_interface', streamingPath: 'dj_gear' });
+      updateUrl('need-interface');
     }
   };
 
   const handleContinueToGuide = () => {
-    setState((prev) => ({ ...prev, questionnaireState: 'guide' }));
+    setState((prev) => {
+      const setup: SetupParam = prev.streamingPath === 'computer' ? 'computer' : 'dj-gear';
+      updateUrl(setup);
+      return { ...prev, questionnaireState: 'guide' };
+    });
   };
 
   const handleStartOver = () => {
     setState({ questionnaireState: 'q1_has_gear', streamingPath: null });
+    updateUrl(null);
   };
 
   const isInQuestionnaire = state.questionnaireState !== 'guide';
@@ -123,8 +183,8 @@ export function StreamingGuideClient() {
 
                   {/* Q2: Does it have USB? */}
                   <QuestionCard
-                    question="Does your mixer or controller have a USB audio output?"
-                    description="Look at the back of your mixer/controller."
+                    question="Can your gear send audio to your computer via USB?"
+                    description="Either your mixer/controller has a USB output, or you have an audio interface connected to your mixer."
                     isVisible={state.questionnaireState === 'q2_has_usb'}
                     onYes={() => handleQ2Answer(true)}
                     onNo={() => handleQ2Answer(false)}
@@ -133,7 +193,7 @@ export function StreamingGuideClient() {
                   {/* Result: Has USB - ready */}
                   <InfoCard
                     type="success"
-                    title="Great. Your mixer can send audio directly to your computer."
+                    title="Great. Your gear can send audio directly to your computer."
                     message="You're ready."
                     isVisible={state.questionnaireState === 'result_usb_ready'}
                     actionLabel="Continue to setup"
