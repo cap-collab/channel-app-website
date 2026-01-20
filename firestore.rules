@@ -33,6 +33,7 @@ service cloud.firestore {
         && request.resource.data.displayName is string
         && request.resource.data.displayName.size() <= 20;
       allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      // Allow updates only for claiming reserved usernames (server-side via admin SDK)
       allow update: if false;
     }
 
@@ -82,6 +83,14 @@ service cloud.firestore {
       allow create: if true;
       allow read, update: if isBroadcaster();
       allow delete: if false;
+    }
+
+    // Pending DJ profiles (for pre-registered DJs who haven't signed up yet)
+    // - Anyone can read (needed for DJ profile pages)
+    // - Only broadcasters/admins can write
+    match /pending-dj-profiles/{profileId} {
+      allow read: if true;
+      allow write: if isBroadcaster();
     }
 
     // Scheduled notifications (cron job)

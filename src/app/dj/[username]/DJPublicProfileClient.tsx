@@ -12,6 +12,7 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { AuthModal } from "@/components/AuthModal";
 import { TipModal } from "@/components/channel/TipModal";
 import { Show } from "@/types";
+import { Archive, ArchiveDJ } from "@/types/broadcast";
 import { getStationById } from "@/lib/stations";
 
 interface CustomLink {
@@ -100,6 +101,9 @@ export function DJPublicProfileClient({ username }: Props) {
   // Upcoming broadcasts
   const [upcomingBroadcasts, setUpcomingBroadcasts] = useState<UpcomingShow[]>([]);
 
+  // Past shows (archives)
+  const [pastShows, setPastShows] = useState<Archive[]>([]);
+
   // Subscribe state
   const [subscribing, setSubscribing] = useState(false);
 
@@ -126,6 +130,39 @@ export function DJPublicProfileClient({ username }: Props) {
         const snapshot = await getDocs(q);
 
         if (snapshot.empty) {
+          // User not found - check for pending DJ profile
+          const pendingRef = collection(db, "pending-dj-profiles");
+          const pendingQ = query(
+            pendingRef,
+            where("chatUsernameNormalized", "==", normalized),
+            where("status", "==", "pending")
+          );
+          const pendingSnapshot = await getDocs(pendingQ);
+
+          if (!pendingSnapshot.empty) {
+            const pendingDoc = pendingSnapshot.docs[0];
+            const pendingData = pendingDoc.data();
+            setDjProfile({
+              chatUsername: pendingData.chatUsername,
+              email: pendingData.email || "",
+              djProfile: {
+                bio: pendingData.djProfile?.bio || null,
+                photoUrl: pendingData.djProfile?.photoUrl || null,
+                location: pendingData.djProfile?.location || null,
+                genres: pendingData.djProfile?.genres || [],
+                promoText: pendingData.djProfile?.promoText || null,
+                promoHyperlink: pendingData.djProfile?.promoHyperlink || null,
+                socialLinks: pendingData.djProfile?.socialLinks || {},
+                stripeAccountId: null,
+                irlShows: [],
+                myRecs: {},
+              },
+              uid: `pending-${pendingDoc.id}`,
+            });
+            setLoading(false);
+            return;
+          }
+
           setNotFound(true);
           setLoading(false);
           return;
@@ -331,6 +368,33 @@ export function DJPublicProfileClient({ username }: Props) {
 
     fetchUpcomingShows();
   }, [djProfile, allShows]);
+
+  // Fetch past shows (archives) for this DJ
+  useEffect(() => {
+    async function fetchPastShows() {
+      if (!djProfile) return;
+      try {
+        const res = await fetch("/api/archives");
+        if (res.ok) {
+          const data = await res.json();
+          const archives: Archive[] = data.archives || [];
+
+          // Filter archives where DJ matches by email, userId, or username
+          const djArchives = archives.filter((archive) =>
+            archive.djs?.some((dj: ArchiveDJ) =>
+              (dj.email && dj.email.toLowerCase() === djProfile.email.toLowerCase()) ||
+              (dj.userId && dj.userId === djProfile.uid) ||
+              (dj.username && matchesAsWord(dj.username, djProfile.chatUsername))
+            )
+          );
+          setPastShows(djArchives);
+        }
+      } catch (error) {
+        console.error("Error fetching archives:", error);
+      }
+    }
+    fetchPastShows();
+  }, [djProfile]);
 
   // Subscribe/Unsubscribe handlers
   const isSubscribed = useMemo(() => {
@@ -890,6 +954,48 @@ export function DJPublicProfileClient({ username }: Props) {
                     </div>
                   );
                 })}
+              </div>
+            </section>
+          )}
+
+          {/* Past Shows / Archives */}
+          {pastShows.length > 0 && (
+            <section>
+              <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+                Past Shows
+              </h2>
+              <div className="bg-[#1a1a1a] rounded-lg divide-y divide-gray-800">
+                {pastShows.map((archive) => (
+                  <Link
+                    key={archive.id}
+                    href={`/archives/${archive.slug}`}
+                    className="p-4 flex gap-3 hover:bg-white/5 transition-colors block"
+                  >
+                    {archive.showImageUrl && (
+                      <Image
+                        src={archive.showImageUrl}
+                        alt={archive.showName}
+                        width={48}
+                        height={48}
+                        className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                        unoptimized
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-medium">{archive.showName}</p>
+                      <p className="text-gray-400 text-sm">
+                        {new Date(archive.recordedAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </p>
+                      <p className="text-gray-500 text-xs mt-1">
+                        {Math.floor(archive.duration / 60)} min
+                      </p>
+                    </div>
+                  </Link>
+                ))}
               </div>
             </section>
           )}

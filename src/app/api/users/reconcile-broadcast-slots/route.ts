@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 
 interface DJSlot {
   id: string;
@@ -158,7 +159,56 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`[reconcile] Completed: ${slotsUpdated} slots, ${djSlotsUpdated} DJ slots, ${tipsUpdated} tips updated, djRole=${djRoleAssigned} for ${email}`);
+    // Check for pending DJ profiles (pre-registered DJs who haven't signed up yet)
+    let pendingProfileClaimed = false;
+    const pendingProfilesSnapshot = await db.collection('pending-dj-profiles')
+      .where('email', '==', email.toLowerCase())
+      .where('status', '==', 'pending')
+      .get();
+
+    for (const pendingDoc of pendingProfilesSnapshot.docs) {
+      const pendingData = pendingDoc.data();
+
+      // Transfer profile data to user document
+      const profileUpdate: Record<string, unknown> = {
+        chatUsername: pendingData.chatUsername,
+        chatUsernameNormalized: pendingData.chatUsernameNormalized,
+        role: 'dj',
+      };
+
+      if (pendingData.djProfile) {
+        profileUpdate.djProfile = pendingData.djProfile;
+      }
+
+      await db.collection('users').doc(userId).update(profileUpdate);
+      djRoleAssigned = true;
+      pendingProfileClaimed = true;
+
+      // Update username reservation to point to real user
+      const normalizedUsername = pendingData.chatUsernameNormalized;
+      const usernameRef = db.collection('usernames').doc(normalizedUsername);
+      const usernameDoc = await usernameRef.get();
+
+      if (usernameDoc.exists) {
+        await usernameRef.update({
+          uid: userId,
+          reservedForEmail: FieldValue.delete(),
+          isPending: FieldValue.delete(),
+        });
+        console.log(`[reconcile] Updated username ${normalizedUsername} to point to user ${userId}`);
+      }
+
+      // Mark pending profile as claimed
+      await pendingDoc.ref.update({
+        status: 'claimed',
+        claimedAt: FieldValue.serverTimestamp(),
+        claimedByUserId: userId,
+      });
+
+      console.log(`[reconcile] Claimed pending DJ profile ${pendingDoc.id} for user ${userId}`);
+    }
+
+    console.log(`[reconcile] Completed: ${slotsUpdated} slots, ${djSlotsUpdated} DJ slots, ${tipsUpdated} tips updated, djRole=${djRoleAssigned}, pendingProfileClaimed=${pendingProfileClaimed} for ${email}`);
 
     return NextResponse.json({
       success: true,

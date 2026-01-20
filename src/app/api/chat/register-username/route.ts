@@ -78,15 +78,35 @@ export async function POST(request: NextRequest) {
     const usernameDocRef = db.collection('usernames').doc(handle);
     const userDocRef = db.collection('users').doc(userId);
 
+    // Get user's email for checking reserved usernames
+    const userDocSnapshot = await userDocRef.get();
+    const userEmail = userDocSnapshot.data()?.email?.toLowerCase();
+
     // Use a transaction to ensure atomicity (same as iOS app)
     try {
       await db.runTransaction(async (transaction) => {
         const usernameDoc = await transaction.get(usernameDocRef);
 
         if (usernameDoc.exists) {
-          // Check if this user already owns this username
-          const existingUid = usernameDoc.data()?.uid;
-          if (existingUid !== userId) {
+          const existingData = usernameDoc.data();
+          const existingUid = existingData?.uid;
+
+          // Check if this is a pending reservation for this user's email
+          if (existingData?.isPending && existingData?.reservedForEmail) {
+            if (userEmail === existingData.reservedForEmail.toLowerCase()) {
+              // This user is allowed to claim this reserved username
+              // Update username doc to remove pending marker
+              transaction.update(usernameDocRef, {
+                uid: userId,
+                reservedForEmail: FieldValue.delete(),
+                isPending: FieldValue.delete(),
+                claimedAt: FieldValue.serverTimestamp(),
+              });
+            } else {
+              throw new Error('USERNAME_RESERVED');
+            }
+          } else if (existingUid !== userId) {
+            // Check if this user already owns this username
             throw new Error('USERNAME_TAKEN');
           }
           // User already owns this username, just update the user doc
@@ -115,10 +135,17 @@ export async function POST(request: NextRequest) {
         username: trimmedUsername,
       });
     } catch (txError) {
-      if (txError instanceof Error && txError.message === 'USERNAME_TAKEN') {
-        return NextResponse.json({
-          error: 'Username already taken. Try another one.'
-        }, { status: 409 });
+      if (txError instanceof Error) {
+        if (txError.message === 'USERNAME_TAKEN') {
+          return NextResponse.json({
+            error: 'Username already taken. Try another one.'
+          }, { status: 409 });
+        }
+        if (txError.message === 'USERNAME_RESERVED') {
+          return NextResponse.json({
+            error: 'This username is reserved. Try another one.'
+          }, { status: 409 });
+        }
       }
       throw txError;
     }
