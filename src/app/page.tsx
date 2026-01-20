@@ -7,9 +7,9 @@ import { db } from "@/lib/firebase";
 import ScrollReveal from "@/components/ScrollReveal";
 import FAQAccordion from "@/components/FAQAccordion";
 import PhoneMockup from "@/components/PhoneMockup";
-import HomeScreen from "@/components/mockups/HomeScreen";
-import MyShowsScreen from "@/components/mockups/MyShowsScreen";
-import ChatScreen from "@/components/mockups/ChatScreen";
+import StreamingGuideScreen from "@/components/mockups/StreamingGuideScreen";
+import TipsInboxScreen from "@/components/mockups/TipsInboxScreen";
+import DJProfileScreen from "@/components/mockups/DJProfileScreen";
 import { Header } from "@/components/Header";
 
 const faqItems = [
@@ -187,49 +187,44 @@ export default function Home() {
                   Curated
                 </h2>
                 <p className="text-gray-400 leading-relaxed text-center text-sm mb-8">
-                  Channel partners with DJs, venues, and curators who want deeper
-                  relationships with their audience. Our goal is to support
-                  meaningful live moments and build a more sustainable, engaging
-                  culture around them.
+                  Channel features community-driven DJs, radios, and curators,
+                  with intentionally curated content.
                 </p>
                 <div className="transform scale-[0.55] origin-top -mb-[45%]">
                   <PhoneMockup className="w-[300px]">
-                    <HomeScreen />
+                    <StreamingGuideScreen />
                   </PhoneMockup>
                 </div>
               </div>
 
-              {/* Supportive */}
+              {/* Independent */}
               <div className="flex-1 py-8 md:py-0 md:px-8 first:md:pl-0 last:md:pr-0 border-b md:border-b-0 border-gray-800 last:border-b-0 flex flex-col items-center">
                 <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 text-center">
-                  Supportive
+                  Independent
                 </h2>
                 <p className="text-gray-400 leading-relaxed text-center text-sm mb-8">
-                  Channel enables direct support for DJs, curators, and venues
-                  through tipping, exclusive sales, and community-driven features.
-                  We build tools that amplify culture — not extract from it. We
-                  don&apos;t run ads.
+                  Fans get notified when their favorite DJs go live or do
+                  something new, and can support them directly.
                 </p>
                 <div className="transform scale-[0.55] origin-top -mb-[45%]">
                   <PhoneMockup className="w-[300px]">
-                    <MyShowsScreen />
+                    <TipsInboxScreen />
                   </PhoneMockup>
                 </div>
               </div>
 
-              {/* Participative */}
+              {/* Collaborative */}
               <div className="flex-1 py-8 md:py-0 md:px-8 first:md:pl-0 last:md:pr-0 border-b md:border-b-0 border-gray-800 last:border-b-0 flex flex-col items-center">
                 <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 text-center">
-                  Participative
+                  Collaborative
                 </h2>
                 <p className="text-gray-400 leading-relaxed text-center text-sm mb-8">
-                  Channel is built for live moments and shared experience. Listeners
-                  can tune in, join the chat, send love, and connect in real time
-                  with other listeners, DJs, and curators.
+                  Channel helps communities connect, including DJs, producers,
+                  radios, venues, ticket sellers, and dancers.
                 </p>
                 <div className="transform scale-[0.55] origin-top -mb-[45%]">
                   <PhoneMockup className="w-[300px]">
-                    <ChatScreen />
+                    <DJProfileScreen />
                   </PhoneMockup>
                 </div>
               </div>
