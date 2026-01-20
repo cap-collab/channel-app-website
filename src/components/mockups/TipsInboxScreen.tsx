@@ -1,8 +1,8 @@
 export default function TipsInboxScreen() {
   const tippers = [
-    { name: "cap", tips: 2, amount: "$2.00" },
-    { name: "channelbroadcast", tips: 1, amount: "$1.00" },
-    { name: "capsi", tips: 2, amount: "$2.00" },
+    { name: "Cap", tips: 1, amount: "$2.00" },
+    { name: "Tim", tips: 1, amount: "$20.00" },
+    { name: "Chill Max", tips: 1, amount: "$20.00" },
   ];
 
   return (
@@ -32,9 +32,9 @@ export default function TipsInboxScreen() {
       <div className="px-4 py-2 flex items-center justify-between">
         <div>
           <div className="text-gray-500 text-xs">Total Received</div>
-          <div className="text-green-400 text-2xl font-bold">$5.00</div>
+          <div className="text-green-400 text-2xl font-bold">$42.00</div>
         </div>
-        <div className="text-gray-500 text-sm">5 tips</div>
+        <div className="text-gray-500 text-sm">3 tips</div>
       </div>
 
       {/* Tippers list */}

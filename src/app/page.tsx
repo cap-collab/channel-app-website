@@ -234,15 +234,15 @@ export default function Home() {
               </p>
 
               <p>
-                After moving from Paris to New York to Los Angeles, I realized how hard it was to stay connected with my favorite DJs, dancers, and curators beyond the dancefloor. This culture deserves better tools — to support artists, strengthen communities, and make it easier to follow the sounds and the people you love.
+                After moving from Paris to New York to Los Angeles, I realized how hard it can be to stay connected with DJs, dancers, and curators beyond the dancefloor. This culture deserves better tools — to support artists, strengthen communities, and make it easier to follow the sounds and people you love.
               </p>
 
               <p>
-                I&apos;m looking to connect with <span className="text-white">DJs, venues, nightlife promoters, dancers, curators, and music heads</span> of all kinds. Whether you want to collaborate, give feedback, broadcast a live set, or just chat, I&apos;d truly love to hear from you.
+                I&apos;m looking to connect with <span className="text-white">DJs, venues, nightlife promoters, producers, dancers, curators, and music heads</span> of all kinds. Whether you want to collaborate, give feedback, broadcast or record a set, or just chat, I&apos;d love to hear from you.
               </p>
 
               <p>
-                Channel is growing, and I&apos;m especially interested in conversations around DJ programming, live broadcasts, fan and community support, partnerships, and the realities of building sustainable culture around live music.
+                Channel is growing, and I&apos;m especially interested in conversations around DJ programming, fan and community support, and building a healthy, sustainable ecosystem around DJ culture.
               </p>
 
               <p>

@@ -9,17 +9,7 @@ export default function StreamingGuideScreen() {
   ];
 
   return (
-    <div className="h-full bg-[#1a1a1a] flex flex-col">
-      {/* Header */}
-      <div className="px-4 py-3 flex items-center justify-between">
-        <div className="text-[#E91E63] font-bold text-lg tracking-wider">CHANNEL</div>
-        <button className="text-white">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-      </div>
-
+    <div className="h-full bg-[#1a1a1a] flex flex-col pt-3">
       {/* Station list */}
       <div className="flex-1 overflow-hidden space-y-1 px-2">
         {stations.map((station, i) => (
