@@ -62,29 +62,36 @@ function DJGearGuide() {
         </p>
       </div>
 
-      {/* Step 3: Select streaming method */}
+      {/* Step 3: Set macOS system input and output */}
       <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-white mb-4">
-          Step 3 — Select &quot;Stream from your gear&quot;
-        </h3>
-        <p className="text-gray-400">
-          Choose your mixer/controller or audio interface from the dropdown.
-        </p>
-      </div>
-
-      {/* Step 4: Set macOS system input and output */}
-      <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">
-          Step 4 — Set macOS system input and output
+          Step 3 — Set macOS system input and output
         </h3>
 
-        <ol className="text-gray-400 space-y-3 list-decimal list-inside">
-          <li>Click the <span className="text-white">sound icon</span> in your menu bar → <span className="text-white">Sound Settings</span></li>
+        <ol className="text-gray-400 space-y-6 list-decimal list-inside">
           <li>
-            Under <span className="text-white">Input</span>, select your mixer/controller or audio interface — verify input levels move
+            Click the <span className="text-white">sound icon</span> in your menu bar → <span className="text-white">Sound Settings</span>
+            <img
+              src="/streaming-guide/sound-menu-bar.png"
+              alt="Click sound icon in menu bar"
+              className="mt-3 rounded-lg border border-gray-700 max-w-full"
+            />
           </li>
           <li>
-            Under <span className="text-white">Output</span>, select your mixer/controller — verify output levels move
+            Under <span className="text-white">Output</span>, select your mixer/controller or audio interface
+            <img
+              src="/streaming-guide/sound-settings-output.png"
+              alt="Select your device under Output"
+              className="mt-3 rounded-lg border border-gray-700 max-w-full"
+            />
+          </li>
+          <li>
+            Under <span className="text-white">Input</span>, select your mixer/controller or audio interface — verify input levels move
+            <img
+              src="/streaming-guide/sound-settings-input.png"
+              alt="Select your device under Input"
+              className="mt-3 rounded-lg border border-gray-700 max-w-full"
+            />
           </li>
         </ol>
 
@@ -95,19 +102,69 @@ function DJGearGuide() {
         </div>
       </div>
 
+      {/* Step 4: Select streaming method */}
+      <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">
+          Step 4 — Select &quot;Stream from your gear&quot;
+        </h3>
+        <p className="text-gray-400 mb-4">
+          Choose your mixer/controller or audio interface from the dropdown.
+        </p>
+        <img
+          src="/streaming-guide/stream-from-gear.png"
+          alt="Select your audio device from the dropdown"
+          className="rounded-lg border border-gray-700 max-w-full"
+        />
+      </div>
+
       {/* Step 5: Set Chrome audio input */}
       <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-white mb-4">
           Step 5 — Set Chrome audio input
         </h3>
 
-        <ol className="text-gray-400 space-y-3 list-decimal list-inside">
-          <li>In the address bar, click the <span className="text-white">audio/microphone icon</span> (left of the URL)</li>
+        <ol className="text-gray-400 space-y-6 list-decimal list-inside">
           <li>
-            Set <span className="text-white">Audio input</span> to your mixer/controller
+            In the address bar, click the <span className="text-white">microphone icon</span> (left of the URL), then click <span className="text-white">Microphone</span>
+            <img
+              src="/streaming-guide/chrome-site-info.png"
+              alt="Click microphone icon in address bar"
+              className="mt-3 rounded-lg border border-gray-700 max-w-full"
+            />
           </li>
-          <li>Verify levels move on your Go Live Channel page</li>
+          <li>
+            Select your <span className="text-white">mixer/controller or audio interface</span> from the list
+            <img
+              src="/streaming-guide/chrome-mic-selector.png"
+              alt="Select your audio device"
+              className="mt-3 rounded-lg border border-gray-700 max-w-full"
+            />
+          </li>
+          <li>
+            Verify levels move on your Go Live Channel page
+            <img
+              src="/streaming-guide/go-live-ready.png"
+              alt="Audio levels moving on Go Live page"
+              className="mt-3 rounded-lg border border-gray-700 max-w-full"
+            />
+          </li>
         </ol>
+
+        <p className="text-gray-500 text-sm mt-4">
+          Or open{' '}
+          <a
+            href="chrome://settings/content/siteDetails?site=https%3A%2F%2Fchannel-app.com"
+            className="text-white underline hover:text-gray-300"
+          >
+            Chrome site settings for Channel
+          </a>
+          {' '}and set Microphone to &quot;Allow&quot;.
+        </p>
+        <img
+          src="/streaming-guide/chrome-site-settings.png"
+          alt="Chrome site settings for channel-app.com"
+          className="mt-3 rounded-lg border border-gray-700 max-w-full"
+        />
 
         <div className="mt-6 p-4 bg-yellow-900/20 border border-yellow-800/50 rounded-lg">
           <p className="text-yellow-200 text-sm">
