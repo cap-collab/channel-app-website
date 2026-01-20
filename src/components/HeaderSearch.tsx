@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Image from 'next/image';
+import { collection, query as fbQuery, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { searchShows } from '@/lib/metadata';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -56,6 +58,7 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [addingWatchlistForQuery, setAddingWatchlistForQuery] = useState(false);
   const [addingDjToWatchlist, setAddingDjToWatchlist] = useState<string | null>(null);
+  const [djPhotos, setDjPhotos] = useState<Record<string, string>>({});
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -138,6 +141,45 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
     }
     return Array.from(djMap.values()).slice(0, 10);
   }, [results]);
+
+  // Fetch DJ photos from Firebase profiles
+  useEffect(() => {
+    if (!db || uniqueDjs.length === 0) return;
+
+    const fetchDjPhotos = async () => {
+      const photos: Record<string, string> = {};
+
+      for (const dj of uniqueDjs) {
+        // Skip if we already have a photo from show data
+        if (dj.photoUrl) {
+          photos[dj.name.toLowerCase()] = dj.photoUrl;
+          continue;
+        }
+
+        // Try to find DJ by normalized username
+        try {
+          if (!db) continue;
+          const normalized = dj.name.replace(/[\s-]+/g, '').toLowerCase();
+          const usersRef = collection(db, 'users');
+          const q = fbQuery(usersRef, where('chatUsernameNormalized', '==', normalized));
+          const snapshot = await getDocs(q);
+
+          if (!snapshot.empty) {
+            const userData = snapshot.docs[0].data();
+            if (userData.djProfile?.photoUrl) {
+              photos[dj.name.toLowerCase()] = userData.djProfile.photoUrl;
+            }
+          }
+        } catch (e) {
+          console.error('[HeaderSearch] Error fetching DJ photo:', e);
+        }
+      }
+
+      setDjPhotos(photos);
+    };
+
+    fetchDjPhotos();
+  }, [uniqueDjs]);
 
   const handleFollowDj = useCallback(async (djName: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -265,6 +307,7 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
                       {uniqueDjs.map((dj) => {
                         const djInWatchlist = isInWatchlist(dj.name);
                         const isAddingThisDj = addingDjToWatchlist === dj.name;
+                        const photoUrl = dj.photoUrl || djPhotos[dj.name.toLowerCase()];
 
                         return (
                           <div
@@ -273,9 +316,9 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
                           >
                             {/* DJ Avatar */}
                             <div className="w-8 h-8 rounded-full bg-gray-700 flex-shrink-0 overflow-hidden flex items-center justify-center">
-                              {dj.photoUrl ? (
+                              {photoUrl ? (
                                 <Image
-                                  src={dj.photoUrl}
+                                  src={photoUrl}
                                   alt={dj.name}
                                   width={32}
                                   height={32}
