@@ -203,6 +203,12 @@ function ComputerGuide() {
           <li>Enable access for <span className="text-white">Google Chrome</span> (audio only)</li>
           <li>Restart Chrome if prompted</li>
         </ol>
+
+        <img
+          src="/streaming-guide/system-audio-permission.png"
+          alt="System Settings - Screen & System Audio Recording permission for Chrome"
+          className={imgClass}
+        />
       </div>
 
       {/* Step 2: Open broadcast link */}
