@@ -195,7 +195,7 @@ export default function Home() {
                 </h2>
                 <p className="text-gray-400 leading-relaxed text-center text-sm mb-8">
                   Channel helps communities connect, including DJs, producers,
-                  radios, venues, ticket sellers, and dancers.
+                  radios, venues, and dancers.
                 </p>
                 <div className="transform scale-[0.55] origin-top -mb-[45%]">
                   <PhoneMockup className="w-[300px]">
