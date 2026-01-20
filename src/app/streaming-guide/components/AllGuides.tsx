@@ -130,9 +130,9 @@ export function AllGuides() {
         <div className="space-y-6">
           {/* Step 1 */}
           <div>
-            <h4 className="text-white font-medium mb-3">Step 1 — Connect your mixer/controller</h4>
+            <h4 className="text-white font-medium mb-3">Step 1 — Connect your mixer/controller, or audio interface to your computer with USB</h4>
             <p className="text-gray-400 text-sm">
-              Connect your mixer/controller to your computer via USB or USB-C.
+              Use a USB - USB cable to connect your gear to your computer.
             </p>
           </div>
 
@@ -172,10 +172,17 @@ export function AllGuides() {
           <div className="border-t border-gray-700 pt-6">
             <h4 className="text-white font-medium mb-3">Step 5 — Set Chrome audio input</h4>
             <ol className="text-gray-400 text-sm space-y-2 list-decimal list-inside">
-              <li>In the address bar, click the <span className="text-white">audio/microphone icon</span> (left of the URL)</li>
-              <li>Set <span className="text-white">Audio input</span> to your mixer/controller</li>
-              <li>Verify levels move on your Go Live Channel page</li>
+              <li>In the address bar, click the <span className="text-white">microphone icon</span> (left of the URL)</li>
+              <li>Click <span className="text-white">Site settings</span> and allow channel-app.com to capture your audio</li>
+              <li>Click <span className="text-white">Microphone</span> and select your mixer/controller or audio interface from the list</li>
             </ol>
+            <p className="text-gray-500 text-xs mt-2">
+              Or copy-paste{' '}
+              <code className="text-white bg-gray-800 px-1.5 py-0.5 rounded text-xs">
+                chrome://settings/content/siteDetails?site=https%3A%2F%2Fchannel-app.com
+              </code>
+              {' '}and verify microphone is allowed
+            </p>
 
             <div className="mt-4 p-4 bg-yellow-900/20 border border-yellow-800/50 rounded-lg">
               <p className="text-yellow-200 text-sm">
@@ -308,6 +315,14 @@ export function AllGuides() {
                   </svg>
                 </div>
                 <span className="text-gray-300">channel-app.com allowed to capture your audio (chrome://settings/content/siteDetails?site=https%3A%2F%2Fchannel-app.com)</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-5 h-5 rounded border border-gray-600 flex items-center justify-center">
+                  <svg className="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span className="text-gray-300">Chrome audio input set to your mixer/controller or audio interface</span>
               </div>
             </div>
           </div>

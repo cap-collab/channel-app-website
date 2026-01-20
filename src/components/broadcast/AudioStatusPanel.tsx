@@ -63,6 +63,11 @@ export function AudioStatusPanel({
         label: 'channel-app.com allowed to capture your audio (chrome://settings/content/siteDetails?site=https%3A%2F%2Fchannel-app.com)',
         checked: !!stream,
       });
+      items.push({
+        id: 'chrome-audio-input',
+        label: 'Chrome audio input set to your mixer/controller or audio interface',
+        checked: !!stream,
+      });
     }
 
     if (inputMethod === 'system' && !isLive) {

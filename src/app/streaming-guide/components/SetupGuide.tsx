@@ -48,10 +48,10 @@ function DJGearGuide() {
       {/* Step 1: Connect your gear */}
       <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-white mb-4">
-          Step 1 — Connect your mixer/controller
+          Step 1 — Connect your mixer/controller, or audio interface to your computer with USB
         </h3>
         <p className="text-gray-400">
-          Connect your mixer/controller to your computer via USB or USB-C.
+          Use a USB - USB cable to connect your gear to your computer.
         </p>
       </div>
 
@@ -128,7 +128,7 @@ function DJGearGuide() {
 
         <ol className="text-gray-400 space-y-4 list-decimal list-inside">
           <li>
-            In the address bar, click the <span className="text-white">microphone icon</span> (left of the URL), then click <span className="text-white">Microphone</span>
+            In the address bar, click the <span className="text-white">microphone icon</span> (left of the URL)
             <img
               src="/streaming-guide/chrome-site-info.png"
               alt="Click microphone icon in address bar"
@@ -136,7 +136,7 @@ function DJGearGuide() {
             />
           </li>
           <li>
-            Allow Chrome and channel-app.com to capture your audio
+            Click <span className="text-white">Site settings</span> and allow channel-app.com to capture your audio
             <img
               src="/streaming-guide/chrome-site-settings.png"
               alt="Chrome site settings for channel-app.com"
@@ -151,7 +151,7 @@ function DJGearGuide() {
             </p>
           </li>
           <li>
-            Select your <span className="text-white">mixer/controller or audio interface</span> from the list
+            Click <span className="text-white">Microphone</span> and select your <span className="text-white">mixer/controller or audio interface</span> from the list
             <img
               src="/streaming-guide/chrome-mic-selector.png"
               alt="Select your audio device"
