@@ -189,7 +189,7 @@ function ComputerGuide() {
 
       {/* Step 5 */}
       <div className="pb-6 border-b border-gray-800">
-        <h3 className="text-white font-medium mb-2">5. Set Chrome audio input</h3>
+        <h3 className="text-white font-medium mb-2">5. Set Chrome audio authorization</h3>
         <ol className="text-gray-400 text-sm space-y-3 list-decimal list-inside mt-3">
           <li>
             Click the <span className="text-white">settings icon</span> in the address bar → <span className="text-white">Site settings</span>
