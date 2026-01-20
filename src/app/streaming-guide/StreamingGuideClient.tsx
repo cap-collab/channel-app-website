@@ -109,7 +109,7 @@ export function StreamingGuideClient() {
                 >
                   <p className="text-white font-medium">DJ Gear with USB</p>
                   <p className="text-gray-400 text-sm mt-1">
-                    Your mixer or controller connects to your computer via USB
+                    Your mixer, controller, or audio interface connects via USB
                   </p>
                 </button>
 
