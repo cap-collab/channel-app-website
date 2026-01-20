@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
+import { HeaderSearch } from '@/components/HeaderSearch';
 import { TimeSlotPicker } from '@/components/dj-portal/TimeSlotPicker';
 import { DJApplicationFormData, TimeSlot, LocationType } from '@/types/dj-application';
 import { AuthModal } from '@/components/AuthModal';
@@ -346,6 +347,11 @@ export function StudioJoinClient() {
 
       <main className="p-4 md:p-8">
         <div className="max-w-2xl mx-auto">
+          {/* Search bar - mobile only */}
+          <div className="md:hidden mb-6">
+            <HeaderSearch onAuthRequired={() => setShowAuthModal(true)} />
+          </div>
+
           {/* Hero Section - Only show for non-DJs */}
           {!userIsDJ && (
             <div className="mb-12">

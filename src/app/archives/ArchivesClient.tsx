@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { Header } from '@/components/Header';
+import { HeaderSearch } from '@/components/HeaderSearch';
+import { AuthModal } from '@/components/AuthModal';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { ArchiveSerialized } from '@/types/broadcast';
 import { WatchlistModal } from '@/components/WatchlistModal';
@@ -206,6 +208,7 @@ export function ArchivesClient() {
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
   const [showWatchlistModal, setShowWatchlistModal] = useState(false);
   const [selectedArchive, setSelectedArchive] = useState<ArchiveSerialized | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Track cumulative playback time and whether stream has been counted
   const playbackTimeRef = useRef<Record<string, number>>({});
@@ -305,6 +308,11 @@ export function ArchivesClient() {
       <Header currentPage="archives" position="sticky" />
 
       <main className="max-w-4xl mx-auto flex-1 w-full px-4 py-6">
+        {/* Search bar - mobile only */}
+        <div className="md:hidden mb-4">
+          <HeaderSearch onAuthRequired={() => setShowAuthModal(true)} />
+        </div>
+
         <h1 className="text-2xl font-bold mb-6">Archives</h1>
 
         {loading && (
@@ -363,6 +371,12 @@ export function ArchivesClient() {
           }))}
         />
       )}
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
     </div>
   );
 }
