@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 
+// Consistent image styling for smaller screenshots
+const imgClass = "mt-3 rounded-lg border border-gray-700 max-w-xs";
+
 export function AllGuides() {
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['equipment']));
 
@@ -155,10 +158,19 @@ export function AllGuides() {
           {/* Step 4 */}
           <div className="border-t border-gray-700 pt-6">
             <h4 className="text-white font-medium mb-3">Step 4 — Set macOS system input and output</h4>
-            <ol className="text-gray-400 text-sm space-y-2 list-decimal list-inside">
-              <li>Click the <span className="text-white">sound icon</span> in your menu bar → <span className="text-white">Sound Settings</span></li>
-              <li>Under <span className="text-white">Input</span>, select your mixer/controller or audio interface — verify input levels move</li>
-              <li>Under <span className="text-white">Output</span>, select your mixer/controller — verify output levels move</li>
+            <ol className="text-gray-400 text-sm space-y-4 list-decimal list-inside">
+              <li>
+                Click the <span className="text-white">sound icon</span> in your menu bar → <span className="text-white">Sound Settings</span>
+                <img src="/streaming-guide/sound-menu-bar.png" alt="Click sound icon in menu bar" className={imgClass} />
+              </li>
+              <li>
+                Under <span className="text-white">Input</span>, select your mixer/controller or audio interface — <span className="text-white">verify audio levels move</span>
+                <img src="/streaming-guide/sound-settings-input.png" alt="Select your device under Input" className={imgClass} />
+              </li>
+              <li>
+                Under <span className="text-white">Output</span>, select your mixer/controller or audio interface
+                <img src="/streaming-guide/sound-settings-output.png" alt="Select your device under Output" className={imgClass} />
+              </li>
             </ol>
 
             <div className="mt-4 p-4 bg-yellow-900/20 border border-yellow-800/50 rounded-lg">
@@ -171,18 +183,27 @@ export function AllGuides() {
           {/* Step 5 */}
           <div className="border-t border-gray-700 pt-6">
             <h4 className="text-white font-medium mb-3">Step 5 — Set Chrome audio input</h4>
-            <ol className="text-gray-400 text-sm space-y-2 list-decimal list-inside">
-              <li>In the address bar, click the <span className="text-white">microphone icon</span> (left of the URL)</li>
-              <li>Click <span className="text-white">Site settings</span> and allow channel-app.com to capture your audio</li>
-              <li>Click <span className="text-white">Microphone</span> and select your mixer/controller or audio interface from the list</li>
+            <ol className="text-gray-400 text-sm space-y-4 list-decimal list-inside">
+              <li>
+                In the address bar, click the <span className="text-white">microphone icon</span> (left of the URL)
+                <img src="/streaming-guide/chrome-site-info.png" alt="Click microphone icon in address bar" className={imgClass} />
+              </li>
+              <li>
+                Click <span className="text-white">Site settings</span> and allow channel-app.com to capture your audio
+                <img src="/streaming-guide/chrome-site-settings.png" alt="Chrome site settings for channel-app.com" className={imgClass} />
+                <p className="text-gray-500 text-xs mt-2">
+                  Or copy-paste{' '}
+                  <code className="text-white bg-gray-800 px-1.5 py-0.5 rounded text-xs">
+                    chrome://settings/content/siteDetails?site=https%3A%2F%2Fchannel-app.com
+                  </code>
+                  {' '}and verify microphone is allowed
+                </p>
+              </li>
+              <li>
+                Click <span className="text-white">Microphone</span> and select your <span className="text-white">mixer/controller or audio interface</span> from the list
+                <img src="/streaming-guide/chrome-mic-selector.png" alt="Select your audio device" className={imgClass} />
+              </li>
             </ol>
-            <p className="text-gray-500 text-xs mt-2">
-              Or copy-paste{' '}
-              <code className="text-white bg-gray-800 px-1.5 py-0.5 rounded text-xs">
-                chrome://settings/content/siteDetails?site=https%3A%2F%2Fchannel-app.com
-              </code>
-              {' '}and verify microphone is allowed
-            </p>
 
             <div className="mt-4 p-4 bg-yellow-900/20 border border-yellow-800/50 rounded-lg">
               <p className="text-yellow-200 text-sm">
@@ -193,10 +214,11 @@ export function AllGuides() {
 
           {/* Step 6 */}
           <div className="border-t border-gray-700 pt-6">
-            <h4 className="text-white font-medium mb-3">Step 6 — Click &quot;Go Live&quot;</h4>
-            <p className="text-gray-400 text-sm">
+            <h4 className="text-white font-medium mb-3">Step 6 — Verify levels move on your Go Live Channel page</h4>
+            <p className="text-gray-400 text-sm mb-3">
               Once you see audio levels moving on your Channel page, you&apos;re ready to go live!
             </p>
+            <img src="/streaming-guide/go-live-ready.png" alt="Audio levels moving on Go Live page" className="rounded-lg border border-gray-700 max-w-md" />
           </div>
         </div>
       </AccordionSection>
@@ -220,6 +242,7 @@ export function AllGuides() {
               <li>Enable access for <span className="text-white">Google Chrome</span> (audio only)</li>
               <li>Restart Chrome if prompted</li>
             </ol>
+            <img src="/streaming-guide/system-audio-permission.png" alt="System Settings - Screen & System Audio Recording permission for Chrome" className={imgClass} />
           </div>
 
           {/* Step 2 */}
@@ -266,25 +289,32 @@ export function AllGuides() {
           {/* Step 5 */}
           <div className="border-t border-gray-700 pt-6">
             <h4 className="text-white font-medium mb-3">Step 5 — Set Chrome audio input</h4>
-            <ol className="text-gray-400 text-sm space-y-2 list-decimal list-inside">
-              <li>In the address bar, click the <span className="text-white">microphone icon</span> (left of the URL), then click <span className="text-white">Microphone</span></li>
-              <li>Allow Chrome and channel-app.com to capture your audio</li>
+            <ol className="text-gray-400 text-sm space-y-4 list-decimal list-inside">
+              <li>
+                In the address bar, click the <span className="text-white">settings icon</span> (left of the URL), then click <span className="text-white">Site settings</span>
+                <img src="/streaming-guide/chrome-settings-icon.png" alt="Click settings icon in address bar" className={imgClass} />
+              </li>
+              <li>
+                Allow Chrome and channel-app.com to capture your audio
+                <img src="/streaming-guide/chrome-site-settings.png" alt="Chrome site settings for channel-app.com" className={imgClass} />
+                <p className="text-gray-500 text-xs mt-2">
+                  Or copy-paste{' '}
+                  <code className="text-white bg-gray-800 px-1.5 py-0.5 rounded text-xs">
+                    chrome://settings/content/siteDetails?site=https%3A%2F%2Fchannel-app.com
+                  </code>
+                  {' '}and verify microphone is allowed
+                </p>
+              </li>
             </ol>
-            <p className="text-gray-500 text-xs mt-2">
-              Or copy-paste{' '}
-              <code className="text-white bg-gray-800 px-1.5 py-0.5 rounded text-xs">
-                chrome://settings/content/siteDetails?site=https%3A%2F%2Fchannel-app.com
-              </code>
-              {' '}and verify microphone is allowed
-            </p>
           </div>
 
           {/* Step 6 */}
           <div className="border-t border-gray-700 pt-6">
             <h4 className="text-white font-medium mb-3">Step 6 — Verify levels move on your Go Live Channel page</h4>
-            <p className="text-gray-400 text-sm">
+            <p className="text-gray-400 text-sm mb-3">
               Once you see audio levels moving on your Channel page, you&apos;re ready to go live!
             </p>
+            <img src="/streaming-guide/go-live-ready.png" alt="Audio levels moving on Go Live page" className="rounded-lg border border-gray-700 max-w-md" />
           </div>
         </div>
       </AccordionSection>

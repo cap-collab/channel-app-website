@@ -278,10 +278,10 @@ function ComputerGuide() {
 
         <ol className="text-gray-400 space-y-4 list-decimal list-inside">
           <li>
-            In the address bar, click the <span className="text-white">microphone icon</span> (left of the URL), then click <span className="text-white">Microphone</span>
+            In the address bar, click the <span className="text-white">settings icon</span> (left of the URL), then click <span className="text-white">Site settings</span>
             <img
-              src="/streaming-guide/chrome-site-info.png"
-              alt="Click microphone icon in address bar"
+              src="/streaming-guide/chrome-settings-icon.png"
+              alt="Click settings icon in address bar"
               className={imgClass}
             />
           </li>
