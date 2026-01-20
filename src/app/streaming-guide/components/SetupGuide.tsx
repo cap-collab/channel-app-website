@@ -38,7 +38,7 @@ export function SetupGuide({ streamingPath, onStartOver, showHeader = true }: Se
           onClick={onStartOver}
           className="text-gray-500 hover:text-gray-300 text-sm transition-colors"
         >
-          ← Back to streaming guide
+          ← Back to streaming guide menu
         </button>
       </div>
     </div>

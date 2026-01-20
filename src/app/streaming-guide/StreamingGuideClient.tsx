@@ -91,6 +91,16 @@ export function StreamingGuideClient() {
 
       <main className="p-4 md:p-8">
         <div className="max-w-2xl mx-auto">
+          {/* Back link at top for non-picker views */}
+          {view !== 'picker' && (
+            <button
+              onClick={handleBack}
+              className="text-gray-500 hover:text-gray-300 text-sm transition-colors mb-4"
+            >
+              ← Back to streaming guide menu
+            </button>
+          )}
+
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold">{getTitle()}</h1>
@@ -244,15 +254,6 @@ export function StreamingGuideClient() {
                 </div>
               </InfoCard>
 
-              {/* Back link */}
-              <div className="mt-6">
-                <button
-                  onClick={handleBack}
-                  className="text-gray-500 hover:text-gray-300 text-sm transition-colors"
-                >
-                  ← Back to streaming guide
-                </button>
-              </div>
             </div>
           )}
 
