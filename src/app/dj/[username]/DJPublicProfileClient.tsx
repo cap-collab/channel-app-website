@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import Link from "next/link";
 import Image from "next/image";
+import Link from "next/link";
 import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
+import { Header } from "@/components/Header";
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
@@ -421,18 +422,7 @@ export function DJPublicProfileClient({ username }: Props) {
   if (notFound) {
     return (
       <div className="min-h-screen bg-black">
-        <header className="p-4 border-b border-gray-900">
-          <div className="max-w-xl mx-auto flex items-center justify-between">
-            <Link
-              href="/channel"
-              className="text-gray-600 hover:text-white text-sm transition-colors"
-            >
-              &larr; Back
-            </Link>
-            <h1 className="text-lg font-medium text-white">DJ Profile</h1>
-            <div className="w-10" />
-          </div>
-        </header>
+        <Header position="sticky" />
         <main className="max-w-xl mx-auto p-4">
           <div className="text-center py-12">
             <p className="text-gray-500 mb-4">DJ not found</p>
@@ -450,18 +440,7 @@ export function DJPublicProfileClient({ username }: Props) {
 
   return (
     <div className="min-h-screen bg-black">
-      {/* Header */}
-      <header className="p-4 border-b border-gray-900">
-        <div className="max-w-xl mx-auto flex items-center justify-between">
-          <Link
-            href="/channel"
-            className="text-gray-600 hover:text-white text-sm transition-colors"
-          >
-            &larr; Back
-          </Link>
-          <div className="w-10" />
-        </div>
-      </header>
+      <Header position="sticky" />
 
       <main className="max-w-xl mx-auto p-4">
         <div className="space-y-8">
