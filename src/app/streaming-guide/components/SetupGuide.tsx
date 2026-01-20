@@ -143,10 +143,11 @@ function DJGearGuide() {
               className={imgClass}
             />
             <p className="text-gray-500 text-xs mt-2">
-              Or copy-paste:{' '}
+              Or copy-paste{' '}
               <code className="text-white bg-gray-800 px-1.5 py-0.5 rounded text-xs">
                 chrome://settings/content/siteDetails?site=https%3A%2F%2Fchannel-app.com
               </code>
+              {' '}and verify microphone is allowed
             </p>
           </li>
           <li>

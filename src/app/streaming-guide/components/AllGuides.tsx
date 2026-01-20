@@ -291,7 +291,7 @@ export function AllGuides() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <span className="text-gray-300">Chrome audio input set to your mixer/controller</span>
+                <span className="text-gray-300">channel-app.com allowed to capture your audio (chrome://settings/content/siteDetails?site=https%3A%2F%2Fchannel-app.com)</span>
               </div>
             </div>
           </div>
