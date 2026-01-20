@@ -75,6 +75,14 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error fetching received tips:', error);
-    return NextResponse.json({ error: 'Failed to fetch received tips' }, { status: 500 });
+    // Check if it's an index error
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    if (errorMessage.includes('index')) {
+      return NextResponse.json({
+        error: 'Database index required. Please create a composite index for tips collection with fields: djUserId, status, createdAt',
+        details: errorMessage
+      }, { status: 500 });
+    }
+    return NextResponse.json({ error: 'Failed to fetch received tips', details: errorMessage }, { status: 500 });
   }
 }

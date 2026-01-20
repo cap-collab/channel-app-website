@@ -62,6 +62,7 @@ export function InboxClient() {
   const [loading, setLoading] = useState(true);
   const [expandedDjs, setExpandedDjs] = useState<Set<string>>(new Set());
   const [expandedTippers, setExpandedTippers] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
 
   // Check if user is a DJ (has djProfile)
   const isDJ = !!djProfile;
@@ -69,6 +70,7 @@ export function InboxClient() {
   useEffect(() => {
     async function loadTips() {
       setLoading(true);
+      setError(null);
 
       if (isAuthenticated && user?.uid) {
         // Fetch sent tips from API for logged-in users
@@ -103,8 +105,12 @@ export function InboxClient() {
         if (isDJ) {
           try {
             const receivedResponse = await fetch(`/api/tips/received?djUserId=${user.uid}`);
-            if (receivedResponse.ok) {
-              const receivedData = await receivedResponse.json();
+            const receivedData = await receivedResponse.json();
+
+            if (!receivedResponse.ok) {
+              console.error('Failed to fetch received tips:', receivedData);
+              setError(`Failed to load received tips: ${receivedData.error || 'Unknown error'}`);
+            } else {
               const groups: ReceivedTipGroup[] = receivedData.tipperGroups.map((group: APIReceivedTipGroup) => ({
                 tipperUsername: group.tipperUsername,
                 tipperUserId: group.tipperUserId,
@@ -121,8 +127,9 @@ export function InboxClient() {
               setReceivedGroups(groups);
               setTotalReceivedCents(receivedData.totalReceivedCents || 0);
             }
-          } catch (error) {
-            console.error('Failed to fetch received tips:', error);
+          } catch (err) {
+            console.error('Failed to fetch received tips:', err);
+            setError('Failed to load received tips. Please try again.');
           }
         }
       } else {
@@ -215,6 +222,12 @@ export function InboxClient() {
             >
               Tips Received
             </button>
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-4 mb-4">
+            <p className="text-red-400 text-sm">{error}</p>
           </div>
         )}
 
