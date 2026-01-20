@@ -9,6 +9,9 @@ interface SetupGuideProps {
   onStartOver: () => void;
 }
 
+// Consistent image styling for smaller screenshots
+const imgClass = "mt-3 rounded-lg border border-gray-700 max-w-xs";
+
 export function SetupGuide({ streamingPath, onStartOver }: SetupGuideProps) {
   return (
     <div className="space-y-8 animate-fadeIn">
@@ -68,13 +71,21 @@ function DJGearGuide() {
           Step 3 — Set macOS system input and output
         </h3>
 
-        <ol className="text-gray-400 space-y-6 list-decimal list-inside">
+        <ol className="text-gray-400 space-y-4 list-decimal list-inside">
           <li>
             Click the <span className="text-white">sound icon</span> in your menu bar → <span className="text-white">Sound Settings</span>
             <img
               src="/streaming-guide/sound-menu-bar.png"
               alt="Click sound icon in menu bar"
-              className="mt-3 rounded-lg border border-gray-700 max-w-full"
+              className={imgClass}
+            />
+          </li>
+          <li>
+            Under <span className="text-white">Input</span>, select your mixer/controller or audio interface — <span className="text-white">verify audio levels move</span>
+            <img
+              src="/streaming-guide/sound-settings-input.png"
+              alt="Select your device under Input"
+              className={imgClass}
             />
           </li>
           <li>
@@ -82,20 +93,12 @@ function DJGearGuide() {
             <img
               src="/streaming-guide/sound-settings-output.png"
               alt="Select your device under Output"
-              className="mt-3 rounded-lg border border-gray-700 max-w-full"
-            />
-          </li>
-          <li>
-            Under <span className="text-white">Input</span>, select your mixer/controller or audio interface — verify input levels move
-            <img
-              src="/streaming-guide/sound-settings-input.png"
-              alt="Select your device under Input"
-              className="mt-3 rounded-lg border border-gray-700 max-w-full"
+              className={imgClass}
             />
           </li>
         </ol>
 
-        <div className="mt-6 p-4 bg-yellow-900/20 border border-yellow-800/50 rounded-lg">
+        <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-800/50 rounded-lg">
           <p className="text-yellow-200 text-sm">
             <span className="font-semibold">Warning:</span> If this is set to &quot;Built-in Microphone&quot;, Channel will only hear your laptop mic.
           </p>
@@ -107,13 +110,13 @@ function DJGearGuide() {
         <h3 className="text-lg font-semibold text-white mb-4">
           Step 4 — Select &quot;Stream from your gear&quot;
         </h3>
-        <p className="text-gray-400 mb-4">
+        <p className="text-gray-400 mb-3">
           Choose your mixer/controller or audio interface from the dropdown.
         </p>
         <img
           src="/streaming-guide/stream-from-gear.png"
           alt="Select your audio device from the dropdown"
-          className="rounded-lg border border-gray-700 max-w-full"
+          className="rounded-lg border border-gray-700 max-w-sm"
         />
       </div>
 
@@ -123,64 +126,59 @@ function DJGearGuide() {
           Step 5 — Set Chrome audio input
         </h3>
 
-        <ol className="text-gray-400 space-y-6 list-decimal list-inside">
+        <ol className="text-gray-400 space-y-4 list-decimal list-inside">
           <li>
             In the address bar, click the <span className="text-white">microphone icon</span> (left of the URL), then click <span className="text-white">Microphone</span>
             <img
               src="/streaming-guide/chrome-site-info.png"
               alt="Click microphone icon in address bar"
-              className="mt-3 rounded-lg border border-gray-700 max-w-full"
+              className={imgClass}
             />
+          </li>
+          <li>
+            Allow Chrome and channel-app.com to capture your audio
+            <img
+              src="/streaming-guide/chrome-site-settings.png"
+              alt="Chrome site settings for channel-app.com"
+              className={imgClass}
+            />
+            <p className="text-gray-500 text-xs mt-2">
+              Or copy-paste:{' '}
+              <code className="text-white bg-gray-800 px-1.5 py-0.5 rounded text-xs">
+                chrome://settings/content/siteDetails?site=https%3A%2F%2Fchannel-app.com
+              </code>
+            </p>
           </li>
           <li>
             Select your <span className="text-white">mixer/controller or audio interface</span> from the list
             <img
               src="/streaming-guide/chrome-mic-selector.png"
               alt="Select your audio device"
-              className="mt-3 rounded-lg border border-gray-700 max-w-full"
-            />
-          </li>
-          <li>
-            Verify levels move on your Go Live Channel page
-            <img
-              src="/streaming-guide/go-live-ready.png"
-              alt="Audio levels moving on Go Live page"
-              className="mt-3 rounded-lg border border-gray-700 max-w-full"
+              className={imgClass}
             />
           </li>
         </ol>
 
-        <p className="text-gray-500 text-sm mt-4">
-          Or open{' '}
-          <a
-            href="chrome://settings/content/siteDetails?site=https%3A%2F%2Fchannel-app.com"
-            className="text-white underline hover:text-gray-300"
-          >
-            Chrome site settings for Channel
-          </a>
-          {' '}and set Microphone to &quot;Allow&quot;.
-        </p>
-        <img
-          src="/streaming-guide/chrome-site-settings.png"
-          alt="Chrome site settings for channel-app.com"
-          className="mt-3 rounded-lg border border-gray-700 max-w-full"
-        />
-
-        <div className="mt-6 p-4 bg-yellow-900/20 border border-yellow-800/50 rounded-lg">
+        <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-800/50 rounded-lg">
           <p className="text-yellow-200 text-sm">
             <span className="font-semibold">Warning:</span> If this is set to &quot;Built-in Microphone&quot;, Channel will only hear your laptop mic.
           </p>
         </div>
       </div>
 
-      {/* Step 6: Go Live */}
+      {/* Step 6: Verify levels */}
       <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-white mb-4">
-          Step 6 — Click &quot;Go Live&quot;
+          Step 6 — Verify levels move on your Go Live Channel page
         </h3>
-        <p className="text-gray-400">
+        <p className="text-gray-400 mb-3">
           Once you see audio levels moving on your Channel page, you&apos;re ready to go live!
         </p>
+        <img
+          src="/streaming-guide/go-live-ready.png"
+          alt="Audio levels moving on Go Live page"
+          className="rounded-lg border border-gray-700 max-w-md"
+        />
       </div>
     </div>
   );
