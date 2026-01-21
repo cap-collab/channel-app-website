@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
 import { BroadcastSlotSerialized, RoomStatus, BroadcastType, DJSlot } from '@/types/broadcast';
@@ -383,6 +384,12 @@ See you on air!
                 </span>
               )}
             </button>
+            <Link
+              href="/broadcast/admin/pending-djs"
+              className="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-800 text-gray-300 hover:bg-gray-700"
+            >
+              Create DJ Profile
+            </Link>
           </div>
 
           {/* Tab Content */}
