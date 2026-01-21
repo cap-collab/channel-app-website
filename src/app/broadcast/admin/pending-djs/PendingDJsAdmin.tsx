@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { collection, query, where, getDocs, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
@@ -71,7 +71,8 @@ export function PendingDJsAdmin() {
     if (!db) return;
     try {
       const pendingRef = collection(db, 'pending-dj-profiles');
-      const q = query(pendingRef, where('status', '==', 'pending'), orderBy('createdAt', 'desc'));
+      // Simple query without orderBy to avoid needing a composite index
+      const q = query(pendingRef, where('status', '==', 'pending'));
       const snapshot = await getDocs(q);
 
       const profiles: PendingProfile[] = [];
@@ -87,6 +88,8 @@ export function PendingDJsAdmin() {
           createdAt: data.createdAt?.toDate() || new Date(),
         });
       });
+      // Sort client-side by createdAt descending
+      profiles.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
       setPendingProfiles(profiles);
     } catch (err) {
       console.error('Error fetching pending profiles:', err);
