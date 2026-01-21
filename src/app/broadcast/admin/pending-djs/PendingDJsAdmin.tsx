@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
@@ -38,6 +38,9 @@ export function PendingDJsAdmin() {
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const { role, loading: roleLoading } = useUserRole(user);
 
+  // Edit mode state
+  const [editingProfile, setEditingProfile] = useState<PendingProfile | null>(null);
+
   // Form state
   const [email, setEmail] = useState('');
   const [djName, setDjName] = useState('');
@@ -52,6 +55,7 @@ export function PendingDJsAdmin() {
 
   // UI state
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -71,10 +75,10 @@ export function PendingDJsAdmin() {
       const snapshot = await getDocs(q);
 
       const profiles: PendingProfile[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
         profiles.push({
-          id: doc.id,
+          id: docSnap.id,
           email: data.email,
           chatUsername: data.chatUsername,
           chatUsernameNormalized: data.chatUsernameNormalized,
@@ -104,7 +108,44 @@ export function PendingDJsAdmin() {
     }
   }, [authLoading, isAuthenticated, router]);
 
-  // Handle form submission
+  // Reset form
+  const resetForm = () => {
+    setEmail('');
+    setDjName('');
+    setBio('');
+    setLocation('');
+    setGenres('');
+    setPromoText('');
+    setPromoHyperlink('');
+    setInstagram('');
+    setSoundcloud('');
+    setYoutube('');
+    setEditingProfile(null);
+    setError(null);
+    setSuccess(null);
+  };
+
+  // Load profile into form for editing
+  const startEditing = (profile: PendingProfile) => {
+    setEditingProfile(profile);
+    setEmail(profile.email);
+    setDjName(profile.chatUsername);
+    setBio(profile.djProfile.bio || '');
+    setLocation(profile.djProfile.location || '');
+    setGenres(profile.djProfile.genres?.join(', ') || '');
+    setPromoText(profile.djProfile.promoText || '');
+    setPromoHyperlink(profile.djProfile.promoHyperlink || '');
+    setInstagram(profile.djProfile.socialLinks?.instagram || '');
+    setSoundcloud(profile.djProfile.socialLinks?.soundcloud || '');
+    setYoutube(profile.djProfile.socialLinks?.youtube || '');
+    setError(null);
+    setSuccess(null);
+
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Handle form submission (create or update)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -130,59 +171,108 @@ export function PendingDJsAdmin() {
         return;
       }
 
-      const response = await fetch('/api/admin/create-pending-dj-profile', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          username: djName.trim(),
+      if (editingProfile) {
+        // Update existing profile directly in Firestore
+        if (!db) {
+          setError('Database not available');
+          setSaving(false);
+          return;
+        }
+
+        const profileRef = doc(db, 'pending-dj-profiles', editingProfile.id);
+        await updateDoc(profileRef, {
           djProfile: {
             bio: bio.trim() || null,
             location: location.trim() || null,
             genres: genres.trim() ? genres.split(',').map((g) => g.trim()).filter(Boolean) : [],
             promoText: promoText.trim() || null,
             promoHyperlink: promoHyperlink.trim() ? normalizeUrl(promoHyperlink.trim()) : null,
+            photoUrl: editingProfile.djProfile.photoUrl || null,
             socialLinks: {
               instagram: instagram.trim() || undefined,
               soundcloud: soundcloud.trim() ? normalizeUrl(soundcloud.trim()) : undefined,
               youtube: youtube.trim() ? normalizeUrl(youtube.trim()) : undefined,
             },
           },
-        }),
-      });
+        });
 
-      const result = await response.json();
+        setSuccess(`Updated DJ profile for ${djName}`);
+        resetForm();
+        fetchPendingProfiles();
+      } else {
+        // Create new profile via API
+        const response = await fetch('/api/admin/create-pending-dj-profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            email: email.trim().toLowerCase(),
+            username: djName.trim(),
+            djProfile: {
+              bio: bio.trim() || null,
+              location: location.trim() || null,
+              genres: genres.trim() ? genres.split(',').map((g) => g.trim()).filter(Boolean) : [],
+              promoText: promoText.trim() || null,
+              promoHyperlink: promoHyperlink.trim() ? normalizeUrl(promoHyperlink.trim()) : null,
+              socialLinks: {
+                instagram: instagram.trim() || undefined,
+                soundcloud: soundcloud.trim() ? normalizeUrl(soundcloud.trim()) : undefined,
+                youtube: youtube.trim() ? normalizeUrl(youtube.trim()) : undefined,
+              },
+            },
+          }),
+        });
 
-      if (!response.ok) {
-        setError(result.error || 'Failed to create pending profile');
-        setSaving(false);
-        return;
+        const result = await response.json();
+
+        if (!response.ok) {
+          setError(result.error || 'Failed to create pending profile');
+          setSaving(false);
+          return;
+        }
+
+        setSuccess(`Created pending DJ profile for ${djName}. Profile URL: /dj/${result.username}`);
+        resetForm();
+        fetchPendingProfiles();
       }
-
-      setSuccess(`Created pending DJ profile for ${djName}. Profile URL: /dj/${result.username}`);
-
-      // Reset form
-      setEmail('');
-      setDjName('');
-      setBio('');
-      setLocation('');
-      setGenres('');
-      setPromoText('');
-      setPromoHyperlink('');
-      setInstagram('');
-      setSoundcloud('');
-      setYoutube('');
-
-      // Refresh list
-      fetchPendingProfiles();
     } catch (err) {
-      console.error('Error creating pending profile:', err);
-      setError('Failed to create pending profile');
+      console.error('Error saving pending profile:', err);
+      setError('Failed to save pending profile');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Handle delete
+  const handleDelete = async () => {
+    if (!editingProfile || !db) return;
+
+    if (!confirm(`Are you sure you want to delete the pending profile for ${editingProfile.chatUsername}?`)) {
+      return;
+    }
+
+    setDeleting(true);
+    setError(null);
+
+    try {
+      // Delete the pending profile
+      const profileRef = doc(db, 'pending-dj-profiles', editingProfile.id);
+      await deleteDoc(profileRef);
+
+      // Also delete the reserved username
+      const usernameRef = doc(db, 'usernames', editingProfile.chatUsernameNormalized);
+      await deleteDoc(usernameRef);
+
+      setSuccess(`Deleted pending profile for ${editingProfile.chatUsername}`);
+      resetForm();
+      fetchPendingProfiles();
+    } catch (err) {
+      console.error('Error deleting pending profile:', err);
+      setError('Failed to delete pending profile');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -251,10 +341,13 @@ export function PendingDJsAdmin() {
             Back to Admin
           </Link>
 
-          <h1 className="text-2xl font-bold mb-2">Create Pending DJ Profile</h1>
+          <h1 className="text-2xl font-bold mb-2">
+            {editingProfile ? `Edit: ${editingProfile.chatUsername}` : 'Create Pending DJ Profile'}
+          </h1>
           <p className="text-gray-400 mb-8">
-            Create a DJ profile page for someone who hasn&apos;t signed up yet.
-            When they sign up with the same email, the profile will automatically link to their account.
+            {editingProfile
+              ? 'Update the DJ profile information below.'
+              : "Create a DJ profile page for someone who hasn't signed up yet. When they sign up with the same email, the profile will automatically link to their account."}
           </p>
 
           {/* Success/Error messages */}
@@ -269,7 +362,7 @@ export function PendingDJsAdmin() {
             </div>
           )}
 
-          {/* Create form */}
+          {/* Create/Edit form */}
           <form onSubmit={handleSubmit} className="bg-[#1a1a1a] rounded-xl p-6 mb-8">
             <div className="space-y-6">
               {/* Required fields */}
@@ -283,11 +376,12 @@ export function PendingDJsAdmin() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="dj@example.com"
-                    className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors"
+                    disabled={!!editingProfile}
+                    className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     required
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Used to link profile when they sign up
+                    {editingProfile ? 'Email cannot be changed' : 'Used to link profile when they sign up'}
                   </p>
                 </div>
 
@@ -301,11 +395,14 @@ export function PendingDJsAdmin() {
                     onChange={(e) => setDjName(e.target.value)}
                     placeholder="DJ Name"
                     maxLength={20}
-                    className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors"
+                    disabled={!!editingProfile}
+                    className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     required
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Profile URL: /dj/{djName.trim().replace(/[\s-]+/g, '').toLowerCase() || 'djname'}
+                    {editingProfile
+                      ? `Profile URL: /dj/${editingProfile.chatUsernameNormalized}`
+                      : `Profile URL: /dj/${djName.trim().replace(/[\s-]+/g, '').toLowerCase() || 'djname'}`}
                   </p>
                 </div>
               </div>
@@ -430,18 +527,39 @@ export function PendingDJsAdmin() {
                 </div>
               </div>
 
-              {/* Submit */}
-              <div className="pt-4">
+              {/* Submit / Cancel / Delete */}
+              <div className="pt-4 flex gap-3">
+                {editingProfile && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={resetForm}
+                      className="px-6 py-3 rounded-lg font-medium bg-gray-700 text-white hover:bg-gray-600 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={deleting}
+                      className="px-6 py-3 rounded-lg font-medium bg-red-600 text-white hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {deleting ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </>
+                )}
                 <button
                   type="submit"
                   disabled={saving}
-                  className="w-full bg-white text-black font-medium py-3 px-6 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="flex-1 bg-white text-black font-medium py-3 px-6 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {saving ? (
                     <span className="flex items-center justify-center gap-2">
                       <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                      Creating...
+                      {editingProfile ? 'Saving...' : 'Creating...'}
                     </span>
+                  ) : editingProfile ? (
+                    'Save Changes'
                   ) : (
                     'Create Pending DJ Profile'
                   )}
@@ -464,7 +582,9 @@ export function PendingDJsAdmin() {
                 {pendingProfiles.map((profile) => (
                   <div
                     key={profile.id}
-                    className="bg-[#1a1a1a] rounded-lg p-4 flex items-center gap-4"
+                    className={`bg-[#1a1a1a] rounded-lg p-4 flex items-center gap-4 ${
+                      editingProfile?.id === profile.id ? 'ring-2 ring-white' : ''
+                    }`}
                   >
                     <div className="w-12 h-12 rounded-full bg-gray-700 flex-shrink-0 overflow-hidden flex items-center justify-center">
                       {profile.djProfile.photoUrl ? (
@@ -489,17 +609,20 @@ export function PendingDJsAdmin() {
                         <p className="text-gray-500 text-xs">{profile.djProfile.location}</p>
                       )}
                     </div>
-                    <div className="text-right">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => startEditing(profile)}
+                        className="text-blue-400 hover:text-blue-300 text-sm font-medium"
+                      >
+                        Edit
+                      </button>
                       <Link
                         href={`/dj/${profile.chatUsernameNormalized}`}
                         target="_blank"
-                        className="text-blue-400 hover:text-blue-300 text-sm"
+                        className="text-gray-400 hover:text-white text-sm"
                       >
-                        View Profile
+                        View
                       </Link>
-                      <p className="text-gray-500 text-xs mt-1">
-                        {profile.createdAt.toLocaleDateString()}
-                      </p>
                     </div>
                   </div>
                 ))}
