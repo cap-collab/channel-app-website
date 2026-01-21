@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import Image from 'next/image';
 import { collection, query as fbQuery, where, getDocs } from 'firebase/firestore';
@@ -636,28 +637,32 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
       )}
 
       {/* Expanded Show Card */}
-      {expandedShow && (() => {
-        const station = getStation(expandedShow.stationId) || STATIONS[0];
-        const now = new Date();
-        const startDate = new Date(expandedShow.startTime);
-        const endDate = new Date(expandedShow.endTime);
-        const isLive = now >= startDate && now <= endDate;
+      {/* Expanded Show Card - rendered via portal to escape stacking context */}
+      {expandedShow && typeof document !== 'undefined' && createPortal(
+        (() => {
+          const station = getStation(expandedShow.stationId) || STATIONS[0];
+          const now = new Date();
+          const startDate = new Date(expandedShow.startTime);
+          const endDate = new Date(expandedShow.endTime);
+          const isLive = now >= startDate && now <= endDate;
 
-        return (
-          <ExpandedShowCard
-            show={expandedShow}
-            station={station}
-            isLive={isLive}
-            onClose={() => setExpandedShow(null)}
-            isFavorited={isShowFavorited(expandedShow)}
-            isTogglingFavorite={togglingExpandedFavorite}
-            onToggleFavorite={handleExpandedToggleFavorite}
-            canTip={!!expandedShow.djUserId}
-            isAuthenticated={isAuthenticated}
-            timeDisplay={formatShowTime(expandedShow.startTime)}
-          />
-        );
-      })()}
+          return (
+            <ExpandedShowCard
+              show={expandedShow}
+              station={station}
+              isLive={isLive}
+              onClose={() => setExpandedShow(null)}
+              isFavorited={isShowFavorited(expandedShow)}
+              isTogglingFavorite={togglingExpandedFavorite}
+              onToggleFavorite={handleExpandedToggleFavorite}
+              canTip={!!expandedShow.djUserId}
+              isAuthenticated={isAuthenticated}
+              timeDisplay={formatShowTime(expandedShow.startTime)}
+            />
+          );
+        })(),
+        document.body
+      )}
     </div>
   );
 }
