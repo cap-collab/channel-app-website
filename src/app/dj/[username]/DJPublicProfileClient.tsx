@@ -12,7 +12,7 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { AuthModal } from "@/components/AuthModal";
 import { TipModal } from "@/components/channel/TipModal";
 import { Show } from "@/types";
-import { Archive, ArchiveDJ } from "@/types/broadcast";
+import { Archive } from "@/types/broadcast";
 import { getStationById } from "@/lib/stations";
 
 interface CustomLink {
