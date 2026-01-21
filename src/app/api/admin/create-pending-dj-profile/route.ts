@@ -71,6 +71,7 @@ interface DJProfileData {
     bookingEmail?: string;
     mixcloud?: string;
     residentAdvisor?: string;
+    website?: string;
     customLinks?: CustomLink[];
   };
   irlShows?: IrlShow[];

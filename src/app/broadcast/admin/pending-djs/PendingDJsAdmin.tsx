@@ -41,6 +41,7 @@ interface PendingProfile {
       bookingEmail?: string;
       mixcloud?: string;
       residentAdvisor?: string;
+      website?: string;
       customLinks?: CustomLink[];
     };
     irlShows?: IrlShow[];
@@ -76,6 +77,7 @@ export function PendingDJsAdmin() {
   const [bookingEmail, setBookingEmail] = useState('');
   const [mixcloud, setMixcloud] = useState('');
   const [residentAdvisor, setResidentAdvisor] = useState('');
+  const [website, setWebsite] = useState('');
   const [customLinks, setCustomLinks] = useState<CustomLink[]>([]);
 
   // IRL Shows state
@@ -181,6 +183,7 @@ export function PendingDJsAdmin() {
     setBookingEmail('');
     setMixcloud('');
     setResidentAdvisor('');
+    setWebsite('');
     setCustomLinks([]);
     setIrlShows([{ url: '', date: '' }, { url: '', date: '' }]);
     setBandcampRecs(['']);
@@ -207,6 +210,7 @@ export function PendingDJsAdmin() {
     setBookingEmail(profile.djProfile.socialLinks?.bookingEmail || '');
     setMixcloud(profile.djProfile.socialLinks?.mixcloud || '');
     setResidentAdvisor(profile.djProfile.socialLinks?.residentAdvisor || '');
+    setWebsite(profile.djProfile.socialLinks?.website || '');
     setCustomLinks(profile.djProfile.socialLinks?.customLinks || []);
     // IRL Shows - ensure we always have 2 fields
     const existingIrlShows = profile.djProfile.irlShows || [];
@@ -268,6 +272,7 @@ export function PendingDJsAdmin() {
         bookingEmail: bookingEmail.trim() || undefined,
         mixcloud: mixcloud.trim() ? normalizeUrl(mixcloud.trim()) : undefined,
         residentAdvisor: residentAdvisor.trim() ? normalizeUrl(residentAdvisor.trim()) : undefined,
+        website: website.trim() ? normalizeUrl(website.trim()) : undefined,
         customLinks: validCustomLinks.length > 0 ? validCustomLinks : undefined,
       };
 
@@ -698,6 +703,16 @@ export function PendingDJsAdmin() {
                       value={bookingEmail}
                       onChange={(e) => setBookingEmail(e.target.value)}
                       placeholder="booking@example.com"
+                      className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Website</label>
+                    <input
+                      type="url"
+                      value={website}
+                      onChange={(e) => setWebsite(e.target.value)}
+                      placeholder="yourwebsite.com"
                       className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
                     />
                   </div>
