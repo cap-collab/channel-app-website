@@ -372,20 +372,51 @@ export function DJPublicProfileClient({ username }: Props) {
   // Fetch past shows (archives) for this DJ
   useEffect(() => {
     async function fetchPastShows() {
-      if (!djProfile) return;
+      if (!djProfile || !db) return;
       try {
+        const slotsRef = collection(db, "broadcast-slots");
+        const slotIds = new Set<string>();
+        const djEmail = djProfile.email.toLowerCase();
+
+        // Query 1: Past slots with root-level djEmail (remote broadcasts)
+        const remoteQ = query(
+          slotsRef,
+          where("endTime", "<", Timestamp.fromDate(new Date())),
+          where("djEmail", "==", djEmail)
+        );
+        const remoteSnapshot = await getDocs(remoteQ);
+        remoteSnapshot.forEach((doc) => slotIds.add(doc.id));
+
+        // Query 2: Past venue slots (have djSlots array) - filter client-side
+        // Firestore can't query nested array fields, so fetch venue slots and filter
+        const venueQ = query(
+          slotsRef,
+          where("endTime", "<", Timestamp.fromDate(new Date())),
+          where("broadcastType", "==", "venue")
+        );
+        const venueSnapshot = await getDocs(venueQ);
+        venueSnapshot.forEach((doc) => {
+          const data = doc.data();
+          // Check if any djSlot has matching email
+          if (data.djSlots && Array.isArray(data.djSlots)) {
+            const hasMatch = data.djSlots.some(
+              (slot: { djEmail?: string }) =>
+                slot.djEmail?.toLowerCase() === djEmail
+            );
+            if (hasMatch) {
+              slotIds.add(doc.id);
+            }
+          }
+        });
+
+        // Fetch archives and filter by matching broadcastSlotId
         const res = await fetch("/api/archives");
         if (res.ok) {
           const data = await res.json();
           const archives: Archive[] = data.archives || [];
 
-          // Filter archives where DJ matches by email, userId, or username
           const djArchives = archives.filter((archive) =>
-            archive.djs?.some((dj: ArchiveDJ) =>
-              (dj.email && dj.email.toLowerCase() === djProfile.email.toLowerCase()) ||
-              (dj.userId && dj.userId === djProfile.uid) ||
-              (dj.username && matchesAsWord(dj.username, djProfile.chatUsername))
-            )
+            slotIds.has(archive.broadcastSlotId)
           );
           setPastShows(djArchives);
         }
