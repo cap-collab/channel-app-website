@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
@@ -197,29 +197,38 @@ export function PendingDJsAdmin() {
       }
 
       if (editingProfile) {
-        // Update existing profile directly in Firestore
-        if (!db) {
-          setError('Database not available');
+        // Update existing profile via API
+        const response = await fetch('/api/admin/create-pending-dj-profile', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            profileId: editingProfile.id,
+            djProfile: {
+              bio: bio.trim() || null,
+              location: location.trim() || null,
+              genres: genres.trim() ? genres.split(',').map((g) => g.trim()).filter(Boolean) : [],
+              promoText: promoText.trim() || null,
+              promoHyperlink: promoHyperlink.trim() ? normalizeUrl(promoHyperlink.trim()) : null,
+              photoUrl: editingProfile.djProfile.photoUrl || null,
+              socialLinks: {
+                instagram: instagram.trim() || undefined,
+                soundcloud: soundcloud.trim() ? normalizeUrl(soundcloud.trim()) : undefined,
+                youtube: youtube.trim() ? normalizeUrl(youtube.trim()) : undefined,
+              },
+            },
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          setError(result.error || 'Failed to update pending profile');
           setSaving(false);
           return;
         }
-
-        const profileRef = doc(db, 'pending-dj-profiles', editingProfile.id);
-        await updateDoc(profileRef, {
-          djProfile: {
-            bio: bio.trim() || null,
-            location: location.trim() || null,
-            genres: genres.trim() ? genres.split(',').map((g) => g.trim()).filter(Boolean) : [],
-            promoText: promoText.trim() || null,
-            promoHyperlink: promoHyperlink.trim() ? normalizeUrl(promoHyperlink.trim()) : null,
-            photoUrl: editingProfile.djProfile.photoUrl || null,
-            socialLinks: {
-              instagram: instagram.trim() || undefined,
-              soundcloud: soundcloud.trim() ? normalizeUrl(soundcloud.trim()) : undefined,
-              youtube: youtube.trim() ? normalizeUrl(youtube.trim()) : undefined,
-            },
-          },
-        });
 
         setSuccess(`Updated DJ profile for ${djName}`);
         resetForm();
@@ -272,7 +281,7 @@ export function PendingDJsAdmin() {
 
   // Handle delete
   const handleDelete = async () => {
-    if (!editingProfile || !db) return;
+    if (!editingProfile) return;
 
     if (!confirm(`Are you sure you want to delete the pending profile for ${editingProfile.chatUsername}?`)) {
       return;
@@ -282,13 +291,27 @@ export function PendingDJsAdmin() {
     setError(null);
 
     try {
-      // Delete the pending profile
-      const profileRef = doc(db, 'pending-dj-profiles', editingProfile.id);
-      await deleteDoc(profileRef);
+      const token = await user?.getIdToken();
+      if (!token) {
+        setError('Not authenticated');
+        setDeleting(false);
+        return;
+      }
 
-      // Also delete the reserved username
-      const usernameRef = doc(db, 'usernames', editingProfile.chatUsernameNormalized);
-      await deleteDoc(usernameRef);
+      const response = await fetch(`/api/admin/create-pending-dj-profile?profileId=${editingProfile.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setError(result.error || 'Failed to delete pending profile');
+        setDeleting(false);
+        return;
+      }
 
       setSuccess(`Deleted pending profile for ${editingProfile.chatUsername}`);
       resetForm();

@@ -198,3 +198,121 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to create pending DJ profile' }, { status: 500 });
   }
 }
+
+// PATCH - Update an existing pending DJ profile
+export async function PATCH(request: NextRequest) {
+  const { isAdmin } = await verifyAdminAccess(request);
+  if (!isAdmin) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const db = getAdminDb();
+    if (!db) {
+      return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
+    }
+
+    const body = await request.json();
+    const { profileId, djProfile } = body as {
+      profileId: string;
+      djProfile: DJProfileData;
+    };
+
+    if (!profileId) {
+      return NextResponse.json({ error: 'Profile ID is required' }, { status: 400 });
+    }
+
+    // Get the existing profile to preserve certain fields
+    const profileRef = db.collection('pending-dj-profiles').doc(profileId);
+    const profileDoc = await profileRef.get();
+
+    if (!profileDoc.exists) {
+      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+    }
+
+    const existingData = profileDoc.data();
+    if (existingData?.status !== 'pending') {
+      return NextResponse.json({ error: 'Cannot edit a claimed profile' }, { status: 400 });
+    }
+
+    // Update only the djProfile field, preserving photoUrl if not provided
+    await profileRef.update({
+      djProfile: {
+        bio: djProfile?.bio || null,
+        photoUrl: djProfile?.photoUrl ?? existingData?.djProfile?.photoUrl ?? null,
+        location: djProfile?.location || null,
+        genres: djProfile?.genres || [],
+        promoText: djProfile?.promoText || null,
+        promoHyperlink: djProfile?.promoHyperlink || null,
+        socialLinks: djProfile?.socialLinks || {},
+      },
+    });
+
+    console.log(`[create-pending-dj-profile] Updated pending profile ${profileId}`);
+
+    return NextResponse.json({
+      success: true,
+      profileId,
+    });
+  } catch (error) {
+    console.error('[create-pending-dj-profile] PATCH Error:', error);
+    return NextResponse.json({ error: 'Failed to update pending DJ profile' }, { status: 500 });
+  }
+}
+
+// DELETE - Delete a pending DJ profile
+export async function DELETE(request: NextRequest) {
+  const { isAdmin } = await verifyAdminAccess(request);
+  if (!isAdmin) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const db = getAdminDb();
+    if (!db) {
+      return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const profileId = searchParams.get('profileId');
+
+    if (!profileId) {
+      return NextResponse.json({ error: 'Profile ID is required' }, { status: 400 });
+    }
+
+    // Get the profile to find the username to delete
+    const profileRef = db.collection('pending-dj-profiles').doc(profileId);
+    const profileDoc = await profileRef.get();
+
+    if (!profileDoc.exists) {
+      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+    }
+
+    const profileData = profileDoc.data();
+    const normalizedUsername = profileData?.chatUsernameNormalized;
+
+    // Delete the profile and username reservation
+    await db.runTransaction(async (transaction) => {
+      transaction.delete(profileRef);
+
+      if (normalizedUsername) {
+        const usernameRef = db.collection('usernames').doc(normalizedUsername);
+        const usernameDoc = await transaction.get(usernameRef);
+        // Only delete if it's a pending reservation
+        if (usernameDoc.exists && usernameDoc.data()?.isPending) {
+          transaction.delete(usernameRef);
+        }
+      }
+    });
+
+    console.log(`[create-pending-dj-profile] Deleted pending profile ${profileId}`);
+
+    return NextResponse.json({
+      success: true,
+      profileId,
+    });
+  } catch (error) {
+    console.error('[create-pending-dj-profile] DELETE Error:', error);
+    return NextResponse.json({ error: 'Failed to delete pending DJ profile' }, { status: 500 });
+  }
+}
