@@ -123,6 +123,73 @@ export async function deleteShowImage(slotId: string): Promise<boolean> {
 }
 
 /**
+ * Upload a pending DJ profile photo to Firebase Storage
+ * Uses the pending profile ID instead of a userId
+ */
+export async function uploadPendingDJPhoto(profileId: string, file: File): Promise<UploadPhotoResult> {
+  if (!storage) {
+    return { success: false, error: 'Storage not configured' };
+  }
+
+  // Validate file
+  const validation = validatePhoto(file);
+  if (!validation.valid) {
+    return { success: false, error: validation.error };
+  }
+
+  try {
+    // Generate filename with extension
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const filename = `profile.${ext}`;
+    const photoRef = ref(storage, `pending-dj-photos/${profileId}/${filename}`);
+
+    // Upload with metadata
+    await uploadBytes(photoRef, file, {
+      contentType: file.type,
+      customMetadata: {
+        uploadedAt: new Date().toISOString(),
+      },
+    });
+
+    // Get download URL
+    const url = await getDownloadURL(photoRef);
+    return { success: true, url };
+  } catch (error) {
+    console.error('Pending DJ photo upload failed:', error);
+    return { success: false, error: 'Failed to upload photo. Please try again.' };
+  }
+}
+
+/**
+ * Delete a pending DJ profile photo from Firebase Storage
+ */
+export async function deletePendingDJPhoto(profileId: string, photoUrl: string): Promise<boolean> {
+  if (!storage) return false;
+
+  try {
+    // Extract the filename from the URL
+    const match = photoUrl.match(/pending-dj-photos%2F[^%]+%2F([^?]+)/);
+    let filename = 'profile.jpg';
+
+    if (match) {
+      filename = decodeURIComponent(match[1]);
+    } else {
+      const altMatch = photoUrl.match(/pending-dj-photos\/[^/]+\/([^?]+)/);
+      if (altMatch) {
+        filename = altMatch[1];
+      }
+    }
+
+    const photoRef = ref(storage, `pending-dj-photos/${profileId}/${filename}`);
+    await deleteObject(photoRef);
+    return true;
+  } catch (error) {
+    console.error('Pending DJ photo delete failed:', error);
+    return false;
+  }
+}
+
+/**
  * Delete a DJ profile photo from Firebase Storage
  */
 export async function deleteDJPhoto(userId: string, photoUrl: string): Promise<boolean> {

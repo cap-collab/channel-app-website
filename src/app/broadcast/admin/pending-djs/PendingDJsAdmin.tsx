@@ -10,6 +10,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { normalizeUrl } from '@/lib/url';
+import { uploadPendingDJPhoto, deletePendingDJPhoto, validatePhoto } from '@/lib/photo-upload';
 
 interface CustomLink {
   label: string;
@@ -86,6 +87,11 @@ export function PendingDJsAdmin() {
   // My Recs state
   const [bandcampRecs, setBandcampRecs] = useState<string[]>(['']);
   const [eventRecs, setEventRecs] = useState<string[]>(['']);
+
+  // Photo upload state
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   // UI state
   const [saving, setSaving] = useState(false);
@@ -188,6 +194,8 @@ export function PendingDJsAdmin() {
     setIrlShows([{ url: '', date: '' }, { url: '', date: '' }]);
     setBandcampRecs(['']);
     setEventRecs(['']);
+    setPhotoUrl(null);
+    setPhotoError(null);
     setEditingProfile(null);
     setError(null);
     setSuccess(null);
@@ -223,11 +231,65 @@ export function PendingDJsAdmin() {
     setBandcampRecs(existingBandcampRecs.length > 0 ? existingBandcampRecs : ['']);
     const existingEventRecs = profile.djProfile.myRecs?.eventLinks || [];
     setEventRecs(existingEventRecs.length > 0 ? existingEventRecs : ['']);
+    // Photo
+    setPhotoUrl(profile.djProfile.photoUrl || null);
+    setPhotoError(null);
     setError(null);
     setSuccess(null);
 
     // Scroll to form
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Handle photo upload
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setPhotoError(null);
+
+    const validation = validatePhoto(file);
+    if (!validation.valid) {
+      setPhotoError(validation.error || 'Invalid file');
+      return;
+    }
+
+    // For new profiles, we need a profile ID first - use a temp ID based on email
+    const profileId = editingProfile?.id || `temp-${email.trim().toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+
+    setUploadingPhoto(true);
+    try {
+      const result = await uploadPendingDJPhoto(profileId, file);
+      if (!result.success) {
+        setPhotoError(result.error || 'Upload failed');
+        return;
+      }
+      setPhotoUrl(result.url || null);
+    } catch (err) {
+      console.error('Error uploading photo:', err);
+      setPhotoError('Failed to upload photo');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  // Handle photo removal
+  const handleRemovePhoto = async () => {
+    if (!photoUrl) return;
+
+    const profileId = editingProfile?.id || `temp-${email.trim().toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+
+    setUploadingPhoto(true);
+    setPhotoError(null);
+    try {
+      await deletePendingDJPhoto(profileId, photoUrl);
+      setPhotoUrl(null);
+    } catch (err) {
+      console.error('Error removing photo:', err);
+      setPhotoError('Failed to remove photo');
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
   // Handle form submission (create or update)
@@ -304,7 +366,7 @@ export function PendingDJsAdmin() {
               genres: genres.trim() ? genres.split(',').map((g) => g.trim()).filter(Boolean) : [],
               promoText: promoText.trim() || null,
               promoHyperlink: promoHyperlink.trim() ? normalizeUrl(promoHyperlink.trim()) : null,
-              photoUrl: editingProfile.djProfile.photoUrl || null,
+              photoUrl: photoUrl || null,
               socialLinks: socialLinksData,
               irlShows: validIrlShows.length > 0 ? validIrlShows : undefined,
               myRecs: (validBandcampRecs.length > 0 || validEventRecs.length > 0) ? {
@@ -343,6 +405,7 @@ export function PendingDJsAdmin() {
               genres: genres.trim() ? genres.split(',').map((g) => g.trim()).filter(Boolean) : [],
               promoText: promoText.trim() || null,
               promoHyperlink: promoHyperlink.trim() ? normalizeUrl(promoHyperlink.trim()) : null,
+              photoUrl: photoUrl || null,
               socialLinks: socialLinksData,
               irlShows: validIrlShows.length > 0 ? validIrlShows : undefined,
               myRecs: (validBandcampRecs.length > 0 || validEventRecs.length > 0) ? {
@@ -547,6 +610,67 @@ export function PendingDJsAdmin() {
                       : `Profile URL: /dj/${djName.trim().replace(/[\s-]+/g, '').toLowerCase() || 'djname'}`}
                   </p>
                 </div>
+              </div>
+
+              {/* Profile Photo */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Profile Photo
+                </label>
+                <div className="flex items-start gap-4">
+                  <div className="relative w-24 h-24 bg-[#252525] rounded-full overflow-hidden flex-shrink-0">
+                    {photoUrl ? (
+                      <Image
+                        src={photoUrl}
+                        alt="Profile photo"
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-500">
+                        <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      </div>
+                    )}
+                    {uploadingPhoto && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="cursor-pointer bg-[#252525] hover:bg-[#303030] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white transition-colors inline-flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      {photoUrl ? 'Change photo' : 'Upload photo'}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/gif,image/webp"
+                        onChange={handlePhotoChange}
+                        disabled={uploadingPhoto}
+                        className="hidden"
+                      />
+                    </label>
+                    {photoUrl && (
+                      <button
+                        type="button"
+                        onClick={handleRemovePhoto}
+                        disabled={uploadingPhoto}
+                        className="text-red-400 hover:text-red-300 text-sm transition-colors text-left"
+                      >
+                        Remove photo
+                      </button>
+                    )}
+                    <p className="text-xs text-gray-500">
+                      JPG, PNG, GIF, or WebP. Max 5MB.
+                    </p>
+                  </div>
+                </div>
+                {photoError && (
+                  <p className="text-red-400 text-sm mt-2">{photoError}</p>
+                )}
               </div>
 
               {/* Bio */}
