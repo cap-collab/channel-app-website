@@ -33,6 +33,14 @@
       ]
     },
     {
+      "collectionGroup": "broadcast-slots",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "broadcastType", "order": "ASCENDING" },
+        { "fieldPath": "endTime", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "tips",
       "queryScope": "COLLECTION",
       "fields": [
