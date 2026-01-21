@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { HeaderSearch } from '@/components/HeaderSearch';
 import { AuthModal } from '@/components/AuthModal';
@@ -142,8 +143,41 @@ function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSeek, onA
           {/* DJ names - will wrap below buttons naturally */}
           {archive.djs.length > 0 && (
             <p className="text-gray-400 text-sm">
-              {archive.djs.map(dj => dj.name).join(', ')}
+              {archive.djs.map((dj, index) => (
+                <span key={dj.username || dj.name || index}>
+                  {index > 0 && ', '}
+                  {dj.username ? (
+                    <Link
+                      href={`/dj/${dj.username.replace(/\s+/g, '').toLowerCase()}`}
+                      className="hover:text-white transition-colors"
+                    >
+                      {dj.name}
+                    </Link>
+                  ) : (
+                    dj.name
+                  )}
+                </span>
+              ))}
             </p>
+          )}
+
+          {/* DJ Profile buttons */}
+          {archive.djs.filter(dj => dj.username).length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
+              {archive.djs.filter(dj => dj.username).map((dj) => (
+                <Link
+                  key={dj.username}
+                  href={`/dj/${dj.username!.replace(/\s+/g, '').toLowerCase()}`}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent/10 hover:bg-accent/20 text-accent text-xs transition-colors"
+                  title={`View ${dj.name}'s profile`}
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <span>{archive.djs.filter(dj => dj.username).length > 1 ? dj.name : 'Visit DJ Profile'}</span>
+                </Link>
+              ))}
+            </div>
           )}
 
           <p className="text-gray-500 text-xs hidden sm:block">{formatDate(archive.recordedAt)}</p>

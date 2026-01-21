@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
@@ -14,6 +14,27 @@ import { TipModal } from "@/components/channel/TipModal";
 import { Show } from "@/types";
 import { Archive } from "@/types/broadcast";
 import { getStationById } from "@/lib/stations";
+
+// Helper functions for audio player
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${minutes}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Past show without recording
+interface PastShow {
+  id: string;
+  showName: string;
+  startTime: number;
+  endTime: number;
+  showImageUrl?: string;
+}
 
 interface CustomLink {
   label: string;
@@ -101,8 +122,16 @@ export function DJPublicProfileClient({ username }: Props) {
   // Upcoming broadcasts
   const [upcomingBroadcasts, setUpcomingBroadcasts] = useState<UpcomingShow[]>([]);
 
-  // Past shows (archives)
-  const [pastShows, setPastShows] = useState<Archive[]>([]);
+  // Past recordings (archives with recordings)
+  const [pastRecordings, setPastRecordings] = useState<Archive[]>([]);
+
+  // Past shows (broadcast slots without recordings)
+  const [pastShows, setPastShows] = useState<PastShow[]>([]);
+
+  // Audio player state for recordings
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const [currentTimes, setCurrentTimes] = useState<Record<string, number>>({});
+  const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
 
   // Subscribe state
   const [subscribing, setSubscribing] = useState(false);
@@ -369,16 +398,14 @@ export function DJPublicProfileClient({ username }: Props) {
     fetchUpcomingShows();
   }, [djProfile, allShows]);
 
-  // Fetch past shows (archives) for this DJ
+  // Fetch past shows and recordings for this DJ
   useEffect(() => {
-    async function fetchPastShows() {
+    async function fetchPastShowsAndRecordings() {
       if (!djProfile || !db) return;
       try {
         const slotsRef = collection(db, "broadcast-slots");
-        const slotIds = new Set<string>();
+        const pastSlotsMap = new Map<string, { showName: string; startTime: number; endTime: number; showImageUrl?: string }>();
         const djEmail = djProfile.email?.toLowerCase() || "";
-
-        console.log("[fetchPastShows] Looking for slots with email:", djEmail);
 
         // Query 1: Past slots with root-level djEmail (remote broadcasts)
         const remoteQ = query(
@@ -387,10 +414,17 @@ export function DJPublicProfileClient({ username }: Props) {
           where("djEmail", "==", djEmail)
         );
         const remoteSnapshot = await getDocs(remoteQ);
-        remoteSnapshot.forEach((doc) => slotIds.add(doc.id));
+        remoteSnapshot.forEach((doc) => {
+          const data = doc.data();
+          pastSlotsMap.set(doc.id, {
+            showName: data.showName || "Broadcast",
+            startTime: (data.startTime as Timestamp).toMillis(),
+            endTime: (data.endTime as Timestamp).toMillis(),
+            showImageUrl: data.showImageUrl,
+          });
+        });
 
         // Query 2: Past venue slots (have djSlots array) - filter client-side
-        // Firestore can't query nested array fields, so fetch venue slots and filter
         const venueQ = query(
           slotsRef,
           where("endTime", "<", Timestamp.fromDate(new Date())),
@@ -399,38 +433,60 @@ export function DJPublicProfileClient({ username }: Props) {
         const venueSnapshot = await getDocs(venueQ);
         venueSnapshot.forEach((doc) => {
           const data = doc.data();
-          // Check if any djSlot has matching email
           if (data.djSlots && Array.isArray(data.djSlots)) {
             const hasMatch = data.djSlots.some(
               (slot: { djEmail?: string }) =>
                 slot.djEmail?.toLowerCase() === djEmail
             );
             if (hasMatch) {
-              slotIds.add(doc.id);
+              pastSlotsMap.set(doc.id, {
+                showName: data.showName || "Broadcast",
+                startTime: (data.startTime as Timestamp).toMillis(),
+                endTime: (data.endTime as Timestamp).toMillis(),
+                showImageUrl: data.showImageUrl,
+              });
             }
           }
         });
 
-        console.log("[fetchPastShows] Found slot IDs:", Array.from(slotIds));
-
-        // Fetch archives and filter by matching broadcastSlotId
+        // Fetch archives and find which slots have recordings
         const res = await fetch("/api/archives");
         if (res.ok) {
           const data = await res.json();
           const archives: Archive[] = data.archives || [];
 
-          console.log("[fetchPastShows] Total archives:", archives.length);
+          // Find archives that match this DJ's slots
           const djArchives = archives.filter((archive) =>
-            slotIds.has(archive.broadcastSlotId)
+            pastSlotsMap.has(archive.broadcastSlotId) && archive.recordingUrl
           );
-          console.log("[fetchPastShows] Matched archives:", djArchives.length);
-          setPastShows(djArchives);
+          setPastRecordings(djArchives);
+
+          // Get slot IDs that have recordings
+          const slotsWithRecordings = new Set(djArchives.map(a => a.broadcastSlotId));
+
+          // Shows without recordings = slots that don't have a matching archive
+          const showsWithoutRecordings: PastShow[] = [];
+          pastSlotsMap.forEach((slot, slotId) => {
+            if (!slotsWithRecordings.has(slotId)) {
+              showsWithoutRecordings.push({
+                id: slotId,
+                showName: slot.showName,
+                startTime: slot.startTime,
+                endTime: slot.endTime,
+                showImageUrl: slot.showImageUrl,
+              });
+            }
+          });
+
+          // Sort by most recent first
+          showsWithoutRecordings.sort((a, b) => b.startTime - a.startTime);
+          setPastShows(showsWithoutRecordings);
         }
       } catch (error) {
-        console.error("Error fetching archives:", error);
+        console.error("Error fetching past shows:", error);
       }
     }
-    fetchPastShows();
+    fetchPastShowsAndRecordings();
   }, [djProfile]);
 
   // Subscribe/Unsubscribe handlers
@@ -510,6 +566,48 @@ export function DJPublicProfileClient({ username }: Props) {
   const isShowLive = (broadcast: UpcomingShow): boolean => {
     const now = Date.now();
     return broadcast.startTime <= now && broadcast.endTime > now;
+  };
+
+  // Audio player handlers for past recordings
+  const handlePlayPause = (archiveId: string) => {
+    const audio = audioRefs.current[archiveId];
+    if (!audio) return;
+
+    // Pause any currently playing audio
+    if (playingId && playingId !== archiveId) {
+      const currentAudio = audioRefs.current[playingId];
+      if (currentAudio) {
+        currentAudio.pause();
+      }
+    }
+
+    if (playingId === archiveId) {
+      audio.pause();
+      setPlayingId(null);
+    } else {
+      audio.play();
+      setPlayingId(archiveId);
+    }
+  };
+
+  const handleSeek = (archiveId: string, time: number) => {
+    const audio = audioRefs.current[archiveId];
+    if (audio) {
+      audio.currentTime = time;
+      setCurrentTimes(prev => ({ ...prev, [archiveId]: time }));
+    }
+  };
+
+  const handleTimeUpdate = (archiveId: string) => {
+    const audio = audioRefs.current[archiveId];
+    if (audio) {
+      setCurrentTimes(prev => ({ ...prev, [archiveId]: audio.currentTime }));
+    }
+  };
+
+  const handleEnded = (archiveId: string) => {
+    setPlayingId(null);
+    setCurrentTimes(prev => ({ ...prev, [archiveId]: 0 }));
   };
 
   if (loading) {
@@ -995,23 +1093,123 @@ export function DJPublicProfileClient({ username }: Props) {
             </section>
           )}
 
-          {/* Past Shows / Archives */}
+          {/* Past Recordings (with integrated audio player) */}
+          {pastRecordings.length > 0 && (
+            <section>
+              <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+                Past Recordings
+              </h2>
+              <div className="space-y-3">
+                {pastRecordings.map((archive) => {
+                  const isPlaying = playingId === archive.id;
+                  const currentTime = currentTimes[archive.id] || 0;
+
+                  return (
+                    <div key={archive.id} className="bg-[#1a1a1a] rounded-xl p-4">
+                      {/* Top row: Image, title, link */}
+                      <div className="flex items-start gap-4">
+                        {/* Show Image */}
+                        <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
+                          {archive.showImageUrl ? (
+                            <Image
+                              src={archive.showImageUrl}
+                              alt={archive.showName}
+                              width={64}
+                              height={64}
+                              className="w-full h-full object-cover"
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Title column */}
+                        <div className="flex-1 min-w-0">
+                          <Link href={`/archives/${archive.slug}`} className="hover:underline">
+                            <h3 className="text-white font-semibold">{archive.showName}</h3>
+                          </Link>
+                          <p className="text-gray-500 text-xs">
+                            {new Date(archive.recordedAt).toLocaleDateString("en-US", {
+                              weekday: "short",
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Audio player */}
+                      <div className="mt-3 flex items-center gap-4">
+                        {/* Play/Pause button */}
+                        <button
+                          onClick={() => handlePlayPause(archive.id)}
+                          className="w-12 h-12 rounded-full bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0"
+                        >
+                          {isPlaying ? (
+                            <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 5v14l11-7z" />
+                            </svg>
+                          )}
+                        </button>
+
+                        {/* Progress bar */}
+                        <div className="flex-1">
+                          <input
+                            type="range"
+                            min={0}
+                            max={archive.duration || 100}
+                            value={currentTime}
+                            onChange={(e) => handleSeek(archive.id, parseFloat(e.target.value))}
+                            className="w-full h-1 bg-gray-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+                          />
+                          <div className="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>{formatDuration(Math.floor(currentTime))}</span>
+                            <span>{formatDuration(archive.duration)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Hidden audio element */}
+                      <audio
+                        ref={(el) => { audioRefs.current[archive.id] = el; }}
+                        src={archive.recordingUrl}
+                        preload="none"
+                        onTimeUpdate={() => handleTimeUpdate(archive.id)}
+                        onEnded={() => handleEnded(archive.id)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* Past Shows (without recordings) */}
           {pastShows.length > 0 && (
             <section>
               <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
                 Past Shows
               </h2>
               <div className="bg-[#1a1a1a] rounded-lg divide-y divide-gray-800">
-                {pastShows.map((archive) => (
-                  <Link
-                    key={archive.id}
-                    href={`/archives/${archive.slug}`}
-                    className="p-4 flex gap-3 hover:bg-white/5 transition-colors block"
+                {pastShows.map((show) => (
+                  <div
+                    key={show.id}
+                    className="p-4 flex gap-3"
                   >
-                    {archive.showImageUrl && (
+                    {show.showImageUrl && (
                       <Image
-                        src={archive.showImageUrl}
-                        alt={archive.showName}
+                        src={show.showImageUrl}
+                        alt={show.showName}
                         width={48}
                         height={48}
                         className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
@@ -1019,19 +1217,19 @@ export function DJPublicProfileClient({ username }: Props) {
                       />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-white font-medium">{archive.showName}</p>
+                      <p className="text-white font-medium">{show.showName}</p>
                       <p className="text-gray-400 text-sm">
-                        {new Date(archive.recordedAt).toLocaleDateString("en-US", {
+                        {new Date(show.startTime).toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
                           year: "numeric",
                         })}
                       </p>
                       <p className="text-gray-500 text-xs mt-1">
-                        {Math.floor(archive.duration / 60)} min
+                        {Math.round((show.endTime - show.startTime) / 60000)} min
                       </p>
                     </div>
-                  </Link>
+                  </div>
                 ))}
               </div>
             </section>
