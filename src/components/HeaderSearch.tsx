@@ -9,7 +9,8 @@ import { searchShows } from '@/lib/metadata';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Show } from '@/types';
-import { getStationById, getStationByMetadataKey } from '@/lib/stations';
+import { getStationById, getStationByMetadataKey, STATIONS } from '@/lib/stations';
+import { ExpandedShowCard } from './channel/ExpandedShowCard';
 
 function getStation(stationId: string | undefined) {
   if (!stationId) return undefined;
@@ -62,6 +63,8 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
   const [djPhotos, setDjPhotos] = useState<Record<string, string>>({});
   const [pendingDjs, setPendingDjs] = useState<Array<{ name: string; photoUrl?: string; username: string }>>([]);
   const [registeredDjs, setRegisteredDjs] = useState<Array<{ name: string; photoUrl?: string; username: string }>>([]);
+  const [expandedShow, setExpandedShow] = useState<Show | null>(null);
+  const [togglingExpandedFavorite, setTogglingExpandedFavorite] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -248,6 +251,31 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
     return uniqueDjs.filter(dj => !profileUsernames.has(dj.name.toLowerCase()));
   }, [uniqueDjs, allDjProfiles]);
 
+  // Combined DJs list: DJ profiles + DJs with upcoming shows (no profile)
+  const combinedDjs = useMemo(() => {
+    // Map DJ profiles with hasProfile flag
+    const djsWithProfiles = allDjProfiles.map(dj => ({
+      ...dj,
+      hasProfile: true,
+      firstShow: undefined as Show | undefined,
+    }));
+
+    // Map DJs without profiles but with shows
+    const djsWithoutProfiles = uniqueDjsFiltered.map(dj => {
+      // Find first show for this DJ
+      const firstShow = results.find(show => show.dj?.toLowerCase() === dj.name.toLowerCase());
+      return {
+        name: dj.name,
+        photoUrl: dj.photoUrl || djPhotos[dj.name.toLowerCase()],
+        username: dj.name.toLowerCase().replace(/[\s-]+/g, ''),
+        hasProfile: false,
+        firstShow,
+      };
+    });
+
+    return [...djsWithProfiles, ...djsWithoutProfiles];
+  }, [allDjProfiles, uniqueDjsFiltered, results, djPhotos]);
+
   // Check if query exactly matches a DJ profile name (for hiding watchlist section)
   const queryMatchesDjProfile = useMemo(() => {
     const queryLower = query.trim().toLowerCase();
@@ -303,6 +331,22 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
     await addToWatchlist(djName);
     setAddingDjToWatchlist(null);
   }, [isAuthenticated, onAuthRequired, addToWatchlist]);
+
+  const handleShowClick = useCallback((show: Show) => {
+    setExpandedShow(show);
+  }, []);
+
+  const handleExpandedToggleFavorite = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!expandedShow) return;
+    if (!isAuthenticated) {
+      onAuthRequired?.();
+      return;
+    }
+    setTogglingExpandedFavorite(true);
+    await toggleFavorite(expandedShow);
+    setTogglingExpandedFavorite(false);
+  }, [expandedShow, isAuthenticated, onAuthRequired, toggleFavorite]);
 
   const clearSearch = () => {
     setQuery('');
@@ -411,105 +455,30 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
                 </div>
                 )}
 
-                {/* DJ Profiles Section - shows all DJs with profile pages */}
-                {allDjProfiles.length > 0 && (
+                {/* DJs Section - combines DJ profiles and DJs with upcoming shows */}
+                {combinedDjs.length > 0 && (
                   <div className="p-3 border-b border-gray-800">
                     <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-2 px-1">
-                      DJ Profiles ({allDjProfiles.length})
+                      DJs ({combinedDjs.length})
                     </h3>
                     <div className="space-y-1">
-                      {allDjProfiles.map((dj) => {
+                      {combinedDjs.map((dj) => {
                         const djInWatchlist = isInWatchlist(dj.name);
                         const isAddingThisDj = addingDjToWatchlist === dj.name;
 
-                        return (
-                          <div
-                            key={dj.username}
-                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors"
-                          >
-                            {/* DJ Avatar - clickable link to profile */}
-                            <Link
-                              href={`/dj/${dj.username}`}
-                              onClick={() => setIsOpen(false)}
-                              className="flex items-center gap-3 flex-1 min-w-0"
-                            >
-                              <div className="w-8 h-8 rounded-full bg-gray-700 flex-shrink-0 overflow-hidden flex items-center justify-center">
-                                {dj.photoUrl ? (
-                                  <Image
-                                    src={dj.photoUrl}
-                                    alt={dj.name}
-                                    width={32}
-                                    height={32}
-                                    className="w-full h-full object-cover"
-                                    unoptimized
-                                  />
-                                ) : (
-                                  <span className="text-white text-sm font-medium">
-                                    {dj.name.charAt(0).toUpperCase()}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* DJ name */}
-                              <p className="flex-1 text-white text-sm font-medium truncate">{dj.name}</p>
-                            </Link>
-
-                            {/* Follow button */}
-                            <button
-                              onClick={(e) => handleFollowDj(dj.name, e)}
-                              disabled={isAddingThisDj || djInWatchlist}
-                              className={`p-1.5 rounded transition-colors ${
-                                djInWatchlist
-                                  ? 'text-accent cursor-default'
-                                  : 'text-gray-500 hover:text-white hover:bg-white/10'
-                              } disabled:opacity-50`}
-                              title={djInWatchlist ? `Following ${dj.name}` : `Follow ${dj.name}`}
-                            >
-                              {isAddingThisDj ? (
-                                <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
-                              ) : djInWatchlist ? (
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                                </svg>
-                              ) : (
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                                </svg>
-                              )}
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* DJs from Shows Section - only those not in DJ Profiles */}
-                {uniqueDjsFiltered.length > 0 && (
-                  <div className="p-3 border-b border-gray-800">
-                    <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-2 px-1">
-                      DJs with Upcoming Shows ({uniqueDjsFiltered.length})
-                    </h3>
-                    <div className="space-y-1">
-                      {uniqueDjsFiltered.map((dj) => {
-                        const djInWatchlist = isInWatchlist(dj.name);
-                        const isAddingThisDj = addingDjToWatchlist === dj.name;
-                        const photoUrl = dj.photoUrl || djPhotos[dj.name.toLowerCase()];
-
-                        return (
-                          <div
-                            key={dj.name}
-                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors"
-                          >
-                            {/* DJ Avatar */}
+                        // For DJs with profiles: clicking opens profile page
+                        // For DJs without profiles: clicking opens their first show's expanded card
+                        const content = (
+                          <>
                             <div className="w-8 h-8 rounded-full bg-gray-700 flex-shrink-0 overflow-hidden flex items-center justify-center">
-                              {photoUrl ? (
+                              {dj.photoUrl ? (
                                 <Image
-                                  src={photoUrl}
+                                  src={dj.photoUrl}
                                   alt={dj.name}
                                   width={32}
                                   height={32}
                                   className="w-full h-full object-cover"
+                                  unoptimized
                                 />
                               ) : (
                                 <span className="text-white text-sm font-medium">
@@ -517,9 +486,35 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
                                 </span>
                               )}
                             </div>
-
-                            {/* DJ name */}
                             <p className="flex-1 text-white text-sm font-medium truncate">{dj.name}</p>
+                          </>
+                        );
+
+                        return (
+                          <div
+                            key={dj.username}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors"
+                          >
+                            {dj.hasProfile ? (
+                              <Link
+                                href={`/dj/${dj.username}`}
+                                onClick={() => setIsOpen(false)}
+                                className="flex items-center gap-3 flex-1 min-w-0"
+                              >
+                                {content}
+                              </Link>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  if (dj.firstShow) {
+                                    handleShowClick(dj.firstShow);
+                                  }
+                                }}
+                                className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                              >
+                                {content}
+                              </button>
+                            )}
 
                             {/* Follow button */}
                             <button
@@ -567,7 +562,8 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
                         return (
                           <div
                             key={show.id}
-                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors"
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                            onClick={() => handleShowClick(show)}
                           >
                             {/* Station accent bar */}
                             <div
@@ -638,6 +634,30 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
           </div>
         </>
       )}
+
+      {/* Expanded Show Card */}
+      {expandedShow && (() => {
+        const station = getStation(expandedShow.stationId) || STATIONS[0];
+        const now = new Date();
+        const startDate = new Date(expandedShow.startTime);
+        const endDate = new Date(expandedShow.endTime);
+        const isLive = now >= startDate && now <= endDate;
+
+        return (
+          <ExpandedShowCard
+            show={expandedShow}
+            station={station}
+            isLive={isLive}
+            onClose={() => setExpandedShow(null)}
+            isFavorited={isShowFavorited(expandedShow)}
+            isTogglingFavorite={togglingExpandedFavorite}
+            onToggleFavorite={handleExpandedToggleFavorite}
+            canTip={!!expandedShow.djUserId}
+            isAuthenticated={isAuthenticated}
+            timeDisplay={formatShowTime(expandedShow.startTime)}
+          />
+        );
+      })()}
     </div>
   );
 }
