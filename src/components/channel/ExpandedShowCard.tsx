@@ -94,7 +94,7 @@ export function ExpandedShowCard({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/80 z-40"
+        className="fixed inset-0 bg-black/80 z-[100]"
         onClick={(e) => {
           e.stopPropagation();
           onClose();
@@ -102,7 +102,7 @@ export function ExpandedShowCard({
       />
       {/* Popup */}
       <div
-        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-[#121212] border border-gray-700 rounded-xl p-5 max-w-md w-[90vw] shadow-2xl"
+        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[101] bg-[#121212] border border-gray-700 rounded-xl p-5 max-w-md w-[90vw] max-h-[85vh] overflow-y-auto shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top right: Favorite button + Close button */}
