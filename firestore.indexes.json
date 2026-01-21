@@ -1,6 +1,14 @@
 {
   "indexes": [
     {
+      "collectionGroup": "pending-dj-profiles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "chatUsernameNormalized", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "broadcast-slots",
       "queryScope": "COLLECTION",
       "fields": [

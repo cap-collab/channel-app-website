@@ -131,16 +131,20 @@ export function DJPublicProfileClient({ username }: Props) {
 
         if (snapshot.empty) {
           // User not found - check for pending DJ profile
+          // Query by username only to avoid composite index requirement, then filter client-side
           const pendingRef = collection(db, "pending-dj-profiles");
           const pendingQ = query(
             pendingRef,
-            where("chatUsernameNormalized", "==", normalized),
-            where("status", "==", "pending")
+            where("chatUsernameNormalized", "==", normalized)
           );
           const pendingSnapshot = await getDocs(pendingQ);
 
-          if (!pendingSnapshot.empty) {
-            const pendingDoc = pendingSnapshot.docs[0];
+          // Find the first pending profile (filter by status client-side)
+          const pendingDoc = pendingSnapshot.docs.find(
+            (doc) => doc.data().status === "pending"
+          );
+
+          if (pendingDoc) {
             const pendingData = pendingDoc.data();
             setDjProfile({
               chatUsername: pendingData.chatUsername,
