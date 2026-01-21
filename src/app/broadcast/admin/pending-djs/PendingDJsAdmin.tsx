@@ -68,39 +68,61 @@ export function PendingDJsAdmin() {
 
   // Fetch existing pending profiles
   const fetchPendingProfiles = useCallback(async () => {
-    if (!db) return;
+    console.log('[pending-djs] fetchPendingProfiles called, db:', db ? 'initialized' : 'null');
+    if (!db) {
+      console.log('[pending-djs] No db available');
+      setError('Database not initialized. Check Firebase configuration.');
+      setLoadingProfiles(false);
+      return;
+    }
     try {
+      console.log('[pending-djs] Creating collection reference...');
       const pendingRef = collection(db, 'pending-dj-profiles');
-      // Simple query without orderBy to avoid needing a composite index
-      const q = query(pendingRef, where('status', '==', 'pending'));
-      const snapshot = await getDocs(q);
+      console.log('[pending-djs] Collection ref created, fetching docs...');
+
+      // Fetch all documents and filter client-side to avoid any index issues
+      const snapshot = await getDocs(pendingRef);
+      console.log('[pending-djs] Snapshot received, total documents:', snapshot.size, 'empty:', snapshot.empty);
 
       const profiles: PendingProfile[] = [];
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
-        profiles.push({
-          id: docSnap.id,
-          email: data.email,
-          chatUsername: data.chatUsername,
-          chatUsernameNormalized: data.chatUsernameNormalized,
-          djProfile: data.djProfile || {},
-          status: data.status,
-          createdAt: data.createdAt?.toDate() || new Date(),
-        });
+        console.log('[pending-djs] Document:', docSnap.id, 'data:', JSON.stringify(data));
+        // Only include pending profiles
+        if (data.status === 'pending') {
+          profiles.push({
+            id: docSnap.id,
+            email: data.email,
+            chatUsername: data.chatUsername,
+            chatUsernameNormalized: data.chatUsernameNormalized,
+            djProfile: data.djProfile || {},
+            status: data.status,
+            createdAt: data.createdAt?.toDate() || new Date(),
+          });
+        }
       });
+      console.log('[pending-djs] Filtered pending profiles:', profiles.length);
       // Sort client-side by createdAt descending
       profiles.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
       setPendingProfiles(profiles);
-    } catch (err) {
-      console.error('Error fetching pending profiles:', err);
+    } catch (err: unknown) {
+      console.error('[pending-djs] Error fetching pending profiles:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error('[pending-djs] Error message:', errorMessage);
+      setError(`Failed to load pending profiles: ${errorMessage}`);
     } finally {
       setLoadingProfiles(false);
     }
   }, []);
 
   useEffect(() => {
+    console.log('[pending-djs] useEffect triggered - isAuthenticated:', isAuthenticated, 'hasBroadcasterAccess:', hasBroadcasterAccess);
     if (isAuthenticated && hasBroadcasterAccess) {
+      console.log('[pending-djs] Conditions met, calling fetchPendingProfiles');
       fetchPendingProfiles();
+    } else {
+      console.log('[pending-djs] Conditions NOT met, not fetching');
+      setLoadingProfiles(false);
     }
   }, [isAuthenticated, hasBroadcasterAccess, fetchPendingProfiles]);
 
