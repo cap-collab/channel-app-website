@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import Image from 'next/image';
 import { collection, query as fbQuery, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -59,6 +60,8 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
   const [addingWatchlistForQuery, setAddingWatchlistForQuery] = useState(false);
   const [addingDjToWatchlist, setAddingDjToWatchlist] = useState<string | null>(null);
   const [djPhotos, setDjPhotos] = useState<Record<string, string>>({});
+  const [pendingDjs, setPendingDjs] = useState<Array<{ name: string; photoUrl?: string; username: string }>>([]);
+  const [registeredDjs, setRegisteredDjs] = useState<Array<{ name: string; photoUrl?: string; username: string }>>([]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -83,6 +86,80 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
         setResults([]);
       } finally {
         setIsLoading(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Search pending DJ profiles and registered DJ profiles
+  useEffect(() => {
+    if (!query.trim() || !db) {
+      setPendingDjs([]);
+      setRegisteredDjs([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      if (!db) return;
+      const queryLower = query.toLowerCase();
+
+      // Search pending DJ profiles
+      try {
+        const pendingRef = collection(db, 'pending-dj-profiles');
+        const pendingQ = fbQuery(pendingRef, where('status', '==', 'pending'));
+        const snapshot = await getDocs(pendingQ);
+
+        const matchingPendingDjs: Array<{ name: string; photoUrl?: string; username: string }> = [];
+
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          const username = data.chatUsername || '';
+          if (username.toLowerCase().includes(queryLower)) {
+            matchingPendingDjs.push({
+              name: username,
+              photoUrl: data.djProfile?.photoUrl || undefined,
+              username: data.chatUsernameNormalized || username.toLowerCase(),
+            });
+          }
+        });
+
+        setPendingDjs(matchingPendingDjs.slice(0, 5));
+      } catch (error) {
+        console.error('Error searching pending DJs:', error);
+        setPendingDjs([]);
+      }
+
+      // Search registered DJ profiles (users with DJ role or djProfile)
+      try {
+        const usersRef = collection(db, 'users');
+        // Search users who have role 'dj' or djProfile
+        const djRoleQ = fbQuery(usersRef, where('role', '==', 'dj'));
+        const djRoleSnapshot = await getDocs(djRoleQ);
+
+        const matchingRegisteredDjs: Array<{ name: string; photoUrl?: string; username: string }> = [];
+        const seenUsernames = new Set<string>();
+
+        djRoleSnapshot.forEach((doc) => {
+          const data = doc.data();
+          const username = data.chatUsername || data.displayName || '';
+          const normalizedUsername = data.chatUsernameNormalized || username.replace(/[\s-]+/g, '').toLowerCase();
+
+          // Check if username matches query
+          if (username.toLowerCase().includes(queryLower) && !seenUsernames.has(normalizedUsername)) {
+            seenUsernames.add(normalizedUsername);
+            matchingRegisteredDjs.push({
+              name: username,
+              photoUrl: data.djProfile?.photoUrl || undefined,
+              username: normalizedUsername,
+            });
+          }
+        });
+
+        setRegisteredDjs(matchingRegisteredDjs.slice(0, 10));
+      } catch (error) {
+        console.error('Error searching registered DJs:', error);
+        setRegisteredDjs([]);
       }
     }, 300);
 
@@ -141,6 +218,41 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
     }
     return Array.from(djMap.values()).slice(0, 10);
   }, [results]);
+
+  // Combine all DJ profiles (pending + registered) - deduplicated
+  const allDjProfiles = useMemo(() => {
+    const djMap = new Map<string, { name: string; photoUrl?: string; username: string }>();
+
+    // Add registered DJs first (they take priority)
+    for (const dj of registeredDjs) {
+      const key = dj.username.toLowerCase();
+      if (!djMap.has(key)) {
+        djMap.set(key, dj);
+      }
+    }
+
+    // Add pending DJs (won't overwrite registered ones)
+    for (const dj of pendingDjs) {
+      const key = dj.username.toLowerCase();
+      if (!djMap.has(key)) {
+        djMap.set(key, dj);
+      }
+    }
+
+    return Array.from(djMap.values()).slice(0, 10);
+  }, [pendingDjs, registeredDjs]);
+
+  // Filter out DJs with upcoming shows that already appear in DJ profiles
+  const uniqueDjsFiltered = useMemo(() => {
+    const profileUsernames = new Set(allDjProfiles.map(dj => dj.name.toLowerCase()));
+    return uniqueDjs.filter(dj => !profileUsernames.has(dj.name.toLowerCase()));
+  }, [uniqueDjs, allDjProfiles]);
+
+  // Check if query exactly matches a DJ profile name (for hiding watchlist section)
+  const queryMatchesDjProfile = useMemo(() => {
+    const queryLower = query.trim().toLowerCase();
+    return allDjProfiles.some(dj => dj.name.toLowerCase() === queryLower);
+  }, [query, allDjProfiles]);
 
   // Fetch DJ photos from Firebase profiles
   useEffect(() => {
@@ -260,7 +372,8 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
               </div>
             ) : (
               <>
-                {/* Add to Watchlist Section - always show when there's a query */}
+                {/* Add to Watchlist Section - hide if query exactly matches a DJ profile */}
+                {!queryMatchesDjProfile && (
                 <div className="p-3 border-b border-gray-800">
                   <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-2 px-1">
                     Add to Watchlist
@@ -296,15 +409,89 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
                     </div>
                   </div>
                 </div>
+                )}
 
-                {/* DJs Section */}
-                {uniqueDjs.length > 0 && (
+                {/* DJ Profiles Section - shows all DJs with profile pages */}
+                {allDjProfiles.length > 0 && (
                   <div className="p-3 border-b border-gray-800">
                     <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-2 px-1">
-                      DJs ({uniqueDjs.length})
+                      DJ Profiles ({allDjProfiles.length})
                     </h3>
                     <div className="space-y-1">
-                      {uniqueDjs.map((dj) => {
+                      {allDjProfiles.map((dj) => {
+                        const djInWatchlist = isInWatchlist(dj.name);
+                        const isAddingThisDj = addingDjToWatchlist === dj.name;
+
+                        return (
+                          <div
+                            key={dj.username}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors"
+                          >
+                            {/* DJ Avatar - clickable link to profile */}
+                            <Link
+                              href={`/dj/${dj.username}`}
+                              onClick={() => setIsOpen(false)}
+                              className="flex items-center gap-3 flex-1 min-w-0"
+                            >
+                              <div className="w-8 h-8 rounded-full bg-gray-700 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                                {dj.photoUrl ? (
+                                  <Image
+                                    src={dj.photoUrl}
+                                    alt={dj.name}
+                                    width={32}
+                                    height={32}
+                                    className="w-full h-full object-cover"
+                                    unoptimized
+                                  />
+                                ) : (
+                                  <span className="text-white text-sm font-medium">
+                                    {dj.name.charAt(0).toUpperCase()}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* DJ name */}
+                              <p className="flex-1 text-white text-sm font-medium truncate">{dj.name}</p>
+                            </Link>
+
+                            {/* Follow button */}
+                            <button
+                              onClick={(e) => handleFollowDj(dj.name, e)}
+                              disabled={isAddingThisDj || djInWatchlist}
+                              className={`p-1.5 rounded transition-colors ${
+                                djInWatchlist
+                                  ? 'text-accent cursor-default'
+                                  : 'text-gray-500 hover:text-white hover:bg-white/10'
+                              } disabled:opacity-50`}
+                              title={djInWatchlist ? `Following ${dj.name}` : `Follow ${dj.name}`}
+                            >
+                              {isAddingThisDj ? (
+                                <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
+                              ) : djInWatchlist ? (
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                                </svg>
+                              ) : (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* DJs from Shows Section - only those not in DJ Profiles */}
+                {uniqueDjsFiltered.length > 0 && (
+                  <div className="p-3 border-b border-gray-800">
+                    <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-2 px-1">
+                      DJs with Upcoming Shows ({uniqueDjsFiltered.length})
+                    </h3>
+                    <div className="space-y-1">
+                      {uniqueDjsFiltered.map((dj) => {
                         const djInWatchlist = isInWatchlist(dj.name);
                         const isAddingThisDj = addingDjToWatchlist === dj.name;
                         const photoUrl = dj.photoUrl || djPhotos[dj.name.toLowerCase()];
