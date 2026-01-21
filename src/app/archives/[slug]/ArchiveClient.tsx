@@ -181,31 +181,49 @@ export function ArchiveClient({ slug }: Props) {
               <p className="text-gray-500 text-xs mt-1">{formatDate(archive.recordedAt)}</p>
             </div>
 
-            {/* Copy link button */}
-            <button
-              onClick={handleShare}
-              className={`flex-shrink-0 px-4 h-10 rounded-full flex items-center justify-center gap-2 transition-all ${
-                copied
-                  ? 'bg-green-500/20 text-green-400'
-                  : 'bg-white/10 hover:bg-white/20 text-white'
-              }`}
-            >
-              {copied ? (
-                <>
+            {/* Action buttons */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* DJ Profile button(s) */}
+              {archive.djs.filter(dj => dj.username).map((dj) => (
+                <Link
+                  key={dj.username}
+                  href={`/dj/${dj.username!.replace(/\s+/g, '').toLowerCase()}`}
+                  className="px-4 h-10 rounded-full flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white transition-all"
+                  title={`View ${dj.name}'s profile`}
+                >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
-                  <span className="text-sm font-medium">Copied!</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  <span className="text-sm font-medium">Copy link</span>
-                </>
-              )}
-            </button>
+                  <span className="text-sm font-medium">{archive.djs.filter(dj => dj.username).length > 1 ? dj.name : 'DJ Profile'}</span>
+                </Link>
+              ))}
+
+              {/* Copy link button */}
+              <button
+                onClick={handleShare}
+                className={`px-4 h-10 rounded-full flex items-center justify-center gap-2 transition-all ${
+                  copied
+                    ? 'bg-green-500/20 text-green-400'
+                    : 'bg-white/10 hover:bg-white/20 text-white'
+                }`}
+              >
+                {copied ? (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-sm font-medium">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    <span className="text-sm font-medium">Copy link</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* DJ names - below the top row so they can expand freely */}
