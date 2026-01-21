@@ -376,7 +376,9 @@ export function DJPublicProfileClient({ username }: Props) {
       try {
         const slotsRef = collection(db, "broadcast-slots");
         const slotIds = new Set<string>();
-        const djEmail = djProfile.email.toLowerCase();
+        const djEmail = djProfile.email?.toLowerCase() || "";
+
+        console.log("[fetchPastShows] Looking for slots with email:", djEmail);
 
         // Query 1: Past slots with root-level djEmail (remote broadcasts)
         const remoteQ = query(
@@ -409,15 +411,19 @@ export function DJPublicProfileClient({ username }: Props) {
           }
         });
 
+        console.log("[fetchPastShows] Found slot IDs:", Array.from(slotIds));
+
         // Fetch archives and filter by matching broadcastSlotId
         const res = await fetch("/api/archives");
         if (res.ok) {
           const data = await res.json();
           const archives: Archive[] = data.archives || [];
 
+          console.log("[fetchPastShows] Total archives:", archives.length);
           const djArchives = archives.filter((archive) =>
             slotIds.has(archive.broadcastSlotId)
           );
+          console.log("[fetchPastShows] Matched archives:", djArchives.length);
           setPastShows(djArchives);
         }
       } catch (error) {
