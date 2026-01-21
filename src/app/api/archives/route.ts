@@ -4,6 +4,14 @@ import { ArchiveSerialized } from '@/types/broadcast';
 
 export const dynamic = 'force-dynamic';
 
+interface DJInfo {
+  name: string;
+  username?: string;
+  photoUrl?: string;
+  userId?: string;
+  email?: string;
+}
+
 export async function GET() {
   try {
     const db = getAdminDb();
@@ -15,14 +23,64 @@ export async function GET() {
     // Get all archives without orderBy to avoid index requirement
     const snapshot = await archivesRef.get();
 
-    const archives: ArchiveSerialized[] = snapshot.docs.map((doc) => {
+    // Collect all DJ emails that don't have a username
+    const emailsNeedingLookup = new Set<string>();
+    const rawArchives = snapshot.docs.map((doc) => {
       const data = doc.data();
+      const djs: DJInfo[] = data.djs || [];
+
+      // Find DJs without username but with email
+      djs.forEach((dj) => {
+        if (!dj.username && dj.email) {
+          emailsNeedingLookup.add(dj.email.toLowerCase());
+        }
+      });
+
       return {
         id: doc.id,
+        data,
+        djs,
+      };
+    });
+
+    // Look up pending profiles for DJs without usernames
+    const emailToUsername = new Map<string, string>();
+    if (emailsNeedingLookup.size > 0) {
+      const pendingProfilesRef = db.collection('pending-dj-profiles');
+      const pendingSnapshot = await pendingProfilesRef
+        .where('status', '==', 'pending')
+        .get();
+
+      pendingSnapshot.docs.forEach((doc) => {
+        const profile = doc.data();
+        if (profile.email && profile.chatUsernameNormalized) {
+          const email = profile.email.toLowerCase();
+          if (emailsNeedingLookup.has(email)) {
+            emailToUsername.set(email, profile.chatUsername);
+          }
+        }
+      });
+    }
+
+    // Build final archives with enriched DJ data
+    const archives: ArchiveSerialized[] = rawArchives.map(({ id, data, djs }) => {
+      // Enrich DJs with pending profile usernames
+      const enrichedDjs = djs.map((dj) => {
+        if (!dj.username && dj.email) {
+          const username = emailToUsername.get(dj.email.toLowerCase());
+          if (username) {
+            return { ...dj, username };
+          }
+        }
+        return dj;
+      });
+
+      return {
+        id,
         slug: data.slug,
         broadcastSlotId: data.broadcastSlotId,
         showName: data.showName,
-        djs: data.djs || [],
+        djs: enrichedDjs,
         recordingUrl: data.recordingUrl,
         duration: data.duration || 0,
         recordedAt: data.recordedAt,
