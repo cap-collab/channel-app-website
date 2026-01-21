@@ -46,6 +46,16 @@ function isValidUsername(username: string): boolean {
   return /^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(trimmed);
 }
 
+interface CustomLink {
+  label: string;
+  url: string;
+}
+
+interface IrlShow {
+  url: string;
+  date: string;
+}
+
 interface DJProfileData {
   bio?: string | null;
   photoUrl?: string | null;
@@ -61,6 +71,12 @@ interface DJProfileData {
     bookingEmail?: string;
     mixcloud?: string;
     residentAdvisor?: string;
+    customLinks?: CustomLink[];
+  };
+  irlShows?: IrlShow[];
+  myRecs?: {
+    bandcampLinks?: string[];
+    eventLinks?: string[];
   };
 }
 
@@ -160,6 +176,8 @@ export async function POST(request: NextRequest) {
           promoText: djProfile?.promoText || null,
           promoHyperlink: djProfile?.promoHyperlink || null,
           socialLinks: djProfile?.socialLinks || {},
+          irlShows: djProfile?.irlShows || [],
+          myRecs: djProfile?.myRecs || {},
         },
         status: 'pending',
         createdAt: FieldValue.serverTimestamp(),
@@ -245,6 +263,8 @@ export async function PATCH(request: NextRequest) {
         promoText: djProfile?.promoText || null,
         promoHyperlink: djProfile?.promoHyperlink || null,
         socialLinks: djProfile?.socialLinks || {},
+        irlShows: djProfile?.irlShows || [],
+        myRecs: djProfile?.myRecs || {},
       },
     });
 
