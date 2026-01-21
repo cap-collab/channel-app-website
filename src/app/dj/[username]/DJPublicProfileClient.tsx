@@ -123,50 +123,54 @@ export function DJPublicProfileClient({ username }: Props) {
       try {
         // Normalize the URL param: lowercase, remove spaces/hyphens
         const normalized = decodeURIComponent(username).replace(/[\s-]+/g, "").toLowerCase();
-        const usersRef = collection(db, "users");
 
-        // Query by normalized username (single query)
-        const q = query(usersRef, where("chatUsernameNormalized", "==", normalized));
+        // Check pending-dj-profiles FIRST (has public read, avoids permission issues)
+        const pendingRef = collection(db, "pending-dj-profiles");
+        const pendingQ = query(
+          pendingRef,
+          where("chatUsernameNormalized", "==", normalized)
+        );
+        const pendingSnapshot = await getDocs(pendingQ);
+
+        // Find the first pending profile (filter by status client-side)
+        const pendingDoc = pendingSnapshot.docs.find(
+          (doc) => doc.data().status === "pending"
+        );
+
+        if (pendingDoc) {
+          const pendingData = pendingDoc.data();
+          setDjProfile({
+            chatUsername: pendingData.chatUsername,
+            email: pendingData.email || "",
+            djProfile: {
+              bio: pendingData.djProfile?.bio || null,
+              photoUrl: pendingData.djProfile?.photoUrl || null,
+              location: pendingData.djProfile?.location || null,
+              genres: pendingData.djProfile?.genres || [],
+              promoText: pendingData.djProfile?.promoText || null,
+              promoHyperlink: pendingData.djProfile?.promoHyperlink || null,
+              socialLinks: pendingData.djProfile?.socialLinks || {},
+              stripeAccountId: null,
+              irlShows: pendingData.djProfile?.irlShows || [],
+              myRecs: pendingData.djProfile?.myRecs || {},
+            },
+            uid: `pending-${pendingDoc.id}`,
+          });
+          setLoading(false);
+          return;
+        }
+
+        // No pending profile found - check users collection
+        // Query with role filter so Firestore rules can validate access
+        const usersRef = collection(db, "users");
+        const q = query(
+          usersRef,
+          where("chatUsernameNormalized", "==", normalized),
+          where("role", "in", ["dj", "broadcaster", "admin"])
+        );
         const snapshot = await getDocs(q);
 
         if (snapshot.empty) {
-          // User not found - check for pending DJ profile
-          // Query by username only to avoid composite index requirement, then filter client-side
-          const pendingRef = collection(db, "pending-dj-profiles");
-          const pendingQ = query(
-            pendingRef,
-            where("chatUsernameNormalized", "==", normalized)
-          );
-          const pendingSnapshot = await getDocs(pendingQ);
-
-          // Find the first pending profile (filter by status client-side)
-          const pendingDoc = pendingSnapshot.docs.find(
-            (doc) => doc.data().status === "pending"
-          );
-
-          if (pendingDoc) {
-            const pendingData = pendingDoc.data();
-            setDjProfile({
-              chatUsername: pendingData.chatUsername,
-              email: pendingData.email || "",
-              djProfile: {
-                bio: pendingData.djProfile?.bio || null,
-                photoUrl: pendingData.djProfile?.photoUrl || null,
-                location: pendingData.djProfile?.location || null,
-                genres: pendingData.djProfile?.genres || [],
-                promoText: pendingData.djProfile?.promoText || null,
-                promoHyperlink: pendingData.djProfile?.promoHyperlink || null,
-                socialLinks: pendingData.djProfile?.socialLinks || {},
-                stripeAccountId: null,
-                irlShows: [],
-                myRecs: {},
-              },
-              uid: `pending-${pendingDoc.id}`,
-            });
-            setLoading(false);
-            return;
-          }
-
           setNotFound(true);
           setLoading(false);
           return;
@@ -174,14 +178,6 @@ export function DJPublicProfileClient({ username }: Props) {
 
         const doc = snapshot.docs[0];
         const data = doc.data();
-
-        // Check if user has DJ role
-        const userRole = data.role;
-        if (userRole !== 'dj' && userRole !== 'broadcaster' && userRole !== 'admin') {
-          setNotFound(true);
-          setLoading(false);
-          return;
-        }
 
         setDjProfile({
           chatUsername: data.chatUsername,
