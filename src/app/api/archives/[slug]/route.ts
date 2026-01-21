@@ -4,6 +4,14 @@ import { ArchiveSerialized } from '@/types/broadcast';
 
 export const dynamic = 'force-dynamic';
 
+interface DJInfo {
+  name: string;
+  username?: string;
+  photoUrl?: string;
+  userId?: string;
+  email?: string;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
@@ -28,13 +36,92 @@ export async function GET(
 
     const doc = snapshot.docs[0];
     const data = doc.data();
+    let djs: DJInfo[] = data.djs || [];
+
+    // Check if any DJ is missing both username AND email (need to look up slot)
+    const needsSlotLookup = djs.some((dj) => !dj.username && !dj.email);
+
+    // Look up broadcast slot to get DJ emails if needed
+    if (needsSlotLookup && data.broadcastSlotId) {
+      const slotDoc = await db.collection('broadcast-slots').doc(data.broadcastSlotId).get();
+      if (slotDoc.exists) {
+        const slotData = slotDoc.data();
+        if (slotData) {
+          const djNameToEmail = new Map<string, string>();
+
+          // Check djSlots array (venue broadcasts)
+          if (slotData.djSlots && Array.isArray(slotData.djSlots)) {
+            for (const slot of slotData.djSlots) {
+              if (slot.djName && slot.djEmail) {
+                djNameToEmail.set(slot.djName.toLowerCase(), slot.djEmail.toLowerCase());
+              }
+            }
+          }
+
+          // Check top-level DJ info (remote broadcasts)
+          if (slotData.djEmail && (slotData.djName || slotData.liveDjUsername)) {
+            const name = (slotData.djName || slotData.liveDjUsername) as string;
+            djNameToEmail.set(name.toLowerCase(), (slotData.djEmail as string).toLowerCase());
+          }
+
+          // Enrich DJs with emails from slot
+          djs = djs.map((dj) => {
+            if (!dj.email && !dj.username) {
+              const email = djNameToEmail.get(dj.name.toLowerCase());
+              if (email) {
+                return { ...dj, email };
+              }
+            }
+            return dj;
+          });
+        }
+      }
+    }
+
+    // Collect emails needing pending profile lookup
+    const emailsNeedingLookup = new Set<string>();
+    djs.forEach((dj) => {
+      if (!dj.username && dj.email) {
+        emailsNeedingLookup.add(dj.email.toLowerCase());
+      }
+    });
+
+    // Look up pending profiles for DJs without usernames
+    if (emailsNeedingLookup.size > 0) {
+      const pendingProfilesRef = db.collection('pending-dj-profiles');
+      const pendingSnapshot = await pendingProfilesRef
+        .where('status', '==', 'pending')
+        .get();
+
+      const emailToUsername = new Map<string, string>();
+      pendingSnapshot.docs.forEach((pendingDoc) => {
+        const profile = pendingDoc.data();
+        if (profile.email && profile.chatUsernameNormalized) {
+          const email = profile.email.toLowerCase();
+          if (emailsNeedingLookup.has(email)) {
+            emailToUsername.set(email, profile.chatUsername);
+          }
+        }
+      });
+
+      // Enrich DJs with pending profile usernames
+      djs = djs.map((dj) => {
+        if (!dj.username && dj.email) {
+          const username = emailToUsername.get(dj.email.toLowerCase());
+          if (username) {
+            return { ...dj, username };
+          }
+        }
+        return dj;
+      });
+    }
 
     const archive: ArchiveSerialized = {
       id: doc.id,
       slug: data.slug,
       broadcastSlotId: data.broadcastSlotId,
       showName: data.showName,
-      djs: data.djs || [],
+      djs,
       recordingUrl: data.recordingUrl,
       duration: data.duration || 0,
       recordedAt: data.recordedAt,

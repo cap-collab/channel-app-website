@@ -33,6 +33,7 @@ function extractDJs(slotData: Record<string, unknown>): ArchiveDJ[] {
               username: profile.username || undefined,
               userId: profile.userId || undefined,
               photoUrl: profile.photoUrl || undefined,
+              email: profile.email || undefined,
             }));
           }
         }
@@ -43,6 +44,7 @@ function extractDJs(slotData: Record<string, unknown>): ArchiveDJ[] {
           username: slot.djUsername || undefined,
           userId: slot.djUserId || slot.liveDjUserId || undefined,
           photoUrl: slot.djPhotoUrl || undefined,
+          email: slot.djEmail || undefined,
         }));
       }
     }
@@ -57,6 +59,7 @@ function extractDJs(slotData: Record<string, unknown>): ArchiveDJ[] {
         username: (slotData.djUsername || slotData.liveDjUsername) as string | undefined,
         userId: (slotData.liveDjUserId || slotData.djUserId) as string | undefined,
         photoUrl: slotData.liveDjPhotoUrl as string | undefined,
+        email: slotData.djEmail as string | undefined,
       }));
     }
   }
