@@ -1147,69 +1147,6 @@ export function DJPublicProfileClient({ username }: Props) {
             </section>
           )}
 
-          {/* F) My Recs */}
-          {profile.djProfile.myRecs && (
-            (profile.djProfile.myRecs.bandcampLinks && profile.djProfile.myRecs.bandcampLinks.length > 0) ||
-            (profile.djProfile.myRecs.eventLinks && profile.djProfile.myRecs.eventLinks.length > 0)
-          ) && (
-            <section>
-              <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-                My Recs
-              </h2>
-              <div className="space-y-4">
-                {/* Bandcamp Recs */}
-                {profile.djProfile.myRecs?.bandcampLinks && profile.djProfile.myRecs.bandcampLinks.length > 0 && (
-                  <div className="bg-[#1a1a1a] rounded-lg p-4">
-                    <h3 className="text-gray-400 text-sm mb-3 flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M0 18.75l7.437-13.5H24l-7.438 13.5H0z"/>
-                      </svg>
-                      Bandcamp
-                    </h3>
-                    <div className="space-y-2">
-                      {profile.djProfile.myRecs.bandcampLinks.map((url, i) => (
-                        <a
-                          key={i}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block text-blue-400 hover:text-blue-300 text-sm transition-colors truncate"
-                        >
-                          {url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Event Recs */}
-                {profile.djProfile.myRecs?.eventLinks && profile.djProfile.myRecs.eventLinks.length > 0 && (
-                  <div className="bg-[#1a1a1a] rounded-lg p-4">
-                    <h3 className="text-gray-400 text-sm mb-3 flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      Events
-                    </h3>
-                    <div className="space-y-2">
-                      {profile.djProfile.myRecs.eventLinks.map((url, i) => (
-                        <a
-                          key={i}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block text-blue-400 hover:text-blue-300 text-sm transition-colors truncate"
-                        >
-                          {url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </section>
-          )}
-
           {/* Past Recordings (with integrated audio player) */}
           {pastRecordings.length > 0 && (
             <section>
@@ -1307,6 +1244,69 @@ export function DJPublicProfileClient({ username }: Props) {
                     </div>
                   );
                 })}
+              </div>
+            </section>
+          )}
+
+          {/* F) My Recs */}
+          {profile.djProfile.myRecs && (
+            (profile.djProfile.myRecs.bandcampLinks && profile.djProfile.myRecs.bandcampLinks.length > 0) ||
+            (profile.djProfile.myRecs.eventLinks && profile.djProfile.myRecs.eventLinks.length > 0)
+          ) && (
+            <section>
+              <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+                My Recs
+              </h2>
+              <div className="space-y-4">
+                {/* Bandcamp Recs */}
+                {profile.djProfile.myRecs?.bandcampLinks && profile.djProfile.myRecs.bandcampLinks.length > 0 && (
+                  <div className="bg-[#1a1a1a] rounded-lg p-4">
+                    <h3 className="text-gray-400 text-sm mb-3 flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M0 18.75l7.437-13.5H24l-7.438 13.5H0z"/>
+                      </svg>
+                      Bandcamp
+                    </h3>
+                    <div className="space-y-2">
+                      {profile.djProfile.myRecs.bandcampLinks.map((url, i) => (
+                        <a
+                          key={i}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block text-blue-400 hover:text-blue-300 text-sm transition-colors truncate"
+                        >
+                          {url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Event Recs */}
+                {profile.djProfile.myRecs?.eventLinks && profile.djProfile.myRecs.eventLinks.length > 0 && (
+                  <div className="bg-[#1a1a1a] rounded-lg p-4">
+                    <h3 className="text-gray-400 text-sm mb-3 flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      Events
+                    </h3>
+                    <div className="space-y-2">
+                      {profile.djProfile.myRecs.eventLinks.map((url, i) => (
+                        <a
+                          key={i}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block text-blue-400 hover:text-blue-300 text-sm transition-colors truncate"
+                        >
+                          {url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </section>
           )}
