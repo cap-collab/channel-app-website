@@ -23,6 +23,11 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'media2.ntslive.co.uk',
       },
+      // Subtle Radio Supabase storage
+      {
+        protocol: 'https',
+        hostname: 'pkqpxkyxuaklmztbvryf.supabase.co',
+      },
     ],
   },
 };

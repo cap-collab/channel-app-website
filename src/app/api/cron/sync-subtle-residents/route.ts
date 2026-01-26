@@ -42,6 +42,21 @@ function normalizeForId(name: string): string {
     .replace(/^-|-$/g, "");
 }
 
+// Extract Instagram username from URL or handle
+function extractInstagramUsername(input: string): string {
+  // Remove trailing slashes and query params
+  const cleaned = input.split("?")[0].replace(/\/+$/, "");
+
+  // Match Instagram URL patterns
+  const urlMatch = cleaned.match(/instagram\.com\/([^\/]+)/);
+  if (urlMatch) {
+    return urlMatch[1]; // Return just the username
+  }
+
+  // If it's already just a username (possibly with @)
+  return cleaned.replace(/^@/, "");
+}
+
 export async function GET(request: NextRequest) {
   if (!verifyCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -102,7 +117,7 @@ export async function GET(request: NextRequest) {
 
       // Build social links
       const socialLinks: Record<string, string> = {};
-      if (resident.instagram) socialLinks.instagram = resident.instagram;
+      if (resident.instagram) socialLinks.instagram = extractInstagramUsername(resident.instagram);
       if (resident.soundcloud) socialLinks.soundcloud = resident.soundcloud;
       if (resident.bandcamp) socialLinks.bandcamp = resident.bandcamp;
       if (resident.mixcloud) socialLinks.mixcloud = resident.mixcloud;
