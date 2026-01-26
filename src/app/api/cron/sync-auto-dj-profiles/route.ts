@@ -50,15 +50,43 @@ function extractDublabDJ(showName: string): string | null {
   return null;
 }
 
-// Validate dublab DJ profile (no-space slug)
+// Validate dublab DJ profile using their WordPress API
 async function validateDublabProfile(djName: string): Promise<ProfileData> {
   const slug = toNoSpaceSlug(djName);
-  const url = `https://www.dublab.com/djs/${slug}`;
+  const apiUrl = `https://dublab.wpengine.com/wp-json/lazystate/v1/djs/${slug}`;
+  const publicUrl = `https://www.dublab.com/djs/${slug}`;
 
   try {
-    const res = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(5000) });
+    const res = await fetch(apiUrl, {
+      headers: { "Origin": "https://www.dublab.com" },
+      signal: AbortSignal.timeout(5000),
+    });
     if (res.status === 200) {
-      return { exists: true, validationUrl: url };
+      const data = await res.json();
+      const djData = data[`/djs/${slug}`];
+
+      if (djData && !djData._notfound) {
+        // Extract bio from meta.description (plain text) or strip HTML from content
+        let bio = djData.meta?.description;
+        if (!bio && djData.content) {
+          // Strip HTML tags from content
+          bio = djData.content.replace(/<[^>]+>/g, "").trim();
+        }
+
+        // Extract photo URL from meta.image or files
+        let photoUrl = djData.meta?.image;
+        if (!photoUrl && djData.thumbnail && djData.files?.[djData.thumbnail]) {
+          const file = djData.files[djData.thumbnail];
+          photoUrl = file.sizes?.large || file.sizes?.medium_large || file.url;
+        }
+
+        return {
+          exists: true,
+          validationUrl: publicUrl,
+          bio: bio || undefined,
+          photoUrl: photoUrl || undefined,
+        };
+      }
     }
   } catch {
     // Timeout or network error
