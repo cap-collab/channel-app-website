@@ -46,7 +46,11 @@ export async function GET(request: NextRequest) {
       if (!show.dj) continue;
 
       // Normalize DJ name for document ID
-      const normalized = show.dj.replace(/[\s-]+/g, "").toLowerCase();
+      // Remove spaces, hyphens, and any characters invalid for Firestore doc IDs
+      const normalized = show.dj
+        .replace(/[\s-]+/g, "")
+        .replace(/[\/,&.#$\[\]]/g, "") // Remove Firestore-invalid chars
+        .toLowerCase();
 
       // Skip empty or very short normalized names
       if (normalized.length < 2) continue;
