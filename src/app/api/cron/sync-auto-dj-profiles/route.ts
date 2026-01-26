@@ -413,13 +413,35 @@ export async function GET(request: NextRequest) {
         created++;
         console.log(`[sync-auto-dj-profiles] Created profile for ${data.djName}`);
       } else {
-        // Update existing auto profile
+        // Update existing auto profile - refresh sources and fill in missing data
+        const existingData = existingDoc.data();
+        const existingDjProfile = existingData?.djProfile || {};
+
+        // Only update fields that are currently empty
+        const updatedDjProfile: Record<string, unknown> = {};
+        if (!existingDjProfile.bio && profileData.bio) {
+          updatedDjProfile["djProfile.bio"] = profileData.bio;
+        }
+        if (!existingDjProfile.photoUrl && profileData.photoUrl) {
+          updatedDjProfile["djProfile.photoUrl"] = profileData.photoUrl;
+        }
+        if (!existingDjProfile.location && profileData.location) {
+          updatedDjProfile["djProfile.location"] = profileData.location;
+        }
+        if ((!existingDjProfile.genres || existingDjProfile.genres.length === 0) && profileData.genres?.length) {
+          updatedDjProfile["djProfile.genres"] = profileData.genres;
+        }
+        if ((!existingDjProfile.socialLinks || Object.keys(existingDjProfile.socialLinks).length === 0) && profileData.socialLinks) {
+          updatedDjProfile["djProfile.socialLinks"] = profileData.socialLinks;
+        }
+
         await profileRef.update({
           autoSources: data.sources.map((s: AutoSource) => ({
             stationId: s.stationId,
             showName: s.showName,
             lastSeen: s.lastSeen,
           })),
+          ...updatedDjProfile,
           updatedAt: FieldValue.serverTimestamp(),
         });
         updated++;
