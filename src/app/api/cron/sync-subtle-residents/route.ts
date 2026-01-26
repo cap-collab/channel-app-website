@@ -131,11 +131,11 @@ export async function GET(request: NextRequest) {
         }
 
         batch.update(docRef, {
-          bio: resident.description || null,
-          photoUrl: resident.image_url || null,
-          location: location,
-          genres: genres.length > 0 ? genres : null,
-          socialLinks: Object.keys(socialLinks).length > 0 ? socialLinks : null,
+          "djProfile.bio": resident.description || null,
+          "djProfile.photoUrl": resident.image_url || null,
+          "djProfile.location": location,
+          "djProfile.genres": genres.length > 0 ? genres : [],
+          "djProfile.socialLinks": Object.keys(socialLinks).length > 0 ? socialLinks : {},
           validatedFrom: publicUrl,
           updatedAt: now,
         });
@@ -144,18 +144,25 @@ export async function GET(request: NextRequest) {
         // Create new profile
         batch.set(docRef, {
           djName,
+          chatUsername: djName,
+          chatUsernameNormalized: normalizedId,
           normalizedName: djName.toLowerCase(),
           source: "auto",
+          status: "pending",
           autoSources: [{
             stationId: "subtle",
             showName: djName,
             lastSeen: now,
           }],
-          bio: resident.description || null,
-          photoUrl: resident.image_url || null,
-          location: location,
-          genres: genres.length > 0 ? genres : null,
-          socialLinks: Object.keys(socialLinks).length > 0 ? socialLinks : null,
+          djProfile: {
+            bio: resident.description || null,
+            photoUrl: resident.image_url || null,
+            location: location,
+            genres: genres.length > 0 ? genres : [],
+            socialLinks: Object.keys(socialLinks).length > 0 ? socialLinks : {},
+            promoText: null,
+            promoHyperlink: null,
+          },
           validatedFrom: publicUrl,
           createdAt: now,
           updatedAt: now,
