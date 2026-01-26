@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { getAdminDb } from "@/lib/firebase-admin";
+import { headers } from "next/headers";
 import { DJPublicProfileClient } from "./DJPublicProfileClient";
 
 interface Props {
@@ -7,36 +7,20 @@ interface Props {
 }
 
 async function getDJDisplayName(username: string): Promise<string | null> {
-  const adminDb = getAdminDb();
-  if (!adminDb) return null;
-
   try {
-    const normalized = decodeURIComponent(username).replace(/[\s-]+/g, "").toLowerCase();
+    // Get the host from headers to build absolute URL
+    const headersList = await headers();
+    const host = headersList.get("host") || "channel-app.com";
+    const protocol = host.includes("localhost") ? "http" : "https";
 
-    // Check pending-dj-profiles first
-    const pendingSnapshot = await adminDb
-      .collection("pending-dj-profiles")
-      .where("chatUsernameNormalized", "==", normalized)
-      .where("status", "==", "pending")
-      .limit(1)
-      .get();
+    const res = await fetch(`${protocol}://${host}/api/dj/${encodeURIComponent(username)}/metadata`, {
+      cache: "no-store",
+    });
 
-    if (!pendingSnapshot.empty) {
-      return pendingSnapshot.docs[0].data().chatUsername || null;
+    if (res.ok) {
+      const data = await res.json();
+      return data.displayName || null;
     }
-
-    // Check users collection
-    const usersSnapshot = await adminDb
-      .collection("users")
-      .where("chatUsernameNormalized", "==", normalized)
-      .where("role", "in", ["dj", "broadcaster", "admin"])
-      .limit(1)
-      .get();
-
-    if (!usersSnapshot.empty) {
-      return usersSnapshot.docs[0].data().chatUsername || null;
-    }
-
     return null;
   } catch {
     return null;

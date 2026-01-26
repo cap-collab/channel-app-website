@@ -218,6 +218,25 @@ async function validateNTSProfile(djName: string): Promise<ProfileData> {
   return { exists: false };
 }
 
+// Check if a SoundCloud profile exists and return the URL if so
+async function getSoundCloudUrl(djName: string): Promise<string | null> {
+  const slug = toNoSpaceSlug(djName);
+  const url = `https://soundcloud.com/${slug}`;
+
+  try {
+    const res = await fetch(url, {
+      method: "HEAD",
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.status === 200) {
+      return url;
+    }
+  } catch {
+    // Timeout or network error
+  }
+  return null;
+}
+
 // Validate via SoundCloud for Rinse (no-space slug)
 async function validateSoundCloudProfile(djName: string): Promise<ProfileData> {
   const slug = toNoSpaceSlug(djName);
