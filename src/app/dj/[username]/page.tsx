@@ -2,6 +2,9 @@ import { Metadata } from "next";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { DJPublicProfileClient } from "./DJPublicProfileClient";
 
+// Force dynamic rendering so Admin SDK has access to env vars at runtime
+export const dynamic = "force-dynamic";
+
 interface Props {
   params: Promise<{ username: string }>;
 }

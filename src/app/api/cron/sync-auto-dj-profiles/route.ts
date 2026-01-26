@@ -122,48 +122,60 @@ async function validateDublabProfile(djName: string): Promise<ProfileData> {
   return { exists: false };
 }
 
-// Validate Subtle Radio resident by DJ name
+// Subtle Radio Supabase API config
+const SUBTLE_SUPABASE_URL = "https://pkqpxkyxuaklmztbvryf.supabase.co";
+const SUBTLE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBrcXB4a3l4dWFrbG16dGJ2cnlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc3MTgzNzYsImV4cCI6MjA1MzI5NDM3Nn0.uq5M6qd3tntsj7KpiXPTNIUn-mk6VQFFXJFPj7Wg-os";
+
+// Validate Subtle Radio resident using their Supabase API
 async function validateSubtleProfile(djName: string): Promise<ProfileData> {
   const slug = toSubtleSlug(djName);
-  const url = `https://www.subtleradio.com/residents/${slug}`;
+  const publicUrl = `https://www.subtleradio.com/residents/${slug}`;
 
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    const apiUrl = `${SUBTLE_SUPABASE_URL}/rest/v1/team_pages?select=*&slug=eq.${encodeURIComponent(slug)}`;
+    const res = await fetch(apiUrl, {
+      headers: { apikey: SUBTLE_SUPABASE_ANON_KEY },
+      signal: AbortSignal.timeout(5000),
+    });
+
     if (res.status === 200) {
-      const html = await res.text();
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const resident = data[0];
 
-      // Extract genres from page
-      const genres: string[] = [];
-      const genreMatches = Array.from(html.matchAll(/class="[^"]*genre[^"]*"[^>]*>([^<]+)</gi));
-      for (const m of genreMatches) {
-        genres.push(m[1].trim());
+        // Extract bio
+        const bio = resident.description || undefined;
+
+        // Extract photo
+        const photoUrl = resident.image_url || undefined;
+
+        // Extract location
+        const location = resident.city || undefined;
+
+        // Extract genres
+        const genres: string[] = [];
+        if (resident.top_genre) genres.push(resident.top_genre);
+        if (resident.genre_2) genres.push(resident.genre_2);
+        if (resident.genre_3) genres.push(resident.genre_3);
+
+        // Extract social links
+        const socialLinks: Record<string, string> = {};
+        if (resident.instagram) socialLinks.instagram = resident.instagram;
+        if (resident.soundcloud) socialLinks.soundcloud = resident.soundcloud;
+        if (resident.bandcamp) socialLinks.bandcamp = resident.bandcamp;
+        if (resident.mixcloud) socialLinks.mixcloud = resident.mixcloud;
+        if (resident.website) socialLinks.website = resident.website;
+
+        return {
+          exists: true,
+          validationUrl: publicUrl,
+          bio,
+          photoUrl,
+          location,
+          genres: genres.length > 0 ? genres : undefined,
+          socialLinks: Object.keys(socialLinks).length > 0 ? socialLinks : undefined,
+        };
       }
-
-      // Extract description
-      let bio: string | undefined;
-      const descMatch = html.match(/<meta\s+name="description"\s+content="([^"]+)"/i);
-      if (descMatch) {
-        bio = descMatch[1];
-      }
-
-      // Extract social links
-      const socialLinks: Record<string, string> = {};
-      const linkPatterns = [
-        { pattern: /href="(https?:\/\/(?:www\.)?instagram\.com\/[^"]+)"/i, key: "instagram" },
-        { pattern: /href="(https?:\/\/(?:www\.)?soundcloud\.com\/[^"]+)"/i, key: "soundcloud" },
-        { pattern: /href="(https?:\/\/[^"]*bandcamp\.com[^"]*)"/, key: "bandcamp" },
-      ];
-
-      for (const { pattern, key } of linkPatterns) {
-        const match = html.match(pattern);
-        if (match) {
-          socialLinks[key] = match[1];
-        }
-      }
-
-      // Subtle is JS-rendered so we can't reliably extract content server-side
-      // Trust the 200 status as validation that the resident page exists
-      return { exists: true, validationUrl: url, bio, genres, socialLinks };
     }
   } catch {
     // Timeout or network error
