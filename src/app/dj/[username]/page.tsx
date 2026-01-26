@@ -1,6 +1,5 @@
 import { Metadata } from "next";
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getAdminDb } from "@/lib/firebase-admin";
 import { DJPublicProfileClient } from "./DJPublicProfileClient";
 
 interface Props {
@@ -8,37 +7,34 @@ interface Props {
 }
 
 async function getDJDisplayName(username: string): Promise<string | null> {
-  if (!db) return null;
+  const adminDb = getAdminDb();
+  if (!adminDb) return null;
 
   try {
     const normalized = decodeURIComponent(username).replace(/[\s-]+/g, "").toLowerCase();
 
     // Check pending-dj-profiles first
-    const pendingRef = collection(db, "pending-dj-profiles");
-    const pendingQ = query(
-      pendingRef,
-      where("chatUsernameNormalized", "==", normalized)
-    );
-    const pendingSnapshot = await getDocs(pendingQ);
-    const pendingDoc = pendingSnapshot.docs.find(
-      (doc) => doc.data().status === "pending"
-    );
+    const pendingSnapshot = await adminDb
+      .collection("pending-dj-profiles")
+      .where("chatUsernameNormalized", "==", normalized)
+      .where("status", "==", "pending")
+      .limit(1)
+      .get();
 
-    if (pendingDoc) {
-      return pendingDoc.data().chatUsername || null;
+    if (!pendingSnapshot.empty) {
+      return pendingSnapshot.docs[0].data().chatUsername || null;
     }
 
     // Check users collection
-    const usersRef = collection(db, "users");
-    const q = query(
-      usersRef,
-      where("chatUsernameNormalized", "==", normalized),
-      where("role", "in", ["dj", "broadcaster", "admin"])
-    );
-    const snapshot = await getDocs(q);
+    const usersSnapshot = await adminDb
+      .collection("users")
+      .where("chatUsernameNormalized", "==", normalized)
+      .where("role", "in", ["dj", "broadcaster", "admin"])
+      .limit(1)
+      .get();
 
-    if (!snapshot.empty) {
-      return snapshot.docs[0].data().chatUsername || null;
+    if (!usersSnapshot.empty) {
+      return usersSnapshot.docs[0].data().chatUsername || null;
     }
 
     return null;
