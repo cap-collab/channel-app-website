@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { headers } from "next/headers";
+import { getAdminDb } from "@/lib/firebase-admin";
 import { DJPublicProfileClient } from "./DJPublicProfileClient";
 
 interface Props {
@@ -7,22 +7,47 @@ interface Props {
 }
 
 async function getDJDisplayName(username: string): Promise<string | null> {
-  try {
-    // Get the host from headers to build absolute URL
-    const headersList = await headers();
-    const host = headersList.get("host") || "channel-app.com";
-    const protocol = host.includes("localhost") ? "http" : "https";
-
-    const res = await fetch(`${protocol}://${host}/api/dj/${encodeURIComponent(username)}/metadata`, {
-      cache: "no-store",
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      return data.displayName || null;
-    }
+  const adminDb = getAdminDb();
+  if (!adminDb) {
+    console.log("[DJ Metadata] Admin DB not available");
     return null;
-  } catch {
+  }
+
+  try {
+    const normalized = decodeURIComponent(username).replace(/[\s-]+/g, "").toLowerCase();
+    console.log("[DJ Metadata] Looking up:", normalized);
+
+    // Check pending-dj-profiles first (single where clause)
+    const pendingSnapshot = await adminDb
+      .collection("pending-dj-profiles")
+      .where("chatUsernameNormalized", "==", normalized)
+      .get();
+
+    for (const doc of pendingSnapshot.docs) {
+      if (doc.data().status === "pending") {
+        console.log("[DJ Metadata] Found pending profile:", doc.data().chatUsername);
+        return doc.data().chatUsername || null;
+      }
+    }
+
+    // Check users collection (single where clause, filter roles client-side)
+    const usersSnapshot = await adminDb
+      .collection("users")
+      .where("chatUsernameNormalized", "==", normalized)
+      .get();
+
+    for (const doc of usersSnapshot.docs) {
+      const role = doc.data().role;
+      if (role === "dj" || role === "broadcaster" || role === "admin") {
+        console.log("[DJ Metadata] Found user profile:", doc.data().chatUsername);
+        return doc.data().chatUsername || null;
+      }
+    }
+
+    console.log("[DJ Metadata] No profile found for:", normalized);
+    return null;
+  } catch (error) {
+    console.error("[DJ Metadata] Error:", error);
     return null;
   }
 }
