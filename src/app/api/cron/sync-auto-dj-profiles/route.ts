@@ -34,8 +34,19 @@ function toNoSpaceSlug(name: string): string {
 }
 
 function toHyphenSlug(name: string): string {
-  // "Dor Wand" → "dor-wand" (for Subtle, NTS)
+  // "Dor Wand" → "dor-wand" (for NTS)
   return name.replace(/[\s]+/g, "-").toLowerCase();
+}
+
+function toSubtleSlug(name: string): string {
+  // "Tim From Sales" → "tim-from-sales" (for Subtle residents)
+  // Handles special chars that might appear in DJ names
+  return name
+    .replace(/[\/,&.#$\[\]']+/g, "")  // Remove special chars
+    .replace(/[\s]+/g, "-")            // Replace spaces with hyphens
+    .replace(/-+/g, "-")               // Collapse multiple hyphens
+    .replace(/^-|-$/g, "")             // Trim leading/trailing hyphens
+    .toLowerCase();
 }
 
 // Extract DJ name for dublab shows where format is "DJ Name - Show Name"
