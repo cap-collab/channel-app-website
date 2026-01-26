@@ -78,7 +78,7 @@ async function validateSubtleProfile(showName: string): Promise<ProfileData> {
 
       // Extract genres from page
       const genres: string[] = [];
-      const genreMatches = html.matchAll(/class="[^"]*genre[^"]*"[^>]*>([^<]+)</gi);
+      const genreMatches = Array.from(html.matchAll(/class="[^"]*genre[^"]*"[^>]*>([^<]+)</gi));
       for (const m of genreMatches) {
         genres.push(m[1].trim());
       }
