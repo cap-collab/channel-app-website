@@ -66,11 +66,19 @@ async function validateDublabProfile(djName: string): Promise<ProfileData> {
       const djData = data[`/djs/${slug}`];
 
       if (djData && !djData._notfound) {
-        // Extract bio from meta.description (plain text) or strip HTML from content
-        let bio = djData.meta?.description;
-        if (!bio && djData.content) {
-          // Strip HTML tags from content
-          bio = djData.content.replace(/<[^>]+>/g, "").trim();
+        // Extract bio - prefer full content (strip HTML) over truncated meta.description
+        let bio: string | undefined;
+        if (djData.content) {
+          // Strip HTML tags and decode entities
+          bio = djData.content
+            .replace(/<[^>]+>/g, "")
+            .replace(/&nbsp;/g, " ")
+            .replace(/&#039;/g, "'")
+            .replace(/&amp;/g, "&")
+            .replace(/&quot;/g, '"')
+            .trim();
+        } else if (djData.meta?.description) {
+          bio = djData.meta.description;
         }
 
         // Extract photo URL from meta.image or files
