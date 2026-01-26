@@ -22,6 +22,10 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Check for station filter in query params
+  const { searchParams } = new URL(request.url);
+  const stationFilter = searchParams.get("station");
+
   try {
     // Get all auto-generated profiles
     const snapshot = await db
@@ -29,13 +33,24 @@ export async function GET(request: NextRequest) {
       .where("source", "==", "auto")
       .get();
 
-    console.log(`[cleanup-auto-profiles] Found ${snapshot.size} auto profiles to delete`);
+    console.log(`[cleanup-auto-profiles] Found ${snapshot.size} total auto profiles`);
 
-    // Delete in batches
+    // Delete in batches, optionally filtering by station
     const batch = db.batch();
     let count = 0;
 
     for (const doc of snapshot.docs) {
+      const data = doc.data();
+
+      // If station filter is set, only delete profiles from that station
+      if (stationFilter) {
+        const autoSources = data.autoSources as Array<{ stationId: string }> | undefined;
+        const hasMatchingStation = autoSources?.some(s => s.stationId === stationFilter);
+        if (!hasMatchingStation) {
+          continue;
+        }
+      }
+
       batch.delete(doc.ref);
       count++;
     }
@@ -44,11 +59,13 @@ export async function GET(request: NextRequest) {
       await batch.commit();
     }
 
-    console.log(`[cleanup-auto-profiles] Deleted ${count} auto profiles`);
+    const filterMsg = stationFilter ? ` (filtered by station: ${stationFilter})` : "";
+    console.log(`[cleanup-auto-profiles] Deleted ${count} auto profiles${filterMsg}`);
 
     return NextResponse.json({
       success: true,
       deleted: count,
+      filter: stationFilter || "all",
     });
   } catch (error) {
     console.error("[cleanup-auto-profiles] Error:", error);

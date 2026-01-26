@@ -113,9 +113,9 @@ async function validateDublabProfile(djName: string): Promise<ProfileData> {
   return { exists: false };
 }
 
-// Validate Subtle Radio resident (hyphen slug)
-async function validateSubtleProfile(showName: string): Promise<ProfileData> {
-  const slug = toHyphenSlug(showName);
+// Validate Subtle Radio resident by DJ name
+async function validateSubtleProfile(djName: string): Promise<ProfileData> {
+  const slug = toSubtleSlug(djName);
   const url = `https://www.subtleradio.com/residents/${slug}`;
 
   try {
@@ -150,6 +150,13 @@ async function validateSubtleProfile(showName: string): Promise<ProfileData> {
         if (match) {
           socialLinks[key] = match[1];
         }
+      }
+
+      // Subtle returns 200 for non-existent pages (soft 404)
+      // Require at least some content to consider it a real resident page
+      const hasContent = bio || genres.length > 0 || Object.keys(socialLinks).length > 0;
+      if (!hasContent) {
+        return { exists: false };
       }
 
       return { exists: true, validationUrl: url, bio, genres, socialLinks };
@@ -281,7 +288,6 @@ export async function GET(request: NextRequest) {
         djName: string;
         sources: AutoSource[];
         stationId: string; // Primary station for validation
-        showNameForValidation: string; // For Subtle where show name = DJ name
       }
     >();
 
@@ -324,7 +330,6 @@ export async function GET(request: NextRequest) {
           djName,
           sources: [],
           stationId: show.stationId,
-          showNameForValidation: showName,
         });
       }
 
@@ -377,8 +382,7 @@ export async function GET(request: NextRequest) {
             profileData = await validateDublabProfile(data.djName);
             break;
           case "subtle":
-            // For Subtle, show name = DJ/resident name
-            profileData = await validateSubtleProfile(data.showNameForValidation);
+            profileData = await validateSubtleProfile(data.djName);
             break;
           case "nts1":
           case "nts2":
