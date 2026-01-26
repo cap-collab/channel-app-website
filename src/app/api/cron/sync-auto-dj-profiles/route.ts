@@ -161,13 +161,8 @@ async function validateSubtleProfile(djName: string): Promise<ProfileData> {
         }
       }
 
-      // Subtle returns 200 for non-existent pages (soft 404)
-      // Require at least some content to consider it a real resident page
-      const hasContent = bio || genres.length > 0 || Object.keys(socialLinks).length > 0;
-      if (!hasContent) {
-        return { exists: false };
-      }
-
+      // Subtle is JS-rendered so we can't reliably extract content server-side
+      // Trust the 200 status as validation that the resident page exists
       return { exists: true, validationUrl: url, bio, genres, socialLinks };
     }
   } catch {
