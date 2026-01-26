@@ -690,7 +690,7 @@ export function DJPublicProfileClient({ username }: Props) {
                   {subscribing ? "..." : isSubscribed ? "In watchlist" : "Add to watchlist"}
                 </button>
               </div>
-              <p className="text-gray-500 text-xs text-center max-w-xs">
+              <p className="text-gray-500 text-xs text-center max-w-2xl">
                 Receive emails when this DJ is adding a new event or playing live on any stations
               </p>
             </div>
@@ -716,7 +716,7 @@ export function DJPublicProfileClient({ username }: Props) {
 
             {/* Bio */}
             {profile.djProfile.bio && (
-              <p className="text-gray-400 text-sm max-w-md mx-auto mb-4">
+              <p className="text-gray-400 text-sm max-w-2xl mx-auto mb-4">
                 {profile.djProfile.bio}
               </p>
             )}
@@ -942,7 +942,7 @@ export function DJPublicProfileClient({ username }: Props) {
 
           {/* D) Upcoming Shows */}
           {upcomingBroadcasts.length > 0 && (
-            <section>
+            <section className="max-w-xl mx-auto">
               <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
                 Upcoming Shows
               </h2>
@@ -1143,7 +1143,7 @@ export function DJPublicProfileClient({ username }: Props) {
 
           {/* E) IRL Shows */}
           {profile.djProfile.irlShows && profile.djProfile.irlShows.length > 0 && profile.djProfile.irlShows.some(show => show.url || show.venue || show.date) && (
-            <section>
+            <section className="max-w-xl mx-auto">
               <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
                 IRL Shows
               </h2>
@@ -1177,7 +1177,7 @@ export function DJPublicProfileClient({ username }: Props) {
 
           {/* Past Recordings (with integrated audio player) */}
           {pastRecordings.length > 0 && (
-            <section>
+            <section className="max-w-xl mx-auto">
               <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
                 Past Recordings
               </h2>
@@ -1281,7 +1281,7 @@ export function DJPublicProfileClient({ username }: Props) {
             (profile.djProfile.myRecs.bandcampLinks && profile.djProfile.myRecs.bandcampLinks.length > 0) ||
             (profile.djProfile.myRecs.eventLinks && profile.djProfile.myRecs.eventLinks.length > 0)
           ) && (
-            <section>
+            <section className="max-w-xl mx-auto">
               <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
                 My Recs
               </h2>
@@ -1341,7 +1341,7 @@ export function DJPublicProfileClient({ username }: Props) {
 
           {/* Past Shows (without recordings) */}
           {pastShows.length > 0 && (
-            <section>
+            <section className="max-w-xl mx-auto">
               <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
                 Past Shows
               </h2>
