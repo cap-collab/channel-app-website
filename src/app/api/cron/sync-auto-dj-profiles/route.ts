@@ -99,11 +99,20 @@ async function validateDublabProfile(djName: string): Promise<ProfileData> {
           photoUrl = file.sizes?.large || file.sizes?.medium_large || file.url;
         }
 
+        // Try to find SoundCloud profile for social links
+        // dublab API doesn't include social links, so we check SoundCloud separately
+        const socialLinks: Record<string, string> = {};
+        const soundcloudUrl = await getSoundCloudUrl(djName);
+        if (soundcloudUrl) {
+          socialLinks.soundcloud = soundcloudUrl;
+        }
+
         return {
           exists: true,
           validationUrl: publicUrl,
           bio: bio || undefined,
           photoUrl: photoUrl || undefined,
+          socialLinks: Object.keys(socialLinks).length > 0 ? socialLinks : undefined,
         };
       }
     }
@@ -330,6 +339,11 @@ export async function GET(request: NextRequest) {
             showName = show.name.substring(dashIndex + 3).trim();
           }
         }
+      }
+
+      // For Subtle and NTS: if no DJ field, the show name itself is often the resident/host name
+      if ((show.stationId === "subtle" || show.stationId === "nts1" || show.stationId === "nts2") && !djName && show.name) {
+        djName = show.name;
       }
 
       // Skip shows without DJ info
