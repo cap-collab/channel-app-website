@@ -17,6 +17,21 @@ interface AutoSource {
   lastSeen: Date;
 }
 
+// Extract DJ name for dublab shows where format is "DJ Name - Show Name"
+// The metadata has this backwards (j field contains show name, not DJ)
+function extractDublabDJ(showName: string): string | null {
+  // Match pattern "DJ Name - Show Name"
+  const match = showName.match(/^(.+?)\s*-\s*.+$/);
+  if (match && match[1]) {
+    const djName = match[1].trim();
+    // Make sure it's not empty and looks like a name (not just numbers or special chars)
+    if (djName.length >= 2 && /[a-zA-Z]/.test(djName)) {
+      return djName;
+    }
+  }
+  return null;
+}
+
 export async function GET(request: NextRequest) {
   if (!verifyCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -42,12 +57,29 @@ export async function GET(request: NextRequest) {
       // Skip Channel Broadcast shows (they have their own profiles)
       if (show.stationId === "broadcast") continue;
 
+      // For dublab: the DJ name is in show.name as "DJ - Show Name" format
+      // The show.dj field incorrectly contains the show name
+      let djName = show.dj;
+      let showName = show.name;
+
+      if (show.stationId === "dublab" && show.name) {
+        const extractedDJ = extractDublabDJ(show.name);
+        if (extractedDJ) {
+          djName = extractedDJ;
+          // The actual show name is what's after the dash
+          const dashIndex = show.name.indexOf(" - ");
+          if (dashIndex > 0) {
+            showName = show.name.substring(dashIndex + 3).trim();
+          }
+        }
+      }
+
       // Skip shows without DJ info
-      if (!show.dj) continue;
+      if (!djName) continue;
 
       // Normalize DJ name for document ID
       // Remove spaces, hyphens, and any characters invalid for Firestore doc IDs
-      const normalized = show.dj
+      const normalized = djName
         .replace(/[\s-]+/g, "")
         .replace(/[\/,&.#$\[\]]/g, "") // Remove Firestore-invalid chars
         .toLowerCase();
@@ -56,19 +88,19 @@ export async function GET(request: NextRequest) {
       if (normalized.length < 2) continue;
 
       if (!djMap.has(normalized)) {
-        djMap.set(normalized, { djName: show.dj, sources: [] });
+        djMap.set(normalized, { djName, sources: [] });
       }
 
       // Add source if not already present for this station+show combo
       const existing = djMap.get(normalized)!;
       const alreadyHasSource = existing.sources.some(
-        (s) => s.stationId === show.stationId && s.showName === show.name
+        (s) => s.stationId === show.stationId && s.showName === showName
       );
 
       if (!alreadyHasSource) {
         existing.sources.push({
           stationId: show.stationId,
-          showName: show.name,
+          showName: showName,
           lastSeen: new Date(),
         });
       }
