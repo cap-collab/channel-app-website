@@ -182,7 +182,7 @@ async function validateNTSProfile(djName: string): Promise<ProfileData> {
       const html = await res.text();
 
       // Extract from window._REACT_STATE_
-      const stateMatch = html.match(/window\._REACT_STATE_\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/);
+      const stateMatch = html.match(/window\._REACT_STATE_\s*=\s*(\{.*\});\s*<\/script>/);
       if (stateMatch) {
         try {
           const state = JSON.parse(stateMatch[1]);
