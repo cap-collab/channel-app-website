@@ -59,10 +59,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { username } = await params;
   const displayName = await getDJDisplayName(username);
   const name = displayName || username;
+  const title = `Channel - ${name}`;
+  const description = `Listen to ${name} live on Channel`;
 
   return {
-    title: `Channel - ${name}`,
-    description: `Listen to ${name} live on Channel`,
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+    },
+    twitter: {
+      title,
+      description,
+    },
   };
 }
 
