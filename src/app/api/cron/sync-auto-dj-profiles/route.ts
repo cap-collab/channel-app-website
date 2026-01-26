@@ -141,8 +141,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("[sync-auto-dj-profiles] Error:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { error: "Failed to sync auto DJ profiles" },
+      { error: "Failed to sync auto DJ profiles", details: errorMessage },
       { status: 500 }
     );
   }
