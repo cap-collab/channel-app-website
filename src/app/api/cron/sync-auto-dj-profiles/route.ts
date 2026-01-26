@@ -337,7 +337,7 @@ export async function GET(request: NextRequest) {
       }
 
       // For Subtle and NTS: if no DJ field, the show name itself is often the resident/host name
-      if ((show.stationId === "subtle" || show.stationId === "nts1" || show.stationId === "nts2") && !djName && show.name) {
+      if ((show.stationId === "subtle" || show.stationId === "nts-1" || show.stationId === "nts-2") && !djName && show.name) {
         djName = show.name;
       }
 
@@ -412,8 +412,8 @@ export async function GET(request: NextRequest) {
           case "subtle":
             profileData = await validateSubtleProfile(data.djName);
             break;
-          case "nts1":
-          case "nts2":
+          case "nts-1":
+          case "nts-2":
             profileData = await validateNTSProfile(data.djName);
             break;
           case "rinse":
