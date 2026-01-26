@@ -140,6 +140,10 @@ export function DJPublicProfileClient({ username }: Props) {
   const [expandedShowId, setExpandedShowId] = useState<string | null>(null);
   const [togglingFavoriteId, setTogglingFavoriteId] = useState<string | null>(null);
 
+  // Auto-profile state
+  const [isAutoProfile, setIsAutoProfile] = useState(false);
+  const [autoSources, setAutoSources] = useState<{ stationId: string; showName: string }[]>([]);
+
   // Fetch DJ profile by username
   useEffect(() => {
     async function fetchDJProfile() {
@@ -185,6 +189,11 @@ export function DJPublicProfileClient({ username }: Props) {
             },
             uid: `pending-${pendingDoc.id}`,
           });
+          // Check if this is an auto-generated profile
+          if (pendingData.source === "auto") {
+            setIsAutoProfile(true);
+            setAutoSources(pendingData.autoSources || []);
+          }
           setLoading(false);
           return;
         }
@@ -641,7 +650,7 @@ export function DJPublicProfileClient({ username }: Props) {
     <div className="min-h-screen bg-black">
       <Header position="sticky" />
 
-      <main className="max-w-xl mx-auto p-4">
+      <main className="px-4 py-4">
         <div className="space-y-8">
           {/* A) DJ Identity */}
           <section className="text-center">
@@ -874,6 +883,25 @@ export function DJPublicProfileClient({ username }: Props) {
               </div>
             )}
           </section>
+
+          {/* Auto-profile banner */}
+          {isAutoProfile && (
+            <section>
+              <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+                <p className="text-gray-400 text-sm">
+                  Auto-generated profile based on radio schedules
+                </p>
+                {autoSources.length > 0 && (
+                  <p className="text-gray-500 text-xs mt-1">
+                    Seen on: {Array.from(new Set(autoSources.map(s => {
+                      const station = getStationById(s.stationId);
+                      return station?.name || s.stationId;
+                    }))).join(", ")}
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* B) DJ Status */}
           {(liveOnChannel || liveElsewhere) && (
