@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import { ChannelClient } from './ChannelClient';
 
 export const metadata: Metadata = {
-  title: 'Channel Broadcast - Live Radio',
+  title: 'Channel: Super app for DJ communities',
   description: 'Listen to Channel Broadcast live. Real-time chat, schedule, and more.',
 };
 

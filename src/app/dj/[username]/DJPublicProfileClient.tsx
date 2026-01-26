@@ -746,20 +746,22 @@ export function DJPublicProfileClient({ username }: Props) {
 
             {/* Social Links with Tip Icon */}
             <div className="flex flex-wrap justify-center items-center gap-3 mb-6">
-              {/* Tip Icon - always first */}
-              <TipButton
-                djUserId={profile.uid}
-                djEmail={profile.email}
-                djUsername={profile.chatUsername}
-                broadcastSlotId=""
-                showName={`Tip for ${profile.chatUsername}`}
-                tipperUserId={user?.uid}
-                tipperUsername={chatUsername || undefined}
-                size="small"
-              />
+              {/* Tip Icon - only show when profile has an email */}
+              {profile.email && (
+                <TipButton
+                  djUserId={profile.uid}
+                  djEmail={profile.email}
+                  djUsername={profile.chatUsername}
+                  broadcastSlotId=""
+                  showName={`Tip for ${profile.chatUsername}`}
+                  tipperUserId={user?.uid}
+                  tipperUsername={chatUsername || undefined}
+                  size="small"
+                />
+              )}
 
-              {/* Divider if there are social links */}
-              {(socialLinks.website || socialLinks.instagram || socialLinks.soundcloud || socialLinks.bandcamp || socialLinks.youtube || socialLinks.mixcloud || socialLinks.residentAdvisor || socialLinks.bookingEmail) && (
+              {/* Divider if there are social links and tip button is shown */}
+              {profile.email && (socialLinks.website || socialLinks.instagram || socialLinks.soundcloud || socialLinks.bandcamp || socialLinks.youtube || socialLinks.mixcloud || socialLinks.residentAdvisor || socialLinks.bookingEmail) && (
                 <span className="w-px h-5 bg-gray-700" />
               )}
 

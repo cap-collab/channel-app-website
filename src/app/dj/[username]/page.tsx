@@ -8,7 +8,7 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { username } = await params;
   return {
-    title: `${username} - DJ on Channel`,
+    title: `Channel - ${username}`,
     description: `Listen to ${username} live on Channel`,
   };
 }

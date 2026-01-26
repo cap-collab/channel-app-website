@@ -4,11 +4,11 @@ import "./globals.css";
 import { Providers } from "./Providers";
 
 export const metadata: Metadata = {
-  title: "Channel - Live DJ Radio",
+  title: "Channel: Super app for DJ communities",
   description: "The live-streaming app for DJ shows. Turn every listen into real support for independent culture.",
   metadataBase: new URL("https://channel-app.com"),
   openGraph: {
-    title: "Channel - Live DJ Radio",
+    title: "Channel: Super app for DJ communities",
     description: "The live-streaming app for DJ shows. Turn every listen into real support for independent culture.",
     type: "website",
     url: "https://channel-app.com",
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Channel - Live DJ Radio",
+    title: "Channel: Super app for DJ communities",
     description: "The live-streaming app for DJ shows. Turn every listen into real support for independent culture.",
     images: ["/og-image.png"],
   },
