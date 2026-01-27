@@ -93,7 +93,7 @@ export function ExpandedShowCard({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/80 z-[100]"
+        className="fixed inset-0 bg-black/95 backdrop-blur-sm z-[100]"
         onClick={(e) => {
           e.stopPropagation();
           onClose();
