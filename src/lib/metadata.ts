@@ -359,6 +359,7 @@ function expandShow(show: ShowV2, stationMetadataKey: string): Show {
     endTime: show.e,
     description: show.d || undefined,
     dj: show.j || undefined,
+    djUsername: show.p || undefined,
     imageUrl: show.u || undefined,
     stationId,
     type: show.t || undefined,

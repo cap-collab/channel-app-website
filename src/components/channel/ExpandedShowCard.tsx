@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { Show, Station } from '@/types';
 import { TipButton } from './TipButton';
 import { WatchlistModal } from '@/components/WatchlistModal';
@@ -254,11 +253,13 @@ export function ExpandedShowCard({
             </span>
           </button>
 
-          {/* 2. View Profile button (pink person icon) */}
+          {/* 2. View Profile button (accent color person icon, opens in new window) */}
           {show.djUsername && (
-            <Link
-              href={`/dj/${show.djUsername}`}
-              onClick={(e) => e.stopPropagation()}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(`/dj/${show.djUsername}`, '_blank', 'noopener,noreferrer');
+              }}
               className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-xs whitespace-nowrap flex-shrink-0"
             >
               <svg
@@ -271,7 +272,7 @@ export function ExpandedShowCard({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
               <span className="text-white">Profile</span>
-            </Link>
+            </button>
           )}
 
           {/* 3. Tip button */}
