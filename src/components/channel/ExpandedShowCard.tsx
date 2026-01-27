@@ -101,7 +101,8 @@ export function ExpandedShowCard({
       />
       {/* Popup */}
       <div
-        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[101] bg-[#121212] border border-gray-700 rounded-xl p-5 max-w-md w-[90vw] max-h-[85vh] overflow-y-auto shadow-2xl"
+        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[101] border border-gray-700 rounded-xl p-5 max-w-md w-[90vw] max-h-[85vh] overflow-y-auto shadow-2xl"
+        style={{ backgroundColor: '#121212' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top right: Favorite button + Close button */}

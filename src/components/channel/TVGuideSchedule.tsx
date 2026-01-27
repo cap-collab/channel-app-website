@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import Image from 'next/image';
 import { STATIONS, getMetadataKeyByStationId } from '@/lib/stations';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -53,14 +52,8 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
   const [currentTime, setCurrentTime] = useState(new Date());
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [expandedShowId, setExpandedShowId] = useState<string | null>(null);
-  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const hasScrolledRef = useRef(false);
-
-  // Handler for image load errors
-  const handleImageError = useCallback((imageUrl: string) => {
-    setFailedImages(prev => new Set(prev).add(imageUrl));
-  }, []);
 
   // Fetch shows on mount via API route (avoids CORS issues with Newtown scraping)
   useEffect(() => {
@@ -398,30 +391,8 @@ export function TVGuideSchedule({ className = '', onAuthRequired }: TVGuideSched
                             )}
                           </div>
 
-                          {/* Show content with optional show image or DJ photo */}
+                          {/* Show content */}
                           <div className="flex gap-1.5 h-full overflow-hidden pointer-events-none">
-                            {/* Show image thumbnail (priority) or DJ photo fallback */}
-                            {show.imageUrl && showWidth >= 80 && !failedImages.has(show.imageUrl) ? (
-                              <Image
-                                src={show.imageUrl}
-                                alt={show.name}
-                                width={36}
-                                height={36}
-                                className="w-9 h-9 rounded object-cover flex-shrink-0"
-                                unoptimized
-                                onError={() => handleImageError(show.imageUrl!)}
-                              />
-                            ) : show.djPhotoUrl && showWidth >= 80 && !failedImages.has(show.djPhotoUrl) ? (
-                              <Image
-                                src={show.djPhotoUrl}
-                                alt={show.dj || 'DJ'}
-                                width={40}
-                                height={40}
-                                className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                                unoptimized
-                                onError={() => handleImageError(show.djPhotoUrl!)}
-                              />
-                            ) : null}
                             {/* Show name and DJ */}
                             <div className="flex-1 min-w-0 overflow-hidden">
                               {(() => {
