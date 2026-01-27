@@ -61,7 +61,6 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [addingWatchlistForQuery, setAddingWatchlistForQuery] = useState(false);
   const [addingDjToWatchlist, setAddingDjToWatchlist] = useState<string | null>(null);
-  const [djPhotos, setDjPhotos] = useState<Record<string, string>>({});
   const [pendingDjs, setPendingDjs] = useState<Array<{ name: string; photoUrl?: string; username: string }>>([]);
   const [registeredDjs, setRegisteredDjs] = useState<Array<{ name: string; photoUrl?: string; username: string }>>([]);
   const [expandedShow, setExpandedShow] = useState<Show | null>(null);
@@ -206,23 +205,6 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
     setAddingWatchlistForQuery(false);
   }, [isAuthenticated, onAuthRequired, query, addToWatchlist]);
 
-  // Extract unique DJs from search results
-  const uniqueDjs = useMemo(() => {
-    const djMap = new Map<string, { name: string; photoUrl?: string }>();
-    for (const show of results) {
-      if (show.dj) {
-        const key = show.dj.toLowerCase();
-        if (!djMap.has(key)) {
-          djMap.set(key, {
-            name: show.dj,
-            photoUrl: show.djPhotoUrl,
-          });
-        }
-      }
-    }
-    return Array.from(djMap.values()).slice(0, 10);
-  }, [results]);
-
   // Combine all DJ profiles (pending + registered) - deduplicated
   const allDjProfiles = useMemo(() => {
     const djMap = new Map<string, { name: string; photoUrl?: string; username: string }>();
@@ -246,81 +228,20 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
     return Array.from(djMap.values()).slice(0, 10);
   }, [pendingDjs, registeredDjs]);
 
-  // Filter out DJs with upcoming shows that already appear in DJ profiles
-  const uniqueDjsFiltered = useMemo(() => {
-    const profileUsernames = new Set(allDjProfiles.map(dj => dj.name.toLowerCase()));
-    return uniqueDjs.filter(dj => !profileUsernames.has(dj.name.toLowerCase()));
-  }, [uniqueDjs, allDjProfiles]);
-
-  // Combined DJs list: DJ profiles + DJs with upcoming shows (no profile)
+  // DJs list: only show DJ profiles (registered + pending)
   const combinedDjs = useMemo(() => {
-    // Map DJ profiles with hasProfile flag
-    const djsWithProfiles = allDjProfiles.map(dj => ({
+    return allDjProfiles.map(dj => ({
       ...dj,
       hasProfile: true,
       firstShow: undefined as Show | undefined,
     }));
-
-    // Map DJs without profiles but with shows
-    const djsWithoutProfiles = uniqueDjsFiltered.map(dj => {
-      // Find first show for this DJ
-      const firstShow = results.find(show => show.dj?.toLowerCase() === dj.name.toLowerCase());
-      return {
-        name: dj.name,
-        photoUrl: dj.photoUrl || djPhotos[dj.name.toLowerCase()],
-        username: dj.name.toLowerCase().replace(/[\s-]+/g, ''),
-        hasProfile: false,
-        firstShow,
-      };
-    });
-
-    return [...djsWithProfiles, ...djsWithoutProfiles];
-  }, [allDjProfiles, uniqueDjsFiltered, results, djPhotos]);
+  }, [allDjProfiles]);
 
   // Check if query exactly matches a DJ profile name (for hiding watchlist section)
   const queryMatchesDjProfile = useMemo(() => {
     const queryLower = query.trim().toLowerCase();
     return allDjProfiles.some(dj => dj.name.toLowerCase() === queryLower);
   }, [query, allDjProfiles]);
-
-  // Fetch DJ photos from Firebase profiles
-  useEffect(() => {
-    if (!db || uniqueDjs.length === 0) return;
-
-    const fetchDjPhotos = async () => {
-      const photos: Record<string, string> = {};
-
-      for (const dj of uniqueDjs) {
-        // Skip if we already have a photo from show data
-        if (dj.photoUrl) {
-          photos[dj.name.toLowerCase()] = dj.photoUrl;
-          continue;
-        }
-
-        // Try to find DJ by normalized username
-        try {
-          if (!db) continue;
-          const normalized = dj.name.replace(/[\s-]+/g, '').toLowerCase();
-          const usersRef = collection(db, 'users');
-          const q = fbQuery(usersRef, where('chatUsernameNormalized', '==', normalized));
-          const snapshot = await getDocs(q);
-
-          if (!snapshot.empty) {
-            const userData = snapshot.docs[0].data();
-            if (userData.djProfile?.photoUrl) {
-              photos[dj.name.toLowerCase()] = userData.djProfile.photoUrl;
-            }
-          }
-        } catch (e) {
-          console.error('[HeaderSearch] Error fetching DJ photo:', e);
-        }
-      }
-
-      setDjPhotos(photos);
-    };
-
-    fetchDjPhotos();
-  }, [uniqueDjs]);
 
   const handleFollowDj = useCallback(async (djName: string, e: React.MouseEvent) => {
     e.stopPropagation();
