@@ -43,6 +43,21 @@ function countWords(name: string): number {
   return name.trim().split(/\s+/).filter(w => w.length > 0).length;
 }
 
+// Extract Instagram username from URL or handle
+function extractInstagramUsername(input: string): string {
+  // Remove trailing slashes and query params
+  const cleaned = input.split("?")[0].replace(/\/+$/, "");
+
+  // Match Instagram URL patterns
+  const urlMatch = cleaned.match(/instagram\.com\/([^\/]+)/);
+  if (urlMatch) {
+    return urlMatch[1]; // Return just the username
+  }
+
+  // If it's already just a username (possibly with @)
+  return cleaned.replace(/^@/, "");
+}
+
 // Validate NTS show page (hyphen slug) - extract from React state
 async function validateNTSProfile(djName: string): Promise<ProfileData> {
   const slug = toHyphenSlug(djName);
@@ -70,7 +85,7 @@ async function validateNTSProfile(djName: string): Promise<ProfileData> {
               for (const link of show.external_links) {
                 const linkUrl = link.url || link;
                 if (typeof linkUrl === "string") {
-                  if (linkUrl.includes("instagram.com")) socialLinks.instagram = linkUrl;
+                  if (linkUrl.includes("instagram.com")) socialLinks.instagram = extractInstagramUsername(linkUrl);
                   else if (linkUrl.includes("soundcloud.com")) socialLinks.soundcloud = linkUrl;
                   else if (linkUrl.includes("bandcamp.com")) socialLinks.bandcamp = linkUrl;
                   else if (!linkUrl.includes("nts.live")) socialLinks.website = linkUrl;
