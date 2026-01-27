@@ -38,149 +38,9 @@ function toHyphenSlug(name: string): string {
   return name.replace(/[\s]+/g, "-").toLowerCase();
 }
 
-function toSubtleSlug(name: string): string {
-  // "Tim From Sales" → "tim-from-sales" (for Subtle residents)
-  // Handles special chars that might appear in DJ names
-  return name
-    .replace(/[\/,&.#$\[\]']+/g, "")  // Remove special chars
-    .replace(/[\s]+/g, "-")            // Replace spaces with hyphens
-    .replace(/-+/g, "-")               // Collapse multiple hyphens
-    .replace(/^-|-$/g, "")             // Trim leading/trailing hyphens
-    .toLowerCase();
-}
-
-// Extract DJ name for dublab shows where format is "DJ Name - Show Name"
-function extractDublabDJ(showName: string): string | null {
-  const match = showName.match(/^(.+?)\s*-\s*.+$/);
-  if (match && match[1]) {
-    const djName = match[1].trim();
-    if (djName.length >= 2 && /[a-zA-Z]/.test(djName)) {
-      return djName;
-    }
-  }
-  return null;
-}
-
-// Validate dublab DJ profile using their WordPress API
-async function validateDublabProfile(djName: string): Promise<ProfileData> {
-  const slug = toNoSpaceSlug(djName);
-  const apiUrl = `https://dublab.wpengine.com/wp-json/lazystate/v1/djs/${slug}`;
-  const publicUrl = `https://www.dublab.com/djs/${slug}`;
-
-  try {
-    const res = await fetch(apiUrl, {
-      headers: { "Origin": "https://www.dublab.com" },
-      signal: AbortSignal.timeout(5000),
-    });
-    if (res.status === 200) {
-      const data = await res.json();
-      const djData = data[`/djs/${slug}`];
-
-      if (djData && !djData._notfound) {
-        // Extract bio - prefer full content (strip HTML) over truncated meta.description
-        let bio: string | undefined;
-        if (djData.content) {
-          // Strip HTML tags and decode entities
-          bio = djData.content
-            .replace(/<[^>]+>/g, "")
-            .replace(/&nbsp;/g, " ")
-            .replace(/&#039;/g, "'")
-            .replace(/&amp;/g, "&")
-            .replace(/&quot;/g, '"')
-            .trim();
-        } else if (djData.meta?.description) {
-          bio = djData.meta.description;
-        }
-
-        // Extract photo URL from meta.image or files
-        let photoUrl = djData.meta?.image;
-        if (!photoUrl && djData.thumbnail && djData.files?.[djData.thumbnail]) {
-          const file = djData.files[djData.thumbnail];
-          photoUrl = file.sizes?.large || file.sizes?.medium_large || file.url;
-        }
-
-        // Try to find SoundCloud profile for social links
-        // dublab API doesn't include social links, so we check SoundCloud separately
-        const socialLinks: Record<string, string> = {};
-        const soundcloudUrl = await getSoundCloudUrl(djName);
-        if (soundcloudUrl) {
-          socialLinks.soundcloud = soundcloudUrl;
-        }
-
-        return {
-          exists: true,
-          validationUrl: publicUrl,
-          bio: bio || undefined,
-          photoUrl: photoUrl || undefined,
-          socialLinks: Object.keys(socialLinks).length > 0 ? socialLinks : undefined,
-        };
-      }
-    }
-  } catch {
-    // Timeout or network error
-  }
-  return { exists: false };
-}
-
-// Subtle Radio Supabase API config
-const SUBTLE_SUPABASE_URL = "https://pkqpxkyxuaklmztbvryf.supabase.co";
-const SUBTLE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBrcXB4a3l4dWFrbG16dGJ2cnlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc3MTgzNzYsImV4cCI6MjA1MzI5NDM3Nn0.uq5M6qd3tntsj7KpiXPTNIUn-mk6VQFFXJFPj7Wg-os";
-
-// Validate Subtle Radio resident using their Supabase API
-async function validateSubtleProfile(djName: string): Promise<ProfileData> {
-  const slug = toSubtleSlug(djName);
-  const publicUrl = `https://www.subtleradio.com/residents/${slug}`;
-
-  try {
-    const apiUrl = `${SUBTLE_SUPABASE_URL}/rest/v1/team_pages?select=*&slug=eq.${encodeURIComponent(slug)}`;
-    const res = await fetch(apiUrl, {
-      headers: { apikey: SUBTLE_SUPABASE_ANON_KEY },
-      signal: AbortSignal.timeout(5000),
-    });
-
-    if (res.status === 200) {
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        const resident = data[0];
-
-        // Extract bio
-        const bio = resident.description || undefined;
-
-        // Extract photo
-        const photoUrl = resident.image_url || undefined;
-
-        // Extract location
-        const location = resident.city || undefined;
-
-        // Extract genres
-        const genres: string[] = [];
-        if (resident.top_genre) genres.push(resident.top_genre);
-        if (resident.genre_2) genres.push(resident.genre_2);
-        if (resident.genre_3) genres.push(resident.genre_3);
-
-        // Extract social links
-        const socialLinks: Record<string, string> = {};
-        if (resident.instagram) socialLinks.instagram = resident.instagram;
-        if (resident.soundcloud) socialLinks.soundcloud = resident.soundcloud;
-        if (resident.bandcamp) socialLinks.bandcamp = resident.bandcamp;
-        if (resident.mixcloud) socialLinks.mixcloud = resident.mixcloud;
-        if (resident.website) socialLinks.website = resident.website;
-
-        return {
-          exists: true,
-          validationUrl: publicUrl,
-          bio,
-          photoUrl,
-          location,
-          genres: genres.length > 0 ? genres : undefined,
-          socialLinks: Object.keys(socialLinks).length > 0 ? socialLinks : undefined,
-        };
-      }
-    }
-  } catch {
-    // Timeout or network error
-  }
-  return { exists: false };
+// Count words in a name (for NTS show name fallback rule)
+function countWords(name: string): number {
+  return name.trim().split(/\s+/).filter(w => w.length > 0).length;
 }
 
 // Validate NTS show page (hyphen slug) - extract from React state
@@ -232,25 +92,6 @@ async function validateNTSProfile(djName: string): Promise<ProfileData> {
     // Timeout or network error
   }
   return { exists: false };
-}
-
-// Check if a SoundCloud profile exists and return the URL if so
-async function getSoundCloudUrl(djName: string): Promise<string | null> {
-  const slug = toNoSpaceSlug(djName);
-  const url = `https://soundcloud.com/${slug}`;
-
-  try {
-    const res = await fetch(url, {
-      method: "HEAD",
-      signal: AbortSignal.timeout(3000),
-    });
-    if (res.status === 200) {
-      return url;
-    }
-  } catch {
-    // Timeout or network error
-  }
-  return null;
 }
 
 // Validate via SoundCloud for Rinse (no-space slug)
@@ -333,31 +174,37 @@ export async function GET(request: NextRequest) {
       // Skip Newtown Radio - no auto profiles
       if (show.stationId === "newtown") continue;
 
-      // For dublab: the DJ name is in show.name as "DJ - Show Name" format
-      let djName = show.dj;
-      let showName = show.name;
+      // Skip stations with dedicated sync endpoints
+      if (show.stationId === "subtle" || show.stationId === "dublab") continue;
 
-      if (show.stationId === "dublab" && show.name) {
-        const extractedDJ = extractDublabDJ(show.name);
-        if (extractedDJ) {
-          djName = extractedDJ;
-          const dashIndex = show.name.indexOf(" - ");
-          if (dashIndex > 0) {
-            showName = show.name.substring(dashIndex + 3).trim();
-          }
+      const djName = show.dj;
+      const showName = show.name;
+      const isNTS = show.stationId === "nts-1" || show.stationId === "nts-2";
+
+      // Determine the name to use for profile creation
+      let nameForProfile: string | null = null;
+
+      if (isNTS) {
+        // NTS special logic:
+        // 1. Use DJ name if it exists (will validate URL later)
+        // 2. Fall back to show name ONLY if show name is max 2 words (will validate URL later)
+        if (djName) {
+          nameForProfile = djName;
+        } else if (showName && countWords(showName) <= 2) {
+          nameForProfile = showName;
+        }
+      } else {
+        // Other stations: only use DJ name
+        if (djName) {
+          nameForProfile = djName;
         }
       }
 
-      // For Subtle and NTS: if no DJ field, the show name itself is often the resident/host name
-      if ((show.stationId === "subtle" || show.stationId === "nts-1" || show.stationId === "nts-2") && !djName && show.name) {
-        djName = show.name;
-      }
+      // Skip if no valid name to use
+      if (!nameForProfile) continue;
 
-      // Skip shows without DJ info
-      if (!djName) continue;
-
-      // Normalize DJ name for document ID
-      const normalized = djName
+      // Normalize name for document ID
+      const normalized = nameForProfile
         .replace(/[\s-]+/g, "")
         .replace(/[\/,&.#$\[\]]/g, "")
         .toLowerCase();
@@ -367,7 +214,7 @@ export async function GET(request: NextRequest) {
 
       if (!djMap.has(normalized)) {
         djMap.set(normalized, {
-          djName,
+          djName: nameForProfile,
           sources: [],
           stationId: show.stationId,
         });
@@ -418,12 +265,6 @@ export async function GET(request: NextRequest) {
         profileData = validationCache.get(cacheKey)!;
       } else {
         switch (data.stationId) {
-          case "dublab":
-            profileData = await validateDublabProfile(data.djName);
-            break;
-          case "subtle":
-            profileData = await validateSubtleProfile(data.djName);
-            break;
           case "nts-1":
           case "nts-2":
             profileData = await validateNTSProfile(data.djName);
