@@ -83,7 +83,7 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
           username: data?.chatUsername || data?.chatUsernameNormalized || undefined,
         };
       }
-    } catch (err) {
+    } catch {
       // Silently ignore errors for external profiles
     }
   });
