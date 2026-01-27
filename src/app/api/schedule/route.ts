@@ -6,8 +6,16 @@ import { Show } from "@/types";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+// Normalize name for profile lookup (same as sync-auto-dj-profiles)
+function normalizeForProfileLookup(name: string): string {
+  return name
+    .replace(/[\s-]+/g, "")
+    .replace(/[\/,&.#$\[\]]/g, "")
+    .toLowerCase();
+}
+
 // Fetch DJ profiles using Admin SDK (bypasses security rules)
-async function enrichBroadcastShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
+async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
   const adminDb = getAdminDb();
   if (!adminDb) {
     console.log("[API /schedule] Admin SDK not available, skipping DJ profile enrichment");
@@ -22,14 +30,25 @@ async function enrichBroadcastShowsWithDJProfiles(shows: Show[]): Promise<Show[]
     }
   });
 
-  if (djUserIds.size === 0) {
-    return shows;
-  }
+  // Collect all unique DJ/show names from external radio shows for pending-dj-profiles lookup
+  const externalDjNames = new Map<string, string>(); // normalized -> original name
+  shows.forEach((show) => {
+    // External radios (NTS, Rinse, Subtle, dublab)
+    if (show.stationId !== "broadcast" && show.stationId !== "newtown") {
+      const nameToLookup = show.dj || show.name;
+      if (nameToLookup) {
+        const normalized = normalizeForProfileLookup(nameToLookup);
+        if (normalized.length >= 2) {
+          externalDjNames.set(normalized, nameToLookup);
+        }
+      }
+    }
+  });
 
-  // Fetch all DJ profiles in parallel using Admin SDK
+  // Fetch broadcast DJ profiles from users collection
   const djProfiles: Record<string, { bio?: string; photoUrl?: string; promoText?: string; promoHyperlink?: string }> = {};
 
-  const profilePromises = Array.from(djUserIds).map(async (userId) => {
+  const broadcastPromises = Array.from(djUserIds).map(async (userId) => {
     try {
       const userDoc = await adminDb.collection("users").doc(userId).get();
       if (userDoc.exists) {
@@ -49,18 +68,36 @@ async function enrichBroadcastShowsWithDJProfiles(shows: Show[]): Promise<Show[]
     }
   });
 
-  await Promise.all(profilePromises);
+  // Fetch external DJ profiles from pending-dj-profiles collection
+  const externalProfiles: Record<string, { bio?: string; photoUrl?: string; username?: string }> = {};
 
-  // Enrich broadcast shows with DJ profile data
-  // For shows that already have pre-configured data (from venue DJ slots), prefer that data
-  // Only use fresh profile data as fallback when slot data is missing
+  const externalPromises = Array.from(externalDjNames.keys()).map(async (normalized) => {
+    try {
+      const doc = await adminDb.collection("pending-dj-profiles").doc(normalized).get();
+      if (doc.exists) {
+        const data = doc.data();
+        const djProfile = data?.djProfile as { bio?: string; photoUrl?: string } | undefined;
+        externalProfiles[normalized] = {
+          bio: djProfile?.bio || undefined,
+          photoUrl: djProfile?.photoUrl || undefined,
+          username: data?.chatUsername || data?.chatUsernameNormalized || undefined,
+        };
+      }
+    } catch (err) {
+      // Silently ignore errors for external profiles
+    }
+  });
+
+  await Promise.all([...broadcastPromises, ...externalPromises]);
+
+  // Enrich shows with DJ profile data
   return shows.map((show) => {
+    // Broadcast shows: use users collection
     if (show.stationId === "broadcast" && show.djUserId) {
       const profile = djProfiles[show.djUserId];
       if (profile) {
         return {
           ...show,
-          // Prefer pre-configured slot data, fall back to fresh profile data
           djBio: show.djBio || profile.bio,
           djPhotoUrl: show.djPhotoUrl || profile.photoUrl,
           promoText: show.promoText || profile.promoText,
@@ -68,6 +105,24 @@ async function enrichBroadcastShowsWithDJProfiles(shows: Show[]): Promise<Show[]
         };
       }
     }
+
+    // External radio shows: use pending-dj-profiles collection
+    if (show.stationId !== "broadcast" && show.stationId !== "newtown") {
+      const nameToLookup = show.dj || show.name;
+      if (nameToLookup) {
+        const normalized = normalizeForProfileLookup(nameToLookup);
+        const profile = externalProfiles[normalized];
+        if (profile) {
+          return {
+            ...show,
+            djBio: profile.bio,
+            djPhotoUrl: profile.photoUrl,
+            djUsername: profile.username,
+          };
+        }
+      }
+    }
+
     return show;
   });
 }
@@ -76,8 +131,8 @@ export async function GET() {
   try {
     const shows = await getAllShows();
 
-    // Enrich broadcast shows with DJ profiles using Admin SDK
-    const enrichedShows = await enrichBroadcastShowsWithDJProfiles(shows);
+    // Enrich shows with DJ profiles using Admin SDK
+    const enrichedShows = await enrichShowsWithDJProfiles(shows);
 
     return NextResponse.json({ shows: enrichedShows });
   } catch (error) {
