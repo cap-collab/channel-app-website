@@ -7,9 +7,9 @@ function normalizeId(name: string): string {
 }
 
 export async function POST(request: NextRequest) {
-  // Verify admin secret
+  // Verify cron secret (same as other admin endpoints)
   const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.ADMIN_SECRET}`) {
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
