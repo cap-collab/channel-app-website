@@ -32,7 +32,7 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
     if (isLive) {
       items.push({ label: "🔴 Live Now", href: "/channel", active: currentPage === "channel" });
     } else {
-      items.push({ label: "Radio", href: "/channel", active: currentPage === "channel" });
+      items.push({ label: "Home", href: "/channel", active: currentPage === "channel" });
     }
 
     // DJ Studio link - always visible for everyone
@@ -91,7 +91,7 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
                   currentPage === "channel" ? "text-white" : "text-gray-400 hover:text-white"
                 }`}
               >
-                Radio
+                Home
               </Link>
             )}
 
