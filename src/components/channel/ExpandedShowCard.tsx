@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import { Show, Station } from '@/types';
 import { TipButton } from './TipButton';
@@ -46,6 +47,11 @@ export function ExpandedShowCard({
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { addToWatchlist, isInWatchlist } = useFavorites();
   const [isAddingDirect, setIsAddingDirect] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleImageError = (imageUrl: string) => {
     setFailedImages(prev => new Set(prev).add(imageUrl));
@@ -89,7 +95,9 @@ export function ExpandedShowCard({
       }))
     : [];
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <>
       {/* Backdrop */}
       <div
@@ -310,6 +318,7 @@ export function ExpandedShowCard({
         onClose={() => setShowAuthModal(false)}
         message="Sign in to add to your watchlist"
       />
-    </>
+    </>,
+    document.body
   );
 }
