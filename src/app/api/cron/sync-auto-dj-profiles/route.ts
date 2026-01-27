@@ -203,11 +203,10 @@ export async function GET(request: NextRequest) {
       // Skip if no valid name to use
       if (!nameForProfile) continue;
 
-      // Normalize name for document ID
+      // Normalize name for document ID (no spaces, no hyphens - just alphanumeric)
       const normalized = nameForProfile
-        .replace(/[\s-]+/g, "")
-        .replace(/[\/,&.#$\[\]]/g, "")
-        .toLowerCase();
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
 
       // Skip empty or very short normalized names
       if (normalized.length < 2) continue;

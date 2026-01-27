@@ -9,12 +9,9 @@ function verifyCronRequest(request: NextRequest): boolean {
   return isVercelCron || hasValidSecret;
 }
 
-// Normalize DJ name for use as document ID
+// Normalize DJ name for use as document ID (no spaces, no hyphens - just alphanumeric)
 function normalizeForId(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
+  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 // Strip HTML tags and decode entities
