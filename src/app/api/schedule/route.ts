@@ -34,7 +34,12 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
   shows.forEach((show) => {
     // External radios (NTS, Rinse, Subtle, dublab)
     if (show.stationId !== "broadcast" && show.stationId !== "newtown") {
-      const nameToLookup = show.dj || show.name;
+      // For dublab shows, name format is "DJ Name - Show Name"
+      // Extract DJ name from before the hyphen if present
+      let nameToLookup = show.dj || show.name;
+      if (show.name.includes(' - ')) {
+        nameToLookup = show.name.split(' - ')[0].trim();
+      }
       if (nameToLookup) {
         const normalized = normalizeForProfileLookup(nameToLookup);
         if (normalized.length >= 2) {
@@ -108,14 +113,19 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
 
     // External radio shows: use pending-dj-profiles collection
     if (show.stationId !== "broadcast" && show.stationId !== "newtown") {
-      const nameToLookup = show.dj || show.name;
+      // For dublab shows, name format is "DJ Name - Show Name"
+      // Extract DJ name from before the hyphen if present
+      let nameToLookup = show.dj || show.name;
+      if (show.name.includes(' - ')) {
+        nameToLookup = show.name.split(' - ')[0].trim();
+      }
       if (nameToLookup) {
         const normalized = normalizeForProfileLookup(nameToLookup);
         const profile = externalProfiles[normalized];
         if (profile) {
           return {
             ...show,
-            dj: profile.djName || show.dj,
+            dj: profile.djName || nameToLookup,
             djBio: profile.bio,
             djPhotoUrl: profile.photoUrl,
             djUsername: profile.username,
