@@ -277,22 +277,33 @@ export function useFavorites() {
         });
 
         // If no djUserId/djEmail provided, try to find a DJ by normalized username
+        // Note: Firestore rules only allow reading users with role dj/broadcaster/admin
+        // We query by role and filter by chatUsernameNormalized in memory to avoid compound index requirement
         let resolvedDjUserId = djUserId;
         let resolvedDjEmail = djEmail;
         if (!djUserId && !djEmail) {
-          // Normalize the search term the same way as chatUsernameNormalized
-          const normalizedTerm = term.replace(/[\s-]+/g, "").toLowerCase();
-          const usersRef = collection(db, "users");
-          const djQuery = query(
-            usersRef,
-            where("chatUsernameNormalized", "==", normalizedTerm)
-          );
-          const djSnapshot = await getDocs(djQuery);
-          if (!djSnapshot.empty) {
-            const djDoc = djSnapshot.docs[0];
-            resolvedDjUserId = djDoc.id;
-            resolvedDjEmail = djDoc.data().email as string | undefined;
-            console.log(`[addToWatchlist] Found DJ by username "${term}": userId=${resolvedDjUserId}, email=${resolvedDjEmail}`);
+          try {
+            // Normalize the search term the same way as chatUsernameNormalized
+            const normalizedTerm = term.replace(/[\s-]+/g, "").toLowerCase();
+            const usersRef = collection(db, "users");
+            // Query users with DJ/broadcaster/admin role (allowed by Firestore rules)
+            const djQuery = query(
+              usersRef,
+              where("role", "in", ["dj", "broadcaster", "admin"])
+            );
+            const djSnapshot = await getDocs(djQuery);
+            // Filter by chatUsernameNormalized in memory
+            const matchingDoc = djSnapshot.docs.find(
+              (doc) => doc.data().chatUsernameNormalized === normalizedTerm
+            );
+            if (matchingDoc) {
+              resolvedDjUserId = matchingDoc.id;
+              resolvedDjEmail = matchingDoc.data().email as string | undefined;
+              console.log(`[addToWatchlist] Found DJ by username "${term}": userId=${resolvedDjUserId}, email=${resolvedDjEmail}`);
+            }
+          } catch (error) {
+            console.warn(`[addToWatchlist] Could not query users collection:`, error);
+            // Continue without DJ lookup - shows will still be matched by name
           }
         }
 
