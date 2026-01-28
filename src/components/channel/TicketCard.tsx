@@ -1,14 +1,20 @@
 'use client';
 
+import { useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { Show, Station } from '@/types';
+import { getContrastTextColor } from '@/lib/colorUtils';
 
 interface TicketCardProps {
   show: Show;
   station: Station;
   isAuthenticated: boolean;
   isFollowing: boolean;
+  isShowFavorited: boolean;
+  isAddingFollow: boolean;
   isAddingReminder: boolean;
+  onFollow: () => void;
   onRemindMe: () => void;
 }
 
@@ -46,11 +52,21 @@ export function TicketCard({
   show,
   station,
   isFollowing,
+  isShowFavorited,
+  isAddingFollow,
   isAddingReminder,
+  onFollow,
   onRemindMe,
 }: TicketCardProps) {
+  const [imageError, setImageError] = useState(false);
+
   const djName = show.dj || show.name;
+  const photoUrl = show.djPhotoUrl || show.imageUrl;
+  const hasPhoto = photoUrl && !imageError;
   const { date, time } = formatTicketDate(show.startTime);
+
+  // For no-photo variant, use station color with contrast text
+  const textColor = hasPhoto ? '#ffffff' : getContrastTextColor(station.accentColor);
 
   return (
     <div className="bg-surface-card rounded-xl overflow-hidden border border-white/5">
@@ -68,9 +84,37 @@ export function TicketCard({
         </div>
       </div>
 
+      {/* Photo / Graphic Area */}
+      {hasPhoto ? (
+        <div className="relative aspect-square">
+          <Image
+            src={photoUrl}
+            alt={djName}
+            fill
+            className="object-cover"
+            unoptimized
+            onError={() => setImageError(true)}
+          />
+        </div>
+      ) : (
+        <div
+          className="relative aspect-square flex items-center justify-center"
+          style={{ backgroundColor: station.accentColor }}
+        >
+          <div
+            className="text-center px-4"
+            style={{ color: textColor }}
+          >
+            <h2 className="text-4xl font-black uppercase tracking-tight leading-none">
+              {djName}
+            </h2>
+          </div>
+        </div>
+      )}
+
       {/* DJ Info */}
       <div className="p-4 space-y-1">
-        <h3 className="text-white text-2xl font-bold">
+        <h3 className="text-white text-xl font-bold">
           {show.djUsername ? (
             <Link href={`/dj/${show.djUsername}`} className="hover:underline">
               {djName}
@@ -87,31 +131,52 @@ export function TicketCard({
         </p>
       </div>
 
-      {/* Remind Me Button */}
-      <div className="px-4 pb-4">
+      {/* Action Buttons */}
+      <div className="px-4 pb-4 space-y-2">
+        <div className="flex gap-2">
+          {/* Follow Button */}
+          <button
+            onClick={onFollow}
+            disabled={isAddingFollow || isFollowing}
+            className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-colors ${
+              isFollowing
+                ? 'bg-white/10 text-gray-400 cursor-default'
+                : 'bg-white hover:bg-gray-100 text-gray-900'
+            } disabled:opacity-50`}
+          >
+            {isAddingFollow ? (
+              <div className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin mx-auto" />
+            ) : isFollowing ? (
+              'Following'
+            ) : (
+              '+ Follow'
+            )}
+          </button>
+
+          {/* Remind Me Button */}
+          <button
+            onClick={onRemindMe}
+            disabled={isAddingReminder || isShowFavorited}
+            className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-colors ${
+              isShowFavorited
+                ? 'bg-white/10 text-gray-400 cursor-default'
+                : 'bg-white/10 hover:bg-white/20 text-white'
+            } disabled:opacity-50`}
+          >
+            {isAddingReminder ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+            ) : isShowFavorited ? (
+              'Reminded'
+            ) : (
+              'Remind Me'
+            )}
+          </button>
+        </div>
+
+        {/* Helper text */}
         {!isFollowing && (
-          <p className="text-gray-500 text-xs text-center mb-2">Follow to get live alert</p>
+          <p className="text-gray-500 text-xs text-center">Follow to get live alerts</p>
         )}
-        <button
-          onClick={onRemindMe}
-          disabled={isAddingReminder || isFollowing}
-          className={`w-full py-3 px-4 rounded-xl text-sm font-bold uppercase tracking-wide transition-colors ${
-            isFollowing
-              ? 'bg-white/10 text-gray-400 cursor-default'
-              : 'bg-white hover:bg-gray-100 text-gray-900'
-          } disabled:opacity-50`}
-        >
-          {isAddingReminder ? (
-            <div className="flex items-center justify-center gap-2">
-              <div className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
-              Adding...
-            </div>
-          ) : isFollowing ? (
-            "You're Following"
-          ) : (
-            'Remind Me'
-          )}
-        </button>
       </div>
     </div>
   );

@@ -9,17 +9,18 @@ interface WhoNotToMissProps {
   shows: Show[];
   stations: Map<string, Station>;
   isAuthenticated: boolean;
-  onRemindMe: (show: Show) => void;
+  onAuthRequired: (show: Show) => void;
 }
 
 export function WhoNotToMiss({
   shows,
   stations,
   isAuthenticated,
-  onRemindMe,
+  onAuthRequired,
 }: WhoNotToMissProps) {
   const { isInWatchlist, addToWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
-  const [addingDj, setAddingDj] = useState<string | null>(null);
+  const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
+  const [addingReminderShowId, setAddingReminderShowId] = useState<string | null>(null);
 
   // Filter to upcoming shows with DJ profiles only
   const upcomingShows = shows
@@ -35,24 +36,37 @@ export function WhoNotToMiss({
     return null;
   }
 
-  const handleRemindMe = async (show: Show) => {
+  // Follow: adds DJ to watchlist (which auto-adds their shows to favorites)
+  const handleFollow = async (show: Show) => {
     if (!isAuthenticated) {
-      onRemindMe(show);
+      onAuthRequired(show);
       return;
     }
 
     if (!show.dj) return;
 
-    setAddingDj(show.dj);
+    setAddingFollowDj(show.dj);
     try {
-      // Add DJ to watchlist
       await addToWatchlist(show.dj, show.djUserId, show.djEmail);
-      // Also add this specific show to favorites
+    } finally {
+      setAddingFollowDj(null);
+    }
+  };
+
+  // Remind Me: only adds this specific show to favorites
+  const handleRemindMe = async (show: Show) => {
+    if (!isAuthenticated) {
+      onAuthRequired(show);
+      return;
+    }
+
+    setAddingReminderShowId(show.id);
+    try {
       if (!isShowFavorited(show)) {
         await toggleFavorite(show);
       }
     } finally {
-      setAddingDj(null);
+      setAddingReminderShowId(null);
     }
   };
 
@@ -68,7 +82,9 @@ export function WhoNotToMiss({
           if (!station) return null;
 
           const isFollowing = show.dj ? isInWatchlist(show.dj) : false;
-          const isAdding = addingDj === show.dj;
+          const isFavorited = isShowFavorited(show);
+          const isAddingFollow = addingFollowDj === show.dj;
+          const isAddingReminder = addingReminderShowId === show.id;
 
           return (
             <TicketCard
@@ -77,7 +93,10 @@ export function WhoNotToMiss({
               station={station}
               isAuthenticated={isAuthenticated}
               isFollowing={isFollowing}
-              isAddingReminder={isAdding}
+              isShowFavorited={isFavorited}
+              isAddingFollow={isAddingFollow}
+              isAddingReminder={isAddingReminder}
+              onFollow={() => handleFollow(show)}
               onRemindMe={() => handleRemindMe(show)}
             />
           );

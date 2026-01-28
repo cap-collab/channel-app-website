@@ -256,7 +256,7 @@ export function ChannelClient() {
               shows={allShows}
               stations={stationsMap}
               isAuthenticated={isAuthenticated}
-              onRemindMe={handleRemindMe}
+              onAuthRequired={handleRemindMe}
             />
           </div>
 
