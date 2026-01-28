@@ -14,9 +14,11 @@ interface WhoIsOnNowProps {
   onTogglePlay?: () => void;
   isPlaying?: boolean;
   isStreamLoading?: boolean;
+  // Optional chat element to render directly below the broadcast DJ card
+  chatSlot?: React.ReactNode;
 }
 
-export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLoading }: WhoIsOnNowProps) {
+export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLoading, chatSlot }: WhoIsOnNowProps) {
   const { isAuthenticated } = useAuthContext();
   const { stationBPM } = useBPM();
   const { isInWatchlist, addToWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
@@ -147,20 +149,23 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
           const isBroadcast = station.id === 'broadcast';
 
           return (
-            <LiveCard
-              key={show.id}
-              show={show}
-              station={station}
-              bpm={bpm}
-              isAuthenticated={isAuthenticated}
-              isFollowed={isFollowed}
-              isTogglingFollow={togglingFollowId === show.id}
-              onFollow={() => handleFollow(show)}
-              onAuthRequired={onAuthRequired || (() => {})}
-              onPlay={isBroadcast ? onTogglePlay : undefined}
-              isPlaying={isBroadcast ? isPlaying : undefined}
-              isStreamLoading={isBroadcast ? isStreamLoading : undefined}
-            />
+            <div key={show.id} className={isBroadcast && chatSlot ? 'col-span-1 sm:col-span-2 space-y-4' : ''}>
+              <LiveCard
+                show={show}
+                station={station}
+                bpm={bpm}
+                isAuthenticated={isAuthenticated}
+                isFollowed={isFollowed}
+                isTogglingFollow={togglingFollowId === show.id}
+                onFollow={() => handleFollow(show)}
+                onAuthRequired={onAuthRequired || (() => {})}
+                onPlay={isBroadcast ? onTogglePlay : undefined}
+                isPlaying={isBroadcast ? isPlaying : undefined}
+                isStreamLoading={isBroadcast ? isStreamLoading : undefined}
+              />
+              {/* Render chat directly below broadcast DJ card */}
+              {isBroadcast && chatSlot}
+            </div>
           );
         })}
       </div>

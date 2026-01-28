@@ -202,46 +202,41 @@ export function ChannelClient() {
       <main className="max-w-7xl mx-auto flex-1 min-h-0 w-full flex flex-col">
         {/* Desktop layout */}
         <div className="hidden lg:flex lg:flex-col lg:h-full">
-          {/* Top section: Who Is On Now + Coming Up Next | Chat */}
-          <div className="flex-shrink-0 flex border-b border-gray-800 items-stretch">
-            {/* Left column: Who Is On Now + Coming Up Next */}
-            <div className="flex-1 p-4 space-y-4">
-              {/* Who Is On Now - with Play button for broadcast */}
-              <WhoIsOnNow
-                onAuthRequired={handleAuthRequired}
-                onTogglePlay={toggle}
-                isPlaying={isPlaying}
-                isStreamLoading={isLoading}
-              />
+          {/* Top section: Who Is On Now (with chat below broadcast card) + Coming Up Next */}
+          <div className="flex-shrink-0 p-4 space-y-4 border-b border-gray-800">
+            {/* Who Is On Now - with Play button for broadcast, chat below broadcast card */}
+            <WhoIsOnNow
+              onAuthRequired={handleAuthRequired}
+              onTogglePlay={toggle}
+              isPlaying={isPlaying}
+              isStreamLoading={isLoading}
+              chatSlot={isLive ? (
+                <div className="bg-surface-card rounded-xl overflow-hidden" style={{ height: '400px' }}>
+                  <ListenerChatPanel
+                    isAuthenticated={isAuthenticated}
+                    username={username}
+                    userId={user?.uid}
+                    currentDJ={currentDJ}
+                    currentDJUserId={currentDJUserId}
+                    currentDJEmail={currentDJEmail}
+                    showName={currentShow?.showName}
+                    broadcastSlotId={currentShow?.id}
+                    isLive={isLive}
+                    profileLoading={profileLoading}
+                    currentShowStartTime={currentDjSlotStartTime}
+                    onSetUsername={setChatUsername}
+                    isVenue={currentShow?.broadcastType === 'venue'}
+                    activePromoText={currentDjSlot?.promoText || currentDjSlot?.djPromoText}
+                    activePromoHyperlink={currentDjSlot?.promoHyperlink || currentDjSlot?.djPromoHyperlink}
+                    listenerCount={listenerCount}
+                    loveCount={loveCount}
+                  />
+                </div>
+              ) : undefined}
+            />
 
-              {/* Coming Up Next (next 2 shows) */}
-              <ComingUpNext onAuthRequired={handleAuthRequired} />
-            </div>
-
-            {/* Right column: Chat - only show when live, scrolls internally */}
-            {isLive && (
-              <div className="w-96 border-l border-gray-800 flex flex-col p-4">
-                <ListenerChatPanel
-                  isAuthenticated={isAuthenticated}
-                  username={username}
-                  userId={user?.uid}
-                  currentDJ={currentDJ}
-                  currentDJUserId={currentDJUserId}
-                  currentDJEmail={currentDJEmail}
-                  showName={currentShow?.showName}
-                  broadcastSlotId={currentShow?.id}
-                  isLive={isLive}
-                  profileLoading={profileLoading}
-                  currentShowStartTime={currentDjSlotStartTime}
-                  onSetUsername={setChatUsername}
-                  isVenue={currentShow?.broadcastType === 'venue'}
-                  activePromoText={currentDjSlot?.promoText || currentDjSlot?.djPromoText}
-                  activePromoHyperlink={currentDjSlot?.promoHyperlink || currentDjSlot?.djPromoHyperlink}
-                  listenerCount={listenerCount}
-                  loveCount={loveCount}
-                />
-              </div>
-            )}
+            {/* Coming Up Next (next 2 shows) */}
+            <ComingUpNext onAuthRequired={handleAuthRequired} />
           </div>
 
           {/* Bottom section: TV Guide (full width) - always visible */}
@@ -261,42 +256,38 @@ export function ChannelClient() {
             />
           </div>
 
-          {/* Who Is On Now - live DJ cards with Play button for broadcast */}
+          {/* Who Is On Now - live DJ cards with Play button for broadcast, chat below broadcast card */}
           <div className="flex-shrink-0 px-4 pb-4">
             <WhoIsOnNow
               onAuthRequired={handleAuthRequired}
               onTogglePlay={toggle}
               isPlaying={isPlaying}
               isStreamLoading={isLoading}
+              chatSlot={isLive ? (
+                <div className="bg-surface-card rounded-xl overflow-hidden" style={{ height: '300px' }}>
+                  <ListenerChatPanel
+                    isAuthenticated={isAuthenticated}
+                    username={username}
+                    userId={user?.uid}
+                    currentDJ={currentDJ}
+                    currentDJUserId={currentDJUserId}
+                    currentDJEmail={currentDJEmail}
+                    showName={currentShow?.showName}
+                    broadcastSlotId={currentShow?.id}
+                    isLive={isLive}
+                    profileLoading={profileLoading}
+                    currentShowStartTime={currentDjSlotStartTime}
+                    onSetUsername={setChatUsername}
+                    isVenue={currentShow?.broadcastType === 'venue'}
+                    activePromoText={currentDjSlot?.promoText || currentDjSlot?.djPromoText}
+                    activePromoHyperlink={currentDjSlot?.promoHyperlink || currentDjSlot?.djPromoHyperlink}
+                    listenerCount={listenerCount}
+                    loveCount={loveCount}
+                  />
+                </div>
+              ) : undefined}
             />
           </div>
-
-          {/* Chat - only show when Channel broadcast is live, below Who Is On Now */}
-          {isLive && (
-            <div className="flex-shrink-0 px-4 pb-4">
-              <div className="bg-surface-card rounded-xl overflow-hidden" style={{ height: '300px' }}>
-                <ListenerChatPanel
-                  isAuthenticated={isAuthenticated}
-                  username={username}
-                  userId={user?.uid}
-                  currentDJ={currentDJ}
-                  currentDJUserId={currentDJUserId}
-                  currentDJEmail={currentDJEmail}
-                  showName={currentShow?.showName}
-                  broadcastSlotId={currentShow?.id}
-                  isLive={isLive}
-                  profileLoading={profileLoading}
-                  currentShowStartTime={currentDjSlotStartTime}
-                  onSetUsername={setChatUsername}
-                  isVenue={currentShow?.broadcastType === 'venue'}
-                  activePromoText={currentDjSlot?.promoText || currentDjSlot?.djPromoText}
-                  activePromoHyperlink={currentDjSlot?.promoHyperlink || currentDjSlot?.djPromoHyperlink}
-                  listenerCount={listenerCount}
-                  loveCount={loveCount}
-                />
-              </div>
-            </div>
-          )}
 
           {/* Who Not To Miss - upcoming shows with Remind Me CTA */}
           <div className="flex-shrink-0 px-4 pb-4">
