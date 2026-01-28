@@ -15,6 +15,10 @@ interface LiveCardProps {
   isTogglingFollow: boolean;
   onFollow: () => Promise<void>;
   onAuthRequired: () => void;
+  // Streaming control props (for Channel broadcast)
+  onPlay?: () => void;
+  isPlaying?: boolean;
+  isStreamLoading?: boolean;
 }
 
 export function LiveCard({
@@ -26,6 +30,9 @@ export function LiveCard({
   isTogglingFollow,
   onFollow,
   onAuthRequired,
+  onPlay,
+  isPlaying,
+  isStreamLoading,
 }: LiveCardProps) {
   const [imageError, setImageError] = useState(false);
 
@@ -161,12 +168,31 @@ export function LiveCard({
 
           {isChannelBroadcast ? (
             <button
-              className="flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold bg-accent hover:bg-accent-hover text-white transition-colors flex items-center justify-center gap-2"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onPlay?.();
+              }}
+              disabled={isStreamLoading}
+              className="flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold bg-accent hover:bg-accent-hover text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-              Tune In
+              {isStreamLoading ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : isPlaying ? (
+                <>
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                  </svg>
+                  Pause
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  Play
+                </>
+              )}
             </button>
           ) : (
             <button

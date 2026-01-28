@@ -10,9 +10,13 @@ import { LiveCard } from './LiveCard';
 
 interface WhoIsOnNowProps {
   onAuthRequired?: () => void;
+  // Streaming control props (for Channel broadcast)
+  onTogglePlay?: () => void;
+  isPlaying?: boolean;
+  isStreamLoading?: boolean;
 }
 
-export function WhoIsOnNow({ onAuthRequired }: WhoIsOnNowProps) {
+export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLoading }: WhoIsOnNowProps) {
   const { isAuthenticated } = useAuthContext();
   const { stationBPM } = useBPM();
   const { isInWatchlist, addToWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
@@ -140,6 +144,8 @@ export function WhoIsOnNow({ onAuthRequired }: WhoIsOnNowProps) {
           const djNameForWatchlist = show.dj || show.name;
           const isFollowed = djNameForWatchlist ? isInWatchlist(djNameForWatchlist) : false;
 
+          const isBroadcast = station.id === 'broadcast';
+
           return (
             <LiveCard
               key={show.id}
@@ -151,6 +157,9 @@ export function WhoIsOnNow({ onAuthRequired }: WhoIsOnNowProps) {
               isTogglingFollow={togglingFollowId === show.id}
               onFollow={() => handleFollow(show)}
               onAuthRequired={onAuthRequired || (() => {})}
+              onPlay={isBroadcast ? onTogglePlay : undefined}
+              isPlaying={isBroadcast ? isPlaying : undefined}
+              isStreamLoading={isBroadcast ? isStreamLoading : undefined}
             />
           );
         })}

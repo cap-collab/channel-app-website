@@ -25,6 +25,9 @@ interface ListenerChatPanelProps {
   activePromoText?: string;
   activePromoHyperlink?: string;
   isVenue?: boolean;
+  // Stats to display in header
+  listenerCount?: number;
+  loveCount?: number;
 }
 
 // Reserved usernames that cannot be registered (case-insensitive)
@@ -293,6 +296,8 @@ export function ListenerChatPanel({
   activePromoText,
   activePromoHyperlink,
   isVenue = false,
+  listenerCount,
+  loveCount,
 }: ListenerChatPanelProps) {
   const { messages, error, currentPromo, sendMessage, sendLove } = useListenerChat({
     username,
@@ -341,13 +346,35 @@ export function ListenerChatPanel({
   };
 
   // Chat header component to reduce duplication
-  const ChatHeader = () => (
+  const ChatHeader = ({ showStats = false }: { showStats?: boolean }) => (
     <div className="p-4 border-b border-gray-800">
-      <div className="flex items-center gap-2">
-        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-        </svg>
-        <span className="text-white font-medium">Chat</span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+          <span className="text-white font-medium">Chat</span>
+        </div>
+        {showStats && (loveCount !== undefined || listenerCount !== undefined) && (
+          <div className="flex items-center gap-3">
+            {loveCount !== undefined && loveCount > 0 && (
+              <div className="flex items-center gap-1 text-gray-400">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                </svg>
+                <span className="text-sm">{loveCount}</span>
+              </div>
+            )}
+            {listenerCount !== undefined && listenerCount > 0 && (
+              <div className="flex items-center gap-1 text-gray-400">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 3a9 9 0 00-9 9v7c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2H5v-1a7 7 0 1114 0v1h-2c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-7a9 9 0 00-9-9z" />
+                </svg>
+                <span className="text-sm">{listenerCount}</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -384,13 +411,35 @@ export function ListenerChatPanel({
 
   return (
     <div className="flex flex-col h-full min-h-[280px] bg-[#252525] rounded-xl overflow-hidden">
-      {/* Header */}
+      {/* Header with stats */}
       <div className="p-4 border-b border-gray-800 flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-          </svg>
-          <span className="text-white font-medium">Chat</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            <span className="text-white font-medium">Chat</span>
+          </div>
+          {(loveCount !== undefined || listenerCount !== undefined) && (
+            <div className="flex items-center gap-3">
+              {loveCount !== undefined && loveCount > 0 && (
+                <div className="flex items-center gap-1 text-gray-400">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                  </svg>
+                  <span className="text-sm">{loveCount}</span>
+                </div>
+              )}
+              {listenerCount !== undefined && listenerCount > 0 && (
+                <div className="flex items-center gap-1 text-gray-400">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 3a9 9 0 00-9 9v7c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2H5v-1a7 7 0 1114 0v1h-2c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-7a9 9 0 00-9-9z" />
+                  </svg>
+                  <span className="text-sm">{listenerCount}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
