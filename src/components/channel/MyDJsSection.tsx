@@ -325,8 +325,43 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
       }
     }
 
+    // Deduplicate by username - keep the best entry (live > upcoming > none)
+    const byUsername = new Map<string, FavoriteItemStatus>();
+    const allItems = Array.from(itemMap.values());
+    for (const item of allItems) {
+      // Use username as key if available, otherwise use lowercase name
+      const dedupeKey = item.username?.toLowerCase() || item.name.toLowerCase();
+      const existing = byUsername.get(dedupeKey);
+
+      if (!existing) {
+        byUsername.set(dedupeKey, item);
+      } else {
+        // Priority: live > upcoming show > no show
+        const existingScore = existing.isLive ? 2 : existing.nextShowTime ? 1 : 0;
+        const newScore = item.isLive ? 2 : item.nextShowTime ? 1 : 0;
+
+        if (newScore > existingScore) {
+          byUsername.set(dedupeKey, item);
+        } else if (newScore === existingScore && newScore === 1) {
+          // Both have upcoming shows - keep the one with earlier show time
+          const existingTime = new Date(existing.nextShowTime!).getTime();
+          const newTime = new Date(item.nextShowTime!).getTime();
+          if (newTime < existingTime) {
+            byUsername.set(dedupeKey, item);
+          }
+        } else if (newScore === existingScore) {
+          // Same priority - prefer the one with more info (photo, username)
+          const existingInfo = (existing.photoUrl ? 1 : 0) + (existing.username ? 1 : 0);
+          const newInfo = (item.photoUrl ? 1 : 0) + (item.username ? 1 : 0);
+          if (newInfo > existingInfo) {
+            byUsername.set(dedupeKey, item);
+          }
+        }
+      }
+    }
+
     // Sort: live first, then by next show time
-    return Array.from(itemMap.values()).sort((a, b) => {
+    return Array.from(byUsername.values()).sort((a, b) => {
       if (a.isLive && !b.isLive) return -1;
       if (!a.isLive && b.isLive) return 1;
       if (a.nextShowTime && b.nextShowTime) {
