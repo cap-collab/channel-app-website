@@ -151,14 +151,17 @@ export function useFavorites() {
       try {
         const favoritesRef = collection(db, "users", user.uid, "favorites");
 
-        // Check if already exists (must match term AND stationId for show favorites)
+        // Check if already exists - query by term only, then filter by stationId in memory
+        // (Firestore requires composite index for multiple where clauses on different fields)
         const q = query(
           favoritesRef,
-          where("term", "==", show.name.toLowerCase()),
-          where("stationId", "==", show.stationId)
+          where("term", "==", show.name.toLowerCase())
         );
         const existing = await getDocs(q);
-        if (!existing.empty) {
+        const alreadyFavorited = existing.docs.some(
+          (doc) => doc.data().stationId === show.stationId
+        );
+        if (alreadyFavorited) {
           console.log(`[addFavorite] Show already favorited, skipping`);
           return true;
         }
@@ -190,16 +193,19 @@ export function useFavorites() {
 
       try {
         const favoritesRef = collection(db, "users", user.uid, "favorites");
-        // Only remove favorites matching both term AND stationId
+        // Query by term only, then filter by stationId in memory
+        // (Firestore requires composite index for multiple where clauses on different fields)
         const q = query(
           favoritesRef,
-          where("term", "==", show.name.toLowerCase()),
-          where("stationId", "==", show.stationId)
+          where("term", "==", show.name.toLowerCase())
         );
         const snapshot = await getDocs(q);
 
         for (const d of snapshot.docs) {
-          await deleteDoc(doc(db, "users", user.uid, "favorites", d.id));
+          // Only delete if stationId matches
+          if (d.data().stationId === show.stationId) {
+            await deleteDoc(doc(db, "users", user.uid, "favorites", d.id));
+          }
         }
 
         console.log(`[removeFavorite] Removed show "${show.name}" (${show.stationId}) from favorites`);
@@ -237,14 +243,17 @@ export function useFavorites() {
       try {
         const favoritesRef = collection(db, "users", user.uid, "favorites");
 
-        // Check if already exists
+        // Check if already exists - query by term, filter by type in memory
+        // (Firestore requires composite index for multiple where clauses on different fields)
         const q = query(
           favoritesRef,
-          where("term", "==", term.toLowerCase()),
-          where("type", "==", "search")
+          where("term", "==", term.toLowerCase())
         );
         const existing = await getDocs(q);
-        if (!existing.empty) return true;
+        const alreadyInWatchlist = existing.docs.some(
+          (doc) => doc.data().type === "search"
+        );
+        if (alreadyInWatchlist) return true;
 
         // Add the watchlist term
         await addDoc(favoritesRef, {
@@ -393,14 +402,16 @@ export function useFavorites() {
         // Add each matching show to favorites
         let addedCount = 0;
         for (const show of uniqueShows) {
-          // Check if already favorited
+          // Check if already favorited - query by term, filter by stationId in memory
           const existingFav = query(
             favoritesRef,
-            where("term", "==", show.name.toLowerCase()),
-            where("stationId", "==", show.stationId)
+            where("term", "==", show.name.toLowerCase())
           );
-          const favExists = await getDocs(existingFav);
-          if (favExists.empty) {
+          const favDocs = await getDocs(existingFav);
+          const alreadyFavorited = favDocs.docs.some(
+            (doc) => doc.data().stationId === show.stationId
+          );
+          if (!alreadyFavorited) {
             console.log(`[addToWatchlist] Auto-adding show to favorites: ${show.name} (${show.stationId})`);
             await addDoc(favoritesRef, {
               term: show.name.toLowerCase(),
@@ -606,13 +617,16 @@ export function useFavorites() {
 
         if (!isAlreadyFavorited) {
           // Also check Firebase to avoid race conditions
+          // Query by term only, filter by stationId in memory
           const q = query(
             favoritesRef,
-            where("term", "==", show.name.toLowerCase()),
-            where("stationId", "==", show.stationId)
+            where("term", "==", show.name.toLowerCase())
           );
-          const existing = await getDocs(q);
-          if (existing.empty) {
+          const existingDocs = await getDocs(q);
+          const existsInFirebase = existingDocs.docs.some(
+            (doc) => doc.data().stationId === show.stationId
+          );
+          if (!existsInFirebase) {
             console.log(`[addDJShowsToFavorites] Adding show to favorites: ${show.name} (${show.stationId})`);
             await addDoc(favoritesRef, {
               term: show.name.toLowerCase(),
