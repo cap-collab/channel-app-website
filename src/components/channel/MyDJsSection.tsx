@@ -313,16 +313,8 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
         }
       }
 
-      // Add favorited show even if not found in schedule
-      const key = `show:${favShow.term}:${favShow.stationId || 'any'}`;
-      if (!itemMap.has(key)) {
-        itemMap.set(key, {
-          name: favShow.showName || favShow.term.charAt(0).toUpperCase() + favShow.term.slice(1),
-          isLive: false,
-          stationId: favShow.stationId,
-          itemType: 'show',
-        });
-      }
+      // Don't add favorited shows that have no live or upcoming instances
+      // (past shows should not appear in favorites)
     }
 
     // Deduplicate by username - keep the best entry (live > upcoming > none)
