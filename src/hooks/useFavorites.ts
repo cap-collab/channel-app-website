@@ -37,10 +37,11 @@ export function isRecurringFavorite(favorite: Favorite): boolean {
   return showType === "regular" || showType === "weekly" || showType === "biweekly" || showType === "monthly";
 }
 
-// Word boundary matching for DJ names (same as watchlist-digest cron)
-function matchesAsWord(text: string, term: string): boolean {
-  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`\\b${escaped}\\b`, "i").test(text);
+// Contains matching for DJ/show names (bidirectional - either contains the other)
+function containsMatch(text: string, term: string): boolean {
+  const textLower = text.toLowerCase();
+  const termLower = term.toLowerCase();
+  return textLower.includes(termLower) || termLower.includes(textLower);
 }
 
 export function useFavorites() {
@@ -258,13 +259,13 @@ export function useFavorites() {
         // Find shows where DJ name matches the term (word boundary match)
         const matchingShows = allShows.filter((show) => {
           if (!show.dj) return false;
-          return matchesAsWord(show.dj, term);
+          return containsMatch(show.dj, term);
         });
         console.log(`[addToWatchlist] Found ${matchingShows.length} shows matching DJ "${term}"`);
 
         // Also find shows where show name matches
         const nameMatches = allShows.filter((show) => {
-          return matchesAsWord(show.name, term);
+          return containsMatch(show.name, term);
         });
         console.log(`[addToWatchlist] Found ${nameMatches.length} shows matching show name "${term}"`);
 
@@ -454,7 +455,7 @@ export function useFavorites() {
       // Filter shows that match the DJ name
       const matchingShowsByName = allShows.filter((show) => {
         if (!show.dj) return false;
-        return matchesAsWord(show.dj, djName);
+        return containsMatch(show.dj, djName);
       });
       console.log(`[addDJShowsToFavorites] Found ${matchingShowsByName.length} shows matching DJ name "${djName}"`);
 

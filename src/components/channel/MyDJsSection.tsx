@@ -21,6 +21,7 @@ interface FollowedDJStatus {
 interface MyDJsSectionProps {
   shows: Show[];
   isAuthenticated: boolean;
+  isLoading?: boolean;
 }
 
 function formatNextShowTime(isoTime: string): string {
@@ -50,7 +51,7 @@ function formatNextShowTime(isoTime: string): string {
   }
 }
 
-export function MyDJsSection({ shows, isAuthenticated }: MyDJsSectionProps) {
+export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSectionProps) {
   const { favorites } = useFavorites();
 
   // Get watchlist items (type="search" = followed DJs)
@@ -140,8 +141,8 @@ export function MyDJsSection({ shows, isAuthenticated }: MyDJsSectionProps) {
     });
   }, [followedDJNames, shows]);
 
-  // Don't render if not authenticated or no followed DJs
-  if (!isAuthenticated || djsWithStatus.length === 0) {
+  // Don't render if not authenticated, still loading, or no followed DJs
+  if (!isAuthenticated || isLoading || djsWithStatus.length === 0) {
     return null;
   }
 

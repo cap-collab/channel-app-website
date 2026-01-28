@@ -18,7 +18,7 @@ export function WhoNotToMiss({
   isAuthenticated,
   onRemindMe,
 }: WhoNotToMissProps) {
-  const { isInWatchlist, addToWatchlist } = useFavorites();
+  const { isInWatchlist, addToWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
   const [addingDj, setAddingDj] = useState<string | null>(null);
 
   // Filter to upcoming shows with DJ profiles only
@@ -45,7 +45,12 @@ export function WhoNotToMiss({
 
     setAddingDj(show.dj);
     try {
+      // Add DJ to watchlist
       await addToWatchlist(show.dj, show.djUserId, show.djEmail);
+      // Also add this specific show to favorites
+      if (!isShowFavorited(show)) {
+        await toggleFavorite(show);
+      }
     } finally {
       setAddingDj(null);
     }

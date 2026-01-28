@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Show, Station } from '@/types';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { useFavorites } from '@/hooks/useFavorites';
 
 interface WhatNotToMissProps {
@@ -45,7 +46,7 @@ export function WhatNotToMiss({
   isAuthenticated,
   onRemindMe,
 }: WhatNotToMissProps) {
-  const { isInWatchlist, addToWatchlist } = useFavorites();
+  const { isInWatchlist, addToWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
   const [addingDj, setAddingDj] = useState<string | null>(null);
 
   // Filter to upcoming shows with DJ profiles only
@@ -72,7 +73,12 @@ export function WhatNotToMiss({
 
     setAddingDj(show.dj);
     try {
+      // Add DJ to watchlist
       await addToWatchlist(show.dj, show.djUserId, show.djEmail);
+      // Also add this specific show to favorites
+      if (!isShowFavorited(show)) {
+        await toggleFavorite(show);
+      }
     } finally {
       setAddingDj(null);
     }

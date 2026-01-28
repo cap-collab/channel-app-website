@@ -40,11 +40,11 @@ function formatShowTime(startTime: string): string {
   }
 }
 
-// Check if text contains the search term as a whole word (word boundary matching)
-function matchesAsWord(text: string, searchTerm: string): boolean {
-  const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const wordBoundaryRegex = new RegExp(`\\b${escaped}\\b`, 'i');
-  return wordBoundaryRegex.test(text);
+// Contains matching for DJ/show names (bidirectional - either contains the other)
+function containsMatch(text: string, term: string): boolean {
+  const textLower = text.toLowerCase();
+  const termLower = term.toLowerCase();
+  return textLower.includes(termLower) || termLower.includes(textLower);
 }
 
 // Match a favorite against shows to find scheduled instances
@@ -65,10 +65,10 @@ function findMatchingShows(favorite: Favorite, allShows: Show[]): Show[] {
       // Exact match on show name only (no DJ matching)
       return showNameLower === term || (showName && showNameLower === showName);
     } else {
-      // Watchlist (cross-station): word boundary matching on show name OR DJ
+      // Watchlist (cross-station): contains matching on show name OR DJ
       const showDjLower = show.dj?.toLowerCase();
-      const nameMatch = matchesAsWord(showNameLower, term);
-      const djMatch = showDjLower && matchesAsWord(showDjLower, term);
+      const nameMatch = containsMatch(showNameLower, term);
+      const djMatch = showDjLower && containsMatch(showDjLower, term);
       return nameMatch || djMatch;
     }
   });

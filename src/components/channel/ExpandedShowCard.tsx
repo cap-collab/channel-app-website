@@ -45,7 +45,7 @@ export function ExpandedShowCard({
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const [showWatchlistModal, setShowWatchlistModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const { addToWatchlist, isInWatchlist } = useFavorites();
+  const { addToWatchlist, isInWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
   const [isAddingDirect, setIsAddingDirect] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -78,7 +78,12 @@ export function ExpandedShowCard({
       }
 
       setIsAddingDirect(true);
+      // Add DJ to watchlist
       await addToWatchlist(show.dj!, show.djUserId, show.djEmail);
+      // Also add this specific show to favorites
+      if (!isShowFavorited(show)) {
+        await toggleFavorite(show);
+      }
       setIsAddingDirect(false);
     } else {
       // Show the modal (it handles auth internally)

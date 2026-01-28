@@ -41,6 +41,7 @@ export function ChannelClient() {
 
   // All shows data for MyDJs and WhatNotToMiss
   const [allShows, setAllShows] = useState<Show[]>([]);
+  const [allShowsLoading, setAllShowsLoading] = useState(true);
 
   // Stations map for quick lookup
   const stationsMap = useMemo(() => {
@@ -98,7 +99,8 @@ export function ChannelClient() {
     fetch('/api/schedule')
       .then((res) => res.json())
       .then((data) => setAllShows(data.shows || []))
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setAllShowsLoading(false));
   }, []);
 
   // Check for tip success on mount
@@ -372,6 +374,7 @@ export function ChannelClient() {
             <MyDJsSection
               shows={allShows}
               isAuthenticated={isAuthenticated}
+              isLoading={allShowsLoading}
             />
           </div>
 

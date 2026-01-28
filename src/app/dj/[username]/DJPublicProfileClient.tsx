@@ -98,10 +98,11 @@ interface Props {
   username: string;
 }
 
-// Helper: word boundary match (same as watchlist)
-function matchesAsWord(text: string, term: string): boolean {
-  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`\\b${escaped}\\b`, "i").test(text);
+// Contains matching for DJ/show names (bidirectional - either contains the other)
+function containsMatch(text: string, term: string): boolean {
+  const textLower = text.toLowerCase();
+  const termLower = term.toLowerCase();
+  return textLower.includes(termLower) || termLower.includes(textLower);
 }
 
 export function DJPublicProfileClient({ username }: Props) {
@@ -275,7 +276,7 @@ export function DJPublicProfileClient({ username }: Props) {
         show.stationId === "broadcast" &&
         new Date(show.startTime).getTime() <= now &&
         new Date(show.endTime).getTime() > now &&
-        (show.dj && matchesAsWord(show.dj, djName))
+        (show.dj && containsMatch(show.dj, djName))
     );
 
     if (channelShow) {
@@ -290,8 +291,8 @@ export function DJPublicProfileClient({ username }: Props) {
         show.stationId !== "broadcast" &&
         new Date(show.startTime).getTime() <= now &&
         new Date(show.endTime).getTime() > now &&
-        ((show.dj && matchesAsWord(show.dj, djName)) ||
-          matchesAsWord(show.name, djName))
+        ((show.dj && containsMatch(show.dj, djName)) ||
+          containsMatch(show.name, djName))
     );
 
     if (externalShow) {
@@ -332,9 +333,9 @@ export function DJPublicProfileClient({ username }: Props) {
             const data = docSnap.data();
             // Match by DJ username, name, or userId/email
             const isMatch =
-              (data.djUsername && matchesAsWord(data.djUsername, djProfile.chatUsername)) ||
-              (data.djName && matchesAsWord(data.djName, djProfile.chatUsername)) ||
-              (data.liveDjUsername && matchesAsWord(data.liveDjUsername, djProfile.chatUsername)) ||
+              (data.djUsername && containsMatch(data.djUsername, djProfile.chatUsername)) ||
+              (data.djName && containsMatch(data.djName, djProfile.chatUsername)) ||
+              (data.liveDjUsername && containsMatch(data.liveDjUsername, djProfile.chatUsername)) ||
               data.djUserId === djProfile.uid ||
               (data.djEmail && data.djEmail.toLowerCase() === djProfile.email.toLowerCase());
 
@@ -373,8 +374,8 @@ export function DJPublicProfileClient({ username }: Props) {
         if (endTime <= now) return;
 
         // Match by DJ name or show name containing the DJ name (same as watchlist)
-        const djMatch = show.dj && matchesAsWord(show.dj, djName);
-        const showNameMatch = matchesAsWord(show.name, djName);
+        const djMatch = show.dj && containsMatch(show.dj, djName);
+        const showNameMatch = containsMatch(show.name, djName);
 
         if (djMatch || showNameMatch) {
           const id = `external-${show.id}`;

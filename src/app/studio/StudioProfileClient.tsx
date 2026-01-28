@@ -16,10 +16,11 @@ import { uploadDJPhoto, deleteDJPhoto, validatePhoto } from "@/lib/photo-upload"
 import { Show } from "@/types";
 import { getStationById } from "@/lib/stations";
 
-// Helper: word boundary match (same as watchlist)
-function matchesAsWord(text: string, term: string): boolean {
-  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`\\b${escaped}\\b`, "i").test(text);
+// Contains matching for DJ/show names (bidirectional - either contains the other)
+function containsMatch(text: string, term: string): boolean {
+  const textLower = text.toLowerCase();
+  const termLower = term.toLowerCase();
+  return textLower.includes(termLower) || termLower.includes(textLower);
 }
 
 interface UpcomingShow {
@@ -317,8 +318,8 @@ export function StudioProfileClient() {
             if (endTime <= nowMs) continue;
 
             // Match by DJ name or show name containing the DJ name (same as watchlist)
-            const djMatch = show.dj && matchesAsWord(show.dj, chatUsername);
-            const showNameMatch = matchesAsWord(show.name, chatUsername);
+            const djMatch = show.dj && containsMatch(show.dj, chatUsername);
+            const showNameMatch = containsMatch(show.name, chatUsername);
 
             if (djMatch || showNameMatch) {
               const id = `external-${show.id}`;
