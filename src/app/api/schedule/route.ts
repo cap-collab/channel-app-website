@@ -79,7 +79,7 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
         externalProfiles[normalized] = {
           bio: djProfile?.bio || undefined,
           photoUrl: djProfile?.photoUrl || undefined,
-          username: data?.chatUsername || data?.chatUsernameNormalized || undefined,
+          username: data?.chatUsernameNormalized || data?.chatUsername || undefined,
         };
       }
     } catch {
