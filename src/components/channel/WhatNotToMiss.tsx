@@ -45,7 +45,7 @@ export function WhatNotToMiss({
   isAuthenticated,
   onRemindMe,
 }: WhatNotToMissProps) {
-  const { isInWatchlist, addToWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
+  const { isInWatchlist, followDJ } = useFavorites();
   const [addingDj, setAddingDj] = useState<string | null>(null);
 
   // Filter to upcoming shows with DJ profiles only
@@ -62,7 +62,7 @@ export function WhatNotToMiss({
     return null;
   }
 
-  const handleRemindMe = async (show: Show) => {
+  const handleFollow = async (show: Show) => {
     if (!isAuthenticated) {
       onRemindMe(show);
       return;
@@ -72,12 +72,8 @@ export function WhatNotToMiss({
 
     setAddingDj(show.dj);
     try {
-      // Add DJ to watchlist
-      await addToWatchlist(show.dj, show.djUserId, show.djEmail);
-      // Also add this specific show to favorites
-      if (!isShowFavorited(show)) {
-        await toggleFavorite(show);
-      }
+      // Use unified followDJ function - adds DJ to watchlist + specific show to favorites
+      await followDJ(show.dj, show.djUserId, show.djEmail, show);
     } finally {
       setAddingDj(null);
     }
@@ -151,9 +147,9 @@ export function WhatNotToMiss({
                     </p>
                   </div>
 
-                  {/* Remind Me Button */}
+                  {/* Follow Button */}
                   <button
-                    onClick={() => handleRemindMe(show)}
+                    onClick={() => handleFollow(show)}
                     disabled={isAdding || isFollowing}
                     className={`mt-2 w-full py-2 px-3 rounded-lg text-sm font-semibold transition-colors ${
                       isFollowing
@@ -167,9 +163,9 @@ export function WhatNotToMiss({
                         Adding...
                       </div>
                     ) : isFollowing ? (
-                      "You're Following"
+                      'Following'
                     ) : (
-                      'Remind Me'
+                      '+ Follow'
                     )}
                   </button>
                 </div>

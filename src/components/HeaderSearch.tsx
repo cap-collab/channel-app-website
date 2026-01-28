@@ -52,7 +52,7 @@ interface HeaderSearchProps {
 
 export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
   const { isAuthenticated } = useAuthContext();
-  const { toggleFavorite, isShowFavorited, addToWatchlist, isInWatchlist } = useFavorites();
+  const { toggleFavorite, isShowFavorited, addToWatchlist, isInWatchlist, followDJ } = useFavorites();
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Show[]>([]);
@@ -61,8 +61,8 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [addingWatchlistForQuery, setAddingWatchlistForQuery] = useState(false);
   const [addingDjToWatchlist, setAddingDjToWatchlist] = useState<string | null>(null);
-  const [pendingDjs, setPendingDjs] = useState<Array<{ name: string; photoUrl?: string; username: string }>>([]);
-  const [registeredDjs, setRegisteredDjs] = useState<Array<{ name: string; photoUrl?: string; username: string }>>([]);
+  const [pendingDjs, setPendingDjs] = useState<Array<{ name: string; photoUrl?: string; username: string; odId?: string; email?: string }>>([]);
+  const [registeredDjs, setRegisteredDjs] = useState<Array<{ name: string; photoUrl?: string; username: string; odId?: string; email?: string }>>([]);
   const [expandedShow, setExpandedShow] = useState<Show | null>(null);
   const [togglingExpandedFavorite, setTogglingExpandedFavorite] = useState(false);
 
@@ -113,16 +113,18 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
         const pendingQ = fbQuery(pendingRef, where('status', '==', 'pending'));
         const snapshot = await getDocs(pendingQ);
 
-        const matchingPendingDjs: Array<{ name: string; photoUrl?: string; username: string }> = [];
+        const matchingPendingDjs: Array<{ name: string; photoUrl?: string; username: string; odId?: string; email?: string }> = [];
 
-        snapshot.forEach((doc) => {
-          const data = doc.data();
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
           const username = data.chatUsername || '';
           if (username.toLowerCase().includes(queryLower)) {
             matchingPendingDjs.push({
               name: username,
               photoUrl: data.djProfile?.photoUrl || undefined,
               username: data.chatUsernameNormalized || username.toLowerCase(),
+              odId: docSnap.id,
+              email: data.email || undefined,
             });
           }
         });
@@ -140,11 +142,11 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
         const djRoleQ = fbQuery(usersRef, where('role', '==', 'dj'));
         const djRoleSnapshot = await getDocs(djRoleQ);
 
-        const matchingRegisteredDjs: Array<{ name: string; photoUrl?: string; username: string }> = [];
+        const matchingRegisteredDjs: Array<{ name: string; photoUrl?: string; username: string; odId?: string; email?: string }> = [];
         const seenUsernames = new Set<string>();
 
-        djRoleSnapshot.forEach((doc) => {
-          const data = doc.data();
+        djRoleSnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
           const username = data.chatUsername || data.displayName || '';
           const normalizedUsername = data.chatUsernameNormalized || username.replace(/[\s-]+/g, '').toLowerCase();
 
@@ -155,6 +157,8 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
               name: username,
               photoUrl: data.djProfile?.photoUrl || undefined,
               username: normalizedUsername,
+              odId: docSnap.id,
+              email: data.email || undefined,
             });
           }
         });
@@ -207,7 +211,7 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
 
   // Combine all DJ profiles (pending + registered) - deduplicated
   const allDjProfiles = useMemo(() => {
-    const djMap = new Map<string, { name: string; photoUrl?: string; username: string }>();
+    const djMap = new Map<string, { name: string; photoUrl?: string; username: string; odId?: string; email?: string }>();
 
     // Add registered DJs first (they take priority)
     for (const dj of registeredDjs) {
@@ -243,16 +247,17 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
     return allDjProfiles.some(dj => dj.name.toLowerCase() === queryLower);
   }, [query, allDjProfiles]);
 
-  const handleFollowDj = useCallback(async (djName: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleFollowDj = useCallback(async (djName: string, djUserId?: string, djEmail?: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     if (!isAuthenticated) {
       onAuthRequired?.();
       return;
     }
     setAddingDjToWatchlist(djName);
-    await addToWatchlist(djName);
+    // Use unified followDJ function with DJ profile data for reliable matching
+    await followDJ(djName, djUserId, djEmail);
     setAddingDjToWatchlist(null);
-  }, [isAuthenticated, onAuthRequired, addToWatchlist]);
+  }, [isAuthenticated, onAuthRequired, followDJ]);
 
   const handleShowClick = useCallback((show: Show) => {
     setExpandedShow(show);
@@ -440,7 +445,7 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
 
                             {/* Follow button */}
                             <button
-                              onClick={(e) => handleFollowDj(dj.name, e)}
+                              onClick={(e) => handleFollowDj(dj.name, dj.odId, dj.email, e)}
                               disabled={isAddingThisDj || djInWatchlist}
                               className={`p-1.5 rounded transition-colors ${
                                 djInWatchlist

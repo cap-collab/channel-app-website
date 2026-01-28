@@ -429,6 +429,28 @@ export function useFavorites() {
     [favorites]
   );
 
+  // Follow a DJ - adds to watchlist and optionally adds specific show to favorites
+  // This is the unified function that all components should use for consistency
+  const followDJ = useCallback(
+    async (
+      djName: string,
+      djUserId?: string,
+      djEmail?: string,
+      currentShow?: Show
+    ): Promise<boolean> => {
+      // 1. Add DJ to watchlist (auto-adds matching shows)
+      const success = await addToWatchlist(djName, djUserId, djEmail);
+
+      // 2. Also add the specific show if provided and not already favorited
+      if (success && currentShow && !isShowFavorited(currentShow)) {
+        await toggleFavorite(currentShow);
+      }
+
+      return success;
+    },
+    [addToWatchlist, toggleFavorite, isShowFavorited]
+  );
+
   // Add all shows for a DJ to favorites (called when subscribing to a DJ)
   // Matches by: DJ name in metadata, djUserId/djEmail in broadcast-slots
   const addDJShowsToFavorites = useCallback(
@@ -584,6 +606,7 @@ export function useFavorites() {
     addToWatchlist,
     removeFromWatchlist,
     isInWatchlist,
+    followDJ,
     addDJShowsToFavorites,
   };
 }

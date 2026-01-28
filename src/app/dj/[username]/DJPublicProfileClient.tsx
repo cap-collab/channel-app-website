@@ -108,7 +108,7 @@ function containsMatch(text: string, term: string): boolean {
 export function DJPublicProfileClient({ username }: Props) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
-  const { isInWatchlist, addToWatchlist, removeFromWatchlist, toggleFavorite, isShowFavorited, loading: favoritesLoading } = useFavorites();
+  const { isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited, loading: favoritesLoading } = useFavorites();
 
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -518,9 +518,8 @@ export function DJPublicProfileClient({ username }: Props) {
       if (isSubscribed) {
         await removeFromWatchlist(djProfile.chatUsername);
       } else {
-        // Add DJ to watchlist - this also auto-adds matching shows to favorites
-        // (by word-boundary name match + userId/email match for broadcast slots)
-        await addToWatchlist(djProfile.chatUsername, djProfile.uid, djProfile.email);
+        // Use unified followDJ function - adds DJ to watchlist + auto-adds matching shows
+        await followDJ(djProfile.chatUsername, djProfile.uid, djProfile.email);
       }
     } catch (error) {
       console.error("Error toggling subscription:", error);
@@ -688,7 +687,7 @@ export function DJPublicProfileClient({ username }: Props) {
                       : "bg-white text-black hover:bg-gray-100"
                   } disabled:opacity-50`}
                 >
-                  {subscribing ? "..." : isSubscribed ? "In watchlist" : "Add to watchlist"}
+                  {subscribing ? "..." : isSubscribed ? "Following" : "+ Follow"}
                 </button>
               </div>
               <p className="text-gray-500 text-xs text-center max-w-2xl">

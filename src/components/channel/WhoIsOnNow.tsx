@@ -23,7 +23,7 @@ interface WhoIsOnNowProps {
 export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLoading, isBroadcastLive, chatSlot }: WhoIsOnNowProps) {
   const { isAuthenticated } = useAuthContext();
   const { stationBPM } = useBPM();
-  const { isInWatchlist, addToWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
+  const { isInWatchlist, followDJ } = useFavorites();
 
   const [allShows, setAllShows] = useState<Show[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,17 +98,13 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
 
       setTogglingFollowId(show.id);
       try {
-        // Add DJ to watchlist
-        await addToWatchlist(djName, show.djUserId, show.djEmail);
-        // Also add this specific show to favorites (in case it's not in metadata yet)
-        if (!isShowFavorited(show)) {
-          await toggleFavorite(show);
-        }
+        // Use unified followDJ function - adds DJ to watchlist + specific show to favorites
+        await followDJ(djName, show.djUserId, show.djEmail, show);
       } finally {
         setTogglingFollowId(null);
       }
     },
-    [addToWatchlist, toggleFavorite, isShowFavorited]
+    [followDJ]
   );
 
   if (loading) {
