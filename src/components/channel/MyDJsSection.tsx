@@ -1,12 +1,21 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { useFavorites } from '@/hooks/useFavorites';
 import { Show } from '@/types';
 import { getStationById } from '@/lib/stations';
 import { getContrastTextColor } from '@/lib/colorUtils';
+
+// Cache for DJ profile lookups to avoid repeated queries
+interface DJProfileCache {
+  username: string;
+  photoUrl?: string;
+}
+const djProfileCache = new Map<string, DJProfileCache | null>();
 
 interface FavoriteItemStatus {
   name: string;
@@ -54,6 +63,7 @@ function formatNextShowTime(isoTime: string): string {
 
 export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSectionProps) {
   const { favorites } = useFavorites();
+  const [djProfiles, setDjProfiles] = useState<Map<string, DJProfileCache>>(new Map());
 
   // Get watchlist items (type="search" = followed DJs)
   const followedDJNames = useMemo(() => {
@@ -72,6 +82,102 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
         stationId: f.stationId,
       }));
   }, [favorites]);
+
+  // Find which followed DJs don't have shows in the schedule
+  const djsWithoutShows = useMemo(() => {
+    const djsWithShows = new Set<string>();
+    for (const show of shows) {
+      const showDjName = show.dj || show.name;
+      if (!showDjName) continue;
+      const djLower = showDjName.toLowerCase();
+      for (const name of followedDJNames) {
+        if (djLower.includes(name) || name.includes(djLower)) {
+          djsWithShows.add(name);
+        }
+      }
+    }
+    return followedDJNames.filter((name) => !djsWithShows.has(name));
+  }, [followedDJNames, shows]);
+
+  // Look up DJ profiles from Firebase for DJs without shows
+  useEffect(() => {
+    async function lookupDJProfiles() {
+      if (!db || djsWithoutShows.length === 0) return;
+
+      const newProfiles = new Map<string, DJProfileCache>();
+
+      for (const name of djsWithoutShows) {
+        // Check cache first
+        if (djProfileCache.has(name)) {
+          const cached = djProfileCache.get(name);
+          if (cached) newProfiles.set(name, cached);
+          continue;
+        }
+
+        // Normalize the name the same way as chatUsernameNormalized
+        const normalized = name.replace(/[\s-]+/g, '').toLowerCase();
+
+        try {
+          // Check pending-dj-profiles first
+          const pendingRef = collection(db, 'pending-dj-profiles');
+          const pendingQ = query(
+            pendingRef,
+            where('chatUsernameNormalized', '==', normalized)
+          );
+          const pendingSnapshot = await getDocs(pendingQ);
+          const pendingDoc = pendingSnapshot.docs.find(
+            (doc) => doc.data().status === 'pending'
+          );
+
+          if (pendingDoc) {
+            const data = pendingDoc.data();
+            const profile: DJProfileCache = {
+              username: data.chatUsername,
+              photoUrl: data.djProfile?.photoUrl || undefined,
+            };
+            djProfileCache.set(name, profile);
+            newProfiles.set(name, profile);
+            continue;
+          }
+
+          // Check users collection
+          const usersRef = collection(db, 'users');
+          const usersQ = query(
+            usersRef,
+            where('chatUsernameNormalized', '==', normalized),
+            where('role', 'in', ['dj', 'broadcaster', 'admin'])
+          );
+          const usersSnapshot = await getDocs(usersQ);
+
+          if (!usersSnapshot.empty) {
+            const data = usersSnapshot.docs[0].data();
+            const profile: DJProfileCache = {
+              username: data.chatUsername,
+              photoUrl: data.djProfile?.photoUrl || undefined,
+            };
+            djProfileCache.set(name, profile);
+            newProfiles.set(name, profile);
+          } else {
+            // Cache the miss to avoid repeated lookups
+            djProfileCache.set(name, null);
+          }
+        } catch (error) {
+          console.error(`Error looking up DJ profile for ${name}:`, error);
+          djProfileCache.set(name, null);
+        }
+      }
+
+      if (newProfiles.size > 0) {
+        setDjProfiles((prev) => {
+          const merged = new Map(prev);
+          newProfiles.forEach((value, key) => merged.set(key, value));
+          return merged;
+        });
+      }
+    }
+
+    lookupDJProfiles();
+  }, [djsWithoutShows]);
 
   // Cross-reference with shows to get status for both DJs and favorited shows
   const favoritesWithStatus = useMemo((): FavoriteItemStatus[] => {
@@ -139,8 +245,12 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
     for (const name of followedDJNames) {
       const key = `dj:${name}`;
       if (!itemMap.has(key)) {
+        // Look up profile data from our fetched DJ profiles
+        const profile = djProfiles.get(name);
         itemMap.set(key, {
-          name: name.charAt(0).toUpperCase() + name.slice(1),
+          name: profile?.username || name.charAt(0).toUpperCase() + name.slice(1),
+          username: profile?.username,
+          photoUrl: profile?.photoUrl,
           isLive: false,
           itemType: 'dj',
         });
@@ -226,7 +336,7 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
       if (b.nextShowTime) return 1;
       return 0;
     });
-  }, [followedDJNames, favoritedShows, shows]);
+  }, [followedDJNames, favoritedShows, shows, djProfiles]);
 
   // Don't render if not authenticated, still loading, or no favorites
   if (!isAuthenticated || isLoading || favoritesWithStatus.length === 0) {
