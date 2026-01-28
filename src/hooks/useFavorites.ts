@@ -241,7 +241,11 @@ export function useFavorites() {
   // If not provided, will try to look up a DJ by normalized username matching the term
   const addToWatchlist = useCallback(
     async (term: string, djUserId?: string, djEmail?: string): Promise<boolean> => {
-      if (!user || !db) return false;
+      console.log(`[addToWatchlist] Called with term="${term}", djUserId=${djUserId}, djEmail=${djEmail}`);
+      if (!user || !db) {
+        console.log(`[addToWatchlist] No user or db, returning false`);
+        return false;
+      }
 
       try {
         const favoritesRef = collection(db, "users", user.uid, "favorites");
@@ -256,7 +260,10 @@ export function useFavorites() {
         const alreadyInWatchlist = existing.docs.some(
           (doc) => doc.data().type === "search"
         );
-        if (alreadyInWatchlist) return true;
+        if (alreadyInWatchlist) {
+          console.log(`[addToWatchlist] DJ "${term}" already in watchlist, skipping`);
+          return true;
+        }
 
         // Add the watchlist term
         await addDoc(favoritesRef, {
