@@ -68,7 +68,7 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
   });
 
   // Fetch external DJ profiles from pending-dj-profiles collection
-  const externalProfiles: Record<string, { bio?: string; photoUrl?: string; username?: string }> = {};
+  const externalProfiles: Record<string, { bio?: string; photoUrl?: string; username?: string; djName?: string }> = {};
 
   const externalPromises = Array.from(externalDjNames.keys()).map(async (normalized) => {
     try {
@@ -80,6 +80,7 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
           bio: djProfile?.bio || undefined,
           photoUrl: djProfile?.photoUrl || undefined,
           username: data?.chatUsernameNormalized || data?.chatUsername || undefined,
+          djName: data?.djName || undefined,
         };
       }
     } catch {
@@ -114,6 +115,7 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
         if (profile) {
           return {
             ...show,
+            dj: profile.djName || show.dj,
             djBio: profile.bio,
             djPhotoUrl: profile.photoUrl,
             djUsername: profile.username,
