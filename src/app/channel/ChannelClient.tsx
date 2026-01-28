@@ -5,7 +5,6 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { Header } from '@/components/Header';
-import { ComingUpNext } from '@/components/channel/ComingUpNext';
 import { WhoIsOnNow } from '@/components/channel/WhoIsOnNow';
 import { TVGuideSchedule } from '@/components/channel/TVGuideSchedule';
 import { ListenerChatPanel } from '@/components/channel/ListenerChatPanel';
@@ -200,54 +199,8 @@ export function ChannelClient() {
 
       {/* Main content - flex-1 and min-h-0 to fill remaining space */}
       <main className="max-w-7xl mx-auto flex-1 min-h-0 w-full flex flex-col">
-        {/* Desktop layout */}
-        <div className="hidden lg:flex lg:flex-col lg:h-full">
-          {/* Top section: Who Is On Now (with chat below broadcast card) + Coming Up Next */}
-          <div className="flex-shrink-0 p-4 space-y-4 border-b border-gray-800">
-            {/* Who Is On Now - with Play button for broadcast, chat below broadcast card */}
-            <WhoIsOnNow
-              onAuthRequired={handleAuthRequired}
-              onTogglePlay={toggle}
-              isPlaying={isPlaying}
-              isStreamLoading={isLoading}
-              isBroadcastLive={isLive}
-              chatSlot={isLive ? (
-                <div className="bg-surface-card rounded-xl overflow-hidden" style={{ height: '400px' }}>
-                  <ListenerChatPanel
-                    isAuthenticated={isAuthenticated}
-                    username={username}
-                    userId={user?.uid}
-                    currentDJ={currentDJ}
-                    currentDJUserId={currentDJUserId}
-                    currentDJEmail={currentDJEmail}
-                    showName={currentShow?.showName}
-                    broadcastSlotId={currentShow?.id}
-                    isLive={isLive}
-                    profileLoading={profileLoading}
-                    currentShowStartTime={currentDjSlotStartTime}
-                    onSetUsername={setChatUsername}
-                    isVenue={currentShow?.broadcastType === 'venue'}
-                    activePromoText={currentDjSlot?.promoText || currentDjSlot?.djPromoText}
-                    activePromoHyperlink={currentDjSlot?.promoHyperlink || currentDjSlot?.djPromoHyperlink}
-                    listenerCount={listenerCount}
-                    loveCount={loveCount}
-                  />
-                </div>
-              ) : undefined}
-            />
-
-            {/* Coming Up Next (next 2 shows) */}
-            <ComingUpNext onAuthRequired={handleAuthRequired} />
-          </div>
-
-          {/* Bottom section: TV Guide (full width) - always visible */}
-          <div className="flex-1 min-h-[300px] p-4 overflow-y-auto">
-            <TVGuideSchedule onAuthRequired={handleAuthRequired} />
-          </div>
-        </div>
-
-        {/* Mobile layout - DJ-centric design */}
-        <div className="lg:hidden flex flex-col overflow-y-auto">
+        {/* Unified layout for all screen sizes */}
+        <div className="flex flex-col overflow-y-auto">
           {/* My DJs Section - only shows for authenticated users with followed DJs */}
           <div className="flex-shrink-0 px-4 pt-4">
             <MyDJsSection
@@ -266,7 +219,7 @@ export function ChannelClient() {
               isStreamLoading={isLoading}
               isBroadcastLive={isLive}
               chatSlot={isLive ? (
-                <div className="bg-surface-card rounded-xl overflow-hidden" style={{ height: '300px' }}>
+                <div className="bg-surface-card rounded-xl overflow-hidden h-[300px] lg:h-[400px]">
                   <ListenerChatPanel
                     isAuthenticated={isAuthenticated}
                     username={username}
@@ -299,6 +252,11 @@ export function ChannelClient() {
               isAuthenticated={isAuthenticated}
               onRemindMe={handleRemindMe}
             />
+          </div>
+
+          {/* TV Guide Schedule */}
+          <div className="flex-shrink-0 px-4 pb-4">
+            <TVGuideSchedule onAuthRequired={handleAuthRequired} />
           </div>
 
         </div>

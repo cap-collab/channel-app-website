@@ -62,7 +62,7 @@ export function WhoNotToMiss({
         <span className="text-accent">&gt;</span> Who Not To Miss
       </h2>
 
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
         {upcomingShows.map((show) => {
           const station = stations.get(show.stationId);
           if (!station) return null;
