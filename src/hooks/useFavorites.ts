@@ -202,8 +202,11 @@ export function useFavorites() {
         const snapshot = await getDocs(q);
 
         for (const d of snapshot.docs) {
-          // Only delete if stationId matches
-          if (d.data().stationId === show.stationId) {
+          const docStationId = d.data().stationId;
+          // Match stationId - treat null, undefined, and "" as equivalent (no station)
+          const showStationId = show.stationId || null;
+          const docStationIdNormalized = docStationId || null;
+          if (docStationIdNormalized === showStationId) {
             await deleteDoc(doc(db, "users", user.uid, "favorites", d.id));
           }
         }
@@ -436,7 +439,7 @@ export function useFavorites() {
     [user]
   );
 
-  // Remove a term from watchlist
+  // Remove a term from watchlist (only removes type="search", preserves show favorites)
   const removeFromWatchlist = useCallback(
     async (term: string): Promise<boolean> => {
       if (!user || !db) return false;
@@ -450,7 +453,10 @@ export function useFavorites() {
         const snapshot = await getDocs(q);
 
         for (const d of snapshot.docs) {
-          await deleteDoc(doc(db, "users", user.uid, "favorites", d.id));
+          // Only delete watchlist entries (type="search"), not show favorites
+          if (d.data().type === "search") {
+            await deleteDoc(doc(db, "users", user.uid, "favorites", d.id));
+          }
         }
 
         return true;

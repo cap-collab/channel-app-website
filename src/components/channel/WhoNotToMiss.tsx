@@ -18,7 +18,7 @@ export function WhoNotToMiss({
   isAuthenticated,
   onAuthRequired,
 }: WhoNotToMissProps) {
-  const { isInWatchlist, followDJ, toggleFavorite, isShowFavorited } = useFavorites();
+  const { isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
   const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
   const [addingReminderShowId, setAddingReminderShowId] = useState<string | null>(null);
 
@@ -37,7 +37,7 @@ export function WhoNotToMiss({
     return null;
   }
 
-  // Follow: adds DJ to watchlist + specific show to favorites
+  // Follow/Unfollow: toggles DJ in watchlist
   const handleFollow = async (show: Show) => {
     if (!isAuthenticated) {
       onAuthRequired(show);
@@ -48,8 +48,13 @@ export function WhoNotToMiss({
 
     setAddingFollowDj(show.dj);
     try {
-      // Use unified followDJ function - adds DJ to watchlist + specific show to favorites
-      await followDJ(show.dj, show.djUserId, show.djEmail, show);
+      if (isInWatchlist(show.dj)) {
+        // Unfollow - remove from watchlist
+        await removeFromWatchlist(show.dj);
+      } else {
+        // Follow - adds DJ to watchlist + specific show to favorites
+        await followDJ(show.dj, show.djUserId, show.djEmail, show);
+      }
     } finally {
       setAddingFollowDj(null);
     }
