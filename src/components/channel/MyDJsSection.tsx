@@ -84,12 +84,16 @@ export function MyDJsSection({ shows, isAuthenticated }: MyDJsSectionProps) {
 
       const existing = djMap.get(matchedFollow);
 
+      // Get photo URL - prefer djPhotoUrl, fall back to imageUrl, preserve existing if neither
+      const newPhotoUrl = show.djPhotoUrl || show.imageUrl;
+      const photoUrl = newPhotoUrl || existing?.photoUrl;
+
       // If this DJ is live, update their status
       if (isLive) {
         djMap.set(matchedFollow, {
           name: show.dj,
-          username: show.djUsername,
-          photoUrl: show.djPhotoUrl || show.imageUrl,
+          username: show.djUsername || existing?.username,
+          photoUrl,
           isLive: true,
           liveOnStation: show.stationId === 'broadcast' ? 'Channel' : show.stationId,
           stationId: show.stationId,
@@ -103,8 +107,8 @@ export function MyDJsSection({ shows, isAuthenticated }: MyDJsSectionProps) {
         if (startDate > now && (!existingNext || startDate < existingNext)) {
           djMap.set(matchedFollow, {
             name: show.dj,
-            username: show.djUsername,
-            photoUrl: show.djPhotoUrl || show.imageUrl,
+            username: show.djUsername || existing?.username,
+            photoUrl,
             isLive: false,
             nextShowTime: show.startTime,
             stationId: show.stationId,
