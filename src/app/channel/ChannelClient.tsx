@@ -13,7 +13,6 @@ import { ListenerChatPanel } from '@/components/channel/ListenerChatPanel';
 import { TipThankYouModal } from '@/components/channel/TipThankYouModal';
 import { MyDJsSection } from '@/components/channel/MyDJsSection';
 import { WhatNotToMiss } from '@/components/channel/WhatNotToMiss';
-import { EmailCaptureModal } from '@/components/channel/EmailCaptureModal';
 import { AuthModal } from '@/components/AuthModal';
 import { useBroadcastStream } from '@/hooks/useBroadcastStream';
 import { useListenerChat } from '@/hooks/useListenerChat';
@@ -38,10 +37,7 @@ export function ChannelClient() {
 
   // Auth modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
-
-  // Email capture modal state
-  const [showEmailCaptureModal, setShowEmailCaptureModal] = useState(false);
-  const [emailCaptureShow, setEmailCaptureShow] = useState<Show | null>(null);
+  const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
 
   // All shows data for MyDJs and WhatNotToMiss
   const [allShows, setAllShows] = useState<Show[]>([]);
@@ -180,33 +176,15 @@ export function ChannelClient() {
   }, [currentShowAsShow, toggleFavorite]);
 
   const handleAuthRequired = useCallback(() => {
+    setAuthModalMessage(undefined);
     setShowAuthModal(true);
   }, []);
 
   // Handle Remind Me click from WhatNotToMiss (for non-authenticated users)
   const handleRemindMe = useCallback((show: Show) => {
-    setEmailCaptureShow(show);
-    setShowEmailCaptureModal(true);
-  }, []);
-
-  // Handle email submission for email capture
-  const handleEmailSubmit = useCallback(async (email: string, show: Show) => {
-    const response = await fetch('/api/email-capture', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email,
-        djName: show.dj || show.name,
-        showName: show.name,
-        showTime: show.startTime,
-        djUserId: show.djUserId,
-        djEmail: show.djEmail,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to save reminder');
-    }
+    const djName = show.dj || show.name;
+    setAuthModalMessage(`Sign in to get notified when ${djName} goes live`);
+    setShowAuthModal(true);
   }, []);
 
   // Get DJ name for watchlist - use currentDJ which is already the display name
@@ -397,31 +375,33 @@ export function ChannelClient() {
             />
           </div>
 
-          {/* Now Playing Card (full info like desktop) */}
-          <div className="flex-shrink-0 p-4 pb-2">
-            <NowPlayingCard
-              isPlaying={isPlaying}
-              isLoading={isLoading}
-              isLive={isLive}
-              currentShow={currentShow}
-              currentDJ={currentDJ}
-              onTogglePlay={toggle}
-              listenerCount={listenerCount}
-              loveCount={loveCount}
-              isAuthenticated={isAuthenticated}
-              username={username}
-              error={error}
-              isShowFavorited={isCurrentShowFavorited}
-              onToggleFavorite={handleToggleCurrentShowFavorite}
-              onAuthRequired={handleAuthRequired}
-              isDJInWatchlist={isDJInWatchlist}
-              onToggleWatchlist={handleToggleWatchlist}
-              isTogglingWatchlist={isTogglingWatchlist}
-              djProfiles={djProfiles}
-              hasDjIdentity={hasDjIdentity}
-              audioStream={audioStream}
-            />
-          </div>
+          {/* Now Playing Card - only show when live */}
+          {isLive && (
+            <div className="flex-shrink-0 p-4 pb-2">
+              <NowPlayingCard
+                isPlaying={isPlaying}
+                isLoading={isLoading}
+                isLive={isLive}
+                currentShow={currentShow}
+                currentDJ={currentDJ}
+                onTogglePlay={toggle}
+                listenerCount={listenerCount}
+                loveCount={loveCount}
+                isAuthenticated={isAuthenticated}
+                username={username}
+                error={error}
+                isShowFavorited={isCurrentShowFavorited}
+                onToggleFavorite={handleToggleCurrentShowFavorite}
+                onAuthRequired={handleAuthRequired}
+                isDJInWatchlist={isDJInWatchlist}
+                onToggleWatchlist={handleToggleWatchlist}
+                isTogglingWatchlist={isTogglingWatchlist}
+                djProfiles={djProfiles}
+                hasDjIdentity={hasDjIdentity}
+                audioStream={audioStream}
+              />
+            </div>
+          )}
 
           {/* Chat - hide on mobile when logged out AND offline */}
           {(isAuthenticated || isLive) && (
@@ -469,7 +449,11 @@ export function ChannelClient() {
       {/* Auth Modal */}
       <AuthModal
         isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
+        onClose={() => {
+          setShowAuthModal(false);
+          setAuthModalMessage(undefined);
+        }}
+        message={authModalMessage}
       />
 
       {/* Tip Thank You Modal */}
@@ -482,21 +466,6 @@ export function ChannelClient() {
           tipAmountCents={tipSuccessData.tipAmountCents}
         />
       )}
-
-      {/* Email Capture Modal */}
-      <EmailCaptureModal
-        isOpen={showEmailCaptureModal}
-        onClose={() => {
-          setShowEmailCaptureModal(false);
-          setEmailCaptureShow(null);
-        }}
-        show={emailCaptureShow}
-        onSubmit={handleEmailSubmit}
-        onSignInClick={() => {
-          setShowEmailCaptureModal(false);
-          setShowAuthModal(true);
-        }}
-      />
     </div>
   );
 }
