@@ -290,9 +290,6 @@ async function fetchBroadcastShows(): Promise<Show[]> {
       const showPromoHyperlink = data.showPromoHyperlink as string | undefined;
       // Show image
       const showImageUrl = data.showImageUrl as string | undefined;
-      // Live DJ info (for single-DJ broadcasts)
-      const liveDjPhotoUrl = data.liveDjPhotoUrl as string | undefined;
-      const liveDjBio = data.liveDjBio as string | undefined;
 
       // Handle djSlots (venue broadcasts with multiple DJs)
       // Use each DJ slot's pre-configured profile fields (not broadcast-level live* fields)
@@ -335,8 +332,6 @@ async function fetchBroadcastShows(): Promise<Show[]> {
           djEmail: djEmail,
           djUsername: djUsername,
           broadcastSlotId: doc.id,
-          djBio: liveDjBio,
-          djPhotoUrl: liveDjPhotoUrl,
           promoText: showPromoText,
           promoUrl: showPromoHyperlink,
           imageUrl: showImageUrl,
