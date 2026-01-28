@@ -100,6 +100,12 @@ export function ChannelClient() {
       .finally(() => setAllShowsLoading(false));
   }, []);
 
+  // Filter to only live and upcoming shows (exclude past shows)
+  const liveAndUpcomingShows = useMemo(() => {
+    const now = new Date();
+    return allShows.filter((show) => new Date(show.endTime) > now);
+  }, [allShows]);
+
   // Check for tip success on mount
   useEffect(() => {
     const tipParam = searchParams.get('tip');
@@ -204,7 +210,7 @@ export function ChannelClient() {
           {/* My DJs Section - only shows for authenticated users with followed DJs */}
           <div className="flex-shrink-0 px-4 pt-4">
             <MyDJsSection
-              shows={allShows}
+              shows={liveAndUpcomingShows}
               isAuthenticated={isAuthenticated}
               isLoading={allShowsLoading}
             />
