@@ -6,12 +6,11 @@ import { Show } from "@/types";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// Normalize name for profile lookup (same as sync-auto-dj-profiles)
+// Normalize name for profile lookup (must match sync-auto-dj-profiles)
 function normalizeForProfileLookup(name: string): string {
   return name
-    .replace(/[\s-]+/g, "")
-    .replace(/[\/,&.#$\[\]]/g, "")
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
 }
 
 // Fetch DJ profiles using Admin SDK (bypasses security rules)
