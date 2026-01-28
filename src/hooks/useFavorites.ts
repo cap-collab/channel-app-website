@@ -147,10 +147,11 @@ export function useFavorites() {
       try {
         const favoritesRef = collection(db, "users", user.uid, "favorites");
 
-        // Check if already exists
+        // Check if already exists (must match term AND stationId for show favorites)
         const q = query(
           favoritesRef,
-          where("term", "==", show.name.toLowerCase())
+          where("term", "==", show.name.toLowerCase()),
+          where("stationId", "==", show.stationId)
         );
         const existing = await getDocs(q);
         if (!existing.empty) return true;
@@ -165,6 +166,7 @@ export function useFavorites() {
           createdBy: "web",
         });
 
+        console.log(`[addFavorite] Added show "${show.name}" (${show.stationId}) to favorites`);
         return true;
       } catch (error) {
         console.error("Error adding favorite:", error);
@@ -181,9 +183,11 @@ export function useFavorites() {
 
       try {
         const favoritesRef = collection(db, "users", user.uid, "favorites");
+        // Only remove favorites matching both term AND stationId
         const q = query(
           favoritesRef,
-          where("term", "==", show.name.toLowerCase())
+          where("term", "==", show.name.toLowerCase()),
+          where("stationId", "==", show.stationId)
         );
         const snapshot = await getDocs(q);
 
@@ -191,6 +195,7 @@ export function useFavorites() {
           await deleteDoc(doc(db, "users", user.uid, "favorites", d.id));
         }
 
+        console.log(`[removeFavorite] Removed show "${show.name}" (${show.stationId}) from favorites`);
         return true;
       } catch (error) {
         console.error("Error removing favorite:", error);
