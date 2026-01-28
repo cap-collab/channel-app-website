@@ -158,12 +158,12 @@ export function WhatNotToMiss({
                     className={`mt-2 w-full py-2 px-3 rounded-lg text-sm font-semibold transition-colors ${
                       isFollowing
                         ? 'bg-white/10 text-gray-400 cursor-default'
-                        : 'bg-accent hover:bg-accent-hover text-white'
+                        : 'bg-white hover:bg-gray-100 text-gray-900'
                     } disabled:opacity-50`}
                   >
                     {isAdding ? (
                       <div className="flex items-center justify-center gap-2">
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <div className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
                         Adding...
                       </div>
                     ) : isFollowing ? (

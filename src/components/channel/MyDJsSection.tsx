@@ -8,7 +8,7 @@ import { Show } from '@/types';
 import { getStationById } from '@/lib/stations';
 import { getContrastTextColor } from '@/lib/colorUtils';
 
-interface FollowedDJStatus {
+interface FavoriteItemStatus {
   name: string;
   username?: string;
   photoUrl?: string;
@@ -16,6 +16,7 @@ interface FollowedDJStatus {
   liveOnStation?: string;
   nextShowTime?: string;
   stationId?: string;
+  itemType: 'dj' | 'show';
 }
 
 interface MyDJsSectionProps {
@@ -61,12 +62,23 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
       .map((f) => f.term.toLowerCase());
   }, [favorites]);
 
-  // Cross-reference with shows to get DJ status
-  const djsWithStatus = useMemo((): FollowedDJStatus[] => {
-    if (followedDJNames.length === 0) return [];
+  // Get favorited shows (type="show")
+  const favoritedShows = useMemo(() => {
+    return favorites
+      .filter((f) => f.type === 'show')
+      .map((f) => ({
+        term: f.term.toLowerCase(),
+        showName: f.showName,
+        stationId: f.stationId,
+      }));
+  }, [favorites]);
+
+  // Cross-reference with shows to get status for both DJs and favorited shows
+  const favoritesWithStatus = useMemo((): FavoriteItemStatus[] => {
+    if (followedDJNames.length === 0 && favoritedShows.length === 0) return [];
 
     const now = new Date();
-    const djMap = new Map<string, FollowedDJStatus>();
+    const itemMap = new Map<string, FavoriteItemStatus>();
 
     // First pass: find all DJs from shows that match followed names
     for (const show of shows) {
@@ -85,7 +97,8 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
       const endDate = new Date(show.endTime);
       const isLive = now >= startDate && now <= endDate;
 
-      const existing = djMap.get(matchedFollow);
+      const key = `dj:${matchedFollow}`;
+      const existing = itemMap.get(key);
 
       // Get photo URL - prefer djPhotoUrl, fall back to imageUrl, preserve existing if neither
       const newPhotoUrl = show.djPhotoUrl || show.imageUrl;
@@ -93,13 +106,14 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
 
       // If this DJ is live, update their status
       if (isLive) {
-        djMap.set(matchedFollow, {
+        itemMap.set(key, {
           name: showDjName,
           username: show.djUsername || existing?.username,
           photoUrl,
           isLive: true,
           liveOnStation: show.stationId === 'broadcast' ? 'Channel' : show.stationId,
           stationId: show.stationId,
+          itemType: 'dj',
         });
       } else if (!existing || !existing.isLive) {
         // Only update if not already live and this show is sooner
@@ -108,13 +122,14 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
           : null;
 
         if (startDate > now && (!existingNext || startDate < existingNext)) {
-          djMap.set(matchedFollow, {
+          itemMap.set(key, {
             name: showDjName,
             username: show.djUsername || existing?.username,
             photoUrl,
             isLive: false,
             nextShowTime: show.startTime,
             stationId: show.stationId,
+            itemType: 'dj',
           });
         }
       }
@@ -122,16 +137,86 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
 
     // Add any followed DJs that weren't found in shows
     for (const name of followedDJNames) {
-      if (!djMap.has(name)) {
-        djMap.set(name, {
+      const key = `dj:${name}`;
+      if (!itemMap.has(key)) {
+        itemMap.set(key, {
           name: name.charAt(0).toUpperCase() + name.slice(1),
           isLive: false,
+          itemType: 'dj',
+        });
+      }
+    }
+
+    // Second pass: find all favorited shows
+    for (const favShow of favoritedShows) {
+      // Check if this show is already covered by a DJ watchlist entry
+      const showNameLower = favShow.term;
+      const isCoveredByDJ = followedDJNames.some((djName) =>
+        showNameLower.includes(djName) || djName.includes(showNameLower)
+      );
+      if (isCoveredByDJ) continue;
+
+      // Find matching shows in the schedule
+      for (const show of shows) {
+        const showNameMatch = show.name?.toLowerCase() === showNameLower ||
+          (favShow.showName && show.name?.toLowerCase() === favShow.showName.toLowerCase());
+        const stationMatch = !favShow.stationId || show.stationId === favShow.stationId;
+
+        if (!showNameMatch || !stationMatch) continue;
+
+        const startDate = new Date(show.startTime);
+        const endDate = new Date(show.endTime);
+        const isLive = now >= startDate && now <= endDate;
+
+        const key = `show:${favShow.term}:${favShow.stationId || 'any'}`;
+        const existing = itemMap.get(key);
+
+        const newPhotoUrl = show.djPhotoUrl || show.imageUrl;
+        const photoUrl = newPhotoUrl || existing?.photoUrl;
+
+        if (isLive) {
+          itemMap.set(key, {
+            name: show.name,
+            username: show.djUsername || existing?.username,
+            photoUrl,
+            isLive: true,
+            liveOnStation: show.stationId === 'broadcast' ? 'Channel' : show.stationId,
+            stationId: show.stationId,
+            itemType: 'show',
+          });
+        } else if (!existing || !existing.isLive) {
+          const existingNext = existing?.nextShowTime
+            ? new Date(existing.nextShowTime)
+            : null;
+
+          if (startDate > now && (!existingNext || startDate < existingNext)) {
+            itemMap.set(key, {
+              name: show.name,
+              username: show.djUsername || existing?.username,
+              photoUrl,
+              isLive: false,
+              nextShowTime: show.startTime,
+              stationId: show.stationId,
+              itemType: 'show',
+            });
+          }
+        }
+      }
+
+      // Add favorited show even if not found in schedule
+      const key = `show:${favShow.term}:${favShow.stationId || 'any'}`;
+      if (!itemMap.has(key)) {
+        itemMap.set(key, {
+          name: favShow.showName || favShow.term.charAt(0).toUpperCase() + favShow.term.slice(1),
+          isLive: false,
+          stationId: favShow.stationId,
+          itemType: 'show',
         });
       }
     }
 
     // Sort: live first, then by next show time
-    return Array.from(djMap.values()).sort((a, b) => {
+    return Array.from(itemMap.values()).sort((a, b) => {
       if (a.isLive && !b.isLive) return -1;
       if (!a.isLive && b.isLive) return 1;
       if (a.nextShowTime && b.nextShowTime) {
@@ -141,39 +226,39 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
       if (b.nextShowTime) return 1;
       return 0;
     });
-  }, [followedDJNames, shows]);
+  }, [followedDJNames, favoritedShows, shows]);
 
-  // Don't render if not authenticated, still loading, or no followed DJs
-  if (!isAuthenticated || isLoading || djsWithStatus.length === 0) {
+  // Don't render if not authenticated, still loading, or no favorites
+  if (!isAuthenticated || isLoading || favoritesWithStatus.length === 0) {
     return null;
   }
 
   return (
     <div className="mb-6">
       <h2 className="text-white text-sm font-semibold uppercase tracking-wide mb-3 flex items-center gap-2">
-        <span className="text-accent">@</span> My DJs
+        <span className="text-accent">♥</span> My Favorites
       </h2>
 
       <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-        {djsWithStatus.map((dj) => (
+        {favoritesWithStatus.map((item) => (
           <Link
-            key={dj.name}
-            href={dj.username ? `/dj/${dj.username}` : '/my-shows'}
+            key={`${item.itemType}-${item.name}`}
+            href={item.username ? `/dj/${item.username}` : '/my-shows'}
             className="flex-shrink-0 flex flex-col items-center gap-2 group"
           >
             {/* Avatar with live indicator */}
             <div className="relative">
               <div
                 className={`w-14 h-14 rounded-full overflow-hidden border-2 transition-colors ${
-                  dj.isLive
+                  item.isLive
                     ? 'border-red-500'
                     : 'border-gray-700 group-hover:border-gray-500'
                 }`}
               >
-                {dj.photoUrl ? (
+                {item.photoUrl ? (
                   <Image
-                    src={dj.photoUrl}
-                    alt={dj.name}
+                    src={item.photoUrl}
+                    alt={item.name}
                     width={56}
                     height={56}
                     className="w-full h-full object-cover"
@@ -181,7 +266,7 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
                   />
                 ) : (
                   (() => {
-                    const station = dj.stationId ? getStationById(dj.stationId) : null;
+                    const station = item.stationId ? getStationById(item.stationId) : null;
                     const bgColor = station?.accentColor || '#374151';
                     const textColor = getContrastTextColor(bgColor);
                     return (
@@ -189,7 +274,7 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
                         className="w-full h-full flex items-center justify-center text-lg font-bold"
                         style={{ backgroundColor: bgColor, color: textColor }}
                       >
-                        {dj.name.charAt(0).toUpperCase()}
+                        {item.name.charAt(0).toUpperCase()}
                       </div>
                     );
                   })()
@@ -197,7 +282,7 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
               </div>
 
               {/* Live indicator */}
-              {dj.isLive && (
+              {item.isLive && (
                 <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                   LIVE
                 </span>
@@ -206,10 +291,10 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
 
             {/* Name and status */}
             <div className="text-center max-w-[70px]">
-              <p className="text-white text-xs font-medium truncate">{dj.name}</p>
-              {!dj.isLive && dj.nextShowTime && (
+              <p className="text-white text-xs font-medium truncate">{item.name}</p>
+              {!item.isLive && item.nextShowTime && (
                 <p className="text-gray-500 text-[10px] truncate">
-                  {formatNextShowTime(dj.nextShowTime)}
+                  {formatNextShowTime(item.nextShowTime)}
                 </p>
               )}
             </div>
