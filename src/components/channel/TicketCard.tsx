@@ -89,6 +89,9 @@ export function TicketCard({
 
       {/* Remind Me Button */}
       <div className="px-4 pb-4">
+        {!isFollowing && (
+          <p className="text-gray-500 text-xs text-center mb-2">Follow to get live alert</p>
+        )}
         <button
           onClick={onRemindMe}
           disabled={isAddingReminder || isFollowing}
