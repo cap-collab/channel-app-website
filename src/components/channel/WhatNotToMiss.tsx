@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Show, Station } from '@/types';
-import { useAuthContext } from '@/contexts/AuthContext';
 import { useFavorites } from '@/hooks/useFavorites';
 
 interface WhatNotToMissProps {
