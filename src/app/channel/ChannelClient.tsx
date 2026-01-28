@@ -210,6 +210,7 @@ export function ChannelClient() {
               onTogglePlay={toggle}
               isPlaying={isPlaying}
               isStreamLoading={isLoading}
+              isBroadcastLive={isLive}
               chatSlot={isLive ? (
                 <div className="bg-surface-card rounded-xl overflow-hidden" style={{ height: '400px' }}>
                   <ListenerChatPanel
@@ -263,6 +264,7 @@ export function ChannelClient() {
               onTogglePlay={toggle}
               isPlaying={isPlaying}
               isStreamLoading={isLoading}
+              isBroadcastLive={isLive}
               chatSlot={isLive ? (
                 <div className="bg-surface-card rounded-xl overflow-hidden" style={{ height: '300px' }}>
                   <ListenerChatPanel

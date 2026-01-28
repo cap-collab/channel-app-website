@@ -14,11 +14,13 @@ interface WhoIsOnNowProps {
   onTogglePlay?: () => void;
   isPlaying?: boolean;
   isStreamLoading?: boolean;
+  // Whether the Channel broadcast is actually live (streaming)
+  isBroadcastLive?: boolean;
   // Optional chat element to render directly below the broadcast DJ card
   chatSlot?: React.ReactNode;
 }
 
-export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLoading, chatSlot }: WhoIsOnNowProps) {
+export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLoading, isBroadcastLive, chatSlot }: WhoIsOnNowProps) {
   const { isAuthenticated } = useAuthContext();
   const { stationBPM } = useBPM();
   const { isInWatchlist, addToWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
@@ -73,13 +75,20 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
         return start <= now && end > now;
       })
       .filter(hasClaimedProfile)
+      // Filter out broadcast shows if broadcast is not actually live
+      .filter((show) => {
+        if (show.stationId === 'broadcast') {
+          return isBroadcastLive === true;
+        }
+        return true;
+      })
       .sort((a, b) => {
         // Sort: broadcast first, then by station order
         if (a.stationId === 'broadcast' && b.stationId !== 'broadcast') return -1;
         if (a.stationId !== 'broadcast' && b.stationId === 'broadcast') return 1;
         return 0;
       });
-  }, [allShows, currentTime]);
+  }, [allShows, currentTime, isBroadcastLive]);
 
   const handleFollow = useCallback(
     async (show: Show) => {
