@@ -403,8 +403,8 @@ export function ChannelClient() {
             </div>
           )}
 
-          {/* Chat - hide on mobile when logged out AND offline */}
-          {(isAuthenticated || isLive) && (
+          {/* Chat - only show when Channel broadcast is live */}
+          {isLive && (
             <div className="flex-shrink-0 px-4 pb-4">
               <div className="bg-surface-card rounded-xl overflow-hidden" style={{ height: '300px' }}>
                 <ListenerChatPanel

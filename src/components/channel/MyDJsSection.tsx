@@ -5,6 +5,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useFavorites } from '@/hooks/useFavorites';
 import { Show } from '@/types';
+import { getStationById } from '@/lib/stations';
+import { getContrastTextColor } from '@/lib/colorUtils';
 
 interface FollowedDJStatus {
   name: string;
@@ -13,6 +15,7 @@ interface FollowedDJStatus {
   isLive: boolean;
   liveOnStation?: string;
   nextShowTime?: string;
+  stationId?: string;
 }
 
 interface MyDJsSectionProps {
@@ -89,6 +92,7 @@ export function MyDJsSection({ shows, isAuthenticated }: MyDJsSectionProps) {
           photoUrl: show.djPhotoUrl || show.imageUrl,
           isLive: true,
           liveOnStation: show.stationId === 'broadcast' ? 'Channel' : show.stationId,
+          stationId: show.stationId,
         });
       } else if (!existing || !existing.isLive) {
         // Only update if not already live and this show is sooner
@@ -103,6 +107,7 @@ export function MyDJsSection({ shows, isAuthenticated }: MyDJsSectionProps) {
             photoUrl: show.djPhotoUrl || show.imageUrl,
             isLive: false,
             nextShowTime: show.startTime,
+            stationId: show.stationId,
           });
         }
       }
@@ -168,9 +173,19 @@ export function MyDJsSection({ shows, isAuthenticated }: MyDJsSectionProps) {
                     unoptimized
                   />
                 ) : (
-                  <div className="w-full h-full bg-gray-800 flex items-center justify-center text-white text-lg font-medium">
-                    {dj.name.charAt(0).toUpperCase()}
-                  </div>
+                  (() => {
+                    const station = dj.stationId ? getStationById(dj.stationId) : null;
+                    const bgColor = station?.accentColor || '#374151';
+                    const textColor = getContrastTextColor(bgColor);
+                    return (
+                      <div
+                        className="w-full h-full flex items-center justify-center text-lg font-bold"
+                        style={{ backgroundColor: bgColor, color: textColor }}
+                      >
+                        {dj.name.charAt(0).toUpperCase()}
+                      </div>
+                    );
+                  })()
                 )}
               </div>
 
