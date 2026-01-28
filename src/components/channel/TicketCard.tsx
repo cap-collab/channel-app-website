@@ -98,12 +98,12 @@ export function TicketCard({
           className={`w-full py-3 px-4 rounded-xl text-sm font-bold uppercase tracking-wide transition-colors ${
             isFollowing
               ? 'bg-white/10 text-gray-400 cursor-default'
-              : 'bg-accent hover:bg-accent-hover text-white'
+              : 'bg-white hover:bg-gray-100 text-gray-900'
           } disabled:opacity-50`}
         >
           {isAddingReminder ? (
             <div className="flex items-center justify-center gap-2">
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
               Adding...
             </div>
           ) : isFollowing ? (
