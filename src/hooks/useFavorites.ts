@@ -17,7 +17,17 @@ import {
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Show } from "@/types";
-import { getAllShows } from "@/lib/metadata";
+// Helper to fetch enriched shows from API (includes DJ profile data)
+async function fetchEnrichedShows(): Promise<Show[]> {
+  try {
+    const response = await fetch('/api/schedule');
+    const data = await response.json();
+    return data.shows || [];
+  } catch (error) {
+    console.error("[fetchEnrichedShows] Error:", error);
+    return [];
+  }
+}
 
 export interface Favorite {
   id: string;
@@ -254,12 +264,19 @@ export function useFavorites() {
 
         // Also find and add matching shows to favorites
         console.log(`[addToWatchlist] Searching for shows matching "${term}"${resolvedDjUserId ? `, userId: ${resolvedDjUserId}` : ""}${resolvedDjEmail ? `, email: ${resolvedDjEmail}` : ""}`);
-        const allShows = await getAllShows();
+        const allShows = await fetchEnrichedShows();
 
         // Find shows where DJ name matches the term (word boundary match)
+        // Also check show name for dublab format "DJ Name - Show Name"
         const matchingShows = allShows.filter((show) => {
-          if (!show.dj) return false;
-          return containsMatch(show.dj, term);
+          // Match enriched DJ name
+          if (show.dj && containsMatch(show.dj, term)) return true;
+          // Also match dublab format "DJ Name - Show Name" in show name
+          if (show.name.includes(' - ')) {
+            const djPart = show.name.split(' - ')[0].trim();
+            if (containsMatch(djPart, term)) return true;
+          }
+          return false;
         });
         console.log(`[addToWatchlist] Found ${matchingShows.length} shows matching DJ "${term}"`);
 
@@ -419,11 +436,13 @@ export function useFavorites() {
     [user]
   );
 
-  // Check if a term is in watchlist
+  // Check if a term is in watchlist (must be type="search", not show favorites)
   const isInWatchlist = useCallback(
     (term: string): boolean => {
       return favorites.some(
-        (fav) => fav.term.toLowerCase() === term.toLowerCase()
+        (fav) =>
+          fav.type === "search" &&
+          fav.term.toLowerCase() === term.toLowerCase()
       );
     },
     [favorites]
@@ -466,19 +485,26 @@ export function useFavorites() {
       let addedCount = 0;
       const favoritesRef = collection(db, "users", user.uid, "favorites");
 
-      // 1. Get all shows from metadata (includes broadcast shows)
+      // 1. Get all shows from API (includes enriched DJ profile data)
       let allShows: Show[] = [];
       try {
-        allShows = await getAllShows();
-        console.log(`[addDJShowsToFavorites] Fetched ${allShows.length} total shows from metadata`);
+        allShows = await fetchEnrichedShows();
+        console.log(`[addDJShowsToFavorites] Fetched ${allShows.length} total shows from API`);
       } catch (error) {
-        console.error("[addDJShowsToFavorites] Error fetching shows from metadata:", error);
+        console.error("[addDJShowsToFavorites] Error fetching shows from API:", error);
       }
 
       // Filter shows that match the DJ name
+      // Also check show name for dublab format "DJ Name - Show Name"
       const matchingShowsByName = allShows.filter((show) => {
-        if (!show.dj) return false;
-        return containsMatch(show.dj, djName);
+        // Match enriched DJ name
+        if (show.dj && containsMatch(show.dj, djName)) return true;
+        // Also match dublab format "DJ Name - Show Name" in show name
+        if (show.name.includes(' - ')) {
+          const djPart = show.name.split(' - ')[0].trim();
+          if (containsMatch(djPart, djName)) return true;
+        }
+        return false;
       });
       console.log(`[addDJShowsToFavorites] Found ${matchingShowsByName.length} shows matching DJ name "${djName}"`);
 
