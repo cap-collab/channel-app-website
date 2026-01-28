@@ -7,12 +7,12 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { Header } from '@/components/Header';
 import { NowPlayingCard } from '@/components/channel/NowPlayingCard';
 import { ComingUpNext } from '@/components/channel/ComingUpNext';
-import { WhatsOnNow } from '@/components/channel/WhatsOnNow';
+import { WhoIsOnNow } from '@/components/channel/WhoIsOnNow';
 import { TVGuideSchedule } from '@/components/channel/TVGuideSchedule';
 import { ListenerChatPanel } from '@/components/channel/ListenerChatPanel';
 import { TipThankYouModal } from '@/components/channel/TipThankYouModal';
 import { MyDJsSection } from '@/components/channel/MyDJsSection';
-import { WhatNotToMiss } from '@/components/channel/WhatNotToMiss';
+import { WhoNotToMiss } from '@/components/channel/WhoNotToMiss';
 import { AuthModal } from '@/components/AuthModal';
 import { useBroadcastStream } from '@/hooks/useBroadcastStream';
 import { useListenerChat } from '@/hooks/useListenerChat';
@@ -428,14 +428,14 @@ export function ChannelClient() {
             </div>
           )}
 
-          {/* What's On Now - live shows across stations */}
+          {/* Who Is On Now - live DJ cards */}
           <div className="flex-shrink-0 px-4 pb-4">
-            <WhatsOnNow onAuthRequired={handleAuthRequired} />
+            <WhoIsOnNow onAuthRequired={handleAuthRequired} />
           </div>
 
-          {/* What Not To Miss - upcoming shows with Remind Me CTA */}
+          {/* Who Not To Miss - upcoming shows with Remind Me CTA */}
           <div className="flex-shrink-0 px-4 pb-4">
-            <WhatNotToMiss
+            <WhoNotToMiss
               shows={allShows}
               stations={stationsMap}
               isAuthenticated={isAuthenticated}

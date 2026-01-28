@@ -222,12 +222,46 @@ a {
   animation: fadeIn 0.3s ease-out;
 }
 
+/* BPM Pulse Animation - syncs with tempo */
+@keyframes bpm-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.8;
+  }
+}
+
+.animate-bpm-pulse {
+  animation: bpm-pulse var(--bpm-duration, 500ms) ease-in-out infinite;
+}
+
+/* Live indicator dot pulse */
+@keyframes live-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+}
+
+.animate-live-pulse {
+  animation: live-pulse 2s ease-in-out infinite;
+}
+
 /* Respect reduced motion preferences */
 @media (prefers-reduced-motion: reduce) {
   .animate-blob-pink,
   .animate-blob-white,
   .animate-blob-pink-2,
-  .animate-fadeIn {
+  .animate-fadeIn,
+  .animate-bpm-pulse,
+  .animate-live-pulse {
     animation: none;
   }
 }
