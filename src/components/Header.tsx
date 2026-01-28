@@ -36,9 +36,6 @@ export function Header({ currentPage = "home", position = "fixed", showSearch = 
     // DJ Studio link - always visible for everyone
     items.push({ label: "DJ Studio", href: "/studio/join", active: currentPage === "studio" || currentPage === "dj-portal" });
 
-    // Archives link
-    items.push({ label: "Archives", href: "/archives", active: currentPage === "archives" });
-
     // iOS Beta - only show when not signed in (signed-in users have it in the auth section)
     if (!isAuthenticated) {
       items.push({ label: "iOS Beta", href: "https://testflight.apple.com/join/HcKTJ1nH", external: true });
