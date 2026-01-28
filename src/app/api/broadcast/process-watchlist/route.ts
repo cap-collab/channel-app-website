@@ -6,10 +6,11 @@ import {
   isRestApiConfigured,
 } from "@/lib/firebase-rest";
 
-// Word boundary matching for watchlist terms
-function matchesAsWord(text: string, term: string): boolean {
-  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`\\b${escaped}\\b`, "i").test(text);
+// Contains matching for DJ/show names (bidirectional - either contains the other)
+function containsMatch(text: string, term: string): boolean {
+  const textLower = text.toLowerCase();
+  const termLower = term.toLowerCase();
+  return textLower.includes(termLower) || termLower.includes(textLower);
 }
 
 interface ProcessWatchlistRequest {
@@ -82,8 +83,8 @@ export async function POST(request: NextRequest) {
 
         // Word boundary matching: "stu" matches "Stu's Show" but NOT "Stuart"
         if (
-          matchesAsWord(showName, termLower) ||
-          (djName && matchesAsWord(djName, termLower))
+          containsMatch(showName, termLower) ||
+          (djName && containsMatch(djName, termLower))
         ) {
           matched = true;
           matchedTerm = term;

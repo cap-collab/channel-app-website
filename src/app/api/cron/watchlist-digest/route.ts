@@ -58,10 +58,11 @@ interface BroadcastShow extends Show {
   djEmail?: string;
 }
 
-// Word boundary matching for watchlist terms
-function matchesAsWord(text: string, term: string): boolean {
-  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`\\b${escaped}\\b`, 'i').test(text);
+// Contains matching for DJ/show names (bidirectional - either contains the other)
+function containsMatch(text: string, term: string): boolean {
+  const textLower = text.toLowerCase();
+  const termLower = term.toLowerCase();
+  return textLower.includes(termLower) || termLower.includes(textLower);
 }
 
 export async function GET(request: NextRequest) {
@@ -233,8 +234,8 @@ export async function GET(request: NextRequest) {
 
           // Word boundary matching: "stu" matches "Stu's Show" but NOT "Stuart"
           if (
-            matchesAsWord(show.name, termLower) ||
-            (show.dj && matchesAsWord(show.dj, termLower))
+            containsMatch(show.name, termLower) ||
+            (show.dj && containsMatch(show.dj, termLower))
           ) {
             matched = true;
             matchedTerm = watchlistDoc.term;
