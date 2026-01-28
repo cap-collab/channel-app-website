@@ -70,9 +70,11 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
 
     // First pass: find all DJs from shows that match followed names
     for (const show of shows) {
-      if (!show.dj) continue;
+      // Use show.dj if available, fall back to show.name (for NTS and other external radios)
+      const showDjName = show.dj || show.name;
+      if (!showDjName) continue;
 
-      const djLower = show.dj.toLowerCase();
+      const djLower = showDjName.toLowerCase();
       const matchedFollow = followedDJNames.find((name) =>
         djLower.includes(name) || name.includes(djLower)
       );
@@ -92,7 +94,7 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
       // If this DJ is live, update their status
       if (isLive) {
         djMap.set(matchedFollow, {
-          name: show.dj,
+          name: showDjName,
           username: show.djUsername || existing?.username,
           photoUrl,
           isLive: true,
@@ -107,7 +109,7 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
 
         if (startDate > now && (!existingNext || startDate < existingNext)) {
           djMap.set(matchedFollow, {
-            name: show.dj,
+            name: showDjName,
             username: show.djUsername || existing?.username,
             photoUrl,
             isLive: false,

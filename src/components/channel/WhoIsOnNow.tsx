@@ -77,12 +77,14 @@ export function WhoIsOnNow({ onAuthRequired }: WhoIsOnNowProps) {
 
   const handleFollow = useCallback(
     async (show: Show) => {
-      if (!show.dj) return;
+      // Use show.dj if available, fall back to show.name (for NTS and other external radios)
+      const djName = show.dj || show.name;
+      if (!djName) return;
 
       setTogglingFollowId(show.id);
       try {
         // Add DJ to watchlist
-        await addToWatchlist(show.dj, show.djUserId, show.djEmail);
+        await addToWatchlist(djName, show.djUserId, show.djEmail);
         // Also add this specific show to favorites (in case it's not in metadata yet)
         if (!isShowFavorited(show)) {
           await toggleFavorite(show);
@@ -134,7 +136,9 @@ export function WhoIsOnNow({ onAuthRequired }: WhoIsOnNowProps) {
 
           const metadataKey = getMetadataKeyByStationId(show.stationId);
           const bpm = metadataKey ? stationBPM[metadataKey]?.bpm ?? null : null;
-          const isFollowed = show.dj ? isInWatchlist(show.dj) : false;
+          // Use show.dj if available, fall back to show.name (for NTS and other external radios)
+          const djNameForWatchlist = show.dj || show.name;
+          const isFollowed = djNameForWatchlist ? isInWatchlist(djNameForWatchlist) : false;
 
           return (
             <LiveCard
