@@ -441,14 +441,15 @@ export function useFavorites() {
       // 1. Add DJ to watchlist (auto-adds matching shows)
       const success = await addToWatchlist(djName, djUserId, djEmail);
 
-      // 2. Also add the specific show if provided and not already favorited
-      if (success && currentShow && !isShowFavorited(currentShow)) {
-        await toggleFavorite(currentShow);
+      // 2. Also add the specific show if provided
+      // Always call addFavorite directly to ensure it's added (don't rely on state which may be stale)
+      if (success && currentShow) {
+        await addFavorite(currentShow);
       }
 
       return success;
     },
-    [addToWatchlist, toggleFavorite, isShowFavorited]
+    [addToWatchlist, addFavorite]
   );
 
   // Add all shows for a DJ to favorites (called when subscribing to a DJ)
