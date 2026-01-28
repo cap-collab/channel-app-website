@@ -22,13 +22,14 @@ export function WhoNotToMiss({
   const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
   const [addingReminderShowId, setAddingReminderShowId] = useState<string | null>(null);
 
-  // Filter to upcoming shows with DJ profiles only
+  // Filter to upcoming shows with DJ profiles and photos only
   const upcomingShows = shows
     .filter((show) => {
       const now = new Date();
       const startDate = new Date(show.startTime);
-      // Only upcoming, has DJ, and has profile (djUsername or djUserId)
-      return startDate > now && show.dj && (show.djUsername || show.djUserId);
+      // Only upcoming, has DJ, has profile (djUsername or djUserId), and has photo
+      const hasPhoto = show.djPhotoUrl || show.imageUrl;
+      return startDate > now && show.dj && (show.djUsername || show.djUserId) && hasPhoto;
     })
     .slice(0, 5);
 
