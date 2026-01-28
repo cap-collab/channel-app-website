@@ -142,7 +142,11 @@ export function useFavorites() {
   // Add a show to favorites
   const addFavorite = useCallback(
     async (show: Show): Promise<boolean> => {
-      if (!user || !db) return false;
+      console.log(`[addFavorite] Called with show:`, { name: show.name, dj: show.dj, stationId: show.stationId });
+      if (!user || !db) {
+        console.log(`[addFavorite] No user or db, returning false`);
+        return false;
+      }
 
       try {
         const favoritesRef = collection(db, "users", user.uid, "favorites");
@@ -154,7 +158,10 @@ export function useFavorites() {
           where("stationId", "==", show.stationId)
         );
         const existing = await getDocs(q);
-        if (!existing.empty) return true;
+        if (!existing.empty) {
+          console.log(`[addFavorite] Show already favorited, skipping`);
+          return true;
+        }
 
         await addDoc(favoritesRef, {
           term: show.name.toLowerCase(),
@@ -169,7 +176,7 @@ export function useFavorites() {
         console.log(`[addFavorite] Added show "${show.name}" (${show.stationId}) to favorites`);
         return true;
       } catch (error) {
-        console.error("Error adding favorite:", error);
+        console.error("[addFavorite] Error:", error);
         return false;
       }
     },
@@ -208,7 +215,10 @@ export function useFavorites() {
   // Toggle favorite status
   const toggleFavorite = useCallback(
     async (show: Show): Promise<boolean> => {
-      if (isShowFavorited(show)) {
+      console.log(`[toggleFavorite] Called for show:`, { name: show.name, dj: show.dj, stationId: show.stationId });
+      const isFavorited = isShowFavorited(show);
+      console.log(`[toggleFavorite] isShowFavorited:`, isFavorited);
+      if (isFavorited) {
         return removeFavorite(show);
       } else {
         return addFavorite(show);
