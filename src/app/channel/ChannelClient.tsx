@@ -5,20 +5,23 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { Header } from '@/components/Header';
-import { HeaderSearch } from '@/components/HeaderSearch';
 import { NowPlayingCard } from '@/components/channel/NowPlayingCard';
 import { ComingUpNext } from '@/components/channel/ComingUpNext';
 import { WhatsOnNow } from '@/components/channel/WhatsOnNow';
 import { TVGuideSchedule } from '@/components/channel/TVGuideSchedule';
 import { ListenerChatPanel } from '@/components/channel/ListenerChatPanel';
 import { TipThankYouModal } from '@/components/channel/TipThankYouModal';
+import { MyDJsSection } from '@/components/channel/MyDJsSection';
+import { WhatNotToMiss } from '@/components/channel/WhatNotToMiss';
+import { EmailCaptureModal } from '@/components/channel/EmailCaptureModal';
 import { AuthModal } from '@/components/AuthModal';
 import { useBroadcastStream } from '@/hooks/useBroadcastStream';
 import { useListenerChat } from '@/hooks/useListenerChat';
 import { useFavorites } from '@/hooks/useFavorites';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { saveTipToLocalStorage } from '@/lib/tip-history-storage';
-import { Show } from '@/types';
+import { Show, Station } from '@/types';
+import { STATIONS } from '@/lib/stations';
 
 interface TipSuccessData {
   djUsername: string;
@@ -35,6 +38,22 @@ export function ChannelClient() {
 
   // Auth modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // Email capture modal state
+  const [showEmailCaptureModal, setShowEmailCaptureModal] = useState(false);
+  const [emailCaptureShow, setEmailCaptureShow] = useState<Show | null>(null);
+
+  // All shows data for MyDJs and WhatNotToMiss
+  const [allShows, setAllShows] = useState<Show[]>([]);
+
+  // Stations map for quick lookup
+  const stationsMap = useMemo(() => {
+    const map = new Map<string, Station>();
+    for (const station of STATIONS) {
+      map.set(station.id, station);
+    }
+    return map;
+  }, []);
 
   // Tip success modal state
   const [showThankYouModal, setShowThankYouModal] = useState(false);
@@ -77,6 +96,14 @@ export function ChannelClient() {
       console.error('Error handling tip success:', error);
     }
   }, [router]);
+
+  // Fetch all shows on mount
+  useEffect(() => {
+    fetch('/api/schedule')
+      .then((res) => res.json())
+      .then((data) => setAllShows(data.shows || []))
+      .catch(console.error);
+  }, []);
 
   // Check for tip success on mount
   useEffect(() => {
@@ -154,6 +181,32 @@ export function ChannelClient() {
 
   const handleAuthRequired = useCallback(() => {
     setShowAuthModal(true);
+  }, []);
+
+  // Handle Remind Me click from WhatNotToMiss (for non-authenticated users)
+  const handleRemindMe = useCallback((show: Show) => {
+    setEmailCaptureShow(show);
+    setShowEmailCaptureModal(true);
+  }, []);
+
+  // Handle email submission for email capture
+  const handleEmailSubmit = useCallback(async (email: string, show: Show) => {
+    const response = await fetch('/api/email-capture', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        djName: show.dj || show.name,
+        showName: show.name,
+        showTime: show.startTime,
+        djUserId: show.djUserId,
+        djEmail: show.djEmail,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to save reminder');
+    }
   }, []);
 
   // Get DJ name for watchlist - use currentDJ which is already the display name
@@ -334,11 +387,14 @@ export function ChannelClient() {
           </div>
         </div>
 
-        {/* Mobile layout */}
+        {/* Mobile layout - DJ-centric design */}
         <div className="lg:hidden flex flex-col overflow-y-auto">
-          {/* Search bar - mobile only */}
-          <div className="flex-shrink-0 px-4 pt-3 pb-2">
-            <HeaderSearch onAuthRequired={handleAuthRequired} />
+          {/* My DJs Section - only shows for authenticated users with followed DJs */}
+          <div className="flex-shrink-0 px-4 pt-4">
+            <MyDJsSection
+              shows={allShows}
+              isAuthenticated={isAuthenticated}
+            />
           </div>
 
           {/* Now Playing Card (full info like desktop) */}
@@ -392,14 +448,19 @@ export function ChannelClient() {
             </div>
           )}
 
-          {/* Coming Up Next */}
-          <div className="flex-shrink-0 px-4 pb-4">
-            <ComingUpNext onAuthRequired={handleAuthRequired} />
-          </div>
-
-          {/* What's On Now - mobile horizontal scroll cards */}
+          {/* What's On Now - live shows across stations */}
           <div className="flex-shrink-0 px-4 pb-4">
             <WhatsOnNow onAuthRequired={handleAuthRequired} />
+          </div>
+
+          {/* What Not To Miss - upcoming shows with Remind Me CTA */}
+          <div className="flex-shrink-0 px-4 pb-4">
+            <WhatNotToMiss
+              shows={allShows}
+              stations={stationsMap}
+              isAuthenticated={isAuthenticated}
+              onRemindMe={handleRemindMe}
+            />
           </div>
 
         </div>
@@ -421,6 +482,21 @@ export function ChannelClient() {
           tipAmountCents={tipSuccessData.tipAmountCents}
         />
       )}
+
+      {/* Email Capture Modal */}
+      <EmailCaptureModal
+        isOpen={showEmailCaptureModal}
+        onClose={() => {
+          setShowEmailCaptureModal(false);
+          setEmailCaptureShow(null);
+        }}
+        show={emailCaptureShow}
+        onSubmit={handleEmailSubmit}
+        onSignInClick={() => {
+          setShowEmailCaptureModal(false);
+          setShowAuthModal(true);
+        }}
+      />
     </div>
   );
 }

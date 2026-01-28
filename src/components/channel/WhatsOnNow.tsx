@@ -75,7 +75,16 @@ export function WhatsOnNow({ onAuthRequired }: WhatsOnNowProps) {
     });
   }, [allShows, currentTime]);
 
+  // Helper to check if show has a DJ profile (profile-or-nothing filter)
+  const hasClaimedProfile = (show: Show): boolean => {
+    // Channel broadcasts always show (they have DJ info from the slot)
+    if (show.stationId === 'broadcast') return true;
+    // External shows: only show if DJ has a profile (djUsername from pending-dj-profiles or djUserId)
+    return !!(show.djUsername || show.djUserId);
+  };
+
   // Get shows for each station: current show + upcoming shows
+  // Apply profile-or-nothing filter for external stations
   const stationShows = useMemo(() => {
     const now = currentTime;
     const result: Map<string, Show[]> = new Map();
@@ -87,6 +96,7 @@ export function WhatsOnNow({ onAuthRequired }: WhatsOnNowProps) {
           const end = new Date(show.endTime);
           return end > now; // Show hasn't ended yet
         })
+        .filter(hasClaimedProfile) // Profile-or-nothing filter
         .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
       if (shows.length > 0) {

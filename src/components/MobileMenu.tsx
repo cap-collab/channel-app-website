@@ -27,8 +27,8 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
   };
 
   return (
-    <div className="relative sm:hidden">
-      {/* Hamburger button */}
+    <div className="relative">
+      {/* Hamburger button - now visible on all screen sizes */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
