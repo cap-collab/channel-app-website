@@ -1213,13 +1213,6 @@ export function DJPublicProfileClient({ username }: Props) {
                         <div className="flex-1 min-w-0">
                           {/* Action buttons */}
                           <div className="float-right flex items-center gap-2 ml-3">
-                            <Link
-                              href={`/archives/${archive.slug}`}
-                              className="sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
-                            >
-                              <ExternalLinkIcon size={14} />
-                              <span className="font-medium hidden sm:inline">Archive</span>
-                            </Link>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
