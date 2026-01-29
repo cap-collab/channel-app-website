@@ -1107,9 +1107,6 @@ export function DJPublicProfileClient({ username }: Props) {
               <div className="p-4 space-y-4">
                 <div>
                   <h3 className="text-white text-xl font-bold">{currentLiveShow.name}</h3>
-                  <p className="text-sm text-zinc-400">
-                    {liveOnChannel ? "on Channel" : liveElsewhere ? `on ${liveElsewhere.stationName}` : ""}
-                  </p>
                 </div>
 
                 {/* Progress Bar - uses station accent color */}
@@ -1217,9 +1214,6 @@ export function DJPublicProfileClient({ username }: Props) {
                       <div className="p-4 space-y-4">
                         <div>
                           <h3 className="text-white text-xl font-bold">{broadcast.showName}</h3>
-                          <p className="text-sm text-zinc-400">
-                            on {broadcast.stationName}
-                          </p>
                         </div>
 
                         {/* Time Bar */}
