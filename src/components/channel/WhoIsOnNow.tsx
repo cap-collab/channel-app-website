@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useBPM } from '@/contexts/BPMContext';
@@ -410,51 +411,99 @@ function LiveShowCard({
         )}
       </div>
 
-      {/* Image or Graphic Card */}
-      <div className="relative aspect-square overflow-hidden border border-white/10">
-        {hasPhoto ? (
-          <>
-            <Image
-              src={photoUrl}
-              alt={show.name}
-              fill
-              className="object-cover"
-              unoptimized
-              onError={() => setImageError(true)}
-            />
-            {/* Gradient scrim - top left corner */}
-            <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
-            {/* DJ Name Overlay on top-left */}
-            {djName && (
-              <div className="absolute top-2 left-2 right-2">
-                <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+      {/* Image or Graphic Card - links to DJ profile if available */}
+      {show.djUsername ? (
+        <Link href={`/dj/${show.djUsername}`} className="block relative aspect-square overflow-hidden border border-white/10">
+          {hasPhoto ? (
+            <>
+              <Image
+                src={photoUrl}
+                alt={show.name}
+                fill
+                className="object-cover"
+                unoptimized
+                onError={() => setImageError(true)}
+              />
+              {/* Gradient scrim - top left corner */}
+              <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
+              {/* DJ Name Overlay on top-left */}
+              {djName && (
+                <div className="absolute top-2 left-2 right-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+                    {djName}
+                  </span>
+                </div>
+              )}
+            </>
+          ) : (
+            // Graphic Card: No Photo - vinyl label style with station accent color
+            <div
+              className="w-full h-full flex items-center justify-center"
+              style={{ backgroundColor: station.accentColor }}
+            >
+              <div className="text-center px-3">
+                <h2
+                  className="text-2xl sm:text-3xl font-black uppercase tracking-tight leading-none"
+                  style={{ color: textColor }}
+                >
                   {djName}
-                </span>
+                </h2>
               </div>
-            )}
-          </>
-        ) : (
-          // Graphic Card: No Photo - vinyl label style with station accent color
-          <div
-            className="w-full h-full flex items-center justify-center"
-            style={{ backgroundColor: station.accentColor }}
-          >
-            <div className="text-center px-3">
-              <h2
-                className="text-2xl sm:text-3xl font-black uppercase tracking-tight leading-none"
-                style={{ color: textColor }}
-              >
-                {djName}
-              </h2>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </Link>
+      ) : (
+        <div className="relative aspect-square overflow-hidden border border-white/10">
+          {hasPhoto ? (
+            <>
+              <Image
+                src={photoUrl}
+                alt={show.name}
+                fill
+                className="object-cover"
+                unoptimized
+                onError={() => setImageError(true)}
+              />
+              {/* Gradient scrim - top left corner */}
+              <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
+              {/* DJ Name Overlay on top-left */}
+              {djName && (
+                <div className="absolute top-2 left-2 right-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+                    {djName}
+                  </span>
+                </div>
+              )}
+            </>
+          ) : (
+            // Graphic Card: No Photo - vinyl label style with station accent color
+            <div
+              className="w-full h-full flex items-center justify-center"
+              style={{ backgroundColor: station.accentColor }}
+            >
+              <div className="text-center px-3">
+                <h2
+                  className="text-2xl sm:text-3xl font-black uppercase tracking-tight leading-none"
+                  style={{ color: textColor }}
+                >
+                  {djName}
+                </h2>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Show Info - fixed height container */}
       <div className="h-14 flex flex-col justify-start py-2">
         <h3 className="text-sm font-bold leading-tight truncate">
-          {show.name}
+          {show.djUsername ? (
+            <Link href={`/dj/${show.djUsername}`} className="hover:underline">
+              {show.name}
+            </Link>
+          ) : (
+            show.name
+          )}
         </h3>
         <a
           href={station.websiteUrl}
