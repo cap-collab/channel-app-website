@@ -853,18 +853,16 @@ export function DJPublicProfileClient({ username }: Props) {
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>
               </svg>
               <span className="text-[10px] font-black uppercase tracking-widest">Support</span>
-              <div className="absolute inset-0 opacity-0">
-                <TipButton
-                  djUserId={profile.uid}
-                  djEmail={profile.email}
-                  djUsername={profile.chatUsername}
-                  broadcastSlotId=""
-                  showName={`Support ${profile.chatUsername}`}
-                  tipperUserId={user?.uid}
-                  tipperUsername={chatUsername || undefined}
-                  size="large"
-                />
-              </div>
+              <TipButton
+                djUserId={profile.uid}
+                djEmail={profile.email}
+                djUsername={profile.chatUsername}
+                broadcastSlotId=""
+                showName={`Support ${profile.chatUsername}`}
+                tipperUserId={user?.uid}
+                tipperUsername={chatUsername || undefined}
+                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+              />
             </div>
           )}
         </div>
@@ -1173,85 +1171,80 @@ export function DJPublicProfileClient({ username }: Props) {
                   const showImage = archive.showImageUrl;
 
                   return (
-                    <div key={archive.id} className="bg-surface-card rounded-xl p-4">
-                      <div className="flex items-start gap-4">
+                    <div key={archive.id} className="bg-surface-card rounded-xl p-3">
+                      <div className="flex items-center gap-3">
                         {/* Square image on left */}
                         {showImage && (
-                          <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
+                          <div className="w-12 h-12 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
                             <Image
                               src={showImage}
                               alt={archive.showName}
-                              width={64}
-                              height={64}
+                              width={48}
+                              height={48}
                               className="w-full h-full object-cover"
                               unoptimized
                             />
                           </div>
                         )}
 
-                        <div className="flex-1 min-w-0">
-                          {/* Action button - Share */}
-                          <div className="float-right ml-3 relative">
-                            <button
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                const archiveUrl = `${window.location.origin}/archives/${archive.slug}`;
-                                await navigator.clipboard.writeText(archiveUrl);
-                                setCopiedArchiveId(archive.id);
-                                setTimeout(() => setCopiedArchiveId(null), 2000);
-                              }}
-                              className="w-8 h-8 rounded-full flex items-center justify-center transition-all text-xs bg-accent/10 hover:bg-accent/20 text-accent"
-                              title="Copy archive link"
-                            >
-                              {copiedArchiveId === archive.id ? (
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                              ) : (
-                                <ShareIcon size={16} />
-                              )}
-                            </button>
-                            {copiedArchiveId === archive.id && (
-                              <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                                Copied!
-                              </div>
-                            )}
-                          </div>
-
-                          <h3 className="text-white font-semibold">{archive.showName}</h3>
-                          <p className="text-gray-400 text-sm">Recording</p>
-                          <p className="text-gray-500 text-xs">{formatFeedDate(archive.recordedAt)}</p>
-                        </div>
-                      </div>
-
-                      {/* Audio player */}
-                      <div className="mt-3 flex items-center gap-4">
+                        {/* Play button */}
                         <button
                           onClick={() => handlePlayPause(archive.id)}
-                          className="w-12 h-12 rounded-full bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0 text-black"
+                          className="w-10 h-10 rounded-full bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0 text-black"
                         >
                           {isPlaying ? (
-                            <PauseIcon size={20} />
+                            <PauseIcon size={16} />
                           ) : (
-                            <svg className="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
                               <path d="M8 5v14l11-7z" />
                             </svg>
                           )}
                         </button>
 
-                        <div className="flex-1">
+                        {/* Content and progress */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <h3 className="text-white font-semibold text-sm truncate">{archive.showName}</h3>
+                              <p className="text-gray-500 text-xs">{formatFeedDate(archive.recordedAt)} · {formatDuration(archive.duration)}</p>
+                            </div>
+                            {/* Action button - Share */}
+                            <div className="relative flex-shrink-0">
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  const archiveUrl = `${window.location.origin}/archives/${archive.slug}`;
+                                  await navigator.clipboard.writeText(archiveUrl);
+                                  setCopiedArchiveId(archive.id);
+                                  setTimeout(() => setCopiedArchiveId(null), 2000);
+                                }}
+                                className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-xs bg-accent/10 hover:bg-accent/20 text-accent"
+                                title="Copy archive link"
+                              >
+                                {copiedArchiveId === archive.id ? (
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                ) : (
+                                  <ShareIcon size={14} />
+                                )}
+                              </button>
+                              {copiedArchiveId === archive.id && (
+                                <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-0.5 rounded whitespace-nowrap z-10">
+                                  Copied!
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {/* Progress bar */}
                           <input
                             type="range"
                             min={0}
                             max={archive.duration || 100}
                             value={currentTime}
                             onChange={(e) => handleSeek(archive.id, parseFloat(e.target.value))}
-                            className="w-full h-1 bg-gray-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+                            className="w-full h-1 bg-gray-700 rounded-full appearance-none cursor-pointer mt-1.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
                           />
-                          <div className="flex justify-between text-xs text-gray-500 mt-1">
-                            <span>{formatDuration(Math.floor(currentTime))}</span>
-                            <span>{formatDuration(archive.duration)}</span>
-                          </div>
                         </div>
                       </div>
 
