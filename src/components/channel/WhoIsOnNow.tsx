@@ -374,7 +374,8 @@ function LiveShowCard({
   bpm,
 }: LiveShowCardProps) {
   const [imageError, setImageError] = useState(false);
-  const photoUrl = show.imageUrl || show.djPhotoUrl;
+  // Only use djPhotoUrl from DJ profile, not show.imageUrl
+  const photoUrl = show.djPhotoUrl;
   const hasPhoto = photoUrl && !imageError;
   const djName = show.dj || show.name;
 
