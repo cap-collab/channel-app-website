@@ -185,6 +185,17 @@ function containsMatch(text: string, term: string): boolean {
   return textLower.includes(termLower) || termLower.includes(textLower);
 }
 
+// Calculate show progress percentage (0-100)
+function calculateShowProgress(startTime: string, endTime: string): number {
+  const now = Date.now();
+  const start = new Date(startTime).getTime();
+  const end = new Date(endTime).getTime();
+  const total = end - start;
+  const elapsed = now - start;
+  if (total <= 0) return 0;
+  return Math.min(100, Math.max(0, (elapsed / total) * 100));
+}
+
 export function DJPublicProfileClient({ username }: Props) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
@@ -344,6 +355,10 @@ export function DJPublicProfileClient({ username }: Props) {
     fetchSchedule();
   }, []);
 
+  // Live show state (for the dedicated live card)
+  const [currentLiveShow, setCurrentLiveShow] = useState<Show | null>(null);
+  const [liveShowProgress, setLiveShowProgress] = useState(0);
+
   // Check if DJ is live on Channel or elsewhere
   useEffect(() => {
     if (!djProfile || allShows.length === 0) return;
@@ -363,6 +378,7 @@ export function DJPublicProfileClient({ username }: Props) {
     if (channelShow) {
       setLiveOnChannel(true);
       setLiveElsewhere(null);
+      setCurrentLiveShow(channelShow);
       return;
     }
 
@@ -383,11 +399,34 @@ export function DJPublicProfileClient({ username }: Props) {
         stationUrl: station?.websiteUrl || "#",
       });
       setLiveOnChannel(false);
+      setCurrentLiveShow(externalShow);
     } else {
       setLiveOnChannel(false);
       setLiveElsewhere(null);
+      setCurrentLiveShow(null);
     }
   }, [djProfile, allShows]);
+
+  // Update live show progress bar
+  useEffect(() => {
+    if (!currentLiveShow) {
+      setLiveShowProgress(0);
+      return;
+    }
+
+    const updateProgress = () => {
+      const progress = calculateShowProgress(currentLiveShow.startTime, currentLiveShow.endTime);
+      setLiveShowProgress(progress);
+    };
+
+    // Initial update
+    updateProgress();
+
+    // Update every second
+    const interval = setInterval(updateProgress, 1000);
+
+    return () => clearInterval(interval);
+  }, [currentLiveShow]);
 
   // Fetch upcoming shows for this DJ (both broadcast slots and external radio shows)
   useEffect(() => {
@@ -924,58 +963,91 @@ export function DJPublicProfileClient({ username }: Props) {
           </div>
         </section>
 
-        {/* SECTION B & C: STATUS & PROMO */}
-        {(liveOnChannel || liveElsewhere || profile.djProfile.promoText) && (
-          <section className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
-            {/* Live Status */}
-            {liveOnChannel ? (
-              <Link
-                href="/channel"
-                className="bg-accent p-6 flex justify-between items-center group cursor-pointer hover:bg-accent transition"
-              >
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                    <span className="text-[10px] uppercase tracking-[0.2em] font-bold">On Air Now</span>
-                  </div>
-                  <h3 className="text-2xl font-black uppercase italic">Live on Channel</h3>
+        {/* LIVE SHOW CARD - Shown outside timeline when DJ is live */}
+        {currentLiveShow && (
+          <section className="mb-6">
+            <div className="bg-surface-card rounded-2xl overflow-hidden">
+              {/* Header: LIVE badge */}
+              <div className="flex items-center justify-between px-4 py-3 bg-black/40">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                  <span className="text-red-500 text-xs font-bold uppercase tracking-wide">
+                    Live
+                  </span>
                 </div>
-                <ExternalLinkIcon size={24} />
-              </Link>
-            ) : liveElsewhere ? (
-              <a
-                href={liveElsewhere.stationUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-zinc-800 p-6 flex justify-between items-center hover:bg-zinc-700 transition"
-              >
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="w-2 h-2 bg-accent rounded-full animate-pulse" />
-                    <span className="text-[10px] uppercase tracking-[0.2em] font-bold">Live Elsewhere</span>
-                  </div>
-                  <h3 className="text-xl font-bold">{liveElsewhere.stationName}</h3>
-                </div>
-                <ExternalLinkIcon size={20} />
-              </a>
-            ) : null}
+                <span className="text-zinc-400 text-xs">
+                  {new Date(currentLiveShow.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} - {new Date(currentLiveShow.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                </span>
+              </div>
 
-            {/* Promo Box */}
-            {profile.djProfile.promoText && (
-              <div className="border-2 border-white p-6 flex flex-col justify-center gap-3">
-                <p className="text-sm font-medium italic">&ldquo;{profile.djProfile.promoText}&rdquo;</p>
-                {profile.djProfile.promoHyperlink && (
+              {/* Show Info - No picture as specified */}
+              <div className="p-4 space-y-4">
+                <div>
+                  <h3 className="text-white text-xl font-bold">{currentLiveShow.name}</h3>
+                  <p className="text-sm text-zinc-400">
+                    {liveOnChannel ? "on Channel" : liveElsewhere ? `on ${liveElsewhere.stationName}` : ""}
+                  </p>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="space-y-1">
+                  <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-accent transition-all duration-1000 ease-linear"
+                      style={{ width: `${liveShowProgress}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-zinc-500">
+                    <span>{new Date(currentLiveShow.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
+                    <span>{new Date(currentLiveShow.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
+                  </div>
+                </div>
+
+                {/* Action Button */}
+                {liveOnChannel ? (
+                  <Link
+                    href="/channel"
+                    className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-accent hover:bg-accent/80 text-white transition-colors flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                    Play
+                  </Link>
+                ) : liveElsewhere ? (
                   <a
-                    href={profile.djProfile.promoHyperlink}
+                    href={liveElsewhere.stationUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[10px] uppercase font-black tracking-widest flex items-center gap-2 hover:text-accent"
+                    className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
                   >
-                    View Link <ExternalLinkIcon size={12} />
+                    Join Stream
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
                   </a>
-                )}
+                ) : null}
               </div>
-            )}
+            </div>
+          </section>
+        )}
+
+        {/* PROMO BOX */}
+        {profile.djProfile.promoText && (
+          <section className="mb-6">
+            <div className="border-2 border-white p-6 flex flex-col justify-center gap-3">
+              <p className="text-sm font-medium italic">&ldquo;{profile.djProfile.promoText}&rdquo;</p>
+              {profile.djProfile.promoHyperlink && (
+                <a
+                  href={profile.djProfile.promoHyperlink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] uppercase font-black tracking-widest flex items-center gap-2 hover:text-accent"
+                >
+                  View Link <ExternalLinkIcon size={12} />
+                </a>
+              )}
+            </div>
           </section>
         )}
 
