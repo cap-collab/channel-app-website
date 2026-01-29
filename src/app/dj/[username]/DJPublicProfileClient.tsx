@@ -1171,15 +1171,6 @@ export function DJPublicProfileClient({ username }: Props) {
                   const isPlaying = playingId === archive.id;
                   const currentTime = currentTimes[archive.id] || 0;
                   const showImage = archive.showImageUrl;
-                  const archiveAsShow: Show = {
-                    id: archive.id,
-                    name: archive.showName,
-                    startTime: new Date(archive.recordedAt).toISOString(),
-                    endTime: new Date(archive.recordedAt + archive.duration * 1000).toISOString(),
-                    stationId: "broadcast",
-                  };
-                  const isFavorited = isShowFavorited(archiveAsShow);
-                  const isToggling = togglingFavoriteId === archive.id;
 
                   return (
                     <div key={archive.id} className="bg-surface-card rounded-xl p-4">
