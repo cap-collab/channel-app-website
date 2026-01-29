@@ -82,6 +82,23 @@ const YouTubeIcon = ({ size = 14 }: { size?: number }) => (
   </svg>
 );
 
+const TwitterIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} fill="currentColor" viewBox="0 0 24 24">
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+  </svg>
+);
+
+// Helper to check if a URL is a Twitter/X link
+const isTwitterLink = (url: string): boolean => {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return hostname === 'twitter.com' || hostname === 'www.twitter.com' ||
+           hostname === 'x.com' || hostname === 'www.x.com';
+  } catch {
+    return false;
+  }
+};
+
 // Helper functions for audio player
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -1646,9 +1663,9 @@ export function DJPublicProfileClient({ username }: Props) {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-zinc-400 hover:text-white transition-colors"
-                title="Website"
+                title={isTwitterLink(socialLinks.website) ? "Twitter" : "Website"}
               >
-                <GlobeIcon size={20} />
+                {isTwitterLink(socialLinks.website) ? <TwitterIcon size={20} /> : <GlobeIcon size={20} />}
               </a>
             )}
             {socialLinks.bookingEmail && (
