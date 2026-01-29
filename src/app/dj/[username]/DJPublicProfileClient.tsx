@@ -114,9 +114,9 @@ const TruncatedBio = ({ bio }: { bio: string }) => {
       const measure = measureRef.current;
       const containerWidth = container.offsetWidth;
 
-      // Get actual computed line height
+      // Get actual computed line height (text-base leading-relaxed = 16px * 1.625 = 26px)
       const computedStyle = window.getComputedStyle(measure);
-      const lineHeight = parseFloat(computedStyle.lineHeight) || 26; // fallback
+      const lineHeight = parseFloat(computedStyle.lineHeight) || 26;
       const maxHeight = lineHeight * 3 + 2; // 3 lines with small tolerance
 
       // Reset to measure full text
@@ -129,7 +129,7 @@ const TruncatedBio = ({ bio }: { bio: string }) => {
         return;
       }
 
-      // Binary search to find text that fits in ~3 lines with "... see more" included
+      // Binary search to find text that fits in 3 lines with "... see more" inline
       let low = 0;
       let high = bio.length;
       let bestFit = '';
@@ -137,7 +137,7 @@ const TruncatedBio = ({ bio }: { bio: string }) => {
       while (low <= high) {
         const mid = Math.floor((low + high) / 2);
         const testText = bio.slice(0, mid);
-        measure.textContent = testText + '... see more';
+        measure.textContent = testText + '... see more >';
 
         if (measure.offsetHeight <= maxHeight) {
           bestFit = testText;
@@ -150,7 +150,7 @@ const TruncatedBio = ({ bio }: { bio: string }) => {
       // Find a good word boundary (don't cut mid-word)
       let truncateAt = bestFit.length;
       const lastSpace = bestFit.lastIndexOf(' ');
-      if (lastSpace > bestFit.length * 0.7 && lastSpace > 0) {
+      if (lastSpace > bestFit.length * 0.8 && lastSpace > 0) {
         truncateAt = lastSpace;
       }
 
@@ -173,28 +173,29 @@ const TruncatedBio = ({ bio }: { bio: string }) => {
       {/* Hidden element for measuring - must match visible text styling exactly */}
       <span
         ref={measureRef}
-        className="text-sm leading-relaxed absolute opacity-0 pointer-events-none -z-10"
+        className="text-base leading-relaxed font-light absolute opacity-0 pointer-events-none -z-10"
         style={{ display: 'block', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
         aria-hidden="true"
       />
 
-      {/* Visible content */}
-      <p className="text-sm leading-relaxed text-zinc-300">
+      {/* Visible content - editorial style with more spacing */}
+      <p className="text-base leading-relaxed text-zinc-300 font-light">
         {displayText}
         {!isExpanded && needsTruncation && '... '}
         {needsTruncation && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="md:hidden inline-flex items-center gap-0.5 text-zinc-400 hover:text-white transition-colors"
+            className="md:hidden inline text-zinc-400 hover:text-white transition-colors"
           >
-            <span>{isExpanded ? 'see less' : 'see more'}</span>
+            {isExpanded ? 'see less' : 'see more'}
             <svg
               width={12}
               height={12}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
-              className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+              className={`inline ml-0.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+              style={{ verticalAlign: 'middle', marginTop: '-2px' }}
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
