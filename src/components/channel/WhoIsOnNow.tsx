@@ -23,7 +23,7 @@ interface WhoIsOnNowProps {
 
 export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLoading, isBroadcastLive, chatSlot }: WhoIsOnNowProps) {
   const { isAuthenticated } = useAuthContext();
-  const { isInWatchlist, followDJ } = useFavorites();
+  const { isInWatchlist, followDJ, removeFromWatchlist } = useFavorites();
   const { stationBPM } = useBPM();
 
   const [allShows, setAllShows] = useState<Show[]>([]);
@@ -116,13 +116,17 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
 
       setTogglingFollowId(show.id);
       try {
-        // Use unified followDJ function - adds DJ to watchlist + specific show to favorites
-        await followDJ(djName, show.djUserId, show.djEmail, show);
+        // Toggle: unfollow if already following, follow if not
+        if (isInWatchlist(djName)) {
+          await removeFromWatchlist(djName);
+        } else {
+          await followDJ(djName, show.djUserId, show.djEmail, show);
+        }
       } finally {
         setTogglingFollowId(null);
       }
     },
-    [followDJ, isAuthenticated, onAuthRequired]
+    [followDJ, removeFromWatchlist, isInWatchlist, isAuthenticated, onAuthRequired]
   );
 
   if (loading) {
@@ -449,7 +453,7 @@ function LiveShowCard({
 
       {/* Show Info - fixed height container */}
       <div className="h-14 flex flex-col justify-start py-2">
-        <h3 className="text-sm font-bold leading-tight truncate group-hover:text-blue-400 transition">
+        <h3 className="text-sm font-bold leading-tight truncate">
           {show.name}
         </h3>
         <a
