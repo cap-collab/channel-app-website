@@ -222,18 +222,18 @@ a {
   animation: fadeIn 0.3s ease-out;
 }
 
-/* BPM Pulse Animation - syncs with tempo (opacity only to avoid layout shift) */
+/* BPM Pulse Animation - syncs with tempo (subtle glow effect) */
 @keyframes bpm-pulse {
   0%, 100% {
     opacity: 1;
   }
   50% {
-    opacity: 0.5;
+    opacity: 0.7;
   }
 }
 
 .animate-bpm-pulse {
-  animation: bpm-pulse var(--bpm-duration, 500ms) ease-in-out infinite;
+  animation: bpm-pulse calc(var(--bpm-duration, 500ms) * 2) cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 /* Live indicator dot pulse */
