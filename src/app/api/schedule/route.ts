@@ -13,6 +13,72 @@ function normalizeForProfileLookup(name: string): string {
     .replace(/[^a-z0-9]/g, "");
 }
 
+// Count words in a string
+function countWords(text: string): number {
+  return text.trim().split(/\s+/).filter(w => w.length > 0).length;
+}
+
+// Extract all candidate names for profile lookup from a show
+// Returns deduplicated names in priority order
+function extractCandidateNames(show: Show): string[] {
+  const candidates: string[] = [];
+  const seen = new Set<string>();
+
+  const addCandidate = (name: string | undefined) => {
+    if (!name) return;
+    const trimmed = name.trim();
+    const normalized = normalizeForProfileLookup(trimmed);
+    if (normalized.length >= 2 && !seen.has(normalized)) {
+      seen.add(normalized);
+      candidates.push(trimmed);
+    }
+  };
+
+  // 1. Direct dj field
+  addCandidate(show.dj);
+
+  // 2. Show name as-is
+  addCandidate(show.name);
+
+  // 3. Hyphen pattern: "X - Y" → try Y first, then X
+  if (show.name.includes(' - ')) {
+    const parts = show.name.split(' - ');
+    if (parts.length >= 2) {
+      addCandidate(parts[1].trim());
+      addCandidate(parts[0].trim());
+    }
+  }
+
+  // 4. "w/" pattern: "X w/ Y" → try Y first, then X
+  const wMatch = show.name.match(/^(.+?)\s+w\/\s+(.+)$/i);
+  if (wMatch) {
+    addCandidate(wMatch[2].trim());
+    addCandidate(wMatch[1].trim());
+  }
+
+  // 5. "invite/invité/presents/present" pattern in dj field or show name → try part after
+  const invitePattern = /^(invit[eé]s?|presents?)\s+(.+)$/i;
+  const djInviteMatch = show.dj?.match(invitePattern);
+  if (djInviteMatch) {
+    addCandidate(djInviteMatch[2].trim());
+  }
+  const nameInviteMatch = show.name.match(invitePattern);
+  if (nameInviteMatch) {
+    addCandidate(nameInviteMatch[2].trim());
+  }
+
+  // 6. Colon pattern: "X : Y" → try Y first, then X
+  if (show.name.includes(' : ')) {
+    const parts = show.name.split(' : ');
+    if (parts.length >= 2) {
+      addCandidate(parts[1].trim());
+      addCandidate(parts[0].trim());
+    }
+  }
+
+  return candidates;
+}
+
 // Fetch DJ profiles using Admin SDK (bypasses security rules)
 async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
   const adminDb = getAdminDb();
@@ -34,25 +100,12 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
   shows.forEach((show) => {
     // External radios (NTS, Rinse, Subtle, dublab)
     if (show.stationId !== "broadcast" && show.stationId !== "newtown") {
-      // For dublab shows, name format is "DJ Name - Show Name"
-      // Extract DJ name from before the hyphen if present
-      let nameToLookup = show.dj || show.name;
-      if (show.name.includes(' - ')) {
-        nameToLookup = show.name.split(' - ')[0].trim();
-      }
-      // For NTS shows, also try "HOST w/ GUEST" pattern
-      const wMatch = show.name.match(/^(.+?)\s+w\/\s+/i);
-      if (wMatch) {
-        const host = wMatch[1].trim();
-        // Only use if ≤2 words (valid DJ name)
-        if (host.split(/\s+/).length <= 2) {
-          nameToLookup = host;
-        }
-      }
-      if (nameToLookup) {
-        const normalized = normalizeForProfileLookup(nameToLookup);
-        if (normalized.length >= 2) {
-          externalDjNames.set(normalized, nameToLookup);
+      // Extract all candidate names using unified pattern matching
+      const candidates = extractCandidateNames(show);
+      for (const name of candidates) {
+        const normalized = normalizeForProfileLookup(name);
+        if (normalized.length >= 2 && !externalDjNames.has(normalized)) {
+          externalDjNames.set(normalized, name);
         }
       }
     }
@@ -122,28 +175,29 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
 
     // External radio shows: use pending-dj-profiles collection
     if (show.stationId !== "broadcast" && show.stationId !== "newtown") {
-      // For dublab shows, name format is "DJ Name - Show Name"
-      // Extract DJ name from before the hyphen if present
-      let nameToLookup = show.dj || show.name;
-      if (show.name.includes(' - ')) {
-        nameToLookup = show.name.split(' - ')[0].trim();
-      }
-      // For NTS shows, also try "HOST w/ GUEST" pattern
-      const wMatch = show.name.match(/^(.+?)\s+w\/\s+/i);
-      if (wMatch) {
-        const host = wMatch[1].trim();
-        // Only use if ≤2 words (valid DJ name)
-        if (host.split(/\s+/).length <= 2) {
-          nameToLookup = host;
-        }
-      }
-      if (nameToLookup) {
-        const normalized = normalizeForProfileLookup(nameToLookup);
+      // Try all candidate names in priority order until a profile is found
+      const candidates = extractCandidateNames(show);
+
+      for (const name of candidates) {
+        const normalized = normalizeForProfileLookup(name);
         const profile = externalProfiles[normalized];
+
         if (profile) {
+          // Determine DJ name to display:
+          // 1. dublab: always use part before hyphen
+          // 2. Others: use profile.djName, or show name if ≤2 words
+          let djName: string | undefined;
+          if (show.stationId === "dublab" && show.name.includes(' - ')) {
+            djName = show.name.split(' - ')[0].trim();
+          } else if (profile.djName) {
+            djName = profile.djName;
+          } else if (countWords(show.name) <= 2) {
+            djName = show.name;
+          }
+
           return {
             ...show,
-            dj: profile.djName || nameToLookup,
+            dj: djName || show.dj,
             djBio: profile.bio,
             djPhotoUrl: profile.photoUrl,
             djUsername: profile.username,
