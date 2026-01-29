@@ -16,6 +16,7 @@ interface TipButtonProps {
   size?: 'small' | 'medium' | 'large';  // small for TV Guide, medium for chat, large for standalone
   disabled?: boolean;
   onRequireAuth?: () => void;
+  className?: string;     // Custom className to override button styling (e.g., for full-width overlays)
 }
 
 export function TipButton({
@@ -29,6 +30,7 @@ export function TipButton({
   compact = false,
   size,
   disabled = false,
+  className,
 }: TipButtonProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -54,7 +56,7 @@ export function TipButton({
         type="button"
         onClick={handleClick}
         disabled={disabled}
-        className={`${buttonSize} flex items-center justify-center transition-all ${
+        className={className || `${buttonSize} flex items-center justify-center transition-all ${
           disabled
             ? 'text-gray-600 cursor-not-allowed'
             : 'text-green-400 hover:text-green-300 hover:scale-110'

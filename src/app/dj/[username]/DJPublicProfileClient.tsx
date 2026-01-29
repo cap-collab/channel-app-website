@@ -220,6 +220,7 @@ export function DJPublicProfileClient({ username }: Props) {
   // Show popup state
   const [expandedShowId, setExpandedShowId] = useState<string | null>(null);
   const [togglingFavoriteId, setTogglingFavoriteId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Auto-profile state
   const [isAutoProfile, setIsAutoProfile] = useState(false);
@@ -658,6 +659,18 @@ export function DJPublicProfileClient({ username }: Props) {
     setTogglingFavoriteId(null);
   };
 
+  // Handle copy to clipboard with visual feedback
+  const handleCopyLink = async (id: string, url: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  };
+
   // Check if show is currently live
   const isShowLive = (broadcast: UpcomingShow): boolean => {
     const now = Date.now();
@@ -1038,13 +1051,13 @@ export function DJPublicProfileClient({ username }: Props) {
                               <button
                                 onClick={(e) => handleToggleFavorite(broadcast, e)}
                                 disabled={isToggling}
-                                className="px-3 h-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
+                                className="px-3 h-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-accent/10 hover:bg-accent/20 text-accent"
                                 title={isFavorited ? "Remove from favorites" : "Add to favorites"}
                               >
                                 {isToggling ? (
                                   <div className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
                                 ) : (
-                                  <svg className="w-3.5 h-3.5" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" style={{ color: isFavorited ? "#ef4444" : "currentColor" }}>
+                                  <svg className="w-3.5 h-3.5" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                                   </svg>
                                 )}
@@ -1052,14 +1065,26 @@ export function DJPublicProfileClient({ username }: Props) {
                               </button>
                             )}
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigator.clipboard.writeText(`${window.location.origin}/dj/${username}`);
-                              }}
-                              className="sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
+                              onClick={(e) => handleCopyLink(`broadcast-${broadcast.id}`, `${window.location.origin}/dj/${username}`, e)}
+                              className={`sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs ${
+                                copiedId === `broadcast-${broadcast.id}`
+                                  ? "bg-green-500/20 text-green-400"
+                                  : "bg-white/10 hover:bg-white/20 text-white"
+                              }`}
                             >
-                              <ShareIcon size={14} />
-                              <span className="font-medium hidden sm:inline">Share</span>
+                              {copiedId === `broadcast-${broadcast.id}` ? (
+                                <>
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                  <span className="font-medium hidden sm:inline">Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <ShareIcon size={14} />
+                                  <span className="font-medium hidden sm:inline">Share</span>
+                                </>
+                              )}
                             </button>
                           </div>
 
@@ -1145,9 +1170,15 @@ export function DJPublicProfileClient({ username }: Props) {
                               <button
                                 onClick={(e) => handleToggleFavorite(broadcast, e)}
                                 disabled={isToggling}
-                                className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest border border-white/20 px-4 py-2 hover:bg-white hover:text-black transition rounded-full"
-                                style={{ color: isFavorited ? "#ef4444" : "white" }}
+                                className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest border px-4 py-2 transition rounded-full ${
+                                  isFavorited
+                                    ? "border-accent text-accent hover:bg-accent hover:text-white"
+                                    : "border-accent/50 text-accent hover:bg-accent hover:text-white"
+                                }`}
                               >
+                                <svg className="w-3.5 h-3.5" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                </svg>
                                 {isFavorited ? "Favorited" : "Favorite"}
                               </button>
                             </div>
@@ -1177,16 +1208,30 @@ export function DJPublicProfileClient({ username }: Props) {
                                 <span className="hidden sm:inline">Tickets</span>
                               </a>
                             )}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (irlShow.url) navigator.clipboard.writeText(irlShow.url);
-                              }}
-                              className="sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
-                            >
-                              <ShareIcon size={14} />
-                              <span className="font-medium hidden sm:inline">Share</span>
-                            </button>
+                            {irlShow.url && (
+                              <button
+                                onClick={(e) => handleCopyLink(`irl-${irlShow.id}`, irlShow.url!, e)}
+                                className={`sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs ${
+                                  copiedId === `irl-${irlShow.id}`
+                                    ? "bg-green-500/20 text-green-400"
+                                    : "bg-white/10 hover:bg-white/20 text-white"
+                                }`}
+                              >
+                                {copiedId === `irl-${irlShow.id}` ? (
+                                  <>
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    <span className="font-medium hidden sm:inline">Copied!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <ShareIcon size={14} />
+                                    <span className="font-medium hidden sm:inline">Share</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
                           </div>
 
                           <h3 className="text-white font-semibold">
@@ -1214,14 +1259,26 @@ export function DJPublicProfileClient({ username }: Props) {
                           {/* Action buttons */}
                           <div className="float-right flex items-center gap-2 ml-3">
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigator.clipboard.writeText(`${window.location.origin}/archives/${archive.slug}`);
-                              }}
-                              className="sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
+                              onClick={(e) => handleCopyLink(`archive-${archive.id}`, `${window.location.origin}/archives/${archive.slug}`, e)}
+                              className={`sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs ${
+                                copiedId === `archive-${archive.id}`
+                                  ? "bg-green-500/20 text-green-400"
+                                  : "bg-white/10 hover:bg-white/20 text-white"
+                              }`}
                             >
-                              <ShareIcon size={14} />
-                              <span className="font-medium hidden sm:inline">Share</span>
+                              {copiedId === `archive-${archive.id}` ? (
+                                <>
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                  <span className="font-medium hidden sm:inline">Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <ShareIcon size={14} />
+                                  <span className="font-medium hidden sm:inline">Share</span>
+                                </>
+                              )}
                             </button>
                           </div>
 
@@ -1357,18 +1414,16 @@ export function DJPublicProfileClient({ username }: Props) {
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>
               </svg>
               <span className="text-sm font-black uppercase tracking-wider">Support The Artist</span>
-              <div className="absolute inset-0 opacity-0">
-                <TipButton
-                  djUserId={profile.uid}
-                  djEmail={profile.email}
-                  djUsername={profile.chatUsername}
-                  broadcastSlotId=""
-                  showName={`Support ${profile.chatUsername}`}
-                  tipperUserId={user?.uid}
-                  tipperUsername={chatUsername || undefined}
-                  size="large"
-                />
-              </div>
+              <TipButton
+                djUserId={profile.uid}
+                djEmail={profile.email}
+                djUsername={profile.chatUsername}
+                broadcastSlotId=""
+                showName={`Support ${profile.chatUsername}`}
+                tipperUserId={user?.uid}
+                tipperUsername={chatUsername || undefined}
+                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+              />
             </div>
           )}
 
