@@ -239,7 +239,7 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
             dj: djName || show.dj,
             djBio: profile.bio,
             djPhotoUrl: profile.photoUrl,
-            djUsername: profile.username || show.djUsername,  // Preserve original djUsername if profile doesn't have one
+            djUsername: profile.username || show.djUsername || normalized,  // Use normalized lookup key as fallback for profile URL
             djGenres: profile.genres,
           };
         }
