@@ -89,8 +89,9 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
         if (a.stationId !== 'broadcast' && b.stationId === 'broadcast') return 1;
 
         // Then sort by: picture + genre > picture only > no picture
-        const aHasPhoto = !!(a.imageUrl || a.djPhotoUrl);
-        const bHasPhoto = !!(b.imageUrl || b.djPhotoUrl);
+        // Only use djPhotoUrl (from DJ profile) as reliable photo indicator
+        const aHasPhoto = !!a.djPhotoUrl;
+        const bHasPhoto = !!b.djPhotoUrl;
         const aHasGenre = !!(a.djGenres && a.djGenres.length > 0);
         const bHasGenre = !!(b.djGenres && b.djGenres.length > 0);
 
