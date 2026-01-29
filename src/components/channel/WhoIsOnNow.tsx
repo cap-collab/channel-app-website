@@ -121,17 +121,7 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
   }
 
   if (liveShows.length === 0) {
-    return (
-      <div className="bg-surface-card rounded-xl p-4">
-        <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-4">
-          Who Is On Now
-        </h3>
-        <div className="text-center py-8">
-          <p className="text-gray-500">No DJs are live right now</p>
-          <p className="text-gray-600 text-sm mt-1">Check back soon!</p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
