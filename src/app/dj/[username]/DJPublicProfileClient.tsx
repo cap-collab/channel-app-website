@@ -98,8 +98,7 @@ function formatDuration(seconds: number): string {
 const TruncatedBio = ({ bio }: { bio: string }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [needsTruncation, setNeedsTruncation] = useState(false);
-  const fullTextRef = useRef<HTMLParagraphElement>(null);
-  const truncatedRef = useRef<HTMLParagraphElement>(null);
+  const textRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     const checkTruncation = () => {
@@ -110,41 +109,35 @@ const TruncatedBio = ({ bio }: { bio: string }) => {
         return;
       }
 
-      if (fullTextRef.current && truncatedRef.current) {
-        // Compare full height vs truncated height
-        const fullHeight = fullTextRef.current.scrollHeight;
-        const truncatedHeight = truncatedRef.current.clientHeight;
-        setNeedsTruncation(fullHeight > truncatedHeight + 1);
+      if (textRef.current) {
+        // text-xl = 1.25rem = 20px, leading-relaxed = 1.625 line-height
+        // 2.5 lines = 20 * 1.625 * 2.5 = 81.25px
+        const maxHeight = 82;
+        setNeedsTruncation(textRef.current.scrollHeight > maxHeight);
       }
     };
 
-    checkTruncation();
+    // Small delay to ensure styles are applied
+    const timer = setTimeout(checkTruncation, 50);
     window.addEventListener('resize', checkTruncation);
-    return () => window.removeEventListener('resize', checkTruncation);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', checkTruncation);
+    };
   }, [bio]);
 
-  return (
-    <div className="mb-4 relative">
-      {/* Hidden full text to measure actual height */}
-      <p
-        ref={fullTextRef}
-        className="text-xl leading-relaxed text-zinc-300 font-light absolute opacity-0 pointer-events-none -z-10"
-        style={{ width: '100%' }}
-        aria-hidden="true"
-      >
-        {bio}
-      </p>
+  // Calculate max height for 2.5 lines: 20px font * 1.625 line-height * 2.5 = ~81px
+  const truncatedStyle = {
+    maxHeight: '81px',
+    overflow: 'hidden',
+  };
 
-      {/* Visible text - truncated on mobile when not expanded */}
+  return (
+    <div className="mb-4">
       <p
-        ref={truncatedRef}
+        ref={textRef}
         className="text-xl leading-relaxed text-zinc-300 font-light"
-        style={!isExpanded ? {
-          display: '-webkit-box',
-          WebkitLineClamp: 2.5,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-        } : undefined}
+        style={!isExpanded && needsTruncation ? truncatedStyle : undefined}
       >
         {bio}
       </p>
