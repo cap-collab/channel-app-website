@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy, Timestamp, limit } from "firebase/firestore";
 import { Header } from "@/components/Header";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { db } from "@/lib/firebase";
@@ -213,6 +213,8 @@ interface PastShow {
   startTime: number;
   endTime: number;
   showImageUrl?: string;
+  stationId: string;
+  stationName: string;
 }
 
 interface CustomLink {
@@ -305,7 +307,7 @@ function calculateShowProgress(startTime: string, endTime: string): number {
 export function DJPublicProfileClient({ username }: Props) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
-  const { isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited, loading: favoritesLoading } = useFavorites();
+  const { isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited, addToWatchlist, loading: favoritesLoading } = useFavorites();
 
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -325,6 +327,9 @@ export function DJPublicProfileClient({ username }: Props) {
 
   // Past shows (broadcast slots without recordings)
   const [pastShows, setPastShows] = useState<PastShow[]>([]);
+
+  // Past external shows (from other stations like NTS, Subtle, etc.)
+  const [pastExternalShows, setPastExternalShows] = useState<PastShow[]>([]);
 
   // Audio player state for recordings
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -710,6 +715,8 @@ export function DJPublicProfileClient({ username }: Props) {
                 startTime: slot.startTime,
                 endTime: slot.endTime,
                 showImageUrl: slot.showImageUrl,
+                stationId: "broadcast",
+                stationName: "Channel Broadcast",
               });
             }
           });
@@ -723,6 +730,48 @@ export function DJPublicProfileClient({ username }: Props) {
       }
     }
     fetchPastShowsAndRecordings();
+  }, [djProfile]);
+
+  // Fetch past external shows from Firebase (NTS, Subtle, dublab, etc.)
+  useEffect(() => {
+    async function fetchPastExternalShows() {
+      if (!djProfile || !db) return;
+
+      try {
+        // Normalize username for matching
+        const normalizedUsername = djProfile.chatUsername
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "");
+
+        // Query past-external-shows where djUsername matches
+        const externalShowsRef = collection(db, "past-external-shows");
+        const q = query(
+          externalShowsRef,
+          where("djUsername", "==", normalizedUsername),
+          orderBy("endTime", "desc"),
+          limit(50)
+        );
+
+        const snapshot = await getDocs(q);
+        const shows: PastShow[] = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            showName: data.showName,
+            startTime: data.startTime?.toMillis?.() || data.startTime,
+            endTime: data.endTime?.toMillis?.() || data.endTime,
+            stationId: data.stationId,
+            stationName: data.stationName,
+          };
+        });
+
+        setPastExternalShows(shows);
+      } catch (error) {
+        console.error("Error fetching past external shows:", error);
+      }
+    }
+
+    fetchPastExternalShows();
   }, [djProfile]);
 
   // Subscribe/Unsubscribe handlers
@@ -897,8 +946,17 @@ export function DJPublicProfileClient({ username }: Props) {
       });
     });
 
-    // Add past shows without recordings
+    // Add past shows without recordings (Channel Broadcast)
     pastShows.forEach((show) => {
+      past.push({
+        ...show,
+        feedType: "show",
+        feedStatus: "past",
+      });
+    });
+
+    // Add past external shows (NTS, Subtle, dublab, etc.)
+    pastExternalShows.forEach((show) => {
       past.push({
         ...show,
         feedType: "show",
@@ -924,7 +982,7 @@ export function DJPublicProfileClient({ username }: Props) {
     past.sort(sortPast);
 
     return { upcomingShows: upcoming, pastActivities: past };
-  }, [upcomingBroadcasts, pastRecordings, pastShows, djProfile]);
+  }, [upcomingBroadcasts, pastRecordings, pastShows, pastExternalShows, djProfile]);
 
   // Create Artist Selects (recommendations)
   const artistSelects = useMemo(() => {
@@ -1398,65 +1456,66 @@ export function DJPublicProfileClient({ username }: Props) {
 
                 if (item.feedType === "show") {
                   const pastShow = item as PastShow & { feedType: "show"; feedStatus: "past" };
-                  const showImage = pastShow.showImageUrl;
-                  const pastShowAsShow: Show = {
-                    id: pastShow.id,
-                    name: pastShow.showName,
-                    startTime: new Date(pastShow.startTime).toISOString(),
-                    endTime: new Date(pastShow.endTime).toISOString(),
-                    stationId: "broadcast",
-                  };
-                  const isFavorited = isShowFavorited(pastShowAsShow);
+                  const isWatching = isInWatchlist(pastShow.showName);
                   const isToggling = togglingFavoriteId === pastShow.id;
+                  const stationAccentColor = getStationById(pastShow.stationId)?.accentColor;
+
+                  // Format date and time for header
+                  const showDate = new Date(pastShow.startTime);
+                  const dateStr = showDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                  const timeStr = showDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
                   return (
-                    <div key={pastShow.id} className="bg-surface-card rounded-xl p-4 opacity-60">
-                      <div className="flex items-start gap-4">
-                        {showImage && (
-                          <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
-                            <Image
-                              src={showImage}
-                              alt={pastShow.showName}
-                              width={64}
-                              height={64}
-                              className="w-full h-full object-cover grayscale"
-                              unoptimized
-                            />
-                          </div>
-                        )}
+                    <div
+                      key={pastShow.id}
+                      className="bg-surface-card rounded-2xl overflow-hidden"
+                    >
+                      {/* Header: Date + Time and Station name */}
+                      <div className="flex items-center justify-between px-4 py-3 bg-black/40">
+                        <span className="text-zinc-400 text-xs">
+                          {dateStr} · {timeStr}
+                        </span>
+                        <span className="text-zinc-400 text-xs">
+                          {pastShow.stationName}
+                        </span>
+                      </div>
 
-                        <div className="flex-1 min-w-0">
-                          <div className="float-right ml-3">
-                            <button
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                if (!user) {
-                                  setShowAuthModal(true);
-                                  return;
-                                }
-                                setTogglingFavoriteId(pastShow.id);
-                                await toggleFavorite(pastShowAsShow);
-                                setTogglingFavoriteId(null);
-                              }}
-                              disabled={isToggling}
-                              className="px-3 h-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-accent/10 hover:bg-accent/20 text-accent"
-                              title={isFavorited ? "Remove from favorites" : "Add to favorites"}
-                            >
-                              {isToggling ? (
-                                <div className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                              ) : (
-                                <svg className="w-3.5 h-3.5" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                                </svg>
-                              )}
-                              <span className="font-medium hidden sm:inline">{isFavorited ? "Saved" : "Save"}</span>
-                            </button>
-                          </div>
-
-                          <h3 className="text-gray-400 font-semibold">{pastShow.showName}</h3>
-                          <p className="text-gray-500 text-sm">Past Radio Show</p>
-                          <p className="text-gray-600 text-xs">{formatFeedDate(pastShow.startTime)}</p>
+                      {/* Show Info */}
+                      <div className="p-4 space-y-4">
+                        <div>
+                          <h3 className="text-white text-xl font-bold">{pastShow.showName}</h3>
+                          <p className="text-sm text-zinc-400">
+                            on {pastShow.stationName}
+                          </p>
                         </div>
+
+                        {/* Action Button: Get notified */}
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (!user) {
+                              setShowAuthModal(true);
+                              return;
+                            }
+                            setTogglingFavoriteId(pastShow.id);
+                            await addToWatchlist(pastShow.showName);
+                            setTogglingFavoriteId(null);
+                          }}
+                          disabled={isToggling || isWatching}
+                          className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                          style={stationAccentColor ? { borderColor: stationAccentColor } : undefined}
+                        >
+                          {isToggling ? (
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4" fill={isWatching ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                              </svg>
+                              {isWatching ? "Notifying" : "Get notified"}
+                            </>
+                          )}
+                        </button>
                       </div>
                     </div>
                   );
