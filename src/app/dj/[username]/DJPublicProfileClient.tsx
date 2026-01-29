@@ -220,6 +220,7 @@ export function DJPublicProfileClient({ username }: Props) {
   // Show popup state
   const [expandedShowId, setExpandedShowId] = useState<string | null>(null);
   const [togglingFavoriteId, setTogglingFavoriteId] = useState<string | null>(null);
+  const [copiedArchiveId, setCopiedArchiveId] = useState<string | null>(null);
 
   // Auto-profile state
   const [isAutoProfile, setIsAutoProfile] = useState(false);
@@ -870,23 +871,6 @@ export function DJPublicProfileClient({ username }: Props) {
       </nav>
 
       <main className="max-w-5xl mx-auto px-6 py-4">
-        {/* Auto-profile banner */}
-        {isAutoProfile && (
-          <div className="mb-4 bg-zinc-900/50 border border-zinc-800 p-3">
-            <p className="text-zinc-400 text-xs uppercase tracking-widest">
-              Auto-generated profile based on radio schedules
-            </p>
-            {autoSources.length > 0 && (
-              <p className="text-zinc-500 text-xs mt-1">
-                Seen on: {Array.from(new Set(autoSources.map(s => {
-                  const station = getStationById(s.stationId);
-                  return station?.name || s.stationId;
-                }))).join(", ")}
-              </p>
-            )}
-          </div>
-        )}
-
         {/* SECTION A: IDENTITY */}
         <section className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-6">
           <div className="md:col-span-4">
@@ -1215,32 +1199,32 @@ export function DJPublicProfileClient({ username }: Props) {
                         )}
 
                         <div className="flex-1 min-w-0">
-                          {/* Action button - only Save star */}
-                          <div className="float-right ml-3">
+                          {/* Action button - Share */}
+                          <div className="float-right ml-3 relative">
                             <button
                               onClick={async (e) => {
                                 e.stopPropagation();
-                                if (!user) {
-                                  setShowAuthModal(true);
-                                  return;
-                                }
-                                setTogglingFavoriteId(archive.id);
-                                await toggleFavorite(archiveAsShow);
-                                setTogglingFavoriteId(null);
+                                const archiveUrl = `${window.location.origin}/archive/${archive.id}`;
+                                await navigator.clipboard.writeText(archiveUrl);
+                                setCopiedArchiveId(archive.id);
+                                setTimeout(() => setCopiedArchiveId(null), 2000);
                               }}
-                              disabled={isToggling}
-                              className="px-3 h-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-accent/10 hover:bg-accent/20 text-accent"
-                              title={isFavorited ? "Remove from favorites" : "Add to favorites"}
+                              className="w-8 h-8 rounded-full flex items-center justify-center transition-all text-xs bg-accent/10 hover:bg-accent/20 text-accent"
+                              title="Copy archive link"
                             >
-                              {isToggling ? (
-                                <div className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                              ) : (
-                                <svg className="w-3.5 h-3.5" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                              {copiedArchiveId === archive.id ? (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                 </svg>
+                              ) : (
+                                <ShareIcon size={16} />
                               )}
-                              <span className="font-medium hidden sm:inline">{isFavorited ? "Saved" : "Save"}</span>
                             </button>
+                            {copiedArchiveId === archive.id && (
+                              <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                                Copied!
+                              </div>
+                            )}
                           </div>
 
                           <h3 className="text-white font-semibold">{archive.showName}</h3>
@@ -1498,6 +1482,26 @@ export function DJPublicProfileClient({ username }: Props) {
             )}
           </div>
         </footer>
+
+        {/* Auto-profile banner - at bottom */}
+        {isAutoProfile && (
+          <div className="mt-8 bg-zinc-900/50 border border-zinc-800 p-3 text-center">
+            <p className="text-zinc-400 text-xs uppercase tracking-widest">
+              Auto-generated profile based on radio schedules
+            </p>
+            {autoSources.length > 0 && (
+              <p className="text-zinc-500 text-xs mt-1">
+                Seen on: {Array.from(new Set(autoSources.map(s => {
+                  const station = getStationById(s.stationId);
+                  return station?.name || s.stationId;
+                }))).join(", ")}
+              </p>
+            )}
+            <p className="text-zinc-600 text-xs mt-2">
+              Contact info@channel-app.com for any question or claim about this profile
+            </p>
+          </div>
+        )}
       </main>
 
       <AuthModal
