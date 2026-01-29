@@ -356,11 +356,6 @@ function LiveShowCard({
 
   return (
     <div className="flex-shrink-0 w-44 sm:w-56 snap-start group flex flex-col">
-      {/* Genre Tags Above Image */}
-      <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter mb-1">
-        #{station.name.replace(/\s+/g, '')}
-      </div>
-
       {/* Image with DJ Name Overlay */}
       <div className="relative aspect-square overflow-hidden border border-white/10">
         {imageUrl ? (
@@ -379,11 +374,11 @@ function LiveShowCard({
             </svg>
           </div>
         )}
-        {/* Gradient scrim */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-        {/* DJ Name Overlay on image */}
+        {/* Gradient scrim - top left corner */}
+        <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
+        {/* DJ Name Overlay on top-left */}
         {djName && (
-          <div className="absolute bottom-2 left-2 right-2">
+          <div className="absolute top-2 left-2 right-2">
             <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
               {djName}
             </span>
