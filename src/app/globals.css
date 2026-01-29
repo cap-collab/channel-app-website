@@ -222,15 +222,13 @@ a {
   animation: fadeIn 0.3s ease-out;
 }
 
-/* BPM Pulse Animation - syncs with tempo */
+/* BPM Pulse Animation - syncs with tempo (opacity only to avoid layout shift) */
 @keyframes bpm-pulse {
   0%, 100% {
-    transform: scale(1);
     opacity: 1;
   }
   50% {
-    transform: scale(1.15);
-    opacity: 0.8;
+    opacity: 0.5;
   }
 }
 
