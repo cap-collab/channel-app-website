@@ -6,6 +6,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { Show, Station } from '@/types';
 import { STATIONS } from '@/lib/stations';
+import { getContrastTextColor } from '@/lib/colorUtils';
 
 interface WhoIsOnNowProps {
   onAuthRequired?: () => void;
@@ -351,37 +352,52 @@ function LiveShowCard({
   onFollow,
 }: LiveShowCardProps) {
   const [imageError, setImageError] = useState(false);
-  const imageUrl = !imageError ? (show.imageUrl || show.djPhotoUrl) : null;
+  const photoUrl = show.imageUrl || show.djPhotoUrl;
+  const hasPhoto = photoUrl && !imageError;
   const djName = show.dj || show.name;
+
+  // For no-photo variant, use station color with contrast text
+  const textColor = hasPhoto ? '#ffffff' : getContrastTextColor(station.accentColor);
 
   return (
     <div className="flex-shrink-0 w-44 sm:w-56 snap-start group flex flex-col">
-      {/* Image with DJ Name Overlay */}
+      {/* Image or Graphic Card */}
       <div className="relative aspect-square overflow-hidden border border-white/10">
-        {imageUrl ? (
-          <Image
-            src={imageUrl}
-            alt={show.name}
-            fill
-            className="object-cover"
-            unoptimized
-            onError={() => setImageError(true)}
-          />
+        {hasPhoto ? (
+          <>
+            <Image
+              src={photoUrl}
+              alt={show.name}
+              fill
+              className="object-cover"
+              unoptimized
+              onError={() => setImageError(true)}
+            />
+            {/* Gradient scrim - top left corner */}
+            <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
+            {/* DJ Name Overlay on top-left */}
+            {djName && (
+              <div className="absolute top-2 left-2 right-2">
+                <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+                  {djName}
+                </span>
+              </div>
+            )}
+          </>
         ) : (
-          <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
-            <svg className="w-10 h-10 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-            </svg>
-          </div>
-        )}
-        {/* Gradient scrim - top left corner */}
-        <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
-        {/* DJ Name Overlay on top-left */}
-        {djName && (
-          <div className="absolute top-2 left-2 right-2">
-            <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
-              {djName}
-            </span>
+          // Graphic Card: No Photo - vinyl label style with station accent color
+          <div
+            className="w-full h-full flex items-center justify-center"
+            style={{ backgroundColor: station.accentColor }}
+          >
+            <div className="text-center px-3">
+              <h2
+                className="text-2xl sm:text-3xl font-black uppercase tracking-tight leading-none"
+                style={{ color: textColor }}
+              >
+                {djName}
+              </h2>
+            </div>
           </div>
         )}
       </div>
