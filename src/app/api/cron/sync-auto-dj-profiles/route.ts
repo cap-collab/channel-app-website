@@ -33,11 +33,6 @@ function toNoSpaceSlug(name: string): string {
   return name.replace(/[\s]+/g, "").toLowerCase();
 }
 
-function toHyphenSlug(name: string): string {
-  // "Dor Wand" → "dor-wand" (for NTS)
-  return name.replace(/[\s]+/g, "-").toLowerCase();
-}
-
 // Count words in a name (for NTS show name fallback rule)
 function countWords(name: string): number {
   return name.trim().split(/\s+/).filter(w => w.length > 0).length;
