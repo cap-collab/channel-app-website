@@ -98,16 +98,23 @@ function formatDuration(seconds: number): string {
 const TruncatedBio = ({ bio }: { bio: string }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [needsTruncation, setNeedsTruncation] = useState(false);
-  const measureRef = useRef<HTMLParagraphElement>(null);
+  const fullTextRef = useRef<HTMLParagraphElement>(null);
+  const truncatedRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     const checkTruncation = () => {
-      if (measureRef.current) {
-        const lineHeight = parseFloat(getComputedStyle(measureRef.current).lineHeight);
-        const maxHeight = lineHeight * 2.5;
-        // Only check on mobile (< 768px)
-        const isMobile = window.innerWidth < 768;
-        setNeedsTruncation(isMobile && measureRef.current.scrollHeight > maxHeight + 1);
+      // Only apply truncation on mobile (< 768px)
+      const isMobile = window.innerWidth < 768;
+      if (!isMobile) {
+        setNeedsTruncation(false);
+        return;
+      }
+
+      if (fullTextRef.current && truncatedRef.current) {
+        // Compare full height vs truncated height
+        const fullHeight = fullTextRef.current.scrollHeight;
+        const truncatedHeight = truncatedRef.current.clientHeight;
+        setNeedsTruncation(fullHeight > truncatedHeight + 1);
       }
     };
 
@@ -116,76 +123,46 @@ const TruncatedBio = ({ bio }: { bio: string }) => {
     return () => window.removeEventListener('resize', checkTruncation);
   }, [bio]);
 
-  // On mobile when truncated: show truncated text with inline "see more"
-  // On desktop or when expanded: show full text
-  if (needsTruncation && !isExpanded) {
-    return (
-      <div className="mb-4">
-        {/* Hidden element to measure full height */}
-        <p
-          ref={measureRef}
-          className="text-xl leading-relaxed text-zinc-300 font-light absolute opacity-0 pointer-events-none"
-          style={{ width: '100%' }}
-          aria-hidden="true"
-        >
-          {bio}
-        </p>
-        {/* Visible truncated text with inline button */}
-        <p
-          className="text-xl leading-relaxed text-zinc-300 font-light"
-          style={{
-            display: '-webkit-box',
-            WebkitLineClamp: 3,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-          }}
-        >
-          {bio}
-          <span className="inline">
-            {' '}
-            <button
-              onClick={() => setIsExpanded(true)}
-              className="inline-flex items-center gap-0.5 text-zinc-400 hover:text-white text-base transition-colors"
-            >
-              <span>see more</span>
-              <svg
-                width={14}
-                height={14}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                className="inline-block"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-          </span>
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="mb-4 relative">
+      {/* Hidden full text to measure actual height */}
       <p
-        ref={measureRef}
-        className="text-xl leading-relaxed text-zinc-300 font-light"
+        ref={fullTextRef}
+        className="text-xl leading-relaxed text-zinc-300 font-light absolute opacity-0 pointer-events-none -z-10"
+        style={{ width: '100%' }}
+        aria-hidden="true"
       >
         {bio}
       </p>
-      {isExpanded && (
+
+      {/* Visible text - truncated on mobile when not expanded */}
+      <p
+        ref={truncatedRef}
+        className="text-xl leading-relaxed text-zinc-300 font-light"
+        style={!isExpanded ? {
+          display: '-webkit-box',
+          WebkitLineClamp: 2.5,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+        } : undefined}
+      >
+        {bio}
+      </p>
+
+      {/* See more / see less button - only on mobile when truncation is needed */}
+      {needsTruncation && (
         <button
-          onClick={() => setIsExpanded(false)}
-          className="md:hidden inline-flex items-center gap-0.5 text-zinc-400 hover:text-white text-base mt-1 transition-colors"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="md:hidden inline-flex items-center gap-0.5 text-zinc-400 hover:text-white text-sm mt-1 transition-colors"
         >
-          <span>see less</span>
+          <span>{isExpanded ? 'see less' : 'see more'}</span>
           <svg
-            width={14}
-            height={14}
+            width={12}
+            height={12}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
-            className="rotate-180"
+            className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`}
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
