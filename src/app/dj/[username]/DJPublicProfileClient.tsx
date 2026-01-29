@@ -1195,7 +1195,7 @@ export function DJPublicProfileClient({ username }: Props) {
                             <button
                               onClick={async (e) => {
                                 e.stopPropagation();
-                                const archiveUrl = `${window.location.origin}/archive/${archive.id}`;
+                                const archiveUrl = `${window.location.origin}/archives/${archive.slug}`;
                                 await navigator.clipboard.writeText(archiveUrl);
                                 setCopiedArchiveId(archive.id);
                                 setTimeout(() => setCopiedArchiveId(null), 2000);
