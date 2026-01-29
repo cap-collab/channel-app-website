@@ -1076,8 +1076,8 @@ export function DJPublicProfileClient({ username }: Props) {
                       className="bg-surface-card rounded-xl p-4"
                     >
                       <div className="flex items-start gap-4">
-                        {/* Square image on left (only if available) */}
-                        {showImage && (
+                        {/* Square image on left (only for Channel broadcasts with actual images) */}
+                        {showImage && !broadcast.isExternal && (
                           <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
                             <Image
                               src={showImage}
@@ -1148,7 +1148,7 @@ export function DJPublicProfileClient({ username }: Props) {
                               <CloseIcon size={20} />
                             </button>
 
-                            {broadcast.showImageUrl && (
+                            {broadcast.showImageUrl && !broadcast.isExternal && (
                               <Image
                                 src={broadcast.showImageUrl}
                                 alt={broadcast.showName}
