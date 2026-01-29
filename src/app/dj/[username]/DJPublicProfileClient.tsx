@@ -220,7 +220,6 @@ export function DJPublicProfileClient({ username }: Props) {
   // Show popup state
   const [expandedShowId, setExpandedShowId] = useState<string | null>(null);
   const [togglingFavoriteId, setTogglingFavoriteId] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Auto-profile state
   const [isAutoProfile, setIsAutoProfile] = useState(false);
@@ -657,18 +656,6 @@ export function DJPublicProfileClient({ username }: Props) {
     setTogglingFavoriteId(broadcast.id);
     await toggleFavorite(upcomingShowToShow(broadcast));
     setTogglingFavoriteId(null);
-  };
-
-  // Handle copy to clipboard with visual feedback
-  const handleCopyLink = async (id: string, url: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 2000);
-    } catch (err) {
-      console.error("Failed to copy:", err);
-    }
   };
 
   // Check if show is currently live

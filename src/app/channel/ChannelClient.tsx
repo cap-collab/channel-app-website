@@ -6,7 +6,6 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { Header } from '@/components/Header';
 import { WhoIsOnNow } from '@/components/channel/WhoIsOnNow';
-import { TVGuideSchedule } from '@/components/channel/TVGuideSchedule';
 import { ListenerChatPanel } from '@/components/channel/ListenerChatPanel';
 import { TipThankYouModal } from '@/components/channel/TipThankYouModal';
 import { MyDJsSection } from '@/components/channel/MyDJsSection';
@@ -258,11 +257,6 @@ export function ChannelClient() {
               isAuthenticated={isAuthenticated}
               onAuthRequired={handleRemindMe}
             />
-          </div>
-
-          {/* TV Guide Schedule */}
-          <div className="flex-shrink-0 px-4 pb-4">
-            <TVGuideSchedule onAuthRequired={handleAuthRequired} />
           </div>
 
         </div>
