@@ -837,8 +837,8 @@ export function DJPublicProfileClient({ username }: Props) {
       <Header position="sticky" />
 
       {/* Contextual Sticky Nav */}
-      <nav className="sticky top-0 z-40 flex justify-end items-center px-6 py-3 bg-black/90 backdrop-blur-md border-b border-white/10">
-        <div className="flex gap-6 items-center">
+      <nav className="sticky top-0 z-40 flex justify-end items-center px-6 py-2 bg-black/90 backdrop-blur-md border-b border-white/10">
+        <div className="flex gap-4 items-center">
           <button
             onClick={handleShare}
             className="flex items-center gap-2 text-[10px] uppercase tracking-widest hover:text-accent transition"
@@ -856,13 +856,33 @@ export function DJPublicProfileClient({ username }: Props) {
           >
             {subscribing ? "..." : isSubscribed ? "Following" : "Follow"}
           </button>
+          {profile.email && (
+            <div className="group relative flex items-center gap-2 bg-accent hover:bg-white text-white hover:text-black px-4 py-1.5 transition-all cursor-pointer whitespace-nowrap">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>
+              </svg>
+              <span className="text-[10px] font-black uppercase tracking-widest">Support</span>
+              <div className="absolute inset-0 opacity-0">
+                <TipButton
+                  djUserId={profile.uid}
+                  djEmail={profile.email}
+                  djUsername={profile.chatUsername}
+                  broadcastSlotId=""
+                  showName={`Support ${profile.chatUsername}`}
+                  tipperUserId={user?.uid}
+                  tipperUsername={chatUsername || undefined}
+                  size="large"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </nav>
 
-      <main className="max-w-5xl mx-auto px-6 py-8">
+      <main className="max-w-5xl mx-auto px-6 py-4">
         {/* Auto-profile banner */}
         {isAutoProfile && (
-          <div className="mb-8 bg-zinc-900/50 border border-zinc-800 p-4">
+          <div className="mb-4 bg-zinc-900/50 border border-zinc-800 p-3">
             <p className="text-zinc-400 text-xs uppercase tracking-widest">
               Auto-generated profile based on radio schedules
             </p>
@@ -878,7 +898,7 @@ export function DJPublicProfileClient({ username }: Props) {
         )}
 
         {/* SECTION A: IDENTITY */}
-        <section className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-12">
+        <section className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-6">
           <div className="md:col-span-4">
             <div className="aspect-square bg-zinc-900 overflow-hidden border border-white/10">
               {profile.djProfile.photoUrl ? (
@@ -901,18 +921,18 @@ export function DJPublicProfileClient({ username }: Props) {
           </div>
 
           <div className="md:col-span-8 flex flex-col justify-center">
-            <h1 className="text-5xl sm:text-7xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-4">
+            <h1 className="text-5xl sm:text-7xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-2">
               {profile.chatUsername}
             </h1>
             {profile.djProfile.location && (
-              <p className="text-zinc-500 text-sm uppercase tracking-[0.4em] mb-8">
+              <p className="text-zinc-500 text-sm uppercase tracking-[0.4em] mb-4">
                 {profile.djProfile.location}
               </p>
             )}
 
             <div className="max-w-xl">
               {profile.djProfile.bio && (
-                <p className="text-xl leading-relaxed text-zinc-300 font-light mb-6">
+                <p className="text-xl leading-relaxed text-zinc-300 font-light mb-4">
                   {profile.djProfile.bio}
                 </p>
               )}
@@ -934,7 +954,7 @@ export function DJPublicProfileClient({ username }: Props) {
 
         {/* SECTION B & C: STATUS & PROMO */}
         {(liveOnChannel || liveElsewhere || profile.djProfile.promoText) && (
-          <section className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
             {/* Live Status */}
             {liveOnChannel ? (
               <Link
@@ -989,8 +1009,8 @@ export function DJPublicProfileClient({ username }: Props) {
 
         {/* SECTION D, E, F, H: UNIFIED ACTIVITY FEED */}
         {activityFeed.length > 0 && (
-          <section className="mb-12">
-            <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-6 border-b border-white/10 pb-3">
+          <section className="mb-6">
+            <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2">
               Activity / Timeline
             </h2>
 
@@ -1008,7 +1028,7 @@ export function DJPublicProfileClient({ username }: Props) {
                   return (
                     <div
                       key={broadcast.id}
-                      className="group border-b border-white/5 py-8 flex flex-col md:grid md:grid-cols-12 items-start md:items-center gap-4 cursor-pointer"
+                      className="group border-b border-white/5 py-4 flex flex-col md:grid md:grid-cols-12 items-start md:items-center gap-3 cursor-pointer"
                       onClick={() => setExpandedShowId(isExpanded ? null : broadcast.id)}
                     >
                       <div className="md:col-span-2 text-zinc-500 font-mono text-xs uppercase">
@@ -1172,7 +1192,7 @@ export function DJPublicProfileClient({ username }: Props) {
                       href={irlShow.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group border-b border-white/5 py-8 flex flex-col md:grid md:grid-cols-12 items-start md:items-center gap-4"
+                      className="group border-b border-white/5 py-4 flex flex-col md:grid md:grid-cols-12 items-start md:items-center gap-3"
                     >
                       <div className="md:col-span-2 text-zinc-500 font-mono text-xs uppercase">
                         {irlShow.date || "TBA"}
@@ -1206,7 +1226,7 @@ export function DJPublicProfileClient({ username }: Props) {
                   return (
                     <div
                       key={archive.id}
-                      className="group border-b border-white/5 py-8"
+                      className="group border-b border-white/5 py-4"
                     >
                       <div className="flex flex-col md:grid md:grid-cols-12 items-start md:items-center gap-4">
                         <div className="md:col-span-2 text-zinc-500 font-mono text-xs uppercase">
@@ -1268,7 +1288,7 @@ export function DJPublicProfileClient({ username }: Props) {
                   return (
                     <div
                       key={pastShow.id}
-                      className="group border-b border-white/5 py-8 flex flex-col md:grid md:grid-cols-12 items-start md:items-center gap-4"
+                      className="group border-b border-white/5 py-4 flex flex-col md:grid md:grid-cols-12 items-start md:items-center gap-3"
                     >
                       <div className="md:col-span-2 text-zinc-500 font-mono text-xs uppercase">
                         {formatFeedDate(pastShow.startTime)}
@@ -1300,14 +1320,9 @@ export function DJPublicProfileClient({ username }: Props) {
 
         {/* SECTION G: ARTIST SELECTS (MY RECS) */}
         {artistSelects.length > 0 && (
-          <section className="mb-12 grid grid-cols-1 md:grid-cols-3 gap-8 bg-zinc-900/30 p-8 border border-white/5">
-            <div className="md:col-span-1">
-              <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-4">Artist Selects</h2>
-              <p className="text-xs text-zinc-400 leading-relaxed">
-                A curated collection of influences, recommendations, and essential listens chosen by {profile.chatUsername}.
-              </p>
-            </div>
-            <div className="md:col-span-2 space-y-4">
+          <section className="mb-6 bg-zinc-900/30 p-4 border border-white/5">
+            <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3">Artist Selects</h2>
+            <div className="space-y-2">
               {artistSelects.map((rec, idx) => (
                 <a
                   key={idx}
@@ -1316,7 +1331,7 @@ export function DJPublicProfileClient({ username }: Props) {
                   rel="noopener noreferrer"
                   className="flex items-center justify-between group border-b border-white/5 pb-2"
                 >
-                  <span className="text-lg font-light group-hover:pl-2 transition-all">{rec.label}</span>
+                  <span className="text-base font-light group-hover:pl-2 transition-all">{rec.label}</span>
                   <span className="opacity-0 group-hover:opacity-100 transition-opacity"><ExternalLinkIcon size={14} /></span>
                 </a>
               ))}
@@ -1325,10 +1340,10 @@ export function DJPublicProfileClient({ username }: Props) {
         )}
 
         {/* FOOTER: SUPPORT & SOCIALS */}
-        <footer className="border-t border-white/10 pt-10 flex flex-col items-center">
+        <footer className="border-t border-white/10 pt-6 flex flex-col items-center">
           {/* Support The Artist Button (Tip) */}
           {profile.email && (
-            <div className="group relative mb-10 flex items-center gap-3 bg-red-600 hover:bg-white text-white hover:text-black px-8 py-4 transition-all duration-300 cursor-pointer whitespace-nowrap">
+            <div className="group relative mb-6 flex items-center gap-3 bg-accent hover:bg-white text-white hover:text-black px-6 py-3 transition-all duration-300 cursor-pointer whitespace-nowrap">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>
               </svg>
@@ -1349,7 +1364,7 @@ export function DJPublicProfileClient({ username }: Props) {
           )}
 
           {/* Social Grid - Icons Only */}
-          <div className="flex flex-wrap justify-center gap-6 max-w-md mb-8">
+          <div className="flex flex-wrap justify-center gap-6 max-w-md mb-4">
             {socialLinks.instagram && (
               <a
                 href={`https://instagram.com/${socialLinks.instagram.replace("@", "")}`}
