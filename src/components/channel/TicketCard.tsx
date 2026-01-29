@@ -80,38 +80,72 @@ export function TicketCard({
         </div>
       </div>
 
-      {/* Full width image with DJ overlay */}
-      <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10">
-        {hasPhoto ? (
-          <>
-            <Image
-              src={photoUrl}
-              alt={djName}
-              fill
-              className="object-cover"
-              unoptimized
-              onError={() => setImageError(true)}
-            />
-            {/* Gradient scrim - top left corner */}
-            <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
-            {/* DJ Name Overlay on top-left */}
-            <div className="absolute top-2 left-2 right-2">
-              <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+      {/* Full width image with DJ overlay - links to DJ profile if available */}
+      {show.djUsername ? (
+        <Link href={`/dj/${show.djUsername}`} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
+          {hasPhoto ? (
+            <>
+              <Image
+                src={photoUrl}
+                alt={djName}
+                fill
+                className="object-cover"
+                unoptimized
+                onError={() => setImageError(true)}
+              />
+              {/* Gradient scrim - top left corner */}
+              <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
+              {/* DJ Name Overlay on top-left */}
+              <div className="absolute top-2 left-2 right-2">
+                <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+                  {djName}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div
+              className="w-full h-full flex items-center justify-center"
+              style={{ backgroundColor: station.accentColor }}
+            >
+              <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-white text-center px-4">
                 {djName}
-              </span>
+              </h2>
             </div>
-          </>
-        ) : (
-          <div
-            className="w-full h-full flex items-center justify-center"
-            style={{ backgroundColor: station.accentColor }}
-          >
-            <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-white text-center px-4">
-              {djName}
-            </h2>
-          </div>
-        )}
-      </div>
+          )}
+        </Link>
+      ) : (
+        <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10">
+          {hasPhoto ? (
+            <>
+              <Image
+                src={photoUrl}
+                alt={djName}
+                fill
+                className="object-cover"
+                unoptimized
+                onError={() => setImageError(true)}
+              />
+              {/* Gradient scrim - top left corner */}
+              <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
+              {/* DJ Name Overlay on top-left */}
+              <div className="absolute top-2 left-2 right-2">
+                <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+                  {djName}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div
+              className="w-full h-full flex items-center justify-center"
+              style={{ backgroundColor: station.accentColor }}
+            >
+              <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-white text-center px-4">
+                {djName}
+              </h2>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Show Info */}
       <div className="h-14 flex flex-col justify-start py-2">

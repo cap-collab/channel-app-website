@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -246,47 +247,86 @@ function LiveShowCard({
           #{station.name.replace(/\s+/g, '')}
         </div>
 
-        {/* 2. Image with DJ Overlay */}
-        <div
-          className="relative aspect-square mb-3 overflow-hidden border border-white/10 cursor-pointer"
-          onClick={onToggleExpand}
-        >
-          {imageUrl ? (
-            <Image
-              src={imageUrl}
-              alt={show.name}
-              fill
-              className="object-cover"
-              unoptimized
-              onError={() => handleImageError(imageUrl)}
-            />
-          ) : (
-            <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
-              <svg className="w-10 h-10 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-              </svg>
-            </div>
-          )}
-          {/* Gradient scrim */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-          {/* DJ Name Overlay */}
-          {show.dj && (
-            <div className="absolute bottom-2 left-2">
-              <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg">
-                {show.dj}
-              </span>
-            </div>
-          )}
-        </div>
+        {/* 2. Image with DJ Overlay - links to DJ profile if available */}
+        {show.djUsername ? (
+          <Link href={`/dj/${show.djUsername}`} className="block relative aspect-square mb-3 overflow-hidden border border-white/10 cursor-pointer">
+            {imageUrl ? (
+              <Image
+                src={imageUrl}
+                alt={show.name}
+                fill
+                className="object-cover"
+                unoptimized
+                onError={() => handleImageError(imageUrl)}
+              />
+            ) : (
+              <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
+                <svg className="w-10 h-10 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                </svg>
+              </div>
+            )}
+            {/* Gradient scrim */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+            {/* DJ Name Overlay */}
+            {show.dj && (
+              <div className="absolute bottom-2 left-2">
+                <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg">
+                  {show.dj}
+                </span>
+              </div>
+            )}
+          </Link>
+        ) : (
+          <div
+            className="relative aspect-square mb-3 overflow-hidden border border-white/10 cursor-pointer"
+            onClick={onToggleExpand}
+          >
+            {imageUrl ? (
+              <Image
+                src={imageUrl}
+                alt={show.name}
+                fill
+                className="object-cover"
+                unoptimized
+                onError={() => handleImageError(imageUrl)}
+              />
+            ) : (
+              <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
+                <svg className="w-10 h-10 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                </svg>
+              </div>
+            )}
+            {/* Gradient scrim */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+            {/* DJ Name Overlay */}
+            {show.dj && (
+              <div className="absolute bottom-2 left-2">
+                <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg">
+                  {show.dj}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 3. Show Info */}
         <div className="mb-3">
-          <h3
-            className="text-sm sm:text-base font-bold leading-tight line-clamp-2 group-hover:text-blue-400 transition cursor-pointer"
-            onClick={onToggleExpand}
-          >
-            {show.name}
-          </h3>
+          {show.djUsername ? (
+            <Link href={`/dj/${show.djUsername}`}>
+              <h3 className="text-sm sm:text-base font-bold leading-tight line-clamp-2 group-hover:text-blue-400 transition cursor-pointer">
+                {show.name}
+              </h3>
+            </Link>
+          ) : (
+            <h3
+              className="text-sm sm:text-base font-bold leading-tight line-clamp-2 group-hover:text-blue-400 transition cursor-pointer"
+              onClick={onToggleExpand}
+            >
+              {show.name}
+            </h3>
+          )}
           <a
             href={station.websiteUrl}
             target="_blank"
