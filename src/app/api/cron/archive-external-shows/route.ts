@@ -110,17 +110,19 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Create the archive document
-      await pastExternalShowsRef.doc(docId).set({
+      // Create the archive document (only include defined values)
+      const docData: Record<string, unknown> = {
         stationId: show.stationId,
         stationName: station?.name || show.stationId,
         showName: show.name,
-        dj: show.dj || undefined,
-        djUsername: djUsername || undefined,
         startTime: Timestamp.fromDate(new Date(show.startTime)),
         endTime: Timestamp.fromDate(new Date(show.endTime)),
         archivedAt: Timestamp.now(),
-      });
+      };
+      if (show.dj) docData.dj = show.dj;
+      if (djUsername) docData.djUsername = djUsername;
+
+      await pastExternalShowsRef.doc(docId).set(docData);
 
       archivedCount++;
     }
