@@ -83,10 +83,14 @@ export async function GET(request: NextRequest) {
       const docId = `${show.stationId}-${show.startTime}`;
 
       // Check if already archived
-      const existingDoc = await pastExternalShowsRef.doc(docId).get();
-      if (existingDoc.exists) {
-        skippedCount++;
-        continue;
+      try {
+        const existingDoc = await pastExternalShowsRef.doc(docId).get();
+        if (existingDoc.exists) {
+          skippedCount++;
+          continue;
+        }
+      } catch (checkError) {
+        console.error(`[archive-external-shows] Error checking doc ${docId}:`, checkError);
       }
 
       // Get station info (stationId from shows is the metadata key, e.g., "nts1")
@@ -122,12 +126,16 @@ export async function GET(request: NextRequest) {
       if (show.dj) docData.dj = show.dj;
       if (djUsername) docData.djUsername = djUsername;
 
-      await pastExternalShowsRef.doc(docId).set(docData);
-
-      archivedCount++;
+      try {
+        await pastExternalShowsRef.doc(docId).set(docData);
+        archivedCount++;
+        console.log(`[archive-external-shows] Archived: ${docId}`);
+      } catch (writeError) {
+        console.error(`[archive-external-shows] Error writing doc ${docId}:`, writeError);
+      }
     }
 
-    console.log(`[archive-external-shows] Processed ${processedCount} shows, archived ${archivedCount}, skipped ${skippedCount}`);
+    console.log(`[archive-external-shows] Processed ${processedCount} shows, archived ${archivedCount}, skipped ${skippedCount}, djProfiles: ${djUsernameMap.size}`);
 
     return NextResponse.json({
       success: true,
