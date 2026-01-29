@@ -1035,6 +1035,20 @@ export function DJPublicProfileClient({ username }: Props) {
                       className="bg-surface-card rounded-xl p-4"
                     >
                       <div className="flex items-start gap-4">
+                        {/* Square image on left (only if available) */}
+                        {showImage && (
+                          <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
+                            <Image
+                              src={showImage}
+                              alt={broadcast.showName}
+                              width={64}
+                              height={64}
+                              className="w-full h-full object-cover"
+                              unoptimized
+                            />
+                          </div>
+                        )}
+
                         {/* Content */}
                         <div className="flex-1 min-w-0">
                           {/* Action buttons - floated right */}
@@ -1096,20 +1110,6 @@ export function DJPublicProfileClient({ username }: Props) {
                           </p>
                           <p className="text-gray-500 text-xs">{formatFeedDate(broadcast.startTime)}</p>
                         </div>
-
-                        {/* Square image on right (only if available) */}
-                        {showImage && (
-                          <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
-                            <Image
-                              src={showImage}
-                              alt={broadcast.showName}
-                              width={64}
-                              height={64}
-                              className="w-full h-full object-cover"
-                              unoptimized
-                            />
-                          </div>
-                        )}
                       </div>
 
                       {/* Expanded Modal */}
@@ -1255,6 +1255,20 @@ export function DJPublicProfileClient({ username }: Props) {
                   return (
                     <div key={archive.id} className="bg-surface-card rounded-xl p-4">
                       <div className="flex items-start gap-4">
+                        {/* Square image on left */}
+                        {showImage && (
+                          <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
+                            <Image
+                              src={showImage}
+                              alt={archive.showName}
+                              width={64}
+                              height={64}
+                              className="w-full h-full object-cover"
+                              unoptimized
+                            />
+                          </div>
+                        )}
+
                         <div className="flex-1 min-w-0">
                           {/* Action buttons */}
                           <div className="float-right flex items-center gap-2 ml-3">
@@ -1286,20 +1300,6 @@ export function DJPublicProfileClient({ username }: Props) {
                           <p className="text-gray-400 text-sm">Recording / {formatDuration(archive.duration)}</p>
                           <p className="text-gray-500 text-xs">{formatFeedDate(archive.recordedAt)}</p>
                         </div>
-
-                        {/* Square image on right */}
-                        {showImage && (
-                          <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
-                            <Image
-                              src={showImage}
-                              alt={archive.showName}
-                              width={64}
-                              height={64}
-                              className="w-full h-full object-cover"
-                              unoptimized
-                            />
-                          </div>
-                        )}
                       </div>
 
                       {/* Audio player */}
@@ -1351,16 +1351,7 @@ export function DJPublicProfileClient({ username }: Props) {
                   return (
                     <div key={pastShow.id} className="bg-surface-card rounded-xl p-4 opacity-60">
                       <div className="flex items-start gap-4">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-gray-400 font-semibold">{pastShow.showName}</h3>
-                          <p className="text-gray-500 text-sm">Past Show / {Math.round((pastShow.endTime - pastShow.startTime) / 60000)} min</p>
-                          <p className="text-gray-600 text-xs">{formatFeedDate(pastShow.startTime)}</p>
-                          <span className="inline-block mt-2 text-[10px] uppercase tracking-widest text-gray-600 bg-gray-800 px-2 py-1 rounded">
-                            No Recording
-                          </span>
-                        </div>
-
-                        {/* Square image on right */}
+                        {/* Square image on left */}
                         {showImage && (
                           <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
                             <Image
@@ -1373,6 +1364,15 @@ export function DJPublicProfileClient({ username }: Props) {
                             />
                           </div>
                         )}
+
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-gray-400 font-semibold">{pastShow.showName}</h3>
+                          <p className="text-gray-500 text-sm">Past Show / {Math.round((pastShow.endTime - pastShow.startTime) / 60000)} min</p>
+                          <p className="text-gray-600 text-xs">{formatFeedDate(pastShow.startTime)}</p>
+                          <span className="inline-block mt-2 text-[10px] uppercase tracking-widest text-gray-600 bg-gray-800 px-2 py-1 rounded">
+                            No Recording
+                          </span>
+                        </div>
                       </div>
                     </div>
                   );
