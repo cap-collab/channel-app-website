@@ -37,6 +37,20 @@ export async function GET(request: NextRequest) {
     let skippedCount = 0;
     let processedCount = 0;
 
+    // Test write to verify Firebase Admin is working
+    console.log('[archive-external-shows] Testing Firebase Admin write...');
+    try {
+      await db.collection('past-external-shows').doc('_test').set({ test: true, timestamp: now });
+      console.log('[archive-external-shows] Test write succeeded');
+      await db.collection('past-external-shows').doc('_test').delete();
+    } catch (testError) {
+      console.error('[archive-external-shows] Test write FAILED:', testError);
+      return NextResponse.json({
+        error: 'Firebase Admin write test failed',
+        details: testError instanceof Error ? testError.message : String(testError)
+      }, { status: 500 });
+    }
+
     // Fetch all shows from metadata
     const allShows = await getAllShows();
 
