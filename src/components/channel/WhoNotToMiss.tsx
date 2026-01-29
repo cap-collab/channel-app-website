@@ -80,7 +80,9 @@ export function WhoNotToMiss({
   return (
     <div className="mb-6">
       <h2 className="text-white text-sm font-semibold uppercase tracking-wide mb-3 flex items-center gap-2">
-        <span className="text-accent">&gt;</span> Who Not To Miss
+        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" />
+        </svg> Who Not To Miss
       </h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
