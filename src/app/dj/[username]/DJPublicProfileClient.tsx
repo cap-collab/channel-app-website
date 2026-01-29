@@ -1065,48 +1065,22 @@ export function DJPublicProfileClient({ username }: Props) {
                               <button
                                 onClick={(e) => handleToggleFavorite(broadcast, e)}
                                 disabled={isToggling}
-                                className="px-3 h-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-accent/10 hover:bg-accent/20 text-accent"
-                                title={isFavorited ? "Remove from favorites" : "Add to favorites"}
+                                className="px-3 h-8 rounded-full flex items-center justify-center transition-all text-xs bg-accent/10 hover:bg-accent/20 text-accent"
+                                title={isFavorited ? "Remove reminder" : "Remind me"}
                               >
                                 {isToggling ? (
                                   <div className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
                                 ) : (
-                                  <svg className="w-3.5 h-3.5" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                                  </svg>
+                                  <span className="font-medium">{isFavorited ? "Reminded" : "Remind Me"}</span>
                                 )}
-                                <span className="font-medium hidden sm:inline">{isFavorited ? "Saved" : "Save"}</span>
                               </button>
                             )}
-                            <button
-                              onClick={(e) => handleCopyLink(`broadcast-${broadcast.id}`, `${window.location.origin}/dj/${username}`, e)}
-                              className={`sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs ${
-                                copiedId === `broadcast-${broadcast.id}`
-                                  ? "bg-green-500/20 text-green-400"
-                                  : "bg-white/10 hover:bg-white/20 text-white"
-                              }`}
-                            >
-                              {copiedId === `broadcast-${broadcast.id}` ? (
-                                <>
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                  </svg>
-                                  <span className="font-medium hidden sm:inline">Copied!</span>
-                                </>
-                              ) : (
-                                <>
-                                  <ShareIcon size={14} />
-                                  <span className="font-medium hidden sm:inline">Share</span>
-                                </>
-                              )}
-                            </button>
                           </div>
 
                           {/* Title and info */}
                           <h3 className="text-white font-semibold">{broadcast.showName}</h3>
                           <p className="text-gray-400 text-sm">
-                            {isLive && <span className="text-accent font-bold mr-2">LIVE</span>}
-                            Broadcast / {broadcast.stationName}
+                            {isLive ? "Live Radio Show" : "Upcoming Radio Show"}
                           </p>
                           <p className="text-gray-500 text-xs">{formatFeedDate(broadcast.startTime)}</p>
                         </div>
@@ -1170,16 +1144,13 @@ export function DJPublicProfileClient({ username }: Props) {
                               <button
                                 onClick={(e) => handleToggleFavorite(broadcast, e)}
                                 disabled={isToggling}
-                                className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest border px-4 py-2 transition rounded-full ${
+                                className={`text-[10px] font-black uppercase tracking-widest border px-4 py-2 transition rounded-full ${
                                   isFavorited
                                     ? "border-accent text-accent hover:bg-accent hover:text-white"
                                     : "border-accent/50 text-accent hover:bg-accent hover:text-white"
                                 }`}
                               >
-                                <svg className="w-3.5 h-3.5" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                                </svg>
-                                {isFavorited ? "Favorited" : "Favorite"}
+                                {isFavorited ? "Reminded" : "Remind Me"}
                               </button>
                             </div>
                           </div>
@@ -1191,13 +1162,16 @@ export function DJPublicProfileClient({ username }: Props) {
 
                 if (item.feedType === "irl") {
                   const irlShow = item as IrlShow & { feedType: "irl"; feedStatus: "upcoming"; id: string };
+                  // Determine if past or upcoming based on date
+                  const irlDate = irlShow.date ? new Date(irlShow.date) : null;
+                  const isPastIrl = irlDate && irlDate.getTime() < Date.now();
                   return (
                     <div key={irlShow.id} className="bg-surface-card rounded-xl p-4">
                       <div className="flex items-start gap-4">
                         <div className="flex-1 min-w-0">
-                          {/* Action buttons */}
-                          <div className="float-right flex items-center gap-2 ml-3">
-                            {irlShow.url && (
+                          {/* Action button - only Tickets for upcoming */}
+                          {!isPastIrl && irlShow.url && (
+                            <div className="float-right ml-3">
                               <a
                                 href={irlShow.url}
                                 target="_blank"
@@ -1207,40 +1181,15 @@ export function DJPublicProfileClient({ username }: Props) {
                                 <CalendarIcon size={14} />
                                 <span className="hidden sm:inline">Tickets</span>
                               </a>
-                            )}
-                            {irlShow.url && (
-                              <button
-                                onClick={(e) => handleCopyLink(`irl-${irlShow.id}`, irlShow.url!, e)}
-                                className={`sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs ${
-                                  copiedId === `irl-${irlShow.id}`
-                                    ? "bg-green-500/20 text-green-400"
-                                    : "bg-white/10 hover:bg-white/20 text-white"
-                                }`}
-                              >
-                                {copiedId === `irl-${irlShow.id}` ? (
-                                  <>
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    <span className="font-medium hidden sm:inline">Copied!</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <ShareIcon size={14} />
-                                    <span className="font-medium hidden sm:inline">Share</span>
-                                  </>
-                                )}
-                              </button>
-                            )}
-                          </div>
+                            </div>
+                          )}
 
                           <h3 className="text-white font-semibold">
                             {irlShow.venue || irlShow.url?.replace(/^https?:\/\//, "").split("/")[0] || "Event"}
                           </h3>
-                          <p className="text-gray-400 text-sm">Event / IRL</p>
+                          <p className="text-gray-400 text-sm">{isPastIrl ? "Past IRL Event" : "Upcoming IRL Event"}</p>
                           <p className="text-gray-500 text-xs">{irlShow.date || "TBA"}</p>
                         </div>
-                        {/* No image for IRL events typically */}
                       </div>
                     </div>
                   );
@@ -1251,6 +1200,15 @@ export function DJPublicProfileClient({ username }: Props) {
                   const isPlaying = playingId === archive.id;
                   const currentTime = currentTimes[archive.id] || 0;
                   const showImage = archive.showImageUrl;
+                  const archiveAsShow: Show = {
+                    id: archive.id,
+                    name: archive.showName,
+                    startTime: new Date(archive.recordedAt).toISOString(),
+                    endTime: new Date(archive.recordedAt + archive.duration * 1000).toISOString(),
+                    stationId: "broadcast",
+                  };
+                  const isFavorited = isShowFavorited(archiveAsShow);
+                  const isToggling = togglingFavoriteId === archive.id;
 
                   return (
                     <div key={archive.id} className="bg-surface-card rounded-xl p-4">
@@ -1270,34 +1228,36 @@ export function DJPublicProfileClient({ username }: Props) {
                         )}
 
                         <div className="flex-1 min-w-0">
-                          {/* Action buttons */}
-                          <div className="float-right flex items-center gap-2 ml-3">
+                          {/* Action button - only Save star */}
+                          <div className="float-right ml-3">
                             <button
-                              onClick={(e) => handleCopyLink(`archive-${archive.id}`, `${window.location.origin}/archives/${archive.slug}`, e)}
-                              className={`sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs ${
-                                copiedId === `archive-${archive.id}`
-                                  ? "bg-green-500/20 text-green-400"
-                                  : "bg-white/10 hover:bg-white/20 text-white"
-                              }`}
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (!user) {
+                                  setShowAuthModal(true);
+                                  return;
+                                }
+                                setTogglingFavoriteId(archive.id);
+                                await toggleFavorite(archiveAsShow);
+                                setTogglingFavoriteId(null);
+                              }}
+                              disabled={isToggling}
+                              className="px-3 h-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-accent/10 hover:bg-accent/20 text-accent"
+                              title={isFavorited ? "Remove from favorites" : "Add to favorites"}
                             >
-                              {copiedId === `archive-${archive.id}` ? (
-                                <>
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                  </svg>
-                                  <span className="font-medium hidden sm:inline">Copied!</span>
-                                </>
+                              {isToggling ? (
+                                <div className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
                               ) : (
-                                <>
-                                  <ShareIcon size={14} />
-                                  <span className="font-medium hidden sm:inline">Share</span>
-                                </>
+                                <svg className="w-3.5 h-3.5" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                </svg>
                               )}
+                              <span className="font-medium hidden sm:inline">{isFavorited ? "Saved" : "Save"}</span>
                             </button>
                           </div>
 
                           <h3 className="text-white font-semibold">{archive.showName}</h3>
-                          <p className="text-gray-400 text-sm">Recording / {formatDuration(archive.duration)}</p>
+                          <p className="text-gray-400 text-sm">Recording</p>
                           <p className="text-gray-500 text-xs">{formatFeedDate(archive.recordedAt)}</p>
                         </div>
                       </div>
@@ -1306,12 +1266,12 @@ export function DJPublicProfileClient({ username }: Props) {
                       <div className="mt-3 flex items-center gap-4">
                         <button
                           onClick={() => handlePlayPause(archive.id)}
-                          className="w-12 h-12 rounded-full bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0"
+                          className="w-12 h-12 rounded-full bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0 text-black"
                         >
                           {isPlaying ? (
                             <PauseIcon size={20} />
                           ) : (
-                            <svg className="w-5 h-5 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
                               <path d="M8 5v14l11-7z" />
                             </svg>
                           )}
@@ -1347,6 +1307,15 @@ export function DJPublicProfileClient({ username }: Props) {
                 if (item.feedType === "show") {
                   const pastShow = item as PastShow & { feedType: "show"; feedStatus: "past" };
                   const showImage = pastShow.showImageUrl;
+                  const pastShowAsShow: Show = {
+                    id: pastShow.id,
+                    name: pastShow.showName,
+                    startTime: new Date(pastShow.startTime).toISOString(),
+                    endTime: new Date(pastShow.endTime).toISOString(),
+                    stationId: "broadcast",
+                  };
+                  const isFavorited = isShowFavorited(pastShowAsShow);
+                  const isToggling = togglingFavoriteId === pastShow.id;
 
                   return (
                     <div key={pastShow.id} className="bg-surface-card rounded-xl p-4 opacity-60">
@@ -1366,12 +1335,37 @@ export function DJPublicProfileClient({ username }: Props) {
                         )}
 
                         <div className="flex-1 min-w-0">
+                          {/* Action button - Save star */}
+                          <div className="float-right ml-3">
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (!user) {
+                                  setShowAuthModal(true);
+                                  return;
+                                }
+                                setTogglingFavoriteId(pastShow.id);
+                                await toggleFavorite(pastShowAsShow);
+                                setTogglingFavoriteId(null);
+                              }}
+                              disabled={isToggling}
+                              className="px-3 h-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-accent/10 hover:bg-accent/20 text-accent"
+                              title={isFavorited ? "Remove from favorites" : "Add to favorites"}
+                            >
+                              {isToggling ? (
+                                <div className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <svg className="w-3.5 h-3.5" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                </svg>
+                              )}
+                              <span className="font-medium hidden sm:inline">{isFavorited ? "Saved" : "Save"}</span>
+                            </button>
+                          </div>
+
                           <h3 className="text-gray-400 font-semibold">{pastShow.showName}</h3>
-                          <p className="text-gray-500 text-sm">Past Show / {Math.round((pastShow.endTime - pastShow.startTime) / 60000)} min</p>
+                          <p className="text-gray-500 text-sm">Past Radio Show</p>
                           <p className="text-gray-600 text-xs">{formatFeedDate(pastShow.startTime)}</p>
-                          <span className="inline-block mt-2 text-[10px] uppercase tracking-widest text-gray-600 bg-gray-800 px-2 py-1 rounded">
-                            No Recording
-                          </span>
                         </div>
                       </div>
                     </div>
