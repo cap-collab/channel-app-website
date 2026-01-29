@@ -286,12 +286,18 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
         const key = `show:${favShow.term}:${favShow.stationId || 'any'}`;
         const existing = itemMap.get(key);
 
+        // Prefer DJ photo if available, then show image
         const newPhotoUrl = show.djPhotoUrl || show.imageUrl;
         const photoUrl = newPhotoUrl || existing?.photoUrl;
+
+        // If show has a linked DJ profile, display DJ name; otherwise show name
+        const hasDjProfile = show.djUsername || show.dj;
+        const displayName = hasDjProfile ? (show.dj || show.name) : show.name;
 
         if (isLive) {
           itemMap.set(key, {
             name: show.name,
+            displayName,
             username: show.djUsername || existing?.username,
             photoUrl,
             isLive: true,
@@ -307,6 +313,7 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
           if (startDate > now && (!existingNext || startDate < existingNext)) {
             itemMap.set(key, {
               name: show.name,
+              displayName,
               username: show.djUsername || existing?.username,
               photoUrl,
               isLive: false,
@@ -402,7 +409,7 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
                 {item.photoUrl ? (
                   <Image
                     src={item.photoUrl}
-                    alt={item.name}
+                    alt={item.displayName}
                     width={56}
                     height={56}
                     className="w-full h-full object-cover"
@@ -418,7 +425,7 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
                         className="w-full h-full flex items-center justify-center text-lg font-bold"
                         style={{ backgroundColor: bgColor, color: textColor }}
                       >
-                        {item.name.charAt(0).toUpperCase()}
+                        {item.displayName.charAt(0).toUpperCase()}
                       </div>
                     );
                   })()
@@ -435,7 +442,7 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
 
             {/* Name and status */}
             <div className="text-center max-w-[70px]">
-              <p className="text-white text-xs font-medium truncate">{item.name}</p>
+              <p className="text-white text-xs font-medium truncate">{item.displayName}</p>
               {!item.isLive && item.nextShowTime && (
                 <p className="text-gray-500 text-[10px] truncate">
                   {formatNextShowTime(item.nextShowTime)}
