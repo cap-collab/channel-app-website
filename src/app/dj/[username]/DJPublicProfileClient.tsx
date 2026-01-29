@@ -100,6 +100,65 @@ function formatDuration(seconds: number): string {
   return `${minutes}:${secs.toString().padStart(2, '0')}`;
 }
 
+// Truncated bio component for mobile
+const TruncatedBio = ({ bio }: { bio: string }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [needsTruncation, setNeedsTruncation] = useState(false);
+  const textRef = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    const checkTruncation = () => {
+      if (textRef.current) {
+        // Check if content overflows the 2.5 line height (line-height ~1.75 * font-size 1.25rem * 2.5 lines)
+        const lineHeight = parseFloat(getComputedStyle(textRef.current).lineHeight);
+        const maxHeight = lineHeight * 2.5;
+        setNeedsTruncation(textRef.current.scrollHeight > maxHeight + 1);
+      }
+    };
+
+    checkTruncation();
+    window.addEventListener('resize', checkTruncation);
+    return () => window.removeEventListener('resize', checkTruncation);
+  }, [bio]);
+
+  return (
+    <div className="mb-4">
+      <p
+        ref={textRef}
+        className={`text-xl leading-relaxed text-zinc-300 font-light ${
+          !isExpanded ? 'md:line-clamp-none line-clamp-[2.5]' : ''
+        }`}
+        style={!isExpanded ? {
+          display: '-webkit-box',
+          WebkitLineClamp: 2.5,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden'
+        } : undefined}
+      >
+        {bio}
+      </p>
+      {needsTruncation && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="md:hidden flex items-center gap-1 text-zinc-400 hover:text-white text-sm mt-1 transition-colors"
+        >
+          <span>{isExpanded ? 'see less' : 'see more'}</span>
+          <svg
+            width={12}
+            height={12}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+};
+
 // Past show without recording
 interface PastShow {
   id: string;
@@ -952,9 +1011,7 @@ export function DJPublicProfileClient({ username }: Props) {
 
             <div className="max-w-xl">
               {profile.djProfile.bio && (
-                <p className="text-xl leading-relaxed text-zinc-300 font-light mb-4">
-                  {profile.djProfile.bio}
-                </p>
+                <TruncatedBio bio={profile.djProfile.bio} />
               )}
               {profile.djProfile.genres.length > 0 && (
                 <div className="flex flex-wrap gap-2">
@@ -989,9 +1046,10 @@ export function DJPublicProfileClient({ username }: Props) {
                 </span>
               </div>
 
-              {/* Show Info - No picture, no show name (DJ name is in page header) */}
+              {/* Show Info */}
               <div className="p-4 space-y-4">
                 <div>
+                  <h3 className="text-white text-xl font-bold">{currentLiveShow.name}</h3>
                   <p className="text-sm text-zinc-400">
                     {liveOnChannel ? "on Channel" : liveElsewhere ? `on ${liveElsewhere.stationName}` : ""}
                   </p>
