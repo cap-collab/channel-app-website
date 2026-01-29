@@ -119,6 +119,17 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
     }
   });
 
+  // Also collect djUsername values from all shows (metadata-defined profiles)
+  // These take priority - when a show has djUsername, we ALWAYS use that profile's info
+  shows.forEach((show) => {
+    if (show.djUsername) {
+      const normalized = normalizeForProfileLookup(show.djUsername);
+      if (normalized.length >= 2 && !externalDjNames.has(normalized)) {
+        externalDjNames.set(normalized, show.djUsername);
+      }
+    }
+  });
+
   // Fetch broadcast DJ profiles from users collection
   const djProfiles: Record<string, { bio?: string; photoUrl?: string; promoText?: string; promoHyperlink?: string }> = {};
 
@@ -168,7 +179,24 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
 
   // Enrich shows with DJ profile data
   return shows.map((show) => {
-    // Broadcast shows: use users collection
+    // PRIORITY 1: If show has djUsername from metadata, ALWAYS use that profile's info
+    // This takes precedence over everything else - the linked profile is the source of truth
+    if (show.djUsername) {
+      const normalized = normalizeForProfileLookup(show.djUsername);
+      const profile = externalProfiles[normalized];
+
+      if (profile) {
+        return {
+          ...show,
+          dj: profile.djName || show.dj,  // Profile name takes priority
+          djBio: profile.bio,
+          djPhotoUrl: profile.photoUrl,
+          djGenres: profile.genres,
+        };
+      }
+    }
+
+    // PRIORITY 2: Broadcast shows - use users collection
     if (show.stationId === "broadcast" && show.djUserId) {
       const profile = djProfiles[show.djUserId];
       if (profile) {
@@ -182,7 +210,7 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
       }
     }
 
-    // External radio shows: use pending-dj-profiles collection
+    // PRIORITY 3: External radio shows - use pending-dj-profiles collection matching
     if (show.stationId !== "broadcast" && show.stationId !== "newtown") {
       // Try all candidate names in priority order until a profile is found
       const candidates = extractCandidateNames(show);
