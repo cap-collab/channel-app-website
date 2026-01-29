@@ -114,9 +114,10 @@ const TruncatedBio = ({ bio }: { bio: string }) => {
       const measure = measureRef.current;
       const containerWidth = container.offsetWidth;
 
-      // text-xl = 1.25rem = 20px, leading-relaxed = 1.625 line-height
-      const lineHeight = 20 * 1.625; // 32.5px
-      const maxHeight = lineHeight * 3; // 3 lines
+      // Get actual computed line height
+      const computedStyle = window.getComputedStyle(measure);
+      const lineHeight = parseFloat(computedStyle.lineHeight) || 26; // fallback
+      const maxHeight = lineHeight * 3 + 2; // 3 lines with small tolerance
 
       // Reset to measure full text
       measure.style.width = `${containerWidth}px`;
@@ -128,48 +129,37 @@ const TruncatedBio = ({ bio }: { bio: string }) => {
         return;
       }
 
-      // Binary search to find the right truncation point
-      // Account for "... see more" taking about 80px
-      const seeMoreWidth = 90;
+      // Binary search to find text that fits in ~3 lines minus space for "... see more"
+      // "... see more" with chevron is roughly 100px
+      const seeMoreWidth = 100;
       let low = 0;
       let high = bio.length;
-      let result = bio;
+      let bestFit = '';
 
-      while (low < high) {
-        const mid = Math.floor((low + high + 1) / 2);
+      while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
         const testText = bio.slice(0, mid);
-        measure.textContent = testText + '...';
+        measure.textContent = testText + '... see more';
 
-        // Check if it fits in 3 lines with room for "see more" on the last line
-        const textHeight = measure.offsetHeight;
-
-        if (textHeight <= maxHeight) {
-          // Check if there's room for "see more" on the same line
-          const lastLineWidth = measure.offsetWidth -
-            (Math.floor(textHeight / lineHeight) - 1) * containerWidth;
-
-          if (textHeight < maxHeight || lastLineWidth + seeMoreWidth <= containerWidth) {
-            low = mid;
-            result = testText;
-          } else {
-            high = mid - 1;
-          }
+        if (measure.offsetHeight <= maxHeight) {
+          bestFit = testText;
+          low = mid + 1;
         } else {
           high = mid - 1;
         }
       }
 
-      // Find a good word boundary
-      let truncateAt = result.length;
-      const lastSpace = result.lastIndexOf(' ');
-      if (lastSpace > result.length - 20 && lastSpace > 0) {
+      // Find a good word boundary (don't cut mid-word)
+      let truncateAt = bestFit.length;
+      const lastSpace = bestFit.lastIndexOf(' ');
+      if (lastSpace > bestFit.length * 0.7 && lastSpace > 0) {
         truncateAt = lastSpace;
       }
 
       setTruncatedText(bio.slice(0, truncateAt));
     };
 
-    const timer = setTimeout(calculateTruncation, 50);
+    const timer = setTimeout(calculateTruncation, 100);
     window.addEventListener('resize', calculateTruncation);
     return () => {
       clearTimeout(timer);
@@ -182,22 +172,22 @@ const TruncatedBio = ({ bio }: { bio: string }) => {
 
   return (
     <div className="mb-4 relative" ref={containerRef}>
-      {/* Hidden element for measuring */}
+      {/* Hidden element for measuring - must match visible text styling exactly */}
       <span
         ref={measureRef}
-        className="text-xl leading-relaxed font-light absolute opacity-0 pointer-events-none -z-10 whitespace-pre-wrap"
-        style={{ display: 'block' }}
+        className="text-sm leading-relaxed absolute opacity-0 pointer-events-none -z-10"
+        style={{ display: 'block', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
         aria-hidden="true"
       />
 
       {/* Visible content */}
-      <p className="text-xl leading-relaxed text-zinc-300 font-light">
+      <p className="text-sm leading-relaxed text-zinc-300">
         {displayText}
         {!isExpanded && needsTruncation && '... '}
         {needsTruncation && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="md:hidden inline-flex items-center gap-0.5 text-zinc-400 hover:text-white text-sm transition-colors align-baseline"
+            className="md:hidden inline-flex items-center gap-0.5 text-zinc-400 hover:text-white transition-colors"
           >
             <span>{isExpanded ? 'see less' : 'see more'}</span>
             <svg
