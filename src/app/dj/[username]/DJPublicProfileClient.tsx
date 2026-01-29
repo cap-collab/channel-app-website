@@ -81,6 +81,30 @@ const MusicIcon = ({ size = 14 }: { size?: number }) => (
   </svg>
 );
 
+const SoundCloudIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} fill="currentColor" viewBox="0 0 24 24">
+    <path d="M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154.233 2.105c.007.058.05.098.101.098.05 0 .09-.04.099-.098l.255-2.105-.27-2.154c-.009-.06-.052-.1-.084-.1zm-.9 1.53c-.057 0-.097.045-.105.097l-.138 1.627.152 1.578c.008.058.048.097.105.097.05 0 .09-.039.098-.097l.168-1.578-.168-1.627c-.008-.052-.048-.097-.112-.097zm1.8-1.627c-.063 0-.112.047-.12.105l-.218 2.406.218 2.313c.008.063.057.112.12.112.058 0 .105-.049.12-.112l.24-2.313-.24-2.406c-.015-.058-.062-.105-.12-.105zm.9-.45c-.068 0-.12.052-.127.112l-.195 2.969.195 2.843c.007.063.059.112.127.112.063 0 .112-.049.127-.112l.217-2.843-.217-2.969c-.015-.06-.064-.112-.127-.112zm.9-.675c-.075 0-.135.06-.142.127l-.173 3.757.173 3.607c.007.068.067.127.142.127.068 0 .127-.059.135-.127l.195-3.607-.195-3.757c-.008-.067-.067-.127-.135-.127zm.9-.675c-.082 0-.142.067-.15.135l-.15 4.545.15 4.35c.008.075.068.135.15.135.075 0 .135-.06.15-.135l.165-4.35-.165-4.545c-.015-.068-.075-.135-.15-.135zm.9-.45c-.09 0-.157.068-.165.15l-.127 5.107.127 4.867c.008.082.075.15.165.15.082 0 .15-.068.157-.15l.142-4.867-.142-5.107c-.007-.082-.075-.15-.157-.15zm.9-.225c-.097 0-.172.075-.18.165l-.105 5.445.105 5.137c.008.09.083.165.18.165.09 0 .165-.075.172-.165l.12-5.137-.12-5.445c-.007-.09-.082-.165-.172-.165zm.9-.225c-.105 0-.18.082-.187.18l-.083 5.782.083 5.37c.007.098.082.18.187.18.097 0 .172-.082.18-.18l.09-5.37-.09-5.782c-.008-.098-.083-.18-.18-.18zm1.125-.225c-.112 0-.195.09-.202.195l-.068 6.12.068 5.602c.007.105.09.195.202.195.105 0 .187-.09.195-.195l.075-5.602-.075-6.12c-.008-.105-.09-.195-.195-.195zm.9 0c-.12 0-.21.097-.217.21l-.045 6.232.045 5.602c.007.112.097.21.217.21.113 0 .203-.098.21-.21l.053-5.602-.053-6.232c-.007-.113-.097-.21-.21-.21zm.9.225c-.127 0-.225.105-.232.225l-.023 6.12.023 5.602c.007.12.105.225.232.225.12 0 .218-.105.225-.225l.03-5.602-.03-6.12c-.007-.12-.105-.225-.225-.225zm1.125-.45c-.142 0-.255.112-.262.247l-.008 6.683.008 5.55c.007.135.12.247.262.247.135 0 .247-.112.255-.247l.015-5.55-.015-6.683c-.008-.135-.12-.247-.255-.247zm1.575-.225c-.15 0-.27.12-.285.27v.015l-.008 6.795.008 5.535c.015.15.135.27.285.27.142 0 .263-.12.277-.27l.015-5.535-.015-6.795c-.014-.15-.135-.27-.277-.285zm.9.225c-.157 0-.285.127-.3.285v6.75l.015 5.52c.015.157.143.285.285.285.15 0 .278-.128.285-.285l.015-5.52V6.915c-.007-.158-.135-.285-.3-.285zm.9-.225c-.165 0-.3.135-.307.3v6.75l.015 5.52c.007.165.142.3.307.3.157 0 .285-.135.3-.3l.015-5.52V6.69c-.015-.165-.143-.3-.33-.3zm4.95 1.35c-.375 0-.735.052-1.08.15-.232-2.61-2.437-4.65-5.137-4.65-.69 0-1.35.142-1.95.39-.232.098-.293.195-.3.39v9.36c.007.202.157.367.352.39h8.115c1.5 0 2.715-1.215 2.715-2.715s-1.215-2.715-2.715-2.715z"/>
+  </svg>
+);
+
+const MixcloudIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} fill="currentColor" viewBox="0 0 24 24">
+    <path d="M2.462 8.596l1.986 6.097 1.986-6.097h2.668l1.986 6.097 1.986-6.097h2.668l-3.307 9.808H9.767l-1.986-5.912-1.986 5.912H3.107L0 8.596h2.462zm19.552 0c1.099 0 1.986.896 1.986 1.999v5.81c0 1.103-.887 1.999-1.986 1.999-1.099 0-1.986-.896-1.986-1.999v-5.81c0-1.103.887-1.999 1.986-1.999zm-4.634 0c1.099 0 1.986.896 1.986 1.999v5.81c0 1.103-.887 1.999-1.986 1.999-1.099 0-1.986-.896-1.986-1.999v-5.81c0-1.103.887-1.999 1.986-1.999z"/>
+  </svg>
+);
+
+const BandcampIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} fill="currentColor" viewBox="0 0 24 24">
+    <path d="M0 18.75l7.437-13.5H24l-7.438 13.5H0z"/>
+  </svg>
+);
+
+const YouTubeIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} fill="currentColor" viewBox="0 0 24 24">
+    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+  </svg>
+);
+
 const CloseIcon = ({ size = 20 }: { size?: number }) => (
   <svg width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -825,10 +849,7 @@ export function DJPublicProfileClient({ username }: Props) {
       <Header position="sticky" />
 
       {/* Contextual Sticky Nav */}
-      <nav className="sticky top-0 z-40 flex justify-between items-center px-6 py-4 bg-black/90 backdrop-blur-md border-b border-white/10">
-        <div className="text-[10px] tracking-[0.3em] uppercase font-bold text-zinc-500">
-          Channel / Artist Profile
-        </div>
+      <nav className="sticky top-0 z-40 flex justify-end items-center px-6 py-3 bg-black/90 backdrop-blur-md border-b border-white/10">
         <div className="flex gap-6 items-center">
           <button
             onClick={handleShare}
@@ -850,7 +871,7 @@ export function DJPublicProfileClient({ username }: Props) {
         </div>
       </nav>
 
-      <main className="max-w-5xl mx-auto px-6 py-16">
+      <main className="max-w-5xl mx-auto px-6 py-8">
         {/* Auto-profile banner */}
         {isAutoProfile && (
           <div className="mb-8 bg-zinc-900/50 border border-zinc-800 p-4">
@@ -869,7 +890,7 @@ export function DJPublicProfileClient({ username }: Props) {
         )}
 
         {/* SECTION A: IDENTITY */}
-        <section className="grid grid-cols-1 md:grid-cols-12 gap-12 mb-20">
+        <section className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-12">
           <div className="md:col-span-4">
             <div className="aspect-square bg-zinc-900 overflow-hidden border border-white/10">
               {profile.djProfile.photoUrl ? (
@@ -925,7 +946,7 @@ export function DJPublicProfileClient({ username }: Props) {
 
         {/* SECTION B & C: STATUS & PROMO */}
         {(liveOnChannel || liveElsewhere || profile.djProfile.promoText) && (
-          <section className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-20">
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
             {/* Live Status */}
             {liveOnChannel ? (
               <Link
@@ -980,8 +1001,8 @@ export function DJPublicProfileClient({ username }: Props) {
 
         {/* SECTION D, E, F, H: UNIFIED ACTIVITY FEED */}
         {activityFeed.length > 0 && (
-          <section className="mb-20">
-            <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-10 border-b border-white/10 pb-4">
+          <section className="mb-12">
+            <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-6 border-b border-white/10 pb-3">
               Activity / Timeline
             </h2>
 
@@ -1291,7 +1312,7 @@ export function DJPublicProfileClient({ username }: Props) {
 
         {/* SECTION G: ARTIST SELECTS (MY RECS) */}
         {artistSelects.length > 0 && (
-          <section className="mb-20 grid grid-cols-1 md:grid-cols-3 gap-12 bg-zinc-900/30 p-10 border border-white/5">
+          <section className="mb-12 grid grid-cols-1 md:grid-cols-3 gap-8 bg-zinc-900/30 p-8 border border-white/5">
             <div className="md:col-span-1">
               <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-4">Artist Selects</h2>
               <p className="text-xs text-zinc-400 leading-relaxed">
@@ -1316,10 +1337,10 @@ export function DJPublicProfileClient({ username }: Props) {
         )}
 
         {/* FOOTER: SUPPORT & SOCIALS */}
-        <footer className="border-t border-white/10 pt-20 flex flex-col items-center">
+        <footer className="border-t border-white/10 pt-10 flex flex-col items-center">
           {/* Support The Artist Button (Tip) */}
           {profile.email && (
-            <div className="group relative mb-16 flex items-center gap-4 bg-red-600 hover:bg-white text-white hover:text-black px-16 py-6 transition-all duration-300 cursor-pointer">
+            <div className="group relative mb-10 flex items-center gap-4 bg-red-600 hover:bg-white text-white hover:text-black px-16 py-6 transition-all duration-300 cursor-pointer">
               <HeartIcon size={24} />
               <span className="text-sm font-black uppercase tracking-[0.3em]">Support The Artist</span>
               <div className="absolute inset-0 opacity-0">
@@ -1337,16 +1358,17 @@ export function DJPublicProfileClient({ username }: Props) {
             </div>
           )}
 
-          {/* Social Grid */}
-          <div className="flex flex-wrap justify-center gap-x-10 gap-y-6 max-w-2xl opacity-40 hover:opacity-100 transition-opacity duration-500">
+          {/* Social Grid - Icons Only */}
+          <div className="flex flex-wrap justify-center gap-6 max-w-md mb-8">
             {socialLinks.instagram && (
               <a
                 href={`https://instagram.com/${socialLinks.instagram.replace("@", "")}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[10px] uppercase font-black tracking-widest flex items-center gap-2 hover:text-blue-400 transition"
+                className="text-zinc-400 hover:text-white transition-colors"
+                title="Instagram"
               >
-                <InstagramIcon size={14} /> IG
+                <InstagramIcon size={20} />
               </a>
             )}
             {socialLinks.soundcloud && (
@@ -1354,9 +1376,10 @@ export function DJPublicProfileClient({ username }: Props) {
                 href={socialLinks.soundcloud}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[10px] uppercase font-black tracking-widest flex items-center gap-2 hover:text-blue-400 transition"
+                className="text-zinc-400 hover:text-white transition-colors"
+                title="SoundCloud"
               >
-                <MusicIcon size={14} /> SC
+                <SoundCloudIcon size={20} />
               </a>
             )}
             {socialLinks.mixcloud && (
@@ -1364,9 +1387,10 @@ export function DJPublicProfileClient({ username }: Props) {
                 href={socialLinks.mixcloud}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[10px] uppercase font-black tracking-widest flex items-center gap-2 hover:text-blue-400 transition"
+                className="text-zinc-400 hover:text-white transition-colors"
+                title="Mixcloud"
               >
-                <MusicIcon size={14} /> MC
+                <MixcloudIcon size={20} />
               </a>
             )}
             {socialLinks.bandcamp && (
@@ -1374,9 +1398,10 @@ export function DJPublicProfileClient({ username }: Props) {
                 href={socialLinks.bandcamp}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[10px] uppercase font-black tracking-widest flex items-center gap-2 hover:text-blue-400 transition"
+                className="text-zinc-400 hover:text-white transition-colors"
+                title="Bandcamp"
               >
-                <MusicIcon size={14} /> BC
+                <BandcampIcon size={20} />
               </a>
             )}
             {socialLinks.youtube && (
@@ -1384,9 +1409,10 @@ export function DJPublicProfileClient({ username }: Props) {
                 href={socialLinks.youtube}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[10px] uppercase font-black tracking-widest flex items-center gap-2 hover:text-blue-400 transition"
+                className="text-zinc-400 hover:text-white transition-colors"
+                title="YouTube"
               >
-                <PlayIcon size={14} /> YT
+                <YouTubeIcon size={20} />
               </a>
             )}
             {socialLinks.residentAdvisor && (
@@ -1394,7 +1420,8 @@ export function DJPublicProfileClient({ username }: Props) {
                 href={socialLinks.residentAdvisor}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[10px] uppercase font-black tracking-widest hover:text-blue-400 transition"
+                className="text-zinc-400 hover:text-white transition-colors text-sm font-bold"
+                title="Resident Advisor"
               >
                 RA
               </a>
@@ -1404,36 +1431,21 @@ export function DJPublicProfileClient({ username }: Props) {
                 href={socialLinks.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[10px] uppercase font-black tracking-widest flex items-center gap-2 hover:text-blue-400 transition"
+                className="text-zinc-400 hover:text-white transition-colors"
+                title="Website"
               >
-                <GlobeIcon size={14} /> WEB
+                <GlobeIcon size={20} />
               </a>
             )}
             {socialLinks.bookingEmail && (
               <a
                 href={`mailto:${socialLinks.bookingEmail}`}
-                className="text-[10px] uppercase font-black tracking-widest flex items-center gap-2 hover:text-blue-400 transition"
+                className="text-zinc-400 hover:text-white transition-colors"
+                title="Booking Email"
               >
-                <MailIcon size={14} /> Booking
+                <MailIcon size={20} />
               </a>
             )}
-
-            {/* Custom Links */}
-            {socialLinks.customLinks?.map((link, i) => (
-              <a
-                key={i}
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[10px] uppercase font-black tracking-widest hover:text-blue-400 transition"
-              >
-                {link.label}
-              </a>
-            ))}
-          </div>
-
-          <div className="mt-20 text-[8px] text-zinc-700 uppercase tracking-[1em]">
-            Channel Broadcaster Profile
           </div>
         </footer>
       </main>
