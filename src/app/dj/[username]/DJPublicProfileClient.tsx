@@ -129,9 +129,7 @@ const TruncatedBio = ({ bio }: { bio: string }) => {
         return;
       }
 
-      // Binary search to find text that fits in ~3 lines minus space for "... see more"
-      // "... see more" with chevron is roughly 100px
-      const seeMoreWidth = 100;
+      // Binary search to find text that fits in ~3 lines with "... see more" included
       let low = 0;
       let high = bio.length;
       let bestFit = '';
