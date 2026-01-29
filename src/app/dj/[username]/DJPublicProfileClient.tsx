@@ -97,70 +97,122 @@ function formatDuration(seconds: number): string {
 // Truncated bio component for mobile
 const TruncatedBio = ({ bio }: { bio: string }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [needsTruncation, setNeedsTruncation] = useState(false);
-  const textRef = useRef<HTMLParagraphElement>(null);
+  const [truncatedText, setTruncatedText] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
-    const checkTruncation = () => {
+    const calculateTruncation = () => {
       // Only apply truncation on mobile (< 768px)
       const isMobile = window.innerWidth < 768;
-      if (!isMobile) {
-        setNeedsTruncation(false);
+      if (!isMobile || !containerRef.current || !measureRef.current) {
+        setTruncatedText(null);
         return;
       }
 
-      if (textRef.current) {
-        // text-xl = 1.25rem = 20px, leading-relaxed = 1.625 line-height
-        // 2.5 lines = 20 * 1.625 * 2.5 = 81.25px
-        const maxHeight = 82;
-        setNeedsTruncation(textRef.current.scrollHeight > maxHeight);
+      const container = containerRef.current;
+      const measure = measureRef.current;
+      const containerWidth = container.offsetWidth;
+
+      // text-xl = 1.25rem = 20px, leading-relaxed = 1.625 line-height
+      const lineHeight = 20 * 1.625; // 32.5px
+      const maxHeight = lineHeight * 3; // 3 lines
+
+      // Reset to measure full text
+      measure.style.width = `${containerWidth}px`;
+      measure.textContent = bio;
+
+      // Check if truncation is needed
+      if (measure.offsetHeight <= maxHeight) {
+        setTruncatedText(null);
+        return;
       }
+
+      // Binary search to find the right truncation point
+      // Account for "... see more" taking about 80px
+      const seeMoreWidth = 90;
+      let low = 0;
+      let high = bio.length;
+      let result = bio;
+
+      while (low < high) {
+        const mid = Math.floor((low + high + 1) / 2);
+        const testText = bio.slice(0, mid);
+        measure.textContent = testText + '...';
+
+        // Check if it fits in 3 lines with room for "see more" on the last line
+        const textHeight = measure.offsetHeight;
+
+        if (textHeight <= maxHeight) {
+          // Check if there's room for "see more" on the same line
+          const lastLineWidth = measure.offsetWidth -
+            (Math.floor(textHeight / lineHeight) - 1) * containerWidth;
+
+          if (textHeight < maxHeight || lastLineWidth + seeMoreWidth <= containerWidth) {
+            low = mid;
+            result = testText;
+          } else {
+            high = mid - 1;
+          }
+        } else {
+          high = mid - 1;
+        }
+      }
+
+      // Find a good word boundary
+      let truncateAt = result.length;
+      const lastSpace = result.lastIndexOf(' ');
+      if (lastSpace > result.length - 20 && lastSpace > 0) {
+        truncateAt = lastSpace;
+      }
+
+      setTruncatedText(bio.slice(0, truncateAt));
     };
 
-    // Small delay to ensure styles are applied
-    const timer = setTimeout(checkTruncation, 50);
-    window.addEventListener('resize', checkTruncation);
+    const timer = setTimeout(calculateTruncation, 50);
+    window.addEventListener('resize', calculateTruncation);
     return () => {
       clearTimeout(timer);
-      window.removeEventListener('resize', checkTruncation);
+      window.removeEventListener('resize', calculateTruncation);
     };
   }, [bio]);
 
-  // Calculate max height for 2.5 lines: 20px font * 1.625 line-height * 2.5 = ~81px
-  const truncatedStyle = {
-    maxHeight: '81px',
-    overflow: 'hidden',
-  };
+  const needsTruncation = truncatedText !== null;
+  const displayText = !isExpanded && needsTruncation ? truncatedText : bio;
 
   return (
-    <div className="mb-4">
-      <p
-        ref={textRef}
-        className="text-xl leading-relaxed text-zinc-300 font-light"
-        style={!isExpanded && needsTruncation ? truncatedStyle : undefined}
-      >
-        {bio}
-      </p>
+    <div className="mb-4 relative" ref={containerRef}>
+      {/* Hidden element for measuring */}
+      <span
+        ref={measureRef}
+        className="text-xl leading-relaxed font-light absolute opacity-0 pointer-events-none -z-10 whitespace-pre-wrap"
+        style={{ display: 'block' }}
+        aria-hidden="true"
+      />
 
-      {/* See more / see less button - only on mobile when truncation is needed */}
-      {needsTruncation && (
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="md:hidden inline-flex items-center gap-0.5 text-zinc-400 hover:text-white text-sm mt-1 transition-colors"
-        >
-          <span>{isExpanded ? 'see less' : 'see more'}</span>
-          <svg
-            width={12}
-            height={12}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+      {/* Visible content */}
+      <p className="text-xl leading-relaxed text-zinc-300 font-light">
+        {displayText}
+        {!isExpanded && needsTruncation && '... '}
+        {needsTruncation && (
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="md:hidden inline-flex items-center gap-0.5 text-zinc-400 hover:text-white text-sm transition-colors align-baseline"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-      )}
+            <span>{isExpanded ? 'see less' : 'see more'}</span>
+            <svg
+              width={12}
+              height={12}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        )}
+      </p>
     </div>
   );
 };
