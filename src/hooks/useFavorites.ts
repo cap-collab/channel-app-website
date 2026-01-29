@@ -493,12 +493,16 @@ export function useFavorites() {
   );
 
   // Check if a term is in watchlist (must be type="search", not show favorites)
+  // Uses bidirectional contains match - e.g. "Skee Mask" matches watchlist entry "skee m"
   const isInWatchlist = useCallback(
     (term: string): boolean => {
+      const termLower = term.toLowerCase();
       return favorites.some(
         (fav) =>
           fav.type === "search" &&
-          fav.term.toLowerCase() === term.toLowerCase()
+          (fav.term.toLowerCase() === termLower ||
+            fav.term.toLowerCase().includes(termLower) ||
+            termLower.includes(fav.term.toLowerCase()))
       );
     },
     [favorites]
