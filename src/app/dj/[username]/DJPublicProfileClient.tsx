@@ -82,12 +82,6 @@ const YouTubeIcon = ({ size = 14 }: { size?: number }) => (
   </svg>
 );
 
-const CloseIcon = ({ size = 20 }: { size?: number }) => (
-  <svg width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-  </svg>
-);
-
 // Helper functions for audio player
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -288,7 +282,6 @@ export function DJPublicProfileClient({ username }: Props) {
   const [subscribing, setSubscribing] = useState(false);
 
   // Show popup state
-  const [expandedShowId, setExpandedShowId] = useState<string | null>(null);
   const [togglingFavoriteId, setTogglingFavoriteId] = useState<string | null>(null);
   const [copiedArchiveId, setCopiedArchiveId] = useState<string | null>(null);
 
@@ -1134,113 +1127,71 @@ export function DJPublicProfileClient({ username }: Props) {
                   const showAsShow = upcomingShowToShow(broadcast);
                   const isFavorited = isShowFavorited(showAsShow);
                   const isToggling = togglingFavoriteId === broadcast.id;
-                  const isExpanded = expandedShowId === broadcast.id;
-                  const showImage = broadcast.showImageUrl;
+                  const stationAccentColor = getStationById(broadcast.stationId)?.accentColor;
+
+                  // Format date and time for header
+                  const showDate = new Date(broadcast.startTime);
+                  const dateStr = showDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                  const timeStr = showDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
                   return (
                     <div
                       key={broadcast.id}
-                      className="bg-surface-card rounded-xl p-4"
+                      className="bg-surface-card rounded-2xl overflow-hidden"
                     >
-                      <div className="flex items-start gap-4">
-                        {showImage && !broadcast.isExternal && (
-                          <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
-                            <Image
-                              src={showImage}
-                              alt={broadcast.showName}
-                              width={64}
-                              height={64}
-                              className="w-full h-full object-cover"
-                              unoptimized
-                            />
-                          </div>
-                        )}
-
-                        <div className="flex-1 min-w-0">
-                          <div className="float-right flex items-center gap-2 ml-3">
-                            <button
-                              onClick={(e) => handleToggleFavorite(broadcast, e)}
-                              disabled={isToggling}
-                              className="px-3 h-8 rounded-full flex items-center justify-center transition-all text-xs bg-accent/10 hover:bg-accent/20 text-accent"
-                              title={isFavorited ? "Remove reminder" : "Remind me"}
-                            >
-                              {isToggling ? (
-                                <div className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                              ) : (
-                                <span className="font-medium">{isFavorited ? "Reminded" : "Remind Me"}</span>
-                              )}
-                            </button>
-                          </div>
-
-                          <h3 className="text-white font-semibold">{broadcast.showName}</h3>
-                          <p className="text-gray-400 text-sm">Upcoming Radio Show</p>
-                          <p className="text-gray-500 text-xs">{formatFeedDate(broadcast.startTime)}</p>
-                        </div>
+                      {/* Header: Date + Time and Station name */}
+                      <div className="flex items-center justify-between px-4 py-3 bg-black/40">
+                        <span className="text-zinc-400 text-xs">
+                          {dateStr} · {timeStr}
+                        </span>
+                        <span className="text-zinc-400 text-xs">
+                          {broadcast.stationName}
+                        </span>
                       </div>
 
-                      {isExpanded && (
-                        <>
-                          <div
-                            className="fixed inset-0 bg-black/80 z-40"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setExpandedShowId(null);
-                            }}
-                          />
-                          <div
-                            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-surface-card border border-white/20 p-8 max-w-lg w-[90vw] shadow-2xl rounded-xl"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              onClick={() => setExpandedShowId(null)}
-                              className="absolute top-4 right-4 text-zinc-400 hover:text-white transition-colors"
-                            >
-                              <CloseIcon size={20} />
-                            </button>
+                      {/* Show Info */}
+                      <div className="p-4 space-y-4">
+                        <div>
+                          <h3 className="text-white text-xl font-bold">{broadcast.showName}</h3>
+                          <p className="text-sm text-zinc-400">
+                            on {broadcast.stationName}
+                          </p>
+                        </div>
 
-                            {broadcast.showImageUrl && !broadcast.isExternal && (
-                              <Image
-                                src={broadcast.showImageUrl}
-                                alt={broadcast.showName}
-                                width={400}
-                                height={200}
-                                className="w-full h-48 object-cover mb-6 rounded-lg"
-                                unoptimized
-                              />
-                            )}
-
-                            <h3 className="text-3xl font-black uppercase tracking-tight mb-2">
-                              {broadcast.showName}
-                            </h3>
-
-                            <div className="flex items-center gap-2 text-[10px] text-zinc-500 uppercase tracking-widest mb-4">
-                              <span>{broadcast.stationName}</span>
-                              <span>•</span>
-                              <span>
-                                {new Date(broadcast.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} - {new Date(broadcast.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                              </span>
-                            </div>
-
-                            {broadcast.description && (
-                              <p className="text-zinc-400 text-sm leading-relaxed mb-6">{broadcast.description}</p>
-                            )}
-
-                            <div className="flex items-center gap-4 pt-4 border-t border-white/10">
-                              <button
-                                onClick={(e) => handleToggleFavorite(broadcast, e)}
-                                disabled={isToggling}
-                                className={`text-[10px] font-black uppercase tracking-widest border px-4 py-2 transition rounded-full ${
-                                  isFavorited
-                                    ? "border-accent text-accent hover:bg-accent hover:text-white"
-                                    : "border-accent/50 text-accent hover:bg-accent hover:text-white"
-                                }`}
-                              >
-                                {isFavorited ? "Reminded" : "Remind Me"}
-                              </button>
-                            </div>
+                        {/* Time Bar */}
+                        <div className="space-y-1">
+                          <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full w-0"
+                              style={{
+                                backgroundColor: stationAccentColor || 'var(--color-accent)'
+                              }}
+                            />
                           </div>
-                        </>
-                      )}
+                          <div className="flex justify-between text-[10px] text-zinc-500">
+                            <span>{new Date(broadcast.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
+                            <span>{new Date(broadcast.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
+                          </div>
+                        </div>
+
+                        {/* Action Button */}
+                        <button
+                          onClick={(e) => handleToggleFavorite(broadcast, e)}
+                          disabled={isToggling}
+                          className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
+                        >
+                          {isToggling ? (
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                              </svg>
+                              {isFavorited ? "Reminded" : "Remind Me"}
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   );
                 }
