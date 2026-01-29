@@ -1014,7 +1014,7 @@ export function DJPublicProfileClient({ username }: Props) {
                   const isToggling = togglingFavoriteId === broadcast.id;
                   const isExpanded = expandedShowId === broadcast.id;
                   const isLive = isShowLive(broadcast);
-                  const showImage = broadcast.showImageUrl || profile.djProfile.photoUrl;
+                  const showImage = broadcast.showImageUrl;
 
                   return (
                     <div
@@ -1205,7 +1205,7 @@ export function DJPublicProfileClient({ username }: Props) {
                   const archive = item as Archive & { feedType: "recording"; feedStatus: "past" };
                   const isPlaying = playingId === archive.id;
                   const currentTime = currentTimes[archive.id] || 0;
-                  const showImage = archive.showImageUrl || archive.djs?.[0]?.photoUrl || profile.djProfile.photoUrl;
+                  const showImage = archive.showImageUrl;
 
                   return (
                     <div key={archive.id} className="bg-surface-card rounded-xl p-4">
@@ -1296,7 +1296,7 @@ export function DJPublicProfileClient({ username }: Props) {
 
                 if (item.feedType === "show") {
                   const pastShow = item as PastShow & { feedType: "show"; feedStatus: "past" };
-                  const showImage = pastShow.showImageUrl || profile.djProfile.photoUrl;
+                  const showImage = pastShow.showImageUrl;
 
                   return (
                     <div key={pastShow.id} className="bg-surface-card rounded-xl p-4 opacity-60">

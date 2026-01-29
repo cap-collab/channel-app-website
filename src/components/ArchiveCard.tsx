@@ -59,9 +59,9 @@ export function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSe
     onSeek(parseFloat(e.target.value));
   };
 
-  // Use show image if available, otherwise fall back to first DJ's photo
-  const displayImage = archive.showImageUrl || archive.djs[0]?.photoUrl;
-  const imageAlt = archive.showImageUrl ? archive.showName : archive.djs[0]?.name || 'Show';
+  // Only use show image if available - no fallback to DJ photo
+  const displayImage = archive.showImageUrl;
+  const imageAlt = archive.showName;
 
   return (
     <div className="bg-surface-card rounded-xl p-4 aspect-square flex flex-col">
