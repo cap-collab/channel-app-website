@@ -75,12 +75,6 @@ const MailIcon = ({ size = 14 }: { size?: number }) => (
   </svg>
 );
 
-const MusicIcon = ({ size = 14 }: { size?: number }) => (
-  <svg width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-  </svg>
-);
-
 const SoundCloudIcon = ({ size = 14 }: { size?: number }) => (
   <svg width={size} height={size} fill="currentColor" viewBox="0 0 24 24">
     <path d="M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154.233 2.105c.007.058.05.098.101.098.05 0 .09-.04.099-.098l.255-2.105-.27-2.154c-.009-.06-.052-.1-.084-.1zm-.9 1.53c-.057 0-.097.045-.105.097l-.138 1.627.152 1.578c.008.058.048.097.105.097.05 0 .09-.039.098-.097l.168-1.578-.168-1.627c-.008-.052-.048-.097-.112-.097zm1.8-1.627c-.063 0-.112.047-.12.105l-.218 2.406.218 2.313c.008.063.057.112.12.112.058 0 .105-.049.12-.112l.24-2.313-.24-2.406c-.015-.058-.062-.105-.12-.105zm.9-.45c-.068 0-.12.052-.127.112l-.195 2.969.195 2.843c.007.063.059.112.127.112.063 0 .112-.049.127-.112l.217-2.843-.217-2.969c-.015-.06-.064-.112-.127-.112zm.9-.675c-.075 0-.135.06-.142.127l-.173 3.757.173 3.607c.007.068.067.127.142.127.068 0 .127-.059.135-.127l.195-3.607-.195-3.757c-.008-.067-.067-.127-.135-.127zm.9-.675c-.082 0-.142.067-.15.135l-.15 4.545.15 4.35c.008.075.068.135.15.135.075 0 .135-.06.15-.135l.165-4.35-.165-4.545c-.015-.068-.075-.135-.15-.135zm.9-.45c-.09 0-.157.068-.165.15l-.127 5.107.127 4.867c.008.082.075.15.165.15.082 0 .15-.068.157-.15l.142-4.867-.142-5.107c-.007-.082-.075-.15-.157-.15zm.9-.225c-.097 0-.172.075-.18.165l-.105 5.445.105 5.137c.008.09.083.165.18.165.09 0 .165-.075.172-.165l.12-5.137-.12-5.445c-.007-.09-.082-.165-.172-.165zm.9-.225c-.105 0-.18.082-.187.18l-.083 5.782.083 5.37c.007.098.082.18.187.18.097 0 .172-.082.18-.18l.09-5.37-.09-5.782c-.008-.098-.083-.18-.18-.18zm1.125-.225c-.112 0-.195.09-.202.195l-.068 6.12.068 5.602c.007.105.09.195.202.195.105 0 .187-.09.195-.195l.075-5.602-.075-6.12c-.008-.105-.09-.195-.195-.195zm.9 0c-.12 0-.21.097-.217.21l-.045 6.232.045 5.602c.007.112.097.21.217.21.113 0 .203-.098.21-.21l.053-5.602-.053-6.232c-.007-.113-.097-.21-.21-.21zm.9.225c-.127 0-.225.105-.232.225l-.023 6.12.023 5.602c.007.12.105.225.232.225.12 0 .218-.105.225-.225l.03-5.602-.03-6.12c-.007-.12-.105-.225-.225-.225zm1.125-.45c-.142 0-.255.112-.262.247l-.008 6.683.008 5.55c.007.135.12.247.262.247.135 0 .247-.112.255-.247l.015-5.55-.015-6.683c-.008-.135-.12-.247-.255-.247zm1.575-.225c-.15 0-.27.12-.285.27v.015l-.008 6.795.008 5.535c.015.15.135.27.285.27.142 0 .263-.12.277-.27l.015-5.535-.015-6.795c-.014-.15-.135-.27-.277-.285zm.9.225c-.157 0-.285.127-.3.285v6.75l.015 5.52c.015.157.143.285.285.285.15 0 .278-.128.285-.285l.015-5.52V6.915c-.007-.158-.135-.285-.3-.285zm.9-.225c-.165 0-.3.135-.307.3v6.75l.015 5.52c.007.165.142.3.307.3.157 0 .285-.135.3-.3l.015-5.52V6.69c-.015-.165-.143-.3-.33-.3zm4.95 1.35c-.375 0-.735.052-1.08.15-.232-2.61-2.437-4.65-5.137-4.65-.69 0-1.35.142-1.95.39-.232.098-.293.195-.3.39v9.36c.007.202.157.367.352.39h8.115c1.5 0 2.715-1.215 2.715-2.715s-1.215-2.715-2.715-2.715z"/>
@@ -844,7 +838,7 @@ export function DJPublicProfileClient({ username }: Props) {
   const socialLinks = profile.djProfile.socialLinks;
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans antialiased">
+    <div className="min-h-screen bg-black text-white">
       {/* Site-wide Header */}
       <Header position="sticky" />
 
@@ -853,7 +847,7 @@ export function DJPublicProfileClient({ username }: Props) {
         <div className="flex gap-6 items-center">
           <button
             onClick={handleShare}
-            className="flex items-center gap-2 text-[10px] uppercase tracking-widest hover:text-blue-400 transition"
+            className="flex items-center gap-2 text-[10px] uppercase tracking-widest hover:text-accent transition"
           >
             <ShareIcon size={14} /> Share
           </button>
@@ -863,7 +857,7 @@ export function DJPublicProfileClient({ username }: Props) {
             className={`px-4 py-1.5 text-[10px] uppercase font-black tracking-widest transition disabled:opacity-50 ${
               isSubscribed
                 ? "bg-zinc-800 text-white hover:bg-zinc-700"
-                : "bg-white text-black hover:bg-blue-500 hover:text-white"
+                : "bg-white text-black hover:bg-accent hover:text-white"
             }`}
           >
             {subscribing ? "..." : isSubscribed ? "Following" : "Follow"}
@@ -899,7 +893,7 @@ export function DJPublicProfileClient({ username }: Props) {
                   alt={profile.chatUsername}
                   width={400}
                   height={400}
-                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700"
+                  className="w-full h-full object-cover"
                   unoptimized
                 />
               ) : (
@@ -951,7 +945,7 @@ export function DJPublicProfileClient({ username }: Props) {
             {liveOnChannel ? (
               <Link
                 href="/channel"
-                className="bg-blue-600 p-6 flex justify-between items-center group cursor-pointer hover:bg-blue-500 transition"
+                className="bg-accent p-6 flex justify-between items-center group cursor-pointer hover:bg-accent transition"
               >
                 <div>
                   <div className="flex items-center gap-2 mb-1">
@@ -971,7 +965,7 @@ export function DJPublicProfileClient({ username }: Props) {
               >
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                    <span className="w-2 h-2 bg-accent rounded-full animate-pulse" />
                     <span className="text-[10px] uppercase tracking-[0.2em] font-bold">Live Elsewhere</span>
                   </div>
                   <h3 className="text-xl font-bold">{liveElsewhere.stationName}</h3>
@@ -989,7 +983,7 @@ export function DJPublicProfileClient({ username }: Props) {
                     href={profile.djProfile.promoHyperlink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[10px] uppercase font-black tracking-widest flex items-center gap-2 hover:text-blue-400"
+                    className="text-[10px] uppercase font-black tracking-widest flex items-center gap-2 hover:text-accent"
                   >
                     View Link <ExternalLinkIcon size={12} />
                   </a>
@@ -1026,12 +1020,12 @@ export function DJPublicProfileClient({ username }: Props) {
                       <div className="md:col-span-2 text-zinc-500 font-mono text-xs uppercase">
                         {formatFeedDate(broadcast.startTime)}
                         {isLive && (
-                          <span className="ml-2 text-blue-400">LIVE</span>
+                          <span className="ml-2 text-accent">LIVE</span>
                         )}
                       </div>
 
                       <div className="md:col-span-7">
-                        <h4 className="text-2xl font-bold tracking-tight group-hover:text-blue-400 transition">
+                        <h4 className="text-2xl font-bold tracking-tight group-hover:text-accent transition">
                           {broadcast.showName}
                         </h4>
                         <p className="text-[10px] uppercase tracking-widest text-zinc-500">
@@ -1115,7 +1109,7 @@ export function DJPublicProfileClient({ username }: Props) {
                               {isLive && (
                                 <>
                                   <span>•</span>
-                                  <span className="text-blue-400 font-bold">LIVE</span>
+                                  <span className="text-accent font-bold">LIVE</span>
                                 </>
                               )}
                             </div>
@@ -1191,7 +1185,7 @@ export function DJPublicProfileClient({ username }: Props) {
                       </div>
 
                       <div className="md:col-span-7">
-                        <h4 className="text-2xl font-bold tracking-tight group-hover:text-blue-400 transition">
+                        <h4 className="text-2xl font-bold tracking-tight group-hover:text-accent transition">
                           {irlShow.venue || irlShow.url?.replace(/^https?:\/\//, "").split("/")[0] || "Event"}
                         </h4>
                         <p className="text-[10px] uppercase tracking-widest text-zinc-500">
@@ -1226,7 +1220,7 @@ export function DJPublicProfileClient({ username }: Props) {
                         </div>
 
                         <div className="md:col-span-7">
-                          <Link href={`/archives/${archive.slug}`} className="hover:text-blue-400 transition">
+                          <Link href={`/archives/${archive.slug}`} className="hover:text-accent transition">
                             <h4 className="text-2xl font-bold tracking-tight">
                               {archive.showName}
                             </h4>
@@ -1340,9 +1334,11 @@ export function DJPublicProfileClient({ username }: Props) {
         <footer className="border-t border-white/10 pt-10 flex flex-col items-center">
           {/* Support The Artist Button (Tip) */}
           {profile.email && (
-            <div className="group relative mb-10 flex items-center gap-4 bg-red-600 hover:bg-white text-white hover:text-black px-16 py-6 transition-all duration-300 cursor-pointer">
-              <HeartIcon size={24} />
-              <span className="text-sm font-black uppercase tracking-[0.3em]">Support The Artist</span>
+            <div className="group relative mb-10 flex items-center gap-3 bg-red-600 hover:bg-white text-white hover:text-black px-8 py-4 transition-all duration-300 cursor-pointer whitespace-nowrap">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>
+              </svg>
+              <span className="text-sm font-black uppercase tracking-wider">Support The Artist</span>
               <div className="absolute inset-0 opacity-0">
                 <TipButton
                   djUserId={profile.uid}
