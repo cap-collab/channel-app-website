@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { getAllShows } from '@/lib/metadata';
-import { getStationById } from '@/lib/stations';
+import { getStationByMetadataKey } from '@/lib/stations';
 import { Timestamp } from 'firebase-admin/firestore';
 
 // Verify request is from Vercel Cron
@@ -89,8 +89,8 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      // Get station info
-      const station = getStationById(show.stationId);
+      // Get station info (stationId from shows is the metadata key, e.g., "nts1")
+      const station = getStationByMetadataKey(show.stationId);
 
       // Try to find DJ username from show.dj or show.name
       let djUsername: string | undefined;
@@ -135,6 +135,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error in archive-external-shows cron:', error);
-    return NextResponse.json({ error: 'Failed to archive shows' }, { status: 500 });
+    return NextResponse.json({
+      error: 'Failed to archive shows',
+      details: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
   }
 }
