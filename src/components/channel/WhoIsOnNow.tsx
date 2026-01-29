@@ -462,21 +462,16 @@ function LiveShowCard({
           disabled={isTogglingFollow}
           className={`text-[9px] font-black uppercase py-1.5 transition flex items-center justify-center gap-0.5 ${
             isFollowed
-              ? 'bg-blue-500 text-white hover:bg-blue-600'
-              : 'bg-white text-black hover:bg-blue-500 hover:text-white'
+              ? 'bg-white/10 text-white hover:bg-white/20'
+              : 'bg-white text-gray-900 hover:bg-gray-100'
           }`}
         >
           {isTogglingFollow ? (
-            <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            <div className={`w-3 h-3 border-2 ${isFollowed ? 'border-white' : 'border-gray-900'} border-t-transparent rounded-full animate-spin`} />
           ) : isFollowed ? (
-            <>
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-              </svg>
-              Following
-            </>
+            'Following'
           ) : (
-            'Follow'
+            '+ Follow'
           )}
         </button>
         <a
