@@ -66,22 +66,41 @@ export function TicketCard({
 
   return (
     <div className="w-full group">
-      {/* Genre Tag */}
-      <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter mb-2">
-        #{station.name.replace(/\s+/g, '')}
+      {/* Genre tags (left) and Date/Time (right) above image */}
+      <div className="flex justify-between items-center mb-1 h-4">
+        {show.djGenres && show.djGenres.length > 0 ? (
+          <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter truncate">
+            {show.djGenres.slice(0, 2).join(' · ')}
+          </div>
+        ) : (
+          <div />
+        )}
+        <div className="text-[10px] font-mono text-zinc-400">
+          {date} {time}
+        </div>
       </div>
 
       {/* Full width image with DJ overlay */}
-      <div className="relative w-full aspect-[16/9] mb-3 overflow-hidden border border-white/10">
+      <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10">
         {hasPhoto ? (
-          <Image
-            src={photoUrl}
-            alt={djName}
-            fill
-            className="object-cover"
-            unoptimized
-            onError={() => setImageError(true)}
-          />
+          <>
+            <Image
+              src={photoUrl}
+              alt={djName}
+              fill
+              className="object-cover"
+              unoptimized
+              onError={() => setImageError(true)}
+            />
+            {/* Gradient scrim - top left corner */}
+            <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
+            {/* DJ Name Overlay on top-left */}
+            <div className="absolute top-2 left-2 right-2">
+              <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+                {djName}
+              </span>
+            </div>
+          </>
         ) : (
           <div
             className="w-full h-full flex items-center justify-center"
@@ -92,25 +111,11 @@ export function TicketCard({
             </h2>
           </div>
         )}
-        {/* Gradient scrim */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-        {/* DJ Name Overlay */}
-        <div className="absolute bottom-2 left-2">
-          <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg">
-            {djName}
-          </span>
-        </div>
-        {/* Scheduled time badge */}
-        <div className="absolute top-2 right-2 bg-black/70 px-2 py-1 rounded">
-          <span className="text-[10px] font-mono text-white uppercase">
-            {date} {time}
-          </span>
-        </div>
       </div>
 
       {/* Show Info */}
-      <div className="mb-3">
-        <h3 className="text-sm sm:text-base font-bold leading-tight line-clamp-2 group-hover:text-blue-400 transition">
+      <div className="h-14 flex flex-col justify-start py-2">
+        <h3 className="text-sm font-bold leading-tight truncate">
           {show.djUsername ? (
             <Link href={`/dj/${show.djUsername}`} className="hover:underline">
               {show.name}
@@ -119,21 +124,13 @@ export function TicketCard({
             show.name
           )}
         </h3>
-        <a
-          href={station.websiteUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[10px] text-zinc-500 flex items-center gap-1 mt-1 uppercase hover:text-zinc-300 transition"
-        >
+        <p className="text-[10px] text-zinc-500 mt-0.5 uppercase">
           on {station.name}
-          <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-          </svg>
-        </a>
+        </p>
       </div>
 
       {/* Action Buttons */}
-      <div className="space-y-2">
+      <div className="space-y-2 mt-auto">
         <div className="flex gap-2">
           {/* Follow/Unfollow Button */}
           <button
