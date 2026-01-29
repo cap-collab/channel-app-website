@@ -208,7 +208,7 @@ export function DJPublicProfileClient({ username }: Props) {
 
   // Live status
   const [liveOnChannel, setLiveOnChannel] = useState(false);
-  const [liveElsewhere, setLiveElsewhere] = useState<{ stationName: string; stationUrl: string } | null>(null);
+  const [liveElsewhere, setLiveElsewhere] = useState<{ stationName: string; stationUrl: string; stationAccentColor?: string } | null>(null);
   const [allShows, setAllShows] = useState<Show[]>([]);
 
   // Upcoming broadcasts
@@ -397,6 +397,7 @@ export function DJPublicProfileClient({ username }: Props) {
       setLiveElsewhere({
         stationName: station?.name || externalShow.stationId,
         stationUrl: station?.websiteUrl || "#",
+        stationAccentColor: station?.accentColor,
       });
       setLiveOnChannel(false);
       setCurrentLiveShow(externalShow);
@@ -747,37 +748,51 @@ export function DJPublicProfileClient({ username }: Props) {
   };
 
   // Create unified Activity Feed
-  const activityFeed = useMemo((): ActivityFeedItem[] => {
-    const feed: ActivityFeedItem[] = [];
+  const { liveShows, upcomingShows, pastActivities } = useMemo(() => {
+    const live: ActivityFeedItem[] = [];
+    const upcoming: ActivityFeedItem[] = [];
+    const past: ActivityFeedItem[] = [];
     const now = Date.now();
 
-    // Add upcoming radio shows
+    // Add radio shows - separate live vs upcoming
     upcomingBroadcasts.forEach((show) => {
       const isLive = show.startTime <= now && show.endTime > now;
-      feed.push({
+      const item: ActivityFeedItem = {
         ...show,
         feedType: "radio",
         feedStatus: isLive ? "live" : "upcoming",
-      });
+      };
+      if (isLive) {
+        live.push(item);
+      } else {
+        upcoming.push(item);
+      }
     });
 
-    // Add IRL shows
+    // Add IRL shows - check if past or upcoming based on date
     if (djProfile?.djProfile.irlShows) {
       djProfile.djProfile.irlShows
         .filter((show) => show.url || show.venue || show.date)
         .forEach((show, i) => {
-          feed.push({
+          const irlDate = show.date ? new Date(show.date) : null;
+          const isPastIrl = irlDate && irlDate.getTime() < now;
+          const item: ActivityFeedItem = {
             ...show,
             feedType: "irl",
-            feedStatus: "upcoming",
+            feedStatus: isPastIrl ? "past" : "upcoming",
             id: `irl-${i}`,
-          });
+          };
+          if (isPastIrl) {
+            past.push(item);
+          } else {
+            upcoming.push(item);
+          }
         });
     }
 
     // Add past recordings
     pastRecordings.forEach((archive) => {
-      feed.push({
+      past.push({
         ...archive,
         feedType: "recording",
         feedStatus: "past",
@@ -786,30 +801,32 @@ export function DJPublicProfileClient({ username }: Props) {
 
     // Add past shows without recordings
     pastShows.forEach((show) => {
-      feed.push({
+      past.push({
         ...show,
         feedType: "show",
         feedStatus: "past",
       });
     });
 
-    // Sort: upcoming/live first (by start time asc), then past (by date desc)
-    return feed.sort((a, b) => {
-      if (a.feedStatus !== "past" && b.feedStatus === "past") return -1;
-      if (a.feedStatus === "past" && b.feedStatus !== "past") return 1;
+    // Sort live and upcoming by start time ascending
+    const sortUpcoming = (a: ActivityFeedItem, b: ActivityFeedItem) => {
+      const aTime = "startTime" in a ? a.startTime : ("date" in a && a.date ? new Date(a.date).getTime() : 0);
+      const bTime = "startTime" in b ? b.startTime : ("date" in b && b.date ? new Date(b.date).getTime() : 0);
+      return aTime - bTime;
+    };
 
-      // Both upcoming/live - sort by start time ascending
-      if (a.feedStatus !== "past" && b.feedStatus !== "past") {
-        const aTime = "startTime" in a ? a.startTime : 0;
-        const bTime = "startTime" in b ? b.startTime : 0;
-        return aTime - bTime;
-      }
-
-      // Both past - sort by date descending
-      const aTime = "recordedAt" in a ? a.recordedAt : ("startTime" in a ? a.startTime : 0);
-      const bTime = "recordedAt" in b ? b.recordedAt : ("startTime" in b ? b.startTime : 0);
+    // Sort past by date descending
+    const sortPast = (a: ActivityFeedItem, b: ActivityFeedItem) => {
+      const aTime = "recordedAt" in a ? a.recordedAt : ("startTime" in a ? a.startTime : ("date" in a && a.date ? new Date(a.date).getTime() : 0));
+      const bTime = "recordedAt" in b ? b.recordedAt : ("startTime" in b ? b.startTime : ("date" in b && b.date ? new Date(b.date).getTime() : 0));
       return bTime - aTime;
-    });
+    };
+
+    live.sort(sortUpcoming);
+    upcoming.sort(sortUpcoming);
+    past.sort(sortPast);
+
+    return { liveShows: live, upcomingShows: upcoming, pastActivities: past };
   }, [upcomingBroadcasts, pastRecordings, pastShows, djProfile]);
 
   // Create Artist Selects (recommendations)
@@ -967,7 +984,7 @@ export function DJPublicProfileClient({ username }: Props) {
         {currentLiveShow && (
           <section className="mb-6">
             <div className="bg-surface-card rounded-2xl overflow-hidden">
-              {/* Header: LIVE badge */}
+              {/* Header: LIVE badge and radio name */}
               <div className="flex items-center justify-between px-4 py-3 bg-black/40">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
@@ -976,25 +993,27 @@ export function DJPublicProfileClient({ username }: Props) {
                   </span>
                 </div>
                 <span className="text-zinc-400 text-xs">
-                  {new Date(currentLiveShow.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} - {new Date(currentLiveShow.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                  {liveOnChannel ? "Channel" : liveElsewhere ? liveElsewhere.stationName : ""}
                 </span>
               </div>
 
-              {/* Show Info - No picture as specified */}
+              {/* Show Info - No picture, no show name (DJ name is in page header) */}
               <div className="p-4 space-y-4">
                 <div>
-                  <h3 className="text-white text-xl font-bold">{currentLiveShow.name}</h3>
                   <p className="text-sm text-zinc-400">
                     {liveOnChannel ? "on Channel" : liveElsewhere ? `on ${liveElsewhere.stationName}` : ""}
                   </p>
                 </div>
 
-                {/* Progress Bar */}
+                {/* Progress Bar - uses station accent color */}
                 <div className="space-y-1">
                   <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-accent transition-all duration-1000 ease-linear"
-                      style={{ width: `${liveShowProgress}%` }}
+                      className="h-full transition-all duration-1000 ease-linear"
+                      style={{
+                        width: `${liveShowProgress}%`,
+                        backgroundColor: liveElsewhere?.stationAccentColor || 'var(--color-accent)'
+                      }}
                     />
                   </div>
                   <div className="flex justify-between text-[10px] text-zinc-500">
@@ -1051,23 +1070,21 @@ export function DJPublicProfileClient({ username }: Props) {
           </section>
         )}
 
-        {/* SECTION D, E, F, H: UNIFIED ACTIVITY FEED */}
-        {activityFeed.length > 0 && (
+        {/* SECTION: UPCOMING SHOWS */}
+        {upcomingShows.length > 0 && (
           <section className="mb-6">
             <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2">
-              Activity / Timeline
+              Upcoming Shows
             </h2>
 
             <div className="space-y-3">
-              {activityFeed.map((item) => {
-                // Render based on feed type
+              {upcomingShows.map((item) => {
                 if (item.feedType === "radio") {
-                  const broadcast = item as UpcomingShow & { feedType: "radio"; feedStatus: "upcoming" | "live" };
+                  const broadcast = item as UpcomingShow & { feedType: "radio"; feedStatus: "upcoming" };
                   const showAsShow = upcomingShowToShow(broadcast);
                   const isFavorited = isShowFavorited(showAsShow);
                   const isToggling = togglingFavoriteId === broadcast.id;
                   const isExpanded = expandedShowId === broadcast.id;
-                  const isLive = isShowLive(broadcast);
                   const showImage = broadcast.showImageUrl;
 
                   return (
@@ -1076,7 +1093,6 @@ export function DJPublicProfileClient({ username }: Props) {
                       className="bg-surface-card rounded-xl p-4"
                     >
                       <div className="flex items-start gap-4">
-                        {/* Square image on left (only for Channel broadcasts with actual images) */}
                         {showImage && !broadcast.isExternal && (
                           <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
                             <Image
@@ -1090,44 +1106,28 @@ export function DJPublicProfileClient({ username }: Props) {
                           </div>
                         )}
 
-                        {/* Content */}
                         <div className="flex-1 min-w-0">
-                          {/* Action buttons - floated right */}
                           <div className="float-right flex items-center gap-2 ml-3">
-                            {isLive ? (
-                              <Link
-                                href="/channel"
-                                className="px-3 h-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-accent hover:bg-accent/80 text-white font-medium"
-                              >
-                                <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                                <span className="hidden sm:inline">Listen Now</span>
-                              </Link>
-                            ) : (
-                              <button
-                                onClick={(e) => handleToggleFavorite(broadcast, e)}
-                                disabled={isToggling}
-                                className="px-3 h-8 rounded-full flex items-center justify-center transition-all text-xs bg-accent/10 hover:bg-accent/20 text-accent"
-                                title={isFavorited ? "Remove reminder" : "Remind me"}
-                              >
-                                {isToggling ? (
-                                  <div className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                                ) : (
-                                  <span className="font-medium">{isFavorited ? "Reminded" : "Remind Me"}</span>
-                                )}
-                              </button>
-                            )}
+                            <button
+                              onClick={(e) => handleToggleFavorite(broadcast, e)}
+                              disabled={isToggling}
+                              className="px-3 h-8 rounded-full flex items-center justify-center transition-all text-xs bg-accent/10 hover:bg-accent/20 text-accent"
+                              title={isFavorited ? "Remove reminder" : "Remind me"}
+                            >
+                              {isToggling ? (
+                                <div className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <span className="font-medium">{isFavorited ? "Reminded" : "Remind Me"}</span>
+                              )}
+                            </button>
                           </div>
 
-                          {/* Title and info */}
                           <h3 className="text-white font-semibold">{broadcast.showName}</h3>
-                          <p className="text-gray-400 text-sm">
-                            {isLive ? "Live Radio Show" : "Upcoming Radio Show"}
-                          </p>
+                          <p className="text-gray-400 text-sm">Upcoming Radio Show</p>
                           <p className="text-gray-500 text-xs">{formatFeedDate(broadcast.startTime)}</p>
                         </div>
                       </div>
 
-                      {/* Expanded Modal */}
                       {isExpanded && (
                         <>
                           <div
@@ -1169,12 +1169,6 @@ export function DJPublicProfileClient({ username }: Props) {
                               <span>
                                 {new Date(broadcast.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} - {new Date(broadcast.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                               </span>
-                              {isLive && (
-                                <>
-                                  <span>•</span>
-                                  <span className="text-accent font-bold">LIVE</span>
-                                </>
-                              )}
                             </div>
 
                             {broadcast.description && (
@@ -1203,15 +1197,11 @@ export function DJPublicProfileClient({ username }: Props) {
 
                 if (item.feedType === "irl") {
                   const irlShow = item as IrlShow & { feedType: "irl"; feedStatus: "upcoming"; id: string };
-                  // Determine if past or upcoming based on date
-                  const irlDate = irlShow.date ? new Date(irlShow.date) : null;
-                  const isPastIrl = irlDate && irlDate.getTime() < Date.now();
                   return (
                     <div key={irlShow.id} className="bg-surface-card rounded-xl p-4">
                       <div className="flex items-start gap-4">
                         <div className="flex-1 min-w-0">
-                          {/* Action button - only Tickets for upcoming */}
-                          {!isPastIrl && irlShow.url && (
+                          {irlShow.url && (
                             <div className="float-right ml-3">
                               <a
                                 href={irlShow.url}
@@ -1228,8 +1218,40 @@ export function DJPublicProfileClient({ username }: Props) {
                           <h3 className="text-white font-semibold">
                             {irlShow.venue || irlShow.url?.replace(/^https?:\/\//, "").split("/")[0] || "Event"}
                           </h3>
-                          <p className="text-gray-400 text-sm">{isPastIrl ? "Past IRL Event" : "Upcoming IRL Event"}</p>
+                          <p className="text-gray-400 text-sm">Upcoming IRL Event</p>
                           <p className="text-gray-500 text-xs">{irlShow.date || "TBA"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return null;
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* SECTION: PAST ACTIVITIES */}
+        {pastActivities.length > 0 && (
+          <section className="mb-6">
+            <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2">
+              Past Activities
+            </h2>
+
+            <div className="space-y-3">
+              {pastActivities.map((item) => {
+                if (item.feedType === "irl") {
+                  const irlShow = item as IrlShow & { feedType: "irl"; feedStatus: "past"; id: string };
+                  return (
+                    <div key={irlShow.id} className="bg-surface-card rounded-xl p-4 opacity-60">
+                      <div className="flex items-start gap-4">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-gray-400 font-semibold">
+                            {irlShow.venue || irlShow.url?.replace(/^https?:\/\//, "").split("/")[0] || "Event"}
+                          </h3>
+                          <p className="text-gray-500 text-sm">Past IRL Event</p>
+                          <p className="text-gray-600 text-xs">{irlShow.date || "TBA"}</p>
                         </div>
                       </div>
                     </div>
@@ -1245,7 +1267,6 @@ export function DJPublicProfileClient({ username }: Props) {
                   return (
                     <div key={archive.id} className="bg-surface-card rounded-xl p-3">
                       <div className="flex items-center gap-3">
-                        {/* Square image on left */}
                         {showImage && (
                           <div className="w-12 h-12 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
                             <Image
@@ -1259,7 +1280,6 @@ export function DJPublicProfileClient({ username }: Props) {
                           </div>
                         )}
 
-                        {/* Play button */}
                         <button
                           onClick={() => handlePlayPause(archive.id)}
                           className="w-10 h-10 rounded-full bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0 text-black"
@@ -1273,14 +1293,12 @@ export function DJPublicProfileClient({ username }: Props) {
                           )}
                         </button>
 
-                        {/* Content and progress */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
                               <h3 className="text-white font-semibold text-sm truncate">{archive.showName}</h3>
                               <p className="text-gray-500 text-xs">{formatFeedDate(archive.recordedAt)} · {formatDuration(archive.duration)}</p>
                             </div>
-                            {/* Action button - Share */}
                             <div className="relative flex-shrink-0">
                               <button
                                 onClick={async (e) => {
@@ -1308,7 +1326,6 @@ export function DJPublicProfileClient({ username }: Props) {
                               )}
                             </div>
                           </div>
-                          {/* Progress bar */}
                           <input
                             type="range"
                             min={0}
@@ -1347,7 +1364,6 @@ export function DJPublicProfileClient({ username }: Props) {
                   return (
                     <div key={pastShow.id} className="bg-surface-card rounded-xl p-4 opacity-60">
                       <div className="flex items-start gap-4">
-                        {/* Square image on left */}
                         {showImage && (
                           <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
                             <Image
@@ -1362,7 +1378,6 @@ export function DJPublicProfileClient({ username }: Props) {
                         )}
 
                         <div className="flex-1 min-w-0">
-                          {/* Action button - Save star */}
                           <div className="float-right ml-3">
                             <button
                               onClick={async (e) => {
