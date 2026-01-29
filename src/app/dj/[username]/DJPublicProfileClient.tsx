@@ -98,15 +98,16 @@ function formatDuration(seconds: number): string {
 const TruncatedBio = ({ bio }: { bio: string }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [needsTruncation, setNeedsTruncation] = useState(false);
-  const textRef = useRef<HTMLParagraphElement>(null);
+  const measureRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     const checkTruncation = () => {
-      if (textRef.current) {
-        // Check if content overflows the 2.5 line height (line-height ~1.75 * font-size 1.25rem * 2.5 lines)
-        const lineHeight = parseFloat(getComputedStyle(textRef.current).lineHeight);
+      if (measureRef.current) {
+        const lineHeight = parseFloat(getComputedStyle(measureRef.current).lineHeight);
         const maxHeight = lineHeight * 2.5;
-        setNeedsTruncation(textRef.current.scrollHeight > maxHeight + 1);
+        // Only check on mobile (< 768px)
+        const isMobile = window.innerWidth < 768;
+        setNeedsTruncation(isMobile && measureRef.current.scrollHeight > maxHeight + 1);
       }
     };
 
@@ -115,35 +116,76 @@ const TruncatedBio = ({ bio }: { bio: string }) => {
     return () => window.removeEventListener('resize', checkTruncation);
   }, [bio]);
 
+  // On mobile when truncated: show truncated text with inline "see more"
+  // On desktop or when expanded: show full text
+  if (needsTruncation && !isExpanded) {
+    return (
+      <div className="mb-4">
+        {/* Hidden element to measure full height */}
+        <p
+          ref={measureRef}
+          className="text-xl leading-relaxed text-zinc-300 font-light absolute opacity-0 pointer-events-none"
+          style={{ width: '100%' }}
+          aria-hidden="true"
+        >
+          {bio}
+        </p>
+        {/* Visible truncated text with inline button */}
+        <p
+          className="text-xl leading-relaxed text-zinc-300 font-light"
+          style={{
+            display: '-webkit-box',
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
+        >
+          {bio}
+          <span className="inline">
+            {' '}
+            <button
+              onClick={() => setIsExpanded(true)}
+              className="inline-flex items-center gap-0.5 text-zinc-400 hover:text-white text-base transition-colors"
+            >
+              <span>see more</span>
+              <svg
+                width={14}
+                height={14}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                className="inline-block"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </span>
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="mb-4">
+    <div className="mb-4 relative">
       <p
-        ref={textRef}
-        className={`text-xl leading-relaxed text-zinc-300 font-light ${
-          !isExpanded ? 'md:line-clamp-none line-clamp-[2.5]' : ''
-        }`}
-        style={!isExpanded ? {
-          display: '-webkit-box',
-          WebkitLineClamp: 2.5,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden'
-        } : undefined}
+        ref={measureRef}
+        className="text-xl leading-relaxed text-zinc-300 font-light"
       >
         {bio}
       </p>
-      {needsTruncation && (
+      {isExpanded && (
         <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="md:hidden flex items-center gap-1 text-zinc-400 hover:text-white text-sm mt-1 transition-colors"
+          onClick={() => setIsExpanded(false)}
+          className="md:hidden inline-flex items-center gap-0.5 text-zinc-400 hover:text-white text-base mt-1 transition-colors"
         >
-          <span>{isExpanded ? 'see less' : 'see more'}</span>
+          <span>see less</span>
           <svg
-            width={12}
-            height={12}
+            width={14}
+            height={14}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
-            className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+            className="rotate-180"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
