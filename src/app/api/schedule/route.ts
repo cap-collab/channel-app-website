@@ -40,6 +40,15 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
       if (show.name.includes(' - ')) {
         nameToLookup = show.name.split(' - ')[0].trim();
       }
+      // For NTS shows, also try "HOST w/ GUEST" pattern
+      const wMatch = show.name.match(/^(.+?)\s+w\/\s+/i);
+      if (wMatch) {
+        const host = wMatch[1].trim();
+        // Only use if ≤2 words (valid DJ name)
+        if (host.split(/\s+/).length <= 2) {
+          nameToLookup = host;
+        }
+      }
       if (nameToLookup) {
         const normalized = normalizeForProfileLookup(nameToLookup);
         if (normalized.length >= 2) {
@@ -118,6 +127,15 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
       let nameToLookup = show.dj || show.name;
       if (show.name.includes(' - ')) {
         nameToLookup = show.name.split(' - ')[0].trim();
+      }
+      // For NTS shows, also try "HOST w/ GUEST" pattern
+      const wMatch = show.name.match(/^(.+?)\s+w\/\s+/i);
+      if (wMatch) {
+        const host = wMatch[1].trim();
+        // Only use if ≤2 words (valid DJ name)
+        if (host.split(/\s+/).length <= 2) {
+          nameToLookup = host;
+        }
       }
       if (nameToLookup) {
         const normalized = normalizeForProfileLookup(nameToLookup);

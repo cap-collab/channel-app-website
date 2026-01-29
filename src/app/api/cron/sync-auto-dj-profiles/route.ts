@@ -43,6 +43,19 @@ function countWords(name: string): number {
   return name.trim().split(/\s+/).filter(w => w.length > 0).length;
 }
 
+// Extract host from NTS "HOST w/ GUEST" pattern
+function extractHostFromShowName(showName: string): string | null {
+  const match = showName.match(/^(.+?)\s+w\/\s+/i);
+  if (match) {
+    const host = match[1].trim();
+    // Only return if ≤2 words (valid DJ name, not a show name like "The NTS Breakfast Show")
+    if (countWords(host) <= 2) {
+      return host;
+    }
+  }
+  return null;
+}
+
 // Extract Instagram username from URL or handle
 function extractInstagramUsername(input: string): string {
   // Remove trailing slashes and query params
@@ -201,11 +214,41 @@ export async function GET(request: NextRequest) {
 
       if (isNTS) {
         // NTS special logic:
-        // 1. Use DJ name if it exists (will validate URL later)
-        // 2. Fall back to show name ONLY if show name is max 2 words (will validate URL later)
+        // 1. Try to extract host from "HOST w/ GUEST" pattern (for shows like "CHICO BLANCO w/ 8kitoo")
+        // 2. Use DJ name if it exists (will validate URL later)
+        // 3. Fall back to show name ONLY if show name is max 2 words (will validate URL later)
+        const hostFromPattern = extractHostFromShowName(showName);
+
+        if (hostFromPattern) {
+          // Add host to djMap for profile creation
+          const hostNormalized = hostFromPattern.toLowerCase().replace(/[^a-z0-9]/g, "");
+          if (hostNormalized.length >= 2 && !djMap.has(hostNormalized)) {
+            djMap.set(hostNormalized, {
+              djName: hostFromPattern,
+              sources: [],
+              stationId: show.stationId,
+            });
+          }
+          const hostEntry = djMap.get(hostNormalized);
+          if (hostEntry) {
+            const alreadyHasSource = hostEntry.sources.some(
+              (s) => s.stationId === show.stationId && s.showName === showName
+            );
+            if (!alreadyHasSource) {
+              hostEntry.sources.push({
+                stationId: show.stationId,
+                showName: showName,
+                lastSeen: new Date(),
+              });
+            }
+          }
+        }
+
+        // Also handle DJ field (guest) with existing logic
         if (djName) {
           nameForProfile = djName;
-        } else if (showName && countWords(showName) <= 2) {
+        } else if (!hostFromPattern && showName && countWords(showName) <= 2) {
+          // Only use show name as fallback if we didn't extract a host
           nameForProfile = showName;
         }
       } else {

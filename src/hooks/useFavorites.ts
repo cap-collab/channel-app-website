@@ -321,6 +321,12 @@ export function useFavorites() {
             const djPart = show.name.split(' - ')[0].trim();
             if (containsMatch(djPart, term)) return true;
           }
+          // Also match NTS format "HOST w/ GUEST" in show name
+          const wMatch = show.name.match(/^(.+?)\s+w\/\s+/i);
+          if (wMatch) {
+            const hostPart = wMatch[1].trim();
+            if (hostPart.split(/\s+/).length <= 2 && containsMatch(hostPart, term)) return true;
+          }
           return false;
         });
         console.log(`[addToWatchlist] Found ${matchingShows.length} shows matching DJ "${term}"`);
@@ -553,6 +559,12 @@ export function useFavorites() {
         if (show.name.includes(' - ')) {
           const djPart = show.name.split(' - ')[0].trim();
           if (containsMatch(djPart, djName)) return true;
+        }
+        // Also match NTS format "HOST w/ GUEST" in show name
+        const wMatch = show.name.match(/^(.+?)\s+w\/\s+/i);
+        if (wMatch) {
+          const hostPart = wMatch[1].trim();
+          if (hostPart.split(/\s+/).length <= 2 && containsMatch(hostPart, djName)) return true;
         }
         return false;
       });
