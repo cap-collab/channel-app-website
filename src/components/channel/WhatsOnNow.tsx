@@ -5,9 +5,8 @@ import Image from 'next/image';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
-import { useBPM } from '@/contexts/BPMContext';
 import { Show, Station } from '@/types';
-import { STATIONS, getMetadataKeyByStationId } from '@/lib/stations';
+import { STATIONS } from '@/lib/stations';
 import { ExpandedShowCard } from './ExpandedShowCard';
 
 interface WhatsOnNowProps {
@@ -18,7 +17,6 @@ export function WhatsOnNow({ onAuthRequired }: WhatsOnNowProps) {
   const { isAuthenticated, user } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
   const { isShowFavorited, toggleFavorite } = useFavorites();
-  const { stationBPM } = useBPM();
   const [allShows, setAllShows] = useState<Show[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -64,17 +62,6 @@ export function WhatsOnNow({ onAuthRequired }: WhatsOnNowProps) {
     return STATIONS.find((s) => s.id === 'broadcast');
   }, []);
 
-  // Check if broadcast has any live show right now
-  const hasBroadcastLive = useMemo(() => {
-    const now = currentTime;
-    return allShows.some((show) => {
-      if (show.stationId !== 'broadcast') return false;
-      const start = new Date(show.startTime);
-      const end = new Date(show.endTime);
-      return start <= now && end > now;
-    });
-  }, [allShows, currentTime]);
-
   // Helper to check if show has a DJ profile (profile-or-nothing filter)
   const hasClaimedProfile = (show: Show): boolean => {
     // Channel broadcasts always show (they have DJ info from the slot)
@@ -83,152 +70,136 @@ export function WhatsOnNow({ onAuthRequired }: WhatsOnNowProps) {
     return !!(show.djUsername || show.djUserId);
   };
 
-  // Get shows for each station: current show + upcoming shows
-  // Apply profile-or-nothing filter for external stations
-  const stationShows = useMemo(() => {
+  // Get all currently live shows across all stations (flattened for horizontal strip)
+  const liveShows = useMemo(() => {
+    const result: { show: Show; station: Station }[] = [];
     const now = currentTime;
-    const result: Map<string, Show[]> = new Map();
 
     for (const station of orderedStations) {
       const shows = allShows
         .filter((show) => show.stationId === station.id)
         .filter((show) => {
+          const start = new Date(show.startTime);
           const end = new Date(show.endTime);
-          return end > now; // Show hasn't ended yet
+          return start <= now && end > now; // Currently live
         })
-        .filter(hasClaimedProfile) // Profile-or-nothing filter
-        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+        .filter(hasClaimedProfile);
 
-      if (shows.length > 0) {
-        result.set(station.id, shows);
+      for (const show of shows) {
+        result.push({ show, station });
       }
     }
 
     return result;
   }, [allShows, currentTime, orderedStations]);
 
-  // Check if a show is currently live
-  const isShowLive = (show: Show): boolean => {
-    const now = currentTime;
-    const start = new Date(show.startTime);
-    const end = new Date(show.endTime);
-    return start <= now && end > now;
-  };
-
   if (loading) {
     return (
-      <div className="bg-surface-card rounded-xl p-4">
-        <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3">What&apos;s On Now</h3>
-        <div className="flex items-center justify-center py-4">
-          <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
+      <section className="mb-12">
+        <div className="flex justify-between items-end mb-6 px-4">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600"></span>
+            </span>
+            <h2 className="text-lg font-black uppercase tracking-widest italic">Live Now</h2>
+          </div>
         </div>
-      </div>
+        <div className="flex items-center justify-center py-8">
+          <div className="w-6 h-6 border-2 border-zinc-700 border-t-white rounded-full animate-spin" />
+        </div>
+      </section>
     );
   }
 
-  // Show empty state only if no stations have content AND broadcast is not available
-  // (broadcast station row is always shown, even when empty)
-  if (stationShows.size === 0 && !broadcastStation) {
+  // Show empty state if no live shows
+  if (liveShows.length === 0 && !broadcastStation) {
     return (
-      <div className="bg-surface-card rounded-xl p-4">
-        <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3">What&apos;s On Now</h3>
-        <p className="text-gray-500 text-sm">No shows currently playing</p>
-      </div>
+      <section className="mb-12">
+        <div className="flex justify-between items-end mb-6 px-4">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600"></span>
+            </span>
+            <h2 className="text-lg font-black uppercase tracking-widest italic">Live Now</h2>
+          </div>
+        </div>
+        <div className="px-4">
+          <p className="text-zinc-500 text-sm">No shows currently live</p>
+        </div>
+      </section>
     );
   }
 
   return (
-    <div className="bg-surface-card rounded-xl p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-gray-500 text-xs uppercase tracking-wide">What&apos;s On Now</h3>
-        <span className="text-gray-600 text-xs">← scroll →</span>
+    <section className="mb-12">
+      {/* Header with pulsing red dot and View All */}
+      <div className="flex justify-between items-end mb-6 px-4">
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600"></span>
+          </span>
+          <h2 className="text-lg font-black uppercase tracking-widest italic">Live Now</h2>
+        </div>
+        <button className="text-xs text-zinc-500 uppercase font-bold hover:text-white transition-colors">
+          View All →
+        </button>
       </div>
 
-      {/* One row per station */}
-      <div className="space-y-2">
-        {orderedStations.map((station) => {
-          const shows = stationShows.get(station.id);
-          const isBroadcast = station.id === 'broadcast';
-
-          // For broadcast station: always show, even when empty
-          // For other stations: skip if no shows
-          if (!isBroadcast && (!shows || shows.length === 0)) return null;
-
-          const accentColor = station.accentColor || '#D94099';
-          const metadataKey = getMetadataKeyByStationId(station.id);
-          const bpm = metadataKey ? stationBPM[metadataKey]?.bpm : null;
-
-          return (
-            <div key={station.id} className="flex items-stretch gap-3 rounded-lg bg-white/5 overflow-hidden">
-              {/* Station accent bar */}
-              <div
-                className="w-1 flex-shrink-0 rounded-l-lg"
-                style={{ backgroundColor: accentColor }}
-              />
-
-              {/* Station name column */}
-              <div className="flex-shrink-0 w-20 py-2 flex flex-col justify-center">
-                <span className="text-white text-xs font-medium line-clamp-2 leading-tight">
-                  {station.name}
-                </span>
-                {bpm && (
-                  <span className="text-gray-500 text-[10px] mt-0.5">{Math.round(bpm)} BPM</span>
-                )}
-              </div>
-
-              {/* Horizontal scrollable shows */}
-              <div className="flex-1 overflow-x-auto py-2 pr-2">
-                <div className="flex gap-2">
-                  {/* Show empty card for broadcast when nothing is live */}
-                  {isBroadcast && !hasBroadcastLive && (
-                    <div className="flex-shrink-0 w-48 p-2 rounded-lg bg-white/5">
-                      <div className="flex items-center gap-1 mb-1">
-                        <span className="text-gray-500 text-[10px]">OFFLINE</span>
-                      </div>
-                      <div className="flex gap-2">
-                        <div className="w-9 h-9 rounded bg-white/5 flex items-center justify-center flex-shrink-0">
-                          <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                          </svg>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-gray-500 text-xs font-medium">Nothing live now</p>
-                          <p className="text-gray-600 text-[10px]">Check back soon</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  {shows?.map((show) => (
-                    <ShowCard
-                      key={show.id}
-                      show={show}
-                      station={station}
-                      isLive={isShowLive(show)}
-                      isExpanded={expandedShowId === show.id}
-                      onToggleExpand={() => setExpandedShowId(expandedShowId === show.id ? null : show.id)}
-                      onCloseExpand={() => setExpandedShowId(null)}
-                      isFavorited={isShowFavorited(show)}
-                      isTogglingFavorite={togglingFavoriteId === show.id}
-                      onToggleFavorite={handleToggleFavorite}
-                      isAuthenticated={isAuthenticated}
-                      userId={user?.uid}
-                      chatUsername={chatUsername}
-                    />
-                  ))}
-                </div>
+      {/* Horizontal scroll strip with snap */}
+      <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 px-4 no-scrollbar">
+        {/* Show empty card for broadcast when nothing is live */}
+        {liveShows.length === 0 && broadcastStation && (
+          <div className="flex-shrink-0 w-[85%] sm:w-80 snap-start">
+            <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter mb-2">
+              #Channel
+            </div>
+            <div className="relative aspect-square mb-4 overflow-hidden border border-white/10 bg-zinc-900 flex items-center justify-center">
+              <div className="text-center">
+                <svg className="w-12 h-12 text-zinc-700 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+                <p className="text-zinc-600 text-sm">Nothing live now</p>
               </div>
             </div>
-          );
-        })}
+            <div className="mb-4">
+              <h3 className="text-xl font-bold leading-tight text-zinc-500">
+                Check back soon
+              </h3>
+              <p className="text-xs text-zinc-600 flex items-center gap-1 mt-1 uppercase">
+                Channel Broadcast
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Live show cards */}
+        {liveShows.map(({ show, station }) => (
+          <LiveShowCard
+            key={show.id}
+            show={show}
+            station={station}
+            isExpanded={expandedShowId === show.id}
+            onToggleExpand={() => setExpandedShowId(expandedShowId === show.id ? null : show.id)}
+            onCloseExpand={() => setExpandedShowId(null)}
+            isFavorited={isShowFavorited(show)}
+            isTogglingFavorite={togglingFavoriteId === show.id}
+            onToggleFavorite={handleToggleFavorite}
+            isAuthenticated={isAuthenticated}
+            userId={user?.uid}
+            chatUsername={chatUsername}
+          />
+        ))}
       </div>
-    </div>
+    </section>
   );
 }
 
-interface ShowCardProps {
+interface LiveShowCardProps {
   show: Show;
   station: Station;
-  isLive: boolean;
   isExpanded: boolean;
   onToggleExpand: () => void;
   onCloseExpand: () => void;
@@ -240,10 +211,9 @@ interface ShowCardProps {
   chatUsername?: string | null;
 }
 
-function ShowCard({
+function LiveShowCard({
   show,
   station,
-  isLive,
   isExpanded,
   onToggleExpand,
   onCloseExpand,
@@ -253,7 +223,7 @@ function ShowCard({
   isAuthenticated,
   userId,
   chatUsername,
-}: ShowCardProps) {
+}: LiveShowCardProps) {
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const canTip = station.id === 'broadcast' && show.dj && (show.djUserId || show.djEmail) && show.broadcastSlotId;
 
@@ -261,67 +231,113 @@ function ShowCard({
     setFailedImages(prev => new Set(prev).add(imageUrl));
   };
 
-  // Format time for upcoming shows
-  const formatTime = (startTime: string): string => {
-    const date = new Date(startTime);
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-  };
+  // Get image URL (show image or DJ photo)
+  const imageUrl = show.imageUrl && !failedImages.has(show.imageUrl)
+    ? show.imageUrl
+    : show.djPhotoUrl && !failedImages.has(show.djPhotoUrl)
+    ? show.djPhotoUrl
+    : null;
 
   return (
     <>
-      <div
-        className={`flex-shrink-0 w-48 p-2 rounded-lg cursor-pointer transition-colors ${
-          isLive
-            ? 'bg-white/10 border border-white/20'
-            : 'bg-white/5 hover:bg-white/10'
-        }`}
-        onClick={onToggleExpand}
-      >
-        {/* Live indicator or time */}
-        <div className="flex items-center gap-1 mb-1">
-          {isLive ? (
-            <span className="text-red-500 text-[10px] font-medium">LIVE</span>
+      <div className="flex-shrink-0 w-[85%] sm:w-80 snap-start group">
+        {/* 1. Genre Tags Above Image */}
+        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter mb-2">
+          #{station.name.replace(/\s+/g, '')}
+        </div>
+
+        {/* 2. Image with DJ Overlay */}
+        <div
+          className="relative aspect-square mb-4 overflow-hidden border border-white/10 cursor-pointer"
+          onClick={onToggleExpand}
+        >
+          {imageUrl ? (
+            <Image
+              src={imageUrl}
+              alt={show.name}
+              fill
+              className="object-cover"
+              unoptimized
+              onError={() => handleImageError(imageUrl)}
+            />
           ) : (
-            <span className="text-gray-500 text-[10px]">{formatTime(show.startTime)}</span>
+            <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
+              <svg className="w-16 h-16 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+              </svg>
+            </div>
+          )}
+          {/* Gradient scrim */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+          {/* DJ Name Overlay */}
+          {show.dj && (
+            <div className="absolute bottom-3 left-3">
+              <span className="text-sm font-black uppercase tracking-widest text-white drop-shadow-lg">
+                {show.dj}
+              </span>
+            </div>
           )}
         </div>
 
-        {/* Show content */}
-        <div className="flex gap-2">
-          {/* Show image (priority) or DJ photo thumbnail (fallback) */}
-          {show.imageUrl && !failedImages.has(show.imageUrl) ? (
-            <Image
-              src={show.imageUrl}
-              alt={show.name}
-              width={36}
-              height={36}
-              className="w-9 h-9 rounded object-cover flex-shrink-0"
-              unoptimized
-              onError={() => handleImageError(show.imageUrl!)}
-            />
-          ) : show.djPhotoUrl && !failedImages.has(show.djPhotoUrl) ? (
-            <Image
-              src={show.djPhotoUrl}
-              alt={show.dj || 'DJ'}
-              width={36}
-              height={36}
-              className="w-9 h-9 rounded-full object-cover flex-shrink-0"
-              unoptimized
-              onError={() => handleImageError(show.djPhotoUrl!)}
-            />
-          ) : null}
+        {/* 3. Show Info */}
+        <div className="mb-4">
+          <h3
+            className="text-xl font-bold leading-tight group-hover:text-blue-400 transition cursor-pointer"
+            onClick={onToggleExpand}
+          >
+            {show.name}
+          </h3>
+          <a
+            href={station.websiteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-zinc-500 flex items-center gap-1 mt-1 uppercase hover:text-zinc-300 transition"
+          >
+            at {station.name}
+            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        </div>
 
-          {/* Show info */}
-          <div className="flex-1 min-w-0">
-            <p className="text-white text-xs font-medium line-clamp-2 leading-tight">{show.name}</p>
-            {show.dj && (
-              <p className="text-gray-500 text-[10px] truncate">{show.dj}</p>
+        {/* 4. CTA Buttons */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFavorite(show);
+            }}
+            disabled={isTogglingFavorite}
+            className={`text-[10px] font-black uppercase py-2 transition flex items-center justify-center gap-1 ${
+              isFavorited
+                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                : 'bg-white text-black hover:bg-blue-500 hover:text-white'
+            }`}
+          >
+            {isTogglingFavorite ? (
+              <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            ) : isFavorited ? (
+              <>
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                </svg>
+                Following
+              </>
+            ) : (
+              'Follow'
             )}
-          </div>
+          </button>
+          <a
+            href={station.websiteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-zinc-800 text-white text-[10px] font-black uppercase py-2 flex items-center justify-center gap-1 hover:bg-zinc-700 transition"
+          >
+            Join
+            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
         </div>
       </div>
 
@@ -330,7 +346,7 @@ function ShowCard({
         <ExpandedShowCard
           show={show}
           station={station}
-          isLive={isLive}
+          isLive={true}
           onClose={onCloseExpand}
           isFavorited={isFavorited}
           isTogglingFavorite={isTogglingFavorite}
@@ -342,7 +358,7 @@ function ShowCard({
           isAuthenticated={isAuthenticated}
           tipperUserId={userId}
           tipperUsername={chatUsername || undefined}
-          timeDisplay={isLive ? 'LIVE NOW' : formatTime(show.startTime)}
+          timeDisplay="LIVE NOW"
         />
       )}
     </>
