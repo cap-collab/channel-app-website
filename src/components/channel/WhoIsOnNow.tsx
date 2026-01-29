@@ -87,7 +87,18 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
         // Sort: broadcast first, then by station order
         if (a.stationId === 'broadcast' && b.stationId !== 'broadcast') return -1;
         if (a.stationId !== 'broadcast' && b.stationId === 'broadcast') return 1;
-        return 0;
+
+        // Then sort by: picture + genre > picture only > no picture
+        const aHasPhoto = !!(a.imageUrl || a.djPhotoUrl);
+        const bHasPhoto = !!(b.imageUrl || b.djPhotoUrl);
+        const aHasGenre = !!(a.djGenres && a.djGenres.length > 0);
+        const bHasGenre = !!(b.djGenres && b.djGenres.length > 0);
+
+        // Calculate priority: photo+genre=3, photo only=2, no photo=1
+        const aPriority = aHasPhoto ? (aHasGenre ? 3 : 2) : 1;
+        const bPriority = bHasPhoto ? (bHasGenre ? 3 : 2) : 1;
+
+        return bPriority - aPriority;
       });
   }, [allShows, currentTime, isBroadcastLive]);
 
@@ -378,7 +389,7 @@ function LiveShowCard({
       <div className="flex justify-between items-center mb-1 h-4">
         {show.djGenres && show.djGenres.length > 0 ? (
           <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter truncate">
-            {show.djGenres.slice(0, 2).map(g => `#${g.replace(/\s+/g, '')}`).join(' ')}
+            {show.djGenres.slice(0, 2).join(' · ')}
           </div>
         ) : (
           <div />
