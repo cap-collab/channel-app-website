@@ -64,12 +64,12 @@ export function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSe
   const imageAlt = archive.showImageUrl ? archive.showName : archive.djs[0]?.name || 'Show';
 
   return (
-    <div className="bg-surface-card rounded-xl p-4">
+    <div className="bg-surface-card rounded-xl p-4 aspect-square flex flex-col">
       {/* Top row: Photo, title column with buttons floated right */}
-      <div className="flex items-start gap-4">
+      <div className="flex items-start gap-4 flex-1">
         {/* Show Image or DJ Photo */}
-        <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
-          {displayImage ? (
+        {displayImage && (
+          <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
             <Image
               src={displayImage}
               alt={imageAlt}
@@ -77,14 +77,8 @@ export function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSe
               height={64}
               className="w-full h-full object-cover"
             />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-              </svg>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Title column - buttons float right, DJ names can wrap below them */}
         <div className="flex-1 min-w-0">
@@ -175,8 +169,8 @@ export function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSe
         </div>
       </div>
 
-      {/* Audio player */}
-      <div className="mt-1.5 flex items-center gap-4">
+      {/* Audio player - pushed to bottom */}
+      <div className="mt-auto pt-3 flex items-center gap-4">
         {/* Play/Pause button */}
         <button
           onClick={onPlayPause}

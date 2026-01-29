@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
 import { Header } from "@/components/Header";
+import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
@@ -27,12 +28,6 @@ const ExternalLinkIcon = ({ size = 24 }: { size?: number }) => (
   </svg>
 );
 
-const PlayIcon = ({ size = 14 }: { size?: number }) => (
-  <svg width={size} height={size} fill="currentColor" viewBox="0 0 24 24">
-    <path d="M8 5v14l11-7z" />
-  </svg>
-);
-
 const PauseIcon = ({ size = 14 }: { size?: number }) => (
   <svg width={size} height={size} fill="currentColor" viewBox="0 0 24 24">
     <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
@@ -42,12 +37,6 @@ const PauseIcon = ({ size = 14 }: { size?: number }) => (
 const CalendarIcon = ({ size = 14 }: { size?: number }) => (
   <svg width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-  </svg>
-);
-
-const RadioIcon = ({ size = 14 }: { size?: number }) => (
-  <svg width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z" />
   </svg>
 );
 
@@ -832,12 +821,13 @@ export function DJPublicProfileClient({ username }: Props) {
   const socialLinks = profile.djProfile.socialLinks;
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen text-white relative">
+      <AnimatedBackground />
       {/* Site-wide Header */}
       <Header position="sticky" />
 
       {/* Contextual Sticky Nav */}
-      <nav className="sticky top-0 z-40 flex justify-end items-center px-6 py-2 bg-black/90 backdrop-blur-md border-b border-white/10">
+      <nav className="sticky top-0 z-40 flex justify-end items-center px-6 py-2 bg-surface-base/90 backdrop-blur-md border-b border-white/10">
         <div className="flex gap-4 items-center">
           <button
             onClick={handleShare}
@@ -1014,7 +1004,7 @@ export function DJPublicProfileClient({ username }: Props) {
               Activity / Timeline
             </h2>
 
-            <div className="space-y-0">
+            <div className="space-y-3">
               {activityFeed.map((item) => {
                 // Render based on feed type
                 if (item.feedType === "radio") {
@@ -1024,58 +1014,77 @@ export function DJPublicProfileClient({ username }: Props) {
                   const isToggling = togglingFavoriteId === broadcast.id;
                   const isExpanded = expandedShowId === broadcast.id;
                   const isLive = isShowLive(broadcast);
+                  const showImage = broadcast.showImageUrl || profile.djProfile.photoUrl;
 
                   return (
                     <div
                       key={broadcast.id}
-                      className="group border-b border-white/5 py-4 flex flex-col md:grid md:grid-cols-12 items-start md:items-center gap-3 cursor-pointer"
-                      onClick={() => setExpandedShowId(isExpanded ? null : broadcast.id)}
+                      className="bg-surface-card rounded-xl p-4"
                     >
-                      <div className="md:col-span-2 text-zinc-500 font-mono text-xs uppercase">
-                        {formatFeedDate(broadcast.startTime)}
-                        {isLive && (
-                          <span className="ml-2 text-accent">LIVE</span>
-                        )}
-                      </div>
-
-                      <div className="md:col-span-7">
-                        <h4 className="text-2xl font-bold tracking-tight group-hover:text-accent transition">
-                          {broadcast.showName}
-                        </h4>
-                        <p className="text-[10px] uppercase tracking-widest text-zinc-500">
-                          Broadcast / {broadcast.stationName}
-                        </p>
-                      </div>
-
-                      <div className="md:col-span-3 md:text-right flex items-center gap-2 md:justify-end">
-                        <button
-                          onClick={(e) => handleToggleFavorite(broadcast, e)}
-                          disabled={isToggling}
-                          className="p-2 hover:bg-white/10 transition-colors"
-                          title={isFavorited ? "Remove from favorites" : "Add to favorites"}
-                        >
-                          {isToggling ? (
-                            <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <svg
-                              className="w-4 h-4"
-                              fill={isFavorited ? "currentColor" : "none"}
-                              stroke="currentColor"
-                              strokeWidth={2}
-                              viewBox="0 0 24 24"
-                              style={{ color: "#ef4444" }}
+                      <div className="flex items-start gap-4">
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          {/* Action buttons - floated right */}
+                          <div className="float-right flex items-center gap-2 ml-3">
+                            {isLive ? (
+                              <Link
+                                href="/channel"
+                                className="px-3 h-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-accent hover:bg-accent/80 text-white font-medium"
+                              >
+                                <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                                <span className="hidden sm:inline">Listen Now</span>
+                              </Link>
+                            ) : (
+                              <button
+                                onClick={(e) => handleToggleFavorite(broadcast, e)}
+                                disabled={isToggling}
+                                className="px-3 h-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
+                                title={isFavorited ? "Remove from favorites" : "Add to favorites"}
+                              >
+                                {isToggling ? (
+                                  <div className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <svg className="w-3.5 h-3.5" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" style={{ color: isFavorited ? "#ef4444" : "currentColor" }}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                  </svg>
+                                )}
+                                <span className="font-medium hidden sm:inline">{isFavorited ? "Saved" : "Save"}</span>
+                              </button>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(`${window.location.origin}/dj/${username}`);
+                              }}
+                              className="sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
                             >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                              />
-                            </svg>
-                          )}
-                        </button>
-                        <button className="text-[10px] font-black uppercase tracking-widest border border-white/20 px-4 py-2 hover:bg-white hover:text-black transition flex items-center gap-2">
-                          <RadioIcon size={14} /> Details
-                        </button>
+                              <ShareIcon size={14} />
+                              <span className="font-medium hidden sm:inline">Share</span>
+                            </button>
+                          </div>
+
+                          {/* Title and info */}
+                          <h3 className="text-white font-semibold">{broadcast.showName}</h3>
+                          <p className="text-gray-400 text-sm">
+                            {isLive && <span className="text-accent font-bold mr-2">LIVE</span>}
+                            Broadcast / {broadcast.stationName}
+                          </p>
+                          <p className="text-gray-500 text-xs">{formatFeedDate(broadcast.startTime)}</p>
+                        </div>
+
+                        {/* Square image on right (only if available) */}
+                        {showImage && (
+                          <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
+                            <Image
+                              src={showImage}
+                              alt={broadcast.showName}
+                              width={64}
+                              height={64}
+                              className="w-full h-full object-cover"
+                              unoptimized
+                            />
+                          </div>
+                        )}
                       </div>
 
                       {/* Expanded Modal */}
@@ -1089,7 +1098,7 @@ export function DJPublicProfileClient({ username }: Props) {
                             }}
                           />
                           <div
-                            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-black border border-white/20 p-8 max-w-lg w-[90vw] shadow-2xl"
+                            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-surface-card border border-white/20 p-8 max-w-lg w-[90vw] shadow-2xl rounded-xl"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <button
@@ -1105,7 +1114,7 @@ export function DJPublicProfileClient({ username }: Props) {
                                 alt={broadcast.showName}
                                 width={400}
                                 height={200}
-                                className="w-full h-48 object-cover mb-6"
+                                className="w-full h-48 object-cover mb-6 rounded-lg"
                                 unoptimized
                               />
                             )}
@@ -1128,24 +1137,6 @@ export function DJPublicProfileClient({ username }: Props) {
                               )}
                             </div>
 
-                            {(profile.djProfile.photoUrl || profile.djProfile.bio) && (
-                              <div className="flex items-start gap-4 mb-6 border-t border-white/10 pt-6">
-                                {profile.djProfile.photoUrl && (
-                                  <Image
-                                    src={profile.djProfile.photoUrl}
-                                    alt={profile.chatUsername}
-                                    width={48}
-                                    height={48}
-                                    className="rounded-full object-cover flex-shrink-0"
-                                    unoptimized
-                                  />
-                                )}
-                                {profile.djProfile.bio && (
-                                  <p className="text-zinc-400 text-sm leading-relaxed">{profile.djProfile.bio}</p>
-                                )}
-                              </div>
-                            )}
-
                             {broadcast.description && (
                               <p className="text-zinc-400 text-sm leading-relaxed mb-6">{broadcast.description}</p>
                             )}
@@ -1154,26 +1145,9 @@ export function DJPublicProfileClient({ username }: Props) {
                               <button
                                 onClick={(e) => handleToggleFavorite(broadcast, e)}
                                 disabled={isToggling}
-                                className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest border border-white/20 px-4 py-2 hover:bg-white hover:text-black transition"
+                                className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest border border-white/20 px-4 py-2 hover:bg-white hover:text-black transition rounded-full"
                                 style={{ color: isFavorited ? "#ef4444" : "white" }}
                               >
-                                {isToggling ? (
-                                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                ) : (
-                                  <svg
-                                    className="w-4 h-4"
-                                    fill={isFavorited ? "currentColor" : "none"}
-                                    stroke="currentColor"
-                                    strokeWidth={2}
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                                    />
-                                  </svg>
-                                )}
                                 {isFavorited ? "Favorited" : "Favorite"}
                               </button>
                             </div>
@@ -1187,34 +1161,43 @@ export function DJPublicProfileClient({ username }: Props) {
                 if (item.feedType === "irl") {
                   const irlShow = item as IrlShow & { feedType: "irl"; feedStatus: "upcoming"; id: string };
                   return (
-                    <a
-                      key={irlShow.id}
-                      href={irlShow.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group border-b border-white/5 py-4 flex flex-col md:grid md:grid-cols-12 items-start md:items-center gap-3"
-                    >
-                      <div className="md:col-span-2 text-zinc-500 font-mono text-xs uppercase">
-                        {irlShow.date || "TBA"}
-                      </div>
+                    <div key={irlShow.id} className="bg-surface-card rounded-xl p-4">
+                      <div className="flex items-start gap-4">
+                        <div className="flex-1 min-w-0">
+                          {/* Action buttons */}
+                          <div className="float-right flex items-center gap-2 ml-3">
+                            {irlShow.url && (
+                              <a
+                                href={irlShow.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 h-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-accent hover:bg-accent/80 text-white font-medium"
+                              >
+                                <CalendarIcon size={14} />
+                                <span className="hidden sm:inline">Tickets</span>
+                              </a>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (irlShow.url) navigator.clipboard.writeText(irlShow.url);
+                              }}
+                              className="sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
+                            >
+                              <ShareIcon size={14} />
+                              <span className="font-medium hidden sm:inline">Share</span>
+                            </button>
+                          </div>
 
-                      <div className="md:col-span-7">
-                        <h4 className="text-2xl font-bold tracking-tight group-hover:text-accent transition">
-                          {irlShow.venue || irlShow.url?.replace(/^https?:\/\//, "").split("/")[0] || "Event"}
-                        </h4>
-                        <p className="text-[10px] uppercase tracking-widest text-zinc-500">
-                          Event / IRL
-                        </p>
+                          <h3 className="text-white font-semibold">
+                            {irlShow.venue || irlShow.url?.replace(/^https?:\/\//, "").split("/")[0] || "Event"}
+                          </h3>
+                          <p className="text-gray-400 text-sm">Event / IRL</p>
+                          <p className="text-gray-500 text-xs">{irlShow.date || "TBA"}</p>
+                        </div>
+                        {/* No image for IRL events typically */}
                       </div>
-
-                      <div className="md:col-span-3 md:text-right">
-                        {irlShow.url && (
-                          <span className="text-[10px] font-black uppercase tracking-widest border border-white/20 px-4 py-2 hover:bg-white hover:text-black transition flex items-center gap-2 md:ml-auto md:w-fit">
-                            <CalendarIcon size={14} /> Tickets
-                          </span>
-                        )}
-                      </div>
-                    </a>
+                    </div>
                   );
                 }
 
@@ -1222,55 +1205,83 @@ export function DJPublicProfileClient({ username }: Props) {
                   const archive = item as Archive & { feedType: "recording"; feedStatus: "past" };
                   const isPlaying = playingId === archive.id;
                   const currentTime = currentTimes[archive.id] || 0;
+                  const showImage = archive.showImageUrl || archive.djs?.[0]?.photoUrl || profile.djProfile.photoUrl;
 
                   return (
-                    <div
-                      key={archive.id}
-                      className="group border-b border-white/5 py-4"
-                    >
-                      <div className="flex flex-col md:grid md:grid-cols-12 items-start md:items-center gap-4">
-                        <div className="md:col-span-2 text-zinc-500 font-mono text-xs uppercase">
-                          {formatFeedDate(archive.recordedAt)}
+                    <div key={archive.id} className="bg-surface-card rounded-xl p-4">
+                      <div className="flex items-start gap-4">
+                        <div className="flex-1 min-w-0">
+                          {/* Action buttons */}
+                          <div className="float-right flex items-center gap-2 ml-3">
+                            <Link
+                              href={`/archives/${archive.slug}`}
+                              className="sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
+                            >
+                              <ExternalLinkIcon size={14} />
+                              <span className="font-medium hidden sm:inline">Archive</span>
+                            </Link>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(`${window.location.origin}/archives/${archive.slug}`);
+                              }}
+                              className="sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
+                            >
+                              <ShareIcon size={14} />
+                              <span className="font-medium hidden sm:inline">Share</span>
+                            </button>
+                          </div>
+
+                          <h3 className="text-white font-semibold">{archive.showName}</h3>
+                          <p className="text-gray-400 text-sm">Recording / {formatDuration(archive.duration)}</p>
+                          <p className="text-gray-500 text-xs">{formatFeedDate(archive.recordedAt)}</p>
                         </div>
 
-                        <div className="md:col-span-7">
-                          <Link href={`/archives/${archive.slug}`} className="hover:text-accent transition">
-                            <h4 className="text-2xl font-bold tracking-tight">
-                              {archive.showName}
-                            </h4>
-                          </Link>
-                          <p className="text-[10px] uppercase tracking-widest text-zinc-500">
-                            Recording / {formatDuration(archive.duration)}
-                          </p>
-                        </div>
-
-                        <div className="md:col-span-3 md:text-right">
-                          <button
-                            onClick={() => handlePlayPause(archive.id)}
-                            className="text-[10px] font-black uppercase tracking-widest border border-white/20 px-4 py-2 hover:bg-white hover:text-black transition flex items-center gap-2 md:ml-auto"
-                          >
-                            {isPlaying ? <PauseIcon size={14} /> : <PlayIcon size={14} />}
-                            {isPlaying ? "Pause" : "Listen"}
-                          </button>
-                        </div>
+                        {/* Square image on right */}
+                        {showImage && (
+                          <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
+                            <Image
+                              src={showImage}
+                              alt={archive.showName}
+                              width={64}
+                              height={64}
+                              className="w-full h-full object-cover"
+                              unoptimized
+                            />
+                          </div>
+                        )}
                       </div>
 
-                      {/* Inline Audio Player (shows when playing) */}
-                      {isPlaying && (
-                        <div className="mt-4 flex items-center gap-4 pl-0 md:pl-[16.666%]">
+                      {/* Audio player */}
+                      <div className="mt-3 flex items-center gap-4">
+                        <button
+                          onClick={() => handlePlayPause(archive.id)}
+                          className="w-12 h-12 rounded-full bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0"
+                        >
+                          {isPlaying ? (
+                            <PauseIcon size={20} />
+                          ) : (
+                            <svg className="w-5 h-5 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 5v14l11-7z" />
+                            </svg>
+                          )}
+                        </button>
+
+                        <div className="flex-1">
                           <input
                             type="range"
                             min={0}
                             max={archive.duration || 100}
                             value={currentTime}
                             onChange={(e) => handleSeek(archive.id, parseFloat(e.target.value))}
-                            className="flex-1 h-1 bg-zinc-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+                            className="w-full h-1 bg-gray-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
                           />
-                          <span className="text-xs text-zinc-500 font-mono">
-                            {formatDuration(Math.floor(currentTime))} / {formatDuration(archive.duration)}
-                          </span>
+                          <div className="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>{formatDuration(Math.floor(currentTime))}</span>
+                            <span>{formatDuration(archive.duration)}</span>
+                          </div>
                         </div>
-                      )}
+                      </div>
 
                       <audio
                         ref={(el) => { audioRefs.current[archive.id] = el; }}
@@ -1285,28 +1296,33 @@ export function DJPublicProfileClient({ username }: Props) {
 
                 if (item.feedType === "show") {
                   const pastShow = item as PastShow & { feedType: "show"; feedStatus: "past" };
+                  const showImage = pastShow.showImageUrl || profile.djProfile.photoUrl;
+
                   return (
-                    <div
-                      key={pastShow.id}
-                      className="group border-b border-white/5 py-4 flex flex-col md:grid md:grid-cols-12 items-start md:items-center gap-3"
-                    >
-                      <div className="md:col-span-2 text-zinc-500 font-mono text-xs uppercase">
-                        {formatFeedDate(pastShow.startTime)}
-                      </div>
+                    <div key={pastShow.id} className="bg-surface-card rounded-xl p-4 opacity-60">
+                      <div className="flex items-start gap-4">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-gray-400 font-semibold">{pastShow.showName}</h3>
+                          <p className="text-gray-500 text-sm">Past Show / {Math.round((pastShow.endTime - pastShow.startTime) / 60000)} min</p>
+                          <p className="text-gray-600 text-xs">{formatFeedDate(pastShow.startTime)}</p>
+                          <span className="inline-block mt-2 text-[10px] uppercase tracking-widest text-gray-600 bg-gray-800 px-2 py-1 rounded">
+                            No Recording
+                          </span>
+                        </div>
 
-                      <div className="md:col-span-7">
-                        <h4 className="text-2xl font-bold tracking-tight text-zinc-400">
-                          {pastShow.showName}
-                        </h4>
-                        <p className="text-[10px] uppercase tracking-widest text-zinc-600">
-                          Past Show / {Math.round((pastShow.endTime - pastShow.startTime) / 60000)} min
-                        </p>
-                      </div>
-
-                      <div className="md:col-span-3 md:text-right">
-                        <span className="text-[10px] uppercase tracking-widest text-zinc-600">
-                          No Recording
-                        </span>
+                        {/* Square image on right */}
+                        {showImage && (
+                          <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
+                            <Image
+                              src={showImage}
+                              alt={pastShow.showName}
+                              width={64}
+                              height={64}
+                              className="w-full h-full object-cover grayscale"
+                              unoptimized
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
