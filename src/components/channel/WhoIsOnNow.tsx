@@ -4,8 +4,9 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useFavorites } from '@/hooks/useFavorites';
+import { useBPM } from '@/contexts/BPMContext';
 import { Show, Station } from '@/types';
-import { STATIONS } from '@/lib/stations';
+import { STATIONS, getMetadataKeyByStationId } from '@/lib/stations';
 import { getContrastTextColor } from '@/lib/colorUtils';
 
 interface WhoIsOnNowProps {
@@ -23,6 +24,7 @@ interface WhoIsOnNowProps {
 export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLoading, isBroadcastLive, chatSlot }: WhoIsOnNowProps) {
   const { isAuthenticated } = useAuthContext();
   const { isInWatchlist, followDJ } = useFavorites();
+  const { stationBPM } = useBPM();
 
   const [allShows, setAllShows] = useState<Show[]>([]);
   const [loading, setLoading] = useState(true);
@@ -186,6 +188,11 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
             const djNameForWatchlist = show.dj || show.name;
             const isFollowed = djNameForWatchlist ? isInWatchlist(djNameForWatchlist) : false;
 
+            // Get BPM for this station
+            const metadataKey = getMetadataKeyByStationId(station.id);
+            const audioInfo = metadataKey ? stationBPM[metadataKey] : null;
+            const bpm = audioInfo?.bpm || null;
+
             return (
               <LiveShowCard
                 key={show.id}
@@ -194,6 +201,7 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
                 isFollowed={isFollowed}
                 isTogglingFollow={togglingFollowId === show.id}
                 onFollow={() => handleFollow(show)}
+                bpm={bpm}
               />
             );
           })}
@@ -342,6 +350,7 @@ interface LiveShowCardProps {
   isFollowed: boolean;
   isTogglingFollow: boolean;
   onFollow: () => void;
+  bpm: number | null;
 }
 
 function LiveShowCard({
@@ -350,6 +359,7 @@ function LiveShowCard({
   isFollowed,
   isTogglingFollow,
   onFollow,
+  bpm,
 }: LiveShowCardProps) {
   const [imageError, setImageError] = useState(false);
   const photoUrl = show.imageUrl || show.djPhotoUrl;
@@ -359,8 +369,30 @@ function LiveShowCard({
   // For no-photo variant, use station color with contrast text
   const textColor = hasPhoto ? '#ffffff' : getContrastTextColor(station.accentColor);
 
+  // BPM breathing animation duration
+  const bpmDuration = bpm ? `${Math.round(60000 / bpm)}ms` : '500ms';
+
   return (
     <div className="flex-shrink-0 w-44 sm:w-56 snap-start group flex flex-col">
+      {/* Genre tags (left) and BPM (right) above image */}
+      <div className="flex justify-between items-center mb-1 h-4">
+        {show.djGenres && show.djGenres.length > 0 ? (
+          <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter truncate">
+            {show.djGenres.slice(0, 2).map(g => `#${g.replace(/\s+/g, '')}`).join(' ')}
+          </div>
+        ) : (
+          <div />
+        )}
+        {bpm && (
+          <div
+            className="text-[10px] font-mono text-zinc-400 animate-bpm-pulse"
+            style={{ '--bpm-duration': bpmDuration } as React.CSSProperties}
+          >
+            {Math.round(bpm)} BPM
+          </div>
+        )}
+      </div>
+
       {/* Image or Graphic Card */}
       <div className="relative aspect-square overflow-hidden border border-white/10">
         {hasPhoto ? (
@@ -404,7 +436,7 @@ function LiveShowCard({
 
       {/* Show Info - fixed height container */}
       <div className="h-14 flex flex-col justify-start py-2">
-        <h3 className="text-sm font-bold leading-tight line-clamp-2 group-hover:text-blue-400 transition">
+        <h3 className="text-sm font-bold leading-tight truncate group-hover:text-blue-400 transition">
           {show.name}
         </h3>
         <a

@@ -143,19 +143,20 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
   });
 
   // Fetch external DJ profiles from pending-dj-profiles collection
-  const externalProfiles: Record<string, { bio?: string; photoUrl?: string; username?: string; djName?: string }> = {};
+  const externalProfiles: Record<string, { bio?: string; photoUrl?: string; username?: string; djName?: string; genres?: string[] }> = {};
 
   const externalPromises = Array.from(externalDjNames.keys()).map(async (normalized) => {
     try {
       const doc = await adminDb.collection("pending-dj-profiles").doc(normalized).get();
       if (doc.exists) {
         const data = doc.data();
-        const djProfile = data?.djProfile as { bio?: string; photoUrl?: string } | undefined;
+        const djProfile = data?.djProfile as { bio?: string; photoUrl?: string; genres?: string[] } | undefined;
         externalProfiles[normalized] = {
           bio: djProfile?.bio || undefined,
           photoUrl: djProfile?.photoUrl || undefined,
           username: data?.chatUsernameNormalized || data?.chatUsername || undefined,
           djName: data?.djName || undefined,
+          genres: djProfile?.genres || undefined,
         };
       }
     } catch {
@@ -209,6 +210,7 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
             djBio: profile.bio,
             djPhotoUrl: profile.photoUrl,
             djUsername: profile.username,
+            djGenres: profile.genres,
           };
         }
       }

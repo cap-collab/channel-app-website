@@ -31,6 +31,8 @@ export interface Show {
   // Promo info (broadcast shows only)
   promoText?: string;
   promoUrl?: string;
+  // DJ genres from profile
+  djGenres?: string[];
 }
 
 // Metadata response from GitHub
