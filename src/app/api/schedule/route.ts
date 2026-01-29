@@ -191,9 +191,11 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
           dj: profile.djName || show.dj,  // Profile name takes priority
           djBio: profile.bio,
           djPhotoUrl: profile.photoUrl,
+          djUsername: profile.username || show.djUsername,  // Preserve djUsername for profile links
           djGenres: profile.genres,
         };
       }
+      // If no profile found but djUsername exists, keep the show as-is (djUsername preserved via ...show)
     }
 
     // PRIORITY 2: Broadcast shows - use users collection
@@ -237,7 +239,7 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
             dj: djName || show.dj,
             djBio: profile.bio,
             djPhotoUrl: profile.photoUrl,
-            djUsername: profile.username,
+            djUsername: profile.username || show.djUsername,  // Preserve original djUsername if profile doesn't have one
             djGenres: profile.genres,
           };
         }
