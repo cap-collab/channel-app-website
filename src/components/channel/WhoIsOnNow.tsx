@@ -113,14 +113,14 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
   if (loading) {
     return (
       <section className="mb-6">
-        <div className="flex justify-between items-end mb-6">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-3 w-3">
+        <div className="flex justify-between items-end mb-3">
+          <h2 className="text-white text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600"></span>
             </span>
-            <h2 className="text-lg font-black uppercase tracking-widest italic">Live Now</h2>
-          </div>
+            Live Now
+          </h2>
         </div>
         <div className="flex items-center justify-center py-8">
           <div className="w-6 h-6 border-2 border-zinc-700 border-t-white rounded-full animate-spin" />
@@ -137,20 +137,25 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
   const broadcastShow = liveShows.find((s) => s.stationId === 'broadcast');
   const otherLiveShows = liveShows.filter((s) => s.stationId !== 'broadcast');
 
+  // Only show "View All" if there are more shows to see (placeholder for future functionality)
+  const showViewAll = false; // Hidden for now since there's no "view all" page
+
   return (
     <section className="mb-6">
-      {/* Header with pulsing red dot and View All */}
-      <div className="flex justify-between items-end mb-6">
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-3 w-3">
+      {/* Header with pulsing red dot */}
+      <div className="flex justify-between items-end mb-3">
+        <h2 className="text-white text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
+          <span className="relative flex h-2.5 w-2.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600"></span>
           </span>
-          <h2 className="text-lg font-black uppercase tracking-widest italic">Live Now</h2>
-        </div>
-        <button className="text-xs text-zinc-500 uppercase font-bold hover:text-white transition-colors">
-          View All →
-        </button>
+          Live Now
+        </h2>
+        {showViewAll && (
+          <button className="text-xs text-zinc-500 uppercase font-bold hover:text-white transition-colors">
+            View All →
+          </button>
+        )}
       </div>
 
       {/* Broadcast show - full width with chat below */}
@@ -347,16 +352,17 @@ function LiveShowCard({
 }: LiveShowCardProps) {
   const [imageError, setImageError] = useState(false);
   const imageUrl = !imageError ? (show.imageUrl || show.djPhotoUrl) : null;
+  const djName = show.dj || show.name;
 
   return (
-    <div className="flex-shrink-0 w-44 sm:w-56 snap-start group">
+    <div className="flex-shrink-0 w-44 sm:w-56 snap-start group flex flex-col">
       {/* Genre Tags Above Image */}
-      <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter mb-2">
+      <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter mb-1">
         #{station.name.replace(/\s+/g, '')}
       </div>
 
-      {/* Image with DJ Overlay */}
-      <div className="relative aspect-square mb-3 overflow-hidden border border-white/10">
+      {/* Image with DJ Name Overlay */}
+      <div className="relative aspect-square overflow-hidden border border-white/10">
         {imageUrl ? (
           <Image
             src={imageUrl}
@@ -375,36 +381,36 @@ function LiveShowCard({
         )}
         {/* Gradient scrim */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-        {/* DJ Name Overlay */}
-        {show.dj && (
-          <div className="absolute bottom-2 left-2">
-            <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg">
-              {show.dj}
+        {/* DJ Name Overlay on image */}
+        {djName && (
+          <div className="absolute bottom-2 left-2 right-2">
+            <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+              {djName}
             </span>
           </div>
         )}
       </div>
 
-      {/* Show Info */}
-      <div className="mb-3">
-        <h3 className="text-sm sm:text-base font-bold leading-tight line-clamp-2 group-hover:text-blue-400 transition">
+      {/* Show Info - fixed height container */}
+      <div className="h-14 flex flex-col justify-start py-2">
+        <h3 className="text-sm font-bold leading-tight line-clamp-2 group-hover:text-blue-400 transition">
           {show.name}
         </h3>
         <a
           href={station.websiteUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[10px] text-zinc-500 flex items-center gap-1 mt-1 uppercase hover:text-zinc-300 transition"
+          className="text-[10px] text-zinc-500 flex items-center gap-1 mt-0.5 uppercase hover:text-zinc-300 transition"
         >
           at {station.name}
-          <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-2 h-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
           </svg>
         </a>
       </div>
 
       {/* CTA Buttons */}
-      <div className="grid grid-cols-2 gap-1.5">
+      <div className="grid grid-cols-2 gap-1.5 mt-auto">
         <button
           onClick={(e) => {
             e.stopPropagation();
