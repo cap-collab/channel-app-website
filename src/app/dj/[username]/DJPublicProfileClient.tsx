@@ -14,6 +14,78 @@ import { TipButton } from "@/components/channel/TipButton";
 import { Show } from "@/types";
 import { Archive } from "@/types/broadcast";
 import { getStationById } from "@/lib/stations";
+// Icon components (inline SVGs to avoid external dependencies)
+const ShareIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+  </svg>
+);
+
+const HeartIcon = ({ size = 24, filled = false }: { size?: number; filled?: boolean }) => (
+  <svg width={size} height={size} fill={filled ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+  </svg>
+);
+
+const ExternalLinkIcon = ({ size = 24 }: { size?: number }) => (
+  <svg width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+  </svg>
+);
+
+const PlayIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} fill="currentColor" viewBox="0 0 24 24">
+    <path d="M8 5v14l11-7z" />
+  </svg>
+);
+
+const PauseIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} fill="currentColor" viewBox="0 0 24 24">
+    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+  </svg>
+);
+
+const CalendarIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+  </svg>
+);
+
+const RadioIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z" />
+  </svg>
+);
+
+const InstagramIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} fill="currentColor" viewBox="0 0 24 24">
+    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+  </svg>
+);
+
+const GlobeIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+  </svg>
+);
+
+const MailIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+  </svg>
+);
+
+const MusicIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+  </svg>
+);
+
+const CloseIcon = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+  </svg>
+);
 
 // Helper functions for audio player
 function formatDuration(seconds: number): string {
@@ -97,6 +169,13 @@ interface UpcomingShow {
 interface Props {
   username: string;
 }
+
+// Activity feed item type
+type ActivityFeedItem =
+  | (UpcomingShow & { feedType: "radio"; feedStatus: "upcoming" | "live" })
+  | (IrlShow & { feedType: "irl"; feedStatus: "upcoming"; id: string })
+  | (Archive & { feedType: "recording"; feedStatus: "past" })
+  | (PastShow & { feedType: "show"; feedStatus: "past" });
 
 // Contains matching for DJ/show names (bidirectional - either contains the other)
 function containsMatch(text: string, term: string): boolean {
@@ -528,24 +607,31 @@ export function DJPublicProfileClient({ username }: Props) {
     }
   };
 
-  // Format broadcast time
-  const formatBroadcastTime = (startTime: number, endTime: number) => {
-    const start = new Date(startTime);
-    const end = new Date(endTime);
-    const dateStr = start.toLocaleDateString("en-US", {
-      weekday: "short",
+  // Share handler
+  const handleShare = async () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${djProfile?.chatUsername} on Channel`,
+          url,
+        });
+      } catch {
+        // User cancelled or share failed, fallback to clipboard
+        await navigator.clipboard.writeText(url);
+      }
+    } else {
+      await navigator.clipboard.writeText(url);
+    }
+  };
+
+  // Format date for activity feed
+  const formatFeedDate = (timestamp: number | string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
-    });
-    const startStr = start.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-    });
-    const endStr = end.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-    });
-    return `${dateStr}, ${startStr} - ${endStr}`;
+    }).toUpperCase();
   };
 
   // Convert UpcomingShow to Show type for favorites compatibility
@@ -619,10 +705,97 @@ export function DJPublicProfileClient({ username }: Props) {
     setCurrentTimes(prev => ({ ...prev, [archiveId]: 0 }));
   };
 
+  // Create unified Activity Feed
+  const activityFeed = useMemo((): ActivityFeedItem[] => {
+    const feed: ActivityFeedItem[] = [];
+    const now = Date.now();
+
+    // Add upcoming radio shows
+    upcomingBroadcasts.forEach((show) => {
+      const isLive = show.startTime <= now && show.endTime > now;
+      feed.push({
+        ...show,
+        feedType: "radio",
+        feedStatus: isLive ? "live" : "upcoming",
+      });
+    });
+
+    // Add IRL shows
+    if (djProfile?.djProfile.irlShows) {
+      djProfile.djProfile.irlShows
+        .filter((show) => show.url || show.venue || show.date)
+        .forEach((show, i) => {
+          feed.push({
+            ...show,
+            feedType: "irl",
+            feedStatus: "upcoming",
+            id: `irl-${i}`,
+          });
+        });
+    }
+
+    // Add past recordings
+    pastRecordings.forEach((archive) => {
+      feed.push({
+        ...archive,
+        feedType: "recording",
+        feedStatus: "past",
+      });
+    });
+
+    // Add past shows without recordings
+    pastShows.forEach((show) => {
+      feed.push({
+        ...show,
+        feedType: "show",
+        feedStatus: "past",
+      });
+    });
+
+    // Sort: upcoming/live first (by start time asc), then past (by date desc)
+    return feed.sort((a, b) => {
+      if (a.feedStatus !== "past" && b.feedStatus === "past") return -1;
+      if (a.feedStatus === "past" && b.feedStatus !== "past") return 1;
+
+      // Both upcoming/live - sort by start time ascending
+      if (a.feedStatus !== "past" && b.feedStatus !== "past") {
+        const aTime = "startTime" in a ? a.startTime : 0;
+        const bTime = "startTime" in b ? b.startTime : 0;
+        return aTime - bTime;
+      }
+
+      // Both past - sort by date descending
+      const aTime = "recordedAt" in a ? a.recordedAt : ("startTime" in a ? a.startTime : 0);
+      const bTime = "recordedAt" in b ? b.recordedAt : ("startTime" in b ? b.startTime : 0);
+      return bTime - aTime;
+    });
+  }, [upcomingBroadcasts, pastRecordings, pastShows, djProfile]);
+
+  // Create Artist Selects (recommendations)
+  const artistSelects = useMemo(() => {
+    const selects: { label: string; url: string }[] = [];
+
+    if (djProfile?.djProfile.myRecs?.bandcampLinks) {
+      djProfile.djProfile.myRecs.bandcampLinks.forEach((url) => {
+        const label = url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+        selects.push({ label, url });
+      });
+    }
+
+    if (djProfile?.djProfile.myRecs?.eventLinks) {
+      djProfile.djProfile.myRecs.eventLinks.forEach((url) => {
+        const label = url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+        selects.push({ label, url });
+      });
+    }
+
+    return selects;
+  }, [djProfile]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-zinc-700 border-t-white rounded-full animate-spin" />
       </div>
     );
   }
@@ -631,10 +804,10 @@ export function DJPublicProfileClient({ username }: Props) {
     return (
       <div className="min-h-screen bg-black">
         <Header position="sticky" />
-        <main className="max-w-xl mx-auto p-4">
+        <main className="max-w-5xl mx-auto px-6 py-16">
           <div className="text-center py-12">
-            <p className="text-gray-500 mb-4">DJ not found</p>
-            <p className="text-gray-600 text-sm">
+            <p className="text-zinc-500 mb-4">DJ not found</p>
+            <p className="text-zinc-600 text-sm">
               The DJ @{username} doesn&apos;t exist or hasn&apos;t set up their profile yet.
             </p>
           </div>
@@ -647,309 +820,176 @@ export function DJPublicProfileClient({ username }: Props) {
   const socialLinks = profile.djProfile.socialLinks;
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-black text-white font-sans antialiased">
+      {/* Site-wide Header */}
       <Header position="sticky" />
 
-      <main className="px-4 py-4">
-        <div className="space-y-8">
-          {/* A) DJ Identity */}
-          <section className="text-center">
-            {/* Photo */}
-            <div className="relative w-24 h-24 mx-auto mb-4">
+      {/* Contextual Sticky Nav */}
+      <nav className="sticky top-0 z-40 flex justify-between items-center px-6 py-4 bg-black/90 backdrop-blur-md border-b border-white/10">
+        <div className="text-[10px] tracking-[0.3em] uppercase font-bold text-zinc-500">
+          Channel / Artist Profile
+        </div>
+        <div className="flex gap-6 items-center">
+          <button
+            onClick={handleShare}
+            className="flex items-center gap-2 text-[10px] uppercase tracking-widest hover:text-blue-400 transition"
+          >
+            <ShareIcon size={14} /> Share
+          </button>
+          <button
+            onClick={handleSubscribe}
+            disabled={subscribing || favoritesLoading}
+            className={`px-4 py-1.5 text-[10px] uppercase font-black tracking-widest transition disabled:opacity-50 ${
+              isSubscribed
+                ? "bg-zinc-800 text-white hover:bg-zinc-700"
+                : "bg-white text-black hover:bg-blue-500 hover:text-white"
+            }`}
+          >
+            {subscribing ? "..." : isSubscribed ? "Following" : "Follow"}
+          </button>
+        </div>
+      </nav>
+
+      <main className="max-w-5xl mx-auto px-6 py-16">
+        {/* Auto-profile banner */}
+        {isAutoProfile && (
+          <div className="mb-8 bg-zinc-900/50 border border-zinc-800 p-4">
+            <p className="text-zinc-400 text-xs uppercase tracking-widest">
+              Auto-generated profile based on radio schedules
+            </p>
+            {autoSources.length > 0 && (
+              <p className="text-zinc-500 text-xs mt-1">
+                Seen on: {Array.from(new Set(autoSources.map(s => {
+                  const station = getStationById(s.stationId);
+                  return station?.name || s.stationId;
+                }))).join(", ")}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* SECTION A: IDENTITY */}
+        <section className="grid grid-cols-1 md:grid-cols-12 gap-12 mb-20">
+          <div className="md:col-span-4">
+            <div className="aspect-square bg-zinc-900 overflow-hidden border border-white/10">
               {profile.djProfile.photoUrl ? (
                 <Image
                   src={profile.djProfile.photoUrl}
                   alt={profile.chatUsername}
-                  fill
-                  className="rounded-full object-cover"
+                  width={400}
+                  height={400}
+                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700"
+                  unoptimized
                 />
               ) : (
-                <div className="w-24 h-24 rounded-full bg-gray-800 flex items-center justify-center">
-                  <svg className="w-10 h-10 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                <div className="w-full h-full flex items-center justify-center">
+                  <svg className="w-24 h-24 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Name */}
-            <h2 className="text-2xl font-bold text-white mb-2">{profile.chatUsername}</h2>
-
-            {/* Watchlist Button */}
-            <div className="flex flex-col items-center gap-2 mb-4">
-              <div className="flex gap-3 justify-center">
-                <button
-                  onClick={handleSubscribe}
-                  disabled={subscribing || favoritesLoading}
-                  className={`px-6 py-2.5 rounded-xl font-medium transition-colors ${
-                    isSubscribed
-                      ? "bg-gray-800 text-white hover:bg-gray-700"
-                      : "bg-white text-black hover:bg-gray-100"
-                  } disabled:opacity-50`}
-                >
-                  {subscribing ? "..." : isSubscribed ? "Following" : "+ Follow"}
-                </button>
-              </div>
-              <p className="text-gray-500 text-xs text-center max-w-2xl">
-                Receive emails when this DJ is adding a new event or playing live on any stations
-              </p>
-            </div>
-
-            {/* Location */}
+          <div className="md:col-span-8 flex flex-col justify-center">
+            <h1 className="text-5xl sm:text-7xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-4">
+              {profile.chatUsername}
+            </h1>
             {profile.djProfile.location && (
-              <p className="text-gray-400 text-sm mb-2">{profile.djProfile.location}</p>
-            )}
-
-            {/* Genres */}
-            {profile.djProfile.genres.length > 0 && (
-              <div className="flex flex-wrap justify-center gap-2 mb-4">
-                {profile.djProfile.genres.map((genre, i) => (
-                  <span
-                    key={i}
-                    className="px-3 py-1 bg-gray-800 rounded-full text-gray-300 text-xs"
-                  >
-                    {genre}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Bio */}
-            {profile.djProfile.bio && (
-              <p className="text-gray-400 text-sm max-w-2xl mx-auto mb-4">
-                {profile.djProfile.bio}
+              <p className="text-zinc-500 text-sm uppercase tracking-[0.4em] mb-8">
+                {profile.djProfile.location}
               </p>
             )}
 
-            {/* Promo */}
+            <div className="max-w-xl">
+              {profile.djProfile.bio && (
+                <p className="text-xl leading-relaxed text-zinc-300 font-light mb-6">
+                  {profile.djProfile.bio}
+                </p>
+              )}
+              {profile.djProfile.genres.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {profile.djProfile.genres.map((g, i) => (
+                    <span
+                      key={i}
+                      className="text-[9px] uppercase tracking-widest border border-zinc-700 px-2 py-1 text-zinc-400"
+                    >
+                      {g}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* SECTION B & C: STATUS & PROMO */}
+        {(liveOnChannel || liveElsewhere || profile.djProfile.promoText) && (
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-20">
+            {/* Live Status */}
+            {liveOnChannel ? (
+              <Link
+                href="/channel"
+                className="bg-blue-600 p-6 flex justify-between items-center group cursor-pointer hover:bg-blue-500 transition"
+              >
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                    <span className="text-[10px] uppercase tracking-[0.2em] font-bold">On Air Now</span>
+                  </div>
+                  <h3 className="text-2xl font-black uppercase italic">Live on Channel</h3>
+                </div>
+                <ExternalLinkIcon size={24} />
+              </Link>
+            ) : liveElsewhere ? (
+              <a
+                href={liveElsewhere.stationUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-zinc-800 p-6 flex justify-between items-center hover:bg-zinc-700 transition"
+              >
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                    <span className="text-[10px] uppercase tracking-[0.2em] font-bold">Live Elsewhere</span>
+                  </div>
+                  <h3 className="text-xl font-bold">{liveElsewhere.stationName}</h3>
+                </div>
+                <ExternalLinkIcon size={20} />
+              </a>
+            ) : null}
+
+            {/* Promo Box */}
             {profile.djProfile.promoText && (
-              <div className="mb-4">
-                {profile.djProfile.promoHyperlink ? (
+              <div className="border-2 border-white p-6 flex flex-col justify-center gap-3">
+                <p className="text-sm font-medium italic">&ldquo;{profile.djProfile.promoText}&rdquo;</p>
+                {profile.djProfile.promoHyperlink && (
                   <a
                     href={profile.djProfile.promoHyperlink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg text-white text-sm font-medium hover:opacity-90 transition-opacity"
+                    className="text-[10px] uppercase font-black tracking-widest flex items-center gap-2 hover:text-blue-400"
                   >
-                    {profile.djProfile.promoText}
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
+                    View Link <ExternalLinkIcon size={12} />
                   </a>
-                ) : (
-                  <span className="inline-block px-4 py-2 bg-gray-800 rounded-lg text-gray-300 text-sm">
-                    {profile.djProfile.promoText}
-                  </span>
                 )}
-              </div>
-            )}
-
-            {/* Social Links with Tip Icon */}
-            <div className="flex flex-wrap justify-center items-center gap-3 mb-6">
-              {/* Tip Icon - only show when profile has an email */}
-              {profile.email && (
-                <TipButton
-                  djUserId={profile.uid}
-                  djEmail={profile.email}
-                  djUsername={profile.chatUsername}
-                  broadcastSlotId=""
-                  showName={`Tip for ${profile.chatUsername}`}
-                  tipperUserId={user?.uid}
-                  tipperUsername={chatUsername || undefined}
-                  size="small"
-                />
-              )}
-
-              {/* Divider if there are social links and tip button is shown */}
-              {profile.email && (socialLinks.website || socialLinks.instagram || socialLinks.soundcloud || socialLinks.bandcamp || socialLinks.youtube || socialLinks.mixcloud || socialLinks.residentAdvisor || socialLinks.bookingEmail) && (
-                <span className="w-px h-5 bg-gray-700" />
-              )}
-
-              {/* Website link */}
-              {socialLinks.website && (
-                <a
-                  href={socialLinks.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-white transition-colors"
-                  title="Website"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                  </svg>
-                </a>
-              )}
-              {socialLinks.instagram && (
-                <a
-                  href={`https://instagram.com/${socialLinks.instagram.replace("@", "")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-white transition-colors"
-                  title="Instagram"
-                >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-                  </svg>
-                </a>
-              )}
-              {socialLinks.soundcloud && (
-                <a
-                  href={socialLinks.soundcloud}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-white transition-colors"
-                  title="SoundCloud"
-                >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154.233 2.105c.007.058.05.098.101.098.05 0 .09-.04.099-.098l.255-2.105-.27-2.154c-.009-.06-.052-.1-.084-.1zm-.9 1.53c-.057 0-.097.045-.105.097l-.138 1.627.152 1.578c.008.058.048.097.105.097.05 0 .09-.039.098-.097l.168-1.578-.168-1.627c-.008-.052-.048-.097-.112-.097zm1.8-1.627c-.063 0-.112.047-.12.105l-.218 2.406.218 2.313c.008.063.057.112.12.112.058 0 .105-.049.12-.112l.24-2.313-.24-2.406c-.015-.058-.062-.105-.12-.105zm.9-.45c-.068 0-.12.052-.127.112l-.195 2.969.195 2.843c.007.063.059.112.127.112.063 0 .112-.049.127-.112l.217-2.843-.217-2.969c-.015-.06-.064-.112-.127-.112zm.9-.675c-.075 0-.135.06-.142.127l-.173 3.757.173 3.607c.007.068.067.127.142.127.068 0 .127-.059.135-.127l.195-3.607-.195-3.757c-.008-.067-.067-.127-.135-.127zm.9-.675c-.082 0-.142.067-.15.135l-.15 4.545.15 4.35c.008.075.068.135.15.135.075 0 .135-.06.15-.135l.165-4.35-.165-4.545c-.015-.068-.075-.135-.15-.135zm.9-.45c-.09 0-.157.068-.165.15l-.127 5.107.127 4.867c.008.082.075.15.165.15.082 0 .15-.068.157-.15l.142-4.867-.142-5.107c-.007-.082-.075-.15-.157-.15zm.9-.225c-.097 0-.172.075-.18.165l-.105 5.445.105 5.137c.008.09.083.165.18.165.09 0 .165-.075.172-.165l.12-5.137-.12-5.445c-.007-.09-.082-.165-.172-.165zm.9-.225c-.105 0-.18.082-.187.18l-.083 5.782.083 5.37c.007.098.082.18.187.18.097 0 .172-.082.18-.18l.09-5.37-.09-5.782c-.008-.098-.083-.18-.18-.18zm1.125-.225c-.112 0-.195.09-.202.195l-.068 6.12.068 5.602c.007.105.09.195.202.195.105 0 .187-.09.195-.195l.075-5.602-.075-6.12c-.008-.105-.09-.195-.195-.195zm.9 0c-.12 0-.21.097-.217.21l-.045 6.232.045 5.602c.007.112.097.21.217.21.113 0 .203-.098.21-.21l.053-5.602-.053-6.232c-.007-.113-.097-.21-.21-.21zm.9.225c-.127 0-.225.105-.232.225l-.023 6.12.023 5.602c.007.12.105.225.232.225.12 0 .218-.105.225-.225l.03-5.602-.03-6.12c-.007-.12-.105-.225-.225-.225zm1.125-.45c-.142 0-.255.112-.262.247l-.008 6.683.008 5.55c.007.135.12.247.262.247.135 0 .247-.112.255-.247l.015-5.55-.015-6.683c-.008-.135-.12-.247-.255-.247zm1.575-.225c-.15 0-.27.12-.285.27v.015l-.008 6.795.008 5.535c.015.15.135.27.285.27.142 0 .263-.12.277-.27l.015-5.535-.015-6.795c-.014-.15-.135-.27-.277-.285zm.9.225c-.157 0-.285.127-.3.285v6.75l.015 5.52c.015.157.143.285.285.285.15 0 .278-.128.285-.285l.015-5.52V6.915c-.007-.158-.135-.285-.3-.285zm.9-.225c-.165 0-.3.135-.307.3v6.75l.015 5.52c.007.165.142.3.307.3.157 0 .285-.135.3-.3l.015-5.52V6.69c-.015-.165-.143-.3-.33-.3zm4.95 1.35c-.375 0-.735.052-1.08.15-.232-2.61-2.437-4.65-5.137-4.65-.69 0-1.35.142-1.95.39-.232.098-.293.195-.3.39v9.36c.007.202.157.367.352.39h8.115c1.5 0 2.715-1.215 2.715-2.715s-1.215-2.715-2.715-2.715z"/>
-                  </svg>
-                </a>
-              )}
-              {socialLinks.mixcloud && (
-                <a
-                  href={socialLinks.mixcloud}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-white transition-colors"
-                  title="Mixcloud"
-                >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M2.462 8.596l1.986 6.097 1.986-6.097h2.668l1.986 6.097 1.986-6.097h2.668l-3.307 9.808H9.767l-1.986-5.912-1.986 5.912H3.107L0 8.596h2.462zm19.552 0c1.099 0 1.986.896 1.986 1.999v5.81c0 1.103-.887 1.999-1.986 1.999-1.099 0-1.986-.896-1.986-1.999v-5.81c0-1.103.887-1.999 1.986-1.999zm-4.634 0c1.099 0 1.986.896 1.986 1.999v5.81c0 1.103-.887 1.999-1.986 1.999-1.099 0-1.986-.896-1.986-1.999v-5.81c0-1.103.887-1.999 1.986-1.999z"/>
-                  </svg>
-                </a>
-              )}
-              {socialLinks.bandcamp && (
-                <a
-                  href={socialLinks.bandcamp}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-white transition-colors"
-                  title="Bandcamp"
-                >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M0 18.75l7.437-13.5H24l-7.438 13.5H0z"/>
-                  </svg>
-                </a>
-              )}
-              {socialLinks.youtube && (
-                <a
-                  href={socialLinks.youtube}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-white transition-colors"
-                  title="YouTube"
-                >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                  </svg>
-                </a>
-              )}
-              {socialLinks.residentAdvisor && (
-                <a
-                  href={socialLinks.residentAdvisor}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-white transition-colors"
-                  title="Resident Advisor"
-                >
-                  <span className="text-sm font-bold leading-none">RA</span>
-                </a>
-              )}
-              {socialLinks.bookingEmail && (
-                <a
-                  href={`mailto:${socialLinks.bookingEmail}`}
-                  className="text-gray-400 hover:text-white transition-colors"
-                  title="Email"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                </a>
-              )}
-            </div>
-
-            {/* Custom Links */}
-            {socialLinks.customLinks && socialLinks.customLinks.length > 0 && (
-              <div className="flex flex-wrap justify-center gap-2 mb-6">
-                {socialLinks.customLinks.map((link, i) => (
-                  <a
-                    key={i}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-gray-300 text-sm transition-colors"
-                  >
-                    {link.label}
-                  </a>
-                ))}
               </div>
             )}
           </section>
+        )}
 
-          {/* Auto-profile banner */}
-          {isAutoProfile && (
-            <section>
-              <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
-                <p className="text-gray-400 text-sm">
-                  Auto-generated profile based on radio schedules
-                </p>
-                {autoSources.length > 0 && (
-                  <p className="text-gray-500 text-xs mt-1">
-                    Seen on: {Array.from(new Set(autoSources.map(s => {
-                      const station = getStationById(s.stationId);
-                      return station?.name || s.stationId;
-                    }))).join(", ")}
-                  </p>
-                )}
-              </div>
-            </section>
-          )}
+        {/* SECTION D, E, F, H: UNIFIED ACTIVITY FEED */}
+        {activityFeed.length > 0 && (
+          <section className="mb-20">
+            <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-10 border-b border-white/10 pb-4">
+              Activity / Timeline
+            </h2>
 
-          {/* B) DJ Status */}
-          {(liveOnChannel || liveElsewhere) && (
-            <section>
-              {liveOnChannel && (
-                <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-                    <span className="text-red-400 font-medium">Live on Channel</span>
-                  </div>
-                  <Link
-                    href="/channel"
-                    className="block w-full py-3 bg-red-500 text-white rounded-lg font-medium text-center hover:bg-red-600 transition-colors"
-                  >
-                    Listen Now
-                  </Link>
-                </div>
-              )}
-
-              {liveElsewhere && (
-                <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="w-3 h-3 bg-blue-500 rounded-full animate-pulse" />
-                    <span className="text-blue-400 font-medium">Live on {liveElsewhere.stationName}</span>
-                  </div>
-                  <a
-                    href={liveElsewhere.stationUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full py-3 bg-blue-500 text-white rounded-lg font-medium text-center hover:bg-blue-600 transition-colors"
-                  >
-                    Listen on {liveElsewhere.stationName}
-                  </a>
-                </div>
-              )}
-            </section>
-          )}
-
-          {/* D) Upcoming Shows */}
-          {upcomingBroadcasts.length > 0 && (
-            <section className="max-w-xl mx-auto">
-              <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-                Upcoming Shows
-              </h2>
-              <div className="bg-[#1a1a1a] rounded-lg divide-y divide-gray-800">
-                {upcomingBroadcasts.map((broadcast) => {
+            <div className="space-y-0">
+              {activityFeed.map((item) => {
+                // Render based on feed type
+                if (item.feedType === "radio") {
+                  const broadcast = item as UpcomingShow & { feedType: "radio"; feedStatus: "upcoming" | "live" };
                   const showAsShow = upcomingShowToShow(broadcast);
                   const isFavorited = isShowFavorited(showAsShow);
                   const isToggling = togglingFavoriteId === broadcast.id;
@@ -959,115 +999,93 @@ export function DJPublicProfileClient({ username }: Props) {
                   return (
                     <div
                       key={broadcast.id}
-                      className="p-4 relative cursor-pointer hover:bg-white/5 transition-colors"
+                      className="group border-b border-white/5 py-8 flex flex-col md:grid md:grid-cols-12 items-start md:items-center gap-4 cursor-pointer"
                       onClick={() => setExpandedShowId(isExpanded ? null : broadcast.id)}
                     >
-                      {/* Favorite star - top right */}
-                      <button
-                        onClick={(e) => handleToggleFavorite(broadcast, e)}
-                        disabled={isToggling}
-                        className="absolute top-3 right-3 p-1.5 rounded-lg hover:bg-white/10 transition-colors"
-                        title={isFavorited ? "Remove from favorites" : "Add to favorites"}
-                      >
-                        {isToggling ? (
-                          <div className="w-5 h-5 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <svg
-                            className="w-5 h-5"
-                            fill={isFavorited ? "currentColor" : "none"}
-                            stroke="currentColor"
-                            strokeWidth={2}
-                            viewBox="0 0 24 24"
-                            style={{ color: "#ef4444" }}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                            />
-                          </svg>
+                      <div className="md:col-span-2 text-zinc-500 font-mono text-xs uppercase">
+                        {formatFeedDate(broadcast.startTime)}
+                        {isLive && (
+                          <span className="ml-2 text-blue-400">LIVE</span>
                         )}
-                      </button>
-
-                      <div className="flex gap-3">
-                        {/* Show image thumbnail */}
-                        {broadcast.showImageUrl && (
-                          <Image
-                            src={broadcast.showImageUrl}
-                            alt={broadcast.showName}
-                            width={48}
-                            height={48}
-                            className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
-                            unoptimized
-                          />
-                        )}
-                        <div className="flex-1 min-w-0 pr-8">
-                          <p className="text-white font-medium">{broadcast.showName}</p>
-                          <p className="text-gray-400 text-sm">
-                            {formatBroadcastTime(broadcast.startTime, broadcast.endTime)}
-                          </p>
-                          <p className="text-gray-500 text-xs mt-1">{broadcast.stationName}</p>
-                          {isLive && (
-                            <span className="inline-flex items-center gap-1 mt-2 text-red-400 text-xs">
-                              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                              Live Now
-                            </span>
-                          )}
-                        </div>
                       </div>
 
-                      {/* Popup modal for expanded show details */}
+                      <div className="md:col-span-7">
+                        <h4 className="text-2xl font-bold tracking-tight group-hover:text-blue-400 transition">
+                          {broadcast.showName}
+                        </h4>
+                        <p className="text-[10px] uppercase tracking-widest text-zinc-500">
+                          Broadcast / {broadcast.stationName}
+                        </p>
+                      </div>
+
+                      <div className="md:col-span-3 md:text-right flex items-center gap-2 md:justify-end">
+                        <button
+                          onClick={(e) => handleToggleFavorite(broadcast, e)}
+                          disabled={isToggling}
+                          className="p-2 hover:bg-white/10 transition-colors"
+                          title={isFavorited ? "Remove from favorites" : "Add to favorites"}
+                        >
+                          {isToggling ? (
+                            <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <svg
+                              className="w-4 h-4"
+                              fill={isFavorited ? "currentColor" : "none"}
+                              stroke="currentColor"
+                              strokeWidth={2}
+                              viewBox="0 0 24 24"
+                              style={{ color: "#ef4444" }}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                              />
+                            </svg>
+                          )}
+                        </button>
+                        <button className="text-[10px] font-black uppercase tracking-widest border border-white/20 px-4 py-2 hover:bg-white hover:text-black transition flex items-center gap-2">
+                          <RadioIcon size={14} /> Details
+                        </button>
+                      </div>
+
+                      {/* Expanded Modal */}
                       {isExpanded && (
                         <>
-                          {/* Backdrop */}
                           <div
-                            className="fixed inset-0 bg-black/60 z-40"
+                            className="fixed inset-0 bg-black/80 z-40"
                             onClick={(e) => {
                               e.stopPropagation();
                               setExpandedShowId(null);
                             }}
                           />
-                          {/* Popup */}
                           <div
-                            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-[#1a1a1a] border border-gray-700 rounded-xl p-5 max-w-md w-[90vw] shadow-2xl"
+                            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-black border border-white/20 p-8 max-w-lg w-[90vw] shadow-2xl"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            {/* Close button */}
                             <button
                               onClick={() => setExpandedShowId(null)}
-                              className="absolute top-3 right-3 text-gray-400 hover:text-white transition-colors"
+                              className="absolute top-4 right-4 text-zinc-400 hover:text-white transition-colors"
                             >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
+                              <CloseIcon size={20} />
                             </button>
 
-                            {/* Show image + name header */}
-                            <div className="flex items-start gap-3 mb-3">
-                              {broadcast.showImageUrl && (
-                                <Image
-                                  src={broadcast.showImageUrl}
-                                  alt={broadcast.showName}
-                                  width={64}
-                                  height={64}
-                                  className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-                                  unoptimized
-                                />
-                              )}
-                              <div className="flex-1 min-w-0 pr-6">
-                                <h3 className="text-white text-lg font-semibold mb-1">
-                                  {broadcast.showName}
-                                </h3>
-                                {broadcast.djName && (
-                                  <p className="text-gray-400 text-sm">
-                                    by {broadcast.djName}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
+                            {broadcast.showImageUrl && (
+                              <Image
+                                src={broadcast.showImageUrl}
+                                alt={broadcast.showName}
+                                width={400}
+                                height={200}
+                                className="w-full h-48 object-cover mb-6"
+                                unoptimized
+                              />
+                            )}
 
-                            {/* Station & time */}
-                            <div className="flex items-center gap-2 text-xs text-gray-500 mb-4">
+                            <h3 className="text-3xl font-black uppercase tracking-tight mb-2">
+                              {broadcast.showName}
+                            </h3>
+
+                            <div className="flex items-center gap-2 text-[10px] text-zinc-500 uppercase tracking-widest mb-4">
                               <span>{broadcast.stationName}</span>
                               <span>•</span>
                               <span>
@@ -1076,14 +1094,13 @@ export function DJPublicProfileClient({ username }: Props) {
                               {isLive && (
                                 <>
                                   <span>•</span>
-                                  <span className="text-red-500 font-medium">LIVE</span>
+                                  <span className="text-blue-400 font-bold">LIVE</span>
                                 </>
                               )}
                             </div>
 
-                            {/* DJ Photo and Bio */}
                             {(profile.djProfile.photoUrl || profile.djProfile.bio) && (
-                              <div className="flex items-start gap-3 mb-4">
+                              <div className="flex items-start gap-4 mb-6 border-t border-white/10 pt-6">
                                 {profile.djProfile.photoUrl && (
                                   <Image
                                     src={profile.djProfile.photoUrl}
@@ -1091,27 +1108,25 @@ export function DJPublicProfileClient({ username }: Props) {
                                     width={48}
                                     height={48}
                                     className="rounded-full object-cover flex-shrink-0"
+                                    unoptimized
                                   />
                                 )}
                                 {profile.djProfile.bio && (
-                                  <p className="text-gray-300 text-sm">{profile.djProfile.bio}</p>
+                                  <p className="text-zinc-400 text-sm leading-relaxed">{profile.djProfile.bio}</p>
                                 )}
                               </div>
                             )}
 
-                            {/* Description */}
                             {broadcast.description && (
-                              <p className="text-gray-400 text-sm leading-relaxed mb-4">{broadcast.description}</p>
+                              <p className="text-zinc-400 text-sm leading-relaxed mb-6">{broadcast.description}</p>
                             )}
 
-                            {/* Actions - Favorite button only (no tip button as per requirements) */}
-                            <div className="flex items-center gap-3 mt-5 pt-4 border-t border-gray-800">
-                              {/* Favorite button */}
+                            <div className="flex items-center gap-4 pt-4 border-t border-white/10">
                               <button
                                 onClick={(e) => handleToggleFavorite(broadcast, e)}
                                 disabled={isToggling}
-                                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-sm"
-                                style={{ color: "#ef4444" }}
+                                className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest border border-white/20 px-4 py-2 hover:bg-white hover:text-black transition"
+                                style={{ color: isFavorited ? "#ef4444" : "white" }}
                               >
                                 {isToggling ? (
                                   <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -1130,7 +1145,7 @@ export function DJPublicProfileClient({ username }: Props) {
                                     />
                                   </svg>
                                 )}
-                                <span className="text-white">{isFavorited ? "Favorited" : "Favorite"}</span>
+                                {isFavorited ? "Favorited" : "Favorite"}
                               </button>
                             </div>
                           </div>
@@ -1138,132 +1153,96 @@ export function DJPublicProfileClient({ username }: Props) {
                       )}
                     </div>
                   );
-                })}
-              </div>
-            </section>
-          )}
+                }
 
-          {/* E) IRL Shows */}
-          {profile.djProfile.irlShows && profile.djProfile.irlShows.length > 0 && profile.djProfile.irlShows.some(show => show.url || show.venue || show.date) && (
-            <section className="max-w-xl mx-auto">
-              <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-                IRL Shows
-              </h2>
-              <div className="bg-[#1a1a1a] rounded-lg divide-y divide-gray-800">
-                {profile.djProfile.irlShows
-                  .filter(show => show.url || show.venue || show.date)
-                  .map((show, i) => (
-                    <div key={i} className="p-4 flex items-center justify-between">
-                      {show.date && (
-                        <span className="text-gray-400 text-sm flex-shrink-0 mr-3">{show.date}</span>
-                      )}
-                      {show.url ? (
-                        <a
-                          href={show.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-400 hover:text-blue-300 text-sm transition-colors truncate flex-1 text-right"
-                        >
-                          {show.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-                        </a>
-                      ) : show.venue ? (
-                        <span className="text-white text-sm flex-1 text-right">{show.venue}</span>
-                      ) : (
-                        <span className="text-gray-500 text-sm flex-1 text-right">-</span>
-                      )}
-                    </div>
-                  ))}
-              </div>
-            </section>
-          )}
+                if (item.feedType === "irl") {
+                  const irlShow = item as IrlShow & { feedType: "irl"; feedStatus: "upcoming"; id: string };
+                  return (
+                    <a
+                      key={irlShow.id}
+                      href={irlShow.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group border-b border-white/5 py-8 flex flex-col md:grid md:grid-cols-12 items-start md:items-center gap-4"
+                    >
+                      <div className="md:col-span-2 text-zinc-500 font-mono text-xs uppercase">
+                        {irlShow.date || "TBA"}
+                      </div>
 
-          {/* Past Recordings (with integrated audio player) */}
-          {pastRecordings.length > 0 && (
-            <section className="max-w-xl mx-auto">
-              <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-                Past Recordings
-              </h2>
-              <div className="space-y-3">
-                {pastRecordings.map((archive) => {
+                      <div className="md:col-span-7">
+                        <h4 className="text-2xl font-bold tracking-tight group-hover:text-blue-400 transition">
+                          {irlShow.venue || irlShow.url?.replace(/^https?:\/\//, "").split("/")[0] || "Event"}
+                        </h4>
+                        <p className="text-[10px] uppercase tracking-widest text-zinc-500">
+                          Event / IRL
+                        </p>
+                      </div>
+
+                      <div className="md:col-span-3 md:text-right">
+                        {irlShow.url && (
+                          <span className="text-[10px] font-black uppercase tracking-widest border border-white/20 px-4 py-2 hover:bg-white hover:text-black transition flex items-center gap-2 md:ml-auto md:w-fit">
+                            <CalendarIcon size={14} /> Tickets
+                          </span>
+                        )}
+                      </div>
+                    </a>
+                  );
+                }
+
+                if (item.feedType === "recording") {
+                  const archive = item as Archive & { feedType: "recording"; feedStatus: "past" };
                   const isPlaying = playingId === archive.id;
                   const currentTime = currentTimes[archive.id] || 0;
 
                   return (
-                    <div key={archive.id} className="bg-[#1a1a1a] rounded-xl p-4">
-                      {/* Top row: Image, title, link */}
-                      <div className="flex items-start gap-4">
-                        {/* Show Image */}
-                        <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
-                          {archive.showImageUrl ? (
-                            <Image
-                              src={archive.showImageUrl}
-                              alt={archive.showName}
-                              width={64}
-                              height={64}
-                              className="w-full h-full object-cover"
-                              unoptimized
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                              </svg>
-                            </div>
-                          )}
+                    <div
+                      key={archive.id}
+                      className="group border-b border-white/5 py-8"
+                    >
+                      <div className="flex flex-col md:grid md:grid-cols-12 items-start md:items-center gap-4">
+                        <div className="md:col-span-2 text-zinc-500 font-mono text-xs uppercase">
+                          {formatFeedDate(archive.recordedAt)}
                         </div>
 
-                        {/* Title column */}
-                        <div className="flex-1 min-w-0">
-                          <Link href={`/archives/${archive.slug}`} className="hover:underline">
-                            <h3 className="text-white font-semibold">{archive.showName}</h3>
+                        <div className="md:col-span-7">
+                          <Link href={`/archives/${archive.slug}`} className="hover:text-blue-400 transition">
+                            <h4 className="text-2xl font-bold tracking-tight">
+                              {archive.showName}
+                            </h4>
                           </Link>
-                          <p className="text-gray-500 text-xs">
-                            {new Date(archive.recordedAt).toLocaleDateString("en-US", {
-                              weekday: "short",
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })}
+                          <p className="text-[10px] uppercase tracking-widest text-zinc-500">
+                            Recording / {formatDuration(archive.duration)}
                           </p>
+                        </div>
+
+                        <div className="md:col-span-3 md:text-right">
+                          <button
+                            onClick={() => handlePlayPause(archive.id)}
+                            className="text-[10px] font-black uppercase tracking-widest border border-white/20 px-4 py-2 hover:bg-white hover:text-black transition flex items-center gap-2 md:ml-auto"
+                          >
+                            {isPlaying ? <PauseIcon size={14} /> : <PlayIcon size={14} />}
+                            {isPlaying ? "Pause" : "Listen"}
+                          </button>
                         </div>
                       </div>
 
-                      {/* Audio player */}
-                      <div className="mt-3 flex items-center gap-4">
-                        {/* Play/Pause button */}
-                        <button
-                          onClick={() => handlePlayPause(archive.id)}
-                          className="w-12 h-12 rounded-full bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0"
-                        >
-                          {isPlaying ? (
-                            <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-                            </svg>
-                          ) : (
-                            <svg className="w-5 h-5 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M8 5v14l11-7z" />
-                            </svg>
-                          )}
-                        </button>
-
-                        {/* Progress bar */}
-                        <div className="flex-1">
+                      {/* Inline Audio Player (shows when playing) */}
+                      {isPlaying && (
+                        <div className="mt-4 flex items-center gap-4 pl-0 md:pl-[16.666%]">
                           <input
                             type="range"
                             min={0}
                             max={archive.duration || 100}
                             value={currentTime}
                             onChange={(e) => handleSeek(archive.id, parseFloat(e.target.value))}
-                            className="w-full h-1 bg-gray-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+                            className="flex-1 h-1 bg-zinc-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
                           />
-                          <div className="flex justify-between text-xs text-gray-500 mt-1">
-                            <span>{formatDuration(Math.floor(currentTime))}</span>
-                            <span>{formatDuration(archive.duration)}</span>
-                          </div>
+                          <span className="text-xs text-zinc-500 font-mono">
+                            {formatDuration(Math.floor(currentTime))} / {formatDuration(archive.duration)}
+                          </span>
                         </div>
-                      </div>
+                      )}
 
-                      {/* Hidden audio element */}
                       <audio
                         ref={(el) => { audioRefs.current[archive.id] = el; }}
                         src={archive.recordingUrl}
@@ -1273,115 +1252,190 @@ export function DJPublicProfileClient({ username }: Props) {
                       />
                     </div>
                   );
-                })}
+                }
+
+                if (item.feedType === "show") {
+                  const pastShow = item as PastShow & { feedType: "show"; feedStatus: "past" };
+                  return (
+                    <div
+                      key={pastShow.id}
+                      className="group border-b border-white/5 py-8 flex flex-col md:grid md:grid-cols-12 items-start md:items-center gap-4"
+                    >
+                      <div className="md:col-span-2 text-zinc-500 font-mono text-xs uppercase">
+                        {formatFeedDate(pastShow.startTime)}
+                      </div>
+
+                      <div className="md:col-span-7">
+                        <h4 className="text-2xl font-bold tracking-tight text-zinc-400">
+                          {pastShow.showName}
+                        </h4>
+                        <p className="text-[10px] uppercase tracking-widest text-zinc-600">
+                          Past Show / {Math.round((pastShow.endTime - pastShow.startTime) / 60000)} min
+                        </p>
+                      </div>
+
+                      <div className="md:col-span-3 md:text-right">
+                        <span className="text-[10px] uppercase tracking-widest text-zinc-600">
+                          No Recording
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return null;
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* SECTION G: ARTIST SELECTS (MY RECS) */}
+        {artistSelects.length > 0 && (
+          <section className="mb-20 grid grid-cols-1 md:grid-cols-3 gap-12 bg-zinc-900/30 p-10 border border-white/5">
+            <div className="md:col-span-1">
+              <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-4">Artist Selects</h2>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                A curated collection of influences, recommendations, and essential listens chosen by {profile.chatUsername}.
+              </p>
+            </div>
+            <div className="md:col-span-2 space-y-4">
+              {artistSelects.map((rec, idx) => (
+                <a
+                  key={idx}
+                  href={rec.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between group border-b border-white/5 pb-2"
+                >
+                  <span className="text-lg font-light group-hover:pl-2 transition-all">{rec.label}</span>
+                  <span className="opacity-0 group-hover:opacity-100 transition-opacity"><ExternalLinkIcon size={14} /></span>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* FOOTER: SUPPORT & SOCIALS */}
+        <footer className="border-t border-white/10 pt-20 flex flex-col items-center">
+          {/* Support The Artist Button (Tip) */}
+          {profile.email && (
+            <div className="group relative mb-16 flex items-center gap-4 bg-red-600 hover:bg-white text-white hover:text-black px-16 py-6 transition-all duration-300 cursor-pointer">
+              <HeartIcon size={24} />
+              <span className="text-sm font-black uppercase tracking-[0.3em]">Support The Artist</span>
+              <div className="absolute inset-0 opacity-0">
+                <TipButton
+                  djUserId={profile.uid}
+                  djEmail={profile.email}
+                  djUsername={profile.chatUsername}
+                  broadcastSlotId=""
+                  showName={`Support ${profile.chatUsername}`}
+                  tipperUserId={user?.uid}
+                  tipperUsername={chatUsername || undefined}
+                  size="large"
+                />
               </div>
-            </section>
+            </div>
           )}
 
-          {/* F) My Recs */}
-          {profile.djProfile.myRecs && (
-            (profile.djProfile.myRecs.bandcampLinks && profile.djProfile.myRecs.bandcampLinks.length > 0) ||
-            (profile.djProfile.myRecs.eventLinks && profile.djProfile.myRecs.eventLinks.length > 0)
-          ) && (
-            <section className="max-w-xl mx-auto">
-              <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-                My Recs
-              </h2>
-              <div className="space-y-4">
-                {/* Bandcamp Recs */}
-                {profile.djProfile.myRecs?.bandcampLinks && profile.djProfile.myRecs.bandcampLinks.length > 0 && (
-                  <div className="bg-[#1a1a1a] rounded-lg p-4">
-                    <h3 className="text-gray-400 text-sm mb-3 flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M0 18.75l7.437-13.5H24l-7.438 13.5H0z"/>
-                      </svg>
-                      Bandcamp
-                    </h3>
-                    <div className="space-y-2">
-                      {profile.djProfile.myRecs.bandcampLinks.map((url, i) => (
-                        <a
-                          key={i}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block text-blue-400 hover:text-blue-300 text-sm transition-colors truncate"
-                        >
-                          {url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
+          {/* Social Grid */}
+          <div className="flex flex-wrap justify-center gap-x-10 gap-y-6 max-w-2xl opacity-40 hover:opacity-100 transition-opacity duration-500">
+            {socialLinks.instagram && (
+              <a
+                href={`https://instagram.com/${socialLinks.instagram.replace("@", "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] uppercase font-black tracking-widest flex items-center gap-2 hover:text-blue-400 transition"
+              >
+                <InstagramIcon size={14} /> IG
+              </a>
+            )}
+            {socialLinks.soundcloud && (
+              <a
+                href={socialLinks.soundcloud}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] uppercase font-black tracking-widest flex items-center gap-2 hover:text-blue-400 transition"
+              >
+                <MusicIcon size={14} /> SC
+              </a>
+            )}
+            {socialLinks.mixcloud && (
+              <a
+                href={socialLinks.mixcloud}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] uppercase font-black tracking-widest flex items-center gap-2 hover:text-blue-400 transition"
+              >
+                <MusicIcon size={14} /> MC
+              </a>
+            )}
+            {socialLinks.bandcamp && (
+              <a
+                href={socialLinks.bandcamp}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] uppercase font-black tracking-widest flex items-center gap-2 hover:text-blue-400 transition"
+              >
+                <MusicIcon size={14} /> BC
+              </a>
+            )}
+            {socialLinks.youtube && (
+              <a
+                href={socialLinks.youtube}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] uppercase font-black tracking-widest flex items-center gap-2 hover:text-blue-400 transition"
+              >
+                <PlayIcon size={14} /> YT
+              </a>
+            )}
+            {socialLinks.residentAdvisor && (
+              <a
+                href={socialLinks.residentAdvisor}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] uppercase font-black tracking-widest hover:text-blue-400 transition"
+              >
+                RA
+              </a>
+            )}
+            {socialLinks.website && (
+              <a
+                href={socialLinks.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] uppercase font-black tracking-widest flex items-center gap-2 hover:text-blue-400 transition"
+              >
+                <GlobeIcon size={14} /> WEB
+              </a>
+            )}
+            {socialLinks.bookingEmail && (
+              <a
+                href={`mailto:${socialLinks.bookingEmail}`}
+                className="text-[10px] uppercase font-black tracking-widest flex items-center gap-2 hover:text-blue-400 transition"
+              >
+                <MailIcon size={14} /> Booking
+              </a>
+            )}
 
-                {/* Event Recs */}
-                {profile.djProfile.myRecs?.eventLinks && profile.djProfile.myRecs.eventLinks.length > 0 && (
-                  <div className="bg-[#1a1a1a] rounded-lg p-4">
-                    <h3 className="text-gray-400 text-sm mb-3 flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      Events
-                    </h3>
-                    <div className="space-y-2">
-                      {profile.djProfile.myRecs.eventLinks.map((url, i) => (
-                        <a
-                          key={i}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block text-blue-400 hover:text-blue-300 text-sm transition-colors truncate"
-                        >
-                          {url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </section>
-          )}
+            {/* Custom Links */}
+            {socialLinks.customLinks?.map((link, i) => (
+              <a
+                key={i}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] uppercase font-black tracking-widest hover:text-blue-400 transition"
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
 
-          {/* Past Shows (without recordings) */}
-          {pastShows.length > 0 && (
-            <section className="max-w-xl mx-auto">
-              <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-                Past Shows
-              </h2>
-              <div className="bg-[#1a1a1a] rounded-lg divide-y divide-gray-800">
-                {pastShows.map((show) => (
-                  <div
-                    key={show.id}
-                    className="p-4 flex gap-3"
-                  >
-                    {show.showImageUrl && (
-                      <Image
-                        src={show.showImageUrl}
-                        alt={show.showName}
-                        width={48}
-                        height={48}
-                        className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
-                        unoptimized
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-medium">{show.showName}</p>
-                      <p className="text-gray-400 text-sm">
-                        {new Date(show.startTime).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </p>
-                      <p className="text-gray-500 text-xs mt-1">
-                        {Math.round((show.endTime - show.startTime) / 60000)} min
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
+          <div className="mt-20 text-[8px] text-zinc-700 uppercase tracking-[1em]">
+            Channel Broadcaster Profile
+          </div>
+        </footer>
       </main>
 
       <AuthModal
