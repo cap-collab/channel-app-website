@@ -75,11 +75,14 @@ const GENRE_SLUGS = [
   "reggae",
 ];
 
+// How many profiles to process per invocation
+const PROFILES_PER_BATCH = 30;
+
 // Fetch show slugs from a genre tag page
 async function fetchGenrePageSlugs(genreSlug: string): Promise<string[]> {
   const url = `https://www.rinse.fm/shows/tags/${genreSlug}`;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
     if (res.status !== 200) return [];
 
     const html = await res.text();
@@ -214,26 +217,73 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // PHASE 1: Discover all show slugs from genre pages
-    console.log(
-      `[sync-rinse-profiles] Starting discovery from ${GENRE_SLUGS.length} genre pages`
-    );
+    const syncStateRef = db.collection("sync-state").doc("rinse-profiles");
+    const syncStateDoc = await syncStateRef.get();
+    const syncState = syncStateDoc.data();
 
-    const allSlugs = new Set<string>();
-    for (const genre of GENRE_SLUGS) {
-      const slugs = await fetchGenrePageSlugs(genre);
-      slugs.forEach((s) => allSlugs.add(s));
+    let allSlugs: string[] = syncState?.slugs || [];
+    let cursor = syncState?.cursor || 0;
+    const isDiscoveryComplete = syncState?.discoveryComplete || false;
+
+    // PHASE 1: Discovery (only if not already done)
+    if (!isDiscoveryComplete) {
       console.log(
-        `[sync-rinse-profiles] Genre "${genre}": found ${slugs.length} shows`
+        `[sync-rinse-profiles] Starting discovery from ${GENRE_SLUGS.length} genre pages`
       );
-      await delay(200); // Rate limit between genre pages
+
+      const slugSet = new Set<string>();
+      for (const genre of GENRE_SLUGS) {
+        const slugs = await fetchGenrePageSlugs(genre);
+        slugs.forEach((s) => slugSet.add(s));
+        console.log(
+          `[sync-rinse-profiles] Genre "${genre}": found ${slugs.length} shows`
+        );
+        await delay(100); // Rate limit between genre pages
+      }
+
+      allSlugs = Array.from(slugSet).sort();
+      cursor = 0;
+
+      // Save discovered slugs
+      await syncStateRef.set({
+        slugs: allSlugs,
+        cursor: 0,
+        discoveryComplete: true,
+        totalSlugs: allSlugs.length,
+        startedAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      console.log(
+        `[sync-rinse-profiles] Discovery complete: ${allSlugs.length} unique slugs found`
+      );
+
+      return NextResponse.json({
+        success: true,
+        phase: "discovery",
+        totalSlugs: allSlugs.length,
+        message: `Discovery complete. Found ${allSlugs.length} profiles. Run again to start processing.`,
+      });
+    }
+
+    // PHASE 2: Process batch of profiles
+    const slugsToProcess = allSlugs.slice(cursor, cursor + PROFILES_PER_BATCH);
+
+    if (slugsToProcess.length === 0) {
+      // All done - clean up sync state
+      await syncStateRef.delete();
+
+      return NextResponse.json({
+        success: true,
+        phase: "complete",
+        message: "All profiles have been processed. Sync state cleared.",
+      });
     }
 
     console.log(
-      `[sync-rinse-profiles] Discovered ${allSlugs.size} unique show slugs`
+      `[sync-rinse-profiles] Processing batch: ${cursor} to ${cursor + slugsToProcess.length} of ${allSlugs.length}`
     );
 
-    // PHASE 2: Fetch individual profiles and sync to Firestore
     const pendingProfilesRef = db.collection("pending-dj-profiles");
     let created = 0;
     let updated = 0;
@@ -245,7 +295,7 @@ export async function GET(request: NextRequest) {
     let batch = db.batch();
     let batchCount = 0;
 
-    for (const slug of Array.from(allSlugs)) {
+    for (const slug of slugsToProcess) {
       try {
         const profile = await fetchShowProfile(slug);
 
@@ -339,13 +389,10 @@ export async function GET(request: NextRequest) {
           await batch.commit();
           batch = db.batch();
           batchCount = 0;
-          console.log(
-            `[sync-rinse-profiles] Committed batch, processed ${created + updated + skippedAdmin + skippedNoData} so far`
-          );
         }
 
-        // Rate limiting: 100ms delay between profile fetches
-        await delay(100);
+        // Rate limiting: 50ms delay between profile fetches
+        await delay(50);
       } catch (error) {
         console.error(`[sync-rinse-profiles] Error processing ${slug}:`, error);
         errors++;
@@ -357,20 +404,40 @@ export async function GET(request: NextRequest) {
       await batch.commit();
     }
 
+    // Update cursor for next batch
+    const newCursor = cursor + slugsToProcess.length;
+    await syncStateRef.update({
+      cursor: newCursor,
+      updatedAt: new Date(),
+    });
+
+    const remaining = allSlugs.length - newCursor;
+
     console.log(
-      `[sync-rinse-profiles] Complete: created=${created}, updated=${updated}, skippedAdmin=${skippedAdmin}, skippedNoData=${skippedNoData}, errors=${errors}`
+      `[sync-rinse-profiles] Batch complete: created=${created}, updated=${updated}, skipped=${skippedAdmin + skippedNoData}, errors=${errors}. Remaining: ${remaining}`
     );
 
     return NextResponse.json({
       success: true,
+      phase: "processing",
       stats: {
-        totalSlugsDiscovered: allSlugs.size,
+        processed: slugsToProcess.length,
         created,
         updated,
         skippedAdmin,
         skippedNoData,
         errors,
       },
+      progress: {
+        current: newCursor,
+        total: allSlugs.length,
+        remaining,
+        percentComplete: Math.round((newCursor / allSlugs.length) * 100),
+      },
+      message:
+        remaining > 0
+          ? `Processed ${slugsToProcess.length} profiles. ${remaining} remaining. Run again to continue.`
+          : "All profiles processed!",
     });
   } catch (error) {
     console.error("[sync-rinse-profiles] Error:", error);
