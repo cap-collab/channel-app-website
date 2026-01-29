@@ -56,7 +56,15 @@ function extractCandidateNames(show: Show): string[] {
     addCandidate(wMatch[1].trim());
   }
 
-  // 5. "invite/invité/presents/present" pattern in dj field or show name → try part after
+  // 5. "X Presents Y" pattern: "Geologist Presents: The O'Brien System" → try X first (DJ), then Y
+  const presentsMatch = show.name.match(/^(.+?)\s+presents?:?\s+(.+)$/i);
+  if (presentsMatch) {
+    addCandidate(presentsMatch[1].trim());  // Before "Presents" (likely DJ name)
+    addCandidate(presentsMatch[2].trim());  // After "Presents" (show/episode name)
+  }
+
+  // 6. "invite/invité/presents/present" pattern in dj field or show name → try part after
+  // Handles cases like "Presents DJ Name" or "Invité Special Guest"
   const invitePattern = /^(invit[eé]s?|presents?)\s+(.+)$/i;
   const djInviteMatch = show.dj?.match(invitePattern);
   if (djInviteMatch) {
@@ -67,7 +75,7 @@ function extractCandidateNames(show: Show): string[] {
     addCandidate(nameInviteMatch[2].trim());
   }
 
-  // 6. Colon pattern: "X : Y" → try Y first, then X
+  // 7. Colon pattern: "X : Y" → try Y first, then X
   if (show.name.includes(' : ')) {
     const parts = show.name.split(' : ');
     if (parts.length >= 2) {
