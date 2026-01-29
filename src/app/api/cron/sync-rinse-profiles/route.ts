@@ -86,10 +86,10 @@ async function fetchGenrePageSlugs(genreSlug: string): Promise<string[]> {
 
     // Extract show slugs from href="/shows/[slug]" patterns
     const slugRegex = /href="\/shows\/([a-z0-9À-ÿ-]+)"/gi;
-    const matches = html.matchAll(slugRegex);
     const slugs = new Set<string>();
 
-    for (const match of matches) {
+    let match;
+    while ((match = slugRegex.exec(html)) !== null) {
       const slug = match[1].toLowerCase();
       // Filter out tag pages and other non-show links
       if (!slug.startsWith("tags") && slug !== "tags") {
@@ -163,14 +163,14 @@ async function fetchShowProfile(slug: string): Promise<RinseProfile | null> {
 
     // Extract genres from tag links: /shows/tags/[genre]
     const genreRegex = /href="\/shows\/tags\/([a-z0-9-]+)"/gi;
-    const genreMatches = html.matchAll(genreRegex);
     const genres: string[] = [];
-    for (const match of genreMatches) {
+    let genreMatch;
+    while ((genreMatch = genreRegex.exec(html)) !== null) {
       // Convert slug to readable format: "drum-bass" -> "Drum Bass"
-      const genreSlug = match[1];
+      const genreSlug = genreMatch[1];
       const genreTitle = genreSlug
         .split("-")
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(" ");
       if (!genres.includes(genreTitle)) {
         genres.push(genreTitle);
