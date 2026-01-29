@@ -152,23 +152,23 @@ export function WhatsOnNow({ onAuthRequired }: WhatsOnNowProps) {
       <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 px-4 no-scrollbar">
         {/* Show empty card for broadcast when nothing is live */}
         {liveShows.length === 0 && broadcastStation && (
-          <div className="flex-shrink-0 w-[85%] sm:w-80 snap-start">
+          <div className="flex-shrink-0 w-44 sm:w-56 snap-start">
             <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter mb-2">
               #Channel
             </div>
-            <div className="relative aspect-square mb-4 overflow-hidden border border-white/10 bg-zinc-900 flex items-center justify-center">
+            <div className="relative aspect-square mb-3 overflow-hidden border border-white/10 bg-zinc-900 flex items-center justify-center">
               <div className="text-center">
-                <svg className="w-12 h-12 text-zinc-700 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-8 h-8 text-zinc-700 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                 </svg>
-                <p className="text-zinc-600 text-sm">Nothing live now</p>
+                <p className="text-zinc-600 text-xs">Nothing live now</p>
               </div>
             </div>
-            <div className="mb-4">
-              <h3 className="text-xl font-bold leading-tight text-zinc-500">
+            <div className="mb-3">
+              <h3 className="text-sm font-bold leading-tight text-zinc-500">
                 Check back soon
               </h3>
-              <p className="text-xs text-zinc-600 flex items-center gap-1 mt-1 uppercase">
+              <p className="text-[10px] text-zinc-600 flex items-center gap-1 mt-1 uppercase">
                 Channel Broadcast
               </p>
             </div>
@@ -240,7 +240,7 @@ function LiveShowCard({
 
   return (
     <>
-      <div className="flex-shrink-0 w-[85%] sm:w-80 snap-start group">
+      <div className="flex-shrink-0 w-44 sm:w-56 snap-start group">
         {/* 1. Genre Tags Above Image */}
         <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter mb-2">
           #{station.name.replace(/\s+/g, '')}
@@ -248,7 +248,7 @@ function LiveShowCard({
 
         {/* 2. Image with DJ Overlay */}
         <div
-          className="relative aspect-square mb-4 overflow-hidden border border-white/10 cursor-pointer"
+          className="relative aspect-square mb-3 overflow-hidden border border-white/10 cursor-pointer"
           onClick={onToggleExpand}
         >
           {imageUrl ? (
@@ -262,7 +262,7 @@ function LiveShowCard({
             />
           ) : (
             <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
-              <svg className="w-16 h-16 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-10 h-10 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
               </svg>
             </div>
@@ -271,8 +271,8 @@ function LiveShowCard({
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
           {/* DJ Name Overlay */}
           {show.dj && (
-            <div className="absolute bottom-3 left-3">
-              <span className="text-sm font-black uppercase tracking-widest text-white drop-shadow-lg">
+            <div className="absolute bottom-2 left-2">
+              <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg">
                 {show.dj}
               </span>
             </div>
@@ -280,9 +280,9 @@ function LiveShowCard({
         </div>
 
         {/* 3. Show Info */}
-        <div className="mb-4">
+        <div className="mb-3">
           <h3
-            className="text-xl font-bold leading-tight group-hover:text-blue-400 transition cursor-pointer"
+            className="text-sm sm:text-base font-bold leading-tight line-clamp-2 group-hover:text-blue-400 transition cursor-pointer"
             onClick={onToggleExpand}
           >
             {show.name}
@@ -291,24 +291,24 @@ function LiveShowCard({
             href={station.websiteUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-zinc-500 flex items-center gap-1 mt-1 uppercase hover:text-zinc-300 transition"
+            className="text-[10px] text-zinc-500 flex items-center gap-1 mt-1 uppercase hover:text-zinc-300 transition"
           >
             at {station.name}
-            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
           </a>
         </div>
 
         {/* 4. CTA Buttons */}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-1.5">
           <button
             onClick={(e) => {
               e.stopPropagation();
               onToggleFavorite(show);
             }}
             disabled={isTogglingFavorite}
-            className={`text-[10px] font-black uppercase py-2 transition flex items-center justify-center gap-1 ${
+            className={`text-[9px] font-black uppercase py-1.5 transition flex items-center justify-center gap-0.5 ${
               isFavorited
                 ? 'bg-blue-500 text-white hover:bg-blue-600'
                 : 'bg-white text-black hover:bg-blue-500 hover:text-white'
@@ -331,10 +331,10 @@ function LiveShowCard({
             href={station.websiteUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="bg-zinc-800 text-white text-[10px] font-black uppercase py-2 flex items-center justify-center gap-1 hover:bg-zinc-700 transition"
+            className="bg-zinc-800 text-white text-[9px] font-black uppercase py-1.5 flex items-center justify-center gap-0.5 hover:bg-zinc-700 transition"
           >
             Join
-            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
           </a>
