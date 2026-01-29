@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { collection, query, where, getDocs, orderBy, Timestamp, limit } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
 import { Header } from "@/components/Header";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { db } from "@/lib/firebase";
@@ -744,15 +744,17 @@ export function DJPublicProfileClient({ username }: Props) {
           .replace(/[^a-z0-9]/g, "");
 
         // Query past-external-shows where djUsername matches
+        // Note: This query requires a composite index on djUsername + endTime
         const externalShowsRef = collection(db, "past-external-shows");
         const q = query(
           externalShowsRef,
-          where("djUsername", "==", normalizedUsername),
-          orderBy("endTime", "desc"),
-          limit(50)
+          where("djUsername", "==", normalizedUsername)
         );
 
+        console.log("[DJ Profile] Querying past-external-shows for djUsername:", normalizedUsername);
         const snapshot = await getDocs(q);
+        console.log("[DJ Profile] Found", snapshot.docs.length, "past external shows");
+
         const shows: PastShow[] = snapshot.docs.map((doc) => {
           const data = doc.data();
           return {
@@ -765,9 +767,12 @@ export function DJPublicProfileClient({ username }: Props) {
           };
         });
 
+        // Sort by endTime descending (newest first)
+        shows.sort((a, b) => b.endTime - a.endTime);
+
         setPastExternalShows(shows);
       } catch (error) {
-        console.error("Error fetching past external shows:", error);
+        console.error("[DJ Profile] Error fetching past external shows:", error);
       }
     }
 
