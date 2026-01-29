@@ -72,12 +72,24 @@ function extractInstagramUsername(input: string): string {
 }
 
 // Validate NTS show page (hyphen slug) - extract from React state
+// NTS URLs are case-sensitive, so we try original case first, then lowercase as fallback
 async function validateNTSProfile(djName: string): Promise<ProfileData> {
-  const slug = toHyphenSlug(djName);
-  const url = `https://www.nts.live/shows/${slug}`;
+  // Try original case first (e.g., "TED DRAWS" → "TED-DRAWS")
+  const originalSlug = djName.replace(/[\s]+/g, "-");
+  let url = `https://www.nts.live/shows/${originalSlug}`;
 
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    let res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+
+    // If 404, try lowercase as fallback (e.g., "ted-draws")
+    if (res.status === 404) {
+      const lowerSlug = originalSlug.toLowerCase();
+      if (lowerSlug !== originalSlug) {
+        url = `https://www.nts.live/shows/${lowerSlug}`;
+        res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      }
+    }
+
     if (res.status === 200) {
       const html = await res.text();
 
