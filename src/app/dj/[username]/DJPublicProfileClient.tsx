@@ -1489,9 +1489,6 @@ export function DJPublicProfileClient({ username }: Props) {
                       <div className="p-4 space-y-4">
                         <div>
                           <h3 className="text-white text-xl font-bold">{pastShow.showName}</h3>
-                          <p className="text-sm text-zinc-400">
-                            on {pastShow.stationName}
-                          </p>
                         </div>
 
                         {/* Action Button: Get notified */}
