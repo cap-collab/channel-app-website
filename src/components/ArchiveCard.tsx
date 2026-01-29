@@ -64,143 +64,128 @@ export function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSe
   const imageAlt = archive.showName;
 
   return (
-    <div className="bg-surface-card rounded-xl p-4 aspect-square flex flex-col">
-      {/* Top row: Photo, title column with buttons floated right */}
-      <div className="flex items-start gap-4 flex-1">
-        {/* Show Image or DJ Photo */}
+    <div className="bg-surface-card rounded-xl p-3">
+      <div className="flex items-center gap-3">
+        {/* Show Image */}
         {displayImage && (
-          <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
+          <div className="w-12 h-12 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
             <Image
               src={displayImage}
               alt={imageAlt}
-              width={64}
-              height={64}
+              width={48}
+              height={48}
               className="w-full h-full object-cover"
             />
           </div>
         )}
 
-        {/* Title column - buttons float right, DJ names can wrap below them */}
-        <div className="flex-1 min-w-0">
-          {/* Action buttons - floated right */}
-          <div className="float-right flex items-start gap-2 ml-2">
-            {/* DJ Profile button(s) */}
-            {archive.djs.filter(dj => dj.username).map((dj) => (
-              <Link
-                key={dj.username}
-                href={`/dj/${dj.username!.replace(/\s+/g, '').toLowerCase()}`}
-                className="sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
-                title={`View ${dj.name}'s profile`}
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                <span className="font-medium hidden sm:inline">{archive.djs.filter(dj => dj.username).length > 1 ? dj.name : 'DJ Profile'}</span>
-              </Link>
-            ))}
-
-            {/* Add to watchlist button */}
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onAddToWatchlist();
-              }}
-              className="sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              <span className="font-medium hidden sm:inline">Add to watchlist</span>
-            </button>
-
-            {/* Copy link button */}
-            <button
-              onClick={handleShare}
-              className={`sm:px-3 h-8 max-sm:w-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs ${
-                copied
-                  ? 'bg-green-500/20 text-green-400'
-                  : 'bg-white/10 hover:bg-white/20 text-white'
-              }`}
-            >
-              {copied ? (
-                <>
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="font-medium hidden sm:inline">Copied!</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  <span className="font-medium hidden sm:inline">Copy link</span>
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Show name */}
-          <h2 className="text-white font-semibold">{archive.showName}</h2>
-
-          {/* DJ names - will wrap below buttons naturally */}
-          {archive.djs.length > 0 && (
-            <p className="text-gray-400 text-sm">
-              {archive.djs.map((dj, index) => (
-                <span key={dj.username || dj.name || index}>
-                  {index > 0 && ', '}
-                  {dj.username ? (
-                    <Link
-                      href={`/dj/${dj.username.replace(/\s+/g, '').toLowerCase()}`}
-                      className="hover:text-white transition-colors"
-                    >
-                      {dj.name}
-                    </Link>
-                  ) : (
-                    dj.name
-                  )}
-                </span>
-              ))}
-            </p>
-          )}
-
-          <p className="text-gray-500 text-xs hidden sm:block">{formatDate(archive.recordedAt)}</p>
-        </div>
-      </div>
-
-      {/* Audio player - pushed to bottom */}
-      <div className="mt-auto pt-3 flex items-center gap-4">
-        {/* Play/Pause button */}
+        {/* Play button */}
         <button
           onClick={onPlayPause}
-          className="w-12 h-12 rounded-full bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0"
+          className="w-10 h-10 rounded-full bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0"
         >
           {isPlaying ? (
-            <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-black" fill="currentColor" viewBox="0 0 24 24">
               <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
             </svg>
           ) : (
-            <svg className="w-5 h-5 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z" />
             </svg>
           )}
         </button>
 
-        {/* Progress bar */}
-        <div className="flex-1">
+        {/* Content and progress */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h2 className="text-white font-semibold text-sm truncate">{archive.showName}</h2>
+              <p className="text-gray-500 text-xs">
+                {archive.djs.length > 0 && (
+                  <span>
+                    {archive.djs.map((dj, index) => (
+                      <span key={dj.username || dj.name || index}>
+                        {index > 0 && ', '}
+                        {dj.username ? (
+                          <Link
+                            href={`/dj/${dj.username.replace(/\s+/g, '').toLowerCase()}`}
+                            className="hover:text-white transition-colors"
+                          >
+                            {dj.name}
+                          </Link>
+                        ) : (
+                          dj.name
+                        )}
+                      </span>
+                    ))}
+                    {' · '}
+                  </span>
+                )}
+                {formatDuration(archive.duration)}
+              </p>
+            </div>
+            {/* Action buttons */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {/* DJ Profile button(s) */}
+              {archive.djs.filter(dj => dj.username).map((dj) => (
+                <Link
+                  key={dj.username}
+                  href={`/dj/${dj.username!.replace(/\s+/g, '').toLowerCase()}`}
+                  className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
+                  title={`View ${dj.name}'s profile`}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </Link>
+              ))}
+
+              {/* Add to watchlist button */}
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onAddToWatchlist();
+                }}
+                className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
+                title="Add to watchlist"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+
+              {/* Copy link button */}
+              <button
+                onClick={handleShare}
+                className={`w-7 h-7 rounded-full flex items-center justify-center transition-all text-xs ${
+                  copied
+                    ? 'bg-green-500/20 text-green-400'
+                    : 'bg-white/10 hover:bg-white/20 text-white'
+                }`}
+                title="Copy link"
+              >
+                {copied ? (
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
+          {/* Progress bar */}
           <input
             type="range"
             min={0}
             max={archive.duration || 100}
             value={currentTime}
             onChange={handleSeekChange}
-            className="w-full h-1 bg-gray-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+            className="w-full h-1 bg-gray-700 rounded-full appearance-none cursor-pointer mt-1.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
           />
-          <div className="flex justify-between text-xs text-gray-500 mt-1">
-            <span>{formatDuration(Math.floor(currentTime))}</span>
-            <span>{formatDuration(archive.duration)}</span>
-          </div>
         </div>
       </div>
 
