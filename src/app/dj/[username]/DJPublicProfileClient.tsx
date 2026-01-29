@@ -174,7 +174,7 @@ interface Props {
 // Activity feed item type
 type ActivityFeedItem =
   | (UpcomingShow & { feedType: "radio"; feedStatus: "upcoming" | "live" })
-  | (IrlShow & { feedType: "irl"; feedStatus: "upcoming"; id: string })
+  | (IrlShow & { feedType: "irl"; feedStatus: "upcoming" | "past"; id: string })
   | (Archive & { feedType: "recording"; feedStatus: "past" })
   | (PastShow & { feedType: "show"; feedStatus: "past" });
 
@@ -699,12 +699,6 @@ export function DJPublicProfileClient({ username }: Props) {
     setTogglingFavoriteId(null);
   };
 
-  // Check if show is currently live
-  const isShowLive = (broadcast: UpcomingShow): boolean => {
-    const now = Date.now();
-    return broadcast.startTime <= now && broadcast.endTime > now;
-  };
-
   // Audio player handlers for past recordings
   const handlePlayPause = (archiveId: string) => {
     const audio = audioRefs.current[archiveId];
@@ -748,25 +742,24 @@ export function DJPublicProfileClient({ username }: Props) {
   };
 
   // Create unified Activity Feed
-  const { liveShows, upcomingShows, pastActivities } = useMemo(() => {
-    const live: ActivityFeedItem[] = [];
+  const { upcomingShows, pastActivities } = useMemo(() => {
     const upcoming: ActivityFeedItem[] = [];
     const past: ActivityFeedItem[] = [];
     const now = Date.now();
 
-    // Add radio shows - separate live vs upcoming
+    // Add radio shows - only upcoming (live shows are handled separately)
     upcomingBroadcasts.forEach((show) => {
       const isLive = show.startTime <= now && show.endTime > now;
+      // Skip live shows - they're displayed in the dedicated live card above
+      if (isLive) {
+        return;
+      }
       const item: ActivityFeedItem = {
         ...show,
         feedType: "radio",
-        feedStatus: isLive ? "live" : "upcoming",
+        feedStatus: "upcoming",
       };
-      if (isLive) {
-        live.push(item);
-      } else {
-        upcoming.push(item);
-      }
+      upcoming.push(item);
     });
 
     // Add IRL shows - check if past or upcoming based on date
@@ -808,7 +801,7 @@ export function DJPublicProfileClient({ username }: Props) {
       });
     });
 
-    // Sort live and upcoming by start time ascending
+    // Sort upcoming by start time ascending
     const sortUpcoming = (a: ActivityFeedItem, b: ActivityFeedItem) => {
       const aTime = "startTime" in a ? a.startTime : ("date" in a && a.date ? new Date(a.date).getTime() : 0);
       const bTime = "startTime" in b ? b.startTime : ("date" in b && b.date ? new Date(b.date).getTime() : 0);
@@ -822,11 +815,10 @@ export function DJPublicProfileClient({ username }: Props) {
       return bTime - aTime;
     };
 
-    live.sort(sortUpcoming);
     upcoming.sort(sortUpcoming);
     past.sort(sortPast);
 
-    return { liveShows: live, upcomingShows: upcoming, pastActivities: past };
+    return { upcomingShows: upcoming, pastActivities: past };
   }, [upcomingBroadcasts, pastRecordings, pastShows, djProfile]);
 
   // Create Artist Selects (recommendations)
