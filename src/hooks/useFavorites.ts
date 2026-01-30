@@ -508,6 +508,19 @@ export function useFavorites() {
     [favorites]
   );
 
+  // Check if a term is exactly in watchlist (exact match only)
+  // Use this for displaying watchlist status of search queries to avoid false positives
+  // e.g. "skee" should NOT show as in watchlist just because "skee mask" is in watchlist
+  const isExactlyInWatchlist = useCallback(
+    (term: string): boolean => {
+      const termLower = term.toLowerCase();
+      return favorites.some(
+        (fav) => fav.type === "search" && fav.term.toLowerCase() === termLower
+      );
+    },
+    [favorites]
+  );
+
   // Follow a DJ - adds to watchlist and optionally adds specific show to favorites
   // This is the unified function that all components should use for consistency
   const followDJ = useCallback(
@@ -702,6 +715,7 @@ export function useFavorites() {
     addToWatchlist,
     removeFromWatchlist,
     isInWatchlist,
+    isExactlyInWatchlist,
     followDJ,
     addDJShowsToFavorites,
   };

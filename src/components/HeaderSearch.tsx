@@ -52,7 +52,7 @@ interface HeaderSearchProps {
 
 export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
   const { isAuthenticated } = useAuthContext();
-  const { toggleFavorite, isShowFavorited, addToWatchlist, isInWatchlist, followDJ } = useFavorites();
+  const { toggleFavorite, isShowFavorited, addToWatchlist, isInWatchlist, isExactlyInWatchlist, followDJ } = useFavorites();
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Show[]>([]);
@@ -282,7 +282,9 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
   };
 
   const showDropdown = isOpen && query.trim().length > 0;
-  const queryInWatchlist = isInWatchlist(query.trim());
+  // Use exact match for search query to avoid false positives
+  // e.g. "skee" should not show as in watchlist just because "skee mask" is
+  const queryInWatchlist = isExactlyInWatchlist(query.trim());
 
 
   return (
