@@ -223,11 +223,11 @@ export function StudioProfileClient() {
             setMixcloudInput(data.djProfile.socialLinks?.mixcloud || "");
             setResidentAdvisorInput(data.djProfile.socialLinks?.residentAdvisor || "");
             setCustomLinksInput(data.djProfile.socialLinks?.customLinks || []);
-            // IRL Shows - ensure we always have 2 fields
+            // IRL Shows - ensure we always have 2 fields with all properties
             const irlShows = data.djProfile.irlShows || [];
             setIrlShowsInput([
-              irlShows[0] || { url: "", date: "" },
-              irlShows[1] || { url: "", date: "" },
+              { name: "", location: "", url: "", date: "", ...irlShows[0] },
+              { name: "", location: "", url: "", date: "", ...irlShows[1] },
             ]);
             // My Recs - ensure at least one empty field
             const bandcampRecs = data.djProfile.myRecs?.bandcampLinks || [];
