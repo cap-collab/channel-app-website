@@ -431,15 +431,32 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
       }
     }
 
-    // Sort: live first, then by next show time
+    // Sort: by next event date (show or IRL), then DJs with photos first
     return Array.from(byUsername.values()).sort((a, b) => {
-      if (a.isLive && !b.isLive) return -1;
-      if (!a.isLive && b.isLive) return 1;
-      if (a.nextShowTime && b.nextShowTime) {
-        return new Date(a.nextShowTime).getTime() - new Date(b.nextShowTime).getTime();
+      // Get the earliest upcoming date for each item (show time or IRL date)
+      const getNextDate = (item: FavoriteItemStatus): number | null => {
+        if (item.isLive) return 0; // Live items come first
+        const showTime = item.nextShowTime ? new Date(item.nextShowTime).getTime() : null;
+        const irlTime = item.nextIRLDate ? new Date(item.nextIRLDate + 'T00:00:00').getTime() : null;
+
+        if (showTime && irlTime) return Math.min(showTime, irlTime);
+        return showTime || irlTime;
+      };
+
+      const aDate = getNextDate(a);
+      const bDate = getNextDate(b);
+
+      // Items with dates come before items without dates
+      if (aDate !== null && bDate !== null) {
+        return aDate - bDate;
       }
-      if (a.nextShowTime) return -1;
-      if (b.nextShowTime) return 1;
+      if (aDate !== null) return -1;
+      if (bDate !== null) return 1;
+
+      // No dates: DJs with photos come first
+      if (a.photoUrl && !b.photoUrl) return -1;
+      if (!a.photoUrl && b.photoUrl) return 1;
+
       return 0;
     });
   }, [followedDJNames, favoritedShows, shows, irlShows, djProfiles]);
@@ -464,14 +481,10 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
             href={item.username ? `/dj/${item.username}` : '/my-shows'}
             className="flex-shrink-0 flex flex-col items-center gap-2 group"
           >
-            {/* Avatar with live indicator */}
+            {/* Avatar with live/IRL indicator */}
             <div className="relative">
               <div
-                className={`w-14 h-14 rounded-full overflow-hidden border-2 transition-colors ${
-                  item.isLive
-                    ? 'border-red-500'
-                    : 'border-gray-700 group-hover:border-gray-500'
-                }`}
+                className="w-14 h-14 rounded-full overflow-hidden border-2 transition-colors border-gray-700 group-hover:border-gray-500"
               >
                 {item.photoUrl ? (
                   <Image
@@ -501,8 +514,15 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
 
               {/* Live indicator */}
               {item.isLive && (
-                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-[#ff0000] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                   LIVE
+                </span>
+              )}
+
+              {/* IRL indicator - only show if not live and has upcoming IRL event */}
+              {!item.isLive && item.nextIRLDate && (
+                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-pink-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  IRL
                 </span>
               )}
             </div>
