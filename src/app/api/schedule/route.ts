@@ -294,6 +294,7 @@ async function fetchIRLShows(): Promise<IRLShowData[]> {
           djUsername: chatUsername?.replace(/\s+/g, "").toLowerCase() || "",
           djName: chatUsername || "Unknown DJ",
           djPhotoUrl: djProfile.photoUrl || undefined,
+          djLocation: djProfile.location || undefined,
           djGenres: djProfile.genres || undefined,
           eventName: show.name || "Event",
           location: show.location || "",

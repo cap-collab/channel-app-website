@@ -103,9 +103,10 @@ export interface IRLShowData {
   djUsername: string;
   djName: string;
   djPhotoUrl?: string;
+  djLocation?: string; // DJ's home city from profile
   djGenres?: string[];
   eventName: string;
-  location: string;   // City
+  location: string;   // Event city
   ticketUrl: string;
   date: string;       // ISO date string (YYYY-MM-DD)
 }

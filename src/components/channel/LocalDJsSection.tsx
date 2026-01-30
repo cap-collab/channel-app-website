@@ -217,9 +217,9 @@ export function LocalDJsSection({
   };
 
   return (
-    <section className={isEmpty ? 'mb-2' : 'mb-6'}>
+    <section className={isEmpty ? 'mb-2' : 'mb-4 md:mb-6'}>
       {/* Header with city dropdown - always visible */}
-      <div className={`flex justify-between items-center ${isEmpty ? 'mb-1' : 'mb-3'}`}>
+      <div className={`flex justify-between items-center ${isEmpty ? 'mb-1' : 'mb-2 md:mb-3'}`}>
         <h2 className="text-white text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
           {/* Pin/location icon */}
           <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -353,8 +353,8 @@ export function LocalDJsSection({
 
       {/* IRL subsection - 2-column grid on desktop */}
       {hasIRLShows && (
-        <div className="mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="mb-4 md:mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             {filteredIRLShows.map((show, index) => {
               const isFollowing = show.djName ? isInWatchlist(show.djName) : false;
               const isAddingFollow = addingFollowDj === show.djName;
@@ -376,7 +376,7 @@ export function LocalDJsSection({
       {/* Radio Shows subsection - 2-column grid on desktop */}
       {hasRadioShows && (
         <div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             {localDJShows.map((show) => {
               const station = stations.get(show.stationId);
               if (!station) return null;

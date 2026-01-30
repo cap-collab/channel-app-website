@@ -75,11 +75,16 @@ export function IRLShowCard({
               {/* Gradient scrims - top left and bottom left corners */}
               <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
               <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
-              {/* DJ Name Overlay on top-left */}
+              {/* DJ Name and Location Overlay on top-left */}
               <div className="absolute top-2 left-2 right-2">
                 <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
                   {show.djName}
                 </span>
+                {show.djLocation && (
+                  <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
+                    {show.djLocation}
+                  </span>
+                )}
               </div>
               {/* Genre tags on bottom-left */}
               {show.djGenres && show.djGenres.length > 0 && (
@@ -113,11 +118,16 @@ export function IRLShowCard({
               {/* Gradient scrims - top left and bottom left corners */}
               <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
               <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
-              {/* DJ Name Overlay on top-left */}
+              {/* DJ Name and Location Overlay on top-left */}
               <div className="absolute top-2 left-2 right-2">
                 <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
                   {show.djName}
                 </span>
+                {show.djLocation && (
+                  <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
+                    {show.djLocation}
+                  </span>
+                )}
               </div>
               {/* Genre tags on bottom-left */}
               {show.djGenres && show.djGenres.length > 0 && (

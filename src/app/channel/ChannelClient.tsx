@@ -220,7 +220,7 @@ export function ChannelClient() {
         {/* Unified layout for all screen sizes */}
         <div className="flex flex-col overflow-y-auto">
           {/* My DJs Section - only shows for authenticated users with followed DJs */}
-          <div className="flex-shrink-0 px-4 pt-4">
+          <div className="flex-shrink-0 px-4 pt-3 md:pt-4">
             <MyDJsSection
               shows={liveAndUpcomingShows}
               irlShows={irlShows}
@@ -230,7 +230,7 @@ export function ChannelClient() {
           </div>
 
           {/* Who Is On Now - live DJ cards with Play button for broadcast, chat below broadcast card */}
-          <div className="flex-shrink-0 px-4 pb-4">
+          <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
             <WhoIsOnNow
               onAuthRequired={handleAuthRequired}
               onTogglePlay={toggle}
@@ -264,7 +264,7 @@ export function ChannelClient() {
           </div>
 
           {/* Your Local DJs - unified section with IRL and Radio Shows subsections */}
-          <div className="flex-shrink-0 px-4 pb-4">
+          <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
             <LocalDJsSection
               shows={allShows}
               irlShows={irlShows}
@@ -276,7 +276,7 @@ export function ChannelClient() {
           </div>
 
           {/* Who Not To Miss - upcoming shows with Remind Me CTA */}
-          <div className="flex-shrink-0 px-4 pb-4">
+          <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
             <WhoNotToMiss
               shows={allShows}
               stations={stationsMap}

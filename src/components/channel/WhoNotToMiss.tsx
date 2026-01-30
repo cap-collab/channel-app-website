@@ -80,9 +80,9 @@ export function WhoNotToMiss({
   };
 
   return (
-    <section className="mb-6">
+    <section className="mb-4 md:mb-6">
       {/* Header matching LiveNow style */}
-      <div className="flex justify-between items-end mb-3">
+      <div className="flex justify-between items-end mb-2 md:mb-3">
         <h2 className="text-white text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
           <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" />
@@ -92,7 +92,7 @@ export function WhoNotToMiss({
       </div>
 
       {/* 2-column grid on desktop, full width on mobile */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         {upcomingShows.map((show) => {
           const station = stations.get(show.stationId);
           if (!station) return null;

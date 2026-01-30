@@ -132,8 +132,8 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
 
   if (loading) {
     return (
-      <section className="mb-6">
-        <div className="flex justify-between items-end mb-3">
+      <section className="mb-4 md:mb-6">
+        <div className="flex justify-between items-end mb-2 md:mb-3">
           <h2 className="text-white text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -161,9 +161,9 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
   const showViewAll = false; // Hidden for now since there's no "view all" page
 
   return (
-    <section className="mb-6">
+    <section className="mb-4 md:mb-6">
       {/* Header with pulsing red dot */}
-      <div className="flex justify-between items-end mb-3">
+      <div className="flex justify-between items-end mb-2 md:mb-3">
         <h2 className="text-white text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -180,7 +180,7 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
 
       {/* Broadcast show - full width with chat below */}
       {broadcastShow && (
-        <div className="mb-4">
+        <div className="mb-3 md:mb-4">
           <BroadcastCard
             show={broadcastShow}
             station={stationsMap.get(broadcastShow.stationId)!}
