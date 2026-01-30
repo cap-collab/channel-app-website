@@ -240,6 +240,8 @@ interface CustomLink {
 }
 
 interface IrlShow {
+  name?: string;
+  location?: string;
   url?: string;
   venue?: string; // legacy field
   date: string;
@@ -1344,9 +1346,9 @@ export function DJPublicProfileClient({ username }: Props) {
                           )}
 
                           <h3 className="text-white font-semibold">
-                            {irlShow.venue || irlShow.url?.replace(/^https?:\/\//, "").split("/")[0] || "Event"}
+                            {irlShow.name || irlShow.venue || irlShow.url?.replace(/^https?:\/\//, "").split("/")[0] || "Event"}
                           </h3>
-                          <p className="text-gray-400 text-sm">Upcoming IRL Event</p>
+                          <p className="text-gray-400 text-sm">{irlShow.location || "Upcoming IRL Event"}</p>
                           <p className="text-gray-500 text-xs">{irlShow.date || "TBA"}</p>
                         </div>
                       </div>
@@ -1376,9 +1378,9 @@ export function DJPublicProfileClient({ username }: Props) {
                       <div className="flex items-start gap-4">
                         <div className="flex-1 min-w-0">
                           <h3 className="text-gray-400 font-semibold">
-                            {irlShow.venue || irlShow.url?.replace(/^https?:\/\//, "").split("/")[0] || "Event"}
+                            {irlShow.name || irlShow.venue || irlShow.url?.replace(/^https?:\/\//, "").split("/")[0] || "Event"}
                           </h3>
-                          <p className="text-gray-500 text-sm">Past IRL Event</p>
+                          <p className="text-gray-500 text-sm">{irlShow.location || "Past IRL Event"}</p>
                           <p className="text-gray-600 text-xs">{irlShow.date || "TBA"}</p>
                         </div>
                       </div>

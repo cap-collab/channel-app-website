@@ -42,6 +42,8 @@ interface CustomLink {
 }
 
 interface IrlShow {
+  name: string;
+  location: string;
   url: string;
   date: string;
 }
@@ -139,7 +141,7 @@ export function StudioProfileClient() {
   const [saveSocialSuccess, setSaveSocialSuccess] = useState(false);
 
   // Form state - IRL Shows section
-  const [irlShowsInput, setIrlShowsInput] = useState<IrlShow[]>([{ url: "", date: "" }, { url: "", date: "" }]);
+  const [irlShowsInput, setIrlShowsInput] = useState<IrlShow[]>([{ name: "", location: "", url: "", date: "" }, { name: "", location: "", url: "", date: "" }]);
   const [savingIrlShows, setSavingIrlShows] = useState(false);
   const [saveIrlShowsSuccess, setSaveIrlShowsSuccess] = useState(false);
 
@@ -834,24 +836,21 @@ export function StudioProfileClient() {
     return (
       <div className="min-h-screen bg-black">
         <Header currentPage="studio" position="sticky" />
-        <main className="max-w-xl mx-auto p-4">
-          <div className="text-center py-12">
-            <p className="text-gray-500 mb-6">
-              Sign in to access your DJ profile
+        <main className="max-w-sm mx-auto p-4">
+          <div className="py-8">
+            <h2 className="text-xl font-bold text-white mb-2 text-center">Sign Up</h2>
+            <p className="text-gray-500 text-sm mb-6 text-center">
+              Create an account to apply to DJ on Channel
             </p>
-            <button
-              onClick={() => setShowAuthModal(true)}
-              className="bg-white text-black px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors"
-            >
-              Sign In
-            </button>
+            <AuthModal
+              isOpen={true}
+              onClose={() => {}}
+              message="Sign up to apply to DJ on Channel"
+              inline
+              includeDjTerms
+            />
           </div>
         </main>
-        <AuthModal
-          isOpen={showAuthModal}
-          onClose={() => setShowAuthModal(false)}
-          includeDjTerms
-        />
       </div>
     );
   }
@@ -1415,6 +1414,30 @@ export function StudioProfileClient() {
                   <label className="block text-gray-400 text-sm">
                     Show {index + 1}
                   </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={show.name}
+                      onChange={(e) => {
+                        const updated = [...irlShowsInput];
+                        updated[index] = { ...updated[index], name: e.target.value };
+                        setIrlShowsInput(updated);
+                      }}
+                      placeholder="Event Name"
+                      className="flex-1 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                    />
+                    <input
+                      type="text"
+                      value={show.location}
+                      onChange={(e) => {
+                        const updated = [...irlShowsInput];
+                        updated[index] = { ...updated[index], location: e.target.value };
+                        setIrlShowsInput(updated);
+                      }}
+                      placeholder="City"
+                      className="w-32 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                    />
+                  </div>
                   <div className="flex gap-2">
                     <input
                       type="text"
