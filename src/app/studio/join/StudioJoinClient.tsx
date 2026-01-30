@@ -470,44 +470,18 @@ export function StudioJoinClient() {
                   </div>
                 </>
               ) : (
-                // State A: Not logged in - show sign up section
+                // State A: Not logged in - show inline sign up form
                 <>
-                  <h2 className="text-2xl font-semibold mb-4">Sign up</h2>
-                  <p className="text-gray-400 mb-6">Create your account to:</p>
-                  <div className="space-y-3 mb-6">
-                    <div className="flex items-center gap-3">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                      <span className="text-gray-300">Claim your DJ name &amp; public URL</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                      </svg>
-                      <span className="text-gray-300">Notify your fans about upcoming shows, events, or new releases</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z" />
-                      </svg>
-                      <span className="text-gray-300">Schedule or record a live set</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                      </svg>
-                      <span className="text-gray-300">Publish and replay your sets</span>
-                    </div>
+                  <h2 className="text-2xl font-semibold mb-6">Sign up</h2>
+                  <div className="max-w-sm">
+                    <AuthModal
+                      isOpen={true}
+                      onClose={() => {}}
+                      message="Create your DJ profile"
+                      inline
+                      includeDjTerms
+                    />
                   </div>
-
-                  <button
-                    onClick={() => setShowAuthModal(true)}
-                    className="bg-white text-black px-8 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
-                  >
-                    Sign up
-                  </button>
-                  <p className="text-gray-500 text-sm mt-3">Free. No commitment. Your profile stays private unless you choose to promote it.</p>
                 </>
               )}
             </div>
