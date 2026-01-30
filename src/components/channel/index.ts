@@ -1,4 +1,3 @@
-export { NowPlayingPanel } from './NowPlayingPanel';
 export { ListenerChatPanel } from './ListenerChatPanel';
 export { BroadcastSchedule } from './BroadcastSchedule';
 export { LoveButton } from './LoveButton';

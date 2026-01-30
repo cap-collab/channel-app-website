@@ -159,7 +159,7 @@ export function TicketCard({
           )}
         </h3>
         <p className="text-[10px] text-zinc-500 mt-0.5 uppercase">
-          on {station.name}
+          {show.djLocation ? `${show.djLocation} · on ${station.name}` : `on ${station.name}`}
         </p>
       </div>
 
