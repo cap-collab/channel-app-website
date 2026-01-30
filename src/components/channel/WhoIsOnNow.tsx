@@ -276,12 +276,17 @@ function BroadcastCard({
           )}
           {/* Gradient scrim */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent sm:bg-gradient-to-r" />
-          {/* DJ Name Overlay */}
+          {/* DJ Name and Location Overlay */}
           {show.dj && (
             <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4">
               <span className="text-sm font-black uppercase tracking-widest text-white drop-shadow-lg">
                 {show.dj}
               </span>
+              {show.djLocation && (
+                <span className="block text-xs text-white/80 drop-shadow-lg mt-0.5">
+                  {show.djLocation}
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -296,7 +301,7 @@ function BroadcastCard({
               {show.name}
             </h3>
             <p className="text-xs text-zinc-500 uppercase">
-              {show.djLocation ? `${show.djLocation} · at ${station.name}` : `at ${station.name}`}
+              at {station.name}
             </p>
           </div>
 
@@ -392,23 +397,21 @@ function LiveShowCard({
 
   return (
     <div className="flex-shrink-0 w-44 sm:w-56 snap-start group flex flex-col">
-      {/* Genre tags (left) and BPM (right) above image */}
+      {/* BPM (left) and Radio Show badge (right) above image */}
       <div className="flex justify-between items-center mb-1 h-4">
-        {show.djGenres && show.djGenres.length > 0 ? (
-          <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter truncate">
-            {show.djGenres.slice(0, 2).join(' · ')}
-          </div>
-        ) : (
-          <div />
-        )}
-        {bpm && (
+        {bpm ? (
           <div
             className="text-[10px] font-mono text-zinc-400 animate-bpm-pulse"
             style={{ '--bpm-duration': bpmDuration } as React.CSSProperties}
           >
             {Math.round(bpm)} BPM
           </div>
+        ) : (
+          <div />
         )}
+        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">
+          Radio Show
+        </div>
       </div>
 
       {/* Image or Graphic Card - links to DJ profile if available */}
@@ -424,13 +427,27 @@ function LiveShowCard({
                 unoptimized
                 onError={() => setImageError(true)}
               />
-              {/* Gradient scrim - top left corner */}
+              {/* Gradient scrims - top left and bottom left corners */}
               <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
-              {/* DJ Name Overlay on top-left */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
+              {/* DJ Name and Location Overlay on top-left */}
               {djName && (
                 <div className="absolute top-2 left-2 right-2">
                   <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
                     {djName}
+                  </span>
+                  {show.djLocation && (
+                    <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
+                      {show.djLocation}
+                    </span>
+                  )}
+                </div>
+              )}
+              {/* Genre tags on bottom-left */}
+              {show.djGenres && show.djGenres.length > 0 && (
+                <div className="absolute bottom-2 left-2 right-2">
+                  <span className="text-[10px] font-mono text-white/80 uppercase tracking-tighter drop-shadow-lg">
+                    {show.djGenres.slice(0, 2).join(' · ')}
                   </span>
                 </div>
               )}
@@ -464,13 +481,27 @@ function LiveShowCard({
                 unoptimized
                 onError={() => setImageError(true)}
               />
-              {/* Gradient scrim - top left corner */}
+              {/* Gradient scrims - top left and bottom left corners */}
               <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
-              {/* DJ Name Overlay on top-left */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
+              {/* DJ Name and Location Overlay on top-left */}
               {djName && (
                 <div className="absolute top-2 left-2 right-2">
                   <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
                     {djName}
+                  </span>
+                  {show.djLocation && (
+                    <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
+                      {show.djLocation}
+                    </span>
+                  )}
+                </div>
+              )}
+              {/* Genre tags on bottom-left */}
+              {show.djGenres && show.djGenres.length > 0 && (
+                <div className="absolute bottom-2 left-2 right-2">
+                  <span className="text-[10px] font-mono text-white/80 uppercase tracking-tighter drop-shadow-lg">
+                    {show.djGenres.slice(0, 2).join(' · ')}
                   </span>
                 </div>
               )}
@@ -511,7 +542,7 @@ function LiveShowCard({
           rel="noopener noreferrer"
           className="text-[10px] text-zinc-500 flex items-center gap-1 mt-0.5 uppercase hover:text-zinc-300 transition"
         >
-          {show.djLocation ? `${show.djLocation} · at ${station.name}` : `at ${station.name}`}
+          at {station.name}
           <svg className="w-2 h-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
           </svg>

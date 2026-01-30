@@ -46,17 +46,13 @@ export function IRLShowCard({
 
   return (
     <div className="w-full group">
-      {/* Genre tags (left) and Date (right) above image */}
+      {/* Date (left) and IRL Event badge (right) above image */}
       <div className="flex justify-between items-center mb-1 h-4">
-        {show.djGenres && show.djGenres.length > 0 ? (
-          <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter truncate">
-            {show.djGenres.slice(0, 2).join(' · ')}
-          </div>
-        ) : (
-          <div />
-        )}
         <div className="text-[10px] font-mono text-zinc-400">
           {dateStr}
+        </div>
+        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">
+          IRL Event
         </div>
       </div>
 
@@ -73,14 +69,23 @@ export function IRLShowCard({
                 unoptimized
                 onError={() => setImageError(true)}
               />
-              {/* Gradient scrim - top left corner */}
+              {/* Gradient scrims - top left and bottom left corners */}
               <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
               {/* DJ Name Overlay on top-left */}
               <div className="absolute top-2 left-2 right-2">
                 <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
                   {show.djName}
                 </span>
               </div>
+              {/* Genre tags on bottom-left */}
+              {show.djGenres && show.djGenres.length > 0 && (
+                <div className="absolute bottom-2 left-2 right-2">
+                  <span className="text-[10px] font-mono text-white/80 uppercase tracking-tighter drop-shadow-lg">
+                    {show.djGenres.slice(0, 2).join(' · ')}
+                  </span>
+                </div>
+              )}
             </>
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900 to-pink-900">
@@ -102,14 +107,23 @@ export function IRLShowCard({
                 unoptimized
                 onError={() => setImageError(true)}
               />
-              {/* Gradient scrim - top left corner */}
+              {/* Gradient scrims - top left and bottom left corners */}
               <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
               {/* DJ Name Overlay on top-left */}
               <div className="absolute top-2 left-2 right-2">
                 <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
                   {show.djName}
                 </span>
               </div>
+              {/* Genre tags on bottom-left */}
+              {show.djGenres && show.djGenres.length > 0 && (
+                <div className="absolute bottom-2 left-2 right-2">
+                  <span className="text-[10px] font-mono text-white/80 uppercase tracking-tighter drop-shadow-lg">
+                    {show.djGenres.slice(0, 2).join(' · ')}
+                  </span>
+                </div>
+              )}
             </>
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900 to-pink-900">
