@@ -560,7 +560,7 @@ function LiveShowCard({
             onFollow();
           }}
           disabled={isTogglingFollow}
-          className={`text-[9px] font-black uppercase py-1.5 transition flex items-center justify-center gap-0.5 ${
+          className={`text-[9px] font-black uppercase py-1.5 rounded-lg transition flex items-center justify-center gap-0.5 ${
             isFollowed
               ? 'bg-white/10 text-white hover:bg-white/20'
               : 'bg-white text-gray-900 hover:bg-gray-100'
@@ -578,7 +578,7 @@ function LiveShowCard({
           href={station.websiteUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="bg-zinc-800 text-white text-[9px] font-black uppercase py-1.5 flex items-center justify-center gap-0.5 hover:bg-zinc-700 transition"
+          className="bg-zinc-800 text-white text-[9px] font-black uppercase py-1.5 rounded-lg flex items-center justify-center gap-0.5 hover:bg-zinc-700 transition"
         >
           Join
           <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
