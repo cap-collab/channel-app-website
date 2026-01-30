@@ -48,20 +48,18 @@ function formatNextShowTime(isoTime: string): string {
   tomorrow.setDate(tomorrow.getDate() + 1);
   const isTomorrow = date.toDateString() === tomorrow.toDateString();
 
-  // Compact time: "1:30p" instead of "1:30 PM"
-  const hours = date.getHours();
-  const minutes = date.getMinutes();
-  const hour12 = hours % 12 || 12;
-  const ampm = hours < 12 ? 'a' : 'p';
-  const timeStr = minutes === 0 ? `${hour12}${ampm}` : `${hour12}:${minutes.toString().padStart(2, '0')}${ampm}`;
+  const timeStr = date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
 
   if (isToday) {
     return timeStr;
   } else if (isTomorrow) {
     return `Tom ${timeStr}`;
   } else {
-    // Get short weekday (Mon, Tue, Wed)
-    const weekday = date.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 3);
+    const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
     return `${weekday} ${timeStr}`;
   }
 }
@@ -518,12 +516,6 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
                 </span>
               )}
 
-              {/* IRL indicator - only show if not live and has upcoming IRL event */}
-              {!item.isLive && item.nextIRLDate && (
-                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-pink-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                  IRL
-                </span>
-              )}
             </div>
 
             {/* Name and status */}
