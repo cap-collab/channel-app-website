@@ -48,22 +48,21 @@ function formatNextShowTime(isoTime: string): string {
   tomorrow.setDate(tomorrow.getDate() + 1);
   const isTomorrow = date.toDateString() === tomorrow.toDateString();
 
-  const timeStr = date.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
+  // Compact time: "1:30p" instead of "1:30 PM"
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const hour12 = hours % 12 || 12;
+  const ampm = hours < 12 ? 'a' : 'p';
+  const timeStr = minutes === 0 ? `${hour12}${ampm}` : `${hour12}:${minutes.toString().padStart(2, '0')}${ampm}`;
 
   if (isToday) {
     return timeStr;
   } else if (isTomorrow) {
-    return `Tomorrow ${timeStr}`;
+    return `Tom ${timeStr}`;
   } else {
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
+    // Get short weekday (Mon, Tue, Wed)
+    const weekday = date.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 3);
+    return `${weekday} ${timeStr}`;
   }
 }
 
@@ -77,11 +76,11 @@ function formatIRLDate(isoDate: string): string {
   const isTomorrow = date.toDateString() === tomorrow.toDateString();
 
   if (isToday) {
-    return 'IRL Today';
+    return 'Today';
   } else if (isTomorrow) {
-    return 'IRL Tomorrow';
+    return 'Tom';
   } else {
-    return 'IRL ' + date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
     });
