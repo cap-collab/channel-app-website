@@ -221,9 +221,9 @@ export function LocalDJsSection({
       {/* Header with city dropdown - always visible */}
       <div className={`flex justify-between items-center ${isEmpty ? 'mb-1' : 'mb-3'}`}>
         <h2 className="text-white text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
-          {/* House/home icon */}
+          {/* Pin/location icon */}
           <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
           </svg>
           Your Local DJs
         </h2>
@@ -354,12 +354,6 @@ export function LocalDJsSection({
       {/* IRL subsection */}
       {hasIRLShows && (
         <div className="mb-6">
-          <h3 className="text-white/60 text-xs font-medium uppercase tracking-wide mb-3 flex items-center gap-2">
-            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-            </svg>
-            IRL
-          </h3>
           <div className="space-y-6">
             {filteredIRLShows.map((show, index) => {
               const isFollowing = show.djName ? isInWatchlist(show.djName) : false;
@@ -382,12 +376,6 @@ export function LocalDJsSection({
       {/* Radio Shows subsection */}
       {hasRadioShows && (
         <div>
-          <h3 className="text-white/60 text-xs font-medium uppercase tracking-wide mb-3 flex items-center gap-2">
-            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M20 6H8.3L16.6 2.4l-.8-1.8L3 6H2v2h18v12H4V8H2v14h20V6zm-4 8h-2v2h2v-2zm-4 0H8v2h4v-2z" />
-            </svg>
-            Radio Shows
-          </h3>
           <div className="space-y-6">
             {localDJShows.map((show) => {
               const station = stations.get(show.stationId);
