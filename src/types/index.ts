@@ -97,6 +97,18 @@ export interface FavoriteDocument {
   createdBy: "web" | "ios";
 }
 
+// IRL Show data for "IRL near you" section
+export interface IRLShowData {
+  djUsername: string;
+  djName: string;
+  djPhotoUrl?: string;
+  djGenres?: string[];
+  eventName: string;
+  location: string;   // City
+  ticketUrl: string;
+  date: string;       // ISO date string (YYYY-MM-DD)
+}
+
 // Station application
 export interface StationApplication {
   stationName: string;

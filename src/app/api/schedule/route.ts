@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAllShows } from "@/lib/metadata";
 import { getAdminDb } from "@/lib/firebase-admin";
-import { Show } from "@/types";
+import { Show, IRLShowData } from "@/types";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -250,16 +250,78 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
   });
 }
 
+// Fetch IRL shows from DJ profiles
+async function fetchIRLShows(): Promise<IRLShowData[]> {
+  const adminDb = getAdminDb();
+  if (!adminDb) {
+    console.log("[API /schedule] Admin SDK not available, skipping IRL shows");
+    return [];
+  }
+
+  try {
+    // Query all users with DJ role who might have IRL shows
+    const usersSnapshot = await adminDb
+      .collection("users")
+      .where("role", "in", ["dj", "broadcaster", "admin"])
+      .get();
+
+    const irlShows: IRLShowData[] = [];
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
+    usersSnapshot.forEach((doc) => {
+      const userData = doc.data();
+      const djProfile = userData?.djProfile;
+      const chatUsername = userData?.chatUsername;
+
+      if (!djProfile?.irlShows || !Array.isArray(djProfile.irlShows)) {
+        return;
+      }
+
+      // Filter to upcoming shows only
+      for (const show of djProfile.irlShows) {
+        // Skip if no date or URL
+        if (!show.date || !show.url) continue;
+
+        // Skip past shows (compare ISO date strings)
+        if (show.date < today) continue;
+
+        irlShows.push({
+          djUsername: chatUsername?.replace(/\s+/g, "").toLowerCase() || "",
+          djName: chatUsername || "Unknown DJ",
+          djPhotoUrl: djProfile.photoUrl || undefined,
+          djGenres: djProfile.genres || undefined,
+          eventName: show.name || "Event",
+          location: show.location || "",
+          ticketUrl: show.url,
+          date: show.date,
+        });
+      }
+    });
+
+    // Sort by date ascending
+    irlShows.sort((a, b) => a.date.localeCompare(b.date));
+
+    return irlShows;
+  } catch (error) {
+    console.error("[API /schedule] Error fetching IRL shows:", error);
+    return [];
+  }
+}
+
 export async function GET() {
   try {
-    const shows = await getAllShows();
+    // Fetch shows and IRL shows in parallel
+    const [shows, irlShows] = await Promise.all([
+      getAllShows(),
+      fetchIRLShows(),
+    ]);
 
     // Enrich shows with DJ profiles using Admin SDK
     const enrichedShows = await enrichShowsWithDJProfiles(shows);
 
-    return NextResponse.json({ shows: enrichedShows });
+    return NextResponse.json({ shows: enrichedShows, irlShows });
   } catch (error) {
     console.error("[API /schedule] Error fetching shows:", error);
-    return NextResponse.json({ shows: [], error: "Failed to fetch shows" }, { status: 500 });
+    return NextResponse.json({ shows: [], irlShows: [], error: "Failed to fetch shows" }, { status: 500 });
   }
 }

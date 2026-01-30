@@ -10,12 +10,13 @@ import { ListenerChatPanel } from '@/components/channel/ListenerChatPanel';
 import { TipThankYouModal } from '@/components/channel/TipThankYouModal';
 import { MyDJsSection } from '@/components/channel/MyDJsSection';
 import { WhoNotToMiss } from '@/components/channel/WhoNotToMiss';
+import { IRLNearYou } from '@/components/channel/IRLNearYou';
 import { AuthModal } from '@/components/AuthModal';
 import { useBroadcastStream } from '@/hooks/useBroadcastStream';
 import { useListenerChat } from '@/hooks/useListenerChat';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { saveTipToLocalStorage } from '@/lib/tip-history-storage';
-import { Show, Station } from '@/types';
+import { Show, Station, IRLShowData } from '@/types';
 import { STATIONS } from '@/lib/stations';
 
 interface TipSuccessData {
@@ -38,6 +39,9 @@ export function ChannelClient() {
   // All shows data for MyDJs and WhatNotToMiss
   const [allShows, setAllShows] = useState<Show[]>([]);
   const [allShowsLoading, setAllShowsLoading] = useState(true);
+
+  // IRL shows data
+  const [irlShows, setIrlShows] = useState<IRLShowData[]>([]);
 
   // Stations map for quick lookup
   const stationsMap = useMemo(() => {
@@ -94,7 +98,10 @@ export function ChannelClient() {
   useEffect(() => {
     fetch('/api/schedule')
       .then((res) => res.json())
-      .then((data) => setAllShows(data.shows || []))
+      .then((data) => {
+        setAllShows(data.shows || []);
+        setIrlShows(data.irlShows || []);
+      })
       .catch(console.error)
       .finally(() => setAllShowsLoading(false));
   }, []);
@@ -163,6 +170,12 @@ export function ChannelClient() {
   const handleRemindMe = useCallback((show: Show) => {
     const djName = show.dj || show.name;
     setAuthModalMessage(`Sign in to get notified when ${djName} goes live`);
+    setShowAuthModal(true);
+  }, []);
+
+  // Handle Follow click from IRLNearYou (for non-authenticated users)
+  const handleIRLAuthRequired = useCallback((djName: string) => {
+    setAuthModalMessage(`Sign in to follow ${djName}`);
     setShowAuthModal(true);
   }, []);
 
@@ -256,6 +269,15 @@ export function ChannelClient() {
               stations={stationsMap}
               isAuthenticated={isAuthenticated}
               onAuthRequired={handleRemindMe}
+            />
+          </div>
+
+          {/* IRL Near You - upcoming in-person shows by city */}
+          <div className="flex-shrink-0 px-4 pb-4">
+            <IRLNearYou
+              irlShows={irlShows}
+              isAuthenticated={isAuthenticated}
+              onAuthRequired={handleIRLAuthRequired}
             />
           </div>
 

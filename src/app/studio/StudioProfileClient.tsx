@@ -1517,15 +1517,14 @@ export function StudioProfileClient() {
                       className="flex-1 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                     />
                     <input
-                      type="text"
+                      type="date"
                       value={show.date}
                       onChange={(e) => {
                         const updated = [...irlShowsInput];
                         updated[index] = { ...updated[index], date: e.target.value };
                         setIrlShowsInput(updated);
                       }}
-                      placeholder="Date"
-                      className="w-32 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                      className="w-36 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none [color-scheme:dark]"
                     />
                   </div>
                 </div>
