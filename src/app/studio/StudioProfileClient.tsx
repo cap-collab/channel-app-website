@@ -836,19 +836,85 @@ export function StudioProfileClient() {
     return (
       <div className="min-h-screen bg-black">
         <Header currentPage="studio" position="sticky" />
-        <main className="max-w-sm mx-auto p-4">
-          <div className="py-8">
-            <h2 className="text-xl font-bold text-white mb-2 text-center">Sign Up</h2>
-            <p className="text-gray-500 text-sm mb-6 text-center">
-              Create an account to apply to DJ on Channel
-            </p>
-            <AuthModal
-              isOpen={true}
-              onClose={() => {}}
-              message="Sign up to apply to DJ on Channel"
-              inline
-              includeDjTerms
-            />
+        <main className="p-4 md:p-8">
+          <div className="max-w-2xl mx-auto">
+            {/* Hero Section */}
+            <div className="mb-12">
+              <h1 className="text-3xl font-bold mb-4">DJ Studio</h1>
+              <p className="text-xl text-gray-300 mb-6">Create your DJ profile on Channel</p>
+
+              <p className="text-gray-400 leading-relaxed mb-8">
+                Think of Channel as SoundCloud + Linktree + live radio — built for DJs and their communities.
+              </p>
+
+              <h2 className="text-lg font-semibold mb-4">What you get when you sign up</h2>
+              <div className="space-y-4">
+                <div className="flex gap-4">
+                  <div className="w-6 h-6 flex-shrink-0 mt-0.5">
+                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-white font-medium">A public DJ profile</p>
+                    <p className="text-gray-400 text-sm">
+                      Your own DJ page with links, shows, and sets (example →{' '}
+                      <Link href="/dj/djcap" className="text-white underline hover:text-gray-300">channel-app.com/dj/djcap</Link>)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="w-6 h-6 flex-shrink-0 mt-0.5">
+                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-white font-medium">Live or recorded sets</p>
+                    <p className="text-gray-400 text-sm">Livestream or record sets from home or directly from a venue</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="w-6 h-6 flex-shrink-0 mt-0.5">
+                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-white font-medium">Automatic fan notifications</p>
+                    <p className="text-gray-400 text-sm">Fans get notified every time you play — live on Channel, on any radio, when you promote a new event, or release a new record</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="w-6 h-6 flex-shrink-0 mt-0.5">
+                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-white font-medium">Chat &amp; tips</p>
+                    <p className="text-gray-400 text-sm">Talk to listeners, receive tips, and reward your community</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Sign Up Section */}
+            <div className="border-t border-gray-800 pt-12">
+              <h2 className="text-2xl font-semibold mb-6">Sign up</h2>
+              <div className="max-w-sm">
+                <AuthModal
+                  isOpen={true}
+                  onClose={() => {}}
+                  message="Create your DJ profile"
+                  inline
+                  includeDjTerms
+                />
+              </div>
+            </div>
           </div>
         </main>
       </div>
