@@ -1077,7 +1077,7 @@ export function DJPublicProfileClient({ username }: Props) {
             className={`px-4 py-1.5 rounded-lg text-[10px] uppercase font-black tracking-widest transition disabled:opacity-50 ${
               isSubscribed
                 ? "bg-zinc-800 text-white hover:bg-zinc-700"
-                : "bg-white text-black hover:bg-accent hover:text-white"
+                : "bg-white text-black hover:bg-gray-100"
             }`}
           >
             {subscribing ? "..." : isSubscribed ? "Following" : "Follow"}
