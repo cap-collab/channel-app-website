@@ -10,8 +10,7 @@ import { ListenerChatPanel } from '@/components/channel/ListenerChatPanel';
 import { TipThankYouModal } from '@/components/channel/TipThankYouModal';
 import { MyDJsSection } from '@/components/channel/MyDJsSection';
 import { WhoNotToMiss } from '@/components/channel/WhoNotToMiss';
-import { IRLNearYou } from '@/components/channel/IRLNearYou';
-import { LocalDJs } from '@/components/channel/LocalDJs';
+import { LocalDJsSection } from '@/components/channel/LocalDJsSection';
 import { AuthModal } from '@/components/AuthModal';
 import { useBroadcastStream } from '@/hooks/useBroadcastStream';
 import { useListenerChat } from '@/hooks/useListenerChat';
@@ -264,24 +263,15 @@ export function ChannelClient() {
             />
           </div>
 
-          {/* IRL Near You - upcoming in-person shows by city (right after Live section) */}
-          {irlShows.length > 0 && (
-            <div className="flex-shrink-0 px-4 pb-4">
-              <IRLNearYou
-                irlShows={irlShows}
-                isAuthenticated={isAuthenticated}
-                onAuthRequired={handleIRLAuthRequired}
-              />
-            </div>
-          )}
-
-          {/* Your Local DJs - upcoming shows from DJs based in user's city */}
+          {/* Your Local DJs - unified section with IRL and Radio Shows subsections */}
           <div className="flex-shrink-0 px-4 pb-4">
-            <LocalDJs
+            <LocalDJsSection
               shows={allShows}
+              irlShows={irlShows}
               stations={stationsMap}
               isAuthenticated={isAuthenticated}
               onAuthRequired={handleRemindMe}
+              onIRLAuthRequired={handleIRLAuthRequired}
             />
           </div>
 
