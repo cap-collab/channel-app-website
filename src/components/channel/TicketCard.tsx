@@ -71,7 +71,10 @@ export function TicketCard({
         <div className="text-[10px] font-mono text-zinc-400">
           {date} {time}
         </div>
-        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">
+        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter flex items-center gap-1">
+          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M20 6H8.3L16.6 2.4l-.8-1.8L3 6H2v2h18v12H4V8H2v14h20V6zm-4 8h-2v2h2v-2zm-4 0H8v2h4v-2z" />
+          </svg>
           Radio Show
         </div>
       </div>

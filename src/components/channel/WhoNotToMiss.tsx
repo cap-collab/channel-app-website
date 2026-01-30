@@ -91,8 +91,8 @@ export function WhoNotToMiss({
         </h2>
       </div>
 
-      {/* Full width cards */}
-      <div className="space-y-6">
+      {/* 2-column grid on desktop, full width on mobile */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {upcomingShows.map((show) => {
           const station = stations.get(show.stationId);
           if (!station) return null;

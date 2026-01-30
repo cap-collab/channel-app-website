@@ -351,10 +351,10 @@ export function LocalDJsSection({
         </div>
       )}
 
-      {/* IRL subsection */}
+      {/* IRL subsection - 2-column grid on desktop */}
       {hasIRLShows && (
         <div className="mb-6">
-          <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {filteredIRLShows.map((show, index) => {
               const isFollowing = show.djName ? isInWatchlist(show.djName) : false;
               const isAddingFollow = addingFollowDj === show.djName;
@@ -373,10 +373,10 @@ export function LocalDJsSection({
         </div>
       )}
 
-      {/* Radio Shows subsection */}
+      {/* Radio Shows subsection - 2-column grid on desktop */}
       {hasRadioShows && (
         <div>
-          <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {localDJShows.map((show) => {
               const station = stations.get(show.stationId);
               if (!station) return null;

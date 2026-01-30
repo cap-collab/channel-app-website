@@ -195,7 +195,7 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
         </div>
       )}
 
-      {/* Horizontal scroll strip for other live shows */}
+      {/* Horizontal scroll strip for other live shows - 3 visible on desktop, scroll for more */}
       {otherLiveShows.length > 0 && (
         <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 no-scrollbar">
           {otherLiveShows.map((show) => {
@@ -396,7 +396,7 @@ function LiveShowCard({
   const bpmDuration = bpm ? `${Math.round(60000 / bpm)}ms` : '500ms';
 
   return (
-    <div className="flex-shrink-0 w-44 sm:w-56 snap-start group flex flex-col">
+    <div className="flex-shrink-0 w-44 sm:w-56 md:w-[calc((100%-2rem)/3)] snap-start group flex flex-col">
       {/* BPM (left) and Radio Show badge (right) above image */}
       <div className="flex justify-between items-center mb-1 h-4">
         {bpm ? (
@@ -409,7 +409,10 @@ function LiveShowCard({
         ) : (
           <div />
         )}
-        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">
+        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter flex items-center gap-1">
+          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M20 6H8.3L16.6 2.4l-.8-1.8L3 6H2v2h18v12H4V8H2v14h20V6zm-4 8h-2v2h2v-2zm-4 0H8v2h4v-2z" />
+          </svg>
           Radio Show
         </div>
       </div>
