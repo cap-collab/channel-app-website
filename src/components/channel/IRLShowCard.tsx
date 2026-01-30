@@ -90,7 +90,7 @@ export function IRLShowCard({
               {show.djGenres && show.djGenres.length > 0 && (
                 <div className="absolute bottom-2 left-2 right-2">
                   <span className="text-[10px] font-mono text-white/80 uppercase tracking-tighter drop-shadow-lg">
-                    {show.djGenres.slice(0, 2).join(' · ')}
+                    {show.djGenres.join(' · ')}
                   </span>
                 </div>
               )}
@@ -133,7 +133,7 @@ export function IRLShowCard({
               {show.djGenres && show.djGenres.length > 0 && (
                 <div className="absolute bottom-2 left-2 right-2">
                   <span className="text-[10px] font-mono text-white/80 uppercase tracking-tighter drop-shadow-lg">
-                    {show.djGenres.slice(0, 2).join(' · ')}
+                    {show.djGenres.join(' · ')}
                   </span>
                 </div>
               )}
