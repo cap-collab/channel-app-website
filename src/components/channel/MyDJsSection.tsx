@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useFavorites } from '@/hooks/useFavorites';
-import { Show } from '@/types';
+import { Show, IRLShowData } from '@/types';
 import { getStationById } from '@/lib/stations';
 import { getContrastTextColor } from '@/lib/colorUtils';
 
@@ -27,10 +27,15 @@ interface FavoriteItemStatus {
   nextShowTime?: string;
   stationId?: string;
   itemType: 'dj' | 'show';
+  // IRL event info
+  nextIRLDate?: string; // ISO date string (YYYY-MM-DD)
+  nextIRLEventName?: string;
+  nextIRLLocation?: string;
 }
 
 interface MyDJsSectionProps {
   shows: Show[];
+  irlShows: IRLShowData[];
   isAuthenticated: boolean;
   isLoading?: boolean;
 }
@@ -62,7 +67,28 @@ function formatNextShowTime(isoTime: string): string {
   }
 }
 
-export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSectionProps) {
+function formatIRLDate(isoDate: string): string {
+  const date = new Date(isoDate + 'T00:00:00'); // Parse as local date
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const isToday = date.toDateString() === now.toDateString();
+  const isTomorrow = date.toDateString() === tomorrow.toDateString();
+
+  if (isToday) {
+    return 'IRL Today';
+  } else if (isTomorrow) {
+    return 'IRL Tomorrow';
+  } else {
+    return 'IRL ' + date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
+  }
+}
+
+export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: MyDJsSectionProps) {
   const { favorites } = useFavorites();
   const [djProfiles, setDjProfiles] = useState<Map<string, DJProfileCache>>(new Map());
 
@@ -329,6 +355,47 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
       // (past shows should not appear in favorites)
     }
 
+    // Third pass: add IRL events for followed DJs
+    for (const irlShow of irlShows) {
+      const djNameLower = irlShow.djName.toLowerCase();
+      const matchedFollow = followedDJNames.find((name) =>
+        djNameLower.includes(name) || name.includes(djNameLower)
+      );
+
+      if (!matchedFollow) continue;
+
+      const key = `dj:${matchedFollow}`;
+      const existing = itemMap.get(key);
+
+      // Add IRL info to the existing entry, or create new one
+      if (existing) {
+        // Only update IRL info if this event is sooner than existing IRL event
+        if (!existing.nextIRLDate || irlShow.date < existing.nextIRLDate) {
+          itemMap.set(key, {
+            ...existing,
+            photoUrl: existing.photoUrl || irlShow.djPhotoUrl,
+            username: existing.username || irlShow.djUsername,
+            nextIRLDate: irlShow.date,
+            nextIRLEventName: irlShow.eventName,
+            nextIRLLocation: irlShow.location,
+          });
+        }
+      } else {
+        // Create new entry for DJ with IRL event
+        itemMap.set(key, {
+          name: irlShow.djName,
+          displayName: irlShow.djName,
+          username: irlShow.djUsername,
+          photoUrl: irlShow.djPhotoUrl,
+          isLive: false,
+          itemType: 'dj',
+          nextIRLDate: irlShow.date,
+          nextIRLEventName: irlShow.eventName,
+          nextIRLLocation: irlShow.location,
+        });
+      }
+    }
+
     // Deduplicate by username - keep the best entry (live > upcoming > none)
     const byUsername = new Map<string, FavoriteItemStatus>();
     const allItems = Array.from(itemMap.values());
@@ -375,7 +442,7 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
       if (b.nextShowTime) return 1;
       return 0;
     });
-  }, [followedDJNames, favoritedShows, shows, djProfiles]);
+  }, [followedDJNames, favoritedShows, shows, irlShows, djProfiles]);
 
   // Don't render if not authenticated, still loading, or no favorites
   if (!isAuthenticated || isLoading || favoritesWithStatus.length === 0) {
@@ -446,6 +513,11 @@ export function MyDJsSection({ shows, isAuthenticated, isLoading }: MyDJsSection
               {!item.isLive && item.nextShowTime && (
                 <p className="text-gray-500 text-[10px] truncate">
                   {formatNextShowTime(item.nextShowTime)}
+                </p>
+              )}
+              {!item.isLive && !item.nextShowTime && item.nextIRLDate && (
+                <p className="text-gray-500 text-[10px] truncate">
+                  {formatIRLDate(item.nextIRLDate)}
                 </p>
               )}
             </div>

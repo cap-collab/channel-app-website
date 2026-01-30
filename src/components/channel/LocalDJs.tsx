@@ -129,11 +129,6 @@ export function LocalDJs({
       .slice(0, 3); // Max 3 shows
   }, [shows, selectedCity]);
 
-  // Hide section if no local DJ shows
-  if (localDJShows.length === 0) {
-    return null;
-  }
-
   // Follow/Unfollow: toggles DJ in watchlist
   const handleFollow = async (show: Show) => {
     if (!isAuthenticated) {
@@ -280,33 +275,39 @@ export function LocalDJs({
         </div>
       </div>
 
-      {/* Show cards */}
-      <div className="space-y-6">
-        {localDJShows.map((show) => {
-          const station = stations.get(show.stationId);
-          if (!station) return null;
+      {/* Show cards or empty state */}
+      {localDJShows.length === 0 ? (
+        <div className="text-center py-8 text-gray-500 text-sm">
+          No upcoming shows from DJs based in {selectedCity}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {localDJShows.map((show) => {
+            const station = stations.get(show.stationId);
+            if (!station) return null;
 
-          const isFollowing = show.dj ? isInWatchlist(show.dj) : false;
-          const isFavorited = isShowFavorited(show);
-          const isAddingFollow = addingFollowDj === show.dj;
-          const isAddingReminder = addingReminderShowId === show.id;
+            const isFollowing = show.dj ? isInWatchlist(show.dj) : false;
+            const isFavorited = isShowFavorited(show);
+            const isAddingFollow = addingFollowDj === show.dj;
+            const isAddingReminder = addingReminderShowId === show.id;
 
-          return (
-            <TicketCard
-              key={show.id}
-              show={show}
-              station={station}
-              isAuthenticated={isAuthenticated}
-              isFollowing={isFollowing}
-              isShowFavorited={isFavorited}
-              isAddingFollow={isAddingFollow}
-              isAddingReminder={isAddingReminder}
-              onFollow={() => handleFollow(show)}
+            return (
+              <TicketCard
+                key={show.id}
+                show={show}
+                station={station}
+                isAuthenticated={isAuthenticated}
+                isFollowing={isFollowing}
+                isShowFavorited={isFavorited}
+                isAddingFollow={isAddingFollow}
+                isAddingReminder={isAddingReminder}
+                onFollow={() => handleFollow(show)}
               onRemindMe={() => handleRemindMe(show)}
-            />
-          );
-        })}
-      </div>
+              />
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }

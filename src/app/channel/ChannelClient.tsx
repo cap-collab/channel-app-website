@@ -224,6 +224,7 @@ export function ChannelClient() {
           <div className="flex-shrink-0 px-4 pt-4">
             <MyDJsSection
               shows={liveAndUpcomingShows}
+              irlShows={irlShows}
               isAuthenticated={isAuthenticated}
               isLoading={allShowsLoading}
             />
