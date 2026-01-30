@@ -1,23 +1,25 @@
 // Supported cities for IRL shows dropdown
 export const SUPPORTED_CITIES = [
-  'London',
-  'Paris',
-  'Berlin',
   'Amsterdam',
   'Barcelona',
+  'Berlin',
+  'Detroit',
+  'London',
   'Los Angeles',
-  'New York',
-  'San Francisco',
-  'Mexico City',
-  'Tokyo',
-  'Sydney',
+  'Marseille',
   'Melbourne',
+  'Mexico City',
+  'New York',
+  'Paris',
+  'San Francisco',
+  'Sydney',
+  'Tokyo',
 ] as const;
 
 export type SupportedCity = typeof SUPPORTED_CITIES[number];
 
 // Map common timezones to their nearest major city
-const TIMEZONE_TO_CITY: Record<string, SupportedCity> = {
+const TIMEZONE_TO_CITY: Record<string, string> = {
   // Europe
   'Europe/London': 'London',
   'Europe/Paris': 'Paris',
@@ -37,12 +39,14 @@ const TIMEZONE_TO_CITY: Record<string, SupportedCity> = {
   'Europe/Helsinki': 'Berlin',
   'Europe/Dublin': 'London',
   'Europe/Lisbon': 'London',
+  'Europe/Marseille': 'Marseille',
 
   // Americas
   'America/Los_Angeles': 'Los Angeles',
   'America/New_York': 'New York',
   'America/San_Francisco': 'San Francisco',
-  'America/Chicago': 'New York',
+  'America/Chicago': 'Detroit',
+  'America/Detroit': 'Detroit',
   'America/Denver': 'Los Angeles',
   'America/Phoenix': 'Los Angeles',
   'America/Seattle': 'Los Angeles',
@@ -69,7 +73,7 @@ const TIMEZONE_TO_CITY: Record<string, SupportedCity> = {
  * Get the default city based on the user's timezone
  * Falls back to 'London' if timezone is not recognized
  */
-export function getDefaultCity(): SupportedCity {
+export function getDefaultCity(): string {
   try {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     return TIMEZONE_TO_CITY[timezone] || 'London';

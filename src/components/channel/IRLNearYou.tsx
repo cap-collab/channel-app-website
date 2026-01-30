@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { IRLShowData } from '@/types';
 import { useFavorites } from '@/hooks/useFavorites';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { IRLShowCard } from './IRLShowCard';
 import { SUPPORTED_CITIES, getDefaultCity, matchesCity } from '@/lib/city-detection';
 
@@ -17,15 +20,86 @@ export function IRLNearYou({
   isAuthenticated,
   onAuthRequired,
 }: IRLNearYouProps) {
+  const { user } = useAuthContext();
   const { isInWatchlist, followDJ, removeFromWatchlist } = useFavorites();
   const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
   const [selectedCity, setSelectedCity] = useState<string>('');
+  const [customCityInput, setCustomCityInput] = useState<string>('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isCustomMode, setIsCustomMode] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const initialLoadDone = useRef(false);
 
-  // Set default city on mount (client-side only)
+  // Load saved city preference from user profile or fallback to timezone detection
   useEffect(() => {
-    setSelectedCity(getDefaultCity());
-  }, []);
+    async function loadSavedCity() {
+      if (initialLoadDone.current) return;
+
+      if (user?.uid && db) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const savedCity = userDoc.data()?.irlCity;
+            if (savedCity) {
+              setSelectedCity(savedCity);
+              initialLoadDone.current = true;
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('Error loading saved city:', error);
+        }
+      }
+
+      // Fallback to timezone detection
+      setSelectedCity(getDefaultCity());
+      initialLoadDone.current = true;
+    }
+
+    loadSavedCity();
+  }, [user?.uid]);
+
+  // Save city selection to user profile
+  const saveCityToProfile = async (city: string) => {
+    if (!user?.uid || !db) return;
+
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        irlCity: city,
+      });
+    } catch (error) {
+      console.error('Error saving city preference:', error);
+    }
+  };
+
+  // Handle city selection
+  const handleSelectCity = (city: string) => {
+    setSelectedCity(city);
+    setIsDropdownOpen(false);
+    setIsCustomMode(false);
+    setCustomCityInput('');
+
+    // Save to profile if authenticated
+    if (isAuthenticated) {
+      saveCityToProfile(city);
+    }
+  };
+
+  // Handle custom city submission
+  const handleCustomCitySubmit = () => {
+    const trimmed = customCityInput.trim();
+    if (trimmed) {
+      handleSelectCity(trimmed);
+    }
+  };
+
+  // Focus input when entering custom mode
+  useEffect(() => {
+    if (isCustomMode && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isCustomMode]);
 
   // Filter shows by selected city
   const filteredShows = useMemo(() => {
@@ -95,17 +169,63 @@ export function IRLNearYou({
               {/* Backdrop to close dropdown */}
               <div
                 className="fixed inset-0 z-10"
-                onClick={() => setIsDropdownOpen(false)}
+                onClick={() => {
+                  setIsDropdownOpen(false);
+                  setIsCustomMode(false);
+                  setCustomCityInput('');
+                }}
               />
               {/* Dropdown menu */}
-              <div className="absolute right-0 mt-1 w-40 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl z-20 py-1 max-h-64 overflow-y-auto">
+              <div className="absolute right-0 mt-1 w-48 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl z-20 py-1 max-h-72 overflow-y-auto">
+                {/* Custom city input option */}
+                {isCustomMode ? (
+                  <div className="px-2 py-1">
+                    <div className="flex gap-1">
+                      <input
+                        ref={inputRef}
+                        type="text"
+                        value={customCityInput}
+                        onChange={(e) => setCustomCityInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleCustomCitySubmit();
+                          } else if (e.key === 'Escape') {
+                            setIsCustomMode(false);
+                            setCustomCityInput('');
+                          }
+                        }}
+                        placeholder="Enter city..."
+                        className="flex-1 bg-black border border-white/20 rounded px-2 py-1 text-sm text-white placeholder-gray-500 focus:border-white/40 focus:outline-none"
+                      />
+                      <button
+                        onClick={handleCustomCitySubmit}
+                        disabled={!customCityInput.trim()}
+                        className="px-2 py-1 bg-white text-black rounded text-sm font-medium disabled:opacity-50"
+                      >
+                        Go
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setIsCustomMode(true)}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                    Type your city...
+                  </button>
+                )}
+
+                {/* Divider */}
+                <div className="border-t border-white/10 my-1" />
+
+                {/* City list */}
                 {SUPPORTED_CITIES.map((city) => (
                   <button
                     key={city}
-                    onClick={() => {
-                      setSelectedCity(city);
-                      setIsDropdownOpen(false);
-                    }}
+                    onClick={() => handleSelectCity(city)}
                     className={`w-full text-left px-3 py-2 text-sm transition-colors ${
                       selectedCity === city
                         ? 'bg-white/10 text-white'
