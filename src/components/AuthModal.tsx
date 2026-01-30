@@ -316,11 +316,13 @@ export function AuthModal({
 
   return (
     <Wrapper>
-        {/* Header */}
-        <h2 className="text-xl font-bold text-white mb-2">
-          {view === "forgotPassword" ? "Reset Password" : "Sign In"}
-        </h2>
-        {view === "main" && <p className="text-white/50 text-sm mb-6">{message}</p>}
+        {/* Header - hide "Sign In" on main view when inline */}
+        {!(inline && view === "main") && (
+          <h2 className="text-xl font-bold text-white mb-2">
+            {view === "forgotPassword" ? "Reset Password" : "Sign In"}
+          </h2>
+        )}
+        {view === "main" && !inline && <p className="text-white/50 text-sm mb-6">{message}</p>}
 
         {error && (
           <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
