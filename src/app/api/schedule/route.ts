@@ -131,20 +131,21 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
   });
 
   // Fetch broadcast DJ profiles from users collection
-  const djProfiles: Record<string, { bio?: string; photoUrl?: string; promoText?: string; promoHyperlink?: string }> = {};
+  const djProfiles: Record<string, { bio?: string; photoUrl?: string; promoText?: string; promoHyperlink?: string; location?: string }> = {};
 
   const broadcastPromises = Array.from(djUserIds).map(async (userId) => {
     try {
       const userDoc = await adminDb.collection("users").doc(userId).get();
       if (userDoc.exists) {
         const userData = userDoc.data();
-        const djProfile = userData?.djProfile as { bio?: string; photoUrl?: string; promoText?: string; promoHyperlink?: string } | undefined;
+        const djProfile = userData?.djProfile as { bio?: string; photoUrl?: string; promoText?: string; promoHyperlink?: string; location?: string } | undefined;
         if (djProfile) {
           djProfiles[userId] = {
             bio: djProfile.bio || undefined,
             photoUrl: djProfile.photoUrl || undefined,
             promoText: djProfile.promoText || undefined,
             promoHyperlink: djProfile.promoHyperlink || undefined,
+            location: djProfile.location || undefined,
           };
         }
       }
@@ -154,20 +155,21 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
   });
 
   // Fetch external DJ profiles from pending-dj-profiles collection
-  const externalProfiles: Record<string, { bio?: string; photoUrl?: string; username?: string; djName?: string; genres?: string[] }> = {};
+  const externalProfiles: Record<string, { bio?: string; photoUrl?: string; username?: string; djName?: string; genres?: string[]; location?: string }> = {};
 
   const externalPromises = Array.from(externalDjNames.keys()).map(async (normalized) => {
     try {
       const doc = await adminDb.collection("pending-dj-profiles").doc(normalized).get();
       if (doc.exists) {
         const data = doc.data();
-        const djProfile = data?.djProfile as { bio?: string; photoUrl?: string; genres?: string[] } | undefined;
+        const djProfile = data?.djProfile as { bio?: string; photoUrl?: string; genres?: string[]; location?: string } | undefined;
         externalProfiles[normalized] = {
           bio: djProfile?.bio || undefined,
           photoUrl: djProfile?.photoUrl || undefined,
           username: data?.chatUsernameNormalized || data?.chatUsername || undefined,
           djName: data?.djName || undefined,
           genres: djProfile?.genres || undefined,
+          location: djProfile?.location || undefined,
         };
       }
     } catch {
@@ -193,6 +195,7 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
           djPhotoUrl: profile.photoUrl,
           djUsername: profile.username || show.djUsername,  // Preserve djUsername for profile links
           djGenres: profile.genres,
+          djLocation: profile.location,
         };
       }
       // If no profile found but djUsername exists, keep the show as-is (djUsername preserved via ...show)
@@ -208,6 +211,7 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
           djPhotoUrl: show.djPhotoUrl || profile.photoUrl,
           promoText: show.promoText || profile.promoText,
           promoUrl: show.promoUrl || profile.promoHyperlink,
+          djLocation: profile.location,
         };
       }
     }
@@ -241,6 +245,7 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
             djPhotoUrl: profile.photoUrl,
             djUsername: profile.username || show.djUsername || normalized,  // Use normalized lookup key as fallback for profile URL
             djGenres: profile.genres,
+            djLocation: profile.location,
           };
         }
       }

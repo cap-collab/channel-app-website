@@ -21,6 +21,7 @@ export interface Show {
   djBio?: string;
   djPhotoUrl?: string;
   djUsername?: string; // For DJ profile URL
+  djLocation?: string; // DJ's city/location from profile
   imageUrl?: string;
   stationId: string;
   type?: string; // weekly, monthly, restream, playlist
