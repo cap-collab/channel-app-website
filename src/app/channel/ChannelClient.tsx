@@ -262,6 +262,17 @@ export function ChannelClient() {
             />
           </div>
 
+          {/* IRL Near You - upcoming in-person shows by city (right after Live section) */}
+          {irlShows.length > 0 && (
+            <div className="flex-shrink-0 px-4 pb-4">
+              <IRLNearYou
+                irlShows={irlShows}
+                isAuthenticated={isAuthenticated}
+                onAuthRequired={handleIRLAuthRequired}
+              />
+            </div>
+          )}
+
           {/* Who Not To Miss - upcoming shows with Remind Me CTA */}
           <div className="flex-shrink-0 px-4 pb-4">
             <WhoNotToMiss
@@ -269,15 +280,6 @@ export function ChannelClient() {
               stations={stationsMap}
               isAuthenticated={isAuthenticated}
               onAuthRequired={handleRemindMe}
-            />
-          </div>
-
-          {/* IRL Near You - upcoming in-person shows by city */}
-          <div className="flex-shrink-0 px-4 pb-4">
-            <IRLNearYou
-              irlShows={irlShows}
-              isAuthenticated={isAuthenticated}
-              onAuthRequired={handleIRLAuthRequired}
             />
           </div>
 
