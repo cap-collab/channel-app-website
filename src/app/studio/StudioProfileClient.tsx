@@ -487,12 +487,12 @@ export function StudioProfileClient() {
       const userRef = doc(db, "users", user.uid);
       // Filter out empty shows but always save the array structure
       const validShows = shows.filter(
-        (show) => show.url.trim() || show.date.trim() || show.name.trim() || show.location.trim()
+        (show) => (show.url || "").trim() || (show.date || "").trim() || (show.name || "").trim() || (show.location || "").trim()
       ).map((show) => ({
-        name: show.name.trim(),
-        location: show.location.trim(),
-        url: show.url.trim() ? normalizeUrl(show.url.trim()) : "",
-        date: show.date.trim(),
+        name: (show.name || "").trim(),
+        location: (show.location || "").trim(),
+        url: (show.url || "").trim() ? normalizeUrl((show.url || "").trim()) : "",
+        date: (show.date || "").trim(),
       }));
 
       await updateDoc(userRef, {
