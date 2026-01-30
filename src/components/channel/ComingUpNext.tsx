@@ -42,11 +42,12 @@ function formatShowTime(startTime: string): { day: string; time: string } {
   }
 }
 
-// Contains matching for DJ/show names (bidirectional - either contains the other)
+// Contains matching for DJ/show names (unidirectional - text must contain term)
+// e.g. watchlist "skee mask" matches show "Skee Mask Live" but NOT show "Skee"
 function containsMatch(text: string, term: string): boolean {
   const textLower = text.toLowerCase();
   const termLower = term.toLowerCase();
-  return textLower.includes(termLower) || termLower.includes(textLower);
+  return textLower.includes(termLower);
 }
 
 // Match a favorite against shows to find scheduled instances

@@ -47,11 +47,12 @@ export function isRecurringFavorite(favorite: Favorite): boolean {
   return showType === "regular" || showType === "weekly" || showType === "biweekly" || showType === "monthly";
 }
 
-// Contains matching for DJ/show names (bidirectional - either contains the other)
+// Contains matching for DJ/show names (unidirectional - text must contain term)
+// e.g. watchlist "skee mask" matches show "Skee Mask Live" but NOT show "Skee"
 function containsMatch(text: string, term: string): boolean {
   const textLower = text.toLowerCase();
   const termLower = term.toLowerCase();
-  return textLower.includes(termLower) || termLower.includes(textLower);
+  return textLower.includes(termLower);
 }
 
 export function useFavorites() {
@@ -493,7 +494,8 @@ export function useFavorites() {
   );
 
   // Check if a term is in watchlist (must be type="search", not show favorites)
-  // Uses bidirectional contains match - e.g. "Skee Mask" matches watchlist entry "skee m"
+  // Uses unidirectional contains match - term must contain watchlist entry
+  // e.g. "Skee Mask" (term) matches watchlist entry "skee" but NOT vice versa
   const isInWatchlist = useCallback(
     (term: string): boolean => {
       const termLower = term.toLowerCase();
@@ -501,7 +503,6 @@ export function useFavorites() {
         (fav) =>
           fav.type === "search" &&
           (fav.term.toLowerCase() === termLower ||
-            fav.term.toLowerCase().includes(termLower) ||
             termLower.includes(fav.term.toLowerCase()))
       );
     },

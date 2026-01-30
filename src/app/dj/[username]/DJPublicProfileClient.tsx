@@ -305,11 +305,12 @@ type ActivityFeedItem =
   | (Archive & { feedType: "recording"; feedStatus: "past" })
   | (PastShow & { feedType: "show"; feedStatus: "past" });
 
-// Contains matching for DJ/show names (bidirectional - either contains the other)
+// Contains matching for DJ/show names (unidirectional - text must contain term)
+// e.g. watchlist "skee mask" matches show "Skee Mask Live" but NOT show "Skee"
 function containsMatch(text: string, term: string): boolean {
   const textLower = text.toLowerCase();
   const termLower = term.toLowerCase();
-  return textLower.includes(termLower) || termLower.includes(textLower);
+  return textLower.includes(termLower);
 }
 
 // Calculate show progress percentage (0-100)
