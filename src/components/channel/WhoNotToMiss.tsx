@@ -23,13 +23,15 @@ export function WhoNotToMiss({
   const [addingReminderShowId, setAddingReminderShowId] = useState<string | null>(null);
 
   // Filter to upcoming shows with DJ profiles and photos only
+  // Exclude playlist and restream types
   const upcomingShows = shows
     .filter((show) => {
       const now = new Date();
       const startDate = new Date(show.startTime);
       // Only upcoming, has DJ, has profile (djUsername or djUserId), and has photo
       const hasPhoto = show.djPhotoUrl || show.imageUrl;
-      return startDate > now && show.dj && (show.djUsername || show.djUserId) && hasPhoto;
+      const isRestreamOrPlaylist = show.type === 'playlist' || show.type === 'restream';
+      return startDate > now && show.dj && (show.djUsername || show.djUserId) && hasPhoto && !isRestreamOrPlaylist;
     })
     .slice(0, 5);
 
