@@ -132,7 +132,7 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
 
   if (loading) {
     return (
-      <section className="mb-4 md:mb-6">
+      <section className="mb-2 md:mb-6">
         <div className="flex justify-between items-end mb-2 md:mb-3">
           <h2 className="text-white text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
             <span className="relative flex h-2.5 w-2.5">
@@ -161,7 +161,7 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
   const showViewAll = false; // Hidden for now since there's no "view all" page
 
   return (
-    <section className="mb-4 md:mb-6">
+    <section className="mb-2 md:mb-6">
       {/* Header with pulsing red dot */}
       <div className="flex justify-between items-end mb-2 md:mb-3">
         <h2 className="text-white text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
