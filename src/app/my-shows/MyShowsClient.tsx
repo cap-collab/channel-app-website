@@ -448,7 +448,7 @@ export function MyShowsClient() {
         <SearchBar onSearch={handleSearch} placeholder="Search DJ or show..." />
       </div>
 
-      <main className="px-8 lg:px-16 py-6">
+      <main className="px-8 lg:px-16 py-6 pb-20">
         {!isAuthenticated ? (
           <div className="text-center py-12">
             <p className="text-gray-500 mb-6">Sign in to see your saved shows</p>
