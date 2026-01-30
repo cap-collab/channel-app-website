@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { Show, Station } from '@/types';
 import { useFavorites } from '@/hooks/useFavorites';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { TicketCard } from './TicketCard';
 
 const SUPPORTED_GENRES = [
@@ -42,6 +45,7 @@ export function WhoNotToMiss({
   isAuthenticated,
   onAuthRequired,
 }: WhoNotToMissProps) {
+  const { user } = useAuthContext();
   const { isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
   const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
   const [addingReminderShowId, setAddingReminderShowId] = useState<string | null>(null);
@@ -51,6 +55,49 @@ export function WhoNotToMiss({
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const initialLoadDone = useRef(false);
+
+  // Load saved genre preference from user profile
+  useEffect(() => {
+    async function loadSavedGenre() {
+      if (initialLoadDone.current) return;
+
+      if (user?.uid && db) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const savedGenre = userDoc.data()?.preferredGenre;
+            if (savedGenre) {
+              setSelectedGenre(savedGenre);
+              initialLoadDone.current = true;
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('Error loading saved genre:', error);
+        }
+      }
+
+      // Default to House if no saved preference
+      initialLoadDone.current = true;
+    }
+
+    loadSavedGenre();
+  }, [user?.uid]);
+
+  // Save genre selection to user profile
+  const saveGenreToProfile = async (genre: string) => {
+    if (!user?.uid || !db) return;
+
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        preferredGenre: genre,
+      });
+    } catch (error) {
+      console.error('Error saving genre preference:', error);
+    }
+  };
 
   // Handle genre selection
   const handleSelectGenre = (genre: string) => {
@@ -58,6 +105,11 @@ export function WhoNotToMiss({
     setIsDropdownOpen(false);
     setIsCustomMode(false);
     setCustomGenreInput('');
+
+    // Save to profile if authenticated
+    if (isAuthenticated) {
+      saveGenreToProfile(genre);
+    }
   };
 
   // Handle custom genre submission
