@@ -217,9 +217,9 @@ export function LocalDJsSection({
   };
 
   return (
-    <section className="mb-6">
+    <section className={isEmpty ? 'mb-2' : 'mb-6'}>
       {/* Header with city dropdown - always visible */}
-      <div className="flex justify-between items-center mb-3">
+      <div className={`flex justify-between items-center ${isEmpty ? 'mb-1' : 'mb-3'}`}>
         <h2 className="text-white text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
           {/* House/home icon */}
           <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -324,8 +324,8 @@ export function LocalDJsSection({
 
       {/* Empty state - both sections empty */}
       {isEmpty && (
-        <div className="text-center py-8">
-          <p className="text-gray-400 text-sm mb-4">
+        <div className="text-center py-3">
+          <p className="text-gray-400 text-sm mb-3">
             Invite your local DJs to join Channel
           </p>
           <button
