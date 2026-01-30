@@ -7,6 +7,7 @@ import { Show, Station } from '@/types';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { TicketCard } from './TicketCard';
+import { SwipeableCardCarousel } from './SwipeableCardCarousel';
 
 const SUPPORTED_GENRES = [
   'House',
@@ -150,12 +151,12 @@ export function WhoNotToMiss({
     });
   }, [shows]);
 
-  // Filter shows by selected genre (max 3)
+  // Filter shows by selected genre (max 5)
   const genreFilteredShows = useMemo(() => {
     if (!selectedGenre) return [];
     return upcomingShowsBase
       .filter((show) => matchesGenre(show.djGenres, selectedGenre))
-      .slice(0, 3);
+      .slice(0, 5);
   }, [upcomingShowsBase, selectedGenre]);
 
   // "Our Picks" - prioritize shows with photo + location + genres
@@ -179,7 +180,7 @@ export function WhoNotToMiss({
     const genreShowIds = new Set(genreFilteredShows.map((s) => s.id));
     return scoredShows
       .filter(({ show }) => !genreShowIds.has(show.id))
-      .slice(0, 3)
+      .slice(0, 5)
       .map(({ show }) => show);
   }, [upcomingShowsBase, genreFilteredShows]);
 
@@ -338,32 +339,32 @@ export function WhoNotToMiss({
 
         {/* Genre-filtered shows or empty state */}
         {hasGenreShows ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-            {genreFilteredShows.map((show) => {
-              const station = stations.get(show.stationId);
-              if (!station) return null;
+          <SwipeableCardCarousel>
+            {genreFilteredShows
+              .filter((show) => stations.get(show.stationId))
+              .map((show) => {
+                const station = stations.get(show.stationId)!;
+                const isFollowing = show.dj ? isInWatchlist(show.dj) : false;
+                const isFavorited = isShowFavorited(show);
+                const isAddingFollow = addingFollowDj === show.dj;
+                const isAddingReminder = addingReminderShowId === show.id;
 
-              const isFollowing = show.dj ? isInWatchlist(show.dj) : false;
-              const isFavorited = isShowFavorited(show);
-              const isAddingFollow = addingFollowDj === show.dj;
-              const isAddingReminder = addingReminderShowId === show.id;
-
-              return (
-                <TicketCard
-                  key={show.id}
-                  show={show}
-                  station={station}
-                  isAuthenticated={isAuthenticated}
-                  isFollowing={isFollowing}
-                  isShowFavorited={isFavorited}
-                  isAddingFollow={isAddingFollow}
-                  isAddingReminder={isAddingReminder}
-                  onFollow={() => handleFollow(show)}
-                  onRemindMe={() => handleRemindMe(show)}
-                />
-              );
-            })}
-          </div>
+                return (
+                  <TicketCard
+                    key={show.id}
+                    show={show}
+                    station={station}
+                    isAuthenticated={isAuthenticated}
+                    isFollowing={isFollowing}
+                    isShowFavorited={isFavorited}
+                    isAddingFollow={isAddingFollow}
+                    isAddingReminder={isAddingReminder}
+                    onFollow={() => handleFollow(show)}
+                    onRemindMe={() => handleRemindMe(show)}
+                  />
+                );
+              })}
+          </SwipeableCardCarousel>
         ) : (
           <div className="text-center py-3">
             <p className="text-gray-400 text-sm mb-3">
@@ -405,32 +406,32 @@ export function WhoNotToMiss({
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-            {ourPicks.map((show) => {
-              const station = stations.get(show.stationId);
-              if (!station) return null;
+          <SwipeableCardCarousel>
+            {ourPicks
+              .filter((show) => stations.get(show.stationId))
+              .map((show) => {
+                const station = stations.get(show.stationId)!;
+                const isFollowing = show.dj ? isInWatchlist(show.dj) : false;
+                const isFavorited = isShowFavorited(show);
+                const isAddingFollow = addingFollowDj === show.dj;
+                const isAddingReminder = addingReminderShowId === show.id;
 
-              const isFollowing = show.dj ? isInWatchlist(show.dj) : false;
-              const isFavorited = isShowFavorited(show);
-              const isAddingFollow = addingFollowDj === show.dj;
-              const isAddingReminder = addingReminderShowId === show.id;
-
-              return (
-                <TicketCard
-                  key={show.id}
-                  show={show}
-                  station={station}
-                  isAuthenticated={isAuthenticated}
-                  isFollowing={isFollowing}
-                  isShowFavorited={isFavorited}
-                  isAddingFollow={isAddingFollow}
-                  isAddingReminder={isAddingReminder}
-                  onFollow={() => handleFollow(show)}
-                  onRemindMe={() => handleRemindMe(show)}
-                />
-              );
-            })}
-          </div>
+                return (
+                  <TicketCard
+                    key={show.id}
+                    show={show}
+                    station={station}
+                    isAuthenticated={isAuthenticated}
+                    isFollowing={isFollowing}
+                    isShowFavorited={isFavorited}
+                    isAddingFollow={isAddingFollow}
+                    isAddingReminder={isAddingReminder}
+                    onFollow={() => handleFollow(show)}
+                    onRemindMe={() => handleRemindMe(show)}
+                  />
+                );
+              })}
+          </SwipeableCardCarousel>
         </section>
       )}
     </div>

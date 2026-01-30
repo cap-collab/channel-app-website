@@ -8,6 +8,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { IRLShowCard } from './IRLShowCard';
 import { TicketCard } from './TicketCard';
+import { SwipeableCardCarousel } from './SwipeableCardCarousel';
 import { SUPPORTED_CITIES, getDefaultCity, matchesCity } from '@/lib/city-detection';
 
 interface LocalDJsSectionProps {
@@ -110,13 +111,13 @@ export function LocalDJsSection({
     }
   }, [isCustomMode]);
 
-  // Filter IRL shows by selected city
+  // Filter IRL shows by selected city (max 5)
   const filteredIRLShows = useMemo(() => {
     if (!selectedCity) return [];
-    return irlShows.filter((show) => matchesCity(show.location, selectedCity));
+    return irlShows.filter((show) => matchesCity(show.location, selectedCity)).slice(0, 5);
   }, [irlShows, selectedCity]);
 
-  // Filter to upcoming shows from DJs based in the selected city (max 3)
+  // Filter to upcoming shows from DJs based in the selected city (max 5)
   const localDJShows = useMemo(() => {
     if (!selectedCity) return [];
 
@@ -138,7 +139,7 @@ export function LocalDJsSection({
           !isRestreamOrPlaylist
         );
       })
-      .slice(0, 3); // Max 3 shows
+      .slice(0, 5); // Max 5 shows
   }, [shows, selectedCity]);
 
   const hasIRLShows = filteredIRLShows.length > 0;
@@ -351,10 +352,10 @@ export function LocalDJsSection({
         </div>
       )}
 
-      {/* IRL subsection - 2-column grid on desktop */}
+      {/* IRL subsection - swipeable cards */}
       {hasIRLShows && (
         <div className="mb-4 md:mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          <SwipeableCardCarousel>
             {filteredIRLShows.map((show, index) => {
               const isFollowing = show.djName ? isInWatchlist(show.djName) : false;
               const isAddingFollow = addingFollowDj === show.djName;
@@ -369,39 +370,39 @@ export function LocalDJsSection({
                 />
               );
             })}
-          </div>
+          </SwipeableCardCarousel>
         </div>
       )}
 
-      {/* Radio Shows subsection - 2-column grid on desktop */}
+      {/* Radio Shows subsection - swipeable cards */}
       {hasRadioShows && (
         <div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-            {localDJShows.map((show) => {
-              const station = stations.get(show.stationId);
-              if (!station) return null;
+          <SwipeableCardCarousel>
+            {localDJShows
+              .filter((show) => stations.get(show.stationId))
+              .map((show) => {
+                const station = stations.get(show.stationId)!;
+                const isFollowing = show.dj ? isInWatchlist(show.dj) : false;
+                const isFavorited = isShowFavorited(show);
+                const isAddingFollow = addingFollowDj === show.dj;
+                const isAddingReminder = addingReminderShowId === show.id;
 
-              const isFollowing = show.dj ? isInWatchlist(show.dj) : false;
-              const isFavorited = isShowFavorited(show);
-              const isAddingFollow = addingFollowDj === show.dj;
-              const isAddingReminder = addingReminderShowId === show.id;
-
-              return (
-                <TicketCard
-                  key={show.id}
-                  show={show}
-                  station={station}
-                  isAuthenticated={isAuthenticated}
-                  isFollowing={isFollowing}
-                  isShowFavorited={isFavorited}
-                  isAddingFollow={isAddingFollow}
-                  isAddingReminder={isAddingReminder}
-                  onFollow={() => handleFollow(show)}
-                  onRemindMe={() => handleRemindMe(show)}
-                />
-              );
-            })}
-          </div>
+                return (
+                  <TicketCard
+                    key={show.id}
+                    show={show}
+                    station={station}
+                    isAuthenticated={isAuthenticated}
+                    isFollowing={isFollowing}
+                    isShowFavorited={isFavorited}
+                    isAddingFollow={isAddingFollow}
+                    isAddingReminder={isAddingReminder}
+                    onFollow={() => handleFollow(show)}
+                    onRemindMe={() => handleRemindMe(show)}
+                  />
+                );
+              })}
+          </SwipeableCardCarousel>
         </div>
       )}
     </section>
