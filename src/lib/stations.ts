@@ -81,6 +81,16 @@ export const STATIONS: Station[] = [
     textColor: "#FEFEFE",
     accentColor: "#ec92af",
   },
+  {
+    id: "dj-radio",
+    name: "Radio",
+    metadataKey: "dj-radio",
+    streamUrl: "",
+    websiteUrl: "",
+    backgroundColor: "#000000",
+    textColor: "#FFFFFF",
+    accentColor: "#D94099",
+  },
 ];
 
 export function getStationById(id: string): Station | undefined {

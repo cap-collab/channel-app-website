@@ -249,6 +249,13 @@ interface IrlShow {
   date: string;
 }
 
+interface RadioShow {
+  name?: string;
+  radioName?: string;
+  url?: string;
+  date: string;
+}
+
 interface DJProfile {
   chatUsername: string;
   email: string;
@@ -272,6 +279,7 @@ interface DJProfile {
     };
     stripeAccountId: string | null;
     irlShows?: IrlShow[];
+    radioShows?: RadioShow[];
     myRecs?: {
       bandcampLinks?: string[];
       eventLinks?: string[];
@@ -304,6 +312,7 @@ interface Props {
 type ActivityFeedItem =
   | (UpcomingShow & { feedType: "radio"; feedStatus: "upcoming" | "live" })
   | (IrlShow & { feedType: "irl"; feedStatus: "upcoming" | "past"; id: string })
+  | (RadioShow & { feedType: "dj-radio"; feedStatus: "upcoming" | "past"; id: string })
   | (Archive & { feedType: "recording"; feedStatus: "past" })
   | (PastShow & { feedType: "show"; feedStatus: "past" });
 
@@ -415,6 +424,7 @@ export function DJPublicProfileClient({ username }: Props) {
               socialLinks: pendingData.djProfile?.socialLinks || {},
               stripeAccountId: null,
               irlShows: pendingData.djProfile?.irlShows || [],
+              radioShows: pendingData.djProfile?.radioShows || [],
               myRecs: pendingData.djProfile?.myRecs || {},
             },
             uid: `pending-${pendingDoc.id}`,
@@ -460,6 +470,7 @@ export function DJPublicProfileClient({ username }: Props) {
             socialLinks: data.djProfile?.socialLinks || {},
             stripeAccountId: data.djProfile?.stripeAccountId || null,
             irlShows: data.djProfile?.irlShows || [],
+            radioShows: data.djProfile?.radioShows || [],
             myRecs: data.djProfile?.myRecs || {},
           },
           uid: doc.id,
@@ -955,6 +966,27 @@ export function DJPublicProfileClient({ username }: Props) {
         });
     }
 
+    // Add DJ radio shows - check if past or upcoming based on date
+    if (djProfile?.djProfile.radioShows) {
+      djProfile.djProfile.radioShows
+        .filter((show) => show.radioName || show.date)
+        .forEach((show, i) => {
+          const radioDate = show.date ? new Date(show.date) : null;
+          const isPastRadio = radioDate && radioDate.getTime() < now;
+          const item: ActivityFeedItem = {
+            ...show,
+            feedType: "dj-radio",
+            feedStatus: isPastRadio ? "past" : "upcoming",
+            id: `dj-radio-${i}`,
+          };
+          if (isPastRadio) {
+            past.push(item);
+          } else {
+            upcoming.push(item);
+          }
+        });
+    }
+
     // Add past recordings
     pastRecordings.forEach((archive) => {
       past.push({
@@ -1385,6 +1417,66 @@ export function DJPublicProfileClient({ username }: Props) {
                   );
                 }
 
+                if (item.feedType === "dj-radio") {
+                  const radioShow = item as RadioShow & { feedType: "dj-radio"; feedStatus: "upcoming"; id: string };
+                  const radioDate = radioShow.date ? new Date(radioShow.date) : null;
+                  const dateStr = radioDate ? radioDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "TBA";
+
+                  return (
+                    <div
+                      key={radioShow.id}
+                      className="bg-surface-card rounded-2xl overflow-hidden"
+                    >
+                      {/* Header: Date, Show Type, and Radio name */}
+                      <div className="flex items-center justify-between px-4 py-3 bg-black/40">
+                        <span className="text-zinc-400 text-xs">
+                          {dateStr}
+                        </span>
+                        <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M20 6H8.3L16.6 2.4l-.8-1.8L3 6H2v2h18v12H4V8H2v14h20V6zm-4 8h-2v2h2v-2zm-4 0H8v2h4v-2z" />
+                          </svg>
+                          Radio
+                        </span>
+                        <span className="text-zinc-400 text-xs">
+                          {radioShow.radioName || "Radio"}
+                        </span>
+                      </div>
+
+                      {/* Show Info */}
+                      <div className="p-4 space-y-4">
+                        <div>
+                          <h3 className="text-white text-xl font-bold">
+                            {radioShow.name || `On ${radioShow.radioName}`}
+                          </h3>
+                        </div>
+
+                        {/* Action Button */}
+                        {radioShow.url ? (
+                          <a
+                            href={radioShow.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                            Listen
+                          </a>
+                        ) : (
+                          <div className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-white/10 text-zinc-400 flex items-center justify-center gap-2">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M20 6H8.3L16.6 2.4l-.8-1.8L3 6H2v2h18v12H4V8H2v14h20V6zm-4 8h-2v2h2v-2zm-4 0H8v2h4v-2z" />
+                            </svg>
+                            Radio Show
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+
                 return null;
               })}
             </div>
@@ -1411,6 +1503,23 @@ export function DJPublicProfileClient({ username }: Props) {
                           </h3>
                           <p className="text-gray-500 text-sm">{irlShow.location || "Past IRL Event"}</p>
                           <p className="text-gray-600 text-xs">{irlShow.date || "TBA"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (item.feedType === "dj-radio") {
+                  const radioShow = item as RadioShow & { feedType: "dj-radio"; feedStatus: "past"; id: string };
+                  return (
+                    <div key={radioShow.id} className="bg-surface-card rounded-xl p-4 opacity-60">
+                      <div className="flex items-start gap-4">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-gray-400 font-semibold">
+                            {radioShow.name || `On ${radioShow.radioName}`}
+                          </h3>
+                          <p className="text-gray-500 text-sm">{radioShow.radioName || "Radio Show"}</p>
+                          <p className="text-gray-600 text-xs">{radioShow.date || "TBA"}</p>
                         </div>
                       </div>
                     </div>

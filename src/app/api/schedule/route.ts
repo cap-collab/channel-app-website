@@ -314,16 +314,94 @@ async function fetchIRLShows(): Promise<IRLShowData[]> {
   }
 }
 
+// Fetch radio shows from DJ profiles (DJ-added upcoming radio appearances)
+async function fetchDJRadioShows(): Promise<Show[]> {
+  const adminDb = getAdminDb();
+  if (!adminDb) {
+    console.log("[API /schedule] Admin SDK not available, skipping DJ radio shows");
+    return [];
+  }
+
+  try {
+    // Query all users with DJ role who might have radio shows
+    const usersSnapshot = await adminDb
+      .collection("users")
+      .where("role", "in", ["dj", "broadcaster", "admin"])
+      .get();
+
+    const radioShows: Show[] = [];
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
+    usersSnapshot.forEach((doc) => {
+      const userData = doc.data();
+      const djProfile = userData?.djProfile;
+      const chatUsername = userData?.chatUsername;
+
+      if (!djProfile?.radioShows || !Array.isArray(djProfile.radioShows)) {
+        return;
+      }
+
+      // Filter to upcoming shows only
+      for (const show of djProfile.radioShows) {
+        // Skip if no date or no radio name
+        if (!show.date || !show.radioName) continue;
+
+        // Skip past shows (compare ISO date strings)
+        if (show.date < today) continue;
+
+        // Create a show object that looks like an external radio show
+        // Use a unique ID based on DJ username and show details
+        const showId = `dj-radio-${chatUsername?.replace(/\s+/g, "").toLowerCase()}-${show.date}-${show.radioName.replace(/\s+/g, "-").toLowerCase()}`;
+
+        // Parse date to create start/end times (default to noon in user's timezone assumption)
+        const showDate = new Date(show.date);
+        showDate.setHours(12, 0, 0, 0);
+        const startTime = showDate.toISOString();
+        const endTime = new Date(showDate.getTime() + 2 * 60 * 60 * 1000).toISOString(); // 2 hour default
+
+        radioShows.push({
+          id: showId,
+          name: show.name || `${chatUsername} on ${show.radioName}`,
+          dj: chatUsername || "Unknown DJ",
+          startTime,
+          endTime,
+          stationId: "dj-radio", // Special station ID for DJ-added radio shows
+          djUsername: chatUsername?.replace(/\s+/g, "").toLowerCase(),
+          djPhotoUrl: djProfile.photoUrl || undefined,
+          djLocation: djProfile.location || undefined,
+          djGenres: djProfile.genres || undefined,
+          // Store additional info for display
+          description: show.url ? `Listen at: ${show.url}` : undefined,
+          // Custom fields for DJ radio shows
+          imageUrl: djProfile.photoUrl || undefined,
+        });
+      }
+    });
+
+    // Sort by date ascending
+    radioShows.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+    return radioShows;
+  } catch (error) {
+    console.error("[API /schedule] Error fetching DJ radio shows:", error);
+    return [];
+  }
+}
+
 export async function GET() {
   try {
-    // Fetch shows and IRL shows in parallel
-    const [shows, irlShows] = await Promise.all([
+    // Fetch shows, IRL shows, and DJ radio shows in parallel
+    const [shows, irlShows, djRadioShows] = await Promise.all([
       getAllShows(),
       fetchIRLShows(),
+      fetchDJRadioShows(),
     ]);
 
+    // Merge DJ radio shows into the main shows array
+    const allShows = [...shows, ...djRadioShows];
+
     // Enrich shows with DJ profiles using Admin SDK
-    const enrichedShows = await enrichShowsWithDJProfiles(shows);
+    const enrichedShows = await enrichShowsWithDJProfiles(allShows);
 
     return NextResponse.json({ shows: enrichedShows, irlShows });
   } catch (error) {

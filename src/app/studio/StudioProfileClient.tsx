@@ -49,6 +49,13 @@ interface IrlShow {
   date: string;
 }
 
+interface RadioShow {
+  name: string;
+  radioName: string;
+  url: string;
+  date: string;
+}
+
 interface DJProfile {
   bio: string | null;
   promoText: string | null;
@@ -69,6 +76,7 @@ interface DJProfile {
     customLinks?: CustomLink[];
   };
   irlShows?: IrlShow[];
+  radioShows?: RadioShow[];
   myRecs?: {
     bandcampLinks?: string[];
     eventLinks?: string[];
@@ -94,6 +102,7 @@ export function StudioProfileClient() {
     genres: [],
     socialLinks: {},
     irlShows: [],
+    radioShows: [],
     myRecs: { bandcampLinks: [], eventLinks: [] },
   });
 
@@ -146,6 +155,11 @@ export function StudioProfileClient() {
   const [savingIrlShows, setSavingIrlShows] = useState(false);
   const [saveIrlShowsSuccess, setSaveIrlShowsSuccess] = useState(false);
 
+  // Form state - Radio Shows section
+  const [radioShowsInput, setRadioShowsInput] = useState<RadioShow[]>([{ name: "", radioName: "", url: "", date: "" }, { name: "", radioName: "", url: "", date: "" }]);
+  const [savingRadioShows, setSavingRadioShows] = useState(false);
+  const [saveRadioShowsSuccess, setSaveRadioShowsSuccess] = useState(false);
+
   // Form state - My Recs section
   const [bandcampRecsInput, setBandcampRecsInput] = useState<string[]>([""]);
   const [eventRecsInput, setEventRecsInput] = useState<string[]>([""]);
@@ -182,6 +196,7 @@ export function StudioProfileClient() {
   const thankYouDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const socialDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const irlShowsDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const radioShowsDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const myRecsDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const initialLoadRef = useRef(true);
 
@@ -206,6 +221,7 @@ export function StudioProfileClient() {
             genres: data.djProfile.genres || [],
             socialLinks: data.djProfile.socialLinks || {},
             irlShows: data.djProfile.irlShows || [],
+            radioShows: data.djProfile.radioShows || [],
             myRecs: data.djProfile.myRecs || { bandcampLinks: [], eventLinks: [] },
           });
           // Only set input values on initial load to avoid overwriting user edits
@@ -229,6 +245,12 @@ export function StudioProfileClient() {
             setIrlShowsInput([
               { name: "", location: "", url: "", date: "", ...irlShows[0] },
               { name: "", location: "", url: "", date: "", ...irlShows[1] },
+            ]);
+            // Radio Shows - ensure we always have 2 fields with all properties
+            const radioShows = data.djProfile.radioShows || [];
+            setRadioShowsInput([
+              { name: "", radioName: "", url: "", date: "", ...radioShows[0] },
+              { name: "", radioName: "", url: "", date: "", ...radioShows[1] },
             ]);
             // My Recs - ensure at least one empty field
             const bandcampRecs = data.djProfile.myRecs?.bandcampLinks || [];
@@ -508,6 +530,36 @@ export function StudioProfileClient() {
     }
   }, [user]);
 
+  const saveRadioShows = useCallback(async (shows: RadioShow[]) => {
+    if (!user || !db) return;
+
+    setSavingRadioShows(true);
+    setSaveRadioShowsSuccess(false);
+
+    try {
+      const userRef = doc(db, "users", user.uid);
+      // Filter out empty shows but always save the array structure
+      const validShows = shows.filter(
+        (show) => (show.url || "").trim() || (show.date || "").trim() || (show.name || "").trim() || (show.radioName || "").trim()
+      ).map((show) => ({
+        name: (show.name || "").trim(),
+        radioName: (show.radioName || "").trim(),
+        url: (show.url || "").trim() ? normalizeUrl((show.url || "").trim()) : "",
+        date: (show.date || "").trim(),
+      }));
+
+      await updateDoc(userRef, {
+        "djProfile.radioShows": validShows,
+      });
+      setSaveRadioShowsSuccess(true);
+      setTimeout(() => setSaveRadioShowsSuccess(false), 2000);
+    } catch (error) {
+      console.error("Error saving radio shows:", error);
+    } finally {
+      setSavingRadioShows(false);
+    }
+  }, [user]);
+
   const saveMyRecs = useCallback(async (bandcampRecs: string[], eventRecs: string[]) => {
     if (!user || !db) return;
 
@@ -635,6 +687,14 @@ export function StudioProfileClient() {
     irlShowsDebounceRef.current = setTimeout(() => saveIrlShows(irlShowsInput), 1000);
     return () => { if (irlShowsDebounceRef.current) clearTimeout(irlShowsDebounceRef.current); };
   }, [irlShowsInput, saveIrlShows]);
+
+  // Auto-save radio shows with debounce
+  useEffect(() => {
+    if (initialLoadRef.current) return;
+    if (radioShowsDebounceRef.current) clearTimeout(radioShowsDebounceRef.current);
+    radioShowsDebounceRef.current = setTimeout(() => saveRadioShows(radioShowsInput), 1000);
+    return () => { if (radioShowsDebounceRef.current) clearTimeout(radioShowsDebounceRef.current); };
+  }, [radioShowsInput, saveRadioShows]);
 
   // Auto-save my recs with debounce
   useEffect(() => {
@@ -1534,6 +1594,75 @@ export function StudioProfileClient() {
               ))}
               <p className="text-gray-600 text-xs">
                 {savingIrlShows ? "Saving..." : saveIrlShowsSuccess ? "Saved" : ""}
+              </p>
+            </div>
+          </section>
+
+          {/* Radio Shows section */}
+          <section>
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
+              Radio Shows
+            </h2>
+            <p className="text-gray-600 text-xs mb-3 px-1">
+              Promote your upcoming radio appearances on other stations.
+            </p>
+            <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
+              {radioShowsInput.map((show, index) => (
+                <div key={index} className="space-y-2">
+                  <label className="block text-gray-400 text-sm">
+                    Show {index + 1}
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={show.name}
+                      onChange={(e) => {
+                        const updated = [...radioShowsInput];
+                        updated[index] = { ...updated[index], name: e.target.value };
+                        setRadioShowsInput(updated);
+                      }}
+                      placeholder="Show Name"
+                      className="flex-1 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                    />
+                    <input
+                      type="text"
+                      value={show.radioName}
+                      onChange={(e) => {
+                        const updated = [...radioShowsInput];
+                        updated[index] = { ...updated[index], radioName: e.target.value };
+                        setRadioShowsInput(updated);
+                      }}
+                      placeholder="Radio Name"
+                      className="w-32 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={show.url}
+                      onChange={(e) => {
+                        const updated = [...radioShowsInput];
+                        updated[index] = { ...updated[index], url: e.target.value };
+                        setRadioShowsInput(updated);
+                      }}
+                      placeholder="Radio URL (e.g., nts.live/shows/...)"
+                      className="flex-1 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                    />
+                    <input
+                      type="date"
+                      value={show.date}
+                      onChange={(e) => {
+                        const updated = [...radioShowsInput];
+                        updated[index] = { ...updated[index], date: e.target.value };
+                        setRadioShowsInput(updated);
+                      }}
+                      className="w-36 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none [color-scheme:dark]"
+                    />
+                  </div>
+                </div>
+              ))}
+              <p className="text-gray-600 text-xs">
+                {savingRadioShows ? "Saving..." : saveRadioShowsSuccess ? "Saved" : ""}
               </p>
             </div>
           </section>
