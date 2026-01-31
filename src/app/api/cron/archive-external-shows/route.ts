@@ -12,6 +12,14 @@ function verifyCronRequest(request: NextRequest): boolean {
   return isVercelCron || hasValidSecret;
 }
 
+// Check if a show type is recurring (displayed on DJ profiles)
+function isRecurringShowType(type: string | undefined): boolean {
+  if (!type) return false;
+  const normalized = type.toLowerCase();
+  return normalized === 'weekly' || normalized === 'monthly' ||
+         normalized === 'biweekly' || normalized === 'regular';
+}
+
 // Normalize name for DJ profile lookup (matches sync-auto-dj-profiles)
 function normalizeForProfileLookup(name: string): string {
   return name
@@ -55,10 +63,13 @@ export async function GET(request: NextRequest) {
     const allShows = await getAllShows();
 
     // Filter for external shows that have ended
+    // Only archive recurring shows (weekly, monthly, biweekly, regular)
+    // Skip one-time shows, playlists, and restreams - they're not displayed on DJ profiles
     const endedExternalShows = allShows.filter(show =>
       show.stationId !== "broadcast" &&
       show.stationId !== "newtown" && // Skip Newtown as it doesn't have reliable DJ data
-      new Date(show.endTime).getTime() < now
+      new Date(show.endTime).getTime() < now &&
+      isRecurringShowType(show.type)
     );
 
     processedCount = endedExternalShows.length;
