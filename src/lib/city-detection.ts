@@ -82,13 +82,51 @@ export function getDefaultCity(): string {
   }
 }
 
+// City aliases for flexible matching
+const CITY_ALIASES: Record<string, string[]> = {
+  'new york': ['ny', 'nyc', 'new york city', 'brooklyn', 'manhattan', 'queens', 'bronx'],
+  'san francisco': ['sf', 'san fran', 'bay area', 'oakland'],
+  'los angeles': ['la', 'l.a.', 'l.a', 'hollywood'],
+  'london': ['ldn'],
+  'melbourne': ['melb'],
+  'amsterdam': ['ams'],
+  'barcelona': ['bcn', 'barna'],
+  'berlin': ['bln'],
+  'mexico city': ['cdmx', 'ciudad de mexico', 'df'],
+  'detroit': ['det', 'the d'],
+  'tokyo': ['tyo'],
+  'sydney': ['syd'],
+};
+
 /**
  * Check if a location string matches a supported city (case-insensitive)
+ * Supports aliases like NY for New York, SF for San Francisco, etc.
  */
 export function matchesCity(location: string, city: string): boolean {
   const locationLower = location.toLowerCase().trim();
   const cityLower = city.toLowerCase();
 
   // Exact match or location contains the city name
-  return locationLower === cityLower || locationLower.includes(cityLower);
+  if (locationLower === cityLower || locationLower.includes(cityLower)) {
+    return true;
+  }
+
+  // Check if location matches any alias for the city
+  const aliases = CITY_ALIASES[cityLower];
+  if (aliases) {
+    if (aliases.some((alias) => locationLower === alias || locationLower.includes(alias))) {
+      return true;
+    }
+  }
+
+  // Check reverse: if the selected city is an alias, match against the canonical city
+  for (const [canonical, aliasList] of Object.entries(CITY_ALIASES)) {
+    if (aliasList.includes(cityLower) || cityLower === canonical) {
+      if (locationLower.includes(canonical) || aliasList.some((a) => locationLower.includes(a))) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }

@@ -7,6 +7,7 @@ import { IRLShowCard } from './IRLShowCard';
 import { TicketCard } from './TicketCard';
 import { SwipeableCardCarousel } from './SwipeableCardCarousel';
 import { SUPPORTED_CITIES, matchesCity } from '@/lib/city-detection';
+import { prioritizeShowArray, prioritizeShows } from '@/lib/show-prioritization';
 
 interface LocalDJsSectionProps {
   shows: Show[];
@@ -62,34 +63,45 @@ export function LocalDJsSection({
   }, [isCustomMode]);
 
   // Filter IRL shows by selected city (max 5)
+  // IRL shows don't have a recurring type, so just diversify by location
   const filteredIRLShows = useMemo(() => {
     if (!selectedCity) return [];
-    return irlShows.filter((show) => matchesCity(show.location, selectedCity)).slice(0, 5);
+    const filtered = irlShows.filter((show) => matchesCity(show.location, selectedCity));
+    // Diversify by DJ location (their home city) to show variety
+    return prioritizeShows(
+      filtered,
+      () => undefined, // No recurrence type for IRL shows
+      () => undefined, // No station for IRL shows
+      (show) => show.djLocation,
+      5
+    );
   }, [irlShows, selectedCity]);
 
   // Filter to upcoming shows from DJs based in the selected city (max 5)
+  // Prioritize: weekly/bi-weekly first, then monthly, then others
+  // Also diversify by station
   const localDJShows = useMemo(() => {
     if (!selectedCity) return [];
 
     const now = new Date();
-    return shows
-      .filter((show) => {
-        const startDate = new Date(show.startTime);
-        // Only upcoming shows with djLocation that matches the selected city
-        // Must have photo and DJ profile
-        const hasPhoto = show.djPhotoUrl || show.imageUrl;
-        const isRestreamOrPlaylist = show.type === 'playlist' || show.type === 'restream';
-        return (
-          startDate > now &&
-          show.djLocation &&
-          matchesCity(show.djLocation, selectedCity) &&
-          show.dj &&
-          (show.djUsername || show.djUserId) &&
-          hasPhoto &&
-          !isRestreamOrPlaylist
-        );
-      })
-      .slice(0, 5); // Max 5 shows
+    const filtered = shows.filter((show) => {
+      const startDate = new Date(show.startTime);
+      // Only upcoming shows with djLocation that matches the selected city
+      // Must have photo and DJ profile
+      const hasPhoto = show.djPhotoUrl || show.imageUrl;
+      const isRestreamOrPlaylist = show.type === 'playlist' || show.type === 'restream';
+      return (
+        startDate > now &&
+        show.djLocation &&
+        matchesCity(show.djLocation, selectedCity) &&
+        show.dj &&
+        (show.djUsername || show.djUserId) &&
+        hasPhoto &&
+        !isRestreamOrPlaylist
+      );
+    });
+
+    return prioritizeShowArray(filtered, 5);
   }, [shows, selectedCity]);
 
   const hasIRLShows = filteredIRLShows.length > 0;

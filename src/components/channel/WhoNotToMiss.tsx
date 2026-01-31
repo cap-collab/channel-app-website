@@ -8,22 +8,23 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { TicketCard } from './TicketCard';
 import { SwipeableCardCarousel } from './SwipeableCardCarousel';
+import { prioritizeShowArray } from '@/lib/show-prioritization';
 
 const SUPPORTED_GENRES = [
-  'House',
-  'Dub',
-  'Reggae',
-  'Electronic',
-  'Disco',
-  'Garage',
-  'Drum and Bass',
-  'Jungle',
-  'World',
-  'Techno',
   'Bass',
+  'Disco',
+  'Drum and Bass',
+  'Dub',
+  'Electronic',
   'Funk',
+  'Garage',
   'Hip Hop',
+  'House',
+  'Jungle',
+  'Reggae',
   'Soul',
+  'Techno',
+  'World',
 ];
 
 interface WhoNotToMissProps {
@@ -34,11 +35,44 @@ interface WhoNotToMissProps {
   excludedShowIds?: Set<string>; // Shows already displayed in My Favorites or Local DJs sections
 }
 
+// Genre aliases for flexible matching
+const GENRE_ALIASES: Record<string, string[]> = {
+  'drum and bass': ['drum & bass', 'dnb', 'd&b', 'd and b', 'drum n bass', "drum'n'bass", 'drumnbass'],
+  'hip hop': ['hip-hop', 'hiphop', 'rap'],
+  'garage': ['uk garage', 'ukg', '2-step', '2step'],
+  'dub': ['dubstep'],
+  'disco': ['nu disco', 'nu-disco'],
+  'funk': ['funky'],
+  'soul': ['neo soul', 'neo-soul', 'r&b', 'rnb'],
+  'electronic': ['electronica'],
+  'house': ['deep house', 'tech house'],
+  'techno': ['tech'],
+  'jungle': ['junglist'],
+  'reggae': ['roots', 'dancehall'],
+};
+
 // Helper to check if a show matches a genre (case-insensitive partial match)
+// Supports aliases like d&b for Drum and Bass, etc.
 function matchesGenre(showGenres: string[] | undefined, selectedGenre: string): boolean {
   if (!showGenres || showGenres.length === 0) return false;
   const genreLower = selectedGenre.toLowerCase();
-  return showGenres.some((g) => g.toLowerCase().includes(genreLower) || genreLower.includes(g.toLowerCase()));
+
+  // Get aliases for the selected genre
+  const aliases = GENRE_ALIASES[genreLower] || [];
+  const allTerms = [genreLower, ...aliases];
+
+  // Check reverse: if selected genre is an alias, include the canonical genre
+  for (const [canonical, aliasList] of Object.entries(GENRE_ALIASES)) {
+    if (aliasList.includes(genreLower)) {
+      allTerms.push(canonical, ...aliasList);
+      break;
+    }
+  }
+
+  return showGenres.some((g) => {
+    const gLower = g.toLowerCase();
+    return allTerms.some((term) => gLower.includes(term) || term.includes(gLower));
+  });
 }
 
 export function WhoNotToMiss({
@@ -154,38 +188,34 @@ export function WhoNotToMiss({
   }, [shows]);
 
   // Filter shows by selected genre (max 5), excluding shows already displayed elsewhere
+  // Prioritize: weekly/bi-weekly first, then monthly, then others
+  // Also diversify by station and location
   const genreFilteredShows = useMemo(() => {
     if (!selectedGenre) return [];
-    return upcomingShowsBase
-      .filter((show) => !excludedShowIds.has(show.id) && matchesGenre(show.djGenres, selectedGenre))
-      .slice(0, 5);
+    const filtered = upcomingShowsBase.filter(
+      (show) => !excludedShowIds.has(show.id) && matchesGenre(show.djGenres, selectedGenre)
+    );
+    return prioritizeShowArray(filtered, 5);
   }, [upcomingShowsBase, selectedGenre, excludedShowIds]);
 
-  // "Our Picks" - prioritize shows with photo + location + genres
+  // "Our Picks" - prioritize recurring shows, then by profile completeness
+  // Weekly/bi-weekly first, then monthly, then others
+  // Also diversify by station and location
   const ourPicks = useMemo(() => {
-    // Score shows by profile completeness, excluding shows already displayed elsewhere
-    const scoredShows = upcomingShowsBase
-      .filter((show) => !excludedShowIds.has(show.id))
-      .map((show) => {
-        let score = 0;
-        if (show.djPhotoUrl) score += 3; // Photo is most important
-        if (show.djLocation) score += 2; // Location adds context
-        if (show.djGenres && show.djGenres.length > 0) score += 1; // Genres help discovery
-        return { show, score };
-      });
-
-    // Sort by score (descending), then by start time (ascending)
-    scoredShows.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return new Date(a.show.startTime).getTime() - new Date(b.show.startTime).getTime();
-    });
-
     // Exclude shows already in genre section to avoid duplicates
     const genreShowIds = new Set(genreFilteredShows.map((s) => s.id));
-    return scoredShows
-      .filter(({ show }) => !genreShowIds.has(show.id))
-      .slice(0, 5)
-      .map(({ show }) => show);
+
+    // Filter out excluded shows and genre section shows
+    const candidates = upcomingShowsBase.filter(
+      (show) => !excludedShowIds.has(show.id) && !genreShowIds.has(show.id)
+    );
+
+    // Apply prioritization (weekly/bi-weekly first, diversify by station/location)
+    const prioritized = prioritizeShowArray(candidates);
+
+    // Within each recurrence tier, also consider profile completeness for tie-breaking
+    // The prioritization already handles recurrence and diversity, so we just take top 5
+    return prioritized.slice(0, 5);
   }, [upcomingShowsBase, genreFilteredShows, excludedShowIds]);
 
   const hasGenreShows = genreFilteredShows.length > 0;
