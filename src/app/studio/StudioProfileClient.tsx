@@ -54,6 +54,7 @@ interface RadioShow {
   radioName: string;
   url: string;
   date: string;
+  time: string;
 }
 
 interface DJProfile {
@@ -156,7 +157,7 @@ export function StudioProfileClient() {
   const [saveIrlShowsSuccess, setSaveIrlShowsSuccess] = useState(false);
 
   // Form state - Radio Shows section
-  const [radioShowsInput, setRadioShowsInput] = useState<RadioShow[]>([{ name: "", radioName: "", url: "", date: "" }, { name: "", radioName: "", url: "", date: "" }]);
+  const [radioShowsInput, setRadioShowsInput] = useState<RadioShow[]>([{ name: "", radioName: "", url: "", date: "", time: "" }, { name: "", radioName: "", url: "", date: "", time: "" }]);
   const [savingRadioShows, setSavingRadioShows] = useState(false);
   const [saveRadioShowsSuccess, setSaveRadioShowsSuccess] = useState(false);
 
@@ -249,8 +250,8 @@ export function StudioProfileClient() {
             // Radio Shows - ensure we always have 2 fields with all properties
             const radioShows = data.djProfile.radioShows || [];
             setRadioShowsInput([
-              { name: "", radioName: "", url: "", date: "", ...radioShows[0] },
-              { name: "", radioName: "", url: "", date: "", ...radioShows[1] },
+              { name: "", radioName: "", url: "", date: "", time: "", ...radioShows[0] },
+              { name: "", radioName: "", url: "", date: "", time: "", ...radioShows[1] },
             ]);
             // My Recs - ensure at least one empty field
             const bandcampRecs = data.djProfile.myRecs?.bandcampLinks || [];
@@ -546,6 +547,7 @@ export function StudioProfileClient() {
         radioName: (show.radioName || "").trim(),
         url: (show.url || "").trim() ? normalizeUrl((show.url || "").trim()) : "",
         date: (show.date || "").trim(),
+        time: (show.time || "").trim(),
       }));
 
       await updateDoc(userRef, {
@@ -1656,7 +1658,17 @@ export function StudioProfileClient() {
                         updated[index] = { ...updated[index], date: e.target.value };
                         setRadioShowsInput(updated);
                       }}
-                      className="w-36 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none [color-scheme:dark]"
+                      className="w-32 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none [color-scheme:dark]"
+                    />
+                    <input
+                      type="time"
+                      value={show.time}
+                      onChange={(e) => {
+                        const updated = [...radioShowsInput];
+                        updated[index] = { ...updated[index], time: e.target.value };
+                        setRadioShowsInput(updated);
+                      }}
+                      className="w-24 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none [color-scheme:dark]"
                     />
                   </div>
                 </div>

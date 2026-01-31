@@ -254,6 +254,7 @@ interface RadioShow {
   radioName?: string;
   url?: string;
   date: string;
+  time?: string;
 }
 
 interface DJProfile {
@@ -1421,16 +1422,28 @@ export function DJPublicProfileClient({ username }: Props) {
                   const radioShow = item as RadioShow & { feedType: "dj-radio"; feedStatus: "upcoming"; id: string };
                   const radioDate = radioShow.date ? new Date(radioShow.date) : null;
                   const dateStr = radioDate ? radioDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "TBA";
+                  const timeStr = radioShow.time || "";
+
+                  // Check if show is currently live (within 2 hours of start time)
+                  const nowMs = Date.now();
+                  let isLive = false;
+                  if (radioDate && radioShow.time) {
+                    const [hours, minutes] = radioShow.time.split(":").map(Number);
+                    const showStart = new Date(radioDate);
+                    showStart.setHours(hours || 0, minutes || 0, 0, 0);
+                    const showEnd = new Date(showStart.getTime() + 2 * 60 * 60 * 1000); // 2 hour show
+                    isLive = nowMs >= showStart.getTime() && nowMs < showEnd.getTime();
+                  }
 
                   return (
                     <div
                       key={radioShow.id}
                       className="bg-surface-card rounded-2xl overflow-hidden"
                     >
-                      {/* Header: Date, Show Type, and Radio name */}
+                      {/* Header: Date + Time, Show Type, and Radio name */}
                       <div className="flex items-center justify-between px-4 py-3 bg-black/40">
                         <span className="text-zinc-400 text-xs">
-                          {dateStr}
+                          {dateStr}{timeStr ? ` · ${timeStr}` : ""}
                         </span>
                         <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center gap-1">
                           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
@@ -1451,26 +1464,28 @@ export function DJPublicProfileClient({ username }: Props) {
                           </h3>
                         </div>
 
-                        {/* Action Button */}
-                        {radioShow.url ? (
+                        {/* Action Button - Join Stream if live, otherwise Remind Me */}
+                        {isLive && radioShow.url ? (
                           <a
                             href={radioShow.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
+                            className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-accent hover:bg-accent/80 text-white transition-colors flex items-center justify-center gap-2"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 5v14l11-7z" />
                             </svg>
-                            Listen
+                            Join Stream
                           </a>
                         ) : (
-                          <div className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-white/10 text-zinc-400 flex items-center justify-center gap-2">
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M20 6H8.3L16.6 2.4l-.8-1.8L3 6H2v2h18v12H4V8H2v14h20V6zm-4 8h-2v2h2v-2zm-4 0H8v2h4v-2z" />
+                          <button
+                            className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                             </svg>
-                            Radio Show
-                          </div>
+                            Remind Me
+                          </button>
                         )}
                       </div>
                     </div>

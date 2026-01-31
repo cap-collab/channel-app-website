@@ -20,6 +20,7 @@ function getRecurrencePriority(type: string | undefined): number {
 
 interface ScoredShow<T> {
   item: T;
+  hasEmail: boolean;
   recurrencePriority: number;
   stationId?: string;
   location?: string;
@@ -27,16 +28,18 @@ interface ScoredShow<T> {
 
 /**
  * Prioritizes shows by:
- * 1. Weekly/bi-weekly recurring shows first
- * 2. Monthly recurring shows second
- * 3. Others last
- * 4. Within each tier, diversifies by station and location
+ * 1. DJs with email first (within each recurrence tier)
+ * 2. Weekly/bi-weekly recurring shows first
+ * 3. Monthly recurring shows second
+ * 4. Others last
+ * 5. Within each tier, diversifies by station and location
  *
  * @param shows - Array of shows to prioritize
  * @param getShowType - Function to extract the show type from an item
  * @param getStationId - Function to extract station ID from an item
  * @param getLocation - Optional function to extract location from an item
  * @param limit - Maximum number of shows to return
+ * @param getEmail - Optional function to extract email from an item (DJs with email are prioritized)
  * @returns Prioritized and diversified array of shows
  */
 export function prioritizeShows<T>(
@@ -44,36 +47,47 @@ export function prioritizeShows<T>(
   getShowType: (item: T) => string | undefined,
   getStationId: (item: T) => string | undefined,
   getLocation?: (item: T) => string | undefined,
-  limit?: number
+  limit?: number,
+  getEmail?: (item: T) => string | undefined
 ): T[] {
   if (shows.length === 0) return [];
 
-  // Score each show by recurrence priority
+  // Score each show by recurrence priority and email presence
   const scoredShows: ScoredShow<T>[] = shows.map((item) => ({
     item,
+    hasEmail: !!getEmail?.(item),
     recurrencePriority: getRecurrencePriority(getShowType(item)),
     stationId: getStationId(item),
     location: getLocation?.(item),
   }));
 
-  // Group shows by recurrence priority tier
-  const tiers = new Map<number, ScoredShow<T>[]>();
-  for (const show of scoredShows) {
-    const tier = show.recurrencePriority;
-    if (!tiers.has(tier)) {
-      tiers.set(tier, []);
-    }
-    tiers.get(tier)!.push(show);
-  }
+  // Group shows by email status first, then by recurrence priority tier
+  // This creates a two-level grouping: hasEmail -> recurrencePriority
+  const withEmail = scoredShows.filter((s) => s.hasEmail);
+  const withoutEmail = scoredShows.filter((s) => !s.hasEmail);
 
-  // Process each tier with diversity, starting with highest priority
+  // Process shows with email first, then those without
   const result: T[] = [];
-  const sortedTierKeys = Array.from(tiers.keys()).sort((a, b) => b - a); // Descending
 
-  for (const tierKey of sortedTierKeys) {
-    const tierShows = tiers.get(tierKey)!;
-    const diversified = diversifyByStationAndLocation(tierShows);
-    result.push(...diversified.map((s) => s.item));
+  for (const group of [withEmail, withoutEmail]) {
+    // Group by recurrence priority within this email group
+    const tiers = new Map<number, ScoredShow<T>[]>();
+    for (const show of group) {
+      const tier = show.recurrencePriority;
+      if (!tiers.has(tier)) {
+        tiers.set(tier, []);
+      }
+      tiers.get(tier)!.push(show);
+    }
+
+    // Process each tier with diversity, starting with highest priority
+    const sortedTierKeys = Array.from(tiers.keys()).sort((a, b) => b - a); // Descending
+
+    for (const tierKey of sortedTierKeys) {
+      const tierShows = tiers.get(tierKey)!;
+      const diversified = diversifyByStationAndLocation(tierShows);
+      result.push(...diversified.map((s) => s.item));
+    }
   }
 
   return limit ? result.slice(0, limit) : result;
@@ -148,6 +162,7 @@ function diversifyByStationAndLocation<T>(shows: ScoredShow<T>[]): ScoredShow<T>
 /**
  * Applies prioritization to an already-filtered array of Show objects.
  * Convenience wrapper for the common case.
+ * DJs with email are prioritized first within each recurrence tier.
  */
 export function prioritizeShowArray(shows: Show[], limit?: number): Show[] {
   return prioritizeShows(
@@ -155,6 +170,7 @@ export function prioritizeShowArray(shows: Show[], limit?: number): Show[] {
     (show) => show.type,
     (show) => show.stationId,
     (show) => show.djLocation,
-    limit
+    limit,
+    (show) => show.djEmail
   );
 }

@@ -349,13 +349,19 @@ async function fetchDJRadioShows(): Promise<Show[]> {
         // Skip past shows (compare ISO date strings)
         if (show.date < today) continue;
 
-        // Create a show object that looks like an external radio show
-        // Use a unique ID based on DJ username and show details
-        const showId = `dj-radio-${chatUsername?.replace(/\s+/g, "").toLowerCase()}-${show.date}-${show.radioName.replace(/\s+/g, "-").toLowerCase()}`;
+        // Create a unique ID that won't collide with other shows
+        // Include the show name to differentiate from external shows with same DJ
+        const showNameSlug = (show.name || "").replace(/\s+/g, "-").toLowerCase().slice(0, 20);
+        const showId = `dj-radio-${chatUsername?.replace(/\s+/g, "").toLowerCase()}-${show.date}-${show.radioName.replace(/\s+/g, "-").toLowerCase()}-${showNameSlug}`;
 
-        // Parse date to create start/end times (default to noon in user's timezone assumption)
+        // Parse date and time to create start/end times
         const showDate = new Date(show.date);
-        showDate.setHours(12, 0, 0, 0);
+        if (show.time) {
+          const [hours, minutes] = show.time.split(":").map(Number);
+          showDate.setHours(hours || 0, minutes || 0, 0, 0);
+        } else {
+          showDate.setHours(12, 0, 0, 0); // Default to noon if no time specified
+        }
         const startTime = showDate.toISOString();
         const endTime = new Date(showDate.getTime() + 2 * 60 * 60 * 1000).toISOString(); // 2 hour default
 
