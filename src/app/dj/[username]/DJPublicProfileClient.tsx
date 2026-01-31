@@ -1269,10 +1269,13 @@ export function DJPublicProfileClient({ username }: Props) {
                       key={broadcast.id}
                       className="bg-surface-card rounded-2xl overflow-hidden"
                     >
-                      {/* Header: Date + Time and Station name */}
+                      {/* Header: Date + Time, Show Type, and Station name */}
                       <div className="flex items-center justify-between px-4 py-3 bg-black/40">
                         <span className="text-zinc-400 text-xs">
                           {dateStr} · {timeStr}
+                        </span>
+                        <span className="text-zinc-400 text-xs uppercase tracking-wider">
+                          Radio
                         </span>
                         <span className="text-zinc-400 text-xs">
                           {broadcast.stationName}
@@ -1333,10 +1336,13 @@ export function DJPublicProfileClient({ username }: Props) {
                       key={irlShow.id}
                       className="bg-surface-card rounded-2xl overflow-hidden"
                     >
-                      {/* Header: Date and Location */}
+                      {/* Header: Date, Show Type, and Location */}
                       <div className="flex items-center justify-between px-4 py-3 bg-black/40">
                         <span className="text-zinc-400 text-xs">
                           {dateStr}
+                        </span>
+                        <span className="text-zinc-400 text-xs uppercase tracking-wider">
+                          IRL
                         </span>
                         <span className="text-zinc-400 text-xs">
                           {irlShow.location || "IRL Event"}
