@@ -233,6 +233,7 @@ interface PastShow {
   showImageUrl?: string;
   stationId: string;
   stationName: string;
+  showType?: string; // weekly, monthly, biweekly, regular, restream, playlist
 }
 
 interface CustomLink {
@@ -351,10 +352,7 @@ export function DJPublicProfileClient({ username }: Props) {
   // Past recordings (archives with recordings)
   const [pastRecordings, setPastRecordings] = useState<Archive[]>([]);
 
-  // Past shows (broadcast slots without recordings)
-  const [pastShows, setPastShows] = useState<PastShow[]>([]);
-
-  // Past external shows (from other stations like NTS, Subtle, etc.)
+  // Past external shows (from other stations like NTS, Subtle, etc.) - only recurring shows
   const [pastExternalShows, setPastExternalShows] = useState<PastShow[]>([]);
 
   // Audio player state for recordings
@@ -725,34 +723,12 @@ export function DJPublicProfileClient({ username }: Props) {
           const data = await res.json();
           const archives: Archive[] = data.archives || [];
 
-          // Find archives that match this DJ's slots
+          // Find archives that match this DJ's slots (only shows with recordings)
+          // Channel Broadcast shows without recordings are not displayed since they're never recurring
           const djArchives = archives.filter((archive) =>
             pastSlotsMap.has(archive.broadcastSlotId) && archive.recordingUrl
           );
           setPastRecordings(djArchives);
-
-          // Get slot IDs that have recordings
-          const slotsWithRecordings = new Set(djArchives.map(a => a.broadcastSlotId));
-
-          // Shows without recordings = slots that don't have a matching archive
-          const showsWithoutRecordings: PastShow[] = [];
-          pastSlotsMap.forEach((slot, slotId) => {
-            if (!slotsWithRecordings.has(slotId)) {
-              showsWithoutRecordings.push({
-                id: slotId,
-                showName: slot.showName,
-                startTime: slot.startTime,
-                endTime: slot.endTime,
-                showImageUrl: slot.showImageUrl,
-                stationId: "broadcast",
-                stationName: "Channel Broadcast",
-              });
-            }
-          });
-
-          // Sort by most recent first
-          showsWithoutRecordings.sort((a, b) => b.startTime - a.startTime);
-          setPastShows(showsWithoutRecordings);
         }
       } catch (error) {
         console.error("Error fetching past shows:", error);
@@ -784,17 +760,25 @@ export function DJPublicProfileClient({ username }: Props) {
         const snapshot = await getDocs(q);
         console.log("[DJ Profile] Found", snapshot.docs.length, "past external shows");
 
-        const shows: PastShow[] = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            showName: data.showName,
-            startTime: data.startTime?.toMillis?.() || data.startTime,
-            endTime: data.endTime?.toMillis?.() || data.endTime,
-            stationId: data.stationId,
-            stationName: data.stationName,
-          };
-        });
+        // Map and filter for recurring shows only (weekly, monthly, biweekly, regular)
+        const shows: PastShow[] = snapshot.docs
+          .map((doc) => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              showName: data.showName,
+              startTime: data.startTime?.toMillis?.() || data.startTime,
+              endTime: data.endTime?.toMillis?.() || data.endTime,
+              stationId: data.stationId,
+              stationName: data.stationName,
+              showType: data.showType,
+            };
+          })
+          .filter((show) => {
+            // Only show recurring shows (weekly, monthly, biweekly, regular)
+            const type = show.showType?.toLowerCase();
+            return type === "weekly" || type === "monthly" || type === "biweekly" || type === "regular";
+          });
 
         // Sort by endTime descending (newest first)
         shows.sort((a, b) => b.endTime - a.endTime);
@@ -980,16 +964,10 @@ export function DJPublicProfileClient({ username }: Props) {
       });
     });
 
-    // Add past shows without recordings (Channel Broadcast)
-    pastShows.forEach((show) => {
-      past.push({
-        ...show,
-        feedType: "show",
-        feedStatus: "past",
-      });
-    });
+    // Note: pastShows (Channel Broadcast shows without recordings) are not included
+    // because Channel Broadcast shows are never recurring
 
-    // Add past external shows (NTS, Subtle, dublab, etc.)
+    // Add past external shows (NTS, Subtle, dublab, etc.) - only recurring ones are included
     pastExternalShows.forEach((show) => {
       past.push({
         ...show,
@@ -1016,7 +994,7 @@ export function DJPublicProfileClient({ username }: Props) {
     past.sort(sortPast);
 
     return { upcomingShows: upcoming, pastActivities: past };
-  }, [upcomingBroadcasts, pastRecordings, pastShows, pastExternalShows, djProfile]);
+  }, [upcomingBroadcasts, pastRecordings, pastExternalShows, djProfile]);
 
   // Create Artist Selects (recommendations)
   const artistSelects = useMemo(() => {
@@ -1124,7 +1102,7 @@ export function DJPublicProfileClient({ username }: Props) {
                     href={profile.djProfile.promoHyperlink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block w-full bg-zinc-900/50 border border-white/10 p-4 hover:bg-zinc-800/50 transition-colors"
+                    className="block w-full bg-zinc-900/50 border border-white/10 p-4 rounded-2xl hover:bg-zinc-800/50 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <p className="text-base leading-relaxed text-white">
@@ -1134,7 +1112,7 @@ export function DJPublicProfileClient({ username }: Props) {
                     </div>
                   </a>
                 ) : (
-                  <div className="w-full bg-zinc-900/50 border border-white/10 p-4">
+                  <div className="w-full bg-zinc-900/50 border border-white/10 p-4 rounded-2xl">
                     <p className="text-base leading-relaxed text-white">
                       {profile.djProfile.promoText}
                     </p>
@@ -1150,13 +1128,13 @@ export function DJPublicProfileClient({ username }: Props) {
 
         {/* STICKY TAB BAR - only if DJ has email (claimed profile) */}
         {profile.email && (
-          <div className="sticky top-[48px] z-30 bg-black border-b border-white/10 -mx-6 px-6 mb-4">
-            <div className="flex max-w-5xl mx-auto">
+          <div className="sticky top-[48px] z-30 bg-black -mx-6 px-6 mb-4">
+            <div className="flex max-w-5xl mx-auto bg-zinc-900/50 rounded-full border border-white/10 p-1">
               <button
                 onClick={() => setActiveTab('timeline')}
-                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-colors ${
+                className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest transition-colors rounded-full ${
                   activeTab === 'timeline'
-                    ? 'text-white border-b-2 border-white'
+                    ? 'text-white bg-white/10'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
@@ -1164,9 +1142,9 @@ export function DJPublicProfileClient({ username }: Props) {
               </button>
               <button
                 onClick={() => setActiveTab('chat')}
-                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-colors ${
+                className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest transition-colors rounded-full ${
                   activeTab === 'chat'
-                    ? 'text-white border-b-2 border-white'
+                    ? 'text-white bg-white/10'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
@@ -1610,28 +1588,8 @@ export function DJPublicProfileClient({ username }: Props) {
           </>
         )}
 
-        {/* FOOTER: SUPPORT & SOCIALS */}
+        {/* FOOTER: SOCIALS */}
         <footer className="border-t border-white/10 pt-6 flex flex-col items-center">
-          {/* Support The Artist Button (Tip) */}
-          {profile.email && (
-            <div className="group relative mb-6 flex items-center gap-3 bg-accent hover:bg-white text-white hover:text-black px-6 py-3 transition-all duration-300 cursor-pointer whitespace-nowrap">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>
-              </svg>
-              <span className="text-sm font-black uppercase tracking-wider">Support The Artist</span>
-              <TipButton
-                djUserId={profile.uid}
-                djEmail={profile.email}
-                djUsername={profile.chatUsername}
-                broadcastSlotId=""
-                showName={`Support ${profile.chatUsername}`}
-                tipperUserId={user?.uid}
-                tipperUsername={chatUsername || undefined}
-                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-              />
-            </div>
-          )}
-
           {/* Social Grid - Icons Only */}
           <div className="flex flex-wrap justify-center gap-6 max-w-md mb-4">
             {socialLinks.instagram && (
@@ -1750,7 +1708,7 @@ export function DJPublicProfileClient({ username }: Props) {
         <div className="flex gap-2 max-w-md mx-auto">
           <button
             onClick={handleShare}
-            className="flex-1 bg-zinc-900 py-3 text-[10px] font-black uppercase tracking-widest border border-white/10 hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2"
+            className="flex-1 bg-zinc-900 py-3 text-[10px] font-black uppercase tracking-widest border border-white/10 rounded-full hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2"
           >
             <ShareIcon size={12} />
             Share
@@ -1758,7 +1716,7 @@ export function DJPublicProfileClient({ username }: Props) {
           <button
             onClick={handleSubscribe}
             disabled={subscribing || favoritesLoading}
-            className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-50 ${
+            className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-full transition-colors disabled:opacity-50 ${
               isSubscribed
                 ? "bg-zinc-900 text-white border border-white/10 hover:bg-zinc-800"
                 : "bg-white text-black hover:bg-gray-100"
@@ -1768,7 +1726,7 @@ export function DJPublicProfileClient({ username }: Props) {
           </button>
           {profile.email && (
             <div className="flex-1 relative">
-              <button className="w-full bg-accent py-3 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1 hover:bg-accent/80 transition-colors">
+              <button className="w-full bg-accent py-3 text-[10px] font-black uppercase tracking-widest rounded-full flex items-center justify-center gap-1 hover:bg-accent/80 transition-colors">
                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
                 </svg>
@@ -1782,7 +1740,7 @@ export function DJPublicProfileClient({ username }: Props) {
                 showName={`Support ${profile.chatUsername}`}
                 tipperUserId={user?.uid}
                 tipperUsername={chatUsername || undefined}
-                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer rounded-full"
               />
             </div>
           )}

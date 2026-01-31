@@ -139,6 +139,7 @@ export async function GET(request: NextRequest) {
       };
       if (show.dj) docData.dj = show.dj;
       if (djUsername) docData.djUsername = djUsername;
+      if (show.type) docData.showType = show.type;
 
       try {
         await pastExternalShowsRef.doc(docId).set(docData);
