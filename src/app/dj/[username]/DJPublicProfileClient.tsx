@@ -255,6 +255,7 @@ interface RadioShow {
   url?: string;
   date: string;
   time?: string;
+  duration?: string; // in hours
 }
 
 interface DJProfile {
@@ -1431,7 +1432,8 @@ export function DJPublicProfileClient({ username }: Props) {
                     const [hours, minutes] = radioShow.time.split(":").map(Number);
                     const showStart = new Date(radioDate);
                     showStart.setHours(hours || 0, minutes || 0, 0, 0);
-                    const showEnd = new Date(showStart.getTime() + 2 * 60 * 60 * 1000); // 2 hour show
+                    const durationHours = parseFloat(radioShow.duration || "1") || 1;
+                    const showEnd = new Date(showStart.getTime() + durationHours * 60 * 60 * 1000);
                     isLive = nowMs >= showStart.getTime() && nowMs < showEnd.getTime();
                   }
 
@@ -1463,6 +1465,32 @@ export function DJPublicProfileClient({ username }: Props) {
                             {radioShow.name || `On ${radioShow.radioName}`}
                           </h3>
                         </div>
+
+                        {/* Time Bar - show when time and duration available */}
+                        {radioShow.time && radioShow.duration && (() => {
+                          const [hours, minutes] = radioShow.time.split(":").map(Number);
+                          const showStart = new Date(radioDate!);
+                          showStart.setHours(hours || 0, minutes || 0, 0, 0);
+                          const durationHours = parseFloat(radioShow.duration) || 1;
+                          const showEnd = new Date(showStart.getTime() + durationHours * 60 * 60 * 1000);
+                          return (
+                            <div className="space-y-1">
+                              <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full"
+                                  style={{
+                                    width: isLive ? `${Math.min(100, Math.max(0, (nowMs - showStart.getTime()) / (showEnd.getTime() - showStart.getTime()) * 100))}%` : '0%',
+                                    backgroundColor: 'var(--color-accent)'
+                                  }}
+                                />
+                              </div>
+                              <div className="flex justify-between text-[10px] text-zinc-500">
+                                <span>{showStart.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
+                                <span>{showEnd.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
 
                         {/* Action Button - Join Stream if live, otherwise Remind Me */}
                         {isLive && radioShow.url ? (

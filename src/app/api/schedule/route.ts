@@ -217,7 +217,8 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
     }
 
     // PRIORITY 3: External radio shows - use pending-dj-profiles collection matching
-    if (show.stationId !== "broadcast" && show.stationId !== "newtown") {
+    // Skip dj-radio shows as they already have all profile data from fetchDJRadioShows
+    if (show.stationId !== "broadcast" && show.stationId !== "newtown" && show.stationId !== "dj-radio") {
       // Try all candidate names in priority order until a profile is found
       const candidates = extractCandidateNames(show);
 
@@ -363,7 +364,9 @@ async function fetchDJRadioShows(): Promise<Show[]> {
           showDate.setHours(12, 0, 0, 0); // Default to noon if no time specified
         }
         const startTime = showDate.toISOString();
-        const endTime = new Date(showDate.getTime() + 2 * 60 * 60 * 1000).toISOString(); // 2 hour default
+        // Use duration from show, default to 1 hour
+        const durationHours = parseFloat(show.duration) || 1;
+        const endTime = new Date(showDate.getTime() + durationHours * 60 * 60 * 1000).toISOString();
 
         radioShows.push({
           id: showId,

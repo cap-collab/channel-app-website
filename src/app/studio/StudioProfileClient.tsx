@@ -55,6 +55,7 @@ interface RadioShow {
   url: string;
   date: string;
   time: string;
+  duration: string; // in hours, e.g. "1", "1.5", "2"
 }
 
 interface DJProfile {
@@ -157,7 +158,7 @@ export function StudioProfileClient() {
   const [saveIrlShowsSuccess, setSaveIrlShowsSuccess] = useState(false);
 
   // Form state - Radio Shows section
-  const [radioShowsInput, setRadioShowsInput] = useState<RadioShow[]>([{ name: "", radioName: "", url: "", date: "", time: "" }, { name: "", radioName: "", url: "", date: "", time: "" }]);
+  const [radioShowsInput, setRadioShowsInput] = useState<RadioShow[]>([{ name: "", radioName: "", url: "", date: "", time: "", duration: "1" }, { name: "", radioName: "", url: "", date: "", time: "", duration: "1" }]);
   const [savingRadioShows, setSavingRadioShows] = useState(false);
   const [saveRadioShowsSuccess, setSaveRadioShowsSuccess] = useState(false);
 
@@ -250,8 +251,8 @@ export function StudioProfileClient() {
             // Radio Shows - ensure we always have 2 fields with all properties
             const radioShows = data.djProfile.radioShows || [];
             setRadioShowsInput([
-              { name: "", radioName: "", url: "", date: "", time: "", ...radioShows[0] },
-              { name: "", radioName: "", url: "", date: "", time: "", ...radioShows[1] },
+              { name: "", radioName: "", url: "", date: "", time: "", duration: "1", ...radioShows[0] },
+              { name: "", radioName: "", url: "", date: "", time: "", duration: "1", ...radioShows[1] },
             ]);
             // My Recs - ensure at least one empty field
             const bandcampRecs = data.djProfile.myRecs?.bandcampLinks || [];
@@ -548,6 +549,7 @@ export function StudioProfileClient() {
         url: (show.url || "").trim() ? normalizeUrl((show.url || "").trim()) : "",
         date: (show.date || "").trim(),
         time: (show.time || "").trim(),
+        duration: (show.duration || "1").trim(),
       }));
 
       await updateDoc(userRef, {
@@ -1649,17 +1651,42 @@ export function StudioProfileClient() {
                       }}
                       className="flex-1 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none [color-scheme:dark]"
                     />
-                    <input
-                      type="time"
+                    <select
                       value={show.time}
                       onChange={(e) => {
                         const updated = [...radioShowsInput];
                         updated[index] = { ...updated[index], time: e.target.value };
                         setRadioShowsInput(updated);
                       }}
-                      placeholder="Time"
-                      className="w-28 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none [color-scheme:dark]"
-                    />
+                      className="w-24 bg-black border border-gray-800 rounded-lg px-2 py-2 text-white focus:border-gray-600 focus:outline-none"
+                    >
+                      <option value="">Time</option>
+                      {Array.from({ length: 48 }, (_, i) => {
+                        const hour = Math.floor(i / 2);
+                        const minute = i % 2 === 0 ? "00" : "30";
+                        const value = `${hour.toString().padStart(2, "0")}:${minute}`;
+                        const label = `${hour.toString().padStart(2, "0")}:${minute}`;
+                        return <option key={value} value={value}>{label}</option>;
+                      })}
+                    </select>
+                    <select
+                      value={show.duration || "1"}
+                      onChange={(e) => {
+                        const updated = [...radioShowsInput];
+                        updated[index] = { ...updated[index], duration: e.target.value };
+                        setRadioShowsInput(updated);
+                      }}
+                      className="w-20 bg-black border border-gray-800 rounded-lg px-2 py-2 text-white focus:border-gray-600 focus:outline-none"
+                    >
+                      <option value="0.5">0.5h</option>
+                      <option value="1">1h</option>
+                      <option value="1.5">1.5h</option>
+                      <option value="2">2h</option>
+                      <option value="2.5">2.5h</option>
+                      <option value="3">3h</option>
+                      <option value="3.5">3.5h</option>
+                      <option value="4">4h</option>
+                    </select>
                   </div>
                   <input
                     type="text"
