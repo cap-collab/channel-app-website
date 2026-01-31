@@ -6,6 +6,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { IRLShowCard } from './IRLShowCard';
 import { TicketCard } from './TicketCard';
 import { SwipeableCardCarousel } from './SwipeableCardCarousel';
+import { InviteCard } from './InviteCard';
 import { SUPPORTED_CITIES, matchesCity } from '@/lib/city-detection';
 import { prioritizeShowArray, prioritizeShows } from '@/lib/show-prioritization';
 
@@ -332,6 +333,9 @@ export function LocalDJsSection({
                 />
               );
             })}
+            {filteredIRLShows.length < 5 && !hasRadioShows && (
+              <InviteCard message={`Know a DJ in ${selectedCity}?`} />
+            )}
           </SwipeableCardCarousel>
         </div>
       )}
@@ -364,6 +368,9 @@ export function LocalDJsSection({
                   />
                 );
               })}
+            {localDJShows.length < 5 && (
+              <InviteCard message={`Know a DJ in ${selectedCity}?`} />
+            )}
           </SwipeableCardCarousel>
         </div>
       )}

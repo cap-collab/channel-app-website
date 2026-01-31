@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Show, Station } from '@/types';
@@ -8,6 +8,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { TicketCard } from './TicketCard';
 import { SwipeableCardCarousel } from './SwipeableCardCarousel';
+import { InviteCard } from './InviteCard';
 import { prioritizeShowArray } from '@/lib/show-prioritization';
 
 const SUPPORTED_GENRES = [
@@ -90,7 +91,6 @@ export function WhoNotToMiss({
   const [customGenreInput, setCustomGenreInput] = useState<string>('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isCustomMode, setIsCustomMode] = useState(false);
-  const [copySuccess, setCopySuccess] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const initialLoadDone = useRef(false);
 
@@ -163,18 +163,6 @@ export function WhoNotToMiss({
       inputRef.current.focus();
     }
   }, [isCustomMode]);
-
-  // Handle copy URL
-  const handleCopyUrl = useCallback(async () => {
-    try {
-      const url = `${window.location.origin}/studio/join`;
-      await navigator.clipboard.writeText(url);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
-    } catch (error) {
-      console.error('Failed to copy URL:', error);
-    }
-  }, []);
 
   // Base filter for upcoming shows with DJ profiles
   const upcomingShowsBase = useMemo(() => {
@@ -372,60 +360,41 @@ export function WhoNotToMiss({
         </div>
 
         {/* Genre-filtered shows or empty state */}
-        {hasGenreShows ? (
-          <SwipeableCardCarousel>
-            {genreFilteredShows
-              .filter((show) => stations.get(show.stationId))
-              .map((show) => {
-                const station = stations.get(show.stationId)!;
-                const isFollowing = show.dj ? isInWatchlist(show.dj) : false;
-                const isFavorited = isShowFavorited(show);
-                const isAddingFollow = addingFollowDj === show.dj;
-                const isAddingReminder = addingReminderShowId === show.id;
+        <SwipeableCardCarousel>
+          {genreFilteredShows
+            .filter((show) => stations.get(show.stationId))
+            .map((show) => {
+              const station = stations.get(show.stationId)!;
+              const isFollowing = show.dj ? isInWatchlist(show.dj) : false;
+              const isFavorited = isShowFavorited(show);
+              const isAddingFollow = addingFollowDj === show.dj;
+              const isAddingReminder = addingReminderShowId === show.id;
 
-                return (
-                  <TicketCard
-                    key={show.id}
-                    show={show}
-                    station={station}
-                    isAuthenticated={isAuthenticated}
-                    isFollowing={isFollowing}
-                    isShowFavorited={isFavorited}
-                    isAddingFollow={isAddingFollow}
-                    isAddingReminder={isAddingReminder}
-                    onFollow={() => handleFollow(show)}
-                    onRemindMe={() => handleRemindMe(show)}
-                  />
-                );
-              })}
-          </SwipeableCardCarousel>
-        ) : (
-          <div className="text-center py-3">
-            <p className="text-gray-400 text-sm mb-3">
-              No upcoming {selectedGenre} DJs yet. Invite your favorites to join Channel!
-            </p>
-            <button
-              onClick={handleCopyUrl}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
-            >
-              {copySuccess ? (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  Copy invite link
-                </>
-              )}
-            </button>
-          </div>
-        )}
+              return (
+                <TicketCard
+                  key={show.id}
+                  show={show}
+                  station={station}
+                  isAuthenticated={isAuthenticated}
+                  isFollowing={isFollowing}
+                  isShowFavorited={isFavorited}
+                  isAddingFollow={isAddingFollow}
+                  isAddingReminder={isAddingReminder}
+                  onFollow={() => handleFollow(show)}
+                  onRemindMe={() => handleRemindMe(show)}
+                />
+              );
+            })}
+          {genreFilteredShows.length < 5 && (
+            <InviteCard
+              message={
+                genreFilteredShows.length === 0
+                  ? `No upcoming ${selectedGenre} DJs yet`
+                  : `Know a ${selectedGenre} DJ?`
+              }
+            />
+          )}
+        </SwipeableCardCarousel>
       </section>
 
       {/* Our Picks section */}
