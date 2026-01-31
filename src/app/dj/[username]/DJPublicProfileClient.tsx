@@ -1317,7 +1317,7 @@ export function DJPublicProfileClient({ username }: Props) {
                             href={irlShow.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-accent hover:bg-accent/80 text-white transition-colors flex items-center justify-center gap-2"
+                            className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
                           >
                             <CalendarIcon size={14} />
                             Get tickets
