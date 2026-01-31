@@ -12,6 +12,7 @@ import { InviteCard } from './InviteCard';
 import { prioritizeShowArray } from '@/lib/show-prioritization';
 
 const SUPPORTED_GENRES = [
+  'Ambient',
   'Bass',
   'Disco',
   'Drum and Bass',
@@ -38,6 +39,7 @@ interface WhoNotToMissProps {
 
 // Genre aliases for flexible matching
 const GENRE_ALIASES: Record<string, string[]> = {
+  'ambient': ['ambiant', 'ambience', 'atmospheric'],
   'drum and bass': ['drum & bass', 'dnb', 'd&b', 'd and b', 'drum n bass', "drum'n'bass", 'drumnbass'],
   'hip hop': ['hip-hop', 'hiphop', 'rap'],
   'garage': ['uk garage', 'ukg', '2-step', '2step'],
@@ -361,39 +363,44 @@ export function WhoNotToMiss({
 
         {/* Genre-filtered shows or empty state */}
         <SwipeableCardCarousel>
-          {genreFilteredShows
-            .filter((show) => stations.get(show.stationId))
-            .map((show) => {
-              const station = stations.get(show.stationId)!;
-              const isFollowing = show.dj ? isInWatchlist(show.dj) : false;
-              const isFavorited = isShowFavorited(show);
-              const isAddingFollow = addingFollowDj === show.dj;
-              const isAddingReminder = addingReminderShowId === show.id;
+          {[
+            ...genreFilteredShows
+              .filter((show) => stations.get(show.stationId))
+              .map((show) => {
+                const station = stations.get(show.stationId)!;
+                const isFollowing = show.dj ? isInWatchlist(show.dj) : false;
+                const isFavorited = isShowFavorited(show);
+                const isAddingFollow = addingFollowDj === show.dj;
+                const isAddingReminder = addingReminderShowId === show.id;
 
-              return (
-                <TicketCard
-                  key={show.id}
-                  show={show}
-                  station={station}
-                  isAuthenticated={isAuthenticated}
-                  isFollowing={isFollowing}
-                  isShowFavorited={isFavorited}
-                  isAddingFollow={isAddingFollow}
-                  isAddingReminder={isAddingReminder}
-                  onFollow={() => handleFollow(show)}
-                  onRemindMe={() => handleRemindMe(show)}
-                />
-              );
-            })}
-          {genreFilteredShows.length < 5 && (
-            <InviteCard
-              message={
-                genreFilteredShows.length === 0
-                  ? `No upcoming ${selectedGenre} DJs yet`
-                  : `Know a ${selectedGenre} DJ?`
-              }
-            />
-          )}
+                return (
+                  <TicketCard
+                    key={show.id}
+                    show={show}
+                    station={station}
+                    isAuthenticated={isAuthenticated}
+                    isFollowing={isFollowing}
+                    isShowFavorited={isFavorited}
+                    isAddingFollow={isAddingFollow}
+                    isAddingReminder={isAddingReminder}
+                    onFollow={() => handleFollow(show)}
+                    onRemindMe={() => handleRemindMe(show)}
+                  />
+                );
+              }),
+            ...(genreFilteredShows.length < 5
+              ? [
+                  <InviteCard
+                    key="invite-card"
+                    message={
+                      genreFilteredShows.length === 0
+                        ? `No upcoming ${selectedGenre} DJs yet`
+                        : `Know a ${selectedGenre} DJ?`
+                    }
+                  />,
+                ]
+              : []),
+          ]}
         </SwipeableCardCarousel>
       </section>
 
