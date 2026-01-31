@@ -640,6 +640,10 @@ export function DJPublicProfileClient({ username }: Props) {
         // Skip broadcast shows (already handled above)
         if (show.stationId === "broadcast") return;
 
+        // Skip dj-radio shows - these are added separately from djProfile.radioShows
+        // to avoid duplication and ensure we use the source data directly
+        if (show.stationId === "dj-radio") return;
+
         // Skip shows that have already ended
         const endTime = new Date(show.endTime).getTime();
         if (endTime <= now) return;
