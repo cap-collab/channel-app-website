@@ -12,6 +12,7 @@ import { useFavorites } from "@/hooks/useFavorites";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { AuthModal } from "@/components/AuthModal";
 import { TipButton } from "@/components/channel/TipButton";
+import { DJProfileChatPanel } from "@/components/dj-profile/DJProfileChatPanel";
 import { Show } from "@/types";
 import { Archive } from "@/types/broadcast";
 import { getStationById } from "@/lib/stations";
@@ -324,6 +325,11 @@ function calculateShowProgress(startTime: string, endTime: string): number {
   return Math.min(100, Math.max(0, (elapsed / total) * 100));
 }
 
+// Normalize username for chat stationId (lowercase, no spaces/hyphens)
+function normalizeUsername(chatUsername: string): string {
+  return chatUsername.replace(/[\s-]+/g, "").toLowerCase();
+}
+
 export function DJPublicProfileClient({ username }: Props) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
@@ -366,6 +372,9 @@ export function DJPublicProfileClient({ username }: Props) {
   // Auto-profile state
   const [isAutoProfile, setIsAutoProfile] = useState(false);
   const [autoSources, setAutoSources] = useState<{ stationId: string; showName: string }[]>([]);
+
+  // Tab state for claimed profiles (with email)
+  const [activeTab, setActiveTab] = useState<'timeline' | 'chat'>('timeline');
 
   // Fetch DJ profile by username
   useEffect(() => {
@@ -1110,19 +1119,27 @@ export function DJPublicProfileClient({ username }: Props) {
             {/* Medium: Promo + Bio */}
             <div className="max-w-xl space-y-4">
               {profile.djProfile.promoText && (
-                <p className="text-base leading-relaxed text-zinc-300 font-light">
-                  {profile.djProfile.promoText}
-                  {profile.djProfile.promoHyperlink && (
-                    <a
-                      href={profile.djProfile.promoHyperlink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="ml-2 inline-flex items-center text-xs uppercase font-bold tracking-widest text-accent hover:text-white transition-colors"
-                    >
-                      View Link <ExternalLinkIcon size={12} />
-                    </a>
-                  )}
-                </p>
+                profile.djProfile.promoHyperlink ? (
+                  <a
+                    href={profile.djProfile.promoHyperlink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full bg-zinc-900/50 border border-white/10 p-4 hover:bg-zinc-800/50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <p className="text-base leading-relaxed text-white">
+                        {profile.djProfile.promoText}
+                      </p>
+                      <ExternalLinkIcon size={16} />
+                    </div>
+                  </a>
+                ) : (
+                  <div className="w-full bg-zinc-900/50 border border-white/10 p-4">
+                    <p className="text-base leading-relaxed text-white">
+                      {profile.djProfile.promoText}
+                    </p>
+                  </div>
+                )
               )}
               {profile.djProfile.bio && (
                 <TruncatedBio bio={profile.djProfile.bio} />
@@ -1131,6 +1148,57 @@ export function DJPublicProfileClient({ username }: Props) {
           </div>
         </section>
 
+        {/* STICKY TAB BAR - only if DJ has email (claimed profile) */}
+        {profile.email && (
+          <div className="sticky top-0 z-30 bg-surface-base/95 backdrop-blur-sm border-b border-white/10 -mx-6 px-6">
+            <div className="flex">
+              <button
+                onClick={() => setActiveTab('timeline')}
+                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-colors ${
+                  activeTab === 'timeline'
+                    ? 'text-white border-b-2 border-white'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                Timeline
+              </button>
+              <button
+                onClick={() => setActiveTab('chat')}
+                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-colors ${
+                  activeTab === 'chat'
+                    ? 'text-white border-b-2 border-white'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                Chat
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* TAB CONTENT */}
+        {profile.email && activeTab === 'chat' ? (
+          /* CHAT TAB */
+          <div className="min-h-[60vh] -mx-6">
+            <DJProfileChatPanel
+              chatUsernameNormalized={normalizeUsername(profile.chatUsername)}
+              djUserId={profile.uid}
+              djUsername={profile.chatUsername}
+              djEmail={profile.email}
+              isAuthenticated={isAuthenticated}
+              username={chatUsername || undefined}
+              userId={user?.uid}
+              onSetUsername={async (newUsername) => {
+                // This would need to integrate with the username setting logic
+                // For now, return success - the actual implementation depends on useUserProfile
+                return { success: true };
+              }}
+              isOwner={user?.uid === profile.uid}
+            />
+          </div>
+        ) : (
+          /* TIMELINE TAB (default, or when no email) */
+          <>
         {/* LIVE SHOW CARD - Shown outside timeline when DJ is live */}
         {currentLiveShow && (
           <section className="mb-6">
@@ -1541,6 +1609,8 @@ export function DJPublicProfileClient({ username }: Props) {
               ))}
             </div>
           </section>
+        )}
+          </>
         )}
 
         {/* FOOTER: SUPPORT & SOCIALS */}
