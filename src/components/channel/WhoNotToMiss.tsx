@@ -14,6 +14,7 @@ import { prioritizeShowArray } from '@/lib/show-prioritization';
 const SUPPORTED_GENRES = [
   'Ambient',
   'Bass',
+  'Dance',
   'Disco',
   'Drum and Bass',
   'Dub',
@@ -23,6 +24,7 @@ const SUPPORTED_GENRES = [
   'Hip Hop',
   'House',
   'Jungle',
+  'Rap',
   'Reggae',
   'Soul',
   'Techno',
@@ -40,8 +42,9 @@ interface WhoNotToMissProps {
 // Genre aliases for flexible matching
 const GENRE_ALIASES: Record<string, string[]> = {
   'ambient': ['ambiant', 'ambience', 'atmospheric'],
+  'dance': ['dance music'],
   'drum and bass': ['drum & bass', 'dnb', 'd&b', 'd and b', 'drum n bass', "drum'n'bass", 'drumnbass'],
-  'hip hop': ['hip-hop', 'hiphop', 'rap'],
+  'hip hop': ['hip-hop', 'hiphop'],
   'garage': ['uk garage', 'ukg', '2-step', '2step'],
   'dub': ['dubstep'],
   'disco': ['nu disco', 'nu-disco'],
