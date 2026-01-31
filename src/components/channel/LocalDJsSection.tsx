@@ -1,15 +1,12 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { Show, Station, IRLShowData } from '@/types';
 import { useFavorites } from '@/hooks/useFavorites';
-import { useAuthContext } from '@/contexts/AuthContext';
 import { IRLShowCard } from './IRLShowCard';
 import { TicketCard } from './TicketCard';
 import { SwipeableCardCarousel } from './SwipeableCardCarousel';
-import { SUPPORTED_CITIES, getDefaultCity, matchesCity } from '@/lib/city-detection';
+import { SUPPORTED_CITIES, matchesCity } from '@/lib/city-detection';
 
 interface LocalDJsSectionProps {
   shows: Show[];
@@ -18,6 +15,8 @@ interface LocalDJsSectionProps {
   isAuthenticated: boolean;
   onAuthRequired: (show: Show) => void;
   onIRLAuthRequired: (djName: string) => void;
+  selectedCity: string;
+  onCityChange: (city: string) => void;
 }
 
 export function LocalDJsSection({
@@ -27,73 +26,24 @@ export function LocalDJsSection({
   isAuthenticated,
   onAuthRequired,
   onIRLAuthRequired,
+  selectedCity,
+  onCityChange,
 }: LocalDJsSectionProps) {
-  const { user } = useAuthContext();
   const { isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
   const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
   const [addingReminderShowId, setAddingReminderShowId] = useState<string | null>(null);
-  const [selectedCity, setSelectedCity] = useState<string>('');
   const [customCityInput, setCustomCityInput] = useState<string>('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const initialLoadDone = useRef(false);
-
-  // Load saved city preference from user profile or fallback to timezone detection
-  useEffect(() => {
-    async function loadSavedCity() {
-      if (initialLoadDone.current) return;
-
-      if (user?.uid && db) {
-        try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            const savedCity = userDoc.data()?.irlCity;
-            if (savedCity) {
-              setSelectedCity(savedCity);
-              initialLoadDone.current = true;
-              return;
-            }
-          }
-        } catch (error) {
-          console.error('Error loading saved city:', error);
-        }
-      }
-
-      // Fallback to timezone detection
-      setSelectedCity(getDefaultCity());
-      initialLoadDone.current = true;
-    }
-
-    loadSavedCity();
-  }, [user?.uid]);
-
-  // Save city selection to user profile
-  const saveCityToProfile = async (city: string) => {
-    if (!user?.uid || !db) return;
-
-    try {
-      const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
-        irlCity: city,
-      });
-    } catch (error) {
-      console.error('Error saving city preference:', error);
-    }
-  };
 
   // Handle city selection
   const handleSelectCity = (city: string) => {
-    setSelectedCity(city);
+    onCityChange(city);
     setIsDropdownOpen(false);
     setIsCustomMode(false);
     setCustomCityInput('');
-
-    // Save to profile if authenticated
-    if (isAuthenticated) {
-      saveCityToProfile(city);
-    }
   };
 
   // Handle custom city submission

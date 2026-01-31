@@ -18,6 +18,10 @@ import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { saveTipToLocalStorage } from '@/lib/tip-history-storage';
 import { Show, Station, IRLShowData } from '@/types';
 import { STATIONS } from '@/lib/stations';
+import { useFavorites } from '@/hooks/useFavorites';
+import { getDefaultCity, matchesCity } from '@/lib/city-detection';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface TipSuccessData {
   djUsername: string;
@@ -29,6 +33,7 @@ interface TipSuccessData {
 export function ChannelClient() {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername, loading: profileLoading, setChatUsername } = useUserProfile(user?.uid);
+  const { favorites } = useFavorites();
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -42,6 +47,56 @@ export function ChannelClient() {
 
   // IRL shows data
   const [irlShows, setIrlShows] = useState<IRLShowData[]>([]);
+
+  // Selected city for local DJs section (lifted up for deduplication)
+  const [selectedCity, setSelectedCity] = useState<string>('');
+  const [cityInitialized, setCityInitialized] = useState(false);
+
+  // Load saved city preference from user profile or fallback to timezone detection
+  useEffect(() => {
+    async function loadSavedCity() {
+      if (cityInitialized) return;
+
+      if (user?.uid && db) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const savedCity = userDoc.data()?.irlCity;
+            if (savedCity) {
+              setSelectedCity(savedCity);
+              setCityInitialized(true);
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('Error loading saved city:', error);
+        }
+      }
+
+      // Fallback to timezone detection
+      setSelectedCity(getDefaultCity());
+      setCityInitialized(true);
+    }
+
+    loadSavedCity();
+  }, [user?.uid, cityInitialized]);
+
+  // Handle city change and save to profile
+  const handleCityChange = useCallback(async (city: string) => {
+    setSelectedCity(city);
+
+    // Save to profile if authenticated
+    if (user?.uid && db) {
+      try {
+        const userRef = doc(db, 'users', user.uid);
+        await updateDoc(userRef, {
+          irlCity: city,
+        });
+      } catch (error) {
+        console.error('Error saving city preference:', error);
+      }
+    }
+  }, [user?.uid]);
 
   // Stations map for quick lookup
   const stationsMap = useMemo(() => {
@@ -111,6 +166,67 @@ export function ChannelClient() {
     const now = new Date();
     return allShows.filter((show) => new Date(show.endTime) > now);
   }, [allShows]);
+
+  // Compute show IDs to exclude from WhoNotToMiss (shows already in My Favorites or Local DJs)
+  const excludedShowIds = useMemo(() => {
+    const excluded = new Set<string>();
+    const now = new Date();
+
+    // Get followed DJ names and favorited shows from favorites
+    const followedDJNames = favorites
+      .filter((f) => f.type === 'search')
+      .map((f) => f.term.toLowerCase());
+
+    const favoritedShows = favorites
+      .filter((f) => f.type === 'show')
+      .map((f) => ({
+        term: f.term.toLowerCase(),
+        showName: f.showName,
+        stationId: f.stationId,
+      }));
+
+    // Find shows matching followed DJs or favorited shows (displayed in My Favorites section)
+    for (const show of allShows) {
+      const startDate = new Date(show.startTime);
+      if (startDate <= now) continue; // Only upcoming shows
+
+      const showDjName = show.dj || show.name;
+      if (showDjName) {
+        const djLower = showDjName.toLowerCase();
+        const matchesDJ = followedDJNames.some(
+          (name) => djLower.includes(name) || name.includes(djLower)
+        );
+        if (matchesDJ) {
+          excluded.add(show.id);
+          continue;
+        }
+      }
+
+      // Check favorited shows
+      const showNameLower = show.name?.toLowerCase() || '';
+      const matchesFavorite = favoritedShows.some((fav) => {
+        const nameMatch = showNameLower === fav.term ||
+          (fav.showName && showNameLower === fav.showName.toLowerCase());
+        const stationMatch = !fav.stationId || show.stationId === fav.stationId;
+        return nameMatch && stationMatch;
+      });
+      if (matchesFavorite) {
+        excluded.add(show.id);
+        continue;
+      }
+
+      // Check local DJs (shows from DJs in selected city)
+      if (selectedCity && show.djLocation && matchesCity(show.djLocation, selectedCity)) {
+        const hasPhoto = show.djPhotoUrl || show.imageUrl;
+        const isRestreamOrPlaylist = show.type === 'playlist' || show.type === 'restream';
+        if (show.dj && (show.djUsername || show.djUserId) && hasPhoto && !isRestreamOrPlaylist) {
+          excluded.add(show.id);
+        }
+      }
+    }
+
+    return excluded;
+  }, [allShows, favorites, selectedCity]);
 
   // Check for tip success on mount
   useEffect(() => {
@@ -272,6 +388,8 @@ export function ChannelClient() {
               isAuthenticated={isAuthenticated}
               onAuthRequired={handleRemindMe}
               onIRLAuthRequired={handleIRLAuthRequired}
+              selectedCity={selectedCity}
+              onCityChange={handleCityChange}
             />
           </div>
 
@@ -282,6 +400,7 @@ export function ChannelClient() {
               stations={stationsMap}
               isAuthenticated={isAuthenticated}
               onAuthRequired={handleRemindMe}
+              excludedShowIds={excludedShowIds}
             />
           </div>
 

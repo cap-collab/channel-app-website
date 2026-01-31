@@ -31,6 +31,7 @@ interface WhoNotToMissProps {
   stations: Map<string, Station>;
   isAuthenticated: boolean;
   onAuthRequired: (show: Show) => void;
+  excludedShowIds?: Set<string>; // Shows already displayed in My Favorites or Local DJs sections
 }
 
 // Helper to check if a show matches a genre (case-insensitive partial match)
@@ -45,6 +46,7 @@ export function WhoNotToMiss({
   stations,
   isAuthenticated,
   onAuthRequired,
+  excludedShowIds = new Set(),
 }: WhoNotToMissProps) {
   const { user } = useAuthContext();
   const { isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
@@ -151,24 +153,26 @@ export function WhoNotToMiss({
     });
   }, [shows]);
 
-  // Filter shows by selected genre (max 5)
+  // Filter shows by selected genre (max 5), excluding shows already displayed elsewhere
   const genreFilteredShows = useMemo(() => {
     if (!selectedGenre) return [];
     return upcomingShowsBase
-      .filter((show) => matchesGenre(show.djGenres, selectedGenre))
+      .filter((show) => !excludedShowIds.has(show.id) && matchesGenre(show.djGenres, selectedGenre))
       .slice(0, 5);
-  }, [upcomingShowsBase, selectedGenre]);
+  }, [upcomingShowsBase, selectedGenre, excludedShowIds]);
 
   // "Our Picks" - prioritize shows with photo + location + genres
   const ourPicks = useMemo(() => {
-    // Score shows by profile completeness
-    const scoredShows = upcomingShowsBase.map((show) => {
-      let score = 0;
-      if (show.djPhotoUrl) score += 3; // Photo is most important
-      if (show.djLocation) score += 2; // Location adds context
-      if (show.djGenres && show.djGenres.length > 0) score += 1; // Genres help discovery
-      return { show, score };
-    });
+    // Score shows by profile completeness, excluding shows already displayed elsewhere
+    const scoredShows = upcomingShowsBase
+      .filter((show) => !excludedShowIds.has(show.id))
+      .map((show) => {
+        let score = 0;
+        if (show.djPhotoUrl) score += 3; // Photo is most important
+        if (show.djLocation) score += 2; // Location adds context
+        if (show.djGenres && show.djGenres.length > 0) score += 1; // Genres help discovery
+        return { show, score };
+      });
 
     // Sort by score (descending), then by start time (ascending)
     scoredShows.sort((a, b) => {
@@ -182,7 +186,7 @@ export function WhoNotToMiss({
       .filter(({ show }) => !genreShowIds.has(show.id))
       .slice(0, 5)
       .map(({ show }) => show);
-  }, [upcomingShowsBase, genreFilteredShows]);
+  }, [upcomingShowsBase, genreFilteredShows, excludedShowIds]);
 
   const hasGenreShows = genreFilteredShows.length > 0;
   const hasOurPicks = ourPicks.length > 0;
