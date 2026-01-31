@@ -337,6 +337,7 @@ async function fetchDJRadioShows(): Promise<Show[]> {
       const userData = doc.data();
       const djProfile = userData?.djProfile;
       const chatUsername = userData?.chatUsername;
+      const userEmail = userData?.email;
 
       if (!djProfile?.radioShows || !Array.isArray(djProfile.radioShows)) {
         return;
@@ -379,6 +380,7 @@ async function fetchDJRadioShows(): Promise<Show[]> {
           djPhotoUrl: djProfile.photoUrl || undefined,
           djLocation: djProfile.location || undefined,
           djGenres: djProfile.genres || undefined,
+          djEmail: userEmail || undefined, // Include email for prioritization
           // Store additional info for display
           description: show.url ? `Listen at: ${show.url}` : undefined,
           // Custom fields for DJ radio shows
