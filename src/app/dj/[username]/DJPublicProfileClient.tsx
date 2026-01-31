@@ -1274,7 +1274,10 @@ export function DJPublicProfileClient({ username }: Props) {
                         <span className="text-zinc-400 text-xs">
                           {dateStr} · {timeStr}
                         </span>
-                        <span className="text-zinc-400 text-xs uppercase tracking-wider">
+                        <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M20 6H8.3L16.6 2.4l-.8-1.8L3 6H2v2h18v12H4V8H2v14h20V6zm-4 8h-2v2h2v-2zm-4 0H8v2h4v-2z" />
+                          </svg>
                           Radio
                         </span>
                         <span className="text-zinc-400 text-xs">
@@ -1341,7 +1344,10 @@ export function DJPublicProfileClient({ username }: Props) {
                         <span className="text-zinc-400 text-xs">
                           {dateStr}
                         </span>
-                        <span className="text-zinc-400 text-xs uppercase tracking-wider">
+                        <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                          </svg>
                           IRL
                         </span>
                         <span className="text-zinc-400 text-xs">
