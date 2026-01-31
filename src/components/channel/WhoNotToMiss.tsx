@@ -395,11 +395,7 @@ export function WhoNotToMiss({
               ? [
                   <InviteCard
                     key="invite-card"
-                    message={
-                      genreFilteredShows.length === 0
-                        ? `No upcoming ${selectedGenre} DJs yet`
-                        : `Know a ${selectedGenre} DJ?`
-                    }
+                    message={`Invite your favorite ${selectedGenre} DJs to join Channel`}
                   />,
                 ]
               : []),

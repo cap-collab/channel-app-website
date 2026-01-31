@@ -335,7 +335,7 @@ export function LocalDJsSection({
                 );
               }),
               ...(filteredIRLShows.length < 5 && !hasRadioShows
-                ? [<InviteCard key="invite-card" message={`Know a DJ in ${selectedCity}?`} />]
+                ? [<InviteCard key="invite-card" message={`Invite your favorite ${selectedCity} DJs to join Channel`} />]
                 : []),
             ]}
           </SwipeableCardCarousel>
@@ -372,7 +372,7 @@ export function LocalDJsSection({
                   );
                 }),
               ...(localDJShows.length < 5
-                ? [<InviteCard key="invite-card" message={`Know a DJ in ${selectedCity}?`} />]
+                ? [<InviteCard key="invite-card" message={`Invite your favorite ${selectedCity} DJs to join Channel`} />]
                 : []),
             ]}
           </SwipeableCardCarousel>
