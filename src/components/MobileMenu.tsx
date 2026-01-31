@@ -88,13 +88,30 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                       >
                         Inbox
                       </Link>
-                      {isDJ(role) && (
+                      {isDJ(role) ? (
+                        <>
+                          <Link
+                            href="/studio"
+                            onClick={() => setIsOpen(false)}
+                            className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                          >
+                            DJ Profile
+                          </Link>
+                          <Link
+                            href="/studio/join"
+                            onClick={() => setIsOpen(false)}
+                            className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                          >
+                            Apply to livestream on Channel
+                          </Link>
+                        </>
+                      ) : (
                         <Link
-                          href="/studio"
+                          href="/studio/join"
                           onClick={() => setIsOpen(false)}
                           className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                         >
-                          DJ Profile
+                          Claim your DJ profile on Channel
                         </Link>
                       )}
                       <Link
@@ -104,15 +121,6 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                       >
                         Settings
                       </Link>
-                      <a
-                        href="https://testflight.apple.com/join/HcKTJ1nH"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => setIsOpen(false)}
-                        className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
-                      >
-                        iOS Beta
-                      </a>
                       <button
                         onClick={() => {
                           signOut();
