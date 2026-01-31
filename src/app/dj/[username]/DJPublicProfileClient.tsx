@@ -1088,47 +1088,44 @@ export function DJPublicProfileClient({ username }: Props) {
           </div>
 
           <div className="md:col-span-8 flex flex-col justify-center">
-            <h1 className="text-5xl sm:text-7xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-2">
+            {/* Large: DJ Name */}
+            <h1 className="text-5xl sm:text-7xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-4">
               {profile.chatUsername}
             </h1>
-            {profile.djProfile.location && (
-              <p className="text-zinc-500 text-sm uppercase tracking-[0.4em] mb-4">
-                {profile.djProfile.location}
-              </p>
-            )}
 
-            {/* Promo Note - between location and bio */}
-            {profile.djProfile.promoText && (
-              <div className="py-4 border-y border-white/10 my-4 italic text-lg leading-snug text-zinc-300">
-                &ldquo;{profile.djProfile.promoText}&rdquo;
-                {profile.djProfile.promoHyperlink && (
-                  <a
-                    href={profile.djProfile.promoHyperlink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="ml-2 inline-flex items-center text-xs uppercase font-bold tracking-widest text-accent hover:text-white transition-colors"
-                  >
-                    View Link <ExternalLinkIcon size={12} />
-                  </a>
-                )}
-              </div>
-            )}
-
-            <div className="max-w-xl">
-              {profile.djProfile.bio && (
-                <TruncatedBio bio={profile.djProfile.bio} />
+            {/* Small & Grey: Location + Genres (Metadata Block) */}
+            <div className="mb-6">
+              {profile.djProfile.location && (
+                <p className="text-zinc-500 text-xs uppercase tracking-[0.3em] mb-2">
+                  {profile.djProfile.location}
+                </p>
               )}
               {profile.djProfile.genres.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {profile.djProfile.genres.map((g, i) => (
-                    <span
-                      key={i}
-                      className="text-[9px] uppercase tracking-widest border border-zinc-700 px-2 py-1 text-zinc-400"
+                <p className="text-zinc-500 text-xs uppercase tracking-[0.2em]">
+                  {profile.djProfile.genres.join(" · ")}
+                </p>
+              )}
+            </div>
+
+            {/* Medium: Promo + Bio */}
+            <div className="max-w-xl space-y-4">
+              {profile.djProfile.promoText && (
+                <p className="text-base leading-relaxed text-zinc-300 font-light">
+                  {profile.djProfile.promoText}
+                  {profile.djProfile.promoHyperlink && (
+                    <a
+                      href={profile.djProfile.promoHyperlink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-2 inline-flex items-center text-xs uppercase font-bold tracking-widest text-accent hover:text-white transition-colors"
                     >
-                      {g}
-                    </span>
-                  ))}
-                </div>
+                      View Link <ExternalLinkIcon size={12} />
+                    </a>
+                  )}
+                </p>
+              )}
+              {profile.djProfile.bio && (
+                <TruncatedBio bio={profile.djProfile.bio} />
               )}
             </div>
           </div>
