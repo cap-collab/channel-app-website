@@ -332,7 +332,7 @@ function normalizeUsername(chatUsername: string): string {
 
 export function DJPublicProfileClient({ username }: Props) {
   const { user, isAuthenticated } = useAuthContext();
-  const { chatUsername } = useUserProfile(user?.uid);
+  const { chatUsername, setChatUsername, loading: profileLoading } = useUserProfile(user?.uid);
   const { isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited, addToWatchlist, loading: favoritesLoading } = useFavorites();
 
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
@@ -1188,11 +1188,8 @@ export function DJPublicProfileClient({ username }: Props) {
               isAuthenticated={isAuthenticated}
               username={chatUsername || undefined}
               userId={user?.uid}
-              onSetUsername={async (newUsername) => {
-                // This would need to integrate with the username setting logic
-                // For now, return success - the actual implementation depends on useUserProfile
-                return { success: true };
-              }}
+              profileLoading={profileLoading}
+              onSetUsername={setChatUsername}
               isOwner={user?.uid === profile.uid}
             />
           </div>
@@ -1747,7 +1744,8 @@ export function DJPublicProfileClient({ username }: Props) {
         )}
       </main>
 
-      {/* Fixed Action Bar at Bottom */}
+      {/* Fixed Action Bar at Bottom - hide when chat tab is active */}
+      {activeTab !== 'chat' && (
       <div className="fixed bottom-0 left-0 w-full z-50 p-4 bg-black/80 backdrop-blur-lg border-t border-white/10">
         <div className="flex gap-2 max-w-md mx-auto">
           <button
@@ -1790,6 +1788,7 @@ export function DJPublicProfileClient({ username }: Props) {
           )}
         </div>
       </div>
+      )}
 
       <AuthModal
         isOpen={showAuthModal}
