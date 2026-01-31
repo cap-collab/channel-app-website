@@ -1640,17 +1640,6 @@ export function StudioProfileClient() {
                   </div>
                   <div className="flex gap-2">
                     <input
-                      type="text"
-                      value={show.url}
-                      onChange={(e) => {
-                        const updated = [...radioShowsInput];
-                        updated[index] = { ...updated[index], url: e.target.value };
-                        setRadioShowsInput(updated);
-                      }}
-                      placeholder="Radio URL (e.g., nts.live/shows/...)"
-                      className="flex-1 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
-                    />
-                    <input
                       type="date"
                       value={show.date}
                       onChange={(e) => {
@@ -1658,7 +1647,7 @@ export function StudioProfileClient() {
                         updated[index] = { ...updated[index], date: e.target.value };
                         setRadioShowsInput(updated);
                       }}
-                      className="w-32 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none [color-scheme:dark]"
+                      className="flex-1 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none [color-scheme:dark]"
                     />
                     <input
                       type="time"
@@ -1668,9 +1657,21 @@ export function StudioProfileClient() {
                         updated[index] = { ...updated[index], time: e.target.value };
                         setRadioShowsInput(updated);
                       }}
-                      className="w-24 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none [color-scheme:dark]"
+                      placeholder="Time"
+                      className="w-28 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none [color-scheme:dark]"
                     />
                   </div>
+                  <input
+                    type="text"
+                    value={show.url}
+                    onChange={(e) => {
+                      const updated = [...radioShowsInput];
+                      updated[index] = { ...updated[index], url: e.target.value };
+                      setRadioShowsInput(updated);
+                    }}
+                    placeholder="Radio URL (e.g., nts.live/shows/...)"
+                    className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                  />
                 </div>
               ))}
               <p className="text-gray-600 text-xs">
