@@ -1150,8 +1150,8 @@ export function DJPublicProfileClient({ username }: Props) {
 
         {/* STICKY TAB BAR - only if DJ has email (claimed profile) */}
         {profile.email && (
-          <div className="sticky top-0 z-30 bg-surface-base/95 backdrop-blur-sm border-b border-white/10 -mx-6 px-6">
-            <div className="flex">
+          <div className="sticky top-[48px] z-30 bg-black border-b border-white/10 -mx-6 px-6 mb-4">
+            <div className="flex max-w-5xl mx-auto">
               <button
                 onClick={() => setActiveTab('timeline')}
                 className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-colors ${
