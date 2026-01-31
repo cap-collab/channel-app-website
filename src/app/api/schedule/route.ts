@@ -283,6 +283,12 @@ async function fetchIRLShows(): Promise<IRLShowData[]> {
         return;
       }
 
+      // Skip system/admin accounts without proper DJ profiles for IRL shows
+      // These accounts shouldn't have their IRL shows displayed publicly
+      if (!chatUsername || !djProfile.photoUrl) {
+        return;
+      }
+
       // Filter to upcoming shows only
       for (const show of djProfile.irlShows) {
         // Skip if no date or URL
@@ -308,7 +314,19 @@ async function fetchIRLShows(): Promise<IRLShowData[]> {
     // Sort by date ascending
     irlShows.sort((a, b) => a.date.localeCompare(b.date));
 
-    return irlShows;
+    // Deduplicate: keep only one IRL show per DJ per location (the soonest one)
+    // This prevents the same DJ from appearing multiple times in the same city
+    const deduped: IRLShowData[] = [];
+    const seen = new Set<string>();
+    for (const show of irlShows) {
+      const key = `${show.djUsername}-${show.location.toLowerCase()}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduped.push(show);
+      }
+    }
+
+    return deduped;
   } catch (error) {
     console.error("[API /schedule] Error fetching IRL shows:", error);
     return [];
