@@ -481,7 +481,7 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
             {/* Avatar with live/IRL indicator */}
             <div className="relative">
               <div
-                className="w-14 h-14 rounded-full overflow-hidden border-2 transition-colors border-gray-700 group-hover:border-gray-500"
+                className="w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors border-gray-700 group-hover:border-gray-500"
               >
                 {item.photoUrl ? (
                   <Image
