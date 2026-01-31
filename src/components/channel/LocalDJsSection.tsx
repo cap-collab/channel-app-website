@@ -319,23 +319,25 @@ export function LocalDJsSection({
       {hasIRLShows && (
         <div className="mb-4 md:mb-6">
           <SwipeableCardCarousel>
-            {filteredIRLShows.map((show, index) => {
-              const isFollowing = show.djName ? isInWatchlist(show.djName) : false;
-              const isAddingFollow = addingFollowDj === show.djName;
+            {[
+              ...filteredIRLShows.map((show, index) => {
+                const isFollowing = show.djName ? isInWatchlist(show.djName) : false;
+                const isAddingFollow = addingFollowDj === show.djName;
 
-              return (
-                <IRLShowCard
-                  key={`${show.djUsername}-${show.date}-${index}`}
-                  show={show}
-                  isFollowing={isFollowing}
-                  isAddingFollow={isAddingFollow}
-                  onFollow={() => handleIRLFollow(show)}
-                />
-              );
-            })}
-            {filteredIRLShows.length < 5 && !hasRadioShows && (
-              <InviteCard message={`Know a DJ in ${selectedCity}?`} />
-            )}
+                return (
+                  <IRLShowCard
+                    key={`${show.djUsername}-${show.date}-${index}`}
+                    show={show}
+                    isFollowing={isFollowing}
+                    isAddingFollow={isAddingFollow}
+                    onFollow={() => handleIRLFollow(show)}
+                  />
+                );
+              }),
+              ...(filteredIRLShows.length < 5 && !hasRadioShows
+                ? [<InviteCard key="invite-card" message={`Know a DJ in ${selectedCity}?`} />]
+                : []),
+            ]}
           </SwipeableCardCarousel>
         </div>
       )}
@@ -344,33 +346,35 @@ export function LocalDJsSection({
       {hasRadioShows && (
         <div>
           <SwipeableCardCarousel>
-            {localDJShows
-              .filter((show) => stations.get(show.stationId))
-              .map((show) => {
-                const station = stations.get(show.stationId)!;
-                const isFollowing = show.dj ? isInWatchlist(show.dj) : false;
-                const isFavorited = isShowFavorited(show);
-                const isAddingFollow = addingFollowDj === show.dj;
-                const isAddingReminder = addingReminderShowId === show.id;
+            {[
+              ...localDJShows
+                .filter((show) => stations.get(show.stationId))
+                .map((show) => {
+                  const station = stations.get(show.stationId)!;
+                  const isFollowing = show.dj ? isInWatchlist(show.dj) : false;
+                  const isFavorited = isShowFavorited(show);
+                  const isAddingFollow = addingFollowDj === show.dj;
+                  const isAddingReminder = addingReminderShowId === show.id;
 
-                return (
-                  <TicketCard
-                    key={show.id}
-                    show={show}
-                    station={station}
-                    isAuthenticated={isAuthenticated}
-                    isFollowing={isFollowing}
-                    isShowFavorited={isFavorited}
-                    isAddingFollow={isAddingFollow}
-                    isAddingReminder={isAddingReminder}
-                    onFollow={() => handleFollow(show)}
-                    onRemindMe={() => handleRemindMe(show)}
-                  />
-                );
-              })}
-            {localDJShows.length < 5 && (
-              <InviteCard message={`Know a DJ in ${selectedCity}?`} />
-            )}
+                  return (
+                    <TicketCard
+                      key={show.id}
+                      show={show}
+                      station={station}
+                      isAuthenticated={isAuthenticated}
+                      isFollowing={isFollowing}
+                      isShowFavorited={isFavorited}
+                      isAddingFollow={isAddingFollow}
+                      isAddingReminder={isAddingReminder}
+                      onFollow={() => handleFollow(show)}
+                      onRemindMe={() => handleRemindMe(show)}
+                    />
+                  );
+                }),
+              ...(localDJShows.length < 5
+                ? [<InviteCard key="invite-card" message={`Know a DJ in ${selectedCity}?`} />]
+                : []),
+            ]}
           </SwipeableCardCarousel>
         </div>
       )}
