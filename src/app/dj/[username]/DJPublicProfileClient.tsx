@@ -1063,48 +1063,7 @@ export function DJPublicProfileClient({ username }: Props) {
       {/* Site-wide Header */}
       <Header position="sticky" />
 
-      {/* Contextual Sticky Nav */}
-      <nav className="sticky top-0 z-40 flex justify-end items-center px-6 py-2 bg-surface-base/90 backdrop-blur-md border-b border-white/10">
-        <div className="flex gap-4 items-center">
-          <button
-            onClick={handleShare}
-            className="flex items-center gap-2 text-[10px] uppercase tracking-widest hover:text-accent transition"
-          >
-            <ShareIcon size={14} /> Share
-          </button>
-          <button
-            onClick={handleSubscribe}
-            disabled={subscribing || favoritesLoading}
-            className={`px-4 py-1.5 rounded-lg text-[10px] uppercase font-black tracking-widest transition disabled:opacity-50 ${
-              isSubscribed
-                ? "bg-zinc-800 text-white hover:bg-zinc-700"
-                : "bg-white text-black hover:bg-gray-100"
-            }`}
-          >
-            {subscribing ? "..." : isSubscribed ? "Following" : "Follow"}
-          </button>
-          {profile.email && (
-            <div className="group relative flex items-center gap-2 bg-accent hover:bg-white text-white hover:text-black px-4 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>
-              </svg>
-              <span className="text-[10px] font-black uppercase tracking-widest">Support</span>
-              <TipButton
-                djUserId={profile.uid}
-                djEmail={profile.email}
-                djUsername={profile.chatUsername}
-                broadcastSlotId=""
-                showName={`Support ${profile.chatUsername}`}
-                tipperUserId={user?.uid}
-                tipperUsername={chatUsername || undefined}
-                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-              />
-            </div>
-          )}
-        </div>
-      </nav>
-
-      <main className="max-w-5xl mx-auto px-6 py-4">
+      <main className="max-w-5xl mx-auto px-6 py-4 pb-24">
         {/* SECTION A: IDENTITY */}
         <section className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-6">
           <div className="md:col-span-4">
@@ -1136,6 +1095,23 @@ export function DJPublicProfileClient({ username }: Props) {
               <p className="text-zinc-500 text-sm uppercase tracking-[0.4em] mb-4">
                 {profile.djProfile.location}
               </p>
+            )}
+
+            {/* Promo Note - between location and bio */}
+            {profile.djProfile.promoText && (
+              <div className="py-4 border-y border-white/10 my-4 italic text-lg leading-snug text-zinc-300">
+                &ldquo;{profile.djProfile.promoText}&rdquo;
+                {profile.djProfile.promoHyperlink && (
+                  <a
+                    href={profile.djProfile.promoHyperlink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-2 inline-flex items-center text-xs uppercase font-bold tracking-widest text-accent hover:text-white transition-colors"
+                  >
+                    View Link <ExternalLinkIcon size={12} />
+                  </a>
+                )}
+              </div>
             )}
 
             <div className="max-w-xl">
@@ -1227,25 +1203,6 @@ export function DJPublicProfileClient({ username }: Props) {
           </section>
         )}
 
-        {/* PROMO BOX */}
-        {profile.djProfile.promoText && (
-          <section className="mb-6">
-            <div className="border-2 border-white p-6 flex flex-col justify-center gap-3">
-              <p className="text-sm font-medium italic">&ldquo;{profile.djProfile.promoText}&rdquo;</p>
-              {profile.djProfile.promoHyperlink && (
-                <a
-                  href={profile.djProfile.promoHyperlink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[10px] uppercase font-black tracking-widest flex items-center gap-2 hover:text-accent"
-                >
-                  View Link <ExternalLinkIcon size={12} />
-                </a>
-              )}
-            </div>
-          </section>
-        )}
-
         {/* SECTION: UPCOMING SHOWS */}
         {upcomingShows.length > 0 && (
           <section className="mb-6">
@@ -1328,30 +1285,49 @@ export function DJPublicProfileClient({ username }: Props) {
 
                 if (item.feedType === "irl") {
                   const irlShow = item as IrlShow & { feedType: "irl"; feedStatus: "upcoming"; id: string };
-                  return (
-                    <div key={irlShow.id} className="bg-surface-card rounded-xl p-4">
-                      <div className="flex items-start gap-4">
-                        <div className="flex-1 min-w-0">
-                          {irlShow.url && (
-                            <div className="float-right ml-3">
-                              <a
-                                href={irlShow.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-3 h-8 rounded-full flex items-center justify-center gap-1.5 transition-all text-xs bg-accent hover:bg-accent/80 text-white font-medium"
-                              >
-                                <CalendarIcon size={14} />
-                                <span className="hidden sm:inline">Tickets</span>
-                              </a>
-                            </div>
-                          )}
+                  const irlDate = irlShow.date ? new Date(irlShow.date) : null;
+                  const dateStr = irlDate ? irlDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "TBA";
 
-                          <h3 className="text-white font-semibold">
+                  return (
+                    <div
+                      key={irlShow.id}
+                      className="bg-surface-card rounded-2xl overflow-hidden"
+                    >
+                      {/* Header: Date and Location */}
+                      <div className="flex items-center justify-between px-4 py-3 bg-black/40">
+                        <span className="text-zinc-400 text-xs">
+                          {dateStr}
+                        </span>
+                        <span className="text-zinc-400 text-xs">
+                          {irlShow.location || "IRL Event"}
+                        </span>
+                      </div>
+
+                      {/* Show Info */}
+                      <div className="p-4 space-y-4">
+                        <div>
+                          <h3 className="text-white text-xl font-bold">
                             {irlShow.name || irlShow.venue || irlShow.url?.replace(/^https?:\/\//, "").split("/")[0] || "Event"}
                           </h3>
-                          <p className="text-gray-400 text-sm">{irlShow.location || "Upcoming IRL Event"}</p>
-                          <p className="text-gray-500 text-xs">{irlShow.date || "TBA"}</p>
                         </div>
+
+                        {/* Action Button */}
+                        {irlShow.url ? (
+                          <a
+                            href={irlShow.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-accent hover:bg-accent/80 text-white transition-colors flex items-center justify-center gap-2"
+                          >
+                            <CalendarIcon size={14} />
+                            Get tickets
+                          </a>
+                        ) : (
+                          <div className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-white/10 text-zinc-400 flex items-center justify-center gap-2">
+                            <CalendarIcon size={14} />
+                            No tickets link
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -1703,6 +1679,50 @@ export function DJPublicProfileClient({ username }: Props) {
           </div>
         )}
       </main>
+
+      {/* Fixed Action Bar at Bottom */}
+      <div className="fixed bottom-0 left-0 w-full z-50 p-4 bg-black/80 backdrop-blur-lg border-t border-white/10">
+        <div className="flex gap-2 max-w-md mx-auto">
+          <button
+            onClick={handleShare}
+            className="flex-1 bg-zinc-900 py-3 text-[10px] font-black uppercase tracking-widest border border-white/10 hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2"
+          >
+            <ShareIcon size={12} />
+            Share
+          </button>
+          <button
+            onClick={handleSubscribe}
+            disabled={subscribing || favoritesLoading}
+            className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-50 ${
+              isSubscribed
+                ? "bg-zinc-900 text-white border border-white/10 hover:bg-zinc-800"
+                : "bg-white text-black hover:bg-gray-100"
+            }`}
+          >
+            {subscribing ? "..." : isSubscribed ? "Following" : "Follow"}
+          </button>
+          {profile.email && (
+            <div className="flex-1 relative">
+              <button className="w-full bg-accent py-3 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1 hover:bg-accent/80 transition-colors">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                </svg>
+                Support
+              </button>
+              <TipButton
+                djUserId={profile.uid}
+                djEmail={profile.email}
+                djUsername={profile.chatUsername}
+                broadcastSlotId=""
+                showName={`Support ${profile.chatUsername}`}
+                tipperUserId={user?.uid}
+                tipperUsername={chatUsername || undefined}
+                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+              />
+            </div>
+          )}
+        </div>
+      </div>
 
       <AuthModal
         isOpen={showAuthModal}
