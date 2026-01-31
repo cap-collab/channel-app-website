@@ -648,11 +648,14 @@ export function DJPublicProfileClient({ username }: Props) {
         const endTime = new Date(show.endTime).getTime();
         if (endTime <= now) return;
 
-        // Match by DJ name or show name containing the DJ name (same as watchlist)
+        // Match by DJ name, show name, or djUsername containing the DJ name (same as watchlist)
         const djMatch = show.dj && containsMatch(show.dj, djName);
         const showNameMatch = containsMatch(show.name, djName);
+        // Also match by djUsername if available (for profile-linked shows from metadata)
+        const normalizedProfileUsername = djName.replace(/\s+/g, "").toLowerCase();
+        const djUsernameMatch = show.djUsername && show.djUsername.toLowerCase() === normalizedProfileUsername;
 
-        if (djMatch || showNameMatch) {
+        if (djMatch || showNameMatch || djUsernameMatch) {
           const id = `external-${show.id}`;
           if (seenIds.has(id)) return;
           seenIds.add(id);
