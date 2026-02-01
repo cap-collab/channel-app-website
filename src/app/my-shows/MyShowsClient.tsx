@@ -21,7 +21,7 @@ interface DJProfileCache {
   location?: string;
   genres?: string[];
 }
-const watchlistDJProfileCache = new Map<string, DJProfileCache | null>();
+const djProfileCache = new Map<string, DJProfileCache | null>();
 
 // Helper to find station by id OR metadataKey
 function getStation(stationId: string | undefined) {
@@ -127,7 +127,7 @@ export function MyShowsClient() {
   const [addingToWatchlist, setAddingToWatchlist] = useState(false);
   const [allShows, setAllShows] = useState<Show[]>([]);
   const [showsLoading, setShowsLoading] = useState(true);
-  const [watchlistDJProfiles, setWatchlistDJProfiles] = useState<Map<string, DJProfileCache>>(new Map());
+  const [djProfiles, setDJProfiles] = useState<Map<string, DJProfileCache>>(new Map());
 
   // Fetch all shows on mount
   useEffect(() => {
@@ -147,92 +147,6 @@ export function MyShowsClient() {
   const irlEvents = favorites
     .filter((f) => f.type === "irl" && f.irlDate && f.irlDate >= today)
     .sort((a, b) => (a.irlDate || "").localeCompare(b.irlDate || ""));
-
-  // Look up DJ profiles from Firebase for watchlist items
-  useEffect(() => {
-    async function lookupWatchlistDJProfiles() {
-      if (!db || watchlist.length === 0) return;
-
-      const newProfiles = new Map<string, DJProfileCache>();
-
-      for (const item of watchlist) {
-        const name = item.term.toLowerCase();
-
-        // Check cache first
-        if (watchlistDJProfileCache.has(name)) {
-          const cached = watchlistDJProfileCache.get(name);
-          if (cached) newProfiles.set(name, cached);
-          continue;
-        }
-
-        // Normalize the name the same way as chatUsernameNormalized
-        const normalized = name.replace(/[\s-]+/g, "").toLowerCase();
-
-        try {
-          // Check pending-dj-profiles first
-          const pendingRef = collection(db, "pending-dj-profiles");
-          const pendingQ = query(
-            pendingRef,
-            where("chatUsernameNormalized", "==", normalized)
-          );
-          const pendingSnapshot = await getDocs(pendingQ);
-          const pendingDoc = pendingSnapshot.docs.find(
-            (doc) => doc.data().status === "pending"
-          );
-
-          if (pendingDoc) {
-            const data = pendingDoc.data();
-            const profile: DJProfileCache = {
-              username: data.chatUsername,
-              photoUrl: data.djProfile?.photoUrl || undefined,
-              location: data.djProfile?.location || undefined,
-              genres: data.djProfile?.genres || undefined,
-            };
-            watchlistDJProfileCache.set(name, profile);
-            newProfiles.set(name, profile);
-            continue;
-          }
-
-          // Check users collection
-          const usersRef = collection(db, "users");
-          const usersQ = query(
-            usersRef,
-            where("chatUsernameNormalized", "==", normalized),
-            where("role", "in", ["dj", "broadcaster", "admin"])
-          );
-          const usersSnapshot = await getDocs(usersQ);
-
-          if (!usersSnapshot.empty) {
-            const data = usersSnapshot.docs[0].data();
-            const profile: DJProfileCache = {
-              username: data.chatUsername,
-              photoUrl: data.djProfile?.photoUrl || undefined,
-              location: data.djProfile?.location || undefined,
-              genres: data.djProfile?.genres || undefined,
-            };
-            watchlistDJProfileCache.set(name, profile);
-            newProfiles.set(name, profile);
-          } else {
-            // Cache the miss to avoid repeated lookups
-            watchlistDJProfileCache.set(name, null);
-          }
-        } catch (error) {
-          console.error(`Error looking up DJ profile for ${name}:`, error);
-          watchlistDJProfileCache.set(name, null);
-        }
-      }
-
-      if (newProfiles.size > 0) {
-        setWatchlistDJProfiles((prev) => {
-          const merged = new Map(prev);
-          newProfiles.forEach((value, key) => merged.set(key, value));
-          return merged;
-        });
-      }
-    }
-
-    lookupWatchlistDJProfiles();
-  }, [watchlist]);
 
   // Categorize shows into Live Now, Coming Up, Returning Soon, One-Time
   const categorizedShows = useMemo(() => {
@@ -283,6 +197,100 @@ export function MyShowsClient() {
 
     return { liveNow, comingUp, returningSoon, oneTime };
   }, [stationShows, allShows]);
+
+  // Look up DJ profiles from Firebase for watchlist and history items
+  useEffect(() => {
+    async function lookupDJProfiles() {
+      // Combine watchlist items and history items that need profile lookups
+      const itemsToLookup = [
+        ...watchlist,
+        ...categorizedShows.returningSoon,
+        ...categorizedShows.oneTime,
+      ];
+
+      if (!db || itemsToLookup.length === 0) return;
+
+      const newProfiles = new Map<string, DJProfileCache>();
+
+      for (const item of itemsToLookup) {
+        // Use djName for history items (shows), term for watchlist
+        const name = (item.djName || item.term).toLowerCase();
+
+        // Check cache first
+        if (djProfileCache.has(name)) {
+          const cached = djProfileCache.get(name);
+          if (cached) newProfiles.set(name, cached);
+          continue;
+        }
+
+        // Normalize the name the same way as chatUsernameNormalized
+        const normalized = name.replace(/[\s-]+/g, "").toLowerCase();
+
+        try {
+          // Check pending-dj-profiles first
+          const pendingRef = collection(db, "pending-dj-profiles");
+          const pendingQ = query(
+            pendingRef,
+            where("chatUsernameNormalized", "==", normalized)
+          );
+          const pendingSnapshot = await getDocs(pendingQ);
+          const pendingDoc = pendingSnapshot.docs.find(
+            (doc) => doc.data().status === "pending"
+          );
+
+          if (pendingDoc) {
+            const data = pendingDoc.data();
+            const profile: DJProfileCache = {
+              username: data.chatUsername,
+              photoUrl: data.djProfile?.photoUrl || undefined,
+              location: data.djProfile?.location || undefined,
+              genres: data.djProfile?.genres || undefined,
+            };
+            djProfileCache.set(name, profile);
+            newProfiles.set(name, profile);
+            continue;
+          }
+
+          // Check users collection
+          const usersRef = collection(db, "users");
+          const usersQ = query(
+            usersRef,
+            where("chatUsernameNormalized", "==", normalized),
+            where("role", "in", ["dj", "broadcaster", "admin"])
+          );
+          const usersSnapshot = await getDocs(usersQ);
+
+          if (!usersSnapshot.empty) {
+            const data = usersSnapshot.docs[0].data();
+            const profile: DJProfileCache = {
+              username: data.chatUsername,
+              photoUrl: data.djProfile?.photoUrl || undefined,
+              location: data.djProfile?.location || undefined,
+              genres: data.djProfile?.genres || undefined,
+            };
+            djProfileCache.set(name, profile);
+            newProfiles.set(name, profile);
+          } else {
+            // Cache the miss to avoid repeated lookups
+            djProfileCache.set(name, null);
+          }
+        } catch (error) {
+          console.error(`Error looking up DJ profile for ${name}:`, error);
+          djProfileCache.set(name, null);
+        }
+      }
+
+      if (newProfiles.size > 0) {
+        setDJProfiles((prev) => {
+          const merged = new Map(prev);
+          newProfiles.forEach((value, key) => merged.set(key, value));
+          return merged;
+        });
+      }
+    }
+
+    lookupDJProfiles();
+  }, [watchlist, categorizedShows.returningSoon, categorizedShows.oneTime]);
 
   // Create unified upcoming shows list (online + IRL)
   const upcomingShows = useMemo(() => {
@@ -672,7 +680,7 @@ export function MyShowsClient() {
                 </h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {watchlist.map((favorite) => {
-                    const djProfile = watchlistDJProfiles.get(favorite.term.toLowerCase());
+                    const djProfile = djProfiles.get(favorite.term.toLowerCase());
                     const displayName = djProfile?.username || favorite.term.charAt(0).toUpperCase() + favorite.term.slice(1);
 
                     return (
@@ -712,14 +720,17 @@ export function MyShowsClient() {
                       {categorizedShows.returningSoon.map((favorite) => {
                         const station = getStation(favorite.stationId);
                         const accentColor = station?.accentColor || "#fff";
+                        // Look up DJ profile from cache
+                        const djName = favorite.djName || favorite.term;
+                        const djProfile = djProfiles.get(djName.toLowerCase());
 
                         return (
                           <MyShowsCard
                             key={favorite.id}
                             showType="online"
-                            djName={favorite.djName || favorite.term}
-                            djPhotoUrl={undefined} // History items may not have photos
-                            djUsername={undefined}
+                            djName={djName}
+                            djPhotoUrl={favorite.djPhotoUrl || djProfile?.photoUrl}
+                            djUsername={favorite.djUsername || djProfile?.username}
                             accentColor={accentColor}
                             isLive={false}
                             showName={favorite.showName || favorite.term}
@@ -743,14 +754,17 @@ export function MyShowsClient() {
                       {categorizedShows.oneTime.map((favorite) => {
                         const station = getStation(favorite.stationId);
                         const accentColor = station?.accentColor || "#fff";
+                        // Look up DJ profile from cache
+                        const djName = favorite.djName || favorite.term;
+                        const djProfile = djProfiles.get(djName.toLowerCase());
 
                         return (
                           <MyShowsCard
                             key={favorite.id}
                             showType="online"
-                            djName={favorite.djName || favorite.term}
-                            djPhotoUrl={undefined}
-                            djUsername={undefined}
+                            djName={djName}
+                            djPhotoUrl={favorite.djPhotoUrl || djProfile?.photoUrl}
+                            djUsername={favorite.djUsername || djProfile?.username}
                             accentColor={accentColor}
                             isLive={false}
                             showName={favorite.showName || favorite.term}
