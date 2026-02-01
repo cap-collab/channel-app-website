@@ -17,6 +17,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/dj-online-emails",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/complete-expired-slots",
       "schedule": "*/5 * * * *"
     },

@@ -577,6 +577,44 @@ export async function queryCollection(
   }
 }
 
+// Create a document in any collection (auto-generated ID)
+export async function createDocument(
+  collection: string,
+  data: Record<string, unknown>
+): Promise<string | null> {
+  const token = await getAuthToken();
+  if (!token) return null;
+
+  const fields: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    fields[key] = jsValueToFirestore(value);
+  }
+
+  try {
+    const response = await fetch(`${FIRESTORE_BASE_URL}/${collection}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ fields }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error(`Create document in ${collection} error:`, error);
+      return null;
+    }
+
+    const doc = await response.json();
+    const pathParts = doc.name.split("/");
+    return pathParts[pathParts.length - 1];
+  } catch (error) {
+    console.error(`Create document in ${collection} failed:`, error);
+    return null;
+  }
+}
+
 // Delete a document
 export async function deleteDocument(
   collection: string,

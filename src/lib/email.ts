@@ -443,3 +443,70 @@ export async function sendWatchlistDigestEmail({
     return false;
   }
 }
+
+interface DjOnlineEmailParams {
+  to: string;
+  djUsername: string;
+  djProfileUrl: string;
+}
+
+export async function sendDjOnlineEmail({
+  to,
+  djUsername,
+  djProfileUrl,
+}: DjOnlineEmailParams) {
+  if (!resend) {
+    console.warn("Email service not configured - skipping email");
+    return false;
+  }
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject: `${djUsername} is chatting on Channel`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #000; color: #fff; margin: 0; padding: 40px 20px; }
+            .container { max-width: 500px; margin: 0 auto; text-align: center; }
+            .content { background: #111; border-radius: 12px; padding: 30px; margin-bottom: 20px; text-align: center; }
+            h1 { margin: 0 0 8px; font-size: 22px; color: #fff; }
+            .subtitle { color: #888; font-size: 14px; margin-bottom: 24px; }
+            .online-indicator { display: inline-block; width: 8px; height: 8px; background: #22c55e; border-radius: 50%; margin-right: 8px; animation: pulse 2s infinite; }
+            @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+            .join-btn { display: inline-block; background: #fff; color: #000 !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; }
+            .footer { color: #666; font-size: 12px; text-align: center; margin-top: 30px; }
+            .unsubscribe { color: #666; text-decoration: underline; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="content">
+              <h1><span class="online-indicator"></span>${djUsername}</h1>
+              <p class="subtitle">is active in their chat right now</p>
+              <a href="${djProfileUrl}" class="join-btn">Join the Chat</a>
+            </div>
+            <div class="footer">
+              <p>You're receiving this because you follow ${djUsername}.</p>
+              <a href="${SETTINGS_DEEP_LINK}" class="unsubscribe">Unsubscribe</a>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    });
+
+    if (error) {
+      console.error("Error sending DJ online email:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error sending DJ online email:", error);
+    return false;
+  }
+}

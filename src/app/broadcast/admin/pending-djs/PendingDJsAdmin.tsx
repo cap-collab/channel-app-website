@@ -142,8 +142,10 @@ export function PendingDJsAdmin() {
         }
       });
       console.log('[pending-djs] Filtered pending profiles:', profiles.length);
-      // Sort client-side by createdAt descending
-      profiles.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      // Sort alphabetically by DJ name
+      profiles.sort((a, b) =>
+        a.chatUsername.toLowerCase().localeCompare(b.chatUsername.toLowerCase())
+      );
       setPendingProfiles(profiles);
     } catch (err: unknown) {
       console.error('[pending-djs] Error fetching pending profiles:', err);
@@ -351,6 +353,30 @@ export function PendingDJsAdmin() {
       const validEventRecs = eventRecs.filter((url) => url.trim()).map((url) => normalizeUrl(url.trim()));
 
       if (editingProfile) {
+        // Build request body
+        const requestBody: Record<string, unknown> = {
+          profileId: editingProfile.id,
+          djProfile: {
+            bio: bio.trim() || null,
+            location: location.trim() || null,
+            genres: genres.trim() ? genres.split(',').map((g) => g.trim()).filter(Boolean) : [],
+            promoText: promoText.trim() || null,
+            promoHyperlink: promoHyperlink.trim() ? normalizeUrl(promoHyperlink.trim()) : null,
+            photoUrl: photoUrl || null,
+            socialLinks: socialLinksData,
+            irlShows: validIrlShows.length > 0 ? validIrlShows : undefined,
+            myRecs: (validBandcampRecs.length > 0 || validEventRecs.length > 0) ? {
+              bandcampLinks: validBandcampRecs.length > 0 ? validBandcampRecs : undefined,
+              eventLinks: validEventRecs.length > 0 ? validEventRecs : undefined,
+            } : undefined,
+          },
+        };
+
+        // Include email if profile had no email and one was added
+        if (!editingProfile.email && email.trim()) {
+          requestBody.email = email.trim().toLowerCase();
+        }
+
         // Update existing profile via API
         const response = await fetch('/api/admin/create-pending-dj-profile', {
           method: 'PATCH',
@@ -358,23 +384,7 @@ export function PendingDJsAdmin() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            profileId: editingProfile.id,
-            djProfile: {
-              bio: bio.trim() || null,
-              location: location.trim() || null,
-              genres: genres.trim() ? genres.split(',').map((g) => g.trim()).filter(Boolean) : [],
-              promoText: promoText.trim() || null,
-              promoHyperlink: promoHyperlink.trim() ? normalizeUrl(promoHyperlink.trim()) : null,
-              photoUrl: photoUrl || null,
-              socialLinks: socialLinksData,
-              irlShows: validIrlShows.length > 0 ? validIrlShows : undefined,
-              myRecs: (validBandcampRecs.length > 0 || validEventRecs.length > 0) ? {
-                bandcampLinks: validBandcampRecs.length > 0 ? validBandcampRecs : undefined,
-                eventLinks: validEventRecs.length > 0 ? validEventRecs : undefined,
-              } : undefined,
-            },
-          }),
+          body: JSON.stringify(requestBody),
         });
 
         const result = await response.json();
@@ -434,6 +444,41 @@ export function PendingDJsAdmin() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // Send claim profile email to DJ
+  const sendClaimProfileEmail = (profile: PendingProfile) => {
+    if (!profile.email) {
+      setError('Cannot send email: no email address set for this profile');
+      return;
+    }
+
+    const signUpUrl = `${window.location.origin}/studio/join`;
+    const profileUrl = `${window.location.origin}/dj/${profile.chatUsernameNormalized}`;
+
+    const subject = `Claim your DJ profile on Channel`;
+    const body = `Hi ${profile.chatUsername},
+
+Your DJ profile is ready on Channel!
+
+To claim it:
+1. Go to: ${signUpUrl}
+2. Sign up or log in using THIS email address: ${profile.email}
+   (You must use this exact email for the profile to link automatically)
+3. Once logged in, your DJ profile will be automatically connected to your account
+
+Your public DJ profile page: ${profileUrl}
+
+After claiming, you'll be able to:
+- Edit your bio, photo, and social links
+- Receive tips from listeners
+- Chat with your audience
+
+See you on Channel!
+- Channel Team`;
+
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(profile.email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(gmailUrl, '_blank');
   };
 
   // Handle delete
@@ -574,19 +619,23 @@ export function PendingDJsAdmin() {
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Email <span className="text-red-400">*</span>
+                    Email {!editingProfile && <span className="text-red-400">*</span>}
                   </label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="dj@example.com"
-                    disabled={!!editingProfile}
+                    disabled={!!editingProfile && !!editingProfile.email}
                     className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    required
+                    required={!editingProfile}
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    {editingProfile ? 'Email cannot be changed' : 'Used to link profile when they sign up'}
+                    {editingProfile
+                      ? (editingProfile.email
+                          ? 'Email cannot be changed'
+                          : 'Add email to enable profile claiming')
+                      : 'Used to link profile when they sign up'}
                   </p>
                 </div>
 
@@ -1121,6 +1170,14 @@ export function PendingDJsAdmin() {
                       )}
                     </div>
                     <div className="flex items-center gap-3">
+                      {profile.email && (
+                        <button
+                          onClick={() => sendClaimProfileEmail(profile)}
+                          className="text-green-400 hover:text-green-300 text-sm font-medium"
+                        >
+                          Invite
+                        </button>
+                      )}
                       <button
                         onClick={() => startEditing(profile)}
                         className="text-blue-400 hover:text-blue-300 text-sm font-medium"

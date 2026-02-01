@@ -75,8 +75,12 @@ export interface UserDocument {
   emailNotifications: {
     showStarting: boolean;
     watchlistMatch: boolean;
+    mentions?: boolean;
+    popularity?: boolean;
+    djOnline?: boolean;
   };
   lastWatchlistEmailAt?: Date;
+  lastDjOnlineEmailAt?: Record<string, number>; // { [djUserId]: timestamp }
   djProfile?: {
     bio: string | null;
     promoText: string | null;

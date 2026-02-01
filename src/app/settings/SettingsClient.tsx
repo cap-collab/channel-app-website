@@ -12,6 +12,7 @@ interface NotificationSettings {
   watchlistMatch: boolean;
   mentions: boolean;
   popularity: boolean;
+  djOnline: boolean;
 }
 
 export function SettingsClient() {
@@ -22,6 +23,7 @@ export function SettingsClient() {
     watchlistMatch: false,
     mentions: false,
     popularity: false,
+    djOnline: false,
   });
   const [saving, setSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -40,6 +42,7 @@ export function SettingsClient() {
           watchlistMatch: data.emailNotifications.watchlistMatch || false,
           mentions: data.emailNotifications.mentions || false,
           popularity: data.emailNotifications.popularity || false,
+          djOnline: data.emailNotifications.djOnline || false,
         });
       }
     });
@@ -226,6 +229,27 @@ export function SettingsClient() {
                     <div
                       className={`w-5 h-5 rounded-full bg-black transition-transform mx-1 ${
                         notifications.popularity ? "translate-x-5" : ""
+                      }`}
+                    />
+                  </button>
+                </div>
+                <div className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-medium">DJ online</p>
+                    <p className="text-gray-500 text-sm">
+                      Email when DJs you follow are active in chat
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleToggle("djOnline")}
+                    disabled={saving}
+                    className={`w-12 h-7 rounded-full transition-colors ${
+                      notifications.djOnline ? "bg-white" : "bg-gray-700"
+                    }`}
+                  >
+                    <div
+                      className={`w-5 h-5 rounded-full bg-black transition-transform mx-1 ${
+                        notifications.djOnline ? "translate-x-5" : ""
                       }`}
                     />
                   </button>

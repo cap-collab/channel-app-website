@@ -135,6 +135,21 @@ export function useDJProfileChat({
         isDJ: isOwner,  // Mark as DJ message if the sender is the profile owner
         messageType: 'chat',
       });
+
+      // If the DJ is posting, trigger DJ Online notifications for followers
+      if (isOwner) {
+        fetch('/api/notifications/dj-online', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            djUsername: username,
+            chatUsernameNormalized,
+          }),
+        }).catch((err) => {
+          // Fire and forget - don't block chat on notification errors
+          console.error('Failed to trigger DJ online notification:', err);
+        });
+      }
     } catch (err) {
       console.error('Failed to send message:', err);
       throw new Error('Failed to send message');

@@ -201,6 +201,9 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
 
   await Promise.all([...broadcastPromises, ...externalPromises]);
 
+  // Debug: log what profiles we fetched
+  console.log(`[API /schedule] Fetched ${Object.keys(externalProfiles).length} external profiles:`, Object.keys(externalProfiles).slice(0, 20));
+
   // Enrich shows with DJ profile data
   return shows.map((show) => {
     // PRIORITY 1: If show has djUsername from metadata, ALWAYS use that profile's info
@@ -208,6 +211,11 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
     if (show.djUsername) {
       const normalized = normalizeForProfileLookup(show.djUsername);
       const profile = externalProfiles[normalized];
+
+      // Debug logging for specific profiles
+      if (normalized === "dorwand" || normalized === "bambi") {
+        console.log(`[API /schedule] Looking up ${normalized}: profile found = ${!!profile}, photoUrl = ${profile?.photoUrl}`);
+      }
 
       if (profile) {
         return {

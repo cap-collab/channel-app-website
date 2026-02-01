@@ -232,9 +232,10 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { profileId, djProfile } = body as {
+    const { profileId, djProfile, email } = body as {
       profileId: string;
       djProfile: DJProfileData;
+      email?: string; // Optional - only for adding email to profiles without one
     };
 
     if (!profileId) {
@@ -254,22 +255,76 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Cannot edit a claimed profile' }, { status: 400 });
     }
 
-    // Update only the djProfile field, preserving photoUrl if not provided
-    await profileRef.update({
-      djProfile: {
-        bio: djProfile?.bio || null,
-        photoUrl: djProfile?.photoUrl ?? existingData?.djProfile?.photoUrl ?? null,
-        location: djProfile?.location || null,
-        genres: djProfile?.genres || [],
-        promoText: djProfile?.promoText || null,
-        promoHyperlink: djProfile?.promoHyperlink || null,
-        socialLinks: djProfile?.socialLinks || {},
-        irlShows: djProfile?.irlShows || [],
-        myRecs: djProfile?.myRecs || {},
-      },
-    });
+    // Build the djProfile update object
+    const djProfileUpdate = {
+      bio: djProfile?.bio || null,
+      photoUrl: djProfile?.photoUrl ?? existingData?.djProfile?.photoUrl ?? null,
+      location: djProfile?.location || null,
+      genres: djProfile?.genres || [],
+      promoText: djProfile?.promoText || null,
+      promoHyperlink: djProfile?.promoHyperlink || null,
+      socialLinks: djProfile?.socialLinks || {},
+      irlShows: djProfile?.irlShows || [],
+      myRecs: djProfile?.myRecs || {},
+    };
 
-    console.log(`[create-pending-dj-profile] Updated pending profile ${profileId}`);
+    // Handle email update (only if profile has no email and new email is provided)
+    if (email) {
+      const normalizedEmail = email.trim().toLowerCase();
+
+      // Only allow adding email if profile currently has no email
+      if (existingData?.email) {
+        return NextResponse.json(
+          { error: 'Cannot change existing email' },
+          { status: 400 }
+        );
+      }
+
+      // Validate email uniqueness
+      const [existingUser, existingPending] = await Promise.all([
+        db.collection('users').where('email', '==', normalizedEmail).limit(1).get(),
+        db.collection('pending-dj-profiles').where('email', '==', normalizedEmail).limit(1).get(),
+      ]);
+
+      if (!existingUser.empty) {
+        return NextResponse.json(
+          { error: 'Email already in use by an existing user' },
+          { status: 400 }
+        );
+      }
+
+      if (!existingPending.empty) {
+        return NextResponse.json(
+          { error: 'Email already in use by another pending profile' },
+          { status: 400 }
+        );
+      }
+
+      // Update profile with email and create pending-dj-roles entry in a transaction
+      await db.runTransaction(async (transaction) => {
+        transaction.update(profileRef, {
+          email: normalizedEmail,
+          djProfile: djProfileUpdate,
+        });
+
+        // Create pending DJ role entry so they get DJ role on signup
+        const pendingRoleRef = db.collection('pending-dj-roles').doc();
+        transaction.set(pendingRoleRef, {
+          email: normalizedEmail,
+          createdAt: FieldValue.serverTimestamp(),
+          source: 'admin-pre-register',
+        });
+      });
+
+      console.log(`[create-pending-dj-profile] Updated pending profile ${profileId} with email ${normalizedEmail}`);
+    } else {
+      // Update only the djProfile field
+      await profileRef.update({
+        djProfile: djProfileUpdate,
+      });
+
+      console.log(`[create-pending-dj-profile] Updated pending profile ${profileId}`);
+    }
 
     return NextResponse.json({
       success: true,
