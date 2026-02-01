@@ -525,12 +525,32 @@ export function StudioProfileClient() {
       });
       setSaveIrlShowsSuccess(true);
       setTimeout(() => setSaveIrlShowsSuccess(false), 2000);
+
+      // Sync IRL shows to followers
+      if (validShows.length > 0) {
+        try {
+          await fetch('/api/dj/sync-shows-to-followers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              djUserId: user.uid,
+              djUsername: chatUsername?.replace(/\s+/g, "").toLowerCase() || "",
+              djName: chatUsername || "",
+              djPhotoUrl: djProfile.photoUrl || undefined,
+              irlShows: validShows,
+              radioShows: [],
+            }),
+          });
+        } catch (syncError) {
+          console.error("Failed to sync IRL shows to followers:", syncError);
+        }
+      }
     } catch (error) {
       console.error("Error saving IRL shows:", error);
     } finally {
       setSavingIrlShows(false);
     }
-  }, [user]);
+  }, [user, chatUsername, djProfile.photoUrl]);
 
   const saveRadioShows = useCallback(async (shows: RadioShow[]) => {
     if (!user || !db) return;
@@ -557,12 +577,32 @@ export function StudioProfileClient() {
       });
       setSaveRadioShowsSuccess(true);
       setTimeout(() => setSaveRadioShowsSuccess(false), 2000);
+
+      // Sync radio shows to followers
+      if (validShows.length > 0) {
+        try {
+          await fetch('/api/dj/sync-shows-to-followers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              djUserId: user.uid,
+              djUsername: chatUsername?.replace(/\s+/g, "").toLowerCase() || "",
+              djName: chatUsername || "",
+              djPhotoUrl: djProfile.photoUrl || undefined,
+              irlShows: [],
+              radioShows: validShows,
+            }),
+          });
+        } catch (syncError) {
+          console.error("Failed to sync radio shows to followers:", syncError);
+        }
+      }
     } catch (error) {
       console.error("Error saving radio shows:", error);
     } finally {
       setSavingRadioShows(false);
     }
-  }, [user]);
+  }, [user, chatUsername, djProfile.photoUrl]);
 
   const saveMyRecs = useCallback(async (bandcampRecs: string[], eventRecs: string[]) => {
     if (!user || !db) return;
