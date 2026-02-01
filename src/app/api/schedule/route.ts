@@ -153,20 +153,43 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
     }
   });
 
-  // Fetch external DJ profiles from pending-dj-profiles collection
+  // Fetch external DJ profiles from pending-dj-profiles AND users collections
   const externalProfiles: Record<string, { bio?: string; photoUrl?: string; username?: string; djName?: string; genres?: string[]; location?: string }> = {};
 
   const externalPromises = Array.from(externalDjNames.keys()).map(async (normalized) => {
     try {
-      const doc = await adminDb.collection("pending-dj-profiles").doc(normalized).get();
-      if (doc.exists) {
-        const data = doc.data();
+      // First try pending-dj-profiles collection
+      const pendingDoc = await adminDb.collection("pending-dj-profiles").doc(normalized).get();
+      if (pendingDoc.exists) {
+        const data = pendingDoc.data();
         const djProfile = data?.djProfile as { bio?: string; photoUrl?: string; genres?: string[]; location?: string } | undefined;
         externalProfiles[normalized] = {
           bio: djProfile?.bio || undefined,
           photoUrl: djProfile?.photoUrl || undefined,
           username: data?.chatUsernameNormalized || data?.chatUsername || undefined,
           djName: data?.djName || undefined,
+          genres: djProfile?.genres || undefined,
+          location: djProfile?.location || undefined,
+        };
+        return;
+      }
+
+      // If not found, try users collection by chatUsernameNormalized
+      const usersSnapshot = await adminDb
+        .collection("users")
+        .where("chatUsernameNormalized", "==", normalized)
+        .limit(1)
+        .get();
+
+      if (!usersSnapshot.empty) {
+        const userDoc = usersSnapshot.docs[0];
+        const userData = userDoc.data();
+        const djProfile = userData?.djProfile as { bio?: string; photoUrl?: string; genres?: string[]; location?: string } | undefined;
+        externalProfiles[normalized] = {
+          bio: djProfile?.bio || undefined,
+          photoUrl: djProfile?.photoUrl || undefined,
+          username: userData?.chatUsernameNormalized || userData?.chatUsername || undefined,
+          djName: userData?.chatUsername || undefined,
           genres: djProfile?.genres || undefined,
           location: djProfile?.location || undefined,
         };
