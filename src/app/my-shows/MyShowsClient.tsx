@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import Image from "next/image";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useFavorites, Favorite, isRecurringFavorite } from "@/hooks/useFavorites";
 import { AuthModal } from "@/components/AuthModal";
@@ -9,6 +12,14 @@ import { SearchBar } from "@/components/SearchBar";
 import { getStationById, getStationByMetadataKey } from "@/lib/stations";
 import { searchShows, getAllShows } from "@/lib/metadata";
 import { Show } from "@/types";
+import { getContrastTextColor } from "@/lib/colorUtils";
+
+// Cache for DJ profile lookups to avoid repeated queries
+interface DJProfileCache {
+  username: string;
+  photoUrl?: string;
+}
+const watchlistDJProfileCache = new Map<string, DJProfileCache | null>();
 
 // Helper to find station by id OR metadataKey
 function getStation(stationId: string | undefined) {
@@ -117,6 +128,7 @@ export function MyShowsClient() {
   const [addingToWatchlist, setAddingToWatchlist] = useState(false);
   const [allShows, setAllShows] = useState<Show[]>([]);
   const [showsLoading, setShowsLoading] = useState(true);
+  const [watchlistDJProfiles, setWatchlistDJProfiles] = useState<Map<string, DJProfileCache>>(new Map());
 
   // Fetch all shows on mount
   useEffect(() => {
@@ -132,6 +144,93 @@ export function MyShowsClient() {
     (f) => (f.type === "show" || f.type === "dj") && f.stationId && f.stationId !== "CHANNEL"
   );
   const watchlist = favorites.filter((f) => f.type === "search");
+  // IRL events - filter to future events only
+  const today = new Date().toISOString().split("T")[0];
+  const irlEvents = favorites
+    .filter((f) => f.type === "irl" && f.irlDate && f.irlDate >= today)
+    .sort((a, b) => (a.irlDate || "").localeCompare(b.irlDate || ""));
+
+  // Look up DJ profiles from Firebase for watchlist items
+  useEffect(() => {
+    async function lookupWatchlistDJProfiles() {
+      if (!db || watchlist.length === 0) return;
+
+      const newProfiles = new Map<string, DJProfileCache>();
+
+      for (const item of watchlist) {
+        const name = item.term.toLowerCase();
+
+        // Check cache first
+        if (watchlistDJProfileCache.has(name)) {
+          const cached = watchlistDJProfileCache.get(name);
+          if (cached) newProfiles.set(name, cached);
+          continue;
+        }
+
+        // Normalize the name the same way as chatUsernameNormalized
+        const normalized = name.replace(/[\s-]+/g, "").toLowerCase();
+
+        try {
+          // Check pending-dj-profiles first
+          const pendingRef = collection(db, "pending-dj-profiles");
+          const pendingQ = query(
+            pendingRef,
+            where("chatUsernameNormalized", "==", normalized)
+          );
+          const pendingSnapshot = await getDocs(pendingQ);
+          const pendingDoc = pendingSnapshot.docs.find(
+            (doc) => doc.data().status === "pending"
+          );
+
+          if (pendingDoc) {
+            const data = pendingDoc.data();
+            const profile: DJProfileCache = {
+              username: data.chatUsername,
+              photoUrl: data.djProfile?.photoUrl || undefined,
+            };
+            watchlistDJProfileCache.set(name, profile);
+            newProfiles.set(name, profile);
+            continue;
+          }
+
+          // Check users collection
+          const usersRef = collection(db, "users");
+          const usersQ = query(
+            usersRef,
+            where("chatUsernameNormalized", "==", normalized),
+            where("role", "in", ["dj", "broadcaster", "admin"])
+          );
+          const usersSnapshot = await getDocs(usersQ);
+
+          if (!usersSnapshot.empty) {
+            const data = usersSnapshot.docs[0].data();
+            const profile: DJProfileCache = {
+              username: data.chatUsername,
+              photoUrl: data.djProfile?.photoUrl || undefined,
+            };
+            watchlistDJProfileCache.set(name, profile);
+            newProfiles.set(name, profile);
+          } else {
+            // Cache the miss to avoid repeated lookups
+            watchlistDJProfileCache.set(name, null);
+          }
+        } catch (error) {
+          console.error(`Error looking up DJ profile for ${name}:`, error);
+          watchlistDJProfileCache.set(name, null);
+        }
+      }
+
+      if (newProfiles.size > 0) {
+        setWatchlistDJProfiles((prev) => {
+          const merged = new Map(prev);
+          newProfiles.forEach((value, key) => merged.set(key, value));
+          return merged;
+        });
+      }
+    }
+
+    lookupWatchlistDJProfiles();
+  }, [watchlist]);
 
   // Categorize shows into Live Now, Coming Up, Returning Soon, Watchlist, One-Time
   const categorizedShows = useMemo(() => {
@@ -639,34 +738,168 @@ export function MyShowsClient() {
                 {/* Existing Watchlist Items */}
                 {watchlist.length > 0 ? (
                 <div className="space-y-2">
-                  {watchlist.map((favorite) => (
-                    <div
-                      key={favorite.id}
-                      className="flex items-center rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50"
-                    >
-                      <div className="w-1 self-stretch flex-shrink-0 bg-black" />
-                      <p className="flex-1 px-3 py-2.5 font-medium text-white text-sm truncate">
-                        {favorite.term}
-                      </p>
-                      <button
-                        onClick={() => handleRemove(favorite)}
-                        disabled={removing === favorite.id}
-                        className="px-3 py-2.5 transition-colors text-gray-600 hover:text-red-400 disabled:opacity-50"
-                        aria-label="Remove from watchlist"
+                  {watchlist.map((favorite) => {
+                    const djProfile = watchlistDJProfiles.get(favorite.term.toLowerCase());
+                    const displayName = djProfile?.username || favorite.term.charAt(0).toUpperCase() + favorite.term.slice(1);
+                    const photoUrl = djProfile?.photoUrl;
+                    const bgColor = "#374151"; // Default gray for watchlist items
+                    const textColor = getContrastTextColor(bgColor);
+
+                    return (
+                      <div
+                        key={favorite.id}
+                        className="flex items-center gap-3 rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50 p-2.5"
                       >
-                        {removing === favorite.id ? (
-                          <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
-                        ) : (
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        )}
-                      </button>
-                    </div>
-                  ))}
+                        {/* Square profile picture */}
+                        <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 border border-gray-700">
+                          {photoUrl ? (
+                            <Image
+                              src={photoUrl}
+                              alt={displayName}
+                              width={44}
+                              height={44}
+                              className="w-full h-full object-cover"
+                              unoptimized
+                            />
+                          ) : (
+                            <div
+                              className="w-full h-full flex items-center justify-center text-base font-bold"
+                              style={{ backgroundColor: bgColor, color: textColor }}
+                            >
+                              {displayName.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <p className="flex-1 font-medium text-white text-sm truncate">
+                          {displayName}
+                        </p>
+                        <button
+                          onClick={() => handleRemove(favorite)}
+                          disabled={removing === favorite.id}
+                          className="p-1.5 transition-colors text-gray-600 hover:text-red-400 disabled:opacity-50"
+                          aria-label="Remove from watchlist"
+                        >
+                          {removing === favorite.id ? (
+                            <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
                 ) : (
                   <p className="text-gray-600 text-sm py-4">No watchlist items yet. Search for a DJ name to add to your watchlist.</p>
+                )}
+
+                {/* IRL Events Section */}
+                {irlEvents.length > 0 && (
+                  <div className="mt-8">
+                    <h2 className="text-white text-sm font-medium border-b border-gray-800 pb-2 mb-4 flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                      </svg>
+                      IRL Events
+                    </h2>
+                    <div className="space-y-2">
+                      {irlEvents.map((favorite) => {
+                        const eventDate = favorite.irlDate ? new Date(favorite.irlDate + 'T00:00:00') : null;
+                        const now = new Date();
+                        const tomorrow = new Date(now);
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+
+                        let dateStr = '';
+                        if (eventDate) {
+                          if (eventDate.toDateString() === now.toDateString()) {
+                            dateStr = 'TODAY';
+                          } else if (eventDate.toDateString() === tomorrow.toDateString()) {
+                            dateStr = 'TOMORROW';
+                          } else {
+                            dateStr = eventDate.toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                            }).toUpperCase();
+                          }
+                        }
+
+                        return (
+                          <div
+                            key={favorite.id}
+                            className="flex rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50"
+                          >
+                            {/* Left accent bar - purple for IRL */}
+                            <div className="w-1 flex-shrink-0 bg-purple-500" />
+                            <div className="flex-1 px-3 py-2.5">
+                              {/* Date + IRL badge + remove button */}
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-mono text-purple-400">
+                                    {dateStr}
+                                  </span>
+                                  <span className="text-[10px] font-mono text-gray-500 uppercase tracking-tighter flex items-center gap-1">
+                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                                    </svg>
+                                    IRL
+                                  </span>
+                                </div>
+                                <button
+                                  onClick={() => handleRemove(favorite)}
+                                  disabled={removing === favorite.id}
+                                  className="p-0.5 transition-colors text-purple-400 disabled:opacity-50"
+                                  aria-label="Remove from favorites"
+                                >
+                                  {removing === favorite.id ? (
+                                    <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
+                                  ) : (
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                    </svg>
+                                  )}
+                                </button>
+                              </div>
+                              {/* Event name */}
+                              <p className="font-medium text-white text-sm leading-snug line-clamp-2">
+                                {favorite.irlEventName || favorite.showName}
+                              </p>
+                              {/* DJ and location */}
+                              <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                                {favorite.djName && (
+                                  <>
+                                    <span className="truncate max-w-[120px]">{favorite.djName}</span>
+                                    {favorite.irlLocation && <span>·</span>}
+                                  </>
+                                )}
+                                {favorite.irlLocation && (
+                                  <span className="truncate">in {favorite.irlLocation}</span>
+                                )}
+                              </div>
+                              {/* Tickets link */}
+                              {favorite.irlTicketUrl && (
+                                <div className="mt-2">
+                                  <a
+                                    href={favorite.irlTicketUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                                  >
+                                    Tickets
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

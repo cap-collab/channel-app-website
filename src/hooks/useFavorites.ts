@@ -16,29 +16,43 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { Show } from "@/types";
-// Helper to fetch enriched shows from API (includes DJ profile data)
-async function fetchEnrichedShows(): Promise<Show[]> {
+import { Show, IRLShowData } from "@/types";
+
+// Helper to fetch enriched shows and IRL shows from API
+async function fetchEnrichedShowsAndIRL(): Promise<{ shows: Show[]; irlShows: IRLShowData[] }> {
   try {
     const response = await fetch('/api/schedule');
     const data = await response.json();
-    return data.shows || [];
+    return { shows: data.shows || [], irlShows: data.irlShows || [] };
   } catch (error) {
-    console.error("[fetchEnrichedShows] Error:", error);
-    return [];
+    console.error("[fetchEnrichedShowsAndIRL] Error:", error);
+    return { shows: [], irlShows: [] };
   }
+}
+
+// Helper to fetch enriched shows from API (includes DJ profile data)
+async function fetchEnrichedShows(): Promise<Show[]> {
+  const { shows } = await fetchEnrichedShowsAndIRL();
+  return shows;
 }
 
 export interface Favorite {
   id: string;
   term: string;
-  type: "show" | "dj" | "search";
+  type: "show" | "dj" | "search" | "irl";
   showName?: string;
   djName?: string;
   stationId?: string;
   showType?: string; // "regular", "weekly", "biweekly", "monthly", "restream", "playlist"
   createdAt: Date;
   createdBy: "web" | "ios";
+  // IRL event fields (type="irl")
+  irlEventName?: string;
+  irlLocation?: string;
+  irlDate?: string; // ISO date string (YYYY-MM-DD)
+  irlTicketUrl?: string;
+  djUsername?: string;
+  djPhotoUrl?: string;
 }
 
 // Helper to check if a favorite is for a recurring show
@@ -308,9 +322,9 @@ export function useFavorites() {
           }
         }
 
-        // Also find and add matching shows to favorites
+        // Also find and add matching shows and IRL events to favorites
         console.log(`[addToWatchlist] Searching for shows matching "${term}"${resolvedDjUserId ? `, userId: ${resolvedDjUserId}` : ""}${resolvedDjEmail ? `, email: ${resolvedDjEmail}` : ""}`);
-        const allShows = await fetchEnrichedShows();
+        const { shows: allShows, irlShows: allIRLShows } = await fetchEnrichedShowsAndIRL();
 
         // Find shows where DJ name matches the term (word boundary match)
         // Also check show name for dublab format "DJ Name - Show Name"
@@ -455,6 +469,56 @@ export function useFavorites() {
         }
         console.log(`[addToWatchlist] Auto-added ${addedCount} shows to favorites`);
 
+        // Also find and add matching IRL events to favorites
+        // Match by DJ name or djUsername
+        const normalizedTerm = term.replace(/[\s-]+/g, "").toLowerCase();
+        const matchingIRLShows = allIRLShows.filter((irlShow) => {
+          // Match by djName (contains match)
+          if (irlShow.djName && containsMatch(irlShow.djName, term)) return true;
+          // Match by djUsername (normalized exact match)
+          if (irlShow.djUsername && irlShow.djUsername.toLowerCase() === normalizedTerm) return true;
+          return false;
+        });
+        console.log(`[addToWatchlist] Found ${matchingIRLShows.length} IRL events matching DJ "${term}"`);
+
+        // Add each matching IRL event to favorites
+        let addedIRLCount = 0;
+        for (const irlShow of matchingIRLShows) {
+          // Create unique key for IRL event: djUsername + date + location
+          const irlKey = `irl-${irlShow.djUsername}-${irlShow.date}-${irlShow.location}`.toLowerCase();
+
+          // Check if already favorited
+          const existingIRLFav = query(
+            favoritesRef,
+            where("term", "==", irlKey)
+          );
+          const irlFavDocs = await getDocs(existingIRLFav);
+          const alreadyFavoritedIRL = irlFavDocs.docs.some(
+            (doc) => doc.data().type === "irl"
+          );
+
+          if (!alreadyFavoritedIRL) {
+            console.log(`[addToWatchlist] Auto-adding IRL event to favorites: ${irlShow.eventName} (${irlShow.location})`);
+            await addDoc(favoritesRef, {
+              term: irlKey,
+              type: "irl",
+              showName: irlShow.eventName,
+              djName: irlShow.djName,
+              stationId: null,
+              irlEventName: irlShow.eventName,
+              irlLocation: irlShow.location,
+              irlDate: irlShow.date,
+              irlTicketUrl: irlShow.ticketUrl,
+              djUsername: irlShow.djUsername,
+              djPhotoUrl: irlShow.djPhotoUrl || null,
+              createdAt: serverTimestamp(),
+              createdBy: "web",
+            });
+            addedIRLCount++;
+          }
+        }
+        console.log(`[addToWatchlist] Auto-added ${addedIRLCount} IRL events to favorites`);
+
         return true;
       } catch (error) {
         console.error("Error adding to watchlist:", error);
@@ -465,6 +529,7 @@ export function useFavorites() {
   );
 
   // Remove a term from watchlist (only removes type="search", preserves show favorites)
+  // Also removes associated IRL events for the DJ
   const removeFromWatchlist = useCallback(
     async (term: string): Promise<boolean> => {
       if (!user || !db) return false;
@@ -481,6 +546,28 @@ export function useFavorites() {
           // Only delete watchlist entries (type="search"), not show favorites
           if (d.data().type === "search") {
             await deleteDoc(doc(db, "users", user.uid, "favorites", d.id));
+          }
+        }
+
+        // Also remove IRL events for this DJ
+        // IRL events are stored with djName field matching the DJ name
+        const irlQuery = query(
+          favoritesRef,
+          where("type", "==", "irl")
+        );
+        const irlSnapshot = await getDocs(irlQuery);
+        const termLower = term.toLowerCase();
+        const normalizedTerm = term.replace(/[\s-]+/g, "").toLowerCase();
+
+        for (const d of irlSnapshot.docs) {
+          const data = d.data();
+          // Match by djName (contains) or djUsername (exact)
+          const djNameMatch = data.djName && data.djName.toLowerCase().includes(termLower);
+          const djUsernameMatch = data.djUsername && data.djUsername.toLowerCase() === normalizedTerm;
+
+          if (djNameMatch || djUsernameMatch) {
+            await deleteDoc(doc(db, "users", user.uid, "favorites", d.id));
+            console.log(`[removeFromWatchlist] Removed IRL event: ${data.irlEventName}`);
           }
         }
 
