@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, ReactNode, TouchEvent, MouseEvent } from 'react';
+import { useState, useRef, useCallback, useEffect, ReactNode, TouchEvent, MouseEvent } from 'react';
 
 interface SwipeableCardCarouselProps {
   children: ReactNode[];
@@ -12,11 +12,30 @@ export function SwipeableCardCarousel({ children, className = '' }: SwipeableCar
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [translateX, setTranslateX] = useState(0);
+  const [isDesktop, setIsDesktop] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Track screen size for responsive behavior
+  useEffect(() => {
+    const checkDesktop = () => setIsDesktop(window.innerWidth >= 768);
+    checkDesktop();
+    window.addEventListener('resize', checkDesktop);
+    return () => window.removeEventListener('resize', checkDesktop);
+  }, []);
+
   const totalCards = children.length;
+  const visibleCards = isDesktop ? 2 : 1;
+  const maxIndex = Math.max(0, totalCards - visibleCards);
+
+  // Clamp currentIndex when maxIndex changes (e.g., when resizing)
+  useEffect(() => {
+    if (currentIndex > maxIndex) {
+      setCurrentIndex(maxIndex);
+    }
+  }, [currentIndex, maxIndex]);
+
   const canGoLeft = currentIndex > 0;
-  const canGoRight = currentIndex < totalCards - 1;
+  const canGoRight = currentIndex < maxIndex;
 
   const handlePrev = useCallback(() => {
     if (canGoLeft) {
@@ -94,14 +113,16 @@ export function SwipeableCardCarousel({ children, className = '' }: SwipeableCar
         <div
           className="flex transition-transform duration-300 ease-out"
           style={{
-            transform: `translateX(calc(-${currentIndex * 100}% + ${isDragging ? translateX : 0}px))`,
+            // On desktop (2 visible), each card is 50% width, so translate by 50% per index
+            // On mobile (1 visible), each card is 100% width, so translate by 100% per index
+            transform: `translateX(calc(-${currentIndex * (100 / visibleCards)}% + ${isDragging ? translateX : 0}px))`,
             transitionDuration: isDragging ? '0ms' : '300ms',
           }}
         >
           {children.map((child, index) => (
             <div
               key={index}
-              className="w-full flex-shrink-0 px-1"
+              className="w-full md:w-1/2 flex-shrink-0 px-1"
               style={{ userSelect: 'none' }}
             >
               {child}
@@ -110,35 +131,35 @@ export function SwipeableCardCarousel({ children, className = '' }: SwipeableCar
         </div>
       </div>
 
-      {/* Dots indicator */}
-      {totalCards > 1 && (
+      {/* Dots indicator - shows number of scroll positions, not total cards */}
+      {maxIndex > 0 && (
         <div className="flex justify-center gap-1.5 mt-3">
-          {children.map((_, index) => (
+          {Array.from({ length: maxIndex + 1 }).map((_, index) => (
             <button
               key={index}
               onClick={() => setCurrentIndex(index)}
               className={`w-1.5 h-1.5 rounded-full transition-colors ${
                 index === currentIndex ? 'bg-white' : 'bg-white/30'
               }`}
-              aria-label={`Go to card ${index + 1}`}
+              aria-label={`Go to position ${index + 1}`}
             />
           ))}
         </div>
       )}
 
-      {/* Navigation arrows - shown on larger screens */}
-      {totalCards > 1 && (
+      {/* Navigation arrows - shown on larger screens when there's content to scroll */}
+      {maxIndex > 0 && (
         <>
           {/* Left arrow */}
           <button
             onClick={handlePrev}
             disabled={!canGoLeft}
-            className={`hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 w-8 h-8 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors ${
+            className={`hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-5 w-10 h-10 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors ${
               !canGoLeft ? 'opacity-30 cursor-not-allowed' : ''
             }`}
             aria-label="Previous card"
           >
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
@@ -147,12 +168,12 @@ export function SwipeableCardCarousel({ children, className = '' }: SwipeableCar
           <button
             onClick={handleNext}
             disabled={!canGoRight}
-            className={`hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 w-8 h-8 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors ${
+            className={`hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-5 w-10 h-10 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors ${
               !canGoRight ? 'opacity-30 cursor-not-allowed' : ''
             }`}
             aria-label="Next card"
           >
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>

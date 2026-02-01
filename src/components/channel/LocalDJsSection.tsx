@@ -290,7 +290,7 @@ export function LocalDJsSection({
       {isEmpty && (
         <div className="text-center py-3">
           <p className="text-gray-400 text-sm mb-3">
-            Invite your local DJs to join Channel
+            Invite your favorite {selectedCity} DJs to join Channel
           </p>
           <button
             onClick={handleCopyUrl}
