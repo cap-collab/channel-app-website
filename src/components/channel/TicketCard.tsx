@@ -17,36 +17,6 @@ interface TicketCardProps {
   onRemindMe: () => void;
 }
 
-function formatTicketDate(isoTime: string): { date: string; time: string } {
-  const dateObj = new Date(isoTime);
-  const now = new Date();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  const isToday = dateObj.toDateString() === now.toDateString();
-  const isTomorrow = dateObj.toDateString() === tomorrow.toDateString();
-
-  let dateStr: string;
-  if (isToday) {
-    dateStr = 'TODAY';
-  } else if (isTomorrow) {
-    dateStr = 'TOMORROW';
-  } else {
-    dateStr = dateObj.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    }).toUpperCase();
-  }
-
-  const timeStr = dateObj.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
-
-  return { date: dateStr, time: timeStr };
-}
-
 export function TicketCard({
   show,
   station,
@@ -62,7 +32,6 @@ export function TicketCard({
   const djName = show.dj || show.name;
   const photoUrl = show.djPhotoUrl || show.imageUrl;
   const hasPhoto = photoUrl && !imageError;
-  const { date, time } = formatTicketDate(show.startTime);
 
   return (
     <div className="w-full group">

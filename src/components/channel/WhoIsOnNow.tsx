@@ -5,9 +5,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useFavorites } from '@/hooks/useFavorites';
-import { useBPM } from '@/contexts/BPMContext';
 import { Show, Station } from '@/types';
-import { STATIONS, getMetadataKeyByStationId } from '@/lib/stations';
+import { STATIONS } from '@/lib/stations';
 import { getContrastTextColor } from '@/lib/colorUtils';
 
 interface WhoIsOnNowProps {
@@ -25,7 +24,6 @@ interface WhoIsOnNowProps {
 export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLoading, isBroadcastLive, chatSlot }: WhoIsOnNowProps) {
   const { isAuthenticated } = useAuthContext();
   const { isInWatchlist, followDJ, removeFromWatchlist } = useFavorites();
-  const { stationBPM } = useBPM();
 
   const [allShows, setAllShows] = useState<Show[]>([]);
   const [loading, setLoading] = useState(true);
@@ -205,11 +203,6 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
             const djNameForWatchlist = show.dj || show.name;
             const isFollowed = djNameForWatchlist ? isInWatchlist(djNameForWatchlist) : false;
 
-            // Get BPM for this station
-            const metadataKey = getMetadataKeyByStationId(station.id);
-            const audioInfo = metadataKey ? stationBPM[metadataKey] : null;
-            const bpm = audioInfo?.bpm || null;
-
             return (
               <LiveShowCard
                 key={show.id}
@@ -218,7 +211,6 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
                 isFollowed={isFollowed}
                 isTogglingFollow={togglingFollowId === show.id}
                 onFollow={() => handleFollow(show)}
-                bpm={bpm}
               />
             );
           })}
@@ -372,7 +364,6 @@ interface LiveShowCardProps {
   isFollowed: boolean;
   isTogglingFollow: boolean;
   onFollow: () => void;
-  bpm: number | null;
 }
 
 function LiveShowCard({
@@ -381,7 +372,6 @@ function LiveShowCard({
   isFollowed,
   isTogglingFollow,
   onFollow,
-  bpm,
 }: LiveShowCardProps) {
   const [imageError, setImageError] = useState(false);
   // Only use djPhotoUrl from DJ profile, not show.imageUrl
@@ -391,9 +381,6 @@ function LiveShowCard({
 
   // For no-photo variant, use station color with contrast text
   const textColor = hasPhoto ? '#ffffff' : getContrastTextColor(station.accentColor);
-
-  // BPM breathing animation duration
-  const bpmDuration = bpm ? `${Math.round(60000 / bpm)}ms` : '500ms';
 
   return (
     <div className="flex-shrink-0 w-44 sm:w-56 md:w-[calc((100%-2rem)/3)] snap-start group flex flex-col">

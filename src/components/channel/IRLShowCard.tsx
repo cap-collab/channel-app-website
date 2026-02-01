@@ -12,27 +12,6 @@ interface IRLShowCardProps {
   onFollow: () => void;
 }
 
-function formatIRLDate(isoDate: string): string {
-  const dateObj = new Date(isoDate + 'T00:00:00'); // Parse as local date
-  const now = new Date();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  const isToday = dateObj.toDateString() === now.toDateString();
-  const isTomorrow = dateObj.toDateString() === tomorrow.toDateString();
-
-  if (isToday) {
-    return 'TODAY';
-  } else if (isTomorrow) {
-    return 'TOMORROW';
-  } else {
-    return dateObj.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    }).toUpperCase();
-  }
-}
-
 export function IRLShowCard({
   show,
   isFollowing,
@@ -42,7 +21,6 @@ export function IRLShowCard({
   const [imageError, setImageError] = useState(false);
 
   const hasPhoto = show.djPhotoUrl && !imageError;
-  const dateStr = formatIRLDate(show.date);
 
   return (
     <div className="w-full group">
