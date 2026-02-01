@@ -41,12 +41,11 @@ function extractCandidateNames(show: Show): string[] {
   addCandidate(show.name);
 
   // 3. Hyphen pattern: "X - Y" → try Y first, then X
-  if (show.name.includes(' - ')) {
-    const parts = show.name.split(' - ');
-    if (parts.length >= 2) {
-      addCandidate(parts[1].trim());
-      addCandidate(parts[0].trim());
-    }
+  // Also handles en-dash (–) and em-dash (—) which some stations use
+  const hyphenMatch = show.name.match(/^(.+?)\s+[-–—]\s+(.+)$/);
+  if (hyphenMatch) {
+    addCandidate(hyphenMatch[2].trim());
+    addCandidate(hyphenMatch[1].trim());
   }
 
   // 4. "w/" pattern: "X w/ Y" → try Y first, then X
@@ -231,8 +230,8 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
           // 1. dublab: always use part before hyphen
           // 2. Others: use profile.djName, or show name if ≤2 words
           let djName: string | undefined;
-          if (show.stationId === "dublab" && show.name.includes(' - ')) {
-            djName = show.name.split(' - ')[0].trim();
+          if (show.stationId === "dublab" && /\s+[-–—]\s+/.test(show.name)) {
+            djName = show.name.split(/\s+[-–—]\s+/)[0].trim();
           } else if (profile.djName) {
             djName = profile.djName;
           } else if (countWords(show.name) <= 2) {
