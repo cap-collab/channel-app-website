@@ -228,14 +228,19 @@ export function WhoNotToMiss({
   }, [shows]);
 
   // Filter shows by selected genre (max 5), excluding shows already displayed elsewhere
+  // If no genre selected, show all DJs (no genre filter)
   // Prioritize: weekly/bi-weekly first, then monthly, then others
   // Also diversify by station and location
   // Avoid featuring DJs already featured in earlier sections
   const genreFilteredShows = useMemo(() => {
-    if (!selectedGenre) return [];
-    const filtered = upcomingShowsBase.filter(
-      (show) => !excludedShowIds.has(show.id) && matchesGenre(show.djGenres, selectedGenre)
-    );
+    const filtered = upcomingShowsBase.filter((show) => {
+      if (excludedShowIds.has(show.id)) return false;
+      // If genre is selected, filter by it; otherwise include all
+      if (selectedGenre) {
+        return matchesGenre(show.djGenres, selectedGenre);
+      }
+      return true;
+    });
     const prioritized = prioritizeShowArray(filtered, 5);
     // Avoid putting already-featured DJs first
     return avoidFeaturedFirst(prioritized, (show) => show.dj, featuredDJNames);
@@ -442,30 +447,28 @@ export function WhoNotToMiss({
             <p className="text-gray-400 text-sm mb-3">
               {selectedGenre
                 ? `Invite your favorite ${selectedGenre} DJs to join Channel`
-                : 'Select a genre to discover DJs'}
+                : 'Invite your favorite DJs to join Channel'}
             </p>
-            {selectedGenre && (
-              <button
-                onClick={handleCopyUrl}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
-              >
-                {copySuccess ? (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    Copy invite link
-                  </>
-                )}
-              </button>
-            )}
+            <button
+              onClick={handleCopyUrl}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
+            >
+              {copySuccess ? (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Copy invite link
+                </>
+              )}
+            </button>
           </div>
         ) : (
           <SwipeableCardCarousel>
@@ -494,11 +497,13 @@ export function WhoNotToMiss({
                     />
                   );
                 }),
-              ...(genreFilteredShows.length < 5 && selectedGenre
+              ...(genreFilteredShows.length < 5
                 ? [
                     <InviteCard
                       key="invite-card"
-                      message={`Invite your favorite ${selectedGenre} DJs to join Channel`}
+                      message={selectedGenre
+                        ? `Invite your favorite ${selectedGenre} DJs to join Channel`
+                        : 'Invite your favorite DJs to join Channel'}
                     />,
                   ]
                 : []),
