@@ -66,16 +66,13 @@ export function TicketCard({
 
   return (
     <div className="w-full group">
-      {/* Date/Time (left) and Radio Show badge (right) above image */}
-      <div className="flex justify-between items-center mb-1 h-4">
-        <div className="text-[10px] font-mono text-zinc-400">
-          {date} {time}
-        </div>
+      {/* Online badge centered above image */}
+      <div className="flex justify-center items-center mb-1 h-4">
         <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter flex items-center gap-1">
           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M20 6H8.3L16.6 2.4l-.8-1.8L3 6H2v2h18v12H4V8H2v14h20V6zm-4 8h-2v2h2v-2zm-4 0H8v2h4v-2z" />
+            <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
           </svg>
-          Radio Show
+          Online
         </div>
       </div>
 
