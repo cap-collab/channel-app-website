@@ -10,6 +10,35 @@ import { InviteCard } from './InviteCard';
 import { SUPPORTED_CITIES, matchesCity } from '@/lib/city-detection';
 import { prioritizeShowArray, prioritizeShows } from '@/lib/show-prioritization';
 
+// Helper to reorder array so already-featured DJs don't appear first (unless only option)
+function avoidFeaturedFirst<T>(
+  items: T[],
+  getDJName: (item: T) => string | undefined,
+  featuredNames: string[]
+): T[] {
+  if (items.length <= 1 || featuredNames.length === 0) return items;
+
+  const featuredSet = new Set(featuredNames.map((n) => n.toLowerCase()));
+  const firstDJ = getDJName(items[0])?.toLowerCase();
+
+  // If first item's DJ is already featured, find first non-featured and swap
+  if (firstDJ && featuredSet.has(firstDJ)) {
+    const nonFeaturedIndex = items.findIndex((item, i) => {
+      if (i === 0) return false;
+      const djName = getDJName(item)?.toLowerCase();
+      return djName && !featuredSet.has(djName);
+    });
+
+    if (nonFeaturedIndex > 0) {
+      const reordered = [...items];
+      [reordered[0], reordered[nonFeaturedIndex]] = [reordered[nonFeaturedIndex], reordered[0]];
+      return reordered;
+    }
+  }
+
+  return items;
+}
+
 interface LocalDJsSectionProps {
   shows: Show[];
   irlShows: IRLShowData[];
@@ -19,6 +48,7 @@ interface LocalDJsSectionProps {
   onIRLAuthRequired: (djName: string) => void;
   selectedCity: string;
   onCityChange: (city: string) => void;
+  onFeaturedDJs?: (djNames: string[]) => void; // Reports DJ names in first position of each carousel
 }
 
 export function LocalDJsSection({
@@ -30,6 +60,7 @@ export function LocalDJsSection({
   onIRLAuthRequired,
   selectedCity,
   onCityChange,
+  onFeaturedDJs,
 }: LocalDJsSectionProps) {
   const { isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
   const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
@@ -78,9 +109,18 @@ export function LocalDJsSection({
     );
   }, [irlShows, selectedCity]);
 
+  // Get DJ name from first IRL show (to avoid featuring same DJ first in radio shows)
+  const firstIRLDJName = useMemo(() => {
+    if (filteredIRLShows.length > 0 && filteredIRLShows[0].djName) {
+      return filteredIRLShows[0].djName.toLowerCase();
+    }
+    return null;
+  }, [filteredIRLShows]);
+
   // Filter to upcoming shows from DJs based in the selected city (max 5)
   // Prioritize: weekly/bi-weekly first, then monthly, then others
   // Also diversify by station
+  // Avoid featuring the same DJ first if they're already first in IRL shows
   const localDJShows = useMemo(() => {
     if (!selectedCity) return [];
 
@@ -102,12 +142,34 @@ export function LocalDJsSection({
       );
     });
 
-    return prioritizeShowArray(filtered, 5);
-  }, [shows, selectedCity]);
+    const prioritized = prioritizeShowArray(filtered, 5);
+
+    // Avoid putting IRL-featured DJ first in radio shows
+    const featuredNames = firstIRLDJName ? [firstIRLDJName] : [];
+    return avoidFeaturedFirst(prioritized, (show) => show.dj, featuredNames);
+  }, [shows, selectedCity, firstIRLDJName]);
 
   const hasIRLShows = filteredIRLShows.length > 0;
   const hasRadioShows = localDJShows.length > 0;
   const isEmpty = !hasIRLShows && !hasRadioShows;
+
+  // Report featured DJs (first position in each carousel) to parent
+  useEffect(() => {
+    if (!onFeaturedDJs) return;
+    const featured: string[] = [];
+
+    // First DJ from IRL shows
+    if (filteredIRLShows.length > 0 && filteredIRLShows[0].djName) {
+      featured.push(filteredIRLShows[0].djName.toLowerCase());
+    }
+
+    // First DJ from radio shows
+    if (localDJShows.length > 0 && localDJShows[0].dj) {
+      featured.push(localDJShows[0].dj.toLowerCase());
+    }
+
+    onFeaturedDJs(featured);
+  }, [filteredIRLShows, localDJShows, onFeaturedDJs]);
 
   // Handle copy URL
   const handleCopyUrl = useCallback(async () => {

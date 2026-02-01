@@ -52,11 +52,15 @@ export function ChannelClient() {
   const [selectedCity, setSelectedCity] = useState<string>('');
   const [cityInitialized, setCityInitialized] = useState(false);
 
-  // Load saved city preference from user profile or fallback to timezone detection
+  // Track featured DJ names (first position in carousels) to avoid repeating across sections
+  const [featuredDJNames, setFeaturedDJNames] = useState<string[]>([]);
+
+  // Load saved city preference from user profile (auth) or localStorage (unauth)
   useEffect(() => {
     async function loadSavedCity() {
       if (cityInitialized) return;
 
+      // For authenticated users, load from Firebase
       if (user?.uid && db) {
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
@@ -73,7 +77,19 @@ export function ChannelClient() {
         }
       }
 
-      // Fallback to timezone detection
+      // For unauthenticated users (or auth users without saved city), try localStorage
+      try {
+        const localCity = localStorage.getItem('channel-selected-city');
+        if (localCity) {
+          setSelectedCity(localCity);
+          setCityInitialized(true);
+          return;
+        }
+      } catch {
+        // localStorage not available
+      }
+
+      // Final fallback to timezone detection
       setSelectedCity(getDefaultCity());
       setCityInitialized(true);
     }
@@ -81,11 +97,11 @@ export function ChannelClient() {
     loadSavedCity();
   }, [user?.uid, cityInitialized]);
 
-  // Handle city change and save to profile
+  // Handle city change and save to profile (Firebase for auth, localStorage for unauth)
   const handleCityChange = useCallback(async (city: string) => {
     setSelectedCity(city);
 
-    // Save to profile if authenticated
+    // Save to Firebase if authenticated
     if (user?.uid && db) {
       try {
         const userRef = doc(db, 'users', user.uid);
@@ -94,6 +110,13 @@ export function ChannelClient() {
         });
       } catch (error) {
         console.error('Error saving city preference:', error);
+      }
+    } else {
+      // Save to localStorage for unauthenticated users
+      try {
+        localStorage.setItem('channel-selected-city', city);
+      } catch {
+        // localStorage not available
       }
     }
   }, [user?.uid]);
@@ -390,6 +413,7 @@ export function ChannelClient() {
               onIRLAuthRequired={handleIRLAuthRequired}
               selectedCity={selectedCity}
               onCityChange={handleCityChange}
+              onFeaturedDJs={setFeaturedDJNames}
             />
           </div>
 
@@ -401,6 +425,7 @@ export function ChannelClient() {
               isAuthenticated={isAuthenticated}
               onAuthRequired={handleRemindMe}
               excludedShowIds={excludedShowIds}
+              featuredDJNames={featuredDJNames}
             />
           </div>
 

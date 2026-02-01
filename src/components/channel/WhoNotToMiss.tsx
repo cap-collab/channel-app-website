@@ -37,6 +37,7 @@ interface WhoNotToMissProps {
   isAuthenticated: boolean;
   onAuthRequired: (show: Show) => void;
   excludedShowIds?: Set<string>; // Shows already displayed in My Favorites or Local DJs sections
+  featuredDJNames?: string[]; // DJ names already featured (first position) in earlier sections - avoid featuring them first here
 }
 
 // Genre aliases for flexible matching
@@ -81,18 +82,49 @@ function matchesGenre(showGenres: string[] | undefined, selectedGenre: string): 
   });
 }
 
+// Helper to reorder array so already-featured DJs don't appear first (unless only option)
+function avoidFeaturedFirst<T>(
+  items: T[],
+  getDJName: (item: T) => string | undefined,
+  featuredNames: string[]
+): T[] {
+  if (items.length <= 1 || featuredNames.length === 0) return items;
+
+  const featuredSet = new Set(featuredNames.map((n) => n.toLowerCase()));
+  const firstDJ = getDJName(items[0])?.toLowerCase();
+
+  // If first item's DJ is already featured, find first non-featured and swap
+  if (firstDJ && featuredSet.has(firstDJ)) {
+    const nonFeaturedIndex = items.findIndex((item, i) => {
+      if (i === 0) return false;
+      const djName = getDJName(item)?.toLowerCase();
+      return djName && !featuredSet.has(djName);
+    });
+
+    if (nonFeaturedIndex > 0) {
+      const reordered = [...items];
+      [reordered[0], reordered[nonFeaturedIndex]] = [reordered[nonFeaturedIndex], reordered[0]];
+      return reordered;
+    }
+  }
+
+  return items;
+}
+
 export function WhoNotToMiss({
   shows,
   stations,
   isAuthenticated,
   onAuthRequired,
   excludedShowIds = new Set(),
+  featuredDJNames = [],
 }: WhoNotToMissProps) {
   const { user } = useAuthContext();
   const { isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
   const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
   const [addingReminderShowId, setAddingReminderShowId] = useState<string | null>(null);
-  const [selectedGenre, setSelectedGenre] = useState<string>('House');
+  // Start with empty string - will be populated from Firebase/localStorage
+  const [selectedGenre, setSelectedGenre] = useState<string>('');
   const [customGenreInput, setCustomGenreInput] = useState<string>('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isCustomMode, setIsCustomMode] = useState(false);
@@ -100,11 +132,12 @@ export function WhoNotToMiss({
   const inputRef = useRef<HTMLInputElement>(null);
   const initialLoadDone = useRef(false);
 
-  // Load saved genre preference from user profile
+  // Load saved genre preference from user profile (auth) or localStorage (unauth)
   useEffect(() => {
     async function loadSavedGenre() {
       if (initialLoadDone.current) return;
 
+      // For authenticated users, load from Firebase
       if (user?.uid && db) {
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
@@ -119,39 +152,52 @@ export function WhoNotToMiss({
         } catch (error) {
           console.error('Error loading saved genre:', error);
         }
+        // Authenticated user without saved preference - default to House
+        setSelectedGenre('House');
+        initialLoadDone.current = true;
+        return;
       }
 
-      // Default to House if no saved preference
+      // For unauthenticated users, try localStorage (no default - empty if not set)
+      try {
+        const localGenre = localStorage.getItem('channel-selected-genre');
+        if (localGenre) {
+          setSelectedGenre(localGenre);
+        }
+        // If no localStorage value, selectedGenre stays empty (no default for unauth)
+      } catch {
+        // localStorage not available
+      }
       initialLoadDone.current = true;
     }
 
     loadSavedGenre();
   }, [user?.uid]);
 
-  // Save genre selection to user profile
-  const saveGenreToProfile = async (genre: string) => {
-    if (!user?.uid || !db) return;
-
-    try {
-      const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
-        preferredGenre: genre,
-      });
-    } catch (error) {
-      console.error('Error saving genre preference:', error);
-    }
-  };
-
-  // Handle genre selection
+  // Handle genre selection and save to profile (Firebase for auth, localStorage for unauth)
   const handleSelectGenre = (genre: string) => {
     setSelectedGenre(genre);
     setIsDropdownOpen(false);
     setIsCustomMode(false);
     setCustomGenreInput('');
 
-    // Save to profile if authenticated
-    if (isAuthenticated) {
-      saveGenreToProfile(genre);
+    // Save to Firebase if authenticated
+    if (user?.uid && db) {
+      try {
+        const userRef = doc(db, 'users', user.uid);
+        updateDoc(userRef, {
+          preferredGenre: genre,
+        });
+      } catch (error) {
+        console.error('Error saving genre preference:', error);
+      }
+    } else {
+      // Save to localStorage for unauthenticated users
+      try {
+        localStorage.setItem('channel-selected-genre', genre);
+      } catch {
+        // localStorage not available
+      }
     }
   };
 
@@ -184,17 +230,30 @@ export function WhoNotToMiss({
   // Filter shows by selected genre (max 5), excluding shows already displayed elsewhere
   // Prioritize: weekly/bi-weekly first, then monthly, then others
   // Also diversify by station and location
+  // Avoid featuring DJs already featured in earlier sections
   const genreFilteredShows = useMemo(() => {
     if (!selectedGenre) return [];
     const filtered = upcomingShowsBase.filter(
       (show) => !excludedShowIds.has(show.id) && matchesGenre(show.djGenres, selectedGenre)
     );
-    return prioritizeShowArray(filtered, 5);
-  }, [upcomingShowsBase, selectedGenre, excludedShowIds]);
+    const prioritized = prioritizeShowArray(filtered, 5);
+    // Avoid putting already-featured DJs first
+    return avoidFeaturedFirst(prioritized, (show) => show.dj, featuredDJNames);
+  }, [upcomingShowsBase, selectedGenre, excludedShowIds, featuredDJNames]);
+
+  // Track all featured DJs (from earlier sections + genre section first)
+  const allFeaturedDJNames = useMemo(() => {
+    const featured = [...featuredDJNames];
+    if (genreFilteredShows.length > 0 && genreFilteredShows[0].dj) {
+      featured.push(genreFilteredShows[0].dj.toLowerCase());
+    }
+    return featured;
+  }, [featuredDJNames, genreFilteredShows]);
 
   // "Our Picks" - prioritize recurring shows, then by profile completeness
   // Weekly/bi-weekly first, then monthly, then others
   // Also diversify by station and location
+  // Avoid featuring DJs already featured in earlier sections or genre section
   const ourPicks = useMemo(() => {
     // Exclude shows already in genre section to avoid duplicates
     const genreShowIds = new Set(genreFilteredShows.map((s) => s.id));
@@ -207,10 +266,10 @@ export function WhoNotToMiss({
     // Apply prioritization (weekly/bi-weekly first, diversify by station/location)
     const prioritized = prioritizeShowArray(candidates);
 
-    // Within each recurrence tier, also consider profile completeness for tie-breaking
-    // The prioritization already handles recurrence and diversity, so we just take top 5
-    return prioritized.slice(0, 5);
-  }, [upcomingShowsBase, genreFilteredShows, excludedShowIds]);
+    // Take top 5 and avoid putting already-featured DJs first
+    const top5 = prioritized.slice(0, 5);
+    return avoidFeaturedFirst(top5, (show) => show.dj, allFeaturedDJNames);
+  }, [upcomingShowsBase, genreFilteredShows, excludedShowIds, allFeaturedDJNames]);
 
   const hasGenreShows = genreFilteredShows.length > 0;
   const hasOurPicks = ourPicks.length > 0;
@@ -289,7 +348,7 @@ export function WhoNotToMiss({
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
             >
-              {selectedGenre || 'Select genre'}
+              {selectedGenre || 'Genre'}
               <svg
                 className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
                 fill="none"
@@ -381,28 +440,32 @@ export function WhoNotToMiss({
         {!hasGenreShows ? (
           <div className="text-center py-3">
             <p className="text-gray-400 text-sm mb-3">
-              Invite your favorite {selectedGenre} DJs to join Channel
+              {selectedGenre
+                ? `Invite your favorite ${selectedGenre} DJs to join Channel`
+                : 'Select a genre to discover DJs'}
             </p>
-            <button
-              onClick={handleCopyUrl}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
-            >
-              {copySuccess ? (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  Copy invite link
-                </>
-              )}
-            </button>
+            {selectedGenre && (
+              <button
+                onClick={handleCopyUrl}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
+              >
+                {copySuccess ? (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Copy invite link
+                  </>
+                )}
+              </button>
+            )}
           </div>
         ) : (
           <SwipeableCardCarousel>
@@ -431,7 +494,7 @@ export function WhoNotToMiss({
                     />
                   );
                 }),
-              ...(genreFilteredShows.length < 5
+              ...(genreFilteredShows.length < 5 && selectedGenre
                 ? [
                     <InviteCard
                       key="invite-card"
