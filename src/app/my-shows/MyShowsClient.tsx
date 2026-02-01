@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import Image from "next/image";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -9,15 +8,18 @@ import { useFavorites, Favorite, isRecurringFavorite } from "@/hooks/useFavorite
 import { AuthModal } from "@/components/AuthModal";
 import { Header } from "@/components/Header";
 import { SearchBar } from "@/components/SearchBar";
+import { MyShowsCard } from "@/components/my-shows/MyShowsCard";
+import { WatchlistDJCard } from "@/components/my-shows/WatchlistDJCard";
 import { getStationById, getStationByMetadataKey } from "@/lib/stations";
 import { searchShows, getAllShows } from "@/lib/metadata";
 import { Show } from "@/types";
-import { getContrastTextColor } from "@/lib/colorUtils";
 
 // Cache for DJ profile lookups to avoid repeated queries
 interface DJProfileCache {
   username: string;
   photoUrl?: string;
+  location?: string;
+  genres?: string[];
 }
 const watchlistDJProfileCache = new Map<string, DJProfileCache | null>();
 
@@ -55,27 +57,6 @@ function formatShowTime(startTime: string): string {
   }
 }
 
-// Format "Last seen X time ago" like iOS
-function formatLastSeen(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (days === 0) {
-    return "Last seen today";
-  } else if (days === 1) {
-    return "Last seen yesterday";
-  } else if (days < 7) {
-    return `Last seen ${days} days ago`;
-  } else if (days < 30) {
-    const weeks = Math.floor(days / 7);
-    return `Last seen ${weeks} week${weeks === 1 ? "" : "s"} ago`;
-  } else {
-    const months = Math.floor(days / 30);
-    return `Last seen ${months} month${months === 1 ? "" : "s"} ago`;
-  }
-}
-
 // Match a favorite against shows to find scheduled instances
 function findMatchingShows(favorite: Favorite, allShows: Show[]): Show[] {
   const term = favorite.term.toLowerCase();
@@ -106,6 +87,24 @@ function findMatchingShows(favorite: Favorite, allShows: Show[]): Show[] {
 interface CategorizedShow {
   favorite: Favorite;
   show: Show;
+}
+
+// Unified type for upcoming shows (both online and IRL)
+interface UpcomingShowItem {
+  id: string;
+  type: 'online' | 'irl';
+  sortTime: Date;
+  isLive: boolean;
+  djName: string;
+  djPhotoUrl?: string;
+  djUsername?: string;
+  djGenres?: string[];
+  // Online-specific
+  favorite?: Favorite;
+  show?: Show;
+  stationId?: string;
+  // IRL-specific
+  irlFavorite?: Favorite;
 }
 
 export function MyShowsClient() {
@@ -139,7 +138,6 @@ export function MyShowsClient() {
   }, []);
 
   // Separate favorites by type
-  // Only include show/dj favorites with a valid stationId (exclude nil/"CHANNEL" legacy duplicates)
   const stationShows = favorites.filter(
     (f) => (f.type === "show" || f.type === "dj") && f.stationId && f.stationId !== "CHANNEL"
   );
@@ -187,6 +185,8 @@ export function MyShowsClient() {
             const profile: DJProfileCache = {
               username: data.chatUsername,
               photoUrl: data.djProfile?.photoUrl || undefined,
+              location: data.djProfile?.location || undefined,
+              genres: data.djProfile?.genres || undefined,
             };
             watchlistDJProfileCache.set(name, profile);
             newProfiles.set(name, profile);
@@ -207,6 +207,8 @@ export function MyShowsClient() {
             const profile: DJProfileCache = {
               username: data.chatUsername,
               photoUrl: data.djProfile?.photoUrl || undefined,
+              location: data.djProfile?.location || undefined,
+              genres: data.djProfile?.genres || undefined,
             };
             watchlistDJProfileCache.set(name, profile);
             newProfiles.set(name, profile);
@@ -232,34 +234,16 @@ export function MyShowsClient() {
     lookupWatchlistDJProfiles();
   }, [watchlist]);
 
-  // Categorize shows into Live Now, Coming Up, Returning Soon, Watchlist, One-Time
+  // Categorize shows into Live Now, Coming Up, Returning Soon, One-Time
   const categorizedShows = useMemo(() => {
     const now = new Date();
     const liveNow: CategorizedShow[] = [];
     const comingUp: CategorizedShow[] = [];
-    const returningSoon: Favorite[] = []; // Recurring shows not currently scheduled
+    const returningSoon: Favorite[] = [];
     const oneTime: Favorite[] = [];
-
-    // Debug: log all shows from newtown station
-    const newtownShows = allShows.filter(s => s.stationId === "newtown");
-    if (newtownShows.length > 0) {
-      console.log(`[Debug] Found ${newtownShows.length} newtown shows in allShows`);
-      console.log(`[Debug] First few:`, newtownShows.slice(0, 3).map(s => ({ name: s.name, start: s.startTime, stationId: s.stationId })));
-    } else {
-      console.log(`[Debug] No newtown shows in allShows. Total shows: ${allShows.length}`);
-    }
 
     for (const favorite of stationShows) {
       const matchingShows = findMatchingShows(favorite, allShows);
-
-      // Debug: log matching for newtown favorites
-      if (favorite.stationId === "newtown" || favorite.stationId?.includes("newtown")) {
-        console.log(`[Debug] Favorite "${favorite.term}" (station: ${favorite.stationId})`);
-        console.log(`[Debug]   matchingShows count: ${matchingShows.length}`);
-        if (matchingShows.length > 0) {
-          console.log(`[Debug]   First match:`, { name: matchingShows[0].name, start: matchingShows[0].startTime, stationId: matchingShows[0].stationId });
-        }
-      }
 
       // Find live show
       const liveShow = matchingShows.find((show) => {
@@ -285,7 +269,6 @@ export function MyShowsClient() {
       }
 
       // No upcoming or live shows - categorize based on favorite's showType
-      // Use showType stored in favorite (from iOS) to determine if recurring
       if (isRecurringFavorite(favorite)) {
         returningSoon.push(favorite);
       } else {
@@ -301,7 +284,68 @@ export function MyShowsClient() {
     return { liveNow, comingUp, returningSoon, oneTime };
   }, [stationShows, allShows]);
 
-  // Handle search - memoized to prevent SearchBar re-renders
+  // Create unified upcoming shows list (online + IRL)
+  const upcomingShows = useMemo(() => {
+    const items: UpcomingShowItem[] = [];
+
+    // Add live online shows
+    for (const { favorite, show } of categorizedShows.liveNow) {
+      items.push({
+        id: `online-live-${favorite.id}`,
+        type: 'online',
+        sortTime: new Date(show.startTime),
+        isLive: true,
+        djName: show.dj || favorite.djName || favorite.showName || favorite.term,
+        djPhotoUrl: show.djPhotoUrl || show.imageUrl,
+        djUsername: show.djUsername,
+        djGenres: show.djGenres,
+        favorite,
+        show,
+        stationId: show.stationId,
+      });
+    }
+
+    // Add coming up online shows
+    for (const { favorite, show } of categorizedShows.comingUp) {
+      items.push({
+        id: `online-upcoming-${favorite.id}`,
+        type: 'online',
+        sortTime: new Date(show.startTime),
+        isLive: false,
+        djName: show.dj || favorite.djName || favorite.showName || favorite.term,
+        djPhotoUrl: show.djPhotoUrl || show.imageUrl,
+        djUsername: show.djUsername,
+        djGenres: show.djGenres,
+        favorite,
+        show,
+        stationId: show.stationId,
+      });
+    }
+
+    // Add IRL events
+    for (const irlFavorite of irlEvents) {
+      items.push({
+        id: `irl-${irlFavorite.id}`,
+        type: 'irl',
+        sortTime: new Date(irlFavorite.irlDate + 'T00:00:00'),
+        isLive: false,
+        djName: irlFavorite.djName || irlFavorite.term,
+        djPhotoUrl: irlFavorite.djPhotoUrl,
+        djUsername: irlFavorite.djUsername,
+        djGenres: undefined,
+        irlFavorite,
+      });
+    }
+
+    // Sort: live shows first, then by time
+    return items.sort((a, b) => {
+      if (a.isLive && !b.isLive) return -1;
+      if (!a.isLive && b.isLive) return 1;
+      return a.sortTime.getTime() - b.sortTime.getTime();
+    });
+  }, [categorizedShows, irlEvents]);
+
+  // Handle search
   const handleSearch = useCallback(async (query: string) => {
     setSearchQuery(query);
     if (!query.trim()) {
@@ -367,99 +411,6 @@ export function MyShowsClient() {
 
   const isSearching = searchQuery.trim().length > 0;
   const watchlistHasTerm = isInWatchlist(searchQuery.trim());
-
-  // Render a favorite card
-  const renderFavoriteCard = (favorite: Favorite, showInfo?: Show) => {
-    const station = getStation(favorite.stationId);
-    const accentColor = station?.accentColor || "#fff";
-    const stationName = station?.name || favorite.stationId || "CHANNEL";
-    const isLive = showInfo && new Date(showInfo.startTime) <= new Date() && new Date(showInfo.endTime) > new Date();
-
-    return (
-      <div
-        key={favorite.id}
-        className="flex rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50"
-      >
-        {/* Left accent bar */}
-        <div
-          className="w-1 flex-shrink-0"
-          style={{ backgroundColor: accentColor }}
-        />
-        <div className="flex-1 px-3 py-2.5">
-          {/* Station name + remove button */}
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <span
-                className="text-[10px] font-semibold uppercase tracking-wide"
-                style={{ color: accentColor }}
-              >
-                {stationName}
-              </span>
-              {isLive && (
-                <span className="flex items-center gap-1 text-[10px] text-red-500">
-                  <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                  LIVE
-                </span>
-              )}
-            </div>
-            <button
-              onClick={() => handleRemove(favorite)}
-              disabled={removing === favorite.id}
-              className="p-0.5 transition-colors disabled:opacity-50"
-              style={{ color: accentColor }}
-              aria-label="Remove from favorites"
-            >
-              {removing === favorite.id ? (
-                <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
-              ) : (
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                </svg>
-              )}
-            </button>
-          </div>
-          {/* Show name */}
-          <p className="font-medium text-white text-sm leading-snug line-clamp-2">
-            {favorite.showName || favorite.term}
-          </p>
-          {/* DJ and time / Last seen */}
-          <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-            {favorite.djName && (
-              <>
-                <span className="truncate max-w-[120px]">{favorite.djName}</span>
-                {(showInfo || favorite.createdAt) && <span>·</span>}
-              </>
-            )}
-            {showInfo ? (
-              <span>{formatShowTime(showInfo.startTime)}</span>
-            ) : (
-              <span>{formatLastSeen(favorite.createdAt)}</span>
-            )}
-          </div>
-          {/* Show type badge - from showInfo or favorite.showType for non-scheduled shows */}
-          {(showInfo?.type && (showInfo.type === "weekly" || showInfo.type === "biweekly" || showInfo.type === "monthly" || showInfo.type === "regular")) ? (
-            <div className="mt-1.5">
-              <span
-                className="text-[9px] px-1.5 py-0.5 rounded-full"
-                style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
-              >
-                {showInfo.type}
-              </span>
-            </div>
-          ) : (!showInfo && favorite.showType && (favorite.showType === "weekly" || favorite.showType === "biweekly" || favorite.showType === "monthly" || favorite.showType === "regular")) && (
-            <div className="mt-1.5">
-              <span
-                className="text-[9px] px-1.5 py-0.5 rounded-full"
-                style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
-              >
-                {favorite.showType}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
 
   // Render search result card
   const renderSearchResultCard = (show: Show) => {
@@ -562,8 +513,8 @@ export function MyShowsClient() {
             <div className="w-6 h-6 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
           </div>
         ) : (
-          <div className="space-y-8">
-            {/* Search Results - Full width above columns */}
+          <div className="space-y-10">
+            {/* Search Results */}
             {isSearching && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                 {/* Show Search Results */}
@@ -649,260 +600,180 @@ export function MyShowsClient() {
               </div>
             )}
 
-            {/* Two column layout for Favorites */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-              {/* Left Column - Favorite Shows */}
-              <div className="space-y-6">
-                <h2 className="text-white text-sm font-medium border-b border-gray-800 pb-2 flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            {/* Section 1: Upcoming Shows (IRL + Online combined) */}
+            {upcomingShows.length > 0 && (
+              <section>
+                <h2 className="text-white text-sm font-medium border-b border-gray-800 pb-2 mb-4 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  Favorite Shows
+                  Upcoming Shows ({upcomingShows.length})
                 </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {upcomingShows.map((item) => {
+                    const station = item.stationId ? getStation(item.stationId) : undefined;
+                    const accentColor = station?.accentColor || "#a855f7"; // Purple for IRL
 
-                {/* Live Now */}
-              {categorizedShows.liveNow.length > 0 && (
-                <section>
-                  <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3 flex items-center gap-2">
-                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                    Live Now ({categorizedShows.liveNow.length})
-                  </h3>
-                  <div className="space-y-2">
-                    {categorizedShows.liveNow.map(({ favorite, show }) =>
-                      renderFavoriteCard(favorite, show)
-                    )}
-                  </div>
-                </section>
-              )}
+                    if (item.type === 'irl' && item.irlFavorite) {
+                      return (
+                        <MyShowsCard
+                          key={item.id}
+                          showType="irl"
+                          djName={item.djName}
+                          djPhotoUrl={item.djPhotoUrl}
+                          djUsername={item.djUsername}
+                          accentColor={accentColor}
+                          isLive={false}
+                          eventName={item.irlFavorite.irlEventName || item.irlFavorite.showName}
+                          eventLocation={item.irlFavorite.irlLocation}
+                          eventDate={item.irlFavorite.irlDate}
+                          ticketUrl={item.irlFavorite.irlTicketUrl}
+                          onRemove={() => handleRemove(item.irlFavorite!)}
+                          isRemoving={removing === item.irlFavorite.id}
+                        />
+                      );
+                    }
 
-              {/* Coming Up */}
-              {categorizedShows.comingUp.length > 0 && (
-                <section>
-                  <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-                    Coming Up ({categorizedShows.comingUp.length})
-                  </h3>
-                  <div className="space-y-2">
-                    {categorizedShows.comingUp.map(({ favorite, show }) =>
-                      renderFavoriteCard(favorite, show)
-                    )}
-                  </div>
-                </section>
-              )}
+                    if (item.type === 'online' && item.favorite && item.show) {
+                      return (
+                        <MyShowsCard
+                          key={item.id}
+                          showType="online"
+                          djName={item.djName}
+                          djPhotoUrl={item.djPhotoUrl}
+                          djUsername={item.djUsername}
+                          accentColor={accentColor}
+                          isLive={item.isLive}
+                          showName={item.show.name}
+                          stationName={station?.name || item.stationId}
+                          startTime={item.show.startTime}
+                          djGenres={item.djGenres}
+                          onRemove={() => handleRemove(item.favorite!)}
+                          isRemoving={removing === item.favorite.id}
+                        />
+                      );
+                    }
 
-              {/* Returning Soon */}
-              {categorizedShows.returningSoon.length > 0 && (
-                <section>
-                  <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-                    Returning Soon ({categorizedShows.returningSoon.length})
-                  </h3>
-                  <div className="space-y-2">
-                    {categorizedShows.returningSoon.map((favorite) =>
-                      renderFavoriteCard(favorite)
-                    )}
-                  </div>
-                </section>
-              )}
+                    return null;
+                  })}
+                </div>
+              </section>
+            )}
 
-              {/* One-Time Shows */}
-              {categorizedShows.oneTime.length > 0 && (
-                <section>
-                  <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-                    One-Time Shows ({categorizedShows.oneTime.length})
-                  </h3>
-                  <div className="space-y-2">
-                    {categorizedShows.oneTime.map((favorite) => renderFavoriteCard(favorite))}
-                  </div>
-                </section>
-              )}
-
-              {/* Empty state for shows */}
-              {!isSearching &&
-                categorizedShows.liveNow.length === 0 &&
-                categorizedShows.comingUp.length === 0 &&
-                categorizedShows.returningSoon.length === 0 &&
-                categorizedShows.oneTime.length === 0 && (
-                <p className="text-gray-600 text-sm py-4">No favorite shows yet</p>
-              )}
-            </div>
-
-              {/* Right Column - DJ Watchlist */}
-              <div className="space-y-6">
-                <h2 className="text-white text-sm font-medium border-b border-gray-800 pb-2 flex items-center gap-2">
+            {/* Section 2: DJs on Watchlist */}
+            {watchlist.length > 0 && (
+              <section>
+                <h2 className="text-white text-sm font-medium border-b border-gray-800 pb-2 mb-4 flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                   </svg>
-                  DJ Watchlist
+                  DJs on Watchlist ({watchlist.length})
                 </h2>
-
-                {/* Existing Watchlist Items */}
-                {watchlist.length > 0 ? (
-                <div className="space-y-2">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {watchlist.map((favorite) => {
                     const djProfile = watchlistDJProfiles.get(favorite.term.toLowerCase());
                     const displayName = djProfile?.username || favorite.term.charAt(0).toUpperCase() + favorite.term.slice(1);
-                    const photoUrl = djProfile?.photoUrl;
-                    const bgColor = "#374151"; // Default gray for watchlist items
-                    const textColor = getContrastTextColor(bgColor);
 
                     return (
-                      <div
+                      <WatchlistDJCard
                         key={favorite.id}
-                        className="flex items-center gap-3 rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50 p-2.5"
-                      >
-                        {/* Square profile picture */}
-                        <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 border border-gray-700">
-                          {photoUrl ? (
-                            <Image
-                              src={photoUrl}
-                              alt={displayName}
-                              width={44}
-                              height={44}
-                              className="w-full h-full object-cover"
-                              unoptimized
-                            />
-                          ) : (
-                            <div
-                              className="w-full h-full flex items-center justify-center text-base font-bold"
-                              style={{ backgroundColor: bgColor, color: textColor }}
-                            >
-                              {displayName.charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                        </div>
-                        <p className="flex-1 font-medium text-white text-sm truncate">
-                          {displayName}
-                        </p>
-                        <button
-                          onClick={() => handleRemove(favorite)}
-                          disabled={removing === favorite.id}
-                          className="p-1.5 transition-colors text-gray-600 hover:text-red-400 disabled:opacity-50"
-                          aria-label="Remove from watchlist"
-                        >
-                          {removing === favorite.id ? (
-                            <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
-                          ) : (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          )}
-                        </button>
-                      </div>
+                        djName={displayName}
+                        djPhotoUrl={djProfile?.photoUrl}
+                        djUsername={djProfile?.username}
+                        djLocation={djProfile?.location}
+                        djGenres={djProfile?.genres}
+                        onRemove={() => handleRemove(favorite)}
+                        isRemoving={removing === favorite.id}
+                      />
                     );
                   })}
                 </div>
-                ) : (
-                  <p className="text-gray-600 text-sm py-4">No watchlist items yet. Search for a DJ name to add to your watchlist.</p>
-                )}
+              </section>
+            )}
 
-                {/* IRL Events Section */}
-                {irlEvents.length > 0 && (
-                  <div className="mt-8">
-                    <h2 className="text-white text-sm font-medium border-b border-gray-800 pb-2 mb-4 flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                      </svg>
-                      IRL Events
-                    </h2>
-                    <div className="space-y-2">
-                      {irlEvents.map((favorite) => {
-                        const eventDate = favorite.irlDate ? new Date(favorite.irlDate + 'T00:00:00') : null;
-                        const now = new Date();
-                        const tomorrow = new Date(now);
-                        tomorrow.setDate(tomorrow.getDate() + 1);
+            {/* Section 3: Show History */}
+            {(categorizedShows.returningSoon.length > 0 || categorizedShows.oneTime.length > 0) && (
+              <section>
+                <h2 className="text-white text-sm font-medium border-b border-gray-800 pb-2 mb-4 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Show History
+                </h2>
 
-                        let dateStr = '';
-                        if (eventDate) {
-                          if (eventDate.toDateString() === now.toDateString()) {
-                            dateStr = 'TODAY';
-                          } else if (eventDate.toDateString() === tomorrow.toDateString()) {
-                            dateStr = 'TOMORROW';
-                          } else {
-                            dateStr = eventDate.toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                            }).toUpperCase();
-                          }
-                        }
+                {/* Coming Back Soon */}
+                {categorizedShows.returningSoon.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+                      Coming Back Soon ({categorizedShows.returningSoon.length})
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {categorizedShows.returningSoon.map((favorite) => {
+                        const station = getStation(favorite.stationId);
+                        const accentColor = station?.accentColor || "#fff";
 
                         return (
-                          <div
+                          <MyShowsCard
                             key={favorite.id}
-                            className="flex rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50"
-                          >
-                            {/* Left accent bar - purple for IRL */}
-                            <div className="w-1 flex-shrink-0 bg-purple-500" />
-                            <div className="flex-1 px-3 py-2.5">
-                              {/* Date + IRL badge + remove button */}
-                              <div className="flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[10px] font-mono text-purple-400">
-                                    {dateStr}
-                                  </span>
-                                  <span className="text-[10px] font-mono text-gray-500 uppercase tracking-tighter flex items-center gap-1">
-                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                                    </svg>
-                                    IRL
-                                  </span>
-                                </div>
-                                <button
-                                  onClick={() => handleRemove(favorite)}
-                                  disabled={removing === favorite.id}
-                                  className="p-0.5 transition-colors text-purple-400 disabled:opacity-50"
-                                  aria-label="Remove from favorites"
-                                >
-                                  {removing === favorite.id ? (
-                                    <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
-                                  ) : (
-                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                                    </svg>
-                                  )}
-                                </button>
-                              </div>
-                              {/* Event name */}
-                              <p className="font-medium text-white text-sm leading-snug line-clamp-2">
-                                {favorite.irlEventName || favorite.showName}
-                              </p>
-                              {/* DJ and location */}
-                              <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                                {favorite.djName && (
-                                  <>
-                                    <span className="truncate max-w-[120px]">{favorite.djName}</span>
-                                    {favorite.irlLocation && <span>·</span>}
-                                  </>
-                                )}
-                                {favorite.irlLocation && (
-                                  <span className="truncate">in {favorite.irlLocation}</span>
-                                )}
-                              </div>
-                              {/* Tickets link */}
-                              {favorite.irlTicketUrl && (
-                                <div className="mt-2">
-                                  <a
-                                    href={favorite.irlTicketUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition-colors"
-                                  >
-                                    Tickets
-                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                    </svg>
-                                  </a>
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                            showType="online"
+                            djName={favorite.djName || favorite.term}
+                            djPhotoUrl={undefined} // History items may not have photos
+                            djUsername={undefined}
+                            accentColor={accentColor}
+                            isLive={false}
+                            showName={favorite.showName || favorite.term}
+                            stationName={station?.name || favorite.stationId}
+                            onRemove={() => handleRemove(favorite)}
+                            isRemoving={removing === favorite.id}
+                          />
                         );
                       })}
                     </div>
                   </div>
                 )}
-              </div>
-            </div>
+
+                {/* One-Time Events */}
+                {categorizedShows.oneTime.length > 0 && (
+                  <div>
+                    <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+                      One-Time Events ({categorizedShows.oneTime.length})
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {categorizedShows.oneTime.map((favorite) => {
+                        const station = getStation(favorite.stationId);
+                        const accentColor = station?.accentColor || "#fff";
+
+                        return (
+                          <MyShowsCard
+                            key={favorite.id}
+                            showType="online"
+                            djName={favorite.djName || favorite.term}
+                            djPhotoUrl={undefined}
+                            djUsername={undefined}
+                            accentColor={accentColor}
+                            isLive={false}
+                            showName={favorite.showName || favorite.term}
+                            stationName={station?.name || favorite.stationId}
+                            onRemove={() => handleRemove(favorite)}
+                            isRemoving={removing === favorite.id}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* Empty state */}
+            {!isSearching &&
+              upcomingShows.length === 0 &&
+              watchlist.length === 0 &&
+              categorizedShows.returningSoon.length === 0 &&
+              categorizedShows.oneTime.length === 0 && (
+              <p className="text-gray-600 text-sm py-4 text-center">No saved shows yet. Search above to find and save shows.</p>
+            )}
           </div>
         )}
       </main>
