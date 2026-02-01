@@ -108,9 +108,9 @@ export function MyShowsCard({
     ? formatShowTime(startTime)
     : null;
 
-  // Fallback gradient for IRL is purple-pink, for online use station accent color
+  // Fallback gradient for IRL is green (like a tree), for online use station accent color
   const fallbackBg = showType === 'irl'
-    ? 'bg-gradient-to-br from-purple-900 to-pink-900'
+    ? 'bg-gradient-to-br from-green-900 to-emerald-800'
     : '';
   const fallbackStyle = showType === 'online' ? { backgroundColor: accentColor } : {};
 
@@ -185,7 +185,7 @@ export function MyShowsCard({
             onClick={onRemove}
             disabled={isRemoving}
             className="p-0.5 transition-colors disabled:opacity-50 hover:opacity-70"
-            style={{ color: showType === 'irl' ? '#a855f7' : accentColor }}
+            style={{ color: showType === 'irl' ? '#22c55e' : accentColor }}
             aria-label="Remove from favorites"
           >
             {isRemoving ? (
@@ -233,7 +233,7 @@ export function MyShowsCard({
                 href={ticketUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                className="inline-flex items-center gap-1 text-xs text-green-400 hover:text-green-300 transition-colors"
               >
                 Tickets
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

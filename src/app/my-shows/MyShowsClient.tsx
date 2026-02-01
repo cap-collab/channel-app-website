@@ -612,7 +612,7 @@ export function MyShowsClient() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {upcomingShows.map((item) => {
                     const station = item.stationId ? getStation(item.stationId) : undefined;
-                    const accentColor = station?.accentColor || "#a855f7"; // Purple for IRL
+                    const accentColor = station?.accentColor || "#22c55e"; // Green for IRL
 
                     if (item.type === 'irl' && item.irlFavorite) {
                       return (
