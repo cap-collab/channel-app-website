@@ -1113,16 +1113,13 @@ export function StudioProfileClient() {
                   </Link>
                 </div>
               )}
-              <div className="p-4 flex items-center justify-between">
-                <span className="text-gray-400">Livestream</span>
-                <Link
-                  href="/studio/join"
-                  className="text-blue-400 hover:text-blue-300 text-sm transition-colors"
-                >
-                  Apply to livestream on Channel &rarr;
-                </Link>
-              </div>
             </div>
+            <Link
+              href="/studio/join"
+              className="mt-4 block w-full bg-white text-black text-center py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+            >
+              Request a live stream slot on Channel
+            </Link>
           </section>
 
           {/* Profile Photo section */}
