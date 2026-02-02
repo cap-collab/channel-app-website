@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { doc, onSnapshot, updateDoc, deleteDoc } from "firebase/firestore";
 import { Header } from "@/components/Header";
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useUserRole, isDJ } from "@/hooks/useUserRole";
 import { AuthModal } from "@/components/AuthModal";
 
 interface NotificationSettings {
@@ -17,6 +19,7 @@ interface NotificationSettings {
 
 export function SettingsClient() {
   const { user, isAuthenticated, loading: authLoading, signOut } = useAuthContext();
+  const { role, loading: roleLoading } = useUserRole(user);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [notifications, setNotifications] = useState<NotificationSettings>({
     showStarting: false,
@@ -90,7 +93,7 @@ export function SettingsClient() {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || roleLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
@@ -142,6 +145,31 @@ export function SettingsClient() {
                 </div>
               </div>
             </section>
+
+            {/* Upgrade to DJ section - only show for non-DJ users */}
+            {!isDJ(role) && (
+              <section>
+                <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+                  Broadcast on Channel
+                </h2>
+                <div className="bg-[#1a1a1a] rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-white font-medium">Upgrade to DJ</p>
+                      <p className="text-gray-500 text-sm">
+                        Start broadcasting your own shows on Channel
+                      </p>
+                    </div>
+                    <Link
+                      href="/studio/join"
+                      className="px-4 py-2 rounded-lg text-sm font-medium bg-white text-black hover:bg-gray-100 transition-colors"
+                    >
+                      Upgrade
+                    </Link>
+                  </div>
+                </div>
+              </section>
+            )}
 
             {/* Email notifications section */}
             <section>
