@@ -369,6 +369,7 @@ interface WatchlistDigestEmailParams {
     showName: string;
     djName?: string;
     djUsername?: string; // For DJ profile link
+    djPhotoUrl?: string; // DJ profile photo
     stationName: string;
     stationId: string;
     startTime: Date;
@@ -390,62 +391,101 @@ export async function sendWatchlistDigestEmail({
 
   if (matches.length === 0) return false;
 
-  // Group matches by search term (DJ name)
-  const matchesByTerm: Record<string, typeof matches> = {};
-  for (const match of matches) {
-    if (!matchesByTerm[match.searchTerm]) {
-      matchesByTerm[match.searchTerm] = [];
-    }
-    matchesByTerm[match.searchTerm].push(match);
-  }
+  // Channel logo URL (hosted on the website)
+  const logoUrl = "https://channel-app.com/logo-white.png";
 
-  // Build HTML for each DJ group
-  const groupsHtml = Object.entries(matchesByTerm)
-    .map(([term, termMatches]) => {
-      // Get DJ profile link from first match (they all share the same DJ)
-      const firstMatch = termMatches[0];
-      const djProfileUrl = firstMatch.djUsername
-        ? `https://channel-app.com/dj/${firstMatch.djUsername}`
-        : "https://channel-app.com/channel";
-      const djDisplayName = firstMatch.djName || term;
+  // Build show cards HTML - Digital Flyer style with center spine layout
+  const showCardsHtml = matches
+    .map((match) => {
+      const dateStr = new Date(match.startTime).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+      const timeStr = new Date(match.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      const djDisplayName = match.djName || match.searchTerm;
 
-      const showsHtml = termMatches
-        .map(
-          (match) => {
-            const dateStr = new Date(match.startTime).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
-            const timeStr = new Date(match.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      // DJ profile URL - link to profile if exists
+      const djProfileUrl = match.djUsername
+        ? `https://channel-app.com/dj/${match.djUsername}`
+        : "https://channel-app.com/my-shows";
 
-            if (match.isIRL) {
-              // IRL event display
-              return `
-              <div style="background: #1a1a1a; border-radius: 8px; padding: 16px; margin-bottom: 8px; text-align: left;">
-                <div style="font-weight: 600; margin-bottom: 4px;">${match.showName}</div>
-                <div style="color: #888; font-size: 13px;">${match.irlLocation || "TBA"} · ${dateStr}</div>
-                ${match.irlTicketUrl ? `<a href="${match.irlTicketUrl}" style="color: #fff; font-size: 12px; text-decoration: underline; margin-top: 8px; display: inline-block;">Get tickets</a>` : ""}
-              </div>
-            `;
-            } else {
-              // Online show display
-              return `
-              <div style="background: #1a1a1a; border-radius: 8px; padding: 16px; margin-bottom: 8px; text-align: left;">
-                <div style="font-weight: 600; margin-bottom: 4px;">${match.showName}</div>
-                <div style="color: #888; font-size: 13px;">${match.stationName} · ${dateStr} at ${timeStr}</div>
-              </div>
-            `;
-            }
-          }
-        )
-        .join("");
+      // Remind me deep link (adds to favorites via website)
+      const remindMeUrl = `https://channel-app.com/my-shows?add=${encodeURIComponent(match.showName)}`;
+
+      // Badge for IRL vs Online
+      const badgeHtml = match.isIRL
+        ? `<span style="display: inline-block; font-size: 10px; font-family: monospace; color: #22c55e; text-transform: uppercase; letter-spacing: 0.5px;">🌲 IRL</span>`
+        : `<span style="display: inline-block; font-size: 10px; font-family: monospace; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.5px;">☁️ Online</span>`;
+
+      // Location/Station info
+      const locationInfo = match.isIRL
+        ? `${match.irlLocation || "TBA"} · ${dateStr}`
+        : `${match.stationName} · ${dateStr} at ${timeStr}`;
+
+      // DJ photo or fallback initial
+      const photoHtml = match.djPhotoUrl
+        ? `<img src="${match.djPhotoUrl}" alt="${djDisplayName}" width="64" height="64" style="width: 64px; height: 64px; border-radius: 8px; object-fit: cover; border: 1px solid #333;" />`
+        : `<div style="width: 64px; height: 64px; border-radius: 8px; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); display: flex; align-items: center; justify-content: center; border: 1px solid #333;">
+            <span style="font-size: 24px; font-weight: bold; color: #fff;">${djDisplayName.charAt(0).toUpperCase()}</span>
+          </div>`;
+
+      // Ticket link for IRL events
+      const ticketHtml = match.isIRL && match.irlTicketUrl
+        ? `<a href="${match.irlTicketUrl}" style="display: inline-block; margin-left: 8px; font-size: 12px; color: #22c55e; text-decoration: underline;">Get tickets →</a>`
+        : "";
 
       return `
-        <div style="margin-bottom: 24px;">
-          <p style="color: #888; font-size: 14px; margin-bottom: 12px;">From "<strong style="color: #fff;">${term}</strong>"</p>
-          ${showsHtml}
-          <a href="${djProfileUrl}" style="display: inline-block; background: #fff; color: #000 !important; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 12px; font-size: 14px;">Visit ${djDisplayName} profile</a>
-        </div>
+        <!-- Show Card -->
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px;">
+          <tr>
+            <td style="background: #1a1a1a; border-radius: 12px; padding: 16px; border: 1px solid #333;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <!-- DJ Photo -->
+                  <td width="64" valign="top" style="padding-right: 12px;">
+                    <a href="${djProfileUrl}" style="text-decoration: none;">
+                      ${photoHtml}
+                    </a>
+                  </td>
+                  <!-- Content -->
+                  <td valign="top">
+                    <!-- Badge -->
+                    <div style="margin-bottom: 4px;">
+                      ${badgeHtml}
+                    </div>
+                    <!-- Show Name -->
+                    <div style="font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 4px; line-height: 1.3;">
+                      ${match.showName}
+                    </div>
+                    <!-- DJ Name -->
+                    <div style="font-size: 13px; color: #a1a1aa; margin-bottom: 4px;">
+                      <a href="${djProfileUrl}" style="color: #a1a1aa; text-decoration: none;">${djDisplayName}</a>
+                    </div>
+                    <!-- Location/Time -->
+                    <div style="font-size: 12px; color: #71717a;">
+                      ${locationInfo}${ticketHtml}
+                    </div>
+                  </td>
+                </tr>
+              </table>
+              <!-- CTA Button -->
+              <div style="margin-top: 12px; text-align: center;">
+                <a href="${remindMeUrl}" style="display: inline-block; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: #fff !important; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+                  ${match.isIRL ? "RSVP" : "REMIND ME"}
+                </a>
+              </div>
+            </td>
+          </tr>
+        </table>
       `;
     })
-    .join("");
+    .join(`
+      <!-- Spine divider -->
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px;">
+        <tr>
+          <td align="center">
+            <div style="width: 2px; height: 24px; background: linear-gradient(180deg, #ec4899 0%, #8b5cf6 100%); border-radius: 1px;"></div>
+          </td>
+        </tr>
+      </table>
+    `);
 
   try {
     const { error } = await resend.emails.send({
@@ -456,26 +496,52 @@ export async function sendWatchlistDigestEmail({
         <!DOCTYPE html>
         <html>
         <head>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #000; color: #fff; margin: 0; padding: 40px 20px; }
-            .container { max-width: 500px; margin: 0 auto; text-align: center; }
-            .content { background: #111; border-radius: 12px; padding: 30px; margin-bottom: 20px; text-align: center; }
-            h1 { margin: 0 0 24px; font-size: 20px; color: #fff; }
-            .footer { color: #666; font-size: 12px; text-align: center; margin-top: 30px; }
-            .unsubscribe { color: #666; text-decoration: underline; }
-          </style>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>New Shows from Your Favorite DJs</title>
         </head>
-        <body>
-          <div class="container">
-            <div class="content">
-              <h1>New shows from your favorite DJs</h1>
-              ${groupsHtml}
-            </div>
-            <div class="footer">
-              <p>These shows have been added to your favorites.</p>
-              <a href="${SETTINGS_DEEP_LINK}" class="unsubscribe">Unsubscribe</a>
-            </div>
-          </div>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #0a0a0a; color: #fff; margin: 0; padding: 0;">
+          <!-- Wrapper -->
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #0a0a0a;">
+            <tr>
+              <td align="center" style="padding: 40px 20px;">
+                <!-- Container -->
+                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 420px;">
+                  <!-- Logo Header -->
+                  <tr>
+                    <td align="center" style="padding-bottom: 32px;">
+                      <img src="${logoUrl}" alt="Channel" width="120" style="width: 120px; height: auto;" />
+                    </td>
+                  </tr>
+                  <!-- Title -->
+                  <tr>
+                    <td align="center" style="padding-bottom: 32px;">
+                      <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #fff; line-height: 1.3;">
+                        New shows from your<br/>favorite DJs
+                      </h1>
+                    </td>
+                  </tr>
+                  <!-- Show Cards -->
+                  <tr>
+                    <td>
+                      ${showCardsHtml}
+                    </td>
+                  </tr>
+                  <!-- Footer -->
+                  <tr>
+                    <td align="center" style="padding-top: 32px; border-top: 1px solid #333;">
+                      <p style="margin: 0 0 12px; font-size: 13px; color: #71717a;">
+                        These shows have been added to your favorites.
+                      </p>
+                      <a href="${SETTINGS_DEEP_LINK}" style="font-size: 12px; color: #71717a; text-decoration: underline;">
+                        Unsubscribe
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
         </body>
         </html>
       `,

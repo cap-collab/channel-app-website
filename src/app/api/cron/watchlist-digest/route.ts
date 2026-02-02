@@ -57,6 +57,7 @@ interface BroadcastShow extends Show {
   djUserId?: string;
   djEmail?: string;
   djUsername?: string;
+  djPhotoUrl?: string;
   isIRL?: boolean;
   irlLocation?: string;
   irlTicketUrl?: string;
@@ -220,18 +221,21 @@ export async function GET(request: NextRequest) {
     console.log(`[watchlist-digest] Added ${irlEventsAdded} IRL events from DJ profiles`);
     console.log(`[watchlist-digest] Total shows to check: ${allShows.length}`);
 
-    // Build a lookup map from DJ names/usernames to their chatUsername for profile linking
+    // Build a lookup map from DJ names/usernames to their profile info for linking
     // This allows us to link to DJ profiles when a watchlist search term matches a DJ
-    const djNameToUsername = new Map<string, string>();
+    const djNameToProfile = new Map<string, { username: string; photoUrl?: string }>();
     for (const djUser of djUsers) {
       const chatUsername = djUser.data.chatUsername as string | undefined;
       const displayName = djUser.data.displayName as string | undefined;
+      const djProfile = djUser.data.djProfile as Record<string, unknown> | undefined;
+      const photoUrl = djProfile?.photoUrl as string | undefined;
       if (chatUsername) {
+        const profile = { username: chatUsername, photoUrl };
         // Map both display name and chat username to the profile
         if (displayName) {
-          djNameToUsername.set(displayName.toLowerCase(), chatUsername);
+          djNameToProfile.set(displayName.toLowerCase(), profile);
         }
-        djNameToUsername.set(chatUsername.toLowerCase(), chatUsername);
+        djNameToProfile.set(chatUsername.toLowerCase(), profile);
       }
     }
 
@@ -303,6 +307,7 @@ export async function GET(request: NextRequest) {
         showName: string;
         djName?: string;
         djUsername?: string;
+        djPhotoUrl?: string;
         stationName: string;
         stationId: string;
         startTime: Date;
@@ -351,17 +356,23 @@ export async function GET(request: NextRequest) {
         }
 
         if (matched) {
-          // Look up DJ username from profile if not already set
+          // Look up DJ profile info if not already set
           // Use the matched search term to find the DJ profile (e.g. watchlist "dor wand" -> DJ profile "dor wand")
           let djUsername = broadcastShow.djUsername;
+          let djPhotoUrl = broadcastShow.djPhotoUrl;
           if (!djUsername && matchedTerm) {
-            djUsername = djNameToUsername.get(matchedTerm.toLowerCase());
+            const djProfile = djNameToProfile.get(matchedTerm.toLowerCase());
+            if (djProfile) {
+              djUsername = djProfile.username;
+              djPhotoUrl = djProfile.photoUrl;
+            }
           }
 
           matches.push({
             showName: show.name,
             djName: show.dj,
             djUsername,
+            djPhotoUrl,
             stationName: show.stationName,
             stationId: show.stationId,
             startTime: showStart,
