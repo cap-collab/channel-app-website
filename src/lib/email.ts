@@ -424,12 +424,16 @@ export async function sendWatchlistDigestEmail({
         ? `${match.irlLocation || "TBA"} · ${dateStr}`
         : `${match.stationName} · ${dateStr} at ${timeStr}`;
 
-      // DJ photo or fallback initial
+      // DJ photo or fallback initial (email-compatible table-based fallback)
       const photoHtml = match.djPhotoUrl
         ? `<img src="${match.djPhotoUrl}" alt="${djDisplayName}" width="64" height="64" style="width: 64px; height: 64px; border-radius: 8px; object-fit: cover; border: 1px solid #333;" />`
-        : `<div style="width: 64px; height: 64px; border-radius: 8px; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); display: flex; align-items: center; justify-content: center; border: 1px solid #333;">
-            <span style="font-size: 24px; font-weight: bold; color: #fff;">${djDisplayName.charAt(0).toUpperCase()}</span>
-          </div>`;
+        : `<table width="64" height="64" cellpadding="0" cellspacing="0" border="0" style="border-radius: 8px; border: 1px solid #333; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);">
+            <tr>
+              <td align="center" valign="middle" style="font-size: 24px; font-weight: bold; color: #fff;">
+                ${djDisplayName.charAt(0).toUpperCase()}
+              </td>
+            </tr>
+          </table>`;
 
       return `
         <!-- Show Card -->
