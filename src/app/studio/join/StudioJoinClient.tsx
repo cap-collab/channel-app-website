@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { HeaderSearch } from '@/components/HeaderSearch';
@@ -18,7 +18,6 @@ export function StudioJoinClient() {
   const { user, isAuthenticated } = useAuthContext();
   const { role, loading: roleLoading } = useUserRole(user);
   const userIsDJ = isDJ(role);
-  const wasAuthenticatedRef = useRef(isAuthenticated);
   const [formData, setFormData] = useState<DJApplicationFormData>({
     djName: '',
     email: '',
@@ -64,14 +63,19 @@ export function StudioJoinClient() {
   // Uses the API endpoint which also claims any pending DJ profiles
   useEffect(() => {
     async function assignDJRoleAfterSignup() {
-      if (!user) return;
+      if (!user || roleLoading) return;
 
-      // Only assign if user just signed up (was not authenticated before)
-      // Don't wait for roleLoading - call API immediately after signup
-      if (!wasAuthenticatedRef.current && isAuthenticated) {
+      // Check if we already processed this signup (persists across reloads)
+      const signupProcessedKey = `dj-signup-processed-${user.uid}`;
+      const alreadyProcessed = sessionStorage.getItem(signupProcessedKey);
+
+      // Only assign if user is not already a DJ and we haven't processed this signup
+      if (!userIsDJ && !alreadyProcessed) {
         try {
+          // Mark as processed before calling API to prevent loops
+          sessionStorage.setItem(signupProcessedKey, 'true');
+
           // Use the API endpoint which handles claiming pending DJ profiles
-          // This is idempotent - safe to call even if user is already a DJ
           const response = await fetch('/api/users/assign-dj-role', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -84,13 +88,14 @@ export function StudioJoinClient() {
           }
         } catch (error) {
           console.error('Failed to assign DJ role after signup:', error);
+          // Clear the flag so they can retry
+          sessionStorage.removeItem(signupProcessedKey);
         }
       }
-      wasAuthenticatedRef.current = isAuthenticated;
     }
 
     assignDJRoleAfterSignup();
-  }, [user, isAuthenticated]);
+  }, [user, userIsDJ, roleLoading]);
 
   // Fetch DJ profile to pre-fill form (for DJ users)
   useEffect(() => {
