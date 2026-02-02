@@ -158,23 +158,7 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
 
   const externalPromises = Array.from(externalDjNames.keys()).map(async (normalized) => {
     try {
-      // First try pending-dj-profiles collection
-      const pendingDoc = await adminDb.collection("pending-dj-profiles").doc(normalized).get();
-      if (pendingDoc.exists) {
-        const data = pendingDoc.data();
-        const djProfile = data?.djProfile as { bio?: string; photoUrl?: string; genres?: string[]; location?: string } | undefined;
-        externalProfiles[normalized] = {
-          bio: djProfile?.bio || undefined,
-          photoUrl: djProfile?.photoUrl || undefined,
-          username: data?.chatUsernameNormalized || data?.chatUsername || undefined,
-          djName: data?.djName || undefined,
-          genres: djProfile?.genres || undefined,
-          location: djProfile?.location || undefined,
-        };
-        return;
-      }
-
-      // If not found, try users collection by chatUsernameNormalized
+      // First try users collection (claimed profiles have priority - more complete data)
       const usersSnapshot = await adminDb
         .collection("users")
         .where("chatUsernameNormalized", "==", normalized)
@@ -190,6 +174,22 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
           photoUrl: djProfile?.photoUrl || undefined,
           username: userData?.chatUsernameNormalized || userData?.chatUsername || undefined,
           djName: userData?.chatUsername || undefined,
+          genres: djProfile?.genres || undefined,
+          location: djProfile?.location || undefined,
+        };
+        return;
+      }
+
+      // Fall back to pending-dj-profiles collection (auto-generated profiles)
+      const pendingDoc = await adminDb.collection("pending-dj-profiles").doc(normalized).get();
+      if (pendingDoc.exists) {
+        const data = pendingDoc.data();
+        const djProfile = data?.djProfile as { bio?: string; photoUrl?: string; genres?: string[]; location?: string } | undefined;
+        externalProfiles[normalized] = {
+          bio: djProfile?.bio || undefined,
+          photoUrl: djProfile?.photoUrl || undefined,
+          username: data?.chatUsernameNormalized || data?.chatUsername || undefined,
+          djName: data?.djName || undefined,
           genres: djProfile?.genres || undefined,
           location: djProfile?.location || undefined,
         };
