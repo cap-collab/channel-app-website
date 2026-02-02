@@ -181,17 +181,63 @@ export function useFavorites() {
           return true;
         }
 
+        // If show doesn't have DJ profile data, try to look it up
+        let djUsername = show.djUsername || null;
+        let djPhotoUrl = show.djPhotoUrl || null;
+
+        if (show.dj && (!djUsername || !djPhotoUrl)) {
+          const normalized = show.dj.replace(/[\s-]+/g, "").toLowerCase();
+          console.log(`[addFavorite] Looking up DJ profile for "${show.dj}" (normalized: ${normalized})`);
+
+          try {
+            // Check pending-dj-profiles first (has public read access)
+            const pendingRef = collection(db, "pending-dj-profiles");
+            const pendingQ = query(
+              pendingRef,
+              where("chatUsernameNormalized", "==", normalized)
+            );
+            const pendingSnapshot = await getDocs(pendingQ);
+
+            if (!pendingSnapshot.empty) {
+              const data = pendingSnapshot.docs[0].data();
+              djUsername = djUsername || data.chatUsername || null;
+              djPhotoUrl = djPhotoUrl || data.djProfile?.photoUrl || null;
+              console.log(`[addFavorite] Found DJ in pending-dj-profiles: ${djUsername}, photo: ${djPhotoUrl ? 'yes' : 'no'}`);
+            } else {
+              // Fall back to users collection
+              const usersRef = collection(db, "users");
+              const usersQ = query(
+                usersRef,
+                where("chatUsernameNormalized", "==", normalized),
+                where("role", "in", ["dj", "broadcaster", "admin"])
+              );
+              const usersSnapshot = await getDocs(usersQ);
+
+              if (!usersSnapshot.empty) {
+                const data = usersSnapshot.docs[0].data();
+                djUsername = djUsername || data.chatUsername || null;
+                djPhotoUrl = djPhotoUrl || data.djProfile?.photoUrl || null;
+                console.log(`[addFavorite] Found DJ in users: ${djUsername}, photo: ${djPhotoUrl ? 'yes' : 'no'}`);
+              }
+            }
+          } catch (lookupError) {
+            console.warn(`[addFavorite] Could not look up DJ profile:`, lookupError);
+          }
+        }
+
         await addDoc(favoritesRef, {
           term: show.name.toLowerCase(),
           type: "show",
           showName: show.name,
           djName: show.dj || null,
+          djUsername,
+          djPhotoUrl,
           stationId: show.stationId,
           createdAt: serverTimestamp(),
           createdBy: "web",
         });
 
-        console.log(`[addFavorite] Added show "${show.name}" (${show.stationId}) to favorites`);
+        console.log(`[addFavorite] Added show "${show.name}" (${show.stationId}) to favorites with djUsername=${djUsername}, djPhotoUrl=${djPhotoUrl ? 'yes' : 'no'}`);
         return true;
       } catch (error) {
         console.error("[addFavorite] Error:", error);
@@ -454,12 +500,54 @@ export function useFavorites() {
             (doc) => doc.data().stationId === show.stationId
           );
           if (!alreadyFavorited) {
-            console.log(`[addToWatchlist] Auto-adding show to favorites: ${show.name} (${show.stationId})`);
+            // If show doesn't have DJ profile data, try to look it up
+            let djUsername = show.djUsername || null;
+            let djPhotoUrl = show.djPhotoUrl || null;
+
+            if (show.dj && (!djUsername || !djPhotoUrl)) {
+              const djNormalized = show.dj.replace(/[\s-]+/g, "").toLowerCase();
+              try {
+                // Check pending-dj-profiles first
+                const pendingRef = collection(db, "pending-dj-profiles");
+                const pendingQ = query(
+                  pendingRef,
+                  where("chatUsernameNormalized", "==", djNormalized)
+                );
+                const pendingSnapshot = await getDocs(pendingQ);
+
+                if (!pendingSnapshot.empty) {
+                  const data = pendingSnapshot.docs[0].data();
+                  djUsername = djUsername || data.chatUsername || null;
+                  djPhotoUrl = djPhotoUrl || data.djProfile?.photoUrl || null;
+                } else {
+                  // Fall back to users collection
+                  const usersRef = collection(db, "users");
+                  const usersQ = query(
+                    usersRef,
+                    where("chatUsernameNormalized", "==", djNormalized),
+                    where("role", "in", ["dj", "broadcaster", "admin"])
+                  );
+                  const usersSnapshot = await getDocs(usersQ);
+
+                  if (!usersSnapshot.empty) {
+                    const data = usersSnapshot.docs[0].data();
+                    djUsername = djUsername || data.chatUsername || null;
+                    djPhotoUrl = djPhotoUrl || data.djProfile?.photoUrl || null;
+                  }
+                }
+              } catch (lookupError) {
+                console.warn(`[addToWatchlist] Could not look up DJ profile for ${show.dj}:`, lookupError);
+              }
+            }
+
+            console.log(`[addToWatchlist] Auto-adding show to favorites: ${show.name} (${show.stationId}) with djUsername=${djUsername}`);
             await addDoc(favoritesRef, {
               term: show.name.toLowerCase(),
               type: "show",
               showName: show.name,
               djName: show.dj || null,
+              djUsername,
+              djPhotoUrl,
               stationId: show.stationId,
               createdAt: serverTimestamp(),
               createdBy: "web",
@@ -768,12 +856,54 @@ export function useFavorites() {
             (doc) => doc.data().stationId === show.stationId
           );
           if (!existsInFirebase) {
-            console.log(`[addDJShowsToFavorites] Adding show to favorites: ${show.name} (${show.stationId})`);
+            // If show doesn't have DJ profile data, try to look it up
+            let djUsername = show.djUsername || null;
+            let djPhotoUrl = show.djPhotoUrl || null;
+
+            if (show.dj && (!djUsername || !djPhotoUrl)) {
+              const djNormalized = show.dj.replace(/[\s-]+/g, "").toLowerCase();
+              try {
+                // Check pending-dj-profiles first
+                const pendingRef = collection(db, "pending-dj-profiles");
+                const pendingQ = query(
+                  pendingRef,
+                  where("chatUsernameNormalized", "==", djNormalized)
+                );
+                const pendingSnapshot = await getDocs(pendingQ);
+
+                if (!pendingSnapshot.empty) {
+                  const data = pendingSnapshot.docs[0].data();
+                  djUsername = djUsername || data.chatUsername || null;
+                  djPhotoUrl = djPhotoUrl || data.djProfile?.photoUrl || null;
+                } else {
+                  // Fall back to users collection
+                  const usersRef = collection(db, "users");
+                  const usersQ = query(
+                    usersRef,
+                    where("chatUsernameNormalized", "==", djNormalized),
+                    where("role", "in", ["dj", "broadcaster", "admin"])
+                  );
+                  const usersSnapshot = await getDocs(usersQ);
+
+                  if (!usersSnapshot.empty) {
+                    const data = usersSnapshot.docs[0].data();
+                    djUsername = djUsername || data.chatUsername || null;
+                    djPhotoUrl = djPhotoUrl || data.djProfile?.photoUrl || null;
+                  }
+                }
+              } catch (lookupError) {
+                console.warn(`[addDJShowsToFavorites] Could not look up DJ profile for ${show.dj}:`, lookupError);
+              }
+            }
+
+            console.log(`[addDJShowsToFavorites] Adding show to favorites: ${show.name} (${show.stationId}) with djUsername=${djUsername}`);
             await addDoc(favoritesRef, {
               term: show.name.toLowerCase(),
               type: "show",
               showName: show.name,
               djName: show.dj || null,
+              djUsername,
+              djPhotoUrl,
               stationId: show.stationId,
               createdAt: serverTimestamp(),
               createdBy: "web",
