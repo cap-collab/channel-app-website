@@ -21,14 +21,7 @@ export function StudioJoinClient() {
 
   // Debug logging - remove after fixing
   useEffect(() => {
-    console.log('[StudioJoinClient] Auth state:', {
-      isAuthenticated,
-      userId: user?.uid,
-      email: user?.email,
-      role,
-      roleLoading,
-      userIsDJ,
-    });
+    console.log(`[StudioJoinClient] isAuthenticated=${isAuthenticated}, role=${role}, roleLoading=${roleLoading}, userIsDJ=${userIsDJ}, email=${user?.email}`);
   }, [isAuthenticated, user, role, roleLoading, userIsDJ]);
 
   const [formData, setFormData] = useState<DJApplicationFormData>({
