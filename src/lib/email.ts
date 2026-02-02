@@ -40,27 +40,33 @@ function wrapEmailContent(content: string, footerText: string): string {
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="color-scheme" content="dark">
+      <meta name="supported-color-schemes" content="dark">
+      <style>
+        :root { color-scheme: dark; }
+        body, .body-bg { background-color: #0a0a0a !important; }
+      </style>
     </head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #0a0a0a; color: #fff; margin: 0; padding: 0;">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #0a0a0a;">
+    <body class="body-bg" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0a0a0a; color: #fff; margin: 0; padding: 0;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0a0a0a" style="background-color: #0a0a0a;">
         <tr>
-          <td align="center" style="padding: 40px 20px;">
+          <td align="center" style="padding: 40px 20px;" bgcolor="#0a0a0a">
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 420px;">
               <!-- Logo Header -->
               <tr>
-                <td align="center" style="padding-bottom: 32px;">
+                <td align="center" style="padding-bottom: 32px;" bgcolor="#0a0a0a">
                   <img src="${LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" />
                 </td>
               </tr>
               <!-- Content -->
               <tr>
-                <td>
+                <td bgcolor="#0a0a0a">
                   ${content}
                 </td>
               </tr>
               <!-- Footer -->
               <tr>
-                <td align="center" style="padding-top: 32px; border-top: 1px solid #333;">
+                <td align="center" style="padding-top: 32px; border-top: 1px solid #333;" bgcolor="#0a0a0a">
                   <p style="margin: 0 0 12px; font-size: 13px; color: #71717a;">
                     ${footerText}
                   </p>
@@ -498,24 +504,30 @@ export async function sendWatchlistDigestEmail({
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <meta name="color-scheme" content="dark">
+          <meta name="supported-color-schemes" content="dark">
           <title>New Shows from Your Favorite DJs</title>
+          <style>
+            :root { color-scheme: dark; }
+            body, .body-bg { background-color: #0a0a0a !important; }
+          </style>
         </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #0a0a0a; color: #fff; margin: 0; padding: 0;">
+        <body class="body-bg" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0a0a0a; color: #fff; margin: 0; padding: 0;">
           <!-- Wrapper -->
-          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #0a0a0a;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0a0a0a" style="background-color: #0a0a0a;">
             <tr>
-              <td align="center" style="padding: 40px 20px;">
+              <td align="center" style="padding: 40px 20px;" bgcolor="#0a0a0a">
                 <!-- Container -->
                 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 420px;">
                   <!-- Logo Header -->
                   <tr>
-                    <td align="center" style="padding-bottom: 32px;">
+                    <td align="center" style="padding-bottom: 32px;" bgcolor="#0a0a0a">
                       <img src="${logoUrl}" alt="Channel" width="120" style="width: 120px; height: auto;" />
                     </td>
                   </tr>
                   <!-- Title -->
                   <tr>
-                    <td align="center" style="padding-bottom: 32px;">
+                    <td align="center" style="padding-bottom: 32px;" bgcolor="#0a0a0a">
                       <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #fff; line-height: 1.3;">
                         New shows from your<br/>favorite DJs
                       </h1>
@@ -523,13 +535,13 @@ export async function sendWatchlistDigestEmail({
                   </tr>
                   <!-- Show Cards -->
                   <tr>
-                    <td>
+                    <td bgcolor="#0a0a0a">
                       ${showCardsHtml}
                     </td>
                   </tr>
                   <!-- Footer -->
                   <tr>
-                    <td align="center" style="padding-top: 32px; border-top: 1px solid #333;">
+                    <td align="center" style="padding-top: 32px; border-top: 1px solid #333;" bgcolor="#0a0a0a">
                       <p style="margin: 0 0 12px; font-size: 13px; color: #71717a;">
                         These shows have been added to your favorites.
                       </p>
