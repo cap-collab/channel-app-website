@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useFavorites } from '@/hooks/useFavorites';
+import { useBPM } from '@/contexts/BPMContext';
 import { Show, Station } from '@/types';
 import { STATIONS } from '@/lib/stations';
 import { getContrastTextColor } from '@/lib/colorUtils';
@@ -24,6 +25,7 @@ interface WhoIsOnNowProps {
 export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLoading, isBroadcastLive, chatSlot }: WhoIsOnNowProps) {
   const { isAuthenticated } = useAuthContext();
   const { isInWatchlist, followDJ, removeFromWatchlist } = useFavorites();
+  const { stationBPM } = useBPM();
 
   const [allShows, setAllShows] = useState<Show[]>([]);
   const [loading, setLoading] = useState(true);
@@ -188,6 +190,7 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
             onTogglePlay={onTogglePlay}
             isPlaying={isPlaying}
             isStreamLoading={isStreamLoading}
+            bpm={stationBPM[broadcastShow.stationId]?.bpm ?? null}
           />
           {chatSlot}
         </div>
@@ -211,6 +214,7 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
                 isFollowed={isFollowed}
                 isTogglingFollow={togglingFollowId === show.id}
                 onFollow={() => handleFollow(show)}
+                bpm={stationBPM[show.stationId]?.bpm ?? null}
               />
             );
           })}
@@ -230,6 +234,7 @@ interface BroadcastCardProps {
   onTogglePlay?: () => void;
   isPlaying?: boolean;
   isStreamLoading?: boolean;
+  bpm: number | null;
 }
 
 function BroadcastCard({
@@ -241,15 +246,35 @@ function BroadcastCard({
   onTogglePlay,
   isPlaying,
   isStreamLoading,
+  bpm,
 }: BroadcastCardProps) {
   const [imageError, setImageError] = useState(false);
   const imageUrl = !imageError ? (show.djPhotoUrl || show.imageUrl) : null;
+
+  // Calculate animation duration from BPM (one beat = 60/bpm seconds)
+  const bpmDuration = bpm ? `${Math.round(60000 / bpm)}ms` : '500ms';
 
   return (
     <div className="bg-surface-card rounded-xl overflow-hidden">
       <div className="flex flex-col sm:flex-row">
         {/* Image */}
         <div className="relative w-full sm:w-48 aspect-square sm:aspect-auto sm:h-auto flex-shrink-0">
+          {/* BPM Badge - top left corner */}
+          {bpm && (
+            <div
+              className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 px-2 h-6 rounded-full animate-bpm-pulse"
+              style={{
+                background: 'rgba(0, 0, 0, 0.6)',
+                backdropFilter: 'blur(4px)',
+                ['--bpm-duration' as string]: bpmDuration,
+              }}
+            >
+              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M12 3v18M8 7v10M4 10v4M16 7v10M20 10v4" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              <span className="text-xs font-medium text-white whitespace-nowrap">{bpm} BPM</span>
+            </div>
+          )}
           {imageUrl ? (
             <Image
               src={imageUrl}
@@ -364,6 +389,7 @@ interface LiveShowCardProps {
   isFollowed: boolean;
   isTogglingFollow: boolean;
   onFollow: () => void;
+  bpm: number | null;
 }
 
 function LiveShowCard({
@@ -372,6 +398,7 @@ function LiveShowCard({
   isFollowed,
   isTogglingFollow,
   onFollow,
+  bpm,
 }: LiveShowCardProps) {
   const [imageError, setImageError] = useState(false);
   // Only use djPhotoUrl from DJ profile, not show.imageUrl
@@ -381,6 +408,26 @@ function LiveShowCard({
 
   // For no-photo variant, use station color with contrast text
   const textColor = hasPhoto ? '#ffffff' : getContrastTextColor(station.accentColor);
+
+  // Calculate animation duration from BPM (one beat = 60/bpm seconds)
+  const bpmDuration = bpm ? `${Math.round(60000 / bpm)}ms` : '500ms';
+
+  // BPM badge component to reuse in both link and div versions
+  const BPMBadge = bpm ? (
+    <div
+      className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 px-1.5 h-5 rounded-full animate-bpm-pulse"
+      style={{
+        background: 'rgba(0, 0, 0, 0.6)',
+        backdropFilter: 'blur(4px)',
+        ['--bpm-duration' as string]: bpmDuration,
+      }}
+    >
+      <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path d="M12 3v18M8 7v10M4 10v4M16 7v10M20 10v4" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+      <span className="text-[10px] font-medium text-white whitespace-nowrap">{bpm}</span>
+    </div>
+  ) : null;
 
   return (
     <div className="flex-shrink-0 w-44 sm:w-56 md:w-[calc((100%-2rem)/3)] snap-start group flex flex-col">
@@ -397,6 +444,7 @@ function LiveShowCard({
       {/* Image or Graphic Card - links to DJ profile if available */}
       {show.djUsername ? (
         <Link href={`/dj/${show.djUsername}`} className="block relative aspect-square overflow-hidden border border-white/10">
+          {BPMBadge}
           {hasPhoto ? (
             <>
               <Image
@@ -451,6 +499,7 @@ function LiveShowCard({
         </Link>
       ) : (
         <div className="relative aspect-square overflow-hidden border border-white/10">
+          {BPMBadge}
           {hasPhoto ? (
             <>
               <Image
