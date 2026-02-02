@@ -312,6 +312,9 @@ export function MyShowsClient() {
       // Look up DJ profile if show doesn't have profile data
       const djName = show.dj || favorite.djName || favorite.showName || favorite.term;
       const djProfile = show.dj ? djProfiles.get(show.dj.toLowerCase()) : undefined;
+      // Only use DJ profile photos (not show.imageUrl which is a show cover, not a DJ photo)
+      const djPhotoUrl = show.djPhotoUrl || djProfile?.photoUrl;
+      const djUsername = show.djUsername || djProfile?.username;
 
       items.push({
         id: `online-live-${favorite.id}`,
@@ -319,8 +322,8 @@ export function MyShowsClient() {
         sortTime: new Date(show.startTime),
         isLive: true,
         djName,
-        djPhotoUrl: show.djPhotoUrl || djProfile?.photoUrl || show.imageUrl,
-        djUsername: show.djUsername || djProfile?.username,
+        djPhotoUrl,
+        djUsername,
         djGenres: show.djGenres || djProfile?.genres,
         favorite,
         show,
@@ -333,6 +336,9 @@ export function MyShowsClient() {
       // Look up DJ profile if show doesn't have profile data
       const djName = show.dj || favorite.djName || favorite.showName || favorite.term;
       const djProfile = show.dj ? djProfiles.get(show.dj.toLowerCase()) : undefined;
+      // Only use DJ profile photos (not show.imageUrl which is a show cover, not a DJ photo)
+      const djPhotoUrl = show.djPhotoUrl || djProfile?.photoUrl;
+      const djUsername = show.djUsername || djProfile?.username;
 
       items.push({
         id: `online-upcoming-${favorite.id}`,
@@ -340,8 +346,8 @@ export function MyShowsClient() {
         sortTime: new Date(show.startTime),
         isLive: false,
         djName,
-        djPhotoUrl: show.djPhotoUrl || djProfile?.photoUrl || show.imageUrl,
-        djUsername: show.djUsername || djProfile?.username,
+        djPhotoUrl,
+        djUsername,
         djGenres: show.djGenres || djProfile?.genres,
         favorite,
         show,
@@ -711,13 +717,16 @@ export function MyShowsClient() {
                   {watchlist.map((favorite) => {
                     const djProfile = djProfiles.get(favorite.term.toLowerCase());
                     const displayName = djProfile?.username || favorite.term.charAt(0).toUpperCase() + favorite.term.slice(1);
+                    // Always provide a djUsername for navigation - use normalized term as fallback
+                    const normalizedTerm = favorite.term.replace(/[\s-]+/g, "").toLowerCase();
+                    const djUsername = djProfile?.username || normalizedTerm;
 
                     return (
                       <WatchlistDJCard
                         key={favorite.id}
                         djName={displayName}
                         djPhotoUrl={djProfile?.photoUrl}
-                        djUsername={djProfile?.username}
+                        djUsername={djUsername}
                         djLocation={djProfile?.location}
                         djGenres={djProfile?.genres}
                         onRemove={() => handleRemove(favorite)}

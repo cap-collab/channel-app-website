@@ -100,14 +100,10 @@ export function MyShowsCard({
   const hasPhoto = djPhotoUrl && !imageError;
 
   const handleDJClick = (e: React.MouseEvent) => {
-    console.log('[MyShowsCard] Click detected, djUsername:', djUsername);
     if (djUsername) {
       e.preventDefault();
       e.stopPropagation();
-      console.log('[MyShowsCard] Navigating to:', `/dj/${djUsername}`);
       router.push(`/dj/${djUsername}`);
-    } else {
-      console.log('[MyShowsCard] No djUsername, not navigating');
     }
   };
 
