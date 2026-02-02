@@ -237,17 +237,17 @@ export function MyShowsClient() {
         const normalized = name.replace(/[\s-]+/g, "").toLowerCase();
 
         try {
-          // Check users collection first (approved DJs)
-          const usersRef = collection(db, "users");
-          const usersQ = query(
-            usersRef,
-            where("chatUsernameNormalized", "==", normalized),
-            where("role", "in", ["dj", "broadcaster", "admin"])
+          // Check pending-dj-profiles FIRST (has public read, avoids permission issues)
+          const pendingRef = collection(db, "pending-dj-profiles");
+          const pendingQ = query(
+            pendingRef,
+            where("chatUsernameNormalized", "==", normalized)
           );
-          const usersSnapshot = await getDocs(usersQ);
+          const pendingSnapshot = await getDocs(pendingQ);
 
-          if (!usersSnapshot.empty) {
-            const data = usersSnapshot.docs[0].data();
+          if (!pendingSnapshot.empty) {
+            // Use first matching doc regardless of status
+            const data = pendingSnapshot.docs[0].data();
             const profile: DJProfileCache = {
               username: data.chatUsername,
               photoUrl: data.djProfile?.photoUrl || undefined,
@@ -259,17 +259,17 @@ export function MyShowsClient() {
             continue;
           }
 
-          // Fall back to pending-dj-profiles (DJs who applied but aren't fully approved)
-          const pendingRef = collection(db, "pending-dj-profiles");
-          const pendingQ = query(
-            pendingRef,
-            where("chatUsernameNormalized", "==", normalized)
+          // Fall back to users collection (approved DJs)
+          const usersRef = collection(db, "users");
+          const usersQ = query(
+            usersRef,
+            where("chatUsernameNormalized", "==", normalized),
+            where("role", "in", ["dj", "broadcaster", "admin"])
           );
-          const pendingSnapshot = await getDocs(pendingQ);
+          const usersSnapshot = await getDocs(usersQ);
 
-          if (!pendingSnapshot.empty) {
-            // Use first matching doc regardless of status
-            const data = pendingSnapshot.docs[0].data();
+          if (!usersSnapshot.empty) {
+            const data = usersSnapshot.docs[0].data();
             const profile: DJProfileCache = {
               username: data.chatUsername,
               photoUrl: data.djProfile?.photoUrl || undefined,
