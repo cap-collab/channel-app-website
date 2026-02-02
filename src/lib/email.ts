@@ -117,43 +117,27 @@ export async function sendShowStartingEmail({
     : streamUrl || getStationDeepLink(stationId);
   const buttonText = canChatWithDJ ? "Chat live with the DJ" : "Tune In";
 
+  const content = `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333;">
+      <tr>
+        <td align="center" style="padding: 32px;">
+          <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #fff;">
+            ${displayName} <span style="color: #71717a;">is live</span>
+          </h1>
+          <p style="margin: 0 0 8px; font-size: 14px; color: #a1a1aa;">on ${stationName}</p>
+          ${djName ? `<p style="margin: 0 0 24px; font-size: 14px; color: #71717a;">${djName}</p>` : '<div style="height: 16px;"></div>'}
+          <a href="${buttonUrl}" style="${PINK_BUTTON_STYLE}">${buttonText}</a>
+        </td>
+      </tr>
+    </table>
+  `;
+
   try {
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to,
       subject: `${displayName} is live on ${stationName}`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #000; color: #fff; margin: 0; padding: 40px 20px; }
-            .container { max-width: 500px; margin: 0 auto; text-align: center; }
-            .content { background: #111; border-radius: 12px; padding: 30px; margin-bottom: 20px; text-align: center; }
-            h1 { margin: 0 0 8px; font-size: 22px; color: #fff; }
-            .station { color: #888; font-size: 14px; margin-bottom: 20px; }
-            .show-name { color: #aaa; font-size: 14px; margin-bottom: 24px; }
-            .listen-btn { display: inline-block; background: #fff; color: #000 !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; }
-            .footer { color: #666; font-size: 12px; text-align: center; margin-top: 30px; }
-            .unsubscribe { color: #666; text-decoration: underline; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="content">
-              <h1>${displayName} <span style="color: #888;">is live</span></h1>
-              <p class="station">on ${stationName}</p>
-              ${djName ? `<p class="show-name">${djName}</p>` : ""}
-              <a href="${buttonUrl}" class="listen-btn">${buttonText}</a>
-            </div>
-            <div class="footer">
-              <p>You're receiving this because you saved this show.</p>
-              <a href="${SETTINGS_DEEP_LINK}" class="unsubscribe">Unsubscribe</a>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
+      html: wrapEmailContent(content, "You're receiving this because you saved this show."),
     });
 
     if (error) {
@@ -195,43 +179,31 @@ export async function sendMentionEmail({
     ? `https://channel-app.com/dj/${djUsername}#chat`
     : getStationDeepLink(stationId);
 
+  const content = `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333;">
+      <tr>
+        <td align="center" style="padding: 32px;">
+          <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #fff;">
+            @${mentionerUsername} <span style="color: #71717a;">mentioned you</span>
+          </h1>
+          <p style="margin: 0 0 ${messagePreview ? '16px' : '24px'}; font-size: 14px; color: #a1a1aa;">in ${stationName} chat</p>
+          ${messagePreview ? `
+            <div style="background: #0a0a0a; border-radius: 8px; padding: 16px; margin-bottom: 24px; font-style: italic; color: #a1a1aa; text-align: left; border: 1px solid #333;">
+              "${messagePreview}"
+            </div>
+          ` : ''}
+          <a href="${chatUrl}" style="${PINK_BUTTON_STYLE}">Join Chat</a>
+        </td>
+      </tr>
+    </table>
+  `;
+
   try {
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to,
       subject: `${mentionerUsername} mentioned you in ${stationName} chat`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #000; color: #fff; margin: 0; padding: 40px 20px; }
-            .container { max-width: 500px; margin: 0 auto; text-align: center; }
-            .content { background: #111; border-radius: 12px; padding: 30px; margin-bottom: 20px; text-align: center; }
-            h1 { margin: 0 0 8px; font-size: 22px; color: #fff; }
-            .station { color: #888; font-size: 14px; margin-bottom: 20px; }
-            .message-preview { background: #1a1a1a; border-radius: 8px; padding: 16px; margin-bottom: 24px; font-style: italic; color: #aaa; text-align: left; }
-            .join-btn { display: inline-block; background: #fff; color: #000 !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; }
-            .footer { color: #666; font-size: 12px; text-align: center; margin-top: 30px; }
-            .unsubscribe { color: #666; text-decoration: underline; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="content">
-              <h1>@${mentionerUsername} <span style="color: #888;">mentioned you</span></h1>
-              <p class="station">in ${stationName} chat</p>
-              ${messagePreview ? `<div class="message-preview">"${messagePreview}"</div>` : ""}
-              <a href="${chatUrl}" class="join-btn">Join Chat</a>
-            </div>
-            <div class="footer">
-              <p>You're receiving this because someone mentioned you.</p>
-              <a href="${SETTINGS_DEEP_LINK}" class="unsubscribe">Unsubscribe</a>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
+      html: wrapEmailContent(content, "You're receiving this because someone mentioned you."),
     });
 
     if (error) {
@@ -273,43 +245,27 @@ export async function sendPopularityAlertEmail({
     ? `https://channel-app.com/dj/${djUsername}#chat`
     : getStationDeepLink(stationId);
 
+  const content = `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333;">
+      <tr>
+        <td align="center" style="padding: 32px;">
+          <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #fff;">
+            ${showName}
+          </h1>
+          <p style="margin: 0 0 16px; font-size: 14px; color: #a1a1aa;">is trending on ${stationName}</p>
+          <div style="font-size: 36px; margin-bottom: 24px;">${loveCount} ❤️</div>
+          <a href="${listenUrl}" style="${PINK_BUTTON_STYLE}">Tune In</a>
+        </td>
+      </tr>
+    </table>
+  `;
+
   try {
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to,
       subject: `${showName} is getting a lot of love on ${stationName}`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #000; color: #fff; margin: 0; padding: 40px 20px; }
-            .container { max-width: 500px; margin: 0 auto; text-align: center; }
-            .content { background: #111; border-radius: 12px; padding: 30px; margin-bottom: 20px; text-align: center; }
-            h1 { margin: 0 0 8px; font-size: 22px; color: #fff; }
-            .station { color: #888; font-size: 14px; margin-bottom: 12px; }
-            .love-count { font-size: 32px; margin-bottom: 24px; }
-            .listen-btn { display: inline-block; background: #fff; color: #000 !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; }
-            .footer { color: #666; font-size: 12px; text-align: center; margin-top: 30px; }
-            .unsubscribe { color: #666; text-decoration: underline; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="content">
-              <h1>${showName}</h1>
-              <p class="station">is trending on ${stationName}</p>
-              <div class="love-count">${loveCount} ❤️</div>
-              <a href="${listenUrl}" class="listen-btn">Tune In</a>
-            </div>
-            <div class="footer">
-              <p>You're receiving this because you enabled popularity alerts.</p>
-              <a href="${SETTINGS_DEEP_LINK}" class="unsubscribe">Unsubscribe</a>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
+      html: wrapEmailContent(content, "You're receiving this because you enabled popularity alerts."),
     });
 
     if (error) {
@@ -358,49 +314,37 @@ export async function sendTipReminderEmail({
     subject = `You have ${amountFormatted} in pending support on Channel`;
   }
 
+  // Use amber color for urgent, pink gradient for normal
+  const buttonStyle = isUrgent
+    ? "display: inline-block; background: #fbbf24; color: #000 !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;"
+    : PINK_BUTTON_STYLE;
+
+  const content = `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333;">
+      <tr>
+        <td align="center" style="padding: 32px;">
+          <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #fff;">
+            Hi ${displayName},
+          </h1>
+          <p style="margin: 0 0 16px; font-size: 14px; color: #a1a1aa;">You have pending support from listeners on Channel</p>
+          <div style="font-size: 40px; font-weight: 700; color: ${isUrgent ? '#fbbf24' : '#fff'}; margin: 16px 0;">${amountFormatted}</div>
+          <p style="margin: 0 0 24px; font-size: 14px; color: ${isUrgent ? '#fbbf24' : '#71717a'};">${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} left to claim</p>
+          <a href="${stripeOnboardingUrl}" style="${buttonStyle}">Connect Stripe to Receive</a>
+          <div style="margin-top: 24px; padding: 16px; background: #0a0a0a; border-radius: 8px; border: 1px solid #333; text-align: left;">
+            <p style="margin: 0; font-size: 13px; color: #71717a;">Connect your Stripe account to receive tips from listeners. The process takes about 5 minutes.</p>
+            ${isUrgent ? '<p style="margin: 12px 0 0; font-size: 13px; color: #fbbf24;"><strong>After 60 days, unclaimed tips are reallocated to the DJ Support Pool.</strong></p>' : ''}
+          </div>
+        </td>
+      </tr>
+    </table>
+  `;
+
   try {
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to,
       subject,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #000; color: #fff; margin: 0; padding: 40px 20px; }
-            .container { max-width: 500px; margin: 0 auto; text-align: center; }
-            .content { background: #111; border-radius: 12px; padding: 30px; margin-bottom: 20px; text-align: center; }
-            h1 { margin: 0 0 8px; font-size: 22px; color: #fff; }
-            .amount { font-size: 36px; font-weight: 700; color: ${isUrgent ? '#fbbf24' : '#fff'}; margin: 20px 0; }
-            .deadline { color: ${isUrgent ? '#fbbf24' : '#888'}; font-size: 14px; margin-bottom: 24px; }
-            .connect-btn { display: inline-block; background: ${isUrgent ? '#fbbf24' : '#fff'}; color: #000 !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; }
-            .info { color: #666; font-size: 13px; margin-top: 20px; text-align: left; }
-            .footer { color: #666; font-size: 12px; text-align: center; margin-top: 30px; }
-            .unsubscribe { color: #666; text-decoration: underline; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="content">
-              <h1>Hi ${displayName},</h1>
-              <p style="color: #888; margin-bottom: 20px;">You have pending support from listeners on Channel</p>
-              <div class="amount">${amountFormatted}</div>
-              <p class="deadline">${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} left to claim</p>
-              <a href="${stripeOnboardingUrl}" class="connect-btn">Connect Stripe to Receive</a>
-              <div class="info">
-                <p>Connect your Stripe account to receive tips from listeners. The process takes about 5 minutes.</p>
-                ${isUrgent ? '<p style="color: #fbbf24; margin-top: 12px;"><strong>After 60 days, unclaimed tips are reallocated to the DJ Support Pool.</strong></p>' : ''}
-              </div>
-            </div>
-            <div class="footer">
-              <p>You're receiving this because you have pending tips on Channel.</p>
-              <a href="${SETTINGS_DEEP_LINK}" class="unsubscribe">Unsubscribe</a>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
+      html: wrapEmailContent(content, "You're receiving this because you have pending tips on Channel."),
     });
 
     if (error) {
@@ -631,43 +575,26 @@ export async function sendDjOnlineEmail({
 
   const chatUrl = `https://channel-app.com/dj/${djUsername}#chat`;
 
+  const content = `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333;">
+      <tr>
+        <td align="center" style="padding: 32px;">
+          <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #fff;">
+            <span style="display: inline-block; width: 10px; height: 10px; background: #22c55e; border-radius: 50%; margin-right: 8px; vertical-align: middle;"></span>${djUsername}
+          </h1>
+          <p style="margin: 0 0 24px; font-size: 14px; color: #a1a1aa;">is active in their chat right now</p>
+          <a href="${chatUrl}" style="${PINK_BUTTON_STYLE}">Join the Chat</a>
+        </td>
+      </tr>
+    </table>
+  `;
+
   try {
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to,
       subject: `${djUsername} is chatting on Channel`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #000; color: #fff; margin: 0; padding: 40px 20px; }
-            .container { max-width: 500px; margin: 0 auto; text-align: center; }
-            .content { background: #111; border-radius: 12px; padding: 30px; margin-bottom: 20px; text-align: center; }
-            h1 { margin: 0 0 8px; font-size: 22px; color: #fff; }
-            .subtitle { color: #888; font-size: 14px; margin-bottom: 24px; }
-            .online-indicator { display: inline-block; width: 8px; height: 8px; background: #22c55e; border-radius: 50%; margin-right: 8px; animation: pulse 2s infinite; }
-            @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-            .join-btn { display: inline-block; background: #fff; color: #000 !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; }
-            .footer { color: #666; font-size: 12px; text-align: center; margin-top: 30px; }
-            .unsubscribe { color: #666; text-decoration: underline; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="content">
-              <h1><span class="online-indicator"></span>${djUsername}</h1>
-              <p class="subtitle">is active in their chat right now</p>
-              <a href="${chatUrl}" class="join-btn">Join the Chat</a>
-            </div>
-            <div class="footer">
-              <p>You're receiving this because you follow ${djUsername}.</p>
-              <a href="${SETTINGS_DEEP_LINK}" class="unsubscribe">Unsubscribe</a>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
+      html: wrapEmailContent(content, `You're receiving this because you follow ${djUsername}.`),
     });
 
     if (error) {
