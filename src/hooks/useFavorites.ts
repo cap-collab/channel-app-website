@@ -326,47 +326,63 @@ export function useFavorites() {
           return true;
         }
 
-        // Add the watchlist term
+        // Look up DJ profile first to get djUsername and djPhotoUrl
+        const normalizedSearchTerm = term.replace(/[\s-]+/g, "").toLowerCase();
+        let djUsername: string | null = null;
+        let djPhotoUrl: string | null = null;
+        let resolvedDjUserId = djUserId;
+        let resolvedDjEmail = djEmail;
+
+        try {
+          // Check pending-dj-profiles first (has public read access)
+          const pendingRef = collection(db, "pending-dj-profiles");
+          const pendingQ = query(
+            pendingRef,
+            where("chatUsernameNormalized", "==", normalizedSearchTerm)
+          );
+          const pendingSnapshot = await getDocs(pendingQ);
+
+          if (!pendingSnapshot.empty) {
+            const data = pendingSnapshot.docs[0].data();
+            djUsername = data.chatUsername || null;
+            djPhotoUrl = data.djProfile?.photoUrl || null;
+            console.log(`[addToWatchlist] Found DJ in pending-dj-profiles: ${djUsername}, photo: ${djPhotoUrl ? 'yes' : 'no'}`);
+          } else {
+            // Fall back to users collection
+            const usersRef = collection(db, "users");
+            const usersQ = query(
+              usersRef,
+              where("chatUsernameNormalized", "==", normalizedSearchTerm),
+              where("role", "in", ["dj", "broadcaster", "admin"])
+            );
+            const usersSnapshot = await getDocs(usersQ);
+
+            if (!usersSnapshot.empty) {
+              const data = usersSnapshot.docs[0].data();
+              djUsername = data.chatUsername || null;
+              djPhotoUrl = data.djProfile?.photoUrl || null;
+              resolvedDjUserId = resolvedDjUserId || usersSnapshot.docs[0].id;
+              resolvedDjEmail = resolvedDjEmail || (data.email as string | undefined);
+              console.log(`[addToWatchlist] Found DJ in users: ${djUsername}, photo: ${djPhotoUrl ? 'yes' : 'no'}`);
+            }
+          }
+        } catch (lookupError) {
+          console.warn(`[addToWatchlist] Could not look up DJ profile:`, lookupError);
+        }
+
+        // Add the watchlist term with DJ profile data
         await addDoc(favoritesRef, {
           term: term.toLowerCase(),
           type: "search",
           showName: null,
-          djName: null,
+          djName: djUsername || term,
+          djUsername,
+          djPhotoUrl,
           stationId: null,
           createdAt: serverTimestamp(),
           createdBy: "web",
         });
-
-        // If no djUserId/djEmail provided, try to find a DJ by normalized username
-        // Note: Firestore rules only allow reading users with role dj/broadcaster/admin
-        // We query by role and filter by chatUsernameNormalized in memory to avoid compound index requirement
-        let resolvedDjUserId = djUserId;
-        let resolvedDjEmail = djEmail;
-        if (!djUserId && !djEmail) {
-          try {
-            // Normalize the search term the same way as chatUsernameNormalized
-            const normalizedTerm = term.replace(/[\s-]+/g, "").toLowerCase();
-            const usersRef = collection(db, "users");
-            // Query users with DJ/broadcaster/admin role (allowed by Firestore rules)
-            const djQuery = query(
-              usersRef,
-              where("role", "in", ["dj", "broadcaster", "admin"])
-            );
-            const djSnapshot = await getDocs(djQuery);
-            // Filter by chatUsernameNormalized in memory
-            const matchingDoc = djSnapshot.docs.find(
-              (doc) => doc.data().chatUsernameNormalized === normalizedTerm
-            );
-            if (matchingDoc) {
-              resolvedDjUserId = matchingDoc.id;
-              resolvedDjEmail = matchingDoc.data().email as string | undefined;
-              console.log(`[addToWatchlist] Found DJ by username "${term}": userId=${resolvedDjUserId}, email=${resolvedDjEmail}`);
-            }
-          } catch (error) {
-            console.warn(`[addToWatchlist] Could not query users collection:`, error);
-            // Continue without DJ lookup - shows will still be matched by name
-          }
-        }
+        console.log(`[addToWatchlist] Added "${term}" to watchlist with djUsername=${djUsername}, djPhotoUrl=${djPhotoUrl ? 'yes' : 'no'}`);
 
         // Also find and add matching shows and IRL events to favorites
         console.log(`[addToWatchlist] Searching for shows matching "${term}"${resolvedDjUserId ? `, userId: ${resolvedDjUserId}` : ""}${resolvedDjEmail ? `, email: ${resolvedDjEmail}` : ""}`);
