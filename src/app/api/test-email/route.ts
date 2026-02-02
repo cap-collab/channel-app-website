@@ -3,6 +3,7 @@ import { sendWatchlistDigestEmail } from "@/lib/email";
 import { queryUsersWhere } from "@/lib/firebase-rest";
 
 // Look up DJ profile info from Firebase (username + photo)
+// Uses the same normalization as everywhere else in the app
 async function getDJProfile(searchTerm: string): Promise<{ username: string; photoUrl?: string } | null> {
   try {
     const djUsers = await queryUsersWhere("role", "EQUAL", "dj");
@@ -10,13 +11,22 @@ async function getDJProfile(searchTerm: string): Promise<{ username: string; pho
 
     for (const djUser of djUsers) {
       const chatUsername = djUser.data.chatUsername as string | undefined;
+      const chatUsernameNormalized = djUser.data.chatUsernameNormalized as string | undefined;
       const displayName = djUser.data.displayName as string | undefined;
       const djProfile = djUser.data.djProfile as Record<string, unknown> | undefined;
 
+      // Match against:
+      // 1. chatUsernameNormalized from DB (authoritative)
+      // 2. displayName normalized
+      // 3. chatUsername normalized
       const djNormalized = chatUsername?.replace(/[\s-]+/g, "").toLowerCase();
       const displayNormalized = displayName?.replace(/[\s-]+/g, "").toLowerCase();
 
-      if (djNormalized === normalized || displayNormalized === normalized) {
+      if (
+        chatUsernameNormalized === normalized ||
+        djNormalized === normalized ||
+        displayNormalized === normalized
+      ) {
         return {
           username: chatUsername || normalized,
           photoUrl: djProfile?.photoUrl as string | undefined,
@@ -33,6 +43,9 @@ async function sendTestEmail(to: string) {
   // Look up real DJ profiles - only set username if profile exists
   const djCapProfile = await getDJProfile("dj cap");
   const dorWandProfile = await getDJProfile("dor wand");
+
+  console.log("[test-email] DJ Cap profile:", djCapProfile);
+  console.log("[test-email] Dor Wand profile:", dorWandProfile);
 
   // Sample data matching the original email from Feb 1
   const sampleMatches = [

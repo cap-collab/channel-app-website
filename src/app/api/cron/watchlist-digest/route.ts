@@ -223,19 +223,30 @@ export async function GET(request: NextRequest) {
 
     // Build a lookup map from DJ names/usernames to their profile info for linking
     // This allows us to link to DJ profiles when a watchlist search term matches a DJ
+    // We normalize keys (remove spaces/dashes, lowercase) for fuzzy matching
     const djNameToProfile = new Map<string, { username: string; photoUrl?: string }>();
+    function normalizeForLookup(str: string): string {
+      return str.replace(/[\s-]+/g, "").toLowerCase();
+    }
     for (const djUser of djUsers) {
       const chatUsername = djUser.data.chatUsername as string | undefined;
+      const chatUsernameNormalized = djUser.data.chatUsernameNormalized as string | undefined;
       const displayName = djUser.data.displayName as string | undefined;
       const djProfile = djUser.data.djProfile as Record<string, unknown> | undefined;
       const photoUrl = djProfile?.photoUrl as string | undefined;
       if (chatUsername) {
         const profile = { username: chatUsername, photoUrl };
-        // Map both display name and chat username to the profile
-        if (displayName) {
-          djNameToProfile.set(displayName.toLowerCase(), profile);
+        // Map multiple keys to the profile for matching:
+        // 1. chatUsernameNormalized from DB (authoritative)
+        // 2. displayName normalized
+        // 3. chatUsername normalized
+        if (chatUsernameNormalized) {
+          djNameToProfile.set(chatUsernameNormalized, profile);
         }
-        djNameToProfile.set(chatUsername.toLowerCase(), profile);
+        if (displayName) {
+          djNameToProfile.set(normalizeForLookup(displayName), profile);
+        }
+        djNameToProfile.set(normalizeForLookup(chatUsername), profile);
       }
     }
 
@@ -357,11 +368,16 @@ export async function GET(request: NextRequest) {
 
         if (matched) {
           // Look up DJ profile info if not already set
-          // Use the matched search term to find the DJ profile (e.g. watchlist "dor wand" -> DJ profile "dor wand")
+          // Try multiple sources: matched search term, show DJ name
           let djUsername = broadcastShow.djUsername;
           let djPhotoUrl = broadcastShow.djPhotoUrl;
-          if (!djUsername && matchedTerm) {
-            const djProfile = djNameToProfile.get(matchedTerm.toLowerCase());
+          if (!djUsername) {
+            // Try matched search term first (e.g. watchlist "dor wand")
+            let djProfile = matchedTerm ? djNameToProfile.get(normalizeForLookup(matchedTerm)) : undefined;
+            // Also try the show's DJ name if different
+            if (!djProfile && show.dj) {
+              djProfile = djNameToProfile.get(normalizeForLookup(show.dj));
+            }
             if (djProfile) {
               djUsername = djProfile.username;
               djPhotoUrl = djProfile.photoUrl;
