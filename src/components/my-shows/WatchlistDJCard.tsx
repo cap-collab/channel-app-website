@@ -28,6 +28,7 @@ export function WatchlistDJCard({
   const hasPhoto = djPhotoUrl && !imageError;
 
   const handleCardClick = () => {
+    console.log('[WatchlistDJCard] Click! djUsername:', djUsername);
     if (djUsername) {
       router.push(`/dj/${djUsername}`);
     }

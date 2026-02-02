@@ -100,6 +100,7 @@ export function MyShowsCard({
   const hasPhoto = djPhotoUrl && !imageError;
 
   const handleDJClick = (e: React.MouseEvent) => {
+    console.log('[MyShowsCard] Click! djUsername:', djUsername);
     if (djUsername) {
       e.preventDefault();
       e.stopPropagation();
