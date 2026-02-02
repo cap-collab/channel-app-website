@@ -29,6 +29,58 @@ function getStationDeepLink(metadataStationId: string): string {
 // Settings deep link (opens app settings if installed, falls back to website)
 const SETTINGS_DEEP_LINK = "https://channel-app.com/settings";
 
+// Channel logo URL
+const LOGO_URL = "https://channel-app.com/logo-white.png";
+
+// Shared email wrapper with Channel branding
+function wrapEmailContent(content: string, footerText: string): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #0a0a0a; color: #fff; margin: 0; padding: 0;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #0a0a0a;">
+        <tr>
+          <td align="center" style="padding: 40px 20px;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 420px;">
+              <!-- Logo Header -->
+              <tr>
+                <td align="center" style="padding-bottom: 32px;">
+                  <img src="${LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" />
+                </td>
+              </tr>
+              <!-- Content -->
+              <tr>
+                <td>
+                  ${content}
+                </td>
+              </tr>
+              <!-- Footer -->
+              <tr>
+                <td align="center" style="padding-top: 32px; border-top: 1px solid #333;">
+                  <p style="margin: 0 0 12px; font-size: 13px; color: #71717a;">
+                    ${footerText}
+                  </p>
+                  <a href="${SETTINGS_DEEP_LINK}" style="font-size: 12px; color: #71717a; text-decoration: underline;">
+                    Unsubscribe
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+}
+
+// Pink gradient button style
+const PINK_BUTTON_STYLE = "display: inline-block; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: #fff !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;";
+
 interface ShowStartingEmailParams {
   to: string;
   showName: string;
