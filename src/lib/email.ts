@@ -401,13 +401,18 @@ export async function sendWatchlistDigestEmail({
       const timeStr = new Date(match.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
       const djDisplayName = match.djName || match.searchTerm;
 
-      // DJ profile URL - link to profile if exists
+      // DJ profile URL - link to profile if exists, fallback to my-shows
       const djProfileUrl = match.djUsername
         ? `https://channel-app.com/dj/${match.djUsername}`
         : "https://channel-app.com/my-shows";
 
-      // Remind me deep link (adds to favorites via website)
-      const remindMeUrl = `https://channel-app.com/my-shows?add=${encodeURIComponent(match.showName)}`;
+      // CTA URL: For IRL events with tickets, link to tickets; otherwise link to DJ profile
+      const ctaUrl = match.isIRL && match.irlTicketUrl
+        ? match.irlTicketUrl
+        : djProfileUrl;
+
+      // CTA text
+      const ctaText = match.isIRL && match.irlTicketUrl ? "GET TICKETS" : "REMIND ME";
 
       // Badge for IRL vs Online
       const badgeHtml = match.isIRL
@@ -425,11 +430,6 @@ export async function sendWatchlistDigestEmail({
         : `<div style="width: 64px; height: 64px; border-radius: 8px; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); display: flex; align-items: center; justify-content: center; border: 1px solid #333;">
             <span style="font-size: 24px; font-weight: bold; color: #fff;">${djDisplayName.charAt(0).toUpperCase()}</span>
           </div>`;
-
-      // Ticket link for IRL events
-      const ticketHtml = match.isIRL && match.irlTicketUrl
-        ? `<a href="${match.irlTicketUrl}" style="display: inline-block; margin-left: 8px; font-size: 12px; color: #22c55e; text-decoration: underline;">Get tickets →</a>`
-        : "";
 
       return `
         <!-- Show Card -->
@@ -460,15 +460,15 @@ export async function sendWatchlistDigestEmail({
                     </div>
                     <!-- Location/Time -->
                     <div style="font-size: 12px; color: #71717a;">
-                      ${locationInfo}${ticketHtml}
+                      ${locationInfo}
                     </div>
                   </td>
                 </tr>
               </table>
               <!-- CTA Button -->
               <div style="margin-top: 12px; text-align: center;">
-                <a href="${remindMeUrl}" style="display: inline-block; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: #fff !important; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
-                  ${match.isIRL ? "RSVP" : "REMIND ME"}
+                <a href="${ctaUrl}" style="display: inline-block; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: #fff !important; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+                  ${ctaText}
                 </a>
               </div>
             </td>
