@@ -255,58 +255,65 @@ function BroadcastCard({
   const bpmDuration = bpm ? `${Math.round(60000 / bpm)}ms` : '500ms';
 
   return (
-    <div className="bg-surface-card rounded-xl overflow-hidden">
-      <div className="flex flex-col sm:flex-row">
-        {/* Image */}
-        <div className="relative w-full sm:w-48 aspect-square sm:aspect-auto sm:h-auto flex-shrink-0">
-          {/* BPM Badge - top left corner */}
-          {bpm && (
-            <div
-              className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 px-2 h-6 rounded-full animate-bpm-pulse"
-              style={{
-                background: 'rgba(0, 0, 0, 0.6)',
-                backdropFilter: 'blur(4px)',
-                ['--bpm-duration' as string]: bpmDuration,
-              }}
-            >
-              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path d="M12 3v18M8 7v10M4 10v4M16 7v10M20 10v4" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-              <span className="text-xs font-medium text-white whitespace-nowrap">{bpm} BPM</span>
-            </div>
-          )}
-          {imageUrl ? (
-            <Image
-              src={imageUrl}
-              alt={show.dj || show.name}
-              fill
-              className="object-cover"
-              unoptimized
-              onError={() => setImageError(true)}
-            />
-          ) : (
-            <div className="w-full h-full bg-zinc-900 flex items-center justify-center min-h-[200px]">
-              <svg className="w-16 h-16 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-              </svg>
-            </div>
-          )}
-          {/* Gradient scrim */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent sm:bg-gradient-to-r" />
-          {/* DJ Name and Location Overlay */}
-          {show.dj && (
-            <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4">
-              <span className="text-sm font-black uppercase tracking-widest text-white drop-shadow-lg">
-                {show.dj}
-              </span>
-              {show.djLocation && (
-                <span className="block text-xs text-white/80 drop-shadow-lg mt-0.5">
-                  {show.djLocation}
-                </span>
-              )}
-            </div>
-          )}
+    <div>
+      {/* BPM and Online badge above card */}
+      <div className="flex justify-between items-center mb-1 h-4 px-0.5">
+        {bpm ? (
+          <div
+            className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter flex items-center gap-1 animate-bpm-pulse"
+            style={{ ['--bpm-duration' as string]: bpmDuration }}
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path d="M12 3v18M8 7v10M4 10v4M16 7v10M20 10v4" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+            {bpm} BPM
+          </div>
+        ) : (
+          <div />
+        )}
+        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter flex items-center gap-1">
+          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
+          </svg>
+          Online
         </div>
+      </div>
+      <div className="bg-surface-card rounded-xl overflow-hidden">
+        <div className="flex flex-col sm:flex-row">
+          {/* Image */}
+          <div className="relative w-full sm:w-48 aspect-square sm:aspect-auto sm:h-auto flex-shrink-0">
+            {imageUrl ? (
+              <Image
+                src={imageUrl}
+                alt={show.dj || show.name}
+                fill
+                className="object-cover"
+                unoptimized
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <div className="w-full h-full bg-zinc-900 flex items-center justify-center min-h-[200px]">
+                <svg className="w-16 h-16 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                </svg>
+              </div>
+            )}
+            {/* Gradient scrim */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent sm:bg-gradient-to-r" />
+            {/* DJ Name and Location Overlay */}
+            {show.dj && (
+              <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4">
+                <span className="text-sm font-black uppercase tracking-widest text-white drop-shadow-lg">
+                  {show.dj}
+                </span>
+                {show.djLocation && (
+                  <span className="block text-xs text-white/80 drop-shadow-lg mt-0.5">
+                    {show.djLocation}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
 
         {/* Info & Controls */}
         <div className="flex-1 p-4 flex flex-col justify-between">
@@ -378,6 +385,7 @@ function BroadcastCard({
           </div>
         </div>
       </div>
+      </div>
     </div>
   );
 }
@@ -412,27 +420,23 @@ function LiveShowCard({
   // Calculate animation duration from BPM (one beat = 60/bpm seconds)
   const bpmDuration = bpm ? `${Math.round(60000 / bpm)}ms` : '500ms';
 
-  // BPM badge component to reuse in both link and div versions
-  const BPMBadge = bpm ? (
-    <div
-      className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 px-1.5 h-5 rounded-full animate-bpm-pulse"
-      style={{
-        background: 'rgba(0, 0, 0, 0.6)',
-        backdropFilter: 'blur(4px)',
-        ['--bpm-duration' as string]: bpmDuration,
-      }}
-    >
-      <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path d="M12 3v18M8 7v10M4 10v4M16 7v10M20 10v4" strokeWidth="2" strokeLinecap="round" />
-      </svg>
-      <span className="text-[10px] font-medium text-white whitespace-nowrap">{bpm}</span>
-    </div>
-  ) : null;
-
   return (
     <div className="flex-shrink-0 w-44 sm:w-56 md:w-[calc((100%-2rem)/3)] snap-start group flex flex-col">
-      {/* Online badge centered above image */}
-      <div className="flex justify-center items-center mb-1 h-4">
+      {/* BPM and Online badge above image */}
+      <div className="flex justify-between items-center mb-1 h-4 px-0.5">
+        {bpm ? (
+          <div
+            className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter flex items-center gap-1 animate-bpm-pulse"
+            style={{ ['--bpm-duration' as string]: bpmDuration }}
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path d="M12 3v18M8 7v10M4 10v4M16 7v10M20 10v4" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+            {bpm} BPM
+          </div>
+        ) : (
+          <div />
+        )}
         <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter flex items-center gap-1">
           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
             <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
@@ -444,7 +448,6 @@ function LiveShowCard({
       {/* Image or Graphic Card - links to DJ profile if available */}
       {show.djUsername ? (
         <Link href={`/dj/${show.djUsername}`} className="block relative aspect-square overflow-hidden border border-white/10">
-          {BPMBadge}
           {hasPhoto ? (
             <>
               <Image
@@ -499,7 +502,6 @@ function LiveShowCard({
         </Link>
       ) : (
         <div className="relative aspect-square overflow-hidden border border-white/10">
-          {BPMBadge}
           {hasPhoto ? (
             <>
               <Image
