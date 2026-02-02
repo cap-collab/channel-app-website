@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useState } from "react";
+import Link from "next/link";
 import { Show, Station } from "@/types";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
@@ -118,7 +119,17 @@ function SearchResultCardComponent({ show, station }: SearchResultCardProps) {
           <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
             {show.dj && (
               <>
-                <span className="truncate max-w-[100px]">{show.dj}</span>
+                {show.djUsername ? (
+                  <Link
+                    href={`/dj/${show.djUsername}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="truncate max-w-[100px] hover:text-white hover:underline transition-colors"
+                  >
+                    {show.dj}
+                  </Link>
+                ) : (
+                  <span className="truncate max-w-[100px]">{show.dj}</span>
+                )}
                 <span className="text-gray-700">·</span>
               </>
             )}
