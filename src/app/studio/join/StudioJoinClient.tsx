@@ -61,26 +61,24 @@ export function StudioJoinClient() {
 
   // Assign DJ role after user signs up through AuthModal on this page
   // The AuthModal includes DJ terms, so signing up = accepting DJ terms
+  // Uses the API endpoint which also claims any pending DJ profiles
   useEffect(() => {
     async function assignDJRoleAfterSignup() {
-      if (!user || !db || roleLoading) return;
+      if (!user || roleLoading) return;
 
       // Only assign if user just signed up (not already a DJ) and modal was just closed
       if (!wasAuthenticatedRef.current && isAuthenticated && !userIsDJ) {
         try {
-          const userRef = doc(db, 'users', user.uid);
-          const userSnap = await getDoc(userRef);
+          // Use the API endpoint which handles claiming pending DJ profiles
+          const response = await fetch('/api/users/assign-dj-role', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: user.email }),
+          });
 
-          if (userSnap.exists()) {
-            const data = userSnap.data();
-            if (!data.role || data.role === 'user') {
-              await setDoc(userRef, {
-                role: 'dj',
-                djTermsAcceptedAt: new Date()
-              }, { merge: true });
-              // Force page reload to get updated role
-              window.location.reload();
-            }
+          if (response.ok) {
+            // Force page reload to get updated role
+            window.location.reload();
           }
         } catch (error) {
           console.error('Failed to assign DJ role after signup:', error);
@@ -132,7 +130,7 @@ export function StudioJoinClient() {
 
   // Handle upgrade to DJ for logged-in non-DJ users
   const handleUpgradeToDJ = async () => {
-    if (!user || !db || !agreedToDJTerms) {
+    if (!user || !agreedToDJTerms) {
       setUpgradeError('Please accept the DJ Terms to continue');
       return;
     }
@@ -141,11 +139,17 @@ export function StudioJoinClient() {
     setUpgradeError('');
 
     try {
-      const userRef = doc(db, 'users', user.uid);
-      await setDoc(userRef, {
-        role: 'dj',
-        djTermsAcceptedAt: new Date()
-      }, { merge: true });
+      // Use the API endpoint which handles claiming pending DJ profiles
+      const response = await fetch('/api/users/assign-dj-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upgrade to DJ');
+      }
+
       // Force page reload to get updated role
       window.location.reload();
     } catch (error) {
