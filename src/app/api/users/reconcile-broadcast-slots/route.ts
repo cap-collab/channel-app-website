@@ -161,13 +161,19 @@ export async function POST(request: NextRequest) {
 
     // Check for pending DJ profiles (pre-registered DJs who haven't signed up yet)
     let pendingProfileClaimed = false;
+    const normalizedEmail = email.toLowerCase();
+    console.log(`[reconcile] Checking for pending DJ profiles with email: ${normalizedEmail}`);
+
     const pendingProfilesSnapshot = await db.collection('pending-dj-profiles')
-      .where('email', '==', email.toLowerCase())
+      .where('email', '==', normalizedEmail)
       .where('status', '==', 'pending')
       .get();
 
+    console.log(`[reconcile] Found ${pendingProfilesSnapshot.size} pending DJ profiles for ${normalizedEmail}`);
+
     for (const pendingDoc of pendingProfilesSnapshot.docs) {
       const pendingData = pendingDoc.data();
+      console.log(`[reconcile] Processing pending profile ${pendingDoc.id}: chatUsername=${pendingData.chatUsername}`);
 
       // Transfer profile data to user document
       const profileUpdate: Record<string, unknown> = {
