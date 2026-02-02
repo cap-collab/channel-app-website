@@ -71,6 +71,43 @@ export async function POST(
       // Also assign DJ role
       await userDoc.ref.update({ role: 'dj' });
       console.log(`[approve] Found user ${djUserId} for ${application.email}, assigned DJ role, bio: ${!!liveDjBio}, photo: ${!!liveDjPhotoUrl}`);
+
+      // Update watchlist entries that match this DJ's username
+      // This ensures existing watchlist items get linked to the new DJ profile
+      if (userData.chatUsernameNormalized) {
+        try {
+          const watchlistSnapshot = await db.collectionGroup('favorites')
+            .where('type', '==', 'search')
+            .get();
+
+          let watchlistUpdatedCount = 0;
+          const batch = db.batch();
+
+          for (const watchDoc of watchlistSnapshot.docs) {
+            const watchData = watchDoc.data();
+            const term = (watchData.term || '').toLowerCase();
+            const termNormalized = term.replace(/[\s-]+/g, '');
+
+            // Check if this watchlist term matches the new DJ's username
+            if (termNormalized === userData.chatUsernameNormalized && !watchData.djUsername) {
+              batch.update(watchDoc.ref, {
+                djUsername: userData.chatUsername,
+                djPhotoUrl: liveDjPhotoUrl || null,
+                djName: userData.chatUsername,
+              });
+              watchlistUpdatedCount++;
+            }
+          }
+
+          if (watchlistUpdatedCount > 0) {
+            await batch.commit();
+            console.log(`[approve] Updated ${watchlistUpdatedCount} watchlist entries for ${userData.chatUsername}`);
+          }
+        } catch (watchlistError) {
+          // Log but don't fail - watchlist update is non-critical
+          console.warn(`[approve] Could not update watchlist entries:`, watchlistError);
+        }
+      }
     } else {
       console.log(`[approve] No user found for ${application.email} - djUserId will be reconciled when user signs up`);
     }

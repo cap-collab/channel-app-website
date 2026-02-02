@@ -206,6 +206,41 @@ export async function POST(request: NextRequest) {
       });
 
       console.log(`[reconcile] Claimed pending DJ profile ${pendingDoc.id} for user ${userId}`);
+
+      // Update all watchlist entries that match this DJ's username
+      // This ensures existing watchlist items get linked to the new DJ profile
+      try {
+        const watchlistSnapshot = await db.collectionGroup('favorites')
+          .where('type', '==', 'search')
+          .get();
+
+        let watchlistUpdatedCount = 0;
+        const batch = db.batch();
+
+        for (const watchDoc of watchlistSnapshot.docs) {
+          const watchData = watchDoc.data();
+          const term = (watchData.term || '').toLowerCase();
+          const termNormalized = term.replace(/[\s-]+/g, '');
+
+          // Check if this watchlist term matches the new DJ's username
+          if (termNormalized === normalizedUsername && !watchData.djUsername) {
+            batch.update(watchDoc.ref, {
+              djUsername: pendingData.chatUsername,
+              djPhotoUrl: pendingData.djProfile?.photoUrl || null,
+              djName: pendingData.chatUsername,
+            });
+            watchlistUpdatedCount++;
+          }
+        }
+
+        if (watchlistUpdatedCount > 0) {
+          await batch.commit();
+          console.log(`[reconcile] Updated ${watchlistUpdatedCount} watchlist entries for ${pendingData.chatUsername}`);
+        }
+      } catch (watchlistError) {
+        // Log but don't fail - watchlist update is non-critical
+        console.warn(`[reconcile] Could not update watchlist entries:`, watchlistError);
+      }
     }
 
     console.log(`[reconcile] Completed: ${slotsUpdated} slots, ${djSlotsUpdated} DJ slots, ${tipsUpdated} tips updated, djRole=${djRoleAssigned}, pendingProfileClaimed=${pendingProfileClaimed} for ${email}`);

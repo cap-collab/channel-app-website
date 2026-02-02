@@ -205,6 +205,41 @@ export async function POST(request: NextRequest) {
 
     console.log(`[create-pending-dj-profile] Created pending profile for ${normalizedEmail} with username ${trimmedUsername}`);
 
+    // Update all watchlist entries that match this DJ's username
+    // This ensures existing watchlist items get linked to the new DJ profile
+    try {
+      const watchlistSnapshot = await db.collectionGroup('favorites')
+        .where('type', '==', 'search')
+        .get();
+
+      let updatedCount = 0;
+      const batch = db.batch();
+
+      for (const doc of watchlistSnapshot.docs) {
+        const data = doc.data();
+        const term = (data.term || '').toLowerCase();
+        const termNormalized = term.replace(/[\s-]+/g, '');
+
+        // Check if this watchlist term matches the new DJ's username
+        if (termNormalized === normalizedUsername && !data.djUsername) {
+          batch.update(doc.ref, {
+            djUsername: trimmedUsername,
+            djPhotoUrl: djProfile?.photoUrl || null,
+            djName: trimmedUsername,
+          });
+          updatedCount++;
+        }
+      }
+
+      if (updatedCount > 0) {
+        await batch.commit();
+        console.log(`[create-pending-dj-profile] Updated ${updatedCount} watchlist entries for ${trimmedUsername}`);
+      }
+    } catch (watchlistError) {
+      // Log but don't fail the request - watchlist update is non-critical
+      console.warn(`[create-pending-dj-profile] Could not update watchlist entries:`, watchlistError);
+    }
+
     return NextResponse.json({
       success: true,
       profileId: pendingProfileRef.id,
