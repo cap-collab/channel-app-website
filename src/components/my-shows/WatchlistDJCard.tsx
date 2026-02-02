@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 
 interface WatchlistDJCardProps {
   djName: string;
@@ -23,7 +22,6 @@ export function WatchlistDJCard({
   onRemove,
   isRemoving,
 }: WatchlistDJCardProps) {
-  const router = useRouter();
   const [imageError, setImageError] = useState(false);
   const hasPhoto = djPhotoUrl && !imageError;
 
