@@ -220,6 +220,21 @@ export async function GET(request: NextRequest) {
     console.log(`[watchlist-digest] Added ${irlEventsAdded} IRL events from DJ profiles`);
     console.log(`[watchlist-digest] Total shows to check: ${allShows.length}`);
 
+    // Build a lookup map from DJ names/usernames to their chatUsername for profile linking
+    // This allows us to link to DJ profiles when a watchlist search term matches a DJ
+    const djNameToUsername = new Map<string, string>();
+    for (const djUser of djUsers) {
+      const chatUsername = djUser.data.chatUsername as string | undefined;
+      const displayName = djUser.data.displayName as string | undefined;
+      if (chatUsername) {
+        // Map both display name and chat username to the profile
+        if (displayName) {
+          djNameToUsername.set(displayName.toLowerCase(), chatUsername);
+        }
+        djNameToUsername.set(chatUsername.toLowerCase(), chatUsername);
+      }
+    }
+
     // Get ALL users who have watchlist items (type="search" favorites)
     // We need to query all users and check their favorites
     // First get users with email notifications enabled (for email sending)
@@ -336,10 +351,17 @@ export async function GET(request: NextRequest) {
         }
 
         if (matched) {
+          // Look up DJ username from profile if not already set
+          // Use the matched search term to find the DJ profile (e.g. watchlist "dor wand" -> DJ profile "dor wand")
+          let djUsername = broadcastShow.djUsername;
+          if (!djUsername && matchedTerm) {
+            djUsername = djNameToUsername.get(matchedTerm.toLowerCase());
+          }
+
           matches.push({
             showName: show.name,
             djName: show.dj,
-            djUsername: broadcastShow.djUsername,
+            djUsername,
             stationName: show.stationName,
             stationId: show.stationId,
             startTime: showStart,
