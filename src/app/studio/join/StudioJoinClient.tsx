@@ -64,12 +64,14 @@ export function StudioJoinClient() {
   // Uses the API endpoint which also claims any pending DJ profiles
   useEffect(() => {
     async function assignDJRoleAfterSignup() {
-      if (!user || roleLoading) return;
+      if (!user) return;
 
-      // Only assign if user just signed up (not already a DJ) and modal was just closed
-      if (!wasAuthenticatedRef.current && isAuthenticated && !userIsDJ) {
+      // Only assign if user just signed up (was not authenticated before)
+      // Don't wait for roleLoading - call API immediately after signup
+      if (!wasAuthenticatedRef.current && isAuthenticated) {
         try {
           // Use the API endpoint which handles claiming pending DJ profiles
+          // This is idempotent - safe to call even if user is already a DJ
           const response = await fetch('/api/users/assign-dj-role', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -77,7 +79,7 @@ export function StudioJoinClient() {
           });
 
           if (response.ok) {
-            // Force page reload to get updated role
+            // Force page reload to get updated role and profile data
             window.location.reload();
           }
         } catch (error) {
@@ -88,7 +90,7 @@ export function StudioJoinClient() {
     }
 
     assignDJRoleAfterSignup();
-  }, [user, isAuthenticated, userIsDJ, roleLoading]);
+  }, [user, isAuthenticated]);
 
   // Fetch DJ profile to pre-fill form (for DJ users)
   useEffect(() => {
