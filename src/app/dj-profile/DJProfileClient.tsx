@@ -84,6 +84,11 @@ export function DJProfileClient() {
   const [upcomingBroadcasts, setUpcomingBroadcasts] = useState<BroadcastSlotSerialized[]>([]);
   const [loadingBroadcasts, setLoadingBroadcasts] = useState(true);
 
+  // Upgrade to DJ state
+  const [agreedToDJTerms, setAgreedToDJTerms] = useState(false);
+  const [upgradingToDJ, setUpgradingToDJ] = useState(false);
+  const [upgradeError, setUpgradeError] = useState("");
+
   // Auto-save debounce refs
   const bioDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const thankYouDebounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -447,6 +452,37 @@ export function DJProfileClient() {
     return `${dateStr}, ${startStr} - ${endStr}`;
   };
 
+  // Handle upgrade to DJ for logged-in non-DJ users
+  const handleUpgradeToDJ = async () => {
+    if (!user || !agreedToDJTerms) {
+      setUpgradeError("Please accept the DJ Terms to continue");
+      return;
+    }
+
+    setUpgradingToDJ(true);
+    setUpgradeError("");
+
+    try {
+      const response = await fetch("/api/users/assign-dj-role", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upgrade to DJ");
+      }
+
+      // Force page reload to get updated role
+      window.location.reload();
+    } catch (error) {
+      console.error("Failed to upgrade to DJ:", error);
+      setUpgradeError("Failed to upgrade. Please try again.");
+    } finally {
+      setUpgradingToDJ(false);
+    }
+  };
+
   if (authLoading || roleLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -481,25 +517,57 @@ export function DJProfileClient() {
     );
   }
 
-  // Not a DJ
+  // Not a DJ - show upgrade option
   if (!isDJ(role)) {
     return (
       <div className="min-h-screen bg-black">
         <Header position="sticky" />
         <main className="max-w-xl mx-auto p-4">
-          <div className="text-center py-12">
-            <p className="text-gray-500 mb-4">
-              DJ Profile is only available to approved DJs.
+          <div className="py-8">
+            <h1 className="text-2xl font-semibold text-white mb-2">Upgrade to DJ Profile</h1>
+            <p className="text-gray-400 mb-6">
+              You&apos;re logged in as {user?.email}. Accept the DJ Terms to unlock your DJ profile and start broadcasting on Channel.
             </p>
-            <p className="text-gray-600 text-sm mb-6">
-              Want to broadcast on Channel?
-            </p>
-            <Link
-              href="/dj-portal"
-              className="bg-white text-black px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors inline-block"
-            >
-              Apply to DJ
-            </Link>
+
+            <div className="bg-[#1a1a1a] rounded-lg p-6">
+              <label className="flex items-start gap-3 cursor-pointer mb-4">
+                <input
+                  type="checkbox"
+                  checked={agreedToDJTerms}
+                  onChange={(e) => setAgreedToDJTerms(e.target.checked)}
+                  className="mt-1 w-5 h-5 rounded border-gray-600 bg-gray-800 text-white focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                />
+                <span className="text-sm text-gray-300">
+                  I have read and agree to the{" "}
+                  <Link
+                    href="/dj-terms"
+                    target="_blank"
+                    className="text-white underline hover:text-gray-300"
+                  >
+                    DJ Terms
+                  </Link>
+                </span>
+              </label>
+
+              {upgradeError && (
+                <p className="text-red-400 text-sm mb-4">{upgradeError}</p>
+              )}
+
+              <button
+                onClick={handleUpgradeToDJ}
+                disabled={!agreedToDJTerms || upgradingToDJ}
+                className="bg-white text-black px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {upgradingToDJ ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                    Upgrading...
+                  </>
+                ) : (
+                  "Upgrade to DJ"
+                )}
+              </button>
+            </div>
           </div>
         </main>
       </div>
