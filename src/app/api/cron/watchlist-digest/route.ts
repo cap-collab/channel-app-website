@@ -221,34 +221,42 @@ export async function GET(request: NextRequest) {
     console.log(`[watchlist-digest] Added ${irlEventsAdded} IRL events from DJ profiles`);
     console.log(`[watchlist-digest] Total shows to check: ${allShows.length}`);
 
-    // Build a lookup map from DJ names/usernames to their profile info for linking
-    // This allows us to link to DJ profiles when a watchlist search term matches a DJ
-    // We normalize keys (remove spaces/dashes, lowercase) for fuzzy matching
+    // Build a lookup map from chatUsernameNormalized to profile info
+    // Key: chatUsernameNormalized from DB (authoritative)
+    // Value: { username (for URL), photoUrl (for picture) }
+    // Sources: 1) pending-dj-profiles, 2) users with DJ role
     const djNameToProfile = new Map<string, { username: string; photoUrl?: string }>();
     const normalizeForLookup = (str: string): string => {
       return str.replace(/[\s-]+/g, "").toLowerCase();
     };
+
+    // 1. Add from pending-dj-profiles (these take priority)
+    const pendingProfiles = await queryCollection("pending-dj-profiles", [], 500);
+    for (const pending of pendingProfiles) {
+      const chatUsername = pending.data.chatUsername as string | undefined;
+      const chatUsernameNormalized = pending.data.chatUsernameNormalized as string | undefined;
+      const djProfile = pending.data.djProfile as Record<string, unknown> | undefined;
+      const photoUrl = djProfile?.photoUrl as string | undefined;
+
+      if (chatUsername && chatUsernameNormalized) {
+        djNameToProfile.set(chatUsernameNormalized, { username: chatUsername, photoUrl });
+      }
+    }
+    console.log(`[watchlist-digest] Added ${pendingProfiles.length} pending DJ profiles to map`);
+
+    // 2. Add from approved DJ users (don't overwrite pending profiles)
     for (const djUser of djUsers) {
       const chatUsername = djUser.data.chatUsername as string | undefined;
       const chatUsernameNormalized = djUser.data.chatUsernameNormalized as string | undefined;
-      const displayName = djUser.data.displayName as string | undefined;
       const djProfile = djUser.data.djProfile as Record<string, unknown> | undefined;
       const photoUrl = djProfile?.photoUrl as string | undefined;
-      if (chatUsername) {
-        const profile = { username: chatUsername, photoUrl };
-        // Map multiple keys to the profile for matching:
-        // 1. chatUsernameNormalized from DB (authoritative)
-        // 2. displayName normalized
-        // 3. chatUsername normalized
-        if (chatUsernameNormalized) {
-          djNameToProfile.set(chatUsernameNormalized, profile);
-        }
-        if (displayName) {
-          djNameToProfile.set(normalizeForLookup(displayName), profile);
-        }
-        djNameToProfile.set(normalizeForLookup(chatUsername), profile);
+
+      if (chatUsername && chatUsernameNormalized && !djNameToProfile.has(chatUsernameNormalized)) {
+        djNameToProfile.set(chatUsernameNormalized, { username: chatUsername, photoUrl });
       }
     }
+
+    console.log(`[watchlist-digest] Built DJ profile map with ${djNameToProfile.size} total entries`);
 
     // Get ALL users who have watchlist items (type="search" favorites)
     // We need to query all users and check their favorites

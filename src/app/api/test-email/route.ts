@@ -1,44 +1,60 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendWatchlistDigestEmail } from "@/lib/email";
-import { queryUsersWhere } from "@/lib/firebase-rest";
+import { queryUsersWhere, queryCollection } from "@/lib/firebase-rest";
 
-// Look up DJ profile info from Firebase (username + photo)
-// Uses the same normalization as everywhere else in the app
+// Normalize a name for lookup (same as chatUsernameNormalized in DB)
+function normalizeUsername(name: string): string {
+  return name.replace(/[\s-]+/g, "").toLowerCase();
+}
+
+// Look up DJ profile by normalized username
+// Checks BOTH pending-dj-profiles AND users collections (same as /my-shows client)
+// Returns chatUsername (for URL) and photoUrl (for picture) if profile exists
 async function getDJProfile(searchTerm: string): Promise<{ username: string; photoUrl?: string } | null> {
   try {
-    const djUsers = await queryUsersWhere("role", "EQUAL", "dj");
-    const normalized = searchTerm.replace(/[\s-]+/g, "").toLowerCase();
+    const normalized = normalizeUsername(searchTerm);
+    console.log(`[getDJProfile] Looking up "${searchTerm}" → normalized: "${normalized}"`);
 
-    for (const djUser of djUsers) {
-      const chatUsername = djUser.data.chatUsername as string | undefined;
-      const chatUsernameNormalized = djUser.data.chatUsernameNormalized as string | undefined;
-      const displayName = djUser.data.displayName as string | undefined;
-      const djProfile = djUser.data.djProfile as Record<string, unknown> | undefined;
+    // 1. Check pending-dj-profiles FIRST (like the client does)
+    const pendingProfiles = await queryCollection(
+      "pending-dj-profiles",
+      [{ field: "chatUsernameNormalized", op: "EQUAL", value: normalized }],
+      1
+    );
 
-      // Match against:
-      // 1. chatUsernameNormalized from DB (authoritative)
-      // 2. displayName normalized
-      // 3. chatUsername normalized
-      const djNormalized = chatUsername?.replace(/[\s-]+/g, "").toLowerCase();
-      const displayNormalized = displayName?.replace(/[\s-]+/g, "").toLowerCase();
+    if (pendingProfiles.length > 0) {
+      const data = pendingProfiles[0].data;
+      const chatUsername = data.chatUsername as string | undefined;
+      const djProfile = data.djProfile as Record<string, unknown> | undefined;
+      const photoUrl = djProfile?.photoUrl as string | undefined;
 
-      if (
-        chatUsernameNormalized === normalized ||
-        djNormalized === normalized ||
-        displayNormalized === normalized
-      ) {
-        console.log(`[getDJProfile] Found match for "${searchTerm}":`, {
-          chatUsername,
-          chatUsernameNormalized,
-          displayName,
-          photoUrl: djProfile?.photoUrl,
-        });
-        return {
-          username: chatUsername || normalized,
-          photoUrl: djProfile?.photoUrl as string | undefined,
-        };
+      console.log(`[getDJProfile] Found PENDING DJ profile:`, { chatUsername, photoUrl });
+
+      if (chatUsername) {
+        return { username: chatUsername, photoUrl };
       }
     }
+
+    // 2. Fall back to users collection (approved DJs)
+    const users = await queryUsersWhere("chatUsernameNormalized", "EQUAL", normalized);
+
+    for (const user of users) {
+      const role = user.data.role as string | undefined;
+      // Only match DJ/broadcaster/admin profiles
+      if (role === "dj" || role === "broadcaster" || role === "admin") {
+        const chatUsername = user.data.chatUsername as string | undefined;
+        const djProfile = user.data.djProfile as Record<string, unknown> | undefined;
+        const photoUrl = djProfile?.photoUrl as string | undefined;
+
+        console.log(`[getDJProfile] Found USER DJ profile:`, { chatUsername, role, photoUrl });
+
+        if (chatUsername) {
+          return { username: chatUsername, photoUrl };
+        }
+      }
+    }
+
+    console.log(`[getDJProfile] No DJ profile found for "${searchTerm}"`);
   } catch (error) {
     console.error("Error looking up DJ profile:", error);
   }
