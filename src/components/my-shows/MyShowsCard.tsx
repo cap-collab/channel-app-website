@@ -213,7 +213,10 @@ export function MyShowsCard({
         <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">
           {djUsername ? (
             <>
-              <Link href={`/dj/${djUsername}`} className="hover:text-white hover:underline transition-colors">
+              <Link
+                href={`/dj/${djUsername}`}
+                className="hover:text-white hover:underline transition-colors inline-block py-1 -my-1"
+              >
                 {djName}
               </Link>
               {showType === 'irl' && eventLocation ? ` · in ${eventLocation}` : ''}

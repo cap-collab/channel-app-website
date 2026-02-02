@@ -497,7 +497,7 @@ export function MyShowsClient() {
                 {show.djUsername ? (
                   <Link
                     href={`/dj/${show.djUsername}`}
-                    className="truncate max-w-[120px] hover:text-white hover:underline transition-colors"
+                    className="truncate max-w-[120px] hover:text-white hover:underline transition-colors inline-block py-1 -my-1"
                   >
                     {show.dj}
                   </Link>

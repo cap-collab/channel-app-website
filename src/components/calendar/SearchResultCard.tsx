@@ -123,7 +123,7 @@ function SearchResultCardComponent({ show, station }: SearchResultCardProps) {
                   <Link
                     href={`/dj/${show.djUsername}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="truncate max-w-[100px] hover:text-white hover:underline transition-colors"
+                    className="truncate max-w-[100px] hover:text-white hover:underline transition-colors inline-block py-1 -my-1"
                   >
                     {show.dj}
                   </Link>

@@ -312,7 +312,7 @@ function ShowBlockComponent({
                 <Link
                   href={`/dj/${show.djUsername}`}
                   onClick={(e) => e.stopPropagation()}
-                  className="hover:text-white hover:underline transition-colors"
+                  className="hover:text-white hover:underline transition-colors inline-block py-1 -my-1 relative z-10"
                 >
                   {show.dj}
                 </Link>
@@ -392,7 +392,7 @@ function ShowBlockComponent({
                         <Link
                           href={`/dj/${show.djUsername}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="flex-shrink-0"
+                          className="flex-shrink-0 block"
                         >
                           <img
                             src={show.djPhotoUrl}
@@ -414,7 +414,7 @@ function ShowBlockComponent({
                           <Link
                             href={`/dj/${show.djUsername}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="text-white text-sm font-medium hover:underline"
+                            className="text-white text-sm font-medium hover:underline block py-1 -my-1"
                           >
                             {show.dj}
                           </Link>
