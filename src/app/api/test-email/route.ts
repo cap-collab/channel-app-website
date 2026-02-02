@@ -1,56 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendWatchlistDigestEmail } from "@/lib/email";
 
-// Test endpoint to preview the new watchlist digest email template
-// Only works with a secret to prevent abuse
-export async function GET(request: NextRequest) {
-  const secret = request.nextUrl.searchParams.get("secret");
+// Sample data matching the original email from Feb 1
+const sampleMatches = [
+  {
+    showName: "Snack Time",
+    djName: "dj cap",
+    djUsername: "djcap",
+    djPhotoUrl: undefined,
+    stationName: "Channel Broadcast",
+    stationId: "broadcast",
+    startTime: new Date("2026-02-02T16:00:00"), // Mon, Feb 2 at 4:00 PM
+    searchTerm: "dj cap",
+    isIRL: false,
+  },
+  {
+    showName: "Dor Wand – Open Heart Social Club",
+    djName: "dor wand",
+    djUsername: "dorwand",
+    djPhotoUrl: undefined,
+    stationName: "dublab",
+    stationId: "dublab",
+    startTime: new Date("2026-02-07T00:00:00"), // Sat, Feb 7 at 12:00 AM
+    searchTerm: "dor wand",
+    isIRL: false,
+  },
+];
 
-  if (secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const to = request.nextUrl.searchParams.get("to") || "cap@channel-app.com";
-
-  // Sample data matching real watchlist digest format
-  const sampleMatches = [
-    {
-      showName: "Snack Time",
-      djName: "dj cap",
-      djUsername: "djcap",
-      djPhotoUrl: undefined,
-      stationName: "Channel Broadcast",
-      stationId: "broadcast",
-      startTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
-      searchTerm: "dj cap",
-      isIRL: false,
-    },
-    {
-      showName: "Dor Wand – Open Heart Social Club",
-      djName: "dor wand",
-      djUsername: "dorwand",
-      djPhotoUrl: undefined,
-      stationName: "dublab",
-      stationId: "dublab",
-      startTime: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 days
-      searchTerm: "dor wand",
-      isIRL: false,
-    },
-    {
-      showName: "Skee Mask Live at Berghain",
-      djName: "Skee Mask",
-      djUsername: undefined, // No profile - will show fallback
-      djPhotoUrl: undefined,
-      stationName: "IRL Event",
-      stationId: "irl",
-      startTime: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 2 weeks
-      searchTerm: "skee mask",
-      isIRL: true,
-      irlLocation: "Berlin",
-      irlTicketUrl: "https://ra.co/events/example",
-    },
-  ];
-
+async function sendTestEmail(to: string) {
   try {
     const success = await sendWatchlistDigestEmail({
       to,
@@ -76,4 +53,28 @@ export async function GET(request: NextRequest) {
       error: String(error)
     }, { status: 500 });
   }
+}
+
+// Test endpoint to preview the new watchlist digest email template
+// Only works with a secret to prevent abuse
+export async function GET(request: NextRequest) {
+  const secret = request.nextUrl.searchParams.get("secret");
+
+  if (secret !== process.env.CRON_SECRET) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const to = request.nextUrl.searchParams.get("to") || "cap@channel-app.com";
+  return sendTestEmail(to);
+}
+
+export async function POST(request: NextRequest) {
+  const secret = request.nextUrl.searchParams.get("secret");
+
+  if (secret !== process.env.CRON_SECRET) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const to = request.nextUrl.searchParams.get("to") || "cap@channel-app.com";
+  return sendTestEmail(to);
 }
