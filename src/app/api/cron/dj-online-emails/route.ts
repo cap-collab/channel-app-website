@@ -81,11 +81,10 @@ export async function GET(request: NextRequest) {
           continue;
         }
 
-        // Send email
+        // Send email (links to DJ profile chat section)
         const success = await sendDjOnlineEmail({
           to: userData.email as string,
           djUsername,
-          djProfileUrl: `https://channel-app.com/dj/${chatUsernameNormalized}`,
         });
 
         if (success) {

@@ -121,6 +121,7 @@ interface MentionEmailParams {
   mentionerUsername: string;
   stationName: string;
   stationId: string;
+  djUsername?: string; // DJ's profile username for chat link
   messagePreview?: string;
 }
 
@@ -129,6 +130,7 @@ export async function sendMentionEmail({
   mentionerUsername,
   stationName,
   stationId,
+  djUsername,
   messagePreview,
 }: MentionEmailParams) {
   if (!resend) {
@@ -136,7 +138,10 @@ export async function sendMentionEmail({
     return false;
   }
 
-  const chatUrl = getStationDeepLink(stationId);
+  // Link to DJ profile chat if available, otherwise fall back to station
+  const chatUrl = djUsername
+    ? `https://channel-app.com/dj/${djUsername}#chat`
+    : getStationDeepLink(stationId);
 
   try {
     const { error } = await resend.emails.send({
@@ -194,6 +199,7 @@ interface PopularityAlertEmailParams {
   showName: string;
   stationName: string;
   stationId: string;
+  djUsername?: string; // DJ's profile username for chat link
   loveCount: number;
 }
 
@@ -202,6 +208,7 @@ export async function sendPopularityAlertEmail({
   showName,
   stationName,
   stationId,
+  djUsername,
   loveCount,
 }: PopularityAlertEmailParams) {
   if (!resend) {
@@ -209,7 +216,10 @@ export async function sendPopularityAlertEmail({
     return false;
   }
 
-  const listenUrl = getStationDeepLink(stationId);
+  // Link to DJ profile chat if available, otherwise fall back to station
+  const listenUrl = djUsername
+    ? `https://channel-app.com/dj/${djUsername}#chat`
+    : getStationDeepLink(stationId);
 
   try {
     const { error } = await resend.emails.send({
@@ -486,18 +496,18 @@ export async function sendWatchlistDigestEmail({
 interface DjOnlineEmailParams {
   to: string;
   djUsername: string;
-  djProfileUrl: string;
 }
 
 export async function sendDjOnlineEmail({
   to,
   djUsername,
-  djProfileUrl,
 }: DjOnlineEmailParams) {
   if (!resend) {
     console.warn("Email service not configured - skipping email");
     return false;
   }
+
+  const chatUrl = `https://channel-app.com/dj/${djUsername}#chat`;
 
   try {
     const { error } = await resend.emails.send({
@@ -526,7 +536,7 @@ export async function sendDjOnlineEmail({
             <div class="content">
               <h1><span class="online-indicator"></span>${djUsername}</h1>
               <p class="subtitle">is active in their chat right now</p>
-              <a href="${djProfileUrl}" class="join-btn">Join the Chat</a>
+              <a href="${chatUrl}" class="join-btn">Join the Chat</a>
             </div>
             <div class="footer">
               <p>You're receiving this because you follow ${djUsername}.</p>
