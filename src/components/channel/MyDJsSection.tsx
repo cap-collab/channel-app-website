@@ -142,29 +142,7 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
         const normalized = name.replace(/[\s-]+/g, '').toLowerCase();
 
         try {
-          // Check pending-dj-profiles first
-          const pendingRef = collection(db, 'pending-dj-profiles');
-          const pendingQ = query(
-            pendingRef,
-            where('chatUsernameNormalized', '==', normalized)
-          );
-          const pendingSnapshot = await getDocs(pendingQ);
-          const pendingDoc = pendingSnapshot.docs.find(
-            (doc) => doc.data().status === 'pending'
-          );
-
-          if (pendingDoc) {
-            const data = pendingDoc.data();
-            const profile: DJProfileCache = {
-              username: data.chatUsername,
-              photoUrl: data.djProfile?.photoUrl || undefined,
-            };
-            djProfileCache.set(name, profile);
-            newProfiles.set(name, profile);
-            continue;
-          }
-
-          // Check users collection
+          // Check users collection first (approved DJs)
           const usersRef = collection(db, 'users');
           const usersQ = query(
             usersRef,
@@ -175,6 +153,26 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
 
           if (!usersSnapshot.empty) {
             const data = usersSnapshot.docs[0].data();
+            const profile: DJProfileCache = {
+              username: data.chatUsername,
+              photoUrl: data.djProfile?.photoUrl || undefined,
+            };
+            djProfileCache.set(name, profile);
+            newProfiles.set(name, profile);
+            continue;
+          }
+
+          // Fall back to pending-dj-profiles (DJs who applied but aren't fully approved)
+          const pendingRef = collection(db, 'pending-dj-profiles');
+          const pendingQ = query(
+            pendingRef,
+            where('chatUsernameNormalized', '==', normalized)
+          );
+          const pendingSnapshot = await getDocs(pendingQ);
+
+          if (!pendingSnapshot.empty) {
+            // Use first matching doc regardless of status
+            const data = pendingSnapshot.docs[0].data();
             const profile: DJProfileCache = {
               username: data.chatUsername,
               photoUrl: data.djProfile?.photoUrl || undefined,
