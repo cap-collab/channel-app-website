@@ -7,7 +7,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useBPM } from '@/contexts/BPMContext';
 import { Show, Station } from '@/types';
-import { STATIONS } from '@/lib/stations';
+import { STATIONS, getMetadataKeyByStationId } from '@/lib/stations';
 import { getContrastTextColor } from '@/lib/colorUtils';
 
 interface WhoIsOnNowProps {
@@ -190,7 +190,7 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
             onTogglePlay={onTogglePlay}
             isPlaying={isPlaying}
             isStreamLoading={isStreamLoading}
-            bpm={stationBPM[broadcastShow.stationId]?.bpm ?? null}
+            bpm={stationBPM[getMetadataKeyByStationId(broadcastShow.stationId) || '']?.bpm ?? null}
           />
           {chatSlot}
         </div>
@@ -214,7 +214,7 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
                 isFollowed={isFollowed}
                 isTogglingFollow={togglingFollowId === show.id}
                 onFollow={() => handleFollow(show)}
-                bpm={stationBPM[show.stationId]?.bpm ?? null}
+                bpm={stationBPM[getMetadataKeyByStationId(show.stationId) || '']?.bpm ?? null}
               />
             );
           })}
