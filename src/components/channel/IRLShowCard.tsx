@@ -24,8 +24,11 @@ export function IRLShowCard({
 
   return (
     <div className="w-full group">
-      {/* IRL badge centered above image */}
-      <div className="flex justify-center items-center mb-1 h-4">
+      {/* Date and IRL badge above image */}
+      <div className="flex justify-between items-center mb-1 h-4 px-0.5">
+        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">
+          {new Date(show.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+        </div>
         <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter flex items-center gap-1">
           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
