@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendWatchlistDigestEmail } from "@/lib/email";
 import { queryUsersWhere } from "@/lib/firebase-rest";
 
-// Look up DJ photo URLs from Firebase
-async function getDJPhotoUrl(searchTerm: string): Promise<string | undefined> {
+// Look up DJ profile info from Firebase (username + photo)
+async function getDJProfile(searchTerm: string): Promise<{ username: string; photoUrl?: string } | null> {
   try {
     const djUsers = await queryUsersWhere("role", "EQUAL", "dj");
     const normalized = searchTerm.replace(/[\s-]+/g, "").toLowerCase();
@@ -17,27 +17,30 @@ async function getDJPhotoUrl(searchTerm: string): Promise<string | undefined> {
       const displayNormalized = displayName?.replace(/[\s-]+/g, "").toLowerCase();
 
       if (djNormalized === normalized || displayNormalized === normalized) {
-        return djProfile?.photoUrl as string | undefined;
+        return {
+          username: chatUsername || normalized,
+          photoUrl: djProfile?.photoUrl as string | undefined,
+        };
       }
     }
   } catch (error) {
-    console.error("Error looking up DJ photo:", error);
+    console.error("Error looking up DJ profile:", error);
   }
-  return undefined;
+  return null;
 }
 
 async function sendTestEmail(to: string) {
-  // Look up real DJ photo URLs
-  const djCapPhoto = await getDJPhotoUrl("dj cap");
-  const dorWandPhoto = await getDJPhotoUrl("dor wand");
+  // Look up real DJ profiles - only set username if profile exists
+  const djCapProfile = await getDJProfile("dj cap");
+  const dorWandProfile = await getDJProfile("dor wand");
 
   // Sample data matching the original email from Feb 1
   const sampleMatches = [
     {
       showName: "Snack Time",
       djName: "dj cap",
-      djUsername: "djcap",
-      djPhotoUrl: djCapPhoto,
+      djUsername: djCapProfile?.username, // Only set if profile exists
+      djPhotoUrl: djCapProfile?.photoUrl,
       stationName: "Channel Broadcast",
       stationId: "broadcast",
       startTime: new Date("2026-02-02T16:00:00"), // Mon, Feb 2 at 4:00 PM
@@ -47,8 +50,8 @@ async function sendTestEmail(to: string) {
     {
       showName: "Dor Wand – Open Heart Social Club",
       djName: "dor wand",
-      djUsername: "dorwand",
-      djPhotoUrl: dorWandPhoto,
+      djUsername: dorWandProfile?.username, // Only set if profile exists
+      djPhotoUrl: dorWandProfile?.photoUrl,
       stationName: "dublab",
       stationId: "dublab",
       startTime: new Date("2026-02-07T00:00:00"), // Sat, Feb 7 at 12:00 AM
