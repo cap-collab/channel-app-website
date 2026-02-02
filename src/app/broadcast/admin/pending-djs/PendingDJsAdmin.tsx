@@ -471,8 +471,9 @@ Your public DJ profile page: ${profileUrl}
 
 After claiming, you'll be able to:
 - Edit your bio, photo, and social links
-- Receive tips from listeners
+- Have your followers notified each time you are doing a show on the radio or IRL
 - Chat with your audience
+- Receive tips from listeners
 
 See you on Channel!
 - Channel Team`;

@@ -17,7 +17,7 @@ import { getApps } from 'firebase-admin/app';
 if (!getApps().length) {
   admin.initializeApp({
     credential: admin.credential.applicationDefault(),
-    projectId: process.env.FIREBASE_PROJECT_ID || 'channel-app-website',
+    projectId: process.env.FIREBASE_PROJECT_ID || 'channel-97386',
   });
 }
 
