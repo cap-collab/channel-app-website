@@ -2,7 +2,17 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { doc, onSnapshot, updateDoc, deleteDoc } from "firebase/firestore";
+import {
+  doc,
+  onSnapshot,
+  updateDoc,
+  deleteDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  writeBatch,
+} from "firebase/firestore";
 import { Header } from "@/components/Header";
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -17,6 +27,12 @@ interface NotificationSettings {
   djOnline: boolean;
 }
 
+interface ActivityMessageSettings {
+  showLoveMessages: boolean;
+  showLockedInMessages: boolean;
+  showFavoriteMessages: boolean;
+}
+
 export function SettingsClient() {
   const { user, isAuthenticated, loading: authLoading, signOut } = useAuthContext();
   const { role, loading: roleLoading } = useUserRole(user);
@@ -27,6 +43,11 @@ export function SettingsClient() {
     mentions: false,
     popularity: false,
     djOnline: false,
+  });
+  const [activityMessages, setActivityMessages] = useState<ActivityMessageSettings>({
+    showLoveMessages: true,
+    showLockedInMessages: true,
+    showFavoriteMessages: true,
   });
   const [saving, setSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -46,6 +67,14 @@ export function SettingsClient() {
           mentions: data.emailNotifications.mentions || false,
           popularity: data.emailNotifications.popularity || false,
           djOnline: data.emailNotifications.djOnline || false,
+        });
+      }
+      // Activity messages default to true if not set
+      if (data?.activityMessages !== undefined) {
+        setActivityMessages({
+          showLoveMessages: data.activityMessages.showLoveMessages ?? true,
+          showLockedInMessages: data.activityMessages.showLockedInMessages ?? true,
+          showFavoriteMessages: data.activityMessages.showFavoriteMessages ?? true,
         });
       }
     });
@@ -72,14 +101,75 @@ export function SettingsClient() {
     }
   };
 
+  const handleActivityToggle = async (key: keyof ActivityMessageSettings) => {
+    if (!user || !db) return;
+
+    const newValue = !activityMessages[key];
+    setSaving(true);
+
+    try {
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        [`activityMessages.${key}`]: newValue,
+      });
+      setActivityMessages((prev) => ({ ...prev, [key]: newValue }));
+    } catch (error) {
+      console.error("Error updating activity message setting:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDeleteAccount = async () => {
     if (!user || !db) return;
 
     setDeleting(true);
     try {
-      // Delete user document from Firestore
+      const batch = writeBatch(db);
+
+      // 1. Delete all favorites (subcollection)
+      const favoritesRef = collection(db, "users", user.uid, "favorites");
+      const favoritesSnapshot = await getDocs(favoritesRef);
+      favoritesSnapshot.docs.forEach((docSnap) => {
+        batch.delete(docSnap.ref);
+      });
+
+      // 2. Delete pending mention emails for this user
+      const mentionsQuery = query(
+        collection(db, "pendingMentionEmails"),
+        where("userId", "==", user.uid)
+      );
+      const mentionsSnapshot = await getDocs(mentionsQuery);
+      mentionsSnapshot.docs.forEach((docSnap) => {
+        batch.delete(docSnap.ref);
+      });
+
+      // 3. Delete pending popularity emails for this user
+      const popularityQuery = query(
+        collection(db, "pendingPopularityEmails"),
+        where("userId", "==", user.uid)
+      );
+      const popularitySnapshot = await getDocs(popularityQuery);
+      popularitySnapshot.docs.forEach((docSnap) => {
+        batch.delete(docSnap.ref);
+      });
+
+      // 4. Delete username reservation for this user
+      const usernamesQuery = query(
+        collection(db, "usernames"),
+        where("uid", "==", user.uid)
+      );
+      const usernamesSnapshot = await getDocs(usernamesQuery);
+      usernamesSnapshot.docs.forEach((docSnap) => {
+        batch.delete(docSnap.ref);
+      });
+
+      // 5. Delete user document
       const userRef = doc(db, "users", user.uid);
-      await deleteDoc(userRef);
+      batch.delete(userRef);
+
+      // Commit all deletions
+      await batch.commit();
 
       // Sign out the user
       await signOut();
@@ -288,6 +378,81 @@ export function SettingsClient() {
               </p>
             </section>
 
+            {/* Activity messages section */}
+            <section>
+              <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+                Chat Activity Messages
+              </h2>
+              <div className="bg-[#1a1a1a] rounded-lg divide-y divide-gray-800">
+                <div className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-medium">Love reactions</p>
+                    <p className="text-gray-500 text-sm">
+                      Post a message in chat when you send love
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleActivityToggle("showLoveMessages")}
+                    disabled={saving}
+                    className={`w-12 h-7 rounded-full transition-colors ${
+                      activityMessages.showLoveMessages ? "bg-white" : "bg-gray-700"
+                    }`}
+                  >
+                    <div
+                      className={`w-5 h-5 rounded-full bg-black transition-transform mx-1 ${
+                        activityMessages.showLoveMessages ? "translate-x-5" : ""
+                      }`}
+                    />
+                  </button>
+                </div>
+                <div className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-medium">Locked in</p>
+                    <p className="text-gray-500 text-sm">
+                      Post a message when you&apos;re locked in listening
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleActivityToggle("showLockedInMessages")}
+                    disabled={saving}
+                    className={`w-12 h-7 rounded-full transition-colors ${
+                      activityMessages.showLockedInMessages ? "bg-white" : "bg-gray-700"
+                    }`}
+                  >
+                    <div
+                      className={`w-5 h-5 rounded-full bg-black transition-transform mx-1 ${
+                        activityMessages.showLockedInMessages ? "translate-x-5" : ""
+                      }`}
+                    />
+                  </button>
+                </div>
+                <div className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-medium">Favorites</p>
+                    <p className="text-gray-500 text-sm">
+                      Post a message when you favorite a show or DJ
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleActivityToggle("showFavoriteMessages")}
+                    disabled={saving}
+                    className={`w-12 h-7 rounded-full transition-colors ${
+                      activityMessages.showFavoriteMessages ? "bg-white" : "bg-gray-700"
+                    }`}
+                  >
+                    <div
+                      className={`w-5 h-5 rounded-full bg-black transition-transform mx-1 ${
+                        activityMessages.showFavoriteMessages ? "translate-x-5" : ""
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+              <p className="text-gray-600 text-xs mt-2 px-1">
+                These messages are visible to other users in chat
+              </p>
+            </section>
+
             {/* Delete account section */}
             <section>
               <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
@@ -327,9 +492,11 @@ export function SettingsClient() {
               Delete your account?
             </h3>
             <p className="text-gray-400 mb-6">
-              This will permanently delete your account and all associated data,
-              including your email, favorites, watchlist, saved searches, and
-              calendar sync settings. This action cannot be undone.
+              This will permanently delete your account and associated data,
+              including your favorites, watchlist, saved searches, notification
+              preferences, and username reservation. Chat messages you posted
+              will remain but can be removed upon request. This action cannot be
+              undone.
             </p>
             <div className="flex gap-3">
               <button

@@ -363,10 +363,14 @@ export default function PrivacyPage() {
 
       <h2>9. Data Retention</h2>
       <ul>
-        <li>Chat messages: until deletion request</li>
-        <li>Account data: until account deletion</li>
+        <li>
+          Account data: deleted upon account deletion, including favorites, watchlist, saved
+          searches, notification preferences, and username reservation
+        </li>
+        <li>Chat messages: retained after account deletion; may be removed upon request</li>
         <li>Presence session identifiers: short-lived</li>
         <li>Live stream recordings: retained unless removed</li>
+        <li>DJ profiles: retained until deletion or removal request</li>
         <li>Payment transaction records: retained for accounting, compliance, and disputes</li>
         <li>DJ application data: retained while relevant</li>
         <li>Moderation logs: retained as necessary for safety</li>

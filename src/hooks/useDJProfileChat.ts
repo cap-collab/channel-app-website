@@ -27,6 +27,7 @@ interface UseDJProfileChatOptions {
   username?: string;
   enabled?: boolean;                // Only subscribe when authenticated
   isOwner?: boolean;                // True if current user is the DJ
+  activityMessagesEnabled?: boolean; // Whether to post activity messages (love, etc.) to chat
 }
 
 interface UseDJProfileChatReturn {
@@ -44,6 +45,7 @@ export function useDJProfileChat({
   username,
   enabled = true,
   isOwner = false,
+  activityMessagesEnabled = true,
 }: UseDJProfileChatOptions): UseDJProfileChatReturn {
   const [messages, setMessages] = useState<ChatMessageSerialized[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -157,8 +159,12 @@ export function useDJProfileChat({
   }, [username, chatUsernameNormalized, isOwner]);
 
   // Send a love reaction - increment heartCount if user already has a love message
+  // If activityMessagesEnabled is false, skip posting to chat (animation still plays)
   const sendLove = useCallback(async () => {
     if (!username || !chatUsernameNormalized) return;
+
+    // If activity messages are disabled, skip posting to chat
+    if (!activityMessagesEnabled) return;
 
     const app = getFirebaseApp();
     const db = getFirestore(app);
@@ -194,7 +200,7 @@ export function useDJProfileChat({
       console.error('Failed to send love:', err);
       throw new Error('Failed to send love');
     }
-  }, [username, chatUsernameNormalized, djUsername]);
+  }, [username, chatUsernameNormalized, djUsername, activityMessagesEnabled]);
 
   return {
     messages,

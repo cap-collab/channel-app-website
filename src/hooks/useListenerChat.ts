@@ -24,6 +24,7 @@ function getFirebaseApp() {
 interface UseListenerChatOptions {
   username?: string;
   currentShowStartTime?: number; // Unix timestamp ms - love count resets per show
+  activityMessagesEnabled?: boolean; // Whether to post activity messages (love, etc.) to chat
 }
 
 interface UseListenerChatReturn {
@@ -36,7 +37,7 @@ interface UseListenerChatReturn {
   sendLove: (showName?: string) => Promise<void>;
 }
 
-export function useListenerChat({ username, currentShowStartTime }: UseListenerChatOptions): UseListenerChatReturn {
+export function useListenerChat({ username, currentShowStartTime, activityMessagesEnabled = true }: UseListenerChatOptions): UseListenerChatReturn {
   const [messages, setMessages] = useState<ChatMessageSerialized[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -145,8 +146,12 @@ export function useListenerChat({ username, currentShowStartTime }: UseListenerC
   }, [username]);
 
   // Send a love reaction - increment heartCount if user already has a love message for this show
+  // If activityMessagesEnabled is false, skip posting to chat (animation still plays)
   const sendLove = useCallback(async (showName?: string) => {
     if (!username) return;
+
+    // If activity messages are disabled, skip posting to chat
+    if (!activityMessagesEnabled) return;
 
     const app = getFirebaseApp();
     const db = getFirestore(app);
@@ -185,7 +190,7 @@ export function useListenerChat({ username, currentShowStartTime }: UseListenerC
       console.error('Failed to send love:', err);
       throw new Error('Failed to send love');
     }
-  }, [username]);
+  }, [username, activityMessagesEnabled]);
 
   return {
     messages,

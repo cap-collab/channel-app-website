@@ -32,7 +32,7 @@ export default function GuidelinesPage() {
 
       <h2>3. No Spam</h2>
       <p>Do not flood chat, run bots, advertise unrelated services, or disrupt conversations.</p>
-      <p>Manual chat messages are limited to 10 per minute.</p>
+      <p>Rate limits may apply to prevent spam.</p>
       <p>Automated activity messages are also rate-limited.</p>
 
       <h2>4. Usernames</h2>
