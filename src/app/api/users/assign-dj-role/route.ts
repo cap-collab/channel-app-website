@@ -20,12 +20,25 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
+    console.log(`[assign-dj-role] Processing request for email: ${normalizedEmail}`);
 
     // First check if user already exists with this email
-    const usersSnapshot = await db.collection('users')
+    // Try both normalized and original email since some users might have mixed case stored
+    let usersSnapshot = await db.collection('users')
       .where('email', '==', normalizedEmail)
       .limit(1)
       .get();
+
+    // If not found with lowercase, try the original email
+    if (usersSnapshot.empty && email.trim() !== normalizedEmail) {
+      usersSnapshot = await db.collection('users')
+        .where('email', '==', email.trim())
+        .limit(1)
+        .get();
+      if (!usersSnapshot.empty) {
+        console.log(`[assign-dj-role] Found user with original case email: ${email.trim()}`);
+      }
+    }
 
     if (!usersSnapshot.empty) {
       // User exists - assign DJ role and claim any pending DJ profile
@@ -34,6 +47,8 @@ export async function POST(request: NextRequest) {
       const currentRole = userData.role;
       const userId = userDoc.id;
       let pendingProfileClaimed = false;
+
+      console.log(`[assign-dj-role] Found existing user ${userId}, current role: ${currentRole}`);
 
       // Build the update object
       const updateData: Record<string, unknown> = {};
@@ -45,13 +60,25 @@ export async function POST(request: NextRequest) {
       }
 
       // Check for pending DJ profiles and claim them
-      const pendingProfilesSnapshot = await db.collection('pending-dj-profiles')
+      // First try with normalized email
+      let pendingProfilesSnapshot = await db.collection('pending-dj-profiles')
         .where('email', '==', normalizedEmail)
         .where('status', '==', 'pending')
         .get();
 
+      // If not found, try with original case email
+      if (pendingProfilesSnapshot.empty && email.trim() !== normalizedEmail) {
+        pendingProfilesSnapshot = await db.collection('pending-dj-profiles')
+          .where('email', '==', email.trim())
+          .where('status', '==', 'pending')
+          .get();
+      }
+
+      console.log(`[assign-dj-role] Found ${pendingProfilesSnapshot.size} pending DJ profiles for ${normalizedEmail}`);
+
       for (const pendingDoc of pendingProfilesSnapshot.docs) {
         const pendingData = pendingDoc.data();
+        console.log(`[assign-dj-role] Processing pending profile ${pendingDoc.id}: chatUsername=${pendingData.chatUsername}, status=${pendingData.status}`);
 
         // Transfer profile data to user document
         if (pendingData.chatUsername) {
