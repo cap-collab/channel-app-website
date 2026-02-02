@@ -225,9 +225,9 @@ export async function GET(request: NextRequest) {
     // This allows us to link to DJ profiles when a watchlist search term matches a DJ
     // We normalize keys (remove spaces/dashes, lowercase) for fuzzy matching
     const djNameToProfile = new Map<string, { username: string; photoUrl?: string }>();
-    function normalizeForLookup(str: string): string {
+    const normalizeForLookup = (str: string): string => {
       return str.replace(/[\s-]+/g, "").toLowerCase();
-    }
+    };
     for (const djUser of djUsers) {
       const chatUsername = djUser.data.chatUsername as string | undefined;
       const chatUsernameNormalized = djUser.data.chatUsernameNormalized as string | undefined;
