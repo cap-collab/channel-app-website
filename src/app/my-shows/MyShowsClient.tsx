@@ -251,7 +251,7 @@ export function MyShowsClient() {
             // Use first matching doc regardless of status
             const data = pendingSnapshot.docs[0].data();
             const profile: DJProfileCache = {
-              username: data.chatUsername,
+              username: data.chatUsernameNormalized || data.chatUsername?.replace(/[\s-]+/g, "").toLowerCase() || normalized,
               photoUrl: data.djProfile?.photoUrl || undefined,
               location: data.djProfile?.location || undefined,
               genres: data.djProfile?.genres || undefined,
@@ -273,7 +273,7 @@ export function MyShowsClient() {
           if (!usersSnapshot.empty) {
             const data = usersSnapshot.docs[0].data();
             const profile: DJProfileCache = {
-              username: data.chatUsername,
+              username: data.chatUsernameNormalized || data.chatUsername?.replace(/[\s-]+/g, "").toLowerCase() || normalized,
               photoUrl: data.djProfile?.photoUrl || undefined,
               location: data.djProfile?.location || undefined,
               genres: data.djProfile?.genres || undefined,
