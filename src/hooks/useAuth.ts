@@ -105,9 +105,24 @@ export function useAuth() {
               await setDoc(userRef, updateData, { merge: true });
             }
 
+            // Check if DJ terms were accepted before sending the magic link
+            const djTermsAccepted = window.localStorage.getItem('djTermsAccepted') === 'true';
+            if (djTermsAccepted && user.email) {
+              try {
+                await fetch('/api/users/assign-dj-role', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email: user.email }),
+                });
+              } catch (err) {
+                console.error('Failed to assign DJ role (non-fatal):', err);
+              }
+            }
+
             // Clear stored email and preferences
             window.localStorage.removeItem(EMAIL_FOR_SIGN_IN_KEY);
             window.localStorage.removeItem(NOTIFICATIONS_PREF_KEY);
+            window.localStorage.removeItem('djTermsAccepted');
 
             // Clean up URL
             window.history.replaceState(null, "", window.location.pathname);

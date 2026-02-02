@@ -164,6 +164,18 @@ export function AuthModal({
   const handleGoogleSignIn = async () => {
     const user = await signInWithGoogle(enableNotifications);
     if (user) {
+      // If DJ terms were included, assign DJ role
+      if (includeDjTerms) {
+        try {
+          await fetch('/api/users/assign-dj-role', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: user.email }),
+          });
+        } catch (err) {
+          console.error('Failed to assign DJ role:', err);
+        }
+      }
       onClose();
     }
   };
@@ -171,6 +183,18 @@ export function AuthModal({
   const handleAppleSignIn = async () => {
     const user = await signInWithApple(enableNotifications);
     if (user) {
+      // If DJ terms were included, assign DJ role
+      if (includeDjTerms) {
+        try {
+          await fetch('/api/users/assign-dj-role', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: user.email }),
+          });
+        } catch (err) {
+          console.error('Failed to assign DJ role:', err);
+        }
+      }
       onClose();
     }
   };
@@ -185,6 +209,10 @@ export function AuthModal({
 
   const handleSendMagicLink = async () => {
     if (!email.trim()) return;
+    // Store DJ terms acceptance for when magic link is clicked
+    if (includeDjTerms) {
+      window.localStorage.setItem('djTermsAccepted', 'true');
+    }
     await sendEmailLink(email.trim(), enableNotifications);
   };
 
@@ -194,11 +222,35 @@ export function AuthModal({
     if (isNewUser) {
       const user = await createAccountWithPassword(email.trim(), password, enableNotifications);
       if (user) {
+        // If DJ terms were included, assign DJ role
+        if (includeDjTerms) {
+          try {
+            await fetch('/api/users/assign-dj-role', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: user.email }),
+            });
+          } catch (err) {
+            console.error('Failed to assign DJ role:', err);
+          }
+        }
         onClose();
       }
     } else {
       const user = await signInWithPassword(email.trim(), password, enableNotifications);
       if (user) {
+        // If DJ terms were included and user is signing in (existing user), also assign DJ role
+        if (includeDjTerms) {
+          try {
+            await fetch('/api/users/assign-dj-role', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: user.email }),
+            });
+          } catch (err) {
+            console.error('Failed to assign DJ role:', err);
+          }
+        }
         onClose();
       }
     }

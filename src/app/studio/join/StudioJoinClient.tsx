@@ -58,45 +58,6 @@ export function StudioJoinClient() {
     }
   }, [user]);
 
-  // Assign DJ role after user signs up through AuthModal on this page
-  // The AuthModal includes DJ terms, so signing up = accepting DJ terms
-  // Uses the API endpoint which also claims any pending DJ profiles
-  useEffect(() => {
-    async function assignDJRoleAfterSignup() {
-      if (!user || roleLoading) return;
-
-      // Check if we already processed this signup (persists across reloads)
-      const signupProcessedKey = `dj-signup-processed-${user.uid}`;
-      const alreadyProcessed = sessionStorage.getItem(signupProcessedKey);
-
-      // Only assign if user is not already a DJ and we haven't processed this signup
-      if (!userIsDJ && !alreadyProcessed) {
-        try {
-          // Mark as processed before calling API to prevent loops
-          sessionStorage.setItem(signupProcessedKey, 'true');
-
-          // Use the API endpoint which handles claiming pending DJ profiles
-          const response = await fetch('/api/users/assign-dj-role', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: user.email }),
-          });
-
-          if (response.ok) {
-            // Force page reload to get updated role and profile data
-            window.location.reload();
-          }
-        } catch (error) {
-          console.error('Failed to assign DJ role after signup:', error);
-          // Clear the flag so they can retry
-          sessionStorage.removeItem(signupProcessedKey);
-        }
-      }
-    }
-
-    assignDJRoleAfterSignup();
-  }, [user, userIsDJ, roleLoading]);
-
   // Fetch DJ profile to pre-fill form (for DJ users)
   useEffect(() => {
     async function fetchDJProfile() {
