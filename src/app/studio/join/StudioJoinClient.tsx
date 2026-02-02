@@ -19,10 +19,6 @@ export function StudioJoinClient() {
   const { role, loading: roleLoading } = useUserRole(user);
   const userIsDJ = isDJ(role);
 
-  // Debug logging - remove after fixing
-  useEffect(() => {
-    console.log(`[StudioJoinClient] isAuthenticated=${isAuthenticated}, role=${role}, roleLoading=${roleLoading}, userIsDJ=${userIsDJ}, email=${user?.email}`);
-  }, [isAuthenticated, user, role, roleLoading, userIsDJ]);
 
   const [formData, setFormData] = useState<DJApplicationFormData>({
     djName: '',

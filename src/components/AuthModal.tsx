@@ -172,6 +172,9 @@ export function AuthModal({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: user.email }),
           });
+          // Reload page to reflect new DJ role
+          window.location.reload();
+          return;
         } catch (err) {
           console.error('Failed to assign DJ role:', err);
         }
@@ -191,6 +194,9 @@ export function AuthModal({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: user.email }),
           });
+          // Reload page to reflect new DJ role
+          window.location.reload();
+          return;
         } catch (err) {
           console.error('Failed to assign DJ role:', err);
         }
@@ -230,6 +236,9 @@ export function AuthModal({
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ email: user.email }),
             });
+            // Reload page to reflect new DJ role
+            window.location.reload();
+            return;
           } catch (err) {
             console.error('Failed to assign DJ role:', err);
           }
@@ -247,6 +256,9 @@ export function AuthModal({
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ email: user.email }),
             });
+            // Reload page to reflect new DJ role
+            window.location.reload();
+            return;
           } catch (err) {
             console.error('Failed to assign DJ role:', err);
           }
