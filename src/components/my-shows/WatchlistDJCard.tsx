@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface WatchlistDJCardProps {
   djName: string;
@@ -23,14 +23,27 @@ export function WatchlistDJCard({
   onRemove,
   isRemoving,
 }: WatchlistDJCardProps) {
+  const router = useRouter();
   const [imageError, setImageError] = useState(false);
   const hasPhoto = djPhotoUrl && !imageError;
 
+  const handleCardClick = () => {
+    if (djUsername) {
+      router.push(`/dj/${djUsername}`);
+    }
+  };
+
   return (
-    <div className="rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50 relative group">
+    <div
+      className={`rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50 relative group ${djUsername ? 'cursor-pointer' : ''}`}
+      onClick={handleCardClick}
+    >
       {/* X remove button - top right corner */}
       <button
-        onClick={onRemove}
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
         disabled={isRemoving}
         className="absolute top-2 right-2 z-20 p-1 rounded-full bg-black/50 transition-colors text-gray-400 hover:text-red-400 hover:bg-black/70 disabled:opacity-50"
         aria-label="Remove from watchlist"
@@ -44,7 +57,7 @@ export function WatchlistDJCard({
         )}
       </button>
 
-      {/* Photo area - entire card links to DJ profile if available */}
+      {/* Photo area */}
       <div className="relative w-full aspect-square overflow-hidden">
         {hasPhoto ? (
           <>
@@ -69,14 +82,6 @@ export function WatchlistDJCard({
                 </span>
               )}
             </div>
-            {/* Clickable overlay for the entire card */}
-            {djUsername && (
-              <Link
-                href={`/dj/${djUsername}`}
-                className="absolute inset-0 z-10"
-                aria-label={`View ${djName}'s profile`}
-              />
-            )}
           </>
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900 relative">
@@ -90,14 +95,6 @@ export function WatchlistDJCard({
               <span className="text-[10px] text-white/60 mt-0.5">
                 {djLocation}
               </span>
-            )}
-            {/* Clickable overlay for the entire card */}
-            {djUsername && (
-              <Link
-                href={`/dj/${djUsername}`}
-                className="absolute inset-0 z-10"
-                aria-label={`View ${djName}'s profile`}
-              />
             )}
           </div>
         )}

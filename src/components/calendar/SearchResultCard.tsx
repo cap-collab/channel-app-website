@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Show, Station } from "@/types";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
@@ -15,11 +15,20 @@ interface SearchResultCardProps {
 }
 
 function SearchResultCardComponent({ show, station }: SearchResultCardProps) {
+  const router = useRouter();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
   const { isAuthenticated } = useAuthContext();
   const { isShowFavorited, toggleFavorite } = useFavorites();
   const { hasFavoriteNotificationsEnabled } = useUserPreferences();
+
+  const handleDJClick = (e: React.MouseEvent) => {
+    if (show.djUsername) {
+      e.preventDefault();
+      e.stopPropagation();
+      router.push(`/dj/${show.djUsername}`);
+    }
+  };
 
   const isFavorited = isShowFavorited(show);
   const accentColor = station?.accentColor || "#fff";
@@ -120,13 +129,13 @@ function SearchResultCardComponent({ show, station }: SearchResultCardProps) {
             {show.dj && (
               <>
                 {show.djUsername ? (
-                  <Link
-                    href={`/dj/${show.djUsername}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="truncate max-w-[100px] hover:text-white hover:underline transition-colors inline-block py-1 -my-1"
+                  <button
+                    type="button"
+                    onClick={handleDJClick}
+                    className="truncate max-w-[100px] hover:text-white hover:underline transition-colors inline-block py-1 -my-1 cursor-pointer"
                   >
                     {show.dj}
-                  </Link>
+                  </button>
                 ) : (
                   <span className="truncate max-w-[100px]">{show.dj}</span>
                 )}

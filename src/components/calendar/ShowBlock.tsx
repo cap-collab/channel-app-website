@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Show } from "@/types";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useBPM } from "@/contexts/BPMContext";
@@ -55,6 +55,7 @@ function ShowBlockComponent({
   stationUrl,
   isHighlighted = false,
 }: ShowBlockProps) {
+  const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
@@ -62,6 +63,14 @@ function ShowBlockComponent({
   const { isShowFavorited, toggleFavorite } = useFavorites();
   const { hasFavoriteNotificationsEnabled } = useUserPreferences();
   const { stationBPM } = useBPM();
+
+  const handleDJClick = (e: React.MouseEvent) => {
+    if (show.djUsername) {
+      e.preventDefault();
+      e.stopPropagation();
+      router.push(`/dj/${show.djUsername}`);
+    }
+  };
 
   const isFavorited = isShowFavorited(show);
 
@@ -309,13 +318,13 @@ function ShowBlockComponent({
           {show.dj && height > 50 && (
             <p className="text-gray-500 text-[10px] truncate mt-0.5">
               {show.djUsername ? (
-                <Link
-                  href={`/dj/${show.djUsername}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="hover:text-white hover:underline transition-colors inline-block py-1 -my-1 relative z-10"
+                <button
+                  type="button"
+                  onClick={handleDJClick}
+                  className="hover:text-white hover:underline transition-colors inline-block py-1 -my-1 relative z-10 cursor-pointer"
                 >
                   {show.dj}
-                </Link>
+                </button>
               ) : (
                 show.dj
               )}
@@ -389,17 +398,17 @@ function ShowBlockComponent({
                   <div className="flex items-center gap-3 mb-3">
                     {show.djPhotoUrl && (
                       show.djUsername ? (
-                        <Link
-                          href={`/dj/${show.djUsername}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex-shrink-0 block"
+                        <button
+                          type="button"
+                          onClick={handleDJClick}
+                          className="flex-shrink-0 block cursor-pointer"
                         >
                           <img
                             src={show.djPhotoUrl}
                             alt={show.dj || "DJ"}
                             className="w-10 h-10 rounded-full object-cover hover:ring-2 hover:ring-white transition-all"
                           />
-                        </Link>
+                        </button>
                       ) : (
                         <img
                           src={show.djPhotoUrl}
@@ -411,13 +420,13 @@ function ShowBlockComponent({
                     <div>
                       {show.dj && (
                         show.djUsername ? (
-                          <Link
-                            href={`/dj/${show.djUsername}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-white text-sm font-medium hover:underline block py-1 -my-1"
+                          <button
+                            type="button"
+                            onClick={handleDJClick}
+                            className="text-white text-sm font-medium hover:underline block py-1 -my-1 cursor-pointer text-left"
                           >
                             {show.dj}
-                          </Link>
+                          </button>
                         ) : (
                           <p className="text-white text-sm font-medium">{show.dj}</p>
                         )

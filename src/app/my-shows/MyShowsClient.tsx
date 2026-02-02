@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { collection, query, where, getDocs } from "firebase/firestore";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useFavorites, Favorite, isRecurringFavorite } from "@/hooks/useFavorites";
@@ -109,6 +109,7 @@ interface UpcomingShowItem {
 }
 
 export function MyShowsClient() {
+  const router = useRouter();
   const { isAuthenticated, loading: authLoading } = useAuthContext();
   const {
     favorites,
@@ -495,12 +496,13 @@ export function MyShowsClient() {
             {show.dj && (
               <>
                 {show.djUsername ? (
-                  <Link
-                    href={`/dj/${show.djUsername}`}
-                    className="truncate max-w-[120px] hover:text-white hover:underline transition-colors inline-block py-1 -my-1"
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/dj/${show.djUsername}`)}
+                    className="truncate max-w-[120px] hover:text-white hover:underline transition-colors inline-block py-1 -my-1 cursor-pointer"
                   >
                     {show.dj}
-                  </Link>
+                  </button>
                 ) : (
                   <span className="truncate max-w-[120px]">{show.dj}</span>
                 )}

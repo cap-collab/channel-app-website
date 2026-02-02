@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface MyShowsCardProps {
   // Common props
@@ -95,8 +96,17 @@ export function MyShowsCard({
   onRemove,
   isRemoving,
 }: MyShowsCardProps) {
+  const router = useRouter();
   const [imageError, setImageError] = useState(false);
   const hasPhoto = djPhotoUrl && !imageError;
+
+  const handleDJClick = (e: React.MouseEvent) => {
+    if (djUsername) {
+      e.preventDefault();
+      e.stopPropagation();
+      router.push(`/dj/${djUsername}`);
+    }
+  };
 
   const displayName = showType === 'irl' ? eventName : showName;
   const subtitle = showType === 'irl'
@@ -143,9 +153,13 @@ export function MyShowsCard({
     <div className="flex rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50 p-3 gap-3">
       {/* Photo - links to DJ profile if available */}
       {djUsername ? (
-        <Link href={`/dj/${djUsername}`} className="flex-shrink-0">
+        <button
+          type="button"
+          onClick={handleDJClick}
+          className="flex-shrink-0 block cursor-pointer"
+        >
           {photoContent}
-        </Link>
+        </button>
       ) : (
         photoContent
       )}
@@ -201,9 +215,13 @@ export function MyShowsCard({
         {/* Show/Event name */}
         <p className="font-medium text-white text-sm leading-snug line-clamp-1 mt-1">
           {djUsername ? (
-            <Link href={`/dj/${djUsername}`} className="hover:underline">
+            <button
+              type="button"
+              onClick={handleDJClick}
+              className="hover:underline text-left cursor-pointer"
+            >
               {displayName}
-            </Link>
+            </button>
           ) : (
             displayName
           )}
@@ -213,12 +231,13 @@ export function MyShowsCard({
         <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">
           {djUsername ? (
             <>
-              <Link
-                href={`/dj/${djUsername}`}
-                className="hover:text-white hover:underline transition-colors inline-block py-1 -my-1"
+              <button
+                type="button"
+                onClick={handleDJClick}
+                className="hover:text-white hover:underline transition-colors inline-block py-1 -my-1 cursor-pointer"
               >
                 {djName}
-              </Link>
+              </button>
               {showType === 'irl' && eventLocation ? ` · in ${eventLocation}` : ''}
               {showType === 'online' && stationName ? ` · on ${stationName}` : ''}
             </>
