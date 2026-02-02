@@ -347,6 +347,21 @@ export function StudioJoinClient() {
     );
   }
 
+  // Show loading state while checking user role (only if authenticated)
+  // This prevents flickering between upgrade view and DJ form
+  if (isAuthenticated && roleLoading) {
+    return (
+      <div className="min-h-screen bg-black">
+        <Header currentPage="studio" position="sticky" />
+        <div className="p-4 md:p-8">
+          <div className="max-w-2xl mx-auto flex items-center justify-center py-20">
+            <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-black">
       <Header currentPage="studio" position="sticky" />
