@@ -56,6 +56,10 @@ const STATION_NAMES: Record<string, string> = {
 interface BroadcastShow extends Show {
   djUserId?: string;
   djEmail?: string;
+  djUsername?: string;
+  isIRL?: boolean;
+  irlLocation?: string;
+  irlTicketUrl?: string;
 }
 
 // Contains matching for DJ/show names (unidirectional - text must contain term)
@@ -142,6 +146,78 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Also fetch IRL events from DJ profiles
+    const todayStr = now.toISOString().split("T")[0];
+    const djUsers = await queryUsersWhere("role", "EQUAL", "dj");
+    let irlEventsAdded = 0;
+
+    for (const djUser of djUsers) {
+      const djProfile = djUser.data.djProfile as Record<string, unknown> | undefined;
+      const chatUsername = djUser.data.chatUsername as string | undefined;
+      const displayName = djUser.data.displayName as string | undefined;
+
+      if (!djProfile) continue;
+
+      // Get IRL shows from DJ profile
+      const irlShows = djProfile.irlShows as Array<{
+        name: string;
+        location: string;
+        url: string;
+        date: string;
+      }> | undefined;
+
+      if (irlShows && Array.isArray(irlShows)) {
+        for (const irlShow of irlShows) {
+          if (!irlShow.date || irlShow.date < todayStr) continue;
+
+          allShows.push({
+            name: irlShow.name,
+            dj: displayName,
+            startTime: `${irlShow.date}T20:00:00.000Z`, // Default to 8 PM
+            stationId: "irl",
+            stationName: "IRL Event",
+            djUserId: djUser.id,
+            djUsername: chatUsername,
+            isIRL: true,
+            irlLocation: irlShow.location,
+            irlTicketUrl: irlShow.url,
+          });
+          irlEventsAdded++;
+        }
+      }
+
+      // Get radio shows from DJ profile
+      const radioShows = djProfile.radioShows as Array<{
+        name: string;
+        radioName: string;
+        url: string;
+        date: string;
+        time: string;
+        duration: string;
+      }> | undefined;
+
+      if (radioShows && Array.isArray(radioShows)) {
+        for (const radioShow of radioShows) {
+          if (!radioShow.date || radioShow.date < todayStr) continue;
+
+          const startTime = radioShow.time
+            ? `${radioShow.date}T${radioShow.time}:00.000Z`
+            : `${radioShow.date}T12:00:00.000Z`;
+
+          allShows.push({
+            name: radioShow.name,
+            dj: displayName,
+            startTime,
+            stationId: radioShow.radioName.toLowerCase().replace(/\s+/g, "-"),
+            stationName: radioShow.radioName,
+            djUserId: djUser.id,
+            djUsername: chatUsername,
+          });
+        }
+      }
+    }
+
+    console.log(`[watchlist-digest] Added ${irlEventsAdded} IRL events from DJ profiles`);
     console.log(`[watchlist-digest] Total shows to check: ${allShows.length}`);
 
     // Get ALL users who have watchlist items (type="search" favorites)
@@ -211,12 +287,16 @@ export async function GET(request: NextRequest) {
       const matches: Array<{
         showName: string;
         djName?: string;
+        djUsername?: string;
         stationName: string;
         stationId: string;
         startTime: Date;
         searchTerm: string;
         watchlistDocId: string;
         isNewForEmail: boolean;
+        isIRL?: boolean;
+        irlLocation?: string;
+        irlTicketUrl?: string;
       }> = [];
 
       for (const show of allShows) {
@@ -259,12 +339,16 @@ export async function GET(request: NextRequest) {
           matches.push({
             showName: show.name,
             djName: show.dj,
+            djUsername: broadcastShow.djUsername,
             stationName: show.stationName,
             stationId: show.stationId,
             startTime: showStart,
             searchTerm: matchedTerm,
             watchlistDocId: "",
             isNewForEmail: showStart >= since,
+            isIRL: broadcastShow.isIRL,
+            irlLocation: broadcastShow.irlLocation,
+            irlTicketUrl: broadcastShow.irlTicketUrl,
           });
         }
       }

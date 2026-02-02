@@ -42,9 +42,15 @@ export function WatchlistDJCard({
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
           {/* DJ Name overlay on bottom-left */}
           <div className="absolute bottom-2 left-2 right-2">
-            <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
-              {djName}
-            </span>
+            {djUsername ? (
+              <Link href={`/dj/${djUsername}`} className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1 hover:underline" onClick={(e) => e.stopPropagation()}>
+                {djName}
+              </Link>
+            ) : (
+              <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+                {djName}
+              </span>
+            )}
             {djLocation && (
               <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
                 {djLocation}
@@ -57,9 +63,15 @@ export function WatchlistDJCard({
           <span className="text-4xl font-bold text-white mb-2">
             {djName.charAt(0).toUpperCase()}
           </span>
-          <span className="text-xs font-black uppercase tracking-wider text-white/80 text-center px-2 line-clamp-1">
-            {djName}
-          </span>
+          {djUsername ? (
+            <Link href={`/dj/${djUsername}`} className="text-xs font-black uppercase tracking-wider text-white/80 text-center px-2 line-clamp-1 hover:text-white hover:underline transition-colors">
+              {djName}
+            </Link>
+          ) : (
+            <span className="text-xs font-black uppercase tracking-wider text-white/80 text-center px-2 line-clamp-1">
+              {djName}
+            </span>
+          )}
           {djLocation && (
             <span className="text-[10px] text-white/60 mt-0.5">
               {djLocation}

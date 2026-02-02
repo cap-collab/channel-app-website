@@ -33,24 +33,37 @@ interface ShowStartingEmailParams {
   to: string;
   showName: string;
   djName?: string;
+  djUsername?: string; // DJ's chat username for profile link
+  djHasEmail?: boolean; // Whether the DJ has an email linked to their account
   stationName: string;
   stationId: string;
+  streamUrl?: string; // External radio stream URL
 }
 
 export async function sendShowStartingEmail({
   to,
   showName,
   djName,
+  djUsername,
+  djHasEmail,
   stationName,
   stationId,
+  streamUrl,
 }: ShowStartingEmailParams) {
-  const listenUrl = getStationDeepLink(stationId);
   if (!resend) {
     console.warn("Email service not configured - skipping email");
     return false;
   }
 
   const displayName = showName;
+
+  // Show "Chat live with the DJ" if DJ has an email linked (can receive notifications)
+  // Otherwise show "Tune In" linking to the radio stream
+  const canChatWithDJ = djHasEmail && djUsername;
+  const buttonUrl = canChatWithDJ
+    ? `https://channel-app.com/dj/${djUsername}`
+    : streamUrl || getStationDeepLink(stationId);
+  const buttonText = canChatWithDJ ? "Chat live with the DJ" : "Tune In";
 
   try {
     const { error } = await resend.emails.send({
@@ -79,7 +92,7 @@ export async function sendShowStartingEmail({
               <h1>${displayName} <span style="color: #888;">is live</span></h1>
               <p class="station">on ${stationName}</p>
               ${djName ? `<p class="show-name">${djName}</p>` : ""}
-              <a href="${listenUrl}" class="listen-btn">Tune In</a>
+              <a href="${buttonUrl}" class="listen-btn">${buttonText}</a>
             </div>
             <div class="footer">
               <p>You're receiving this because you saved this show.</p>
@@ -345,10 +358,14 @@ interface WatchlistDigestEmailParams {
   matches: Array<{
     showName: string;
     djName?: string;
+    djUsername?: string; // For DJ profile link
     stationName: string;
     stationId: string;
     startTime: Date;
     searchTerm: string;
+    isIRL?: boolean; // IRL event flag
+    irlLocation?: string; // City for IRL events
+    irlTicketUrl?: string; // Ticket link for IRL events
   }>;
 }
 
@@ -363,7 +380,7 @@ export async function sendWatchlistDigestEmail({
 
   if (matches.length === 0) return false;
 
-  // Group matches by search term
+  // Group matches by search term (DJ name)
   const matchesByTerm: Record<string, typeof matches> = {};
   for (const match of matches) {
     if (!matchesByTerm[match.searchTerm]) {
@@ -372,25 +389,49 @@ export async function sendWatchlistDigestEmail({
     matchesByTerm[match.searchTerm].push(match);
   }
 
-  // Build HTML for each search term group
+  // Build HTML for each DJ group
   const groupsHtml = Object.entries(matchesByTerm)
     .map(([term, termMatches]) => {
+      // Get DJ profile link from first match (they all share the same DJ)
+      const firstMatch = termMatches[0];
+      const djProfileUrl = firstMatch.djUsername
+        ? `https://channel-app.com/dj/${firstMatch.djUsername}`
+        : "https://channel-app.com/channel";
+      const djDisplayName = firstMatch.djName || term;
+
       const showsHtml = termMatches
         .map(
-          (match) => `
-          <div style="background: #1a1a1a; border-radius: 8px; padding: 16px; margin-bottom: 8px;">
-            <div style="font-weight: 600; margin-bottom: 4px;">${match.showName}</div>
-            ${match.djName ? `<div style="color: #aaa; font-size: 12px; margin-bottom: 4px;">${match.djName}</div>` : ""}
-            <div style="color: #888; font-size: 13px;">${match.stationName} · ${new Date(match.startTime).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })} at ${new Date(match.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</div>
-          </div>
-        `
+          (match) => {
+            const dateStr = new Date(match.startTime).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+            const timeStr = new Date(match.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+            if (match.isIRL) {
+              // IRL event display
+              return `
+              <div style="background: #1a1a1a; border-radius: 8px; padding: 16px; margin-bottom: 8px; text-align: left;">
+                <div style="font-weight: 600; margin-bottom: 4px;">${match.showName}</div>
+                <div style="color: #888; font-size: 13px;">${match.irlLocation || "TBA"} · ${dateStr}</div>
+                ${match.irlTicketUrl ? `<a href="${match.irlTicketUrl}" style="color: #fff; font-size: 12px; text-decoration: underline; margin-top: 8px; display: inline-block;">Get tickets</a>` : ""}
+              </div>
+            `;
+            } else {
+              // Online show display
+              return `
+              <div style="background: #1a1a1a; border-radius: 8px; padding: 16px; margin-bottom: 8px; text-align: left;">
+                <div style="font-weight: 600; margin-bottom: 4px;">${match.showName}</div>
+                <div style="color: #888; font-size: 13px;">${match.stationName} · ${dateStr} at ${timeStr}</div>
+              </div>
+            `;
+            }
+          }
         )
         .join("");
 
       return `
         <div style="margin-bottom: 24px;">
-          <p style="color: #aaa; font-size: 14px; margin-bottom: 12px;">We found shows matching your "<strong style="color: #fff;">${term}</strong>" alert and added them to your favorites:</p>
+          <p style="color: #888; font-size: 14px; margin-bottom: 12px;">From "<strong style="color: #fff;">${term}</strong>"</p>
           ${showsHtml}
+          <a href="${djProfileUrl}" style="display: inline-block; background: #fff; color: #000 !important; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 12px; font-size: 14px;">Visit ${djDisplayName} profile</a>
         </div>
       `;
     })
@@ -400,7 +441,7 @@ export async function sendWatchlistDigestEmail({
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to,
-      subject: `We found ${matches.length} show${matches.length > 1 ? "s" : ""} matching your alerts`,
+      subject: `${matches.length} new show${matches.length > 1 ? "s" : ""} coming up from your favorite DJs`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -410,7 +451,6 @@ export async function sendWatchlistDigestEmail({
             .container { max-width: 500px; margin: 0 auto; text-align: center; }
             .content { background: #111; border-radius: 12px; padding: 30px; margin-bottom: 20px; text-align: center; }
             h1 { margin: 0 0 24px; font-size: 20px; color: #fff; }
-            .stream-btn { display: inline-block; background: #fff; color: #000 !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 16px; }
             .footer { color: #666; font-size: 12px; text-align: center; margin-top: 30px; }
             .unsubscribe { color: #666; text-decoration: underline; }
           </style>
@@ -418,9 +458,8 @@ export async function sendWatchlistDigestEmail({
         <body>
           <div class="container">
             <div class="content">
-              <h1>New shows <span style="color: #888;">added to your favorites</span></h1>
+              <h1>New shows from your favorite DJs</h1>
               ${groupsHtml}
-              <a href="https://channel-app.com" class="stream-btn">Stream on Channel</a>
             </div>
             <div class="footer">
               <p>These shows have been added to your favorites.</p>

@@ -211,7 +211,17 @@ export function MyShowsCard({
 
         {/* DJ + Station/Location */}
         <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">
-          {subtitle}
+          {djUsername ? (
+            <>
+              <Link href={`/dj/${djUsername}`} className="hover:text-white hover:underline transition-colors">
+                {djName}
+              </Link>
+              {showType === 'irl' && eventLocation ? ` · in ${eventLocation}` : ''}
+              {showType === 'online' && stationName ? ` · on ${stationName}` : ''}
+            </>
+          ) : (
+            subtitle
+          )}
         </p>
 
         {/* Genre tags */}

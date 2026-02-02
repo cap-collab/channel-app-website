@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { collection, query, where, getDocs } from "firebase/firestore";
+import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useFavorites, Favorite, isRecurringFavorite } from "@/hooks/useFavorites";
@@ -11,7 +12,7 @@ import { SearchBar } from "@/components/SearchBar";
 import { MyShowsCard } from "@/components/my-shows/MyShowsCard";
 import { WatchlistDJCard } from "@/components/my-shows/WatchlistDJCard";
 import { getStationById, getStationByMetadataKey } from "@/lib/stations";
-import { searchShows, getAllShows } from "@/lib/metadata";
+import { searchShows } from "@/lib/metadata";
 import { Show } from "@/types";
 
 // Cache for DJ profile lookups to avoid repeated queries
@@ -129,10 +130,11 @@ export function MyShowsClient() {
   const [showsLoading, setShowsLoading] = useState(true);
   const [djProfiles, setDJProfiles] = useState<Map<string, DJProfileCache>>(new Map());
 
-  // Fetch all shows on mount
+  // Fetch all shows on mount (use API to get enriched DJ profile data)
   useEffect(() => {
-    getAllShows()
-      .then(setAllShows)
+    fetch('/api/schedule')
+      .then(res => res.json())
+      .then(data => setAllShows(data.shows || []))
       .catch(console.error)
       .finally(() => setShowsLoading(false));
   }, []);
@@ -492,7 +494,16 @@ export function MyShowsClient() {
           <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
             {show.dj && (
               <>
-                <span className="truncate max-w-[120px]">{show.dj}</span>
+                {show.djUsername ? (
+                  <Link
+                    href={`/dj/${show.djUsername}`}
+                    className="truncate max-w-[120px] hover:text-white hover:underline transition-colors"
+                  >
+                    {show.dj}
+                  </Link>
+                ) : (
+                  <span className="truncate max-w-[120px]">{show.dj}</span>
+                )}
                 <span>·</span>
               </>
             )}

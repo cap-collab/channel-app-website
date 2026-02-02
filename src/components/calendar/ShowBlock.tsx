@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useState } from "react";
+import Link from "next/link";
 import { Show } from "@/types";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useBPM } from "@/contexts/BPMContext";
@@ -306,7 +307,19 @@ function ShowBlockComponent({
             </div>
           )}
           {show.dj && height > 50 && (
-            <p className="text-gray-500 text-[10px] truncate mt-0.5">{show.dj}</p>
+            <p className="text-gray-500 text-[10px] truncate mt-0.5">
+              {show.djUsername ? (
+                <Link
+                  href={`/dj/${show.djUsername}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="hover:text-white hover:underline transition-colors"
+                >
+                  {show.dj}
+                </Link>
+              ) : (
+                show.dj
+              )}
+            </p>
           )}
           {show.description && height > 80 && (
             <p className="text-gray-600 text-[10px] line-clamp-2 mt-1">{show.description}</p>
@@ -375,14 +388,40 @@ function ShowBlockComponent({
                 {(show.dj || show.djPhotoUrl) && (
                   <div className="flex items-center gap-3 mb-3">
                     {show.djPhotoUrl && (
-                      <img
-                        src={show.djPhotoUrl}
-                        alt={show.dj || "DJ"}
-                        className="w-10 h-10 rounded-full object-cover"
-                      />
+                      show.djUsername ? (
+                        <Link
+                          href={`/dj/${show.djUsername}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex-shrink-0"
+                        >
+                          <img
+                            src={show.djPhotoUrl}
+                            alt={show.dj || "DJ"}
+                            className="w-10 h-10 rounded-full object-cover hover:ring-2 hover:ring-white transition-all"
+                          />
+                        </Link>
+                      ) : (
+                        <img
+                          src={show.djPhotoUrl}
+                          alt={show.dj || "DJ"}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                      )
                     )}
                     <div>
-                      {show.dj && <p className="text-white text-sm font-medium">{show.dj}</p>}
+                      {show.dj && (
+                        show.djUsername ? (
+                          <Link
+                            href={`/dj/${show.djUsername}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-white text-sm font-medium hover:underline"
+                          >
+                            {show.dj}
+                          </Link>
+                        ) : (
+                          <p className="text-white text-sm font-medium">{show.dj}</p>
+                        )
+                      )}
                       {show.djBio && <p className="text-gray-500 text-xs line-clamp-2">{show.djBio}</p>}
                     </div>
                   </div>
