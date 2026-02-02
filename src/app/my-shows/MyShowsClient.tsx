@@ -198,14 +198,24 @@ export function MyShowsClient() {
     return { liveNow, comingUp, returningSoon, oneTime };
   }, [stationShows, allShows]);
 
-  // Look up DJ profiles from Firebase for watchlist and history items
+  // Look up DJ profiles from Firebase for all items that need profile lookups
   useEffect(() => {
     async function lookupDJProfiles() {
-      // Combine watchlist items and history items that need profile lookups
+      // Collect DJ names from upcoming shows that don't already have profile data
+      const upcomingDJNames: { djName: string; term: string }[] = [];
+      for (const { show } of [...categorizedShows.liveNow, ...categorizedShows.comingUp]) {
+        // Only look up if show doesn't already have djUsername/djPhotoUrl
+        if (!show.djUsername && show.dj) {
+          upcomingDJNames.push({ djName: show.dj, term: show.dj });
+        }
+      }
+
+      // Combine watchlist items, history items, and upcoming shows that need profile lookups
       const itemsToLookup = [
         ...watchlist,
         ...categorizedShows.returningSoon,
         ...categorizedShows.oneTime,
+        ...upcomingDJNames,
       ];
 
       if (!db || itemsToLookup.length === 0) return;
@@ -227,7 +237,7 @@ export function MyShowsClient() {
         const normalized = name.replace(/[\s-]+/g, "").toLowerCase();
 
         try {
-          // Check pending-dj-profiles first
+          // Check pending-dj-profiles first (same order as MyDJsSection)
           const pendingRef = collection(db, "pending-dj-profiles");
           const pendingQ = query(
             pendingRef,
@@ -290,7 +300,7 @@ export function MyShowsClient() {
     }
 
     lookupDJProfiles();
-  }, [watchlist, categorizedShows.returningSoon, categorizedShows.oneTime]);
+  }, [watchlist, categorizedShows.returningSoon, categorizedShows.oneTime, categorizedShows.liveNow, categorizedShows.comingUp]);
 
   // Create unified upcoming shows list (online + IRL)
   const upcomingShows = useMemo(() => {
@@ -298,15 +308,19 @@ export function MyShowsClient() {
 
     // Add live online shows
     for (const { favorite, show } of categorizedShows.liveNow) {
+      // Look up DJ profile if show doesn't have profile data
+      const djName = show.dj || favorite.djName || favorite.showName || favorite.term;
+      const djProfile = show.dj ? djProfiles.get(show.dj.toLowerCase()) : undefined;
+
       items.push({
         id: `online-live-${favorite.id}`,
         type: 'online',
         sortTime: new Date(show.startTime),
         isLive: true,
-        djName: show.dj || favorite.djName || favorite.showName || favorite.term,
-        djPhotoUrl: show.djPhotoUrl || show.imageUrl,
-        djUsername: show.djUsername,
-        djGenres: show.djGenres,
+        djName,
+        djPhotoUrl: show.djPhotoUrl || djProfile?.photoUrl || show.imageUrl,
+        djUsername: show.djUsername || djProfile?.username,
+        djGenres: show.djGenres || djProfile?.genres,
         favorite,
         show,
         stationId: show.stationId,
@@ -315,15 +329,19 @@ export function MyShowsClient() {
 
     // Add coming up online shows
     for (const { favorite, show } of categorizedShows.comingUp) {
+      // Look up DJ profile if show doesn't have profile data
+      const djName = show.dj || favorite.djName || favorite.showName || favorite.term;
+      const djProfile = show.dj ? djProfiles.get(show.dj.toLowerCase()) : undefined;
+
       items.push({
         id: `online-upcoming-${favorite.id}`,
         type: 'online',
         sortTime: new Date(show.startTime),
         isLive: false,
-        djName: show.dj || favorite.djName || favorite.showName || favorite.term,
-        djPhotoUrl: show.djPhotoUrl || show.imageUrl,
-        djUsername: show.djUsername,
-        djGenres: show.djGenres,
+        djName,
+        djPhotoUrl: show.djPhotoUrl || djProfile?.photoUrl || show.imageUrl,
+        djUsername: show.djUsername || djProfile?.username,
+        djGenres: show.djGenres || djProfile?.genres,
         favorite,
         show,
         stationId: show.stationId,
@@ -351,7 +369,7 @@ export function MyShowsClient() {
       if (!a.isLive && b.isLive) return 1;
       return a.sortTime.getTime() - b.sortTime.getTime();
     });
-  }, [categorizedShows, irlEvents]);
+  }, [categorizedShows, irlEvents, djProfiles]);
 
   // Handle search
   const handleSearch = useCallback(async (query: string) => {
