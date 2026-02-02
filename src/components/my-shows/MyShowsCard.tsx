@@ -104,7 +104,9 @@ export function MyShowsCard({
     if (djUsername) {
       e.preventDefault();
       e.stopPropagation();
-      router.push(`/dj/${djUsername}`);
+      const url = `/dj/${djUsername}`;
+      console.log('[MyShowsCard] Navigating to:', url);
+      window.location.href = url;
     }
   };
 

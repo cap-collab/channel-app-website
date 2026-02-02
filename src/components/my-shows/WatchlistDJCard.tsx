@@ -30,7 +30,9 @@ export function WatchlistDJCard({
   const handleCardClick = () => {
     console.log('[WatchlistDJCard] Click! djUsername:', djUsername);
     if (djUsername) {
-      router.push(`/dj/${djUsername}`);
+      const url = `/dj/${djUsername}`;
+      console.log('[WatchlistDJCard] Navigating to:', url);
+      window.location.href = url;
     }
   };
 
