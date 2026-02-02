@@ -27,6 +27,12 @@ async function getDJProfile(searchTerm: string): Promise<{ username: string; pho
         djNormalized === normalized ||
         displayNormalized === normalized
       ) {
+        console.log(`[getDJProfile] Found match for "${searchTerm}":`, {
+          chatUsername,
+          chatUsernameNormalized,
+          displayName,
+          photoUrl: djProfile?.photoUrl,
+        });
         return {
           username: chatUsername || normalized,
           photoUrl: djProfile?.photoUrl as string | undefined,
