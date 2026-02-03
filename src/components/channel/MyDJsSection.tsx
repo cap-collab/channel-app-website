@@ -226,8 +226,25 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
 
     // Debug logging
     console.log('[MyDJsSection] followedDJNames:', followedDJNames);
+    console.log('[MyDJsSection] shows count:', shows.length);
     console.log('[MyDJsSection] irlShows count:', irlShows.length);
     console.log('[MyDJsSection] irlShows:', irlShows.map(s => ({ djName: s.djName, djUsername: s.djUsername, date: s.date })));
+
+    // Log shows that match followed DJs
+    const matchingShows = shows.filter(show => {
+      const showDjName = show.dj || show.name;
+      if (!showDjName) return false;
+      const djLower = showDjName.toLowerCase();
+      return followedDJNames.some(name => djLower.includes(name) || name.includes(djLower));
+    });
+    console.log('[MyDJsSection] Matching shows:', matchingShows.map(s => ({
+      id: s.id,
+      name: s.name,
+      dj: s.dj,
+      djUsername: s.djUsername,
+      startTime: s.startTime,
+      stationId: s.stationId
+    })));
 
     const now = new Date();
     const items: FavoriteTimelineItem[] = [];
