@@ -226,6 +226,7 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
 
     // Debug logging
     console.log('[MyDJsSection] followedDJNames:', followedDJNames);
+    console.log('[MyDJsSection] favoritedShows:', favoritedShows);
     console.log('[MyDJsSection] shows count:', shows.length);
     console.log('[MyDJsSection] irlShows count:', irlShows.length);
     console.log('[MyDJsSection] irlShows:', irlShows.map(s => ({ djName: s.djName, djUsername: s.djUsername, date: s.date })));
@@ -420,6 +421,15 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
         eventId: `dj-${name}`,
       });
     }
+
+    // Debug: log final items before sorting
+    console.log('[MyDJsSection] Final items before sort:', items.map(i => ({
+      eventId: i.eventId,
+      displayName: i.displayName,
+      eventType: i.eventType,
+      showStartTime: i.showStartTime,
+      irlDate: i.irlDate
+    })));
 
     // Sort: live first (eventTime=0), then by event time ascending, then DJs without events (no eventTime)
     return items.sort((a, b) => {
