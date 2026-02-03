@@ -1369,49 +1369,6 @@ export function StudioProfileClient() {
             </div>
           </section>
 
-          {/* Radio Shows section */}
-          <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-              Radio Shows
-            </h2>
-            <div className="bg-[#1a1a1a] rounded-lg">
-              {loadingBroadcasts ? (
-                <div className="p-4 flex items-center justify-center">
-                  <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
-                </div>
-              ) : upcomingShows.length === 0 ? (
-                <div className="p-4 text-center">
-                  <p className="text-gray-500">No upcoming shows scheduled</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-800">
-                  {upcomingShows.map((show) => (
-                    <div key={show.id} className="p-4">
-                      <p className="text-white font-medium">{show.showName}</p>
-                      <p className="text-gray-400 text-sm">
-                        {formatBroadcastTime(show.startTime, show.endTime)}
-                      </p>
-                      <p className="text-gray-500 text-xs mt-1">{show.stationName}</p>
-                      {show.status === "live" ? (
-                        <span className="inline-flex items-center gap-1 mt-2 text-red-400 text-xs">
-                          <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                          Live Now
-                        </span>
-                      ) : !show.isExternal && show.broadcastToken && (
-                        <Link
-                          href={`/broadcast/live?token=${show.broadcastToken}`}
-                          className="inline-flex items-center gap-1 mt-2 text-blue-400 hover:text-blue-300 text-sm transition-colors"
-                        >
-                          Go Live &rarr;
-                        </Link>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-
           {/* Thank You Message section */}
           <section>
             <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
@@ -1666,6 +1623,49 @@ export function StudioProfileClient() {
               <p className="text-gray-600 text-xs">
                 {savingIrlShows ? "Saving..." : saveIrlShowsSuccess ? "Saved" : ""}
               </p>
+            </div>
+          </section>
+
+          {/* Automatically detected shows section */}
+          <section>
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+              Automatically Detected Shows
+            </h2>
+            <div className="bg-[#1a1a1a] rounded-lg">
+              {loadingBroadcasts ? (
+                <div className="p-4 flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
+                </div>
+              ) : upcomingShows.length === 0 ? (
+                <div className="p-4 text-center">
+                  <p className="text-gray-500">No upcoming shows detected</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-800">
+                  {upcomingShows.map((show) => (
+                    <div key={show.id} className="p-4">
+                      <p className="text-white font-medium">{show.showName}</p>
+                      <p className="text-gray-400 text-sm">
+                        {formatBroadcastTime(show.startTime, show.endTime)}
+                      </p>
+                      <p className="text-gray-500 text-xs mt-1">{show.stationName}</p>
+                      {show.status === "live" ? (
+                        <span className="inline-flex items-center gap-1 mt-2 text-red-400 text-xs">
+                          <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                          Live Now
+                        </span>
+                      ) : !show.isExternal && show.broadcastToken && (
+                        <Link
+                          href={`/broadcast/live?token=${show.broadcastToken}`}
+                          className="inline-flex items-center gap-1 mt-2 text-blue-400 hover:text-blue-300 text-sm transition-colors"
+                        >
+                          Go Live &rarr;
+                        </Link>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
 
