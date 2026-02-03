@@ -41,6 +41,13 @@ export async function DELETE(request: NextRequest) {
     // Delete the broadcast slot document
     await slotRef.delete();
 
+    // Also delete the corresponding archive document if it exists
+    const archiveRef = db.collection('archives').doc(archiveId);
+    const archiveDoc = await archiveRef.get();
+    if (archiveDoc.exists) {
+      await archiveRef.delete();
+    }
+
     // Note: The actual audio file in R2 is NOT deleted here
     // This could be added later if needed, but for now we just remove the database records
 

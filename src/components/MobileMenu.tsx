@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useUserRole, isDJ } from "@/hooks/useUserRole";
 
@@ -15,7 +14,6 @@ interface MobileMenuProps {
 }
 
 export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
-  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const { user, isAuthenticated, signOut, loading } = useAuthContext();
   const { role } = useUserRole(user);
