@@ -2,7 +2,7 @@
 
 export function AnimatedBackground() {
   return (
-    <div className="fixed inset-0 -z-10 overflow-hidden bg-[#1a1a1a]">
+    <div className="fixed inset-0 -z-10 overflow-hidden bg-[#1a1a1a] pointer-events-none">
       {/* Pink blob - top left area */}
       <div
         className="absolute w-[120%] h-[120%] -top-[20%] -left-[20%] animate-blob-pink"
