@@ -309,10 +309,6 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
     // Second: Add favorited shows that aren't covered by DJ follows
     for (const favShow of favoritedShows) {
       const showNameLower = favShow.term;
-      const isCoveredByDJ = followedDJNames.some((djName) =>
-        showNameLower.includes(djName) || djName.includes(showNameLower)
-      );
-      if (isCoveredByDJ) continue;
 
       for (const show of shows) {
         const showNameMatch = show.name?.toLowerCase() === showNameLower ||
@@ -320,6 +316,15 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
         const stationMatch = !favShow.stationId || show.stationId === favShow.stationId;
 
         if (!showNameMatch || !stationMatch) continue;
+
+        // Check if this show's DJ is already covered by a followed DJ
+        const showDjName = show.dj || show.name;
+        const djLower = showDjName?.toLowerCase() || '';
+        const isCoveredByDJ = followedDJNames.some((followedName) =>
+          djLower.includes(followedName) || followedName.includes(djLower) ||
+          show.djUsername?.toLowerCase() === followedName.replace(/[\s-]+/g, '')
+        );
+        if (isCoveredByDJ) continue;
 
         const startDate = new Date(show.startTime);
         const endDate = new Date(show.endTime);
