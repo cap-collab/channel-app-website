@@ -410,22 +410,21 @@ export function StudioProfileClient() {
     return () => unsubscribe();
   }, [user, chatUsername, allShows]);
 
-  // Load my recordings (archives with sourceType: 'recording')
+  // Load my recordings (broadcast-slots with broadcastType: 'recording' and recordingStatus: 'ready')
   useEffect(() => {
     if (!user || !db) {
       setLoadingRecordings(false);
       return;
     }
 
-    const archivesRef = collection(db, "archives");
+    const slotsRef = collection(db, "broadcast-slots");
 
-    // Query for archives where the user is one of the DJs
-    // Note: Firestore doesn't support querying array of objects by nested field
-    // So we query all archives created by this user via broadcast-slots
+    // Query for recording slots owned by this user
+    // Use simple query to avoid needing composite index, filter client-side
     const q = query(
-      archivesRef,
-      where("djs", "array-contains", { userId: user.uid }),
-      orderBy("createdAt", "desc")
+      slotsRef,
+      where("djUserId", "==", user.uid),
+      where("broadcastType", "==", "recording")
     );
 
     const unsubscribe = onSnapshot(
@@ -434,27 +433,27 @@ export function StudioProfileClient() {
         const recs: Recording[] = [];
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
-          // Only include recordings (not live broadcast archives)
-          if (data.sourceType === 'recording') {
+          // Only include recordings that are ready (filter client-side)
+          if (data.recordingStatus === 'ready') {
             recs.push({
               id: docSnap.id,
               showName: data.showName || 'Untitled Recording',
-              djName: data.djs?.[0]?.name,
+              djName: data.liveDjUsername || data.djUsername,
               createdAt: data.createdAt?.toMillis?.() || data.createdAt || Date.now(),
-              duration: data.duration || 0,
+              duration: data.recordingDuration || 0,
               isPublic: data.isPublic || false,
-              slug: data.slug || docSnap.id,
-              audioUrl: data.audioUrl,
+              slug: docSnap.id,
+              audioUrl: data.recordingUrl,
             });
           }
         });
+        // Sort by createdAt descending (client-side)
+        recs.sort((a, b) => b.createdAt - a.createdAt);
         setRecordings(recs);
         setLoadingRecordings(false);
       },
       (err) => {
         console.error("Error loading recordings:", err);
-        // Try alternative query without array-contains (fallback)
-        // This happens if the djs array structure doesn't match exactly
         setLoadingRecordings(false);
       }
     );
