@@ -230,6 +230,9 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
     // Track DJ info for profile data (photo, username)
     const djInfoMap = new Map<string, { username?: string; photoUrl?: string }>();
 
+    // Track added events to prevent duplicates
+    const addedEventIds = new Set<string>();
+
     // First: Add all shows from followed DJs (one entry per show)
     for (const show of shows) {
       const showDjName = show.dj || show.name;
@@ -249,6 +252,11 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
 
       // Skip past shows
       if (!isLive && !isUpcoming) continue;
+
+      // Deduplicate by DJ username + start time (same DJ, same time slot = same show)
+      const dedupeKey = `${(show.djUsername || showDjName).toLowerCase()}-${show.startTime}`;
+      if (addedEventIds.has(dedupeKey)) continue;
+      addedEventIds.add(dedupeKey);
 
       const photoUrl = show.djPhotoUrl || show.imageUrl;
 
@@ -319,9 +327,19 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
     // Third: Add all IRL events from followed DJs (one entry per IRL event)
     for (const irlShow of irlShows) {
       const djNameLower = irlShow.djName.toLowerCase();
-      const matchedFollow = followedDJNames.find((name) =>
-        djNameLower.includes(name) || name.includes(djNameLower)
-      );
+      const djUsernameLower = irlShow.djUsername?.toLowerCase() || '';
+      // Normalize names for comparison (remove spaces/hyphens)
+      const djNameNormalized = djNameLower.replace(/[\s-]+/g, '');
+
+      const matchedFollow = followedDJNames.find((name) => {
+        const nameNormalized = name.replace(/[\s-]+/g, '');
+        return (
+          djNameLower.includes(name) ||
+          name.includes(djNameLower) ||
+          djUsernameLower === nameNormalized ||
+          djNameNormalized === nameNormalized
+        );
+      });
 
       if (!matchedFollow) continue;
 
