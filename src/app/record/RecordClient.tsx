@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useBroadcast } from '@/hooks/useBroadcast';
 import { AudioInputSelector } from '@/components/broadcast/AudioInputSelector';
 import { SystemAudioCapture } from '@/components/broadcast/SystemAudioCapture';
@@ -31,6 +32,7 @@ interface RecordingSession {
 }
 
 export function RecordClient() {
+  const router = useRouter();
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const { chatUsername, djProfile } = useUserProfile(user?.uid);
 
@@ -260,19 +262,9 @@ export function RecordClient() {
     broadcast.clearError(); // Clear any errors from the ending process
     setSession(null);
 
-    // Refresh quota after recording ends
-    if (user?.uid) {
-      try {
-        const res = await fetch(`/api/recording/start?userId=${user.uid}`);
-        const data = await res.json();
-        if (data.quota) {
-          setQuota(data.quota);
-        }
-      } catch {
-        // Ignore quota refresh errors
-      }
-    }
-  }, [audioStream, broadcast, user?.uid]);
+    // Redirect to studio where the recording will appear
+    router.push('/studio');
+  }, [audioStream, broadcast, router]);
 
   // Auth loading state
   if (authLoading) {
