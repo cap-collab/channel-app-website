@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -18,6 +19,7 @@ interface HeaderProps {
 }
 
 export function Header({ currentPage = "home", position = "fixed", showSearch = true }: HeaderProps) {
+  const router = useRouter();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { isAuthenticated } = useAuthContext();
   const { isLive } = useBroadcastLiveStatus();
@@ -54,7 +56,10 @@ export function Header({ currentPage = "home", position = "fixed", showSearch = 
         <div className="px-4 py-3 flex items-center justify-between">
           {/* Left side: Logo */}
           <div className="flex items-center gap-3">
-            <Link href="/channel" className="flex-shrink-0">
+            <button
+              onClick={() => router.push("/channel")}
+              className="flex-shrink-0 cursor-pointer"
+            >
               <Image
                 src="/logo-white.svg"
                 alt="CHANNEL"
@@ -63,7 +68,7 @@ export function Header({ currentPage = "home", position = "fixed", showSearch = 
                 className="h-6 w-auto"
                 priority
               />
-            </Link>
+            </button>
           </div>
 
           {/* Center: Search bar - always visible, inline with logo */}

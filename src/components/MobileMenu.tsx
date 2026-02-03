@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useUserRole, isDJ } from "@/hooks/useUserRole";
@@ -15,6 +16,7 @@ interface MobileMenuProps {
 }
 
 export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const { user, isAuthenticated, signOut, loading } = useAuthContext();
   const { role } = useUserRole(user);
@@ -74,36 +76,44 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                 if (isAuthenticated && user) {
                   return (
                     <div key={index}>
-                      <Link
-                        href="/my-shows"
-                        onClick={() => setIsOpen(false)}
+                      <button
+                        onClick={() => {
+                          setIsOpen(false);
+                          router.push("/my-shows");
+                        }}
                         className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                       >
                         My Favorites
-                      </Link>
-                      <Link
-                        href="/inbox"
-                        onClick={() => setIsOpen(false)}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsOpen(false);
+                          router.push("/inbox");
+                        }}
                         className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                       >
                         Inbox
-                      </Link>
+                      </button>
                       {isDJ(role) && (
-                        <Link
-                          href="/studio"
-                          onClick={() => setIsOpen(false)}
+                        <button
+                          onClick={() => {
+                            setIsOpen(false);
+                            router.push("/studio");
+                          }}
                           className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                         >
                           DJ Profile
-                        </Link>
+                        </button>
                       )}
-                      <Link
-                        href="/settings"
-                        onClick={() => setIsOpen(false)}
+                      <button
+                        onClick={() => {
+                          setIsOpen(false);
+                          router.push("/settings");
+                        }}
                         className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                       >
                         Settings
-                      </Link>
+                      </button>
                       <button
                         onClick={() => {
                           signOut();
@@ -154,15 +164,18 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                     </a>
                   );
                 }
+                // Use button with router.push for internal links
                 return (
-                  <Link
+                  <button
                     key={index}
-                    href={item.href}
-                    onClick={() => handleItemClick(item)}
+                    onClick={() => {
+                      handleItemClick(item);
+                      router.push(item.href!);
+                    }}
                     className={`block w-full px-4 py-3 text-left text-sm ${textClass} hover:bg-[#252525] transition-colors`}
                   >
                     {item.label}
-                  </Link>
+                  </button>
                 );
               }
 
