@@ -205,6 +205,7 @@ export function RecordClient() {
       }
 
       // Store session info - this will trigger the useEffect to go live
+      console.log('📹 Session created:', { slotId: data.slotId, roomName: data.roomName });
       setSession({
         slotId: data.slotId,
         broadcastToken: data.broadcastToken,
@@ -223,14 +224,20 @@ export function RecordClient() {
   }, [audioStream, user?.uid, showName, broadcastType]);
 
   // Go live after session is created
+  // Use a small delay to ensure refs are synced in useBroadcast hook
   useEffect(() => {
     if (session && audioStream && !broadcast.isLive && isGoingLive) {
-      broadcast.goLive(audioStream).then((success) => {
-        setIsGoingLive(false);
-        if (!success) {
-          console.error('Failed to start recording');
-        }
-      });
+      // Small delay to ensure useBroadcast refs are synced after state update
+      const timer = setTimeout(() => {
+        console.log('📹 Starting recording with session:', session.roomName);
+        broadcast.goLive(audioStream).then((success) => {
+          setIsGoingLive(false);
+          if (!success) {
+            console.error('Failed to start recording');
+          }
+        });
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [session, audioStream, broadcast, isGoingLive]);
 
