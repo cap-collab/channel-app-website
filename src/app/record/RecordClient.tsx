@@ -32,7 +32,7 @@ interface RecordingSession {
 
 export function RecordClient() {
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
-  const { chatUsername, djProfile, loading: profileLoading } = useUserProfile(user?.uid);
+  const { chatUsername } = useUserProfile(user?.uid);
 
   // Setup flow state
   const [setupStep, setSetupStep] = useState<SetupStep>('quota');
@@ -120,12 +120,6 @@ export function RecordClient() {
     }
     setSetupStep('profile');
   }, [isAuthenticated]);
-
-  // Handle profile completion
-  const handleProfileComplete = useCallback((username: string) => {
-    setDjUsername(username);
-    setSetupStep('audio');
-  }, []);
 
   // Handle audio input selection
   const handleInputSelect = useCallback((method: AudioInputMethod) => {
@@ -277,7 +271,6 @@ export function RecordClient() {
         tipCount={0}
         onChangeSource={handleBack}
         audioSourceLabel={audioSourceLabel}
-        isRecordingOnly={true}
       />
     );
   }
@@ -286,7 +279,7 @@ export function RecordClient() {
   if (setupStep === 'quota') {
     return (
       <>
-        <BroadcastHeader title="Record Your Set" />
+        <BroadcastHeader stationName="Record Your Set" />
         <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center p-8">
           <div className="bg-[#252525] rounded-xl p-8 max-w-md w-full">
             <h1 className="text-2xl font-bold text-white mb-2">Record Your Set</h1>
@@ -352,7 +345,7 @@ export function RecordClient() {
   if (setupStep === 'profile') {
     return (
       <>
-        <BroadcastHeader title="Record Your Set" />
+        <BroadcastHeader stationName="Record Your Set" />
         <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center p-8">
           <div className="max-w-md w-full">
             {/* Show name input */}
@@ -428,7 +421,7 @@ export function RecordClient() {
   if (setupStep === 'audio') {
     return (
       <>
-        <BroadcastHeader title="Record Your Set" />
+        <BroadcastHeader stationName="Record Your Set" />
         <div className="min-h-screen bg-[#1a1a1a] flex flex-col items-center justify-center p-8">
           {/* Show info */}
           <div className="text-center mb-8">

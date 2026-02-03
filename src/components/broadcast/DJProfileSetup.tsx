@@ -32,7 +32,7 @@ interface DJProfileSetupProps {
   defaultPromoText?: string;
   defaultPromoHyperlink?: string;
   defaultThankYouMessage?: string;
-  broadcastType?: 'venue' | 'remote';
+  broadcastType?: 'venue' | 'remote' | 'recording';
   onComplete: (username: string, promoText?: string, promoHyperlink?: string, thankYouMessage?: string) => void;
 }
 
@@ -54,7 +54,8 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
 
   // Remote DJs who are logged in with a chatUsername have their username locked
   // Venue DJs can always change their display name (ephemeral, shared computer)
-  const isRemoteDj = broadcastType === 'remote';
+  // Recording mode behaves like remote (DJ is at home, using their own account)
+  const isRemoteDj = broadcastType === 'remote' || broadcastType === 'recording';
   const isUsernameLocked = isAuthenticated && !!savedUsername && isRemoteDj;
 
   // Logged-in users who don't have a chatUsername must pick a unique one
