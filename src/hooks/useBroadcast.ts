@@ -108,12 +108,15 @@ export function useBroadcast(
       }
 
       // Get token for the room
+      console.log('📡 Requesting token for room:', currentRoomName, 'identity:', participantIdentity);
       const res = await fetch(
         `/api/livekit/token?room=${currentRoomName}&username=${encodeURIComponent(participantIdentity)}`
       );
       const data = await res.json();
+      console.log('📡 Token response:', { room: data.room, url: data.url, hasToken: !!data.token });
 
       if (data.error) {
+        console.error('📡 Token error:', data.error);
         setState(prev => ({ ...prev, error: data.error }));
         return false;
       }
@@ -157,7 +160,9 @@ export function useBroadcast(
         roomRef.current = null;
       });
 
+      console.log('📡 Connecting to LiveKit URL:', data.url);
       await room.connect(data.url, data.token);
+      console.log('📡 ✅ Successfully connected to room:', currentRoomName);
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Connection failed';
