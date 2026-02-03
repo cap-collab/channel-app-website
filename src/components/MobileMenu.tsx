@@ -77,19 +77,23 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                     <div key={index}>
                       <button
                         onClick={() => {
+                          console.log('[MobileMenu] My Favorites clicked!');
                           setIsOpen(false);
-                          router.push("/my-shows");
+                          window.location.href = "/my-shows";
                         }}
                         className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                        style={{ pointerEvents: 'auto' }}
                       >
                         My Favorites
                       </button>
                       <button
                         onClick={() => {
+                          console.log('[MobileMenu] Inbox clicked!');
                           setIsOpen(false);
-                          router.push("/inbox");
+                          window.location.href = "/inbox";
                         }}
                         className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                        style={{ pointerEvents: 'auto' }}
                       >
                         Inbox
                       </button>
@@ -163,15 +167,17 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                     </a>
                   );
                 }
-                // Use button with router.push for internal links
+                // Use button with window.location for internal links
                 return (
                   <button
                     key={index}
                     onClick={() => {
+                      console.log('[MobileMenu] Item clicked:', item.label);
                       handleItemClick(item);
-                      router.push(item.href!);
+                      window.location.href = item.href!;
                     }}
                     className={`block w-full px-4 py-3 text-left text-sm ${textClass} hover:bg-[#252525] transition-colors`}
+                    style={{ pointerEvents: 'auto' }}
                   >
                     {item.label}
                   </button>

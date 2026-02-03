@@ -56,8 +56,12 @@ export function Header({ currentPage = "home", position = "fixed", showSearch = 
           {/* Left side: Logo */}
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.push("/channel")}
-              className="flex-shrink-0 cursor-pointer"
+              onClick={() => {
+                console.log('[Header] Logo clicked!');
+                window.location.href = "/channel";
+              }}
+              className="flex-shrink-0 cursor-pointer relative z-[1000]"
+              style={{ pointerEvents: 'auto' }}
             >
               <Image
                 src="/logo-white.svg"
