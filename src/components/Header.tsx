@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/AuthModal";
@@ -18,7 +17,6 @@ interface HeaderProps {
 }
 
 export function Header({ currentPage = "home", position = "fixed", showSearch = true }: HeaderProps) {
-  const router = useRouter();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { isAuthenticated } = useAuthContext();
   const { isLive } = useBroadcastLiveStatus();
