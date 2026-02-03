@@ -305,7 +305,7 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
 
     // Validate permissions confirmation
     if (!permissionsConfirmed) {
-      setError('You must confirm and agree to the broadcast terms');
+      setError('You must confirm and agree to the DJ Terms');
       return;
     }
 
@@ -330,10 +330,10 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
   return (
     <div className="bg-[#252525] rounded-xl p-8 max-w-md mx-auto">
       <h2 className="text-2xl font-bold text-white mb-2">
-        Your DJ Profile
+        {broadcastType === 'recording' ? 'Recording Settings' : 'Your DJ Profile'}
       </h2>
       <p className="text-gray-400 mb-8">
-        Enter your DJ name for this broadcast.
+        Enter your DJ name for this {broadcastType === 'recording' ? 'recording' : 'broadcast'}.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -406,18 +406,20 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
           </p>
         </div>
 
-        {/* Broadcast Permissions Confirmation */}
+        {/* Broadcast/Recording Permissions Confirmation */}
         <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
           <p className="text-gray-300 text-sm mb-3">
-            By starting this broadcast, I represent and warrant that:
+            By starting this {broadcastType === 'recording' ? 'recording' : 'broadcast'}, I represent and warrant that:
           </p>
           <ul className="text-gray-400 text-sm space-y-1 mb-4 ml-4">
             {broadcastType === 'venue' && (
               <li>• The venue and promoters have authorized this livestream and any related recording.</li>
             )}
-            <li>• Channel may record this broadcast and replay it or make it available on Channel websites and channels.</li>
-            <li>• All DJs listed on this broadcast are aware of and consent to being livestreamed, recorded, and used by Channel.</li>
-            <li>• I am responsible for ensuring the livestream complies with venue policies and applicable laws.</li>
+            <li>• Channel may {broadcastType === 'recording' ? 'use' : 'record'} this {broadcastType === 'recording' ? 'recording' : 'broadcast'} and replay it or make it available on Channel websites and channels.</li>
+            <li>• All DJs listed on this {broadcastType === 'recording' ? 'recording' : 'broadcast'} are aware of and consent to being {broadcastType === 'recording' ? 'recorded' : 'livestreamed, recorded,'} and used by Channel.</li>
+            {broadcastType !== 'recording' && (
+              <li>• I am responsible for ensuring the livestream complies with venue policies and applicable laws.</li>
+            )}
           </ul>
           <label className="flex items-start gap-3 cursor-pointer">
             <input
@@ -445,7 +447,7 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
           disabled={!username.trim() || !permissionsConfirmed}
           className="w-full bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg transition-colors"
         >
-          Continue to Go Live
+          {broadcastType === 'recording' ? 'Continue to Record' : 'Continue to Go Live'}
         </button>
 
         {/* Promo Text (Optional) */}
