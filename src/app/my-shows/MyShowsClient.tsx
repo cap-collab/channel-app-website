@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { collection, query, where, getDocs } from "firebase/firestore";
-import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useFavorites, Favorite, isRecurringFavorite } from "@/hooks/useFavorites";
@@ -26,34 +25,6 @@ const djProfileCache = new Map<string, DJProfileCache | null>();
 function getStation(stationId: string | undefined) {
   if (!stationId) return undefined;
   return getStationById(stationId) || getStationByMetadataKey(stationId);
-}
-
-function formatShowTime(startTime: string): string {
-  const date = new Date(startTime);
-  const now = new Date();
-  const isToday = date.toDateString() === now.toDateString();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const isTomorrow = date.toDateString() === tomorrow.toDateString();
-
-  const timeStr = date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-
-  if (isToday) {
-    return `Today ${timeStr}`;
-  } else if (isTomorrow) {
-    return `Tomorrow ${timeStr}`;
-  } else {
-    const dayStr = date.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
-    return `${dayStr} ${timeStr}`;
-  }
 }
 
 // Match a favorite against shows to find scheduled instances
