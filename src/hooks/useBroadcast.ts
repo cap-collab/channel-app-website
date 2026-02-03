@@ -44,27 +44,23 @@ export function useBroadcast(
   const audioTrackRef = useRef<LocalTrack | null>(null);
 
   // Use refs to ensure callbacks always have latest values
+  // Initialize refs AND update them synchronously on each render
+  // (useEffect runs after render, which is too late for callbacks)
   const broadcastTokenRef = useRef(broadcastToken);
+  broadcastTokenRef.current = broadcastToken;
+
   const djInfoRef = useRef(djInfo);
+  djInfoRef.current = djInfo;
+
   const slotIdRef = useRef(slotId);
+  slotIdRef.current = slotId;
+
   const roomNameRef = useRef(roomName);
+  roomNameRef.current = roomName;
 
-  // Keep refs in sync with props
+  // Update state.roomName when prop changes (for consumers to check readiness)
   useEffect(() => {
-    broadcastTokenRef.current = broadcastToken;
-  }, [broadcastToken]);
-
-  useEffect(() => {
-    djInfoRef.current = djInfo;
-  }, [djInfo]);
-
-  useEffect(() => {
-    slotIdRef.current = slotId;
-  }, [slotId]);
-
-  useEffect(() => {
-    roomNameRef.current = roomName;
-    // Also update state so consumers can check the current roomName
+    console.log('📡 roomName changed:', roomName);
     setState(prev => {
       if (prev.roomName !== roomName) {
         return { ...prev, roomName };
@@ -84,6 +80,15 @@ export function useBroadcast(
   const connect = useCallback(async () => {
     // Use ref to get latest room name
     const currentRoomName = roomNameRef.current;
+
+    // Safety check - if roomName is not set, don't try to connect
+    if (!currentRoomName) {
+      console.error('📡 ❌ Cannot connect: roomName is undefined');
+      setState(prev => ({ ...prev, error: 'Room name not configured' }));
+      return false;
+    }
+
+    console.log('📡 Connecting to room:', currentRoomName);
 
     try {
       setState(prev => ({ ...prev, error: null }));
