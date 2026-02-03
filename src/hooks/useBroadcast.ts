@@ -28,6 +28,16 @@ export function useBroadcast(
   const roomName = options?.customRoomName || ROOM_NAME;
   const recordingOnly = options?.recordingOnly || false;
 
+  // Debug: log when hook params change
+  console.log('📡 useBroadcast called with:', {
+    participantIdentity,
+    slotId,
+    broadcastToken: broadcastToken ? broadcastToken.slice(0, 10) + '...' : undefined,
+    customRoomName: options?.customRoomName,
+    recordingOnly,
+    computedRoomName: roomName,
+  });
+
   const [state, setState] = useState<BroadcastState>({
     inputMethod: null,
     isConnected: false,

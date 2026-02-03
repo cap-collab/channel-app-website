@@ -242,7 +242,7 @@ export function RecordClient() {
         }
       });
     }
-  }, [session, audioStream, broadcast, isGoingLive]);
+  }, [session, audioStream, broadcast.isLive, broadcast.roomName, broadcast.goLive, isGoingLive]);
 
   // Handle end recording
   const handleEndRecording = useCallback(async () => {

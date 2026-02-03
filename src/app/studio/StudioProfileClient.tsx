@@ -340,6 +340,10 @@ export function StudioProfileClient() {
           for (const show of allShows) {
             // Skip broadcast shows (already handled above)
             if (show.stationId === "broadcast") continue;
+            // Skip manually entered DJ radio shows
+            if (show.stationId === "dj-radio") continue;
+            // Skip IRL shows
+            if (show.stationId === "irl") continue;
 
             // Skip shows that have already ended
             const endTime = new Date(show.endTime).getTime();
