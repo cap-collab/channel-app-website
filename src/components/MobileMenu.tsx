@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useUserRole, isDJ } from "@/hooks/useUserRole";
 
