@@ -242,6 +242,7 @@ export function RecordClient() {
         }
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- We intentionally depend on specific broadcast properties, not the whole object
   }, [session, audioStream, broadcast.isLive, broadcast.roomName, broadcast.goLive, isGoingLive]);
 
   // Handle end recording
