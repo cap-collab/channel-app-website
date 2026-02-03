@@ -409,7 +409,7 @@ export function MyShowsClient() {
     return (
       <div className="min-h-[100dvh] text-white relative flex flex-col">
         <AnimatedBackground />
-        <Header currentPage="my-shows" position="sticky" showSearch={false} />
+        <Header currentPage="my-shows" position="sticky" />
         <div className="flex-1 flex items-center justify-center">
           <div className="w-6 h-6 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
         </div>
@@ -420,9 +420,9 @@ export function MyShowsClient() {
   return (
     <div className="min-h-[100dvh] text-white relative flex flex-col">
       <AnimatedBackground />
-      <Header currentPage="my-shows" position="sticky" showSearch={false} />
+      <Header currentPage="my-shows" position="sticky" />
 
-      <main className="flex-1 min-h-0 px-8 lg:px-16 py-6 pb-20">
+      <main className="flex-1 min-h-0 px-8 lg:px-16 py-6 pb-20 overflow-y-auto">
         {!isAuthenticated ? (
           <div className="text-center py-12">
             <p className="text-gray-500 mb-6">Sign in to see your saved shows</p>
