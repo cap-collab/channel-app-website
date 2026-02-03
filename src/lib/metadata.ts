@@ -257,9 +257,15 @@ async function fetchBroadcastShows(): Promise<Show[]> {
     snapshot.forEach((doc) => {
       const data = doc.data();
       const status = data.status as string;
+      const broadcastType = data.broadcastType as string | undefined;
 
       // Skip cancelled slots, but show all others (scheduled, live, paused, completed, missed)
       if (status === "cancelled") {
+        return;
+      }
+
+      // Skip recording-only slots (they're not live broadcasts, just private recordings)
+      if (broadcastType === "recording") {
         return;
       }
 

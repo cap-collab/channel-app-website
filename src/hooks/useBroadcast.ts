@@ -359,21 +359,33 @@ export function useBroadcast(
     setState(prev => ({ ...prev, error: null }));
   }, []);
 
-  // Handle browser close/tab close - mark as paused
+  // Handle browser close/tab close
+  // For recordings: stop the egress completely (end the recording)
+  // For live broadcasts: mark as paused (DJ may reconnect)
   useEffect(() => {
     const handleBeforeUnload = () => {
       // Use sendBeacon for reliable delivery on page unload
       if (state.isLive && slotId) {
-        navigator.sendBeacon(
-          '/api/broadcast/pause-slot',
-          JSON.stringify({ slotId })
-        );
+        if (recordingOnly) {
+          // For recordings, stop the egress and complete the slot
+          // This ensures the recording is finalized when the user closes the window
+          navigator.sendBeacon(
+            '/api/recording/stop',
+            JSON.stringify({ slotId, egressId: state.recordingEgressId })
+          );
+        } else {
+          // For live broadcasts, just mark as paused (DJ may reconnect)
+          navigator.sendBeacon(
+            '/api/broadcast/pause-slot',
+            JSON.stringify({ slotId })
+          );
+        }
       }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [state.isLive, slotId]);
+  }, [state.isLive, slotId, recordingOnly, state.recordingEgressId]);
 
   return {
     ...state,
