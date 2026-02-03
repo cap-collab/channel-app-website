@@ -393,8 +393,8 @@ async function fetchDJRadioShows(): Promise<Show[]> {
 
       // Filter to upcoming shows only
       for (const show of djProfile.radioShows) {
-        // Skip if no date or no radio name
-        if (!show.date || !show.radioName) continue;
+        // Skip if no date (radio name and other fields are optional)
+        if (!show.date) continue;
 
         // Skip past shows (compare ISO date strings)
         if (show.date < today) continue;
@@ -402,7 +402,8 @@ async function fetchDJRadioShows(): Promise<Show[]> {
         // Create a unique ID that won't collide with other shows
         // Include the show name to differentiate from external shows with same DJ
         const showNameSlug = (show.name || "").replace(/\s+/g, "-").toLowerCase().slice(0, 20);
-        const showId = `dj-radio-${chatUsername?.replace(/\s+/g, "").toLowerCase()}-${show.date}-${show.radioName.replace(/\s+/g, "-").toLowerCase()}-${showNameSlug}`;
+        const radioNameSlug = (show.radioName || "radio").replace(/\s+/g, "-").toLowerCase();
+        const showId = `dj-radio-${chatUsername?.replace(/\s+/g, "").toLowerCase()}-${show.date}-${radioNameSlug}-${showNameSlug}`;
 
         // Parse date and time to create start/end times
         const showDate = new Date(show.date);
@@ -417,9 +418,12 @@ async function fetchDJRadioShows(): Promise<Show[]> {
         const durationHours = parseFloat(show.duration) || 1;
         const endTime = new Date(showDate.getTime() + durationHours * 60 * 60 * 1000).toISOString();
 
+        // Build show name - use provided name, or construct from DJ and radio
+        const showName = show.name || (show.radioName ? `${chatUsername} on ${show.radioName}` : `${chatUsername} Radio Show`);
+
         radioShows.push({
           id: showId,
-          name: show.name || `${chatUsername} on ${show.radioName}`,
+          name: showName,
           dj: chatUsername || "Unknown DJ",
           startTime,
           endTime,
