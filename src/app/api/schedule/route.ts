@@ -406,17 +406,35 @@ async function fetchDJRadioShows(): Promise<Show[]> {
         const showId = `dj-radio-${chatUsername?.replace(/\s+/g, "").toLowerCase()}-${show.date}-${radioNameSlug}-${showNameSlug}`;
 
         // Parse date and time to create start/end times
-        const showDate = new Date(show.date);
-        if (show.time) {
-          const [hours, minutes] = show.time.split(":").map(Number);
-          showDate.setHours(hours || 0, minutes || 0, 0, 0);
-        } else {
-          showDate.setHours(12, 0, 0, 0); // Default to noon if no time specified
-        }
-        const startTime = showDate.toISOString();
+        // Use the DJ's timezone if available, otherwise default to America/Los_Angeles
+        const timezone = show.timezone || "America/Los_Angeles";
+        const timeStr = show.time || "12:00"; // Default to noon if no time
+        const [hours, minutes] = timeStr.split(":").map(Number);
+
+        // Create ISO string with the time, then adjust for timezone
+        // We need to find what UTC time corresponds to this local time
+        const localDateTime = `${show.date}T${String(hours || 0).padStart(2, '0')}:${String(minutes || 0).padStart(2, '0')}:00`;
+
+        // Get timezone offset for this specific date/time
+        // Create a date assuming UTC, then see what local time that produces in the target timezone
+        const testDate = new Date(localDateTime + "Z");
+        const localStr = testDate.toLocaleString("en-US", { timeZone: timezone, hour12: false });
+        const localMatch = localStr.match(/(\d+):(\d+):(\d+)/);
+        const localHour = localMatch ? parseInt(localMatch[1]) : hours || 0;
+
+        // Calculate offset: if UTC 09:00 shows as 01:00 local, offset is -8 hours
+        // So to get 09:00 local, we need 17:00 UTC (add 8 hours)
+        let offsetHours = (hours || 0) - localHour;
+        // Handle day wraparound
+        if (offsetHours > 12) offsetHours -= 24;
+        if (offsetHours < -12) offsetHours += 24;
+
+        const startTimeMs = testDate.getTime() + (offsetHours * 60 * 60 * 1000);
+        const startTime = new Date(startTimeMs).toISOString();
+
         // Use duration from show, default to 1 hour
         const durationHours = parseFloat(show.duration) || 1;
-        const endTime = new Date(showDate.getTime() + durationHours * 60 * 60 * 1000).toISOString();
+        const endTime = new Date(startTimeMs + durationHours * 60 * 60 * 1000).toISOString();
 
         // Build show name - use provided name, or construct from DJ and radio
         const showName = show.name || (show.radioName ? `${chatUsername} on ${show.radioName}` : `${chatUsername} Radio Show`);
