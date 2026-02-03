@@ -192,6 +192,22 @@ export function StudioProfileClient() {
   const [loadingBroadcasts, setLoadingBroadcasts] = useState(true);
   const [allShows, setAllShows] = useState<Show[]>([]);
 
+  // My recordings state
+  interface Recording {
+    id: string;
+    showName: string;
+    djName?: string;
+    createdAt: number;
+    duration: number;
+    isPublic: boolean;
+    slug: string;
+    audioUrl?: string;
+  }
+  const [recordings, setRecordings] = useState<Recording[]>([]);
+  const [loadingRecordings, setLoadingRecordings] = useState(true);
+  const [publishingRecording, setPublishingRecording] = useState<string | null>(null);
+  const [deletingRecording, setDeletingRecording] = useState<string | null>(null);
+
   // Auto-save debounce refs
   const bioDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const promoDebounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -393,6 +409,103 @@ export function StudioProfileClient() {
 
     return () => unsubscribe();
   }, [user, chatUsername, allShows]);
+
+  // Load my recordings (archives with sourceType: 'recording')
+  useEffect(() => {
+    if (!user || !db) {
+      setLoadingRecordings(false);
+      return;
+    }
+
+    const archivesRef = collection(db, "archives");
+
+    // Query for archives where the user is one of the DJs
+    // Note: Firestore doesn't support querying array of objects by nested field
+    // So we query all archives created by this user via broadcast-slots
+    const q = query(
+      archivesRef,
+      where("djs", "array-contains", { userId: user.uid }),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const recs: Recording[] = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          // Only include recordings (not live broadcast archives)
+          if (data.sourceType === 'recording') {
+            recs.push({
+              id: docSnap.id,
+              showName: data.showName || 'Untitled Recording',
+              djName: data.djs?.[0]?.name,
+              createdAt: data.createdAt?.toMillis?.() || data.createdAt || Date.now(),
+              duration: data.duration || 0,
+              isPublic: data.isPublic || false,
+              slug: data.slug || docSnap.id,
+              audioUrl: data.audioUrl,
+            });
+          }
+        });
+        setRecordings(recs);
+        setLoadingRecordings(false);
+      },
+      (err) => {
+        console.error("Error loading recordings:", err);
+        // Try alternative query without array-contains (fallback)
+        // This happens if the djs array structure doesn't match exactly
+        setLoadingRecordings(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Handle publish/unpublish recording
+  const handlePublishRecording = useCallback(async (recordingId: string, publish: boolean) => {
+    if (!user) return;
+    setPublishingRecording(recordingId);
+    try {
+      const res = await fetch('/api/recording/publish', {
+        method: publish ? 'POST' : 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archiveId: recordingId, userId: user.uid }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        console.error('Failed to update recording:', data.error);
+      }
+    } catch (error) {
+      console.error('Error updating recording:', error);
+    } finally {
+      setPublishingRecording(null);
+    }
+  }, [user]);
+
+  // Handle delete recording
+  const handleDeleteRecording = useCallback(async (recordingId: string) => {
+    if (!user) return;
+    if (!confirm('Are you sure you want to delete this recording? This cannot be undone.')) {
+      return;
+    }
+    setDeletingRecording(recordingId);
+    try {
+      const res = await fetch('/api/recording/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archiveId: recordingId, userId: user.uid }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        console.error('Failed to delete recording:', data.error);
+      }
+    } catch (error) {
+      console.error('Error deleting recording:', error);
+    } finally {
+      setDeletingRecording(null);
+    }
+  }, [user]);
 
   // Sync DJ profile data to broadcast slots
   const syncProfileToSlots = useCallback(async (updates: {
@@ -941,6 +1054,24 @@ export function StudioProfileClient() {
       minute: "2-digit",
     });
     return `${dateStr}, ${startStr} - ${endStr}`;
+  };
+
+  const formatDuration = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+  };
+
+  const formatRecordingDate = (timestamp: number) => {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
   };
 
   if (authLoading || roleLoading) {
@@ -1554,6 +1685,97 @@ export function StudioProfileClient() {
                   {savingSocial ? "Saving..." : saveSocialSuccess ? "Saved" : ""}
                 </p>
               </div>
+            </div>
+          </section>
+
+          {/* My Recordings section */}
+          <section>
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
+              My Recordings
+            </h2>
+            <p className="text-gray-600 text-xs mb-3 px-1">
+              Manage your recorded sets. Publish them to your profile or delete them.
+            </p>
+            <div className="bg-[#1a1a1a] rounded-lg">
+              {loadingRecordings ? (
+                <div className="p-4 flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
+                </div>
+              ) : recordings.length === 0 ? (
+                <div className="p-4 text-center">
+                  <p className="text-gray-500">No recordings yet</p>
+                  <Link
+                    href="/record"
+                    className="inline-block mt-2 text-blue-400 hover:text-blue-300 text-sm transition-colors"
+                  >
+                    Start recording &rarr;
+                  </Link>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-800">
+                  {recordings.map((recording) => (
+                    <div key={recording.id} className="p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-medium truncate">{recording.showName}</p>
+                          <p className="text-gray-400 text-sm">
+                            {formatRecordingDate(recording.createdAt)} · {formatDuration(recording.duration)}
+                          </p>
+                          {recording.isPublic ? (
+                            <Link
+                              href={`/archive/${recording.slug}`}
+                              className="inline-flex items-center gap-1 mt-1 text-green-400 text-xs"
+                            >
+                              <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                              Published
+                            </Link>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 mt-1 text-gray-500 text-xs">
+                              <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
+                              Private
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handlePublishRecording(recording.id, !recording.isPublic)}
+                            disabled={publishingRecording === recording.id}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                              recording.isPublic
+                                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                : 'bg-green-600 text-white hover:bg-green-500'
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                          >
+                            {publishingRecording === recording.id ? (
+                              <span className="flex items-center gap-1">
+                                <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                              </span>
+                            ) : recording.isPublic ? (
+                              'Unpublish'
+                            ) : (
+                              'Publish'
+                            )}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRecording(recording.id)}
+                            disabled={deletingRecording === recording.id}
+                            className="p-1.5 text-gray-500 hover:text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            aria-label="Delete recording"
+                          >
+                            {deletingRecording === recording.id ? (
+                              <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin inline-block" />
+                            ) : (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
 
