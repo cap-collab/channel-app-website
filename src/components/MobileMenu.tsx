@@ -100,20 +100,24 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                       {isDJ(role) && (
                         <button
                           onClick={() => {
+                            console.log('[MobileMenu] DJ Profile clicked!');
                             setIsOpen(false);
-                            router.push("/studio");
+                            window.location.href = "/studio";
                           }}
                           className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                          style={{ pointerEvents: 'auto' }}
                         >
                           DJ Profile
                         </button>
                       )}
                       <button
                         onClick={() => {
+                          console.log('[MobileMenu] Settings clicked!');
                           setIsOpen(false);
-                          router.push("/settings");
+                          window.location.href = "/settings";
                         }}
                         className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                        style={{ pointerEvents: 'auto' }}
                       >
                         Settings
                       </button>
