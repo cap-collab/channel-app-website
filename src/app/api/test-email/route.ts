@@ -89,7 +89,7 @@ async function sendTestEmail(to: string) {
       djPhotoUrl: dorWandProfile?.photoUrl,
       stationName: "dublab",
       stationId: "dublab",
-      startTime: new Date("2026-02-07T00:00:00"), // Sat, Feb 7 at 12:00 AM
+      startTime: new Date("2026-02-07T00:00:00Z"), // Feb 7 midnight UTC = Feb 6 4pm PST
       searchTerm: "dor wand",
       isIRL: false,
     },
