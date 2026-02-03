@@ -321,8 +321,8 @@ async function fetchIRLShows(): Promise<IRLShowData[]> {
 
       // Filter to upcoming shows only
       for (const show of djProfile.irlShows) {
-        // Skip if no date or URL
-        if (!show.date || !show.url) continue;
+        // Skip if no date (URL is optional - some events don't have ticket links)
+        if (!show.date) continue;
 
         // Skip past shows (compare ISO date strings)
         if (show.date < today) continue;
