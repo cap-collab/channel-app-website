@@ -14,6 +14,7 @@ import { AuthModal } from '@/components/AuthModal';
 import { AudioInputMethod } from '@/types/broadcast';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { TaggedDJInput, TaggedDJEntry } from '@/components/recording/TaggedDJInput';
 
 type SetupStep = 'quota' | 'profile' | 'audio';
 
@@ -58,6 +59,8 @@ export function RecordClient() {
   const [initialPromoText, setInitialPromoText] = useState<string | undefined>();
   const [initialPromoHyperlink, setInitialPromoHyperlink] = useState<string | undefined>();
   const [initialThankYouMessage, setInitialThankYouMessage] = useState<string | undefined>();
+  // Tagged DJs for venue recordings
+  const [taggedDJs, setTaggedDJs] = useState<TaggedDJEntry[]>([]);
 
   // DJ Info for broadcast hook
   const djInfo = useMemo(() => {
@@ -187,6 +190,18 @@ export function RecordClient() {
     setIsGoingLive(true);
 
     try {
+      // Prepare tagged DJs for API (only include valid entries with names)
+      const validTaggedDJs = broadcastType === 'venue'
+        ? taggedDJs
+            .filter(dj => dj.djName.trim())
+            .map(dj => ({
+              djName: dj.djName.trim(),
+              email: dj.email.trim() || undefined,
+              userId: dj.userId || undefined,
+              username: dj.username || undefined,
+            }))
+        : undefined;
+
       // Create recording session via API
       const res = await fetch('/api/recording/start', {
         method: 'POST',
@@ -195,6 +210,7 @@ export function RecordClient() {
           userId: user.uid,
           showName: showName.trim(),
           broadcastType,
+          taggedDJs: validTaggedDJs,
         }),
       });
 
@@ -467,7 +483,10 @@ export function RecordClient() {
               <div className="flex gap-3 mb-4">
                 <button
                   type="button"
-                  onClick={() => setBroadcastType('remote')}
+                  onClick={() => {
+                    setBroadcastType('remote');
+                    setTaggedDJs([]); // Clear tagged DJs when switching to remote
+                  }}
                   className={`flex-1 py-3 px-4 rounded-lg border transition-colors ${
                     broadcastType === 'remote'
                       ? 'bg-accent border-accent text-white'
@@ -488,6 +507,14 @@ export function RecordClient() {
                   From a Venue
                 </button>
               </div>
+
+              {/* Tagged DJs (only for venue recordings) */}
+              {broadcastType === 'venue' && (
+                <TaggedDJInput
+                  taggedDJs={taggedDJs}
+                  onChange={setTaggedDJs}
+                />
+              )}
             </div>
 
             {/* DJ Profile setup (reused component) */}

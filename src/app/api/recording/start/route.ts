@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
-import { STATION_ID } from '@/types/broadcast';
+import { STATION_ID, TaggedDJ } from '@/types/broadcast';
 
 // Default recording quota: 2 hours per month
 const DEFAULT_MAX_SECONDS = 2 * 60 * 60; // 7200 seconds
@@ -31,7 +31,7 @@ function getCurrentMonthKey(): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, showName, broadcastType } = await request.json();
+    const { userId, showName, broadcastType, taggedDJs } = await request.json();
 
     if (!userId) {
       return NextResponse.json({ error: 'User ID required' }, { status: 400 });
@@ -44,6 +44,23 @@ export async function POST(request: NextRequest) {
     // Validate broadcastType for recording context
     if (broadcastType && broadcastType !== 'venue' && broadcastType !== 'remote') {
       return NextResponse.json({ error: 'Invalid broadcast type' }, { status: 400 });
+    }
+
+    // Validate tagged DJs (optional, only for venue recordings)
+    let validatedTaggedDJs: TaggedDJ[] | undefined;
+    if (taggedDJs && Array.isArray(taggedDJs)) {
+      validatedTaggedDJs = taggedDJs
+        .filter((dj: TaggedDJ) => dj.djName && typeof dj.djName === 'string' && dj.djName.trim())
+        .map((dj: TaggedDJ) => ({
+          djName: dj.djName.trim(),
+          email: dj.email?.trim() || undefined,
+          userId: dj.userId || undefined,
+          username: dj.username || undefined,
+        }));
+      // Only include if there are valid entries
+      if (validatedTaggedDJs.length === 0) {
+        validatedTaggedDJs = undefined;
+      }
     }
 
     const db = getAdminDb();
@@ -128,6 +145,8 @@ export async function POST(request: NextRequest) {
       liveDjPhotoUrl: djProfile.photoUrl || null,
       liveDjPromoText: djProfile.promoText || null,
       liveDjPromoHyperlink: djProfile.promoHyperlink || null,
+      // Tagged DJs for venue recordings
+      ...(validatedTaggedDJs && { taggedDJs: validatedTaggedDJs }),
     };
 
     // Create the slot

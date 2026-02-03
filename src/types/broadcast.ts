@@ -31,6 +31,14 @@ export interface DJProfileInfo {
   };
 }
 
+// Tagged DJ for recordings (simpler than full profile - just name and optional email)
+export interface TaggedDJ {
+  djName: string;           // Display name (required)
+  email?: string;           // Optional email for profile lookup/linking
+  userId?: string;          // Firebase UID (if account exists, looked up from email)
+  username?: string;        // Chat username (if found from email lookup)
+}
+
 // DJ slot within a venue show
 export interface DJSlot {
   id: string;
@@ -113,6 +121,8 @@ export interface BroadcastSlot {
   isPublic?: boolean;           // For recording type - visible on profile?
   publishedAt?: number;         // When made public (Unix ms)
   roomName?: string;            // Custom room name for recordings (not shared channel-radio)
+  // Tagged DJs for venue recordings (other DJs playing alongside the recorder)
+  taggedDJs?: TaggedDJ[];
 }
 
 // Serialized version for API responses (timestamps as numbers)
@@ -159,6 +169,8 @@ export interface BroadcastSlotSerialized {
   isPublic?: boolean;           // For recording type - visible on profile?
   publishedAt?: number;         // When made public (Unix ms)
   roomName?: string;            // Custom room name for recordings
+  // Tagged DJs for venue recordings (other DJs playing alongside the recorder)
+  taggedDJs?: TaggedDJ[];
 }
 
 // Recording status type
