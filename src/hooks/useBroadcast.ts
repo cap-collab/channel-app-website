@@ -43,6 +43,29 @@ export function useBroadcast(
   const roomRef = useRef<Room | null>(null);
   const audioTrackRef = useRef<LocalTrack | null>(null);
 
+  // Use refs to ensure callbacks always have latest values
+  const broadcastTokenRef = useRef(broadcastToken);
+  const djInfoRef = useRef(djInfo);
+  const slotIdRef = useRef(slotId);
+  const roomNameRef = useRef(roomName);
+
+  // Keep refs in sync with props
+  useEffect(() => {
+    broadcastTokenRef.current = broadcastToken;
+  }, [broadcastToken]);
+
+  useEffect(() => {
+    djInfoRef.current = djInfo;
+  }, [djInfo]);
+
+  useEffect(() => {
+    slotIdRef.current = slotId;
+  }, [slotId]);
+
+  useEffect(() => {
+    roomNameRef.current = roomName;
+  }, [roomName]);
+
   // Check if someone else is already broadcasting
   // For recording mode with custom room, we skip this check since each user has their own room
   const checkRoomStatus = useCallback(async (): Promise<RoomStatus> => {
@@ -52,6 +75,9 @@ export function useBroadcast(
 
   // Connect to the LiveKit room
   const connect = useCallback(async () => {
+    // Use ref to get latest room name
+    const currentRoomName = roomNameRef.current;
+
     try {
       setState(prev => ({ ...prev, error: null }));
 
@@ -71,7 +97,7 @@ export function useBroadcast(
 
       // Get token for the room
       const res = await fetch(
-        `/api/livekit/token?room=${roomName}&username=${encodeURIComponent(participantIdentity)}`
+        `/api/livekit/token?room=${currentRoomName}&username=${encodeURIComponent(participantIdentity)}`
       );
       const data = await res.json();
 
@@ -95,15 +121,16 @@ export function useBroadcast(
         // (not if DJ explicitly ended the broadcast)
         const wasLive = state.isLive;
         const isUnexpectedDisconnect = reason !== DisconnectReason.CLIENT_INITIATED;
+        const currentSlotId = slotIdRef.current;
 
-        if (wasLive && isUnexpectedDisconnect && slotId) {
+        if (wasLive && isUnexpectedDisconnect && currentSlotId) {
           try {
             await fetch('/api/broadcast/pause-slot', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ slotId }),
+              body: JSON.stringify({ slotId: currentSlotId }),
             });
-            console.log('📡 Updated slot status to paused (unexpected disconnect):', slotId);
+            console.log('📡 Updated slot status to paused (unexpected disconnect):', currentSlotId);
           } catch (apiError) {
             console.error('Failed to update slot status to paused:', apiError);
           }
@@ -125,7 +152,7 @@ export function useBroadcast(
       setState(prev => ({ ...prev, error: message }));
       return false;
     }
-  }, [participantIdentity, checkRoomStatus, slotId, state.isLive, recordingOnly, roomName]);
+  }, [participantIdentity, checkRoomStatus, state.isLive, recordingOnly]);
 
   // Publish audio to the room
   const publishAudio = useCallback(async (stream: MediaStream) => {
@@ -158,12 +185,17 @@ export function useBroadcast(
 
   // Start egress (go live or start recording)
   const startEgress = useCallback(async () => {
+    // Use refs to get latest values
+    const currentRoomName = roomNameRef.current;
+    const currentBroadcastToken = broadcastTokenRef.current;
+    const currentDjInfo = djInfoRef.current;
+
     try {
-      console.log('📡 Starting egress for room:', roomName, recordingOnly ? '(recording-only mode)' : '');
+      console.log('📡 Starting egress for room:', currentRoomName, recordingOnly ? '(recording-only mode)' : '');
       const res = await fetch('/api/livekit/egress', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ room: roomName, recordingOnly }),
+        body: JSON.stringify({ room: currentRoomName, recordingOnly }),
       });
 
       const data = await res.json();
@@ -176,17 +208,17 @@ export function useBroadcast(
       }
 
       // For recording-only mode, hlsUrl will be null
-      const hlsUrl = recordingOnly ? null : (data.hlsUrl || `${r2PublicUrl}/${roomName}/live.m3u8`);
+      const hlsUrl = recordingOnly ? null : (data.hlsUrl || `${r2PublicUrl}/${currentRoomName}/live.m3u8`);
 
       // Update Firestore slot status to 'live' via API (uses Admin SDK, no auth required)
-      console.log('📡 broadcastToken value:', broadcastToken);
+      console.log('📡 broadcastToken value:', currentBroadcastToken);
       console.log('📡 Egress response:', { egressId: data.egressId, recordingEgressId: data.recordingEgressId });
-      if (broadcastToken) {
+      if (currentBroadcastToken) {
         try {
           console.log('📡 Calling go-live API with:', {
-            broadcastToken: broadcastToken?.slice(0, 10) + '...',
-            djUsername: djInfo?.username,
-            djUserId: djInfo?.userId,
+            broadcastToken: currentBroadcastToken?.slice(0, 10) + '...',
+            djUsername: currentDjInfo?.username,
+            djUserId: currentDjInfo?.userId,
             egressId: data.egressId,
             recordingEgressId: data.recordingEgressId,
           });
@@ -194,10 +226,10 @@ export function useBroadcast(
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              broadcastToken,
-              djUsername: djInfo?.username,
-              djUserId: djInfo?.userId,
-              thankYouMessage: djInfo?.thankYouMessage,
+              broadcastToken: currentBroadcastToken,
+              djUsername: currentDjInfo?.username,
+              djUserId: currentDjInfo?.userId,
+              thankYouMessage: currentDjInfo?.thankYouMessage,
               egressId: data.egressId,
               recordingEgressId: data.recordingEgressId,
             }),
@@ -232,7 +264,7 @@ export function useBroadcast(
       setState(prev => ({ ...prev, error: message }));
       return false;
     }
-  }, [broadcastToken, djInfo, roomName, recordingOnly]);
+  }, [recordingOnly]);  // Only depends on recordingOnly since we use refs for other values
 
   // Go live - connect, publish, and start egress
   const goLive = useCallback(async (stream: MediaStream) => {
@@ -253,6 +285,9 @@ export function useBroadcast(
 
   // Stop egress (both HLS and recording, or just recording in recording-only mode)
   const stopEgress = useCallback(async () => {
+    // Use ref to get latest slotId
+    const currentSlotId = slotIdRef.current;
+
     // In recording-only mode, we only have recordingEgressId (no HLS egressId)
     if (!state.egressId && !state.recordingEgressId) return;
 
@@ -282,14 +317,14 @@ export function useBroadcast(
 
       // Update Firestore slot status to 'completed' via API
       // force: true allows completing before scheduled end time (DJ ended early)
-      if (slotId) {
+      if (currentSlotId) {
         try {
           await fetch('/api/broadcast/complete-slot', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ slotId, force: true }),
+            body: JSON.stringify({ slotId: currentSlotId, force: true }),
           });
-          console.log('📡 Updated slot status to completed:', slotId);
+          console.log('📡 Updated slot status to completed:', currentSlotId);
         } catch (apiError) {
           console.error('Failed to update slot status:', apiError);
         }
@@ -304,7 +339,7 @@ export function useBroadcast(
     } catch (error) {
       console.error('Failed to stop egress:', error);
     }
-  }, [state.egressId, state.recordingEgressId, slotId]);
+  }, [state.egressId, state.recordingEgressId]);
 
   // Unpublish audio
   const unpublishAudio = useCallback(async () => {
