@@ -64,6 +64,13 @@ export function useBroadcast(
 
   useEffect(() => {
     roomNameRef.current = roomName;
+    // Also update state so consumers can check the current roomName
+    setState(prev => {
+      if (prev.roomName !== roomName) {
+        return { ...prev, roomName };
+      }
+      return prev;
+    });
   }, [roomName]);
 
   // Check if someone else is already broadcasting

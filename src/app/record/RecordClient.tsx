@@ -224,20 +224,23 @@ export function RecordClient() {
   }, [audioStream, user?.uid, showName, broadcastType]);
 
   // Go live after session is created
-  // Use a small delay to ensure refs are synced in useBroadcast hook
+  // Wait for the broadcast hook's roomName to be updated before starting
   useEffect(() => {
     if (session && audioStream && !broadcast.isLive && isGoingLive) {
-      // Small delay to ensure useBroadcast refs are synced after state update
-      const timer = setTimeout(() => {
-        console.log('📹 Starting recording with session:', session.roomName);
-        broadcast.goLive(audioStream).then((success) => {
-          setIsGoingLive(false);
-          if (!success) {
-            console.error('Failed to start recording');
-          }
-        });
-      }, 100);
-      return () => clearTimeout(timer);
+      // Check if the broadcast hook has the correct room name
+      // broadcast.roomName is from state, which updates via the useEffect in useBroadcast
+      if (broadcast.roomName !== session.roomName) {
+        console.log('📹 Waiting for roomName sync...', { hookRoom: broadcast.roomName, sessionRoom: session.roomName });
+        return; // Wait for next render when roomName is synced
+      }
+
+      console.log('📹 Starting recording with session:', session.roomName);
+      broadcast.goLive(audioStream).then((success) => {
+        setIsGoingLive(false);
+        if (!success) {
+          console.error('Failed to start recording');
+        }
+      });
     }
   }, [session, audioStream, broadcast, isGoingLive]);
 
