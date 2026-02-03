@@ -224,6 +224,11 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
   const timelineItems = useMemo((): FavoriteTimelineItem[] => {
     if (followedDJNames.length === 0 && favoritedShows.length === 0) return [];
 
+    // Debug logging
+    console.log('[MyDJsSection] followedDJNames:', followedDJNames);
+    console.log('[MyDJsSection] irlShows count:', irlShows.length);
+    console.log('[MyDJsSection] irlShows:', irlShows.map(s => ({ djName: s.djName, djUsername: s.djUsername, date: s.date })));
+
     const now = new Date();
     const items: FavoriteTimelineItem[] = [];
 
@@ -333,15 +338,30 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
 
       const matchedFollow = followedDJNames.find((name) => {
         const nameNormalized = name.replace(/[\s-]+/g, '');
-        return (
+        const matches = (
           djNameLower.includes(name) ||
           name.includes(djNameLower) ||
           djUsernameLower === nameNormalized ||
           djNameNormalized === nameNormalized
         );
+        console.log('[MyDJsSection] IRL matching:', {
+          followedName: name,
+          nameNormalized,
+          djName: irlShow.djName,
+          djNameLower,
+          djNameNormalized,
+          djUsername: irlShow.djUsername,
+          djUsernameLower,
+          matches
+        });
+        return matches;
       });
 
-      if (!matchedFollow) continue;
+      if (!matchedFollow) {
+        console.log('[MyDJsSection] No match for IRL event:', irlShow.djName, irlShow.djUsername);
+        continue;
+      }
+      console.log('[MyDJsSection] MATCHED IRL event:', irlShow.djName, 'with follow:', matchedFollow);
 
       const irlTime = new Date(irlShow.date + 'T00:00:00').getTime();
 
