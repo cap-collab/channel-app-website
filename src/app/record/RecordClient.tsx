@@ -247,13 +247,17 @@ export function RecordClient() {
 
   // Handle end recording
   const handleEndRecording = useCallback(async () => {
+    // End broadcast first (stops egress, unpublishes, disconnects)
+    await broadcast.endBroadcast();
+
+    // Then clean up local audio stream
     if (audioStream) {
       audioStream.getTracks().forEach(t => t.stop());
       setAudioStream(null);
     }
 
-    await broadcast.endBroadcast();
     broadcast.setInputMethod(null);
+    broadcast.clearError(); // Clear any errors from the ending process
     setSession(null);
 
     // Refresh quota after recording ends

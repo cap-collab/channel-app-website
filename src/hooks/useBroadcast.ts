@@ -359,18 +359,24 @@ export function useBroadcast(
 
   // Unpublish audio
   const unpublishAudio = useCallback(async () => {
-    if (!roomRef.current || !audioTrackRef.current) return;
+    if (!roomRef.current) {
+      audioTrackRef.current = null;
+      setState(prev => ({ ...prev, isPublishing: false }));
+      return;
+    }
 
     try {
       const publication = roomRef.current.localParticipant.audioTrackPublications.values().next().value;
       if (publication?.track) {
         await roomRef.current.localParticipant.unpublishTrack(publication.track);
       }
-      audioTrackRef.current = null;
-      setState(prev => ({ ...prev, isPublishing: false }));
     } catch (error) {
-      console.error('Failed to unpublish audio:', error);
+      // Ignore errors during cleanup - track may already be unpublished
+      console.log('📡 Unpublish cleanup (expected during end):', error);
     }
+
+    audioTrackRef.current = null;
+    setState(prev => ({ ...prev, isPublishing: false }));
   }, []);
 
   // Disconnect from room
