@@ -1,5 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
+
+// Generate a URL-friendly slug from the show name
+function generateSlug(showName: string, slotId: string): string {
+  const slugBase = showName
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .substring(0, 50);
+
+  // Add a short unique suffix from the slot ID
+  const suffix = slotId.substring(0, 8);
+  return `${slugBase}-${suffix}`;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,11 +78,40 @@ export async function POST(request: NextRequest) {
       publishedAt,
     });
 
+    // Create or update an archive document so it appears in the DJ profile
+    const slug = generateSlug(slotData.showName || 'recording', archiveId);
+    const archiveRef = db.collection('archives').doc(archiveId);
+
+    // Build DJs array from slot data
+    const djs = [{
+      name: slotData.liveDjUsername || slotData.djUsername || 'DJ',
+      username: slotData.liveDjChatUsername || slotData.djUsername,
+      userId: slotData.liveDjUserId || slotData.djUserId,
+      email: slotData.djEmail,
+      photoUrl: slotData.liveDjPhotoUrl,
+    }];
+
+    await archiveRef.set({
+      slug,
+      broadcastSlotId: archiveId,
+      showName: slotData.showName || 'Recording',
+      djs,
+      recordingUrl: slotData.recordingUrl,
+      duration: slotData.recordingDuration || 0,
+      recordedAt: slotData.createdAt?.toMillis?.() || slotData.createdAt || publishedAt,
+      createdAt: FieldValue.serverTimestamp(),
+      stationId: slotData.stationId || 'channel-main',
+      isPublic: true,
+      sourceType: 'recording',
+      publishedAt,
+    }, { merge: true });
+
     return NextResponse.json({
       success: true,
       message: 'Recording published successfully',
       recording: {
         id: archiveId,
+        slug,
         isPublic: true,
         publishedAt,
       },
@@ -118,11 +162,21 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Only recordings can be unpublished' }, { status: 400 });
     }
 
-    // Unpublish the recording
+    // Unpublish the recording in broadcast-slots
     await slotRef.update({
       isPublic: false,
       publishedAt: null,
     });
+
+    // Update the archive document to mark as not public
+    const archiveRef = db.collection('archives').doc(archiveId);
+    const archiveDoc = await archiveRef.get();
+    if (archiveDoc.exists) {
+      await archiveRef.update({
+        isPublic: false,
+        publishedAt: null,
+      });
+    }
 
     return NextResponse.json({
       success: true,
