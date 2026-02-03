@@ -98,6 +98,7 @@ async function sendTestEmail(to: string) {
   try {
     const success = await sendWatchlistDigestEmail({
       to,
+      userTimezone: "America/Los_Angeles", // Test with Pacific timezone
       matches: sampleMatches,
     });
 
