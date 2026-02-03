@@ -755,14 +755,37 @@ export function DJPublicProfileClient({ username }: Props) {
           const data = await res.json();
           const archives: Archive[] = data.archives || [];
 
-          // Find archives that match this DJ's slots (only shows with recordings)
-          // Channel Broadcast shows without recordings are not displayed since they're never recurring
-          // Filter out unpublished recordings (isPublic === false means explicitly private)
-          const djArchives = archives.filter((archive) =>
-            pastSlotsMap.has(archive.broadcastSlotId) &&
-            archive.recordingUrl &&
-            archive.isPublic !== false  // Include if isPublic is true or undefined (legacy archives)
-          );
+          // Find archives that match this DJ
+          // For live broadcasts: match by broadcastSlotId being in pastSlotsMap
+          // For recordings: match directly by DJ info in the archive's djs array
+          const normalizedUsername = djProfile.chatUsername?.toLowerCase().replace(/\s+/g, '');
+          const djUserId = djProfile.uid;
+
+          const djArchives = archives.filter((archive) => {
+            // Must have recording URL and be public
+            if (!archive.recordingUrl || archive.isPublic === false) return false;
+
+            // Check if this is the DJ's archive:
+            // 1. For recordings (sourceType === 'recording'): match by userId or username in djs array
+            // 2. For live broadcasts: match by broadcastSlotId in pastSlotsMap
+            if (archive.sourceType === 'recording') {
+              // Match recordings by DJ info
+              return archive.djs?.some((dj) => {
+                if (djUserId && dj.userId === djUserId) return true;
+                if (dj.username && normalizedUsername) {
+                  const archiveDjUsername = dj.username.toLowerCase().replace(/\s+/g, '');
+                  return archiveDjUsername === normalizedUsername;
+                }
+                if (dj.email && djEmail) {
+                  return dj.email.toLowerCase() === djEmail;
+                }
+                return false;
+              });
+            } else {
+              // Match live broadcasts by slot
+              return pastSlotsMap.has(archive.broadcastSlotId);
+            }
+          });
           setPastRecordings(djArchives);
         }
       } catch (error) {
