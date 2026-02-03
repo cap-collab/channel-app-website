@@ -28,9 +28,10 @@ interface LiveControlBarProps {
   tipTotalCents: number;
   tipCount: number;
   showStartTime?: number; // Unix timestamp ms - love count resets per show
+  isRecordingMode?: boolean; // Show "RECORDING" instead of "LIVE"
 }
 
-export function LiveControlBar({ stream, isLive, tipTotalCents, tipCount, showStartTime }: LiveControlBarProps) {
+export function LiveControlBar({ stream, isLive, tipTotalCents, tipCount, showStartTime, isRecordingMode = false }: LiveControlBarProps) {
   const level = useAudioLevel(stream);
   const [listenerCount, setListenerCount] = useState(0);
   const [loveCount, setLoveCount] = useState(0);
@@ -109,7 +110,7 @@ export function LiveControlBar({ stream, isLive, tipTotalCents, tipCount, showSt
             isLive ? 'bg-white animate-pulse' : 'bg-gray-400'
           }`} />
           <span className="text-white font-bold text-sm">
-            {isLive ? 'LIVE' : 'READY'}
+            {isLive ? (isRecordingMode ? 'RECORDING' : 'LIVE') : 'READY'}
           </span>
         </div>
 

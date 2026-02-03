@@ -15,6 +15,7 @@ interface AudioStatusPanelProps {
   onChangeAudioSetup?: () => void;
   onChangeSource?: () => void;
   audioSourceLabel?: string | null;
+  isRecordingMode?: boolean; // Show "START RECORDING" instead of "GO LIVE"
 }
 
 export function AudioStatusPanel({
@@ -29,6 +30,7 @@ export function AudioStatusPanel({
   onChangeAudioSetup,
   onChangeSource,
   audioSourceLabel,
+  isRecordingMode = false,
 }: AudioStatusPanelProps) {
   const level = useAudioLevel(stream);
   const hasAudioLevels = level > 0.01;
@@ -205,7 +207,7 @@ export function AudioStatusPanel({
         </div>
       )}
 
-      {/* Action: GO LIVE button (pre-live) or Troubleshoot link (live) */}
+      {/* Action: GO LIVE / START RECORDING button (pre-live) or Troubleshoot link (live) */}
       {!isLive ? (
         <div>
           {canGoLive ? (
@@ -214,7 +216,9 @@ export function AudioStatusPanel({
               disabled={isGoingLive}
               className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg text-xl transition-colors"
             >
-              {isGoingLive ? 'Going live...' : 'GO LIVE'}
+              {isGoingLive
+                ? (isRecordingMode ? 'Starting recording...' : 'Going live...')
+                : (isRecordingMode ? 'START RECORDING' : 'GO LIVE')}
             </button>
           ) : (
             <div className="text-center">

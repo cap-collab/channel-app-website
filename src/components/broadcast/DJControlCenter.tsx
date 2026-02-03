@@ -37,6 +37,7 @@ interface DJControlCenterProps {
   onChangeAudioSetup?: () => void;
   onChangeSource?: () => void;
   audioSourceLabel?: string | null;
+  isRecordingMode?: boolean; // Recording-only mode (no live streaming)
 }
 
 export function DJControlCenter({
@@ -66,6 +67,7 @@ export function DJControlCenter({
   onChangeAudioSetup,
   onChangeSource,
   audioSourceLabel,
+  isRecordingMode = false,
 }: DJControlCenterProps) {
   const [copied, setCopied] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
@@ -95,6 +97,7 @@ export function DJControlCenter({
         tipTotalCents={tipTotalCents}
         tipCount={tipCount}
         showStartTime={slot?.startTime}
+        isRecordingMode={isRecordingMode}
       />
 
       {/* Main Content */}
@@ -116,6 +119,7 @@ export function DJControlCenter({
                 onChangeAudioSetup={onChangeAudioSetup}
                 onChangeSource={onChangeSource}
                 audioSourceLabel={audioSourceLabel}
+                isRecordingMode={isRecordingMode}
               />
 
               {/* Broadcast Settings */}
@@ -152,7 +156,7 @@ export function DJControlCenter({
                 </p>
               </div>
 
-              {/* End Broadcast - only show when live */}
+              {/* End Broadcast/Recording - only show when live */}
               {isLive && (
                 <div className="bg-[#252525] rounded-xl p-4">
                   <button
@@ -160,7 +164,9 @@ export function DJControlCenter({
                     disabled={isEnding}
                     className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-colors"
                   >
-                    {isEnding ? 'Ending broadcast...' : 'End Broadcast'}
+                    {isEnding
+                      ? (isRecordingMode ? 'Ending recording...' : 'Ending broadcast...')
+                      : (isRecordingMode ? 'End Recording' : 'End Broadcast')}
                   </button>
                 </div>
               )}

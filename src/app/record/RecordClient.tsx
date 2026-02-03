@@ -32,7 +32,7 @@ interface RecordingSession {
 
 export function RecordClient() {
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
-  const { chatUsername } = useUserProfile(user?.uid);
+  const { chatUsername, djProfile } = useUserProfile(user?.uid);
 
   // Setup flow state
   const [setupStep, setSetupStep] = useState<SetupStep>('quota');
@@ -47,12 +47,15 @@ export function RecordClient() {
   // Audio state
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [audioSourceLabel, setAudioSourceLabel] = useState<string | null>(null);
-  const [isStartingRecording, setIsStartingRecording] = useState(false);
+  const [isGoingLive, setIsGoingLive] = useState(false);
 
   // DJ profile state
   const [djUsername, setDjUsername] = useState<string>('');
   const [showName, setShowName] = useState<string>('');
   const [broadcastType, setBroadcastType] = useState<'remote' | 'venue'>('remote');
+  const [initialPromoText, setInitialPromoText] = useState<string | undefined>();
+  const [initialPromoHyperlink, setInitialPromoHyperlink] = useState<string | undefined>();
+  const [initialThankYouMessage, setInitialThankYouMessage] = useState<string | undefined>();
 
   // DJ Info for broadcast hook
   const djInfo = useMemo(() => {
@@ -60,8 +63,9 @@ export function RecordClient() {
     return {
       username: djUsername,
       userId: user?.uid,
+      thankYouMessage: initialThankYouMessage,
     };
-  }, [djUsername, user?.uid]);
+  }, [djUsername, user?.uid, initialThankYouMessage]);
 
   // Initialize broadcast hook with recording-only mode
   const broadcast = useBroadcast(
@@ -105,12 +109,18 @@ export function RecordClient() {
     fetchQuota();
   }, [user?.uid]);
 
-  // Pre-fill username from profile
+  // Pre-fill username and promo from profile
   useEffect(() => {
     if (chatUsername) {
       setDjUsername(chatUsername);
     }
   }, [chatUsername]);
+
+  useEffect(() => {
+    if (djProfile?.thankYouMessage && !initialThankYouMessage) {
+      setInitialThankYouMessage(djProfile.thankYouMessage);
+    }
+  }, [djProfile?.thankYouMessage, initialThankYouMessage]);
 
   // Handle continue from quota screen
   const handleQuotaContinue = useCallback(() => {
@@ -120,6 +130,15 @@ export function RecordClient() {
     }
     setSetupStep('profile');
   }, [isAuthenticated]);
+
+  // Handle profile setup complete - same pattern as BroadcastClient
+  const handleProfileComplete = useCallback((username: string, promoText?: string, promoHyperlink?: string, thankYouMessage?: string) => {
+    setDjUsername(username);
+    setInitialPromoText(promoText);
+    setInitialPromoHyperlink(promoHyperlink);
+    setInitialThankYouMessage(thankYouMessage);
+    setSetupStep('audio');
+  }, []);
 
   // Handle audio input selection
   const handleInputSelect = useCallback((method: AudioInputMethod) => {
@@ -150,11 +169,20 @@ export function RecordClient() {
     broadcast.setInputMethod(null);
   }, [audioStream, broadcast]);
 
-  // Start recording session
+  // Change source without changing input method
+  const handleChangeSource = useCallback(() => {
+    if (audioStream) {
+      audioStream.getTracks().forEach(t => t.stop());
+      setAudioStream(null);
+      setAudioSourceLabel(null);
+    }
+  }, [audioStream]);
+
+  // Start recording - creates session and goes live
   const handleStartRecording = useCallback(async () => {
     if (!audioStream || !user?.uid || !showName.trim()) return;
 
-    setIsStartingRecording(true);
+    setIsGoingLive(true);
 
     try {
       // Create recording session via API
@@ -172,10 +200,11 @@ export function RecordClient() {
 
       if (data.error) {
         console.error('Failed to start recording session:', data.error);
+        setIsGoingLive(false);
         return;
       }
 
-      // Store session info
+      // Store session info - this will trigger the useEffect to go live
       setSession({
         slotId: data.slotId,
         broadcastToken: data.broadcastToken,
@@ -189,17 +218,21 @@ export function RecordClient() {
 
     } catch (error) {
       console.error('Failed to start recording:', error);
-    } finally {
-      setIsStartingRecording(false);
+      setIsGoingLive(false);
     }
   }, [audioStream, user?.uid, showName, broadcastType]);
 
-  // Go live (start recording) after session is created
+  // Go live after session is created
   useEffect(() => {
-    if (session && audioStream && !broadcast.isLive && !isStartingRecording) {
-      broadcast.goLive(audioStream);
+    if (session && audioStream && !broadcast.isLive && isGoingLive) {
+      broadcast.goLive(audioStream).then((success) => {
+        setIsGoingLive(false);
+        if (!success) {
+          console.error('Failed to start recording');
+        }
+      });
     }
-  }, [session, audioStream, broadcast, isStartingRecording]);
+  }, [session, audioStream, broadcast, isGoingLive]);
 
   // Handle end recording
   const handleEndRecording = useCallback(async () => {
@@ -238,8 +271,8 @@ export function RecordClient() {
     );
   }
 
-  // Recording in progress - show control center
-  if (broadcast.isLive && session) {
+  // Recording in progress or pre-recording with audio - show DJControlCenter
+  if (session && audioStream) {
     return (
       <DJControlCenter
         slot={{
@@ -247,8 +280,8 @@ export function RecordClient() {
           showName: showName,
           djName: djUsername,
           startTime: Date.now(),
-          endTime: Date.now() + 3 * 60 * 60 * 1000, // 3 hours
-          status: 'live',
+          endTime: Date.now() + 3 * 60 * 60 * 1000,
+          status: broadcast.isLive ? 'live' : 'scheduled',
           stationId: 'channel-main',
           broadcastToken: session.broadcastToken,
           broadcastType: 'recording',
@@ -258,19 +291,75 @@ export function RecordClient() {
         }}
         audioStream={audioStream}
         inputMethod={broadcast.inputMethod}
-        isLive={true}
+        isLive={broadcast.isLive}
         isPublishing={broadcast.isPublishing}
         canGoLive={true}
         onGoLive={() => {}}
-        isGoingLive={false}
+        isGoingLive={isGoingLive}
         onEndBroadcast={handleEndRecording}
         broadcastToken={session.broadcastToken}
         djUsername={djUsername}
         userId={user?.uid}
         tipTotalCents={0}
         tipCount={0}
-        onChangeSource={handleBack}
+        promoText={initialPromoText}
+        promoHyperlink={initialPromoHyperlink}
+        thankYouMessage={initialThankYouMessage}
+        onPromoChange={(text, hyperlink) => {
+          setInitialPromoText(text);
+          setInitialPromoHyperlink(hyperlink);
+        }}
+        onThankYouChange={setInitialThankYouMessage}
+        onChangeSource={handleChangeSource}
         audioSourceLabel={audioSourceLabel}
+        isRecordingMode={true}
+      />
+    );
+  }
+
+  // Audio captured but no session yet - show DJControlCenter in pre-recording state
+  if (audioStream && setupStep === 'audio') {
+    return (
+      <DJControlCenter
+        slot={{
+          id: 'pending',
+          showName: showName,
+          djName: djUsername,
+          startTime: Date.now(),
+          endTime: Date.now() + 3 * 60 * 60 * 1000,
+          status: 'scheduled',
+          stationId: 'channel-main',
+          broadcastToken: '',
+          broadcastType: 'recording',
+          createdAt: Date.now(),
+          createdBy: user?.uid || '',
+          tokenExpiresAt: Date.now() + 4 * 60 * 60 * 1000,
+        }}
+        audioStream={audioStream}
+        inputMethod={broadcast.inputMethod}
+        isLive={false}
+        isPublishing={false}
+        canGoLive={true}
+        onGoLive={handleStartRecording}
+        isGoingLive={isGoingLive}
+        onEndBroadcast={handleBack}
+        broadcastToken=""
+        djUsername={djUsername}
+        userId={user?.uid}
+        tipTotalCents={0}
+        tipCount={0}
+        promoText={initialPromoText}
+        promoHyperlink={initialPromoHyperlink}
+        thankYouMessage={initialThankYouMessage}
+        onPromoChange={(text, hyperlink) => {
+          setInitialPromoText(text);
+          setInitialPromoHyperlink(hyperlink);
+        }}
+        onThankYouChange={setInitialThankYouMessage}
+        onChangeAudioSetup={handleBack}
+        onChangeSource={handleChangeSource}
+        audioSourceLabel={audioSourceLabel}
+        isRecordingMode={true}
       />
     );
   }
@@ -341,12 +430,12 @@ export function RecordClient() {
     );
   }
 
-  // Profile setup step
+  // Profile setup step - use DJProfileSetup like BroadcastClient
   if (setupStep === 'profile') {
     return (
-      <>
+      <div className="min-h-screen bg-[#1a1a1a]">
         <BroadcastHeader stationName="Record Your Set" />
-        <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center p-8">
+        <div className="flex items-center justify-center p-8 min-h-[calc(100vh-60px)]">
           <div className="max-w-md w-full">
             {/* Show name input */}
             <div className="bg-[#252525] rounded-xl p-8 mb-4">
@@ -397,11 +486,13 @@ export function RecordClient() {
             {/* DJ Profile setup (reused component) */}
             <DJProfileSetup
               defaultUsername={chatUsername || ''}
+              defaultPromoText={djProfile?.promoText || undefined}
+              defaultPromoHyperlink={djProfile?.promoHyperlink || undefined}
+              defaultThankYouMessage={djProfile?.thankYouMessage || undefined}
               broadcastType={broadcastType}
-              onComplete={(username) => {
-                setDjUsername(username);
+              onComplete={(username, promoText, promoHyperlink, thankYouMessage) => {
                 if (showName.trim()) {
-                  setSetupStep('audio');
+                  handleProfileComplete(username, promoText, promoHyperlink, thankYouMessage);
                 }
               }}
             />
@@ -413,99 +504,72 @@ export function RecordClient() {
             )}
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
-  // Audio setup step
+  // Audio setup step - similar to BroadcastClient's audio selection screen
   if (setupStep === 'audio') {
     return (
-      <>
+      <div className="min-h-screen bg-[#1a1a1a] text-white">
         <BroadcastHeader stationName="Record Your Set" />
-        <div className="min-h-screen bg-[#1a1a1a] flex flex-col items-center justify-center p-8">
-          {/* Show info */}
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-white mb-2">{showName}</h1>
-            <p className="text-gray-400">Recording as {djUsername}</p>
-            {quota && (
-              <p className="text-gray-500 text-sm mt-2">
-                {Math.floor(quota.remainingSeconds / 60)} minutes remaining this month
-              </p>
-            )}
-          </div>
-
-          {/* Audio input selection */}
-          {!broadcast.inputMethod && (
-            <div className="w-full max-w-md">
-              <AudioInputSelector onSelect={handleInputSelect} />
+        <div className="p-8">
+          <div className="max-w-lg mx-auto">
+            {/* Header */}
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold">Recording Setup</h1>
+              <div className="mt-2">
+                <p className="text-white font-medium">{showName}</p>
+                <p className="text-gray-400">Recording as {djUsername}</p>
+                {quota && (
+                  <p className="text-gray-500 text-sm mt-1">
+                    {Math.floor(quota.remainingSeconds / 60)} minutes remaining this month
+                  </p>
+                )}
+              </div>
             </div>
-          )}
 
-          {/* System audio capture */}
-          {broadcast.inputMethod === 'system' && !audioStream && (
-            <div className="w-full max-w-md">
+            {/* Error display */}
+            {broadcast.error && (
+              <div className="bg-red-900/30 border border-red-800 rounded-lg p-4 mb-6">
+                <p className="text-red-400">{broadcast.error}</p>
+                <button
+                  onClick={broadcast.clearError}
+                  className="text-red-300 text-sm underline mt-2"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
+            {/* Input method selection */}
+            {!broadcast.inputMethod && (
+              <AudioInputSelector
+                onSelect={handleInputSelect}
+                disabled={isGoingLive}
+              />
+            )}
+
+            {/* System audio capture */}
+            {broadcast.inputMethod === 'system' && !audioStream && (
               <SystemAudioCapture
                 onStream={handleStream}
                 onError={handleError}
                 onBack={handleBack}
               />
-            </div>
-          )}
+            )}
 
-          {/* Device audio capture */}
-          {broadcast.inputMethod === 'device' && !audioStream && (
-            <div className="w-full max-w-md">
+            {/* Device audio capture */}
+            {broadcast.inputMethod === 'device' && !audioStream && (
               <DeviceAudioCapture
                 onStream={handleStream}
                 onError={handleError}
                 onBack={handleBack}
               />
-            </div>
-          )}
-
-          {/* Ready to record */}
-          {audioStream && !broadcast.isLive && (
-            <div className="w-full max-w-md bg-[#252525] rounded-xl p-8">
-              <div className="text-center mb-6">
-                <div className="w-16 h-16 bg-green-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                  </svg>
-                </div>
-                <h2 className="text-xl font-bold text-white mb-2">Audio Ready</h2>
-                <p className="text-gray-400 text-sm">
-                  {audioSourceLabel || 'Audio source connected'}
-                </p>
-              </div>
-
-              <button
-                onClick={handleStartRecording}
-                disabled={isStartingRecording}
-                className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-700 text-white font-bold py-4 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
-              >
-                {isStartingRecording ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    Starting...
-                  </>
-                ) : (
-                  <>
-                    <div className="w-3 h-3 bg-white rounded-full"></div>
-                    Start Recording
-                  </>
-                )}
-              </button>
-
-              <button
-                onClick={handleBack}
-                className="w-full mt-3 text-gray-400 hover:text-white py-2 transition-colors"
-              >
-                Change Audio Source
-              </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </>
+      </div>
     );
   }
 
