@@ -894,6 +894,32 @@ export function DJPublicProfileClient({ username }: Props) {
     description: show.description,
   });
 
+  // Convert RadioShow to Show type for favorites compatibility
+  const radioShowToShow = (show: RadioShow & { id: string }): Show => {
+    const radioDate = show.date ? new Date(show.date) : new Date();
+    let startTime = radioDate;
+    let endTime = radioDate;
+
+    if (show.time) {
+      const [hours, minutes] = show.time.split(":").map(Number);
+      startTime = new Date(radioDate);
+      startTime.setHours(hours || 0, minutes || 0, 0, 0);
+      const durationHours = parseFloat(show.duration || "1") || 1;
+      endTime = new Date(startTime.getTime() + durationHours * 60 * 60 * 1000);
+    }
+
+    const syntheticStationId = show.radioName ? `dj-radio:${show.radioName.toLowerCase().replace(/\s+/g, "-")}` : "dj-radio:unknown";
+
+    return {
+      id: show.id,
+      name: show.name || `Show on ${show.radioName}`,
+      dj: djProfile?.chatUsername || "",
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+      stationId: syntheticStationId,
+    };
+  };
+
   // Handle favorite toggle for a broadcast
   const handleToggleFavorite = async (broadcast: UpcomingShow, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -903,6 +929,18 @@ export function DJPublicProfileClient({ username }: Props) {
     }
     setTogglingFavoriteId(broadcast.id);
     await toggleFavorite(upcomingShowToShow(broadcast));
+    setTogglingFavoriteId(null);
+  };
+
+  // Handle favorite toggle for a DJ radio show
+  const handleToggleRadioShowFavorite = async (radioShow: RadioShow & { id: string }, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+    setTogglingFavoriteId(radioShow.id);
+    await toggleFavorite(radioShowToShow(radioShow));
     setTogglingFavoriteId(null);
   };
 
@@ -1461,6 +1499,11 @@ export function DJPublicProfileClient({ username }: Props) {
                     isLive = nowMs >= showStart.getTime() && nowMs < showEnd.getTime();
                   }
 
+                  // Check favorite status for this radio show
+                  const showAsShow = radioShowToShow(radioShow);
+                  const isFavorited = isShowFavorited(showAsShow);
+                  const isToggling = togglingFavoriteId === radioShow.id;
+
                   return (
                     <div
                       key={radioShow.id}
@@ -1531,12 +1574,20 @@ export function DJPublicProfileClient({ username }: Props) {
                           </a>
                         ) : (
                           <button
+                            onClick={(e) => handleToggleRadioShowFavorite(radioShow, e)}
+                            disabled={isToggling}
                             className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                            </svg>
-                            Remind Me
+                            {isToggling ? (
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <>
+                                <svg className="w-4 h-4" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                </svg>
+                                {isFavorited ? "Reminded" : "Remind Me"}
+                              </>
+                            )}
                           </button>
                         )}
                       </div>
