@@ -308,9 +308,13 @@ export function StudioProfileClient() {
         const shows: UpcomingShow[] = [];
         const seenIds = new Set<string>();
 
-        // 1. Add broadcast slots from Firebase
+        // 1. Add broadcast slots from Firebase (exclude recordings)
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
+
+          // Skip recording slots - they are not live broadcasts
+          if (data.broadcastType === "recording") return;
+
           const isMySlot =
             data.liveDjUserId === user.uid ||
             data.djUserId === user.uid ||
