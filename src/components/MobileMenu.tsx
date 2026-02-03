@@ -54,12 +54,12 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
         <>
           {/* Backdrop - starts below header to not block header clicks */}
           <div
-            className="fixed inset-0 top-[60px] z-40"
+            className="fixed inset-0 top-[60px] z-[99]"
             onClick={() => setIsOpen(false)}
           />
 
-          {/* Menu - z-[101] to be above header's z-[100] */}
-          <div className="absolute right-0 top-12 z-[101] bg-black border border-gray-800 rounded-lg py-1 min-w-[180px]">
+          {/* Menu - z-[200] to be above everything including backdrop */}
+          <div className="fixed right-4 top-[60px] z-[200] bg-black border border-gray-800 rounded-lg py-1 min-w-[180px]">
             {items.map((item, index) => {
               // Handle auth item specially
               if (item.type === "auth") {
