@@ -331,9 +331,9 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
       {/* Dropdown Results */}
       {showDropdown && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop - starts below header to not block header clicks */}
           <div
-            className="fixed inset-0 z-40"
+            className="fixed inset-0 top-[60px] z-40"
             onClick={() => setIsOpen(false)}
           />
 
