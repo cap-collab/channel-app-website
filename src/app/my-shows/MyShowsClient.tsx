@@ -413,7 +413,7 @@ export function MyShowsClient() {
   }
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-black relative">
       <Header currentPage="my-shows" position="sticky" />
 
       <main className="px-8 lg:px-16 py-6 pb-20">
