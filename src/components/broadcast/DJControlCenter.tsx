@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { BroadcastSlotSerialized, AudioInputMethod } from '@/types/broadcast';
 import { LiveControlBar } from './LiveControlBar';
 import { AudioStatusPanel } from './AudioStatusPanel';
 import { BroadcastSettingsPanel } from './BroadcastSettingsPanel';
 import { DJChatPanel } from './DJChatPanel';
+import { DJProfileChatPanel } from '@/components/dj-profile/DJProfileChatPanel';
 
 // Channel app deep link for the broadcast station
 const CHANNEL_BROADCAST_URL = 'https://channel-app.com/channel';
@@ -38,6 +39,7 @@ interface DJControlCenterProps {
   onChangeSource?: () => void;
   audioSourceLabel?: string | null;
   isRecordingMode?: boolean; // Recording-only mode (no live streaming)
+  djEmail?: string; // DJ's email for tips
 }
 
 export function DJControlCenter({
@@ -68,14 +70,24 @@ export function DJControlCenter({
   onChangeSource,
   audioSourceLabel,
   isRecordingMode = false,
+  djEmail,
 }: DJControlCenterProps) {
   const [copied, setCopied] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
   const [isChatCollapsed, setIsChatCollapsed] = useState(false);
 
-  const copyChannelUrl = async () => {
+  // For recording mode, use DJ profile URL instead of broadcast URL
+  const chatUsernameNormalized = useMemo(() => {
+    return djUsername.replace(/[\s-]+/g, '').toLowerCase();
+  }, [djUsername]);
+
+  const shareUrl = isRecordingMode
+    ? `https://channel-app.com/dj/${encodeURIComponent(djUsername)}`
+    : CHANNEL_BROADCAST_URL;
+
+  const copyShareUrl = async () => {
     try {
-      await navigator.clipboard.writeText(CHANNEL_BROADCAST_URL);
+      await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -136,23 +148,27 @@ export function DJControlCenter({
 
               {/* Share URL */}
               <div className="bg-[#252525] rounded-xl p-4">
-                <h3 className="text-gray-400 text-sm font-medium mb-3">Share Your Stream</h3>
+                <h3 className="text-gray-400 text-sm font-medium mb-3">
+                  {isRecordingMode ? 'Share Your DJ Profile' : 'Share Your Stream'}
+                </h3>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     readOnly
-                    value={CHANNEL_BROADCAST_URL}
+                    value={shareUrl}
                     className="flex-1 bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 font-mono text-sm"
                   />
                   <button
-                    onClick={copyChannelUrl}
+                    onClick={copyShareUrl}
                     className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors text-sm"
                   >
                     {copied ? 'Copied!' : 'Copy'}
                   </button>
                 </div>
                 <p className="text-gray-600 text-xs mt-2">
-                  Share this link for listeners to tune in via the Channel app
+                  {isRecordingMode
+                    ? 'Share your DJ profile with friends and followers'
+                    : 'Share this link for listeners to tune in via the Channel app'}
                 </p>
               </div>
 
@@ -175,19 +191,32 @@ export function DJControlCenter({
             {/* Right Column - Chat */}
             {slot && (
               <div className="lg:w-96 lg:flex-shrink-0 lg:h-full lg:min-h-0 flex flex-col overflow-hidden">
-                <DJChatPanel
-                  broadcastToken={broadcastToken}
-                  slotId={slot.id}
-                  djUsername={djUsername}
-                  userId={userId}
-                  isCollapsed={isChatCollapsed}
-                  onToggleCollapse={() => setIsChatCollapsed(!isChatCollapsed)}
-                  initialPromoSubmitted={initialPromoSubmitted}
-                  isVenue={isVenue}
-                  onChangeUsername={onChangeUsername}
-                  activePromoText={promoText}
-                  activePromoHyperlink={promoHyperlink}
-                />
+                {isRecordingMode ? (
+                  <DJProfileChatPanel
+                    chatUsernameNormalized={chatUsernameNormalized}
+                    djUserId={userId || ''}
+                    djUsername={djUsername}
+                    djEmail={djEmail || ''}
+                    isAuthenticated={!!userId}
+                    username={djUsername}
+                    userId={userId}
+                    isOwner={true}
+                  />
+                ) : (
+                  <DJChatPanel
+                    broadcastToken={broadcastToken}
+                    slotId={slot.id}
+                    djUsername={djUsername}
+                    userId={userId}
+                    isCollapsed={isChatCollapsed}
+                    onToggleCollapse={() => setIsChatCollapsed(!isChatCollapsed)}
+                    initialPromoSubmitted={initialPromoSubmitted}
+                    isVenue={isVenue}
+                    onChangeUsername={onChangeUsername}
+                    activePromoText={promoText}
+                    activePromoHyperlink={promoHyperlink}
+                  />
+                )}
               </div>
             )}
           </div>

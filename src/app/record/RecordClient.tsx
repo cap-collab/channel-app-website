@@ -336,6 +336,7 @@ export function RecordClient() {
         onChangeSource={handleChangeSource}
         audioSourceLabel={audioSourceLabel}
         isRecordingMode={true}
+        djEmail={user?.email || ''}
       />
     );
   }
@@ -383,6 +384,7 @@ export function RecordClient() {
         onChangeSource={handleChangeSource}
         audioSourceLabel={audioSourceLabel}
         isRecordingMode={true}
+        djEmail={user?.email || ''}
       />
     );
   }
