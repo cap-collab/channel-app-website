@@ -17,20 +17,26 @@ interface DJProfileCache {
 }
 const djProfileCache = new Map<string, DJProfileCache | null>();
 
-interface FavoriteItemStatus {
-  name: string;
-  displayName: string; // What to show to user (DJ name if available, else show name)
+// Each item represents a single event (show or IRL) or a DJ without events
+interface FavoriteTimelineItem {
+  // DJ info
+  djName: string;
+  displayName: string;
   username?: string;
   photoUrl?: string;
-  isLive: boolean;
-  liveOnStation?: string;
-  nextShowTime?: string;
+  // Event info
+  eventType: 'live' | 'show' | 'irl' | 'none'; // 'none' = DJ with no upcoming events
+  eventTime?: number; // timestamp for sorting
+  // Show-specific
+  showStartTime?: string;
   stationId?: string;
-  itemType: 'dj' | 'show';
-  // IRL event info
-  nextIRLDate?: string; // ISO date string (YYYY-MM-DD)
-  nextIRLEventName?: string;
-  nextIRLLocation?: string;
+  liveOnStation?: string;
+  // IRL-specific
+  irlDate?: string;
+  irlEventName?: string;
+  irlLocation?: string;
+  // For unique keys
+  eventId: string;
 }
 
 interface MyDJsSectionProps {
@@ -107,30 +113,43 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
       }));
   }, [favorites]);
 
-  // Find which followed DJs don't have shows in the schedule
-  const djsWithoutShows = useMemo(() => {
-    const djsWithShows = new Set<string>();
+  // Find which followed DJs don't have shows in the schedule or IRL events
+  const djsWithoutEvents = useMemo(() => {
+    const djsWithEvents = new Set<string>();
+
+    // Check shows
     for (const show of shows) {
       const showDjName = show.dj || show.name;
       if (!showDjName) continue;
       const djLower = showDjName.toLowerCase();
       for (const name of followedDJNames) {
         if (djLower.includes(name) || name.includes(djLower)) {
-          djsWithShows.add(name);
+          djsWithEvents.add(name);
         }
       }
     }
-    return followedDJNames.filter((name) => !djsWithShows.has(name));
-  }, [followedDJNames, shows]);
 
-  // Look up DJ profiles from Firebase for DJs without shows
+    // Check IRL events
+    for (const irlShow of irlShows) {
+      const djLower = irlShow.djName.toLowerCase();
+      for (const name of followedDJNames) {
+        if (djLower.includes(name) || name.includes(djLower)) {
+          djsWithEvents.add(name);
+        }
+      }
+    }
+
+    return followedDJNames.filter((name) => !djsWithEvents.has(name));
+  }, [followedDJNames, shows, irlShows]);
+
+  // Look up DJ profiles from Firebase for DJs without events
   useEffect(() => {
     async function lookupDJProfiles() {
-      if (!db || djsWithoutShows.length === 0) return;
+      if (!db || djsWithoutEvents.length === 0) return;
 
       const newProfiles = new Map<string, DJProfileCache>();
 
-      for (const name of djsWithoutShows) {
+      for (const name of djsWithoutEvents) {
         // Check cache first
         if (djProfileCache.has(name)) {
           const cached = djProfileCache.get(name);
@@ -199,18 +218,20 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
     }
 
     lookupDJProfiles();
-  }, [djsWithoutShows]);
+  }, [djsWithoutEvents]);
 
-  // Cross-reference with shows to get status for both DJs and favorited shows
-  const favoritesWithStatus = useMemo((): FavoriteItemStatus[] => {
+  // Build timeline: one entry per event, sorted chronologically, DJs without events at end
+  const timelineItems = useMemo((): FavoriteTimelineItem[] => {
     if (followedDJNames.length === 0 && favoritedShows.length === 0) return [];
 
     const now = new Date();
-    const itemMap = new Map<string, FavoriteItemStatus>();
+    const items: FavoriteTimelineItem[] = [];
 
-    // First pass: find all DJs from shows that match followed names
+    // Track DJ info for profile data (photo, username)
+    const djInfoMap = new Map<string, { username?: string; photoUrl?: string }>();
+
+    // First: Add all shows from followed DJs (one entry per show)
     for (const show of shows) {
-      // Use show.dj if available, fall back to show.name (for NTS and other external radios)
       const showDjName = show.dj || show.name;
       if (!showDjName) continue;
 
@@ -224,75 +245,44 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
       const startDate = new Date(show.startTime);
       const endDate = new Date(show.endTime);
       const isLive = now >= startDate && now <= endDate;
+      const isUpcoming = startDate > now;
 
-      const key = `dj:${matchedFollow}`;
-      const existing = itemMap.get(key);
+      // Skip past shows
+      if (!isLive && !isUpcoming) continue;
 
-      // Get photo URL - prefer djPhotoUrl, fall back to imageUrl, preserve existing if neither
-      const newPhotoUrl = show.djPhotoUrl || show.imageUrl;
-      const photoUrl = newPhotoUrl || existing?.photoUrl;
+      const photoUrl = show.djPhotoUrl || show.imageUrl;
 
-      // If this DJ is live, update their status
-      if (isLive) {
-        itemMap.set(key, {
-          name: showDjName,
-          displayName: showDjName,
-          username: show.djUsername || existing?.username,
-          photoUrl,
-          isLive: true,
-          liveOnStation: show.stationId === 'broadcast' ? 'Channel' : show.stationId,
-          stationId: show.stationId,
-          itemType: 'dj',
-        });
-      } else if (!existing || !existing.isLive) {
-        // Only update if not already live and this show is sooner
-        const existingNext = existing?.nextShowTime
-          ? new Date(existing.nextShowTime)
-          : null;
-
-        if (startDate > now && (!existingNext || startDate < existingNext)) {
-          itemMap.set(key, {
-            name: showDjName,
-            displayName: showDjName,
-            username: show.djUsername || existing?.username,
-            photoUrl,
-            isLive: false,
-            nextShowTime: show.startTime,
-            stationId: show.stationId,
-            itemType: 'dj',
-          });
-        }
-      }
-    }
-
-    // Add any followed DJs that weren't found in shows
-    for (const name of followedDJNames) {
-      const key = `dj:${name}`;
-      if (!itemMap.has(key)) {
-        // Look up profile data from our fetched DJ profiles
-        const profile = djProfiles.get(name);
-        const displayName = profile?.username || name.charAt(0).toUpperCase() + name.slice(1);
-        itemMap.set(key, {
-          name: displayName,
-          displayName,
-          username: profile?.username,
-          photoUrl: profile?.photoUrl,
-          isLive: false,
-          itemType: 'dj',
+      // Update DJ info map
+      if (show.djUsername || photoUrl) {
+        const existing = djInfoMap.get(matchedFollow) || {};
+        djInfoMap.set(matchedFollow, {
+          username: show.djUsername || existing.username,
+          photoUrl: photoUrl || existing.photoUrl,
         });
       }
+
+      items.push({
+        djName: showDjName,
+        displayName: showDjName,
+        username: show.djUsername,
+        photoUrl,
+        eventType: isLive ? 'live' : 'show',
+        eventTime: isLive ? 0 : startDate.getTime(), // Live shows sort first
+        showStartTime: show.startTime,
+        stationId: show.stationId,
+        liveOnStation: isLive ? (show.stationId === 'broadcast' ? 'Channel' : show.stationId) : undefined,
+        eventId: `show-${show.id}-${show.startTime}`,
+      });
     }
 
-    // Second pass: find all favorited shows
+    // Second: Add favorited shows that aren't covered by DJ follows
     for (const favShow of favoritedShows) {
-      // Check if this show is already covered by a DJ watchlist entry
       const showNameLower = favShow.term;
       const isCoveredByDJ = followedDJNames.some((djName) =>
         showNameLower.includes(djName) || djName.includes(showNameLower)
       );
       if (isCoveredByDJ) continue;
 
-      // Find matching shows in the schedule
       for (const show of shows) {
         const showNameMatch = show.name?.toLowerCase() === showNameLower ||
           (favShow.showName && show.name?.toLowerCase() === favShow.showName.toLowerCase());
@@ -303,54 +293,30 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
         const startDate = new Date(show.startTime);
         const endDate = new Date(show.endTime);
         const isLive = now >= startDate && now <= endDate;
+        const isUpcoming = startDate > now;
 
-        const key = `show:${favShow.term}:${favShow.stationId || 'any'}`;
-        const existing = itemMap.get(key);
+        if (!isLive && !isUpcoming) continue;
 
-        // Prefer DJ photo if available, then show image
-        const newPhotoUrl = show.djPhotoUrl || show.imageUrl;
-        const photoUrl = newPhotoUrl || existing?.photoUrl;
-
-        // If show has a linked DJ profile, display DJ name; otherwise show name
+        const photoUrl = show.djPhotoUrl || show.imageUrl;
         const hasDjProfile = show.djUsername || show.dj;
         const displayName = hasDjProfile ? (show.dj || show.name) : show.name;
 
-        if (isLive) {
-          itemMap.set(key, {
-            name: show.name,
-            displayName,
-            username: show.djUsername || existing?.username,
-            photoUrl,
-            isLive: true,
-            liveOnStation: show.stationId === 'broadcast' ? 'Channel' : show.stationId,
-            stationId: show.stationId,
-            itemType: 'show',
-          });
-        } else if (!existing || !existing.isLive) {
-          const existingNext = existing?.nextShowTime
-            ? new Date(existing.nextShowTime)
-            : null;
-
-          if (startDate > now && (!existingNext || startDate < existingNext)) {
-            itemMap.set(key, {
-              name: show.name,
-              displayName,
-              username: show.djUsername || existing?.username,
-              photoUrl,
-              isLive: false,
-              nextShowTime: show.startTime,
-              stationId: show.stationId,
-              itemType: 'show',
-            });
-          }
-        }
+        items.push({
+          djName: show.name,
+          displayName,
+          username: show.djUsername,
+          photoUrl,
+          eventType: isLive ? 'live' : 'show',
+          eventTime: isLive ? 0 : startDate.getTime(),
+          showStartTime: show.startTime,
+          stationId: show.stationId,
+          liveOnStation: isLive ? (show.stationId === 'broadcast' ? 'Channel' : show.stationId) : undefined,
+          eventId: `favshow-${show.id}-${show.startTime}`,
+        });
       }
-
-      // Don't add favorited shows that have no live or upcoming instances
-      // (past shows should not appear in favorites)
     }
 
-    // Third pass: add IRL events for followed DJs
+    // Third: Add all IRL events from followed DJs (one entry per IRL event)
     for (const irlShow of irlShows) {
       const djNameLower = irlShow.djName.toLowerCase();
       const matchedFollow = followedDJNames.find((name) =>
@@ -359,105 +325,67 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
 
       if (!matchedFollow) continue;
 
-      const key = `dj:${matchedFollow}`;
-      const existing = itemMap.get(key);
+      const irlTime = new Date(irlShow.date + 'T00:00:00').getTime();
 
-      // Add IRL info to the existing entry, or create new one
-      if (existing) {
-        // Only update IRL info if this event is sooner than existing IRL event
-        if (!existing.nextIRLDate || irlShow.date < existing.nextIRLDate) {
-          itemMap.set(key, {
-            ...existing,
-            photoUrl: existing.photoUrl || irlShow.djPhotoUrl,
-            username: existing.username || irlShow.djUsername,
-            nextIRLDate: irlShow.date,
-            nextIRLEventName: irlShow.eventName,
-            nextIRLLocation: irlShow.location,
-          });
-        }
-      } else {
-        // Create new entry for DJ with IRL event
-        itemMap.set(key, {
-          name: irlShow.djName,
-          displayName: irlShow.djName,
-          username: irlShow.djUsername,
-          photoUrl: irlShow.djPhotoUrl,
-          isLive: false,
-          itemType: 'dj',
-          nextIRLDate: irlShow.date,
-          nextIRLEventName: irlShow.eventName,
-          nextIRLLocation: irlShow.location,
+      // Update DJ info map
+      if (irlShow.djUsername || irlShow.djPhotoUrl) {
+        const existing = djInfoMap.get(matchedFollow) || {};
+        djInfoMap.set(matchedFollow, {
+          username: irlShow.djUsername || existing.username,
+          photoUrl: irlShow.djPhotoUrl || existing.photoUrl,
         });
       }
+
+      items.push({
+        djName: irlShow.djName,
+        displayName: irlShow.djName,
+        username: irlShow.djUsername,
+        photoUrl: irlShow.djPhotoUrl,
+        eventType: 'irl',
+        eventTime: irlTime,
+        irlDate: irlShow.date,
+        irlEventName: irlShow.eventName,
+        irlLocation: irlShow.location,
+        eventId: `irl-${irlShow.djUsername}-${irlShow.date}-${irlShow.location}`,
+      });
     }
 
-    // Deduplicate by username - keep the best entry (live > upcoming > none)
-    const byUsername = new Map<string, FavoriteItemStatus>();
-    const allItems = Array.from(itemMap.values());
-    for (const item of allItems) {
-      // Use username as key if available, otherwise use lowercase name
-      const dedupeKey = item.username?.toLowerCase() || item.name.toLowerCase();
-      const existing = byUsername.get(dedupeKey);
+    // Fourth: Add DJs without any events at the end
+    for (const name of djsWithoutEvents) {
+      const profile = djProfiles.get(name);
+      const displayName = profile?.username || name.charAt(0).toUpperCase() + name.slice(1);
 
-      if (!existing) {
-        byUsername.set(dedupeKey, item);
-      } else {
-        // Priority: live > upcoming show > no show
-        const existingScore = existing.isLive ? 2 : existing.nextShowTime ? 1 : 0;
-        const newScore = item.isLive ? 2 : item.nextShowTime ? 1 : 0;
-
-        if (newScore > existingScore) {
-          byUsername.set(dedupeKey, item);
-        } else if (newScore === existingScore && newScore === 1) {
-          // Both have upcoming shows - keep the one with earlier show time
-          const existingTime = new Date(existing.nextShowTime!).getTime();
-          const newTime = new Date(item.nextShowTime!).getTime();
-          if (newTime < existingTime) {
-            byUsername.set(dedupeKey, item);
-          }
-        } else if (newScore === existingScore) {
-          // Same priority - prefer the one with more info (photo, username)
-          const existingInfo = (existing.photoUrl ? 1 : 0) + (existing.username ? 1 : 0);
-          const newInfo = (item.photoUrl ? 1 : 0) + (item.username ? 1 : 0);
-          if (newInfo > existingInfo) {
-            byUsername.set(dedupeKey, item);
-          }
-        }
-      }
+      items.push({
+        djName: displayName,
+        displayName,
+        username: profile?.username,
+        photoUrl: profile?.photoUrl,
+        eventType: 'none',
+        eventTime: undefined, // Will sort to the end
+        eventId: `dj-${name}`,
+      });
     }
 
-    // Sort: by next event date (show or IRL), then DJs with photos first
-    return Array.from(byUsername.values()).sort((a, b) => {
-      // Get the earliest upcoming date for each item (show time or IRL date)
-      const getNextDate = (item: FavoriteItemStatus): number | null => {
-        if (item.isLive) return 0; // Live items come first
-        const showTime = item.nextShowTime ? new Date(item.nextShowTime).getTime() : null;
-        const irlTime = item.nextIRLDate ? new Date(item.nextIRLDate + 'T00:00:00').getTime() : null;
+    // Sort: live first (eventTime=0), then by event time ascending, then DJs without events (no eventTime)
+    return items.sort((a, b) => {
+      // Items with events come before items without
+      if (a.eventTime !== undefined && b.eventTime === undefined) return -1;
+      if (a.eventTime === undefined && b.eventTime !== undefined) return 1;
 
-        if (showTime && irlTime) return Math.min(showTime, irlTime);
-        return showTime || irlTime;
-      };
-
-      const aDate = getNextDate(a);
-      const bDate = getNextDate(b);
-
-      // Items with dates come before items without dates
-      if (aDate !== null && bDate !== null) {
-        return aDate - bDate;
+      // Both have events - sort by time
+      if (a.eventTime !== undefined && b.eventTime !== undefined) {
+        return a.eventTime - b.eventTime;
       }
-      if (aDate !== null) return -1;
-      if (bDate !== null) return 1;
 
-      // No dates: DJs with photos come first
+      // Both without events - sort by photo presence, then alphabetically
       if (a.photoUrl && !b.photoUrl) return -1;
       if (!a.photoUrl && b.photoUrl) return 1;
-
-      return 0;
+      return a.displayName.localeCompare(b.displayName);
     });
-  }, [followedDJNames, favoritedShows, shows, irlShows, djProfiles]);
+  }, [followedDJNames, favoritedShows, shows, irlShows, djsWithoutEvents, djProfiles]);
 
   // Don't render if not authenticated, still loading, or no favorites
-  if (!isAuthenticated || isLoading || favoritesWithStatus.length === 0) {
+  if (!isAuthenticated || isLoading || timelineItems.length === 0) {
     return null;
   }
 
@@ -470,9 +398,9 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
       </h2>
 
       <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-        {favoritesWithStatus.map((item) => (
+        {timelineItems.map((item) => (
           <Link
-            key={`${item.itemType}-${item.name}`}
+            key={item.eventId}
             href={item.username ? `/dj/${item.username}` : '/my-shows'}
             className="flex-shrink-0 flex flex-col items-center gap-2 group"
           >
@@ -508,25 +436,36 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
               </div>
 
               {/* Live indicator */}
-              {item.isLive && (
+              {item.eventType === 'live' && (
                 <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-[#ff0000] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                   LIVE
                 </span>
               )}
 
+              {/* IRL indicator */}
+              {item.eventType === 'irl' && (
+                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-green-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  IRL
+                </span>
+              )}
             </div>
 
             {/* Name and status */}
             <div className="text-center max-w-[70px]">
               <p className="text-white text-xs font-medium truncate">{item.displayName}</p>
-              {!item.isLive && item.nextShowTime && (
+              {item.eventType === 'show' && item.showStartTime && (
                 <p className="text-gray-500 text-[10px] truncate">
-                  {formatNextShowTime(item.nextShowTime)}
+                  {formatNextShowTime(item.showStartTime)}
                 </p>
               )}
-              {!item.isLive && !item.nextShowTime && item.nextIRLDate && (
-                <p className="text-gray-500 text-[10px] truncate">
-                  {formatIRLDate(item.nextIRLDate)}
+              {item.eventType === 'irl' && item.irlDate && (
+                <p className="text-green-400 text-[10px] truncate">
+                  {formatIRLDate(item.irlDate)}
+                </p>
+              )}
+              {item.eventType === 'none' && (
+                <p className="text-gray-600 text-[10px] truncate">
+                  No shows
                 </p>
               )}
             </div>

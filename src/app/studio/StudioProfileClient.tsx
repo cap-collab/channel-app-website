@@ -1159,12 +1159,20 @@ export function StudioProfileClient() {
                 </div>
               )}
             </div>
-            <Link
-              href="/studio/join"
-              className="mt-4 block w-full bg-white text-black text-center py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors"
-            >
-              Request a live stream slot on Channel
-            </Link>
+            <div className="mt-4 flex flex-col sm:flex-row gap-3">
+              <Link
+                href="/studio/join"
+                className="flex-1 block bg-white text-black text-center py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+              >
+                Request a live stream slot
+              </Link>
+              <Link
+                href="/record"
+                className="flex-1 block bg-gray-800 text-white text-center py-3 rounded-lg font-medium hover:bg-gray-700 transition-colors border border-gray-700"
+              >
+                Record my set
+              </Link>
+            </div>
           </section>
 
           {/* Profile Photo section */}
