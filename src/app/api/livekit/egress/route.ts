@@ -14,10 +14,10 @@ const r2Bucket = process.env.R2_BUCKET_NAME || '';
 const r2Endpoint = `https://${r2AccountId}.r2.cloudflarestorage.com`;
 const r2PublicUrl = process.env.R2_PUBLIC_URL || '';
 
-// Start HLS + OGG egress for a room
+// Start HLS + MP4 egress for a room (or MP4-only for recording mode)
 export async function POST(request: NextRequest) {
   try {
-    const { room } = await request.json();
+    const { room, recordingOnly } = await request.json();
 
     if (!room) {
       return NextResponse.json({ error: 'Room name required' }, { status: 400 });
@@ -28,6 +28,48 @@ export async function POST(request: NextRequest) {
     }
 
     const egressClient = new EgressClient(livekitHost, apiKey, apiSecret);
+
+    // Recording-only mode: Skip HLS, only start MP4 recording
+    if (recordingOnly) {
+      console.log('Starting MP4-only egress for recording room:', room);
+
+      const recordingS3Upload = new S3Upload({
+        accessKey: r2AccessKey,
+        secret: r2SecretKey,
+        bucket: r2Bucket,
+        region: 'auto',
+        endpoint: r2Endpoint,
+        forcePathStyle: true,
+      });
+
+      const mp4Output = new EncodedFileOutput({
+        fileType: EncodedFileType.MP4,
+        filepath: `recordings/${room}/{room_name}-{time}.mp4`,
+        output: {
+          case: 's3',
+          value: recordingS3Upload,
+        },
+      });
+
+      const recordingEgress = await egressClient.startRoomCompositeEgress(
+        room,
+        { file: mp4Output },
+        { audioOnly: true }
+      );
+
+      console.log('MP4 recording egress started (recording-only mode):', recordingEgress.egressId);
+
+      return NextResponse.json({
+        egressId: null,  // No HLS egress in recording-only mode
+        recordingEgressId: recordingEgress.egressId,
+        status: recordingEgress.status,
+        room,
+        hlsUrl: null,  // No HLS stream
+        message: 'MP4 recording started (recording-only mode)',
+      });
+    }
+
+    // Standard live broadcast mode: HLS + MP4
 
     // Create S3Upload for R2
     const s3Upload = new S3Upload({

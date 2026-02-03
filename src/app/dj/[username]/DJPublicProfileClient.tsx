@@ -757,8 +757,11 @@ export function DJPublicProfileClient({ username }: Props) {
 
           // Find archives that match this DJ's slots (only shows with recordings)
           // Channel Broadcast shows without recordings are not displayed since they're never recurring
+          // Filter out unpublished recordings (isPublic === false means explicitly private)
           const djArchives = archives.filter((archive) =>
-            pastSlotsMap.has(archive.broadcastSlotId) && archive.recordingUrl
+            pastSlotsMap.has(archive.broadcastSlotId) &&
+            archive.recordingUrl &&
+            archive.isPublic !== false  // Include if isPublic is true or undefined (legacy archives)
           );
           setPastRecordings(djArchives);
         }

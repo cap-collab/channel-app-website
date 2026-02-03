@@ -10,7 +10,7 @@ import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useUserRole, isDJ } from "@/hooks/useUserRole";
 import { AuthModal } from "@/components/AuthModal";
-import { BroadcastSlotSerialized } from "@/types/broadcast";
+import { BroadcastSlotSerialized, ArchiveSerialized } from "@/types/broadcast";
 import { usePendingPayout } from "@/hooks/usePendingPayout";
 import { normalizeUrl } from "@/lib/url";
 import { uploadDJPhoto, deleteDJPhoto, validatePhoto } from "@/lib/photo-upload";
@@ -83,6 +83,11 @@ export function DJProfileClient() {
   // Upcoming broadcasts
   const [upcomingBroadcasts, setUpcomingBroadcasts] = useState<BroadcastSlotSerialized[]>([]);
   const [loadingBroadcasts, setLoadingBroadcasts] = useState(true);
+
+  // My recordings
+  const [myRecordings, setMyRecordings] = useState<ArchiveSerialized[]>([]);
+  const [loadingRecordings, setLoadingRecordings] = useState(true);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
 
   // Upgrade to DJ state
   const [agreedToDJTerms, setAgreedToDJTerms] = useState(false);
@@ -188,6 +193,83 @@ export function DJProfileClient() {
 
     return () => unsubscribe();
   }, [user]);
+
+  // Load DJ's recordings (both published and unpublished)
+  useEffect(() => {
+    if (!user) {
+      setLoadingRecordings(false);
+      return;
+    }
+
+    const fetchRecordings = async () => {
+      try {
+        // Fetch all archives and filter client-side for this DJ's recordings
+        const res = await fetch('/api/archives?includePrivate=true');
+        if (!res.ok) {
+          console.error('Failed to fetch recordings');
+          setLoadingRecordings(false);
+          return;
+        }
+
+        const data = await res.json();
+        const allArchives: ArchiveSerialized[] = data.archives || [];
+
+        // Filter for recordings owned by this DJ
+        const djRecordings = allArchives.filter((archive) => {
+          // Check if this is the DJ's recording via the djs array
+          const isOwner = archive.djs?.some(
+            (dj) => dj.userId === user.uid || dj.email?.toLowerCase() === user.email?.toLowerCase()
+          );
+          // Only show recording-type archives (not live broadcasts)
+          return isOwner && archive.sourceType === 'recording';
+        });
+
+        // Sort by recordedAt descending (most recent first)
+        djRecordings.sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0));
+        setMyRecordings(djRecordings);
+      } catch (error) {
+        console.error('Error fetching recordings:', error);
+      } finally {
+        setLoadingRecordings(false);
+      }
+    };
+
+    fetchRecordings();
+  }, [user]);
+
+  // Handle publish/unpublish recording
+  const handleTogglePublish = async (archiveId: string, currentlyPublic: boolean) => {
+    if (!user) return;
+
+    setPublishingId(archiveId);
+    try {
+      const method = currentlyPublic ? 'DELETE' : 'POST';
+      const res = await fetch('/api/recording/publish', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archiveId, userId: user.uid }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        console.error('Failed to toggle publish:', data.error);
+        return;
+      }
+
+      // Update local state
+      setMyRecordings((prev) =>
+        prev.map((rec) =>
+          rec.id === archiveId
+            ? { ...rec, isPublic: !currentlyPublic, publishedAt: !currentlyPublic ? Date.now() : undefined }
+            : rec
+        )
+      );
+    } catch (error) {
+      console.error('Error toggling publish:', error);
+    } finally {
+      setPublishingId(null);
+    }
+  };
 
   // Sync DJ profile data to broadcast slots
   const syncProfileToSlots = useCallback(async (bio?: string | null, photoUrl?: string | null) => {
@@ -431,6 +513,23 @@ export function DJProfileClient() {
     } finally {
       setUploadingPhoto(false);
     }
+  };
+
+  const formatDuration = (seconds: number) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    if (hrs > 0) {
+      return `${hrs}h ${mins}m`;
+    }
+    return `${mins}m`;
+  };
+
+  const formatRecordingDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
   };
 
   const formatBroadcastTime = (startTime: number, endTime: number) => {
@@ -854,6 +953,99 @@ export function DJProfileClient() {
                 </div>
               )}
             </div>
+          </section>
+
+          {/* My Recordings section */}
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-gray-500 text-xs uppercase tracking-wide">
+                My Recordings
+              </h2>
+              <Link
+                href="/record"
+                className="text-blue-400 hover:text-blue-300 text-xs transition-colors"
+              >
+                Record New &rarr;
+              </Link>
+            </div>
+            <div className="bg-[#1a1a1a] rounded-lg">
+              {loadingRecordings ? (
+                <div className="p-4 flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
+                </div>
+              ) : myRecordings.length === 0 ? (
+                <div className="p-4 text-center">
+                  <p className="text-gray-500 mb-3">No recordings yet</p>
+                  <Link
+                    href="/record"
+                    className="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300 text-sm transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="10" strokeWidth={2} />
+                      <circle cx="12" cy="12" r="4" fill="currentColor" />
+                    </svg>
+                    Start Recording
+                  </Link>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-800">
+                  {myRecordings.map((recording) => (
+                    <div key={recording.id} className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-medium truncate">{recording.showName}</p>
+                          <p className="text-gray-400 text-sm">
+                            {formatRecordingDate(recording.recordedAt)} · {formatDuration(recording.duration)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {/* Publish toggle */}
+                          <button
+                            onClick={() => handleTogglePublish(recording.id, recording.isPublic === true)}
+                            disabled={publishingId === recording.id}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                              recording.isPublic
+                                ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            } disabled:opacity-50`}
+                          >
+                            {publishingId === recording.id ? (
+                              <span className="flex items-center gap-1">
+                                <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                              </span>
+                            ) : recording.isPublic ? (
+                              'Published'
+                            ) : (
+                              'Publish'
+                            )}
+                          </button>
+                          {/* Play link */}
+                          <Link
+                            href={`/archive/${recording.slug}`}
+                            className="p-1.5 text-gray-400 hover:text-white transition-colors"
+                            title="Play recording"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </Link>
+                        </div>
+                      </div>
+                      {/* Status indicator */}
+                      {recording.isPublic && (
+                        <p className="text-green-400/70 text-xs mt-2">
+                          Visible on your public profile
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <p className="text-gray-600 text-xs mt-2 px-1">
+              Recordings are private until published. Published recordings appear on your DJ profile.
+            </p>
           </section>
 
           {/* Payments section */}

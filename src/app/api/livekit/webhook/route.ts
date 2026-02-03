@@ -197,6 +197,9 @@ export async function POST(request: NextRequest) {
               const startTime = slotData?.startTime;
               const recordedAt = startTime?.toMillis ? startTime.toMillis() : Date.now();
 
+              // Determine if this is a recording-only session (not a live broadcast)
+              const isRecordingOnly = slotData?.broadcastType === 'recording';
+
               // Create the archive document
               const archiveDoc: Record<string, unknown> = {
                 slug,
@@ -208,6 +211,10 @@ export async function POST(request: NextRequest) {
                 recordedAt,
                 createdAt: Date.now(),
                 stationId: (slotData?.stationId as string) || STATION_ID,
+                // Recording-only mode: private by default until published
+                // Live broadcasts: public by default
+                isPublic: !isRecordingOnly,
+                sourceType: isRecordingOnly ? 'recording' : 'live',
               };
 
               // Include show image if available
@@ -217,7 +224,45 @@ export async function POST(request: NextRequest) {
 
               await archivesRef.add(archiveDoc);
 
-              console.log(`Archive created: ${slug} for show "${showName}"`);
+              console.log(`Archive created: ${slug} for show "${showName}" (${isRecordingOnly ? 'recording' : 'live'})`);
+
+              // For recording-only mode, update the user's quota with actual duration
+              if (isRecordingOnly && slotData?.djUserId) {
+                try {
+                  const userId = slotData.djUserId as string;
+                  const userRef = db.collection('users').doc(userId);
+                  const userDoc = await userRef.get();
+
+                  if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    const currentMonthKey = new Date().toISOString().slice(0, 7); // "2026-02"
+
+                    let recordingQuota = userData?.recordingQuota || {
+                      monthKey: currentMonthKey,
+                      usedSeconds: 0,
+                      maxSeconds: 7200, // 2 hours default
+                    };
+
+                    // Reset if new month
+                    if (recordingQuota.monthKey !== currentMonthKey) {
+                      recordingQuota = {
+                        monthKey: currentMonthKey,
+                        usedSeconds: 0,
+                        maxSeconds: recordingQuota.maxSeconds || 7200,
+                      };
+                    }
+
+                    // Add actual duration to used seconds
+                    recordingQuota.usedSeconds += durationSec;
+
+                    await userRef.update({ recordingQuota });
+                    console.log(`Updated recording quota for user ${userId}: ${recordingQuota.usedSeconds}s used`);
+                  }
+                } catch (quotaError) {
+                  console.error('Failed to update recording quota:', quotaError);
+                  // Don't fail the webhook if quota update fails
+                }
+              }
             } catch (archiveError) {
               console.error('Failed to create archive:', archiveError);
               // Don't fail the webhook if archive creation fails

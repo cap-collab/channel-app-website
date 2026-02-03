@@ -9,8 +9,8 @@ export type AudioInputMethod = 'system' | 'device' | 'rtmp';
 // - missed: slot time passed without ever going live
 export type BroadcastSlotStatus = 'scheduled' | 'live' | 'paused' | 'completed' | 'missed';
 
-// Broadcast type - venue uses permanent URL, remote gets unique token
-export type BroadcastType = 'venue' | 'remote';
+// Broadcast type - venue uses permanent URL, remote gets unique token, recording is self-service
+export type BroadcastType = 'venue' | 'remote' | 'recording';
 
 // Individual DJ profile for B3B scenarios (multiple DJs sharing one slot)
 export interface DJProfileInfo {
@@ -109,6 +109,10 @@ export interface BroadcastSlot {
   recordingDuration?: number;     // Duration in seconds (legacy)
   // Multiple recordings support (stop/restart creates new recordings)
   recordings?: Recording[];
+  // Recording-only mode fields
+  isPublic?: boolean;           // For recording type - visible on profile?
+  publishedAt?: number;         // When made public (Unix ms)
+  roomName?: string;            // Custom room name for recordings (not shared channel-radio)
 }
 
 // Serialized version for API responses (timestamps as numbers)
@@ -151,6 +155,10 @@ export interface BroadcastSlotSerialized {
   recordingDuration?: number;
   // Multiple recordings support
   recordings?: Recording[];
+  // Recording-only mode fields
+  isPublic?: boolean;           // For recording type - visible on profile?
+  publishedAt?: number;         // When made public (Unix ms)
+  roomName?: string;            // Custom room name for recordings
 }
 
 // Recording status type
@@ -255,6 +263,10 @@ export interface Archive {
   stationId: string;             // 'channel-main'
   showImageUrl?: string;         // Show image (from broadcast slot)
   streamCount?: number;          // Number of streams (counted after 5+ min playback)
+  // Recording-only mode fields
+  isPublic?: boolean;            // Default true for live broadcasts, false for recordings until published
+  sourceType?: 'live' | 'recording';  // Distinguish live broadcast recordings from private recordings
+  publishedAt?: number;          // When recording was published (Unix ms)
 }
 
 // Serialized version for API responses (same as Archive since all fields are already serialized)

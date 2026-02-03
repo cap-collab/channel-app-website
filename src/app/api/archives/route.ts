@@ -12,8 +12,11 @@ interface DJInfo {
   email?: string;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const includePrivate = searchParams.get('includePrivate') === 'true';
+
     const db = getAdminDb();
     if (!db) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
@@ -24,23 +27,32 @@ export async function GET() {
     const snapshot = await archivesRef.get();
 
     // First pass: collect archives and identify which need slot lookups
+    // Filter out unpublished recordings (isPublic === false means explicitly private)
+    // Unless includePrivate=true (for DJ dashboard to see their own recordings)
     const slotIdsNeedingLookup = new Set<string>();
-    const rawArchives = snapshot.docs.map((doc) => {
-      const data = doc.data();
-      const djs: DJInfo[] = data.djs || [];
+    const rawArchives = snapshot.docs
+      .filter((doc) => {
+        const data = doc.data();
+        // If includePrivate is true, include all archives
+        // Otherwise, include only if isPublic is true or undefined (legacy archives)
+        return includePrivate || data.isPublic !== false;
+      })
+      .map((doc) => {
+        const data = doc.data();
+        const djs: DJInfo[] = data.djs || [];
 
-      // Check if any DJ is missing both username AND email (need to look up slot)
-      const needsSlotLookup = djs.some((dj) => !dj.username && !dj.email);
-      if (needsSlotLookup && data.broadcastSlotId) {
-        slotIdsNeedingLookup.add(data.broadcastSlotId);
-      }
+        // Check if any DJ is missing both username AND email (need to look up slot)
+        const needsSlotLookup = djs.some((dj) => !dj.username && !dj.email);
+        if (needsSlotLookup && data.broadcastSlotId) {
+          slotIdsNeedingLookup.add(data.broadcastSlotId);
+        }
 
-      return {
-        id: doc.id,
-        data,
-        djs,
-      };
-    });
+        return {
+          id: doc.id,
+          data,
+          djs,
+        };
+      });
 
     // Look up broadcast slots to get DJ emails for archives missing them
     const slotDjEmails = new Map<string, Map<string, string>>(); // slotId -> (djName -> email)
@@ -161,6 +173,10 @@ export async function GET() {
         createdAt: data.createdAt,
         stationId: data.stationId || 'channel-main',
         showImageUrl: data.showImageUrl,
+        // Include new recording-related fields
+        isPublic: data.isPublic,
+        sourceType: data.sourceType,
+        publishedAt: data.publishedAt,
       };
     });
 

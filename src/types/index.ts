@@ -89,6 +89,12 @@ export interface UserDocument {
     stripeOnboarded: boolean;
     photoUrl: string | null;
   };
+  // Recording quota tracking (for self-service recording feature)
+  recordingQuota?: {
+    monthKey: string;           // "2026-02" format for current billing period
+    usedSeconds: number;        // Total seconds used this month
+    maxSeconds: number;         // 7200 (2 hours) default, can be overridden per user
+  };
 }
 
 // Favorite document in Firestore

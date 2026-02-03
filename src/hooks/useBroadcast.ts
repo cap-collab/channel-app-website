@@ -12,7 +12,22 @@ interface DJInfo {
   thankYouMessage?: string;
 }
 
-export function useBroadcast(participantIdentity: string, slotId?: string, djInfo?: DJInfo, broadcastToken?: string) {
+interface BroadcastOptions {
+  recordingOnly?: boolean;  // Skip HLS, only record
+  customRoomName?: string;  // Use custom room name instead of shared channel-radio
+}
+
+export function useBroadcast(
+  participantIdentity: string,
+  slotId?: string,
+  djInfo?: DJInfo,
+  broadcastToken?: string,
+  options?: BroadcastOptions
+) {
+  // Determine the room name to use
+  const roomName = options?.customRoomName || ROOM_NAME;
+  const recordingOnly = options?.recordingOnly || false;
+
   const [state, setState] = useState<BroadcastState>({
     inputMethod: null,
     isConnected: false,
@@ -21,7 +36,7 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
     egressId: null,
     recordingEgressId: null,
     hlsUrl: null,
-    roomName: ROOM_NAME,
+    roomName,
     error: null,
   });
 
@@ -29,29 +44,34 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
   const audioTrackRef = useRef<LocalTrack | null>(null);
 
   // Check if someone else is already broadcasting
+  // For recording mode with custom room, we skip this check since each user has their own room
   const checkRoomStatus = useCallback(async (): Promise<RoomStatus> => {
-    const res = await fetch(`/api/livekit/room-status?room=${ROOM_NAME}`);
+    const res = await fetch(`/api/livekit/room-status?room=${roomName}`);
     return res.json();
-  }, []);
+  }, [roomName]);
 
   // Connect to the LiveKit room
   const connect = useCallback(async () => {
     try {
       setState(prev => ({ ...prev, error: null }));
 
-      // Check if someone is already live
-      const roomStatus = await checkRoomStatus();
-      if (roomStatus.isLive) {
-        setState(prev => ({
-          ...prev,
-          error: `Another DJ (${roomStatus.currentDJ}) is currently live`,
-        }));
-        return false;
+      // For recording mode with custom room, skip the "someone already live" check
+      // since each user has their own isolated room
+      if (!recordingOnly) {
+        // Check if someone is already live (only for shared channel-radio room)
+        const roomStatus = await checkRoomStatus();
+        if (roomStatus.isLive) {
+          setState(prev => ({
+            ...prev,
+            error: `Another DJ (${roomStatus.currentDJ}) is currently live`,
+          }));
+          return false;
+        }
       }
 
-      // Get token
+      // Get token for the room
       const res = await fetch(
-        `/api/livekit/token?room=${ROOM_NAME}&username=${encodeURIComponent(participantIdentity)}`
+        `/api/livekit/token?room=${roomName}&username=${encodeURIComponent(participantIdentity)}`
       );
       const data = await res.json();
 
@@ -105,7 +125,7 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
       setState(prev => ({ ...prev, error: message }));
       return false;
     }
-  }, [participantIdentity, checkRoomStatus, slotId, state.isLive]);
+  }, [participantIdentity, checkRoomStatus, slotId, state.isLive, recordingOnly, roomName]);
 
   // Publish audio to the room
   const publishAudio = useCallback(async (stream: MediaStream) => {
@@ -136,14 +156,14 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
     }
   }, []);
 
-  // Start egress (go live)
+  // Start egress (go live or start recording)
   const startEgress = useCallback(async () => {
     try {
-      console.log('📡 Starting egress for room:', ROOM_NAME);
+      console.log('📡 Starting egress for room:', roomName, recordingOnly ? '(recording-only mode)' : '');
       const res = await fetch('/api/livekit/egress', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ room: ROOM_NAME }),
+        body: JSON.stringify({ room: roomName, recordingOnly }),
       });
 
       const data = await res.json();
@@ -155,7 +175,8 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
         return false;
       }
 
-      const hlsUrl = data.hlsUrl || `${r2PublicUrl}/${ROOM_NAME}/live.m3u8`;
+      // For recording-only mode, hlsUrl will be null
+      const hlsUrl = recordingOnly ? null : (data.hlsUrl || `${r2PublicUrl}/${roomName}/live.m3u8`);
 
       // Update Firestore slot status to 'live' via API (uses Admin SDK, no auth required)
       console.log('📡 broadcastToken value:', broadcastToken);
@@ -211,7 +232,7 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
       setState(prev => ({ ...prev, error: message }));
       return false;
     }
-  }, [broadcastToken, djInfo]);
+  }, [broadcastToken, djInfo, roomName, recordingOnly]);
 
   // Go live - connect, publish, and start egress
   const goLive = useCallback(async (stream: MediaStream) => {
@@ -230,17 +251,20 @@ export function useBroadcast(participantIdentity: string, slotId?: string, djInf
     return started;
   }, [state.isConnected, connect, publishAudio, startEgress]);
 
-  // Stop egress (both HLS and recording)
+  // Stop egress (both HLS and recording, or just recording in recording-only mode)
   const stopEgress = useCallback(async () => {
-    if (!state.egressId) return;
+    // In recording-only mode, we only have recordingEgressId (no HLS egressId)
+    if (!state.egressId && !state.recordingEgressId) return;
 
     try {
-      // Stop HLS egress
-      await fetch('/api/livekit/egress', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ egressId: state.egressId }),
-      });
+      // Stop HLS egress if it exists (not in recording-only mode)
+      if (state.egressId) {
+        await fetch('/api/livekit/egress', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ egressId: state.egressId }),
+        });
+      }
 
       // Stop recording egress if it exists
       if (state.recordingEgressId) {
