@@ -195,15 +195,45 @@ export async function GET(request: NextRequest) {
         date: string;
         time: string;
         duration: string;
+        timezone?: string;
       }> | undefined;
 
       if (radioShows && Array.isArray(radioShows)) {
         for (const radioShow of radioShows) {
           if (!radioShow.date || radioShow.date < todayStr) continue;
 
-          const startTime = radioShow.time
-            ? `${radioShow.date}T${radioShow.time}:00.000Z`
-            : `${radioShow.date}T12:00:00.000Z`;
+          // Get the timezone the DJ entered the time in (default to America/New_York for legacy data)
+          const djTimezone = radioShow.timezone || "America/New_York";
+          const timeStr = radioShow.time || "12:00";
+
+          // Convert DJ's local time to UTC using Intl.DateTimeFormat
+          // Strategy: Find what UTC time, when formatted in djTimezone, equals the DJ's input
+          const localDateTimeStr = `${radioShow.date}T${timeStr}:00`;
+
+          // Parse the DJ's intended local time as if it were UTC (baseline)
+          const naiveDate = new Date(localDateTimeStr + "Z");
+
+          // Format this UTC time in the DJ's timezone to find the offset
+          const djFormatter = new Intl.DateTimeFormat("en-CA", {
+            timeZone: djTimezone,
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+          });
+          const formattedInDjTz = djFormatter.format(naiveDate).replace(", ", "T").replace(" ", "");
+
+          // The difference between the naive interpretation and the DJ timezone interpretation
+          // tells us the offset. We need to adjust so the DJ's local time is correct.
+          const djTzDate = new Date(formattedInDjTz + "Z");
+          const offsetMs = naiveDate.getTime() - djTzDate.getTime();
+
+          // Apply offset to get correct UTC time
+          const correctUtcDate = new Date(naiveDate.getTime() + offsetMs);
+          const startTime = correctUtcDate.toISOString();
 
           allShows.push({
             name: radioShow.name,
@@ -454,6 +484,7 @@ export async function GET(request: NextRequest) {
           // Send digest email (max 10 matches)
           const success = await sendWatchlistDigestEmail({
             to: userData.email as string,
+            userTimezone: userData.timezone as string | undefined,
             matches: newMatchesForEmail.slice(0, 10),
           });
 

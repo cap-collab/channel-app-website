@@ -56,6 +56,7 @@ interface RadioShow {
   date: string;
   time: string;
   duration: string; // in hours, e.g. "1", "1.5", "2"
+  timezone?: string; // IANA timezone the time was entered in
 }
 
 interface DJProfile {
@@ -558,6 +559,9 @@ export function StudioProfileClient() {
     setSavingRadioShows(true);
     setSaveRadioShowsSuccess(false);
 
+    // Capture the user's timezone when saving
+    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
     try {
       const userRef = doc(db, "users", user.uid);
       // Filter out empty shows but always save the array structure
@@ -570,6 +574,7 @@ export function StudioProfileClient() {
         date: (show.date || "").trim(),
         time: (show.time || "").trim(),
         duration: (show.duration || "1").trim(),
+        timezone: userTimezone, // Store the timezone the time was entered in
       }));
 
       await updateDoc(userRef, {

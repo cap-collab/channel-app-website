@@ -367,6 +367,7 @@ export async function sendTipReminderEmail({
 
 interface WatchlistDigestEmailParams {
   to: string;
+  userTimezone?: string; // User's IANA timezone for formatting dates
   matches: Array<{
     showName: string;
     djName?: string;
@@ -384,6 +385,7 @@ interface WatchlistDigestEmailParams {
 
 export async function sendWatchlistDigestEmail({
   to,
+  userTimezone,
   matches,
 }: WatchlistDigestEmailParams) {
   if (!resend) {
@@ -396,11 +398,22 @@ export async function sendWatchlistDigestEmail({
   // Channel logo URL (hosted on the website)
   const logoUrl = "https://channel-app.com/logo-white.png";
 
+  // Use user's timezone for formatting, fallback to America/New_York
+  const timezone = userTimezone || "America/New_York";
+
+  // Get short timezone abbreviation (e.g., "EST", "PST")
+  const getTimezoneAbbr = (tz: string, date: Date) => {
+    const formatter = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "short" });
+    const parts = formatter.formatToParts(date);
+    return parts.find((p) => p.type === "timeZoneName")?.value || tz;
+  };
+
   // Build show cards HTML - Digital Flyer style with center spine layout
   const showCardsHtml = matches
     .map((match) => {
-      const dateStr = new Date(match.startTime).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
-      const timeStr = new Date(match.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      const dateStr = new Date(match.startTime).toLocaleDateString("en-US", { timeZone: timezone, weekday: "short", month: "short", day: "numeric" });
+      const timeStr = new Date(match.startTime).toLocaleTimeString("en-US", { timeZone: timezone, hour: "numeric", minute: "2-digit" });
+      const tzAbbr = getTimezoneAbbr(timezone, new Date(match.startTime));
       const djDisplayName = match.djName || match.searchTerm;
 
       // DJ profile URL - link to profile if exists, fallback to my-shows
@@ -421,10 +434,10 @@ export async function sendWatchlistDigestEmail({
         ? `<span style="display: inline-block; font-size: 10px; font-family: monospace; color: #22c55e; text-transform: uppercase; letter-spacing: 0.5px;">🌲 IRL</span>`
         : `<span style="display: inline-block; font-size: 10px; font-family: monospace; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.5px;">☁️ Online</span>`;
 
-      // Location/Station info
+      // Location/Station info (include timezone for online shows)
       const locationInfo = match.isIRL
         ? `${match.irlLocation || "TBA"} · ${dateStr}`
-        : `${match.stationName} · ${dateStr} at ${timeStr}`;
+        : `${match.stationName} · ${dateStr} at ${timeStr} ${tzAbbr}`;
 
       // DJ photo or fallback initial (email-compatible table-based fallback)
       const photoHtml = match.djPhotoUrl

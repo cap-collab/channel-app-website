@@ -256,6 +256,7 @@ interface RadioShow {
   date: string;
   time?: string;
   duration?: string; // in hours
+  timezone?: string; // IANA timezone the time was entered in
 }
 
 interface DJProfile {
@@ -324,6 +325,17 @@ function containsMatch(text: string, term: string): boolean {
   const textLower = text.toLowerCase();
   const termLower = term.toLowerCase();
   return textLower.includes(termLower);
+}
+
+// Get short timezone abbreviation (e.g., "EST", "PST")
+function getTimezoneAbbr(timezone: string, date: Date = new Date()): string {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", { timeZone: timezone, timeZoneName: "short" });
+    const parts = formatter.formatToParts(date);
+    return parts.find((p) => p.type === "timeZoneName")?.value || timezone;
+  } catch {
+    return timezone;
+  }
 }
 
 // Calculate show progress percentage (0-100)
@@ -1431,6 +1443,8 @@ export function DJPublicProfileClient({ username }: Props) {
                   const radioDate = radioShow.date ? new Date(radioShow.date) : null;
                   const dateStr = radioDate ? radioDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "TBA";
                   const timeStr = radioShow.time || "";
+                  // Get timezone abbreviation if timezone is stored
+                  const tzAbbr = radioShow.timezone ? getTimezoneAbbr(radioShow.timezone, radioDate || new Date()) : "";
 
                   // Check if show is currently live (within 2 hours of start time)
                   const nowMs = Date.now();
@@ -1452,7 +1466,7 @@ export function DJPublicProfileClient({ username }: Props) {
                       {/* Header: Date + Time, Show Type, and Radio name */}
                       <div className="flex items-center justify-between px-4 py-3 bg-black/40">
                         <span className="text-zinc-400 text-xs">
-                          {dateStr}{timeStr ? ` · ${timeStr}` : ""}
+                          {dateStr}{timeStr ? ` · ${timeStr}${tzAbbr ? ` ${tzAbbr}` : ""}` : ""}
                         </span>
                         <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center gap-1">
                           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
