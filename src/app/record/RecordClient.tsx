@@ -496,7 +496,7 @@ export function RecordClient() {
               defaultPromoText={djProfile?.promoText || undefined}
               defaultPromoHyperlink={djProfile?.promoHyperlink || undefined}
               defaultThankYouMessage={djProfile?.thankYouMessage || undefined}
-              broadcastType={broadcastType}
+              broadcastType="recording"
               onComplete={(username, promoText, promoHyperlink, thankYouMessage) => {
                 if (showName.trim()) {
                   handleProfileComplete(username, promoText, promoHyperlink, thankYouMessage);
