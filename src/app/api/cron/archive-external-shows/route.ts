@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { getAllShows } from '@/lib/metadata';
-import { getStationByMetadataKey } from '@/lib/stations';
+import { getStationById } from '@/lib/stations';
 import { Timestamp } from 'firebase-admin/firestore';
 
 // Verify request is from Vercel Cron
@@ -118,8 +118,8 @@ export async function GET(request: NextRequest) {
         console.error(`[archive-external-shows] Error checking doc ${docId}:`, checkError);
       }
 
-      // Get station info (stationId from shows is the metadata key, e.g., "nts1")
-      const station = getStationByMetadataKey(show.stationId);
+      // Get station info (stationId from shows is the station ID, e.g., "rinse-fm")
+      const station = getStationById(show.stationId);
 
       // Try to find DJ username from show.dj or show.name
       let djUsername: string | undefined;
@@ -163,11 +163,40 @@ export async function GET(request: NextRequest) {
 
     console.log(`[archive-external-shows] Processed ${processedCount} shows, archived ${archivedCount}, skipped ${skippedCount}, djProfiles: ${djUsernameMap.size}`);
 
+    // Cleanup: Fix any existing records where stationName is a raw station ID instead of display name
+    // This handles records created before the bug fix (using getStationByMetadataKey instead of getStationById)
+    let cleanedUpCount = 0;
+    try {
+      const allPastShows = await pastExternalShowsRef.get();
+      for (const doc of allPastShows.docs) {
+        const data = doc.data();
+        const stationName = data.stationName as string;
+        const stationId = data.stationId as string;
+
+        // Check if stationName looks like a station ID (contains hyphen or matches stationId)
+        // Valid display names like "Rinse FM", "NTS 1" have spaces, not hyphens
+        if (stationName && (stationName.includes('-') || stationName === stationId)) {
+          const station = getStationById(stationId);
+          if (station && station.name !== stationName) {
+            await pastExternalShowsRef.doc(doc.id).update({ stationName: station.name });
+            cleanedUpCount++;
+            console.log(`[archive-external-shows] Cleaned up: ${doc.id} (${stationName} -> ${station.name})`);
+          }
+        }
+      }
+      if (cleanedUpCount > 0) {
+        console.log(`[archive-external-shows] Cleaned up ${cleanedUpCount} records with incorrect station names`);
+      }
+    } catch (cleanupError) {
+      console.error('[archive-external-shows] Error during cleanup:', cleanupError);
+    }
+
     return NextResponse.json({
       success: true,
       processed: processedCount,
       archived: archivedCount,
       skipped: skippedCount,
+      cleanedUp: cleanedUpCount,
     });
   } catch (error) {
     console.error('Error in archive-external-shows cron:', error);
