@@ -512,7 +512,9 @@ export async function queryCollection(
   const token = await getAuthToken();
   if (!token) return [];
 
-  const where = filters.length === 1
+  const where = filters.length === 0
+    ? undefined
+    : filters.length === 1
     ? {
         fieldFilter: {
           field: { fieldPath: filters[0].field },
@@ -536,7 +538,7 @@ export async function queryCollection(
   const query = {
     structuredQuery: {
       from: [{ collectionId: collection }],
-      where,
+      ...(where && { where }),
       limit,
     },
   };
