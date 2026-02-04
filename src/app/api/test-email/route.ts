@@ -63,23 +63,23 @@ async function getDJProfile(searchTerm: string): Promise<{ username: string; pho
 
 async function sendTestEmail(to: string) {
   // Look up real DJ profiles - only set username if profile exists
-  const djCapProfile = await getDJProfile("dj cap");
+  const pariahProfile = await getDJProfile("pariah");
   const dorWandProfile = await getDJProfile("dor wand");
 
-  console.log("[test-email] DJ Cap profile:", djCapProfile);
+  console.log("[test-email] Pariah profile:", pariahProfile);
   console.log("[test-email] Dor Wand profile:", dorWandProfile);
 
-  // Sample data matching the original email from Feb 1
+  // Sample data matching the original email from Feb 4
   const sampleMatches = [
     {
-      showName: "Snack Time",
-      djName: "dj cap",
-      djUsername: djCapProfile?.username, // Only set if profile exists
-      djPhotoUrl: djCapProfile?.photoUrl,
-      stationName: "Channel Broadcast",
-      stationId: "broadcast",
-      startTime: new Date("2026-02-02T16:00:00"), // Mon, Feb 2 at 4:00 PM
-      searchTerm: "dj cap",
+      showName: "Pariah presents Voam",
+      djName: "pariah",
+      djUsername: pariahProfile?.username, // Only set if profile exists
+      djPhotoUrl: pariahProfile?.photoUrl,
+      stationName: "Rinse FM",
+      stationId: "rinse",
+      startTime: new Date("2026-02-05T22:00:00Z"), // Thu, Feb 5 at 10:00 PM UTC
+      searchTerm: "pariah",
       isIRL: false,
     },
     {
