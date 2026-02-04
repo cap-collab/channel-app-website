@@ -60,7 +60,7 @@ export default function Home() {
 
           <p className="text-lg md:text-xl text-gray-400 mb-12 max-w-xl mx-auto leading-relaxed">
             Stop chasing Instagram stories.<br />
-            Get notified when they play — on radio or at a venue.<br />
+            Get notified when they play on radio or at a venue.<br />
             Join their chat and support them directly.
           </p>
 
