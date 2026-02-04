@@ -617,7 +617,7 @@ export function DJPublicProfileClient({ username }: Props) {
               (data.djName && containsMatch(data.djName, djProfile.chatUsername)) ||
               (data.liveDjUsername && containsMatch(data.liveDjUsername, djProfile.chatUsername)) ||
               data.djUserId === djProfile.uid ||
-              (data.djEmail && data.djEmail.toLowerCase() === djProfile.email.toLowerCase());
+              (data.djEmail && djProfile.email && data.djEmail.toLowerCase() === djProfile.email.toLowerCase());
 
             if (isMatch) {
               const id = `broadcast-${docSnap.id}`;
