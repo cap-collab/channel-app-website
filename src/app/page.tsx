@@ -52,19 +52,29 @@ export default function Home() {
       <section className="min-h-screen flex flex-col justify-center items-center px-6 pt-24 pb-20 relative bg-[#1a1a1a]">
         <div className="max-w-3xl text-center">
           <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
-            Live streaming for<br />DJ communities.
+            Never miss the DJs you care about.
           </h1>
 
           <p className="text-lg md:text-xl text-gray-400 mb-12 max-w-xl mx-auto leading-relaxed">
-            Turn every listen into real support for independent culture.
+            Stop chasing Instagram stories.<br />
+            Get notified when they play — on radio or at a venue.<br />
+            Join their chat and support them directly.
           </p>
 
-          <Link
-            href="/channel"
-            className="inline-block bg-white text-black px-10 py-4 rounded-xl text-lg font-semibold hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(255,255,255,0.15)] transition-all"
-          >
-            Discover Channel
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link
+              href="/channel"
+              className="inline-block bg-white text-black px-10 py-4 rounded-xl text-lg font-semibold hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(255,255,255,0.15)] transition-all"
+            >
+              Discover Channel
+            </Link>
+            <Link
+              href="/studio/join"
+              className="inline-block bg-transparent text-white border border-white px-10 py-4 rounded-xl text-lg font-semibold hover:-translate-y-0.5 hover:bg-white hover:text-black transition-all"
+            >
+              Create your DJ profile
+            </Link>
+          </div>
         </div>
 
         {/* Scroll indicator */}
