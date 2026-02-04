@@ -9,7 +9,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { Show, IRLShowData } from '@/types';
 import { getStationById } from '@/lib/stations';
 import { getContrastTextColor } from '@/lib/colorUtils';
-import { showMatchesDJ, showMatchesAnyDJ, irlShowMatchesAnyDJ } from '@/lib/dj-matching';
+import { showMatchesAnyDJ, irlShowMatchesAnyDJ } from '@/lib/dj-matching';
 
 // Cache for DJ profile lookups to avoid repeated queries
 interface DJProfileCache {

@@ -77,10 +77,6 @@ export async function POST(request: NextRequest) {
     let irlShowsAdded = 0;
     let radioShowsAdded = 0;
 
-    // Normalize DJ username for matching
-    const normalizedDjUsername = djUsername.replace(/[\s-]+/g, "").toLowerCase();
-    const djNameLower = djName?.toLowerCase() || "";
-
     for (const user of allUsers) {
       // Skip the DJ themselves
       if (user.id === djUserId) continue;

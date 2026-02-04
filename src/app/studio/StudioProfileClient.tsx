@@ -1134,13 +1134,17 @@ export function StudioProfileClient() {
             {/* Hero Section */}
             <div className="mb-12">
               <h1 className="text-3xl font-bold mb-4">DJ Studio</h1>
-              <p className="text-xl text-gray-300 mb-6">Create your DJ profile on Channel</p>
+              <p className="text-xl text-gray-300 mb-6">Bring your DJ profile to Channel</p>
 
-              <p className="text-gray-400 leading-relaxed mb-8">
-                Think of Channel as SoundCloud + Linktree + live radio — built for DJs and their communities.
+              <p className="text-gray-400 leading-relaxed mb-4">
+                Channel is a home for DJs to publish sets, notify fans, and stay connected across radios, events, and venues.
               </p>
 
-              <h2 className="text-lg font-semibold mb-4">What you get when you sign up</h2>
+              <p className="text-gray-400 leading-relaxed mb-8">
+                Think SoundCloud + Linktree + Instagram, built for DJs and their communities.
+              </p>
+
+              <h2 className="text-lg font-semibold mb-4">What you get</h2>
               <div className="space-y-4">
                 <div className="flex gap-4">
                   <div className="w-6 h-6 flex-shrink-0 mt-0.5">
@@ -1151,8 +1155,8 @@ export function StudioProfileClient() {
                   <div>
                     <p className="text-white font-medium">A public DJ profile</p>
                     <p className="text-gray-400 text-sm">
-                      Your own DJ page with links, shows, and sets (example →{' '}
-                      <Link href="/dj/djcap" className="text-white underline hover:text-gray-300">channel-app.com/dj/djcap</Link>)
+                      One DJ page with ALL your links, events, radio shows, and recordings (example →{' '}
+                      <Link href="/dj/beyondalgorithms" className="text-white underline hover:text-gray-300">channel-app.com/dj/beyondalgorithms</Link>)
                     </p>
                   </div>
                 </div>
@@ -1164,8 +1168,8 @@ export function StudioProfileClient() {
                     </svg>
                   </div>
                   <div>
-                    <p className="text-white font-medium">Live or recorded sets</p>
-                    <p className="text-gray-400 text-sm">Livestream or record sets from home or directly from a venue</p>
+                    <p className="text-white font-medium">Record or livestream sets</p>
+                    <p className="text-gray-400 text-sm">Record or livestream from home or a venue, then publish under your profile</p>
                   </div>
                 </div>
 
@@ -1177,7 +1181,7 @@ export function StudioProfileClient() {
                   </div>
                   <div>
                     <p className="text-white font-medium">Automatic fan notifications</p>
-                    <p className="text-gray-400 text-sm">Fans get notified every time you play — live on Channel, on any radio, when you promote a new event, or release a new record</p>
+                    <p className="text-gray-400 text-sm">Fans get notified when you play on radio or announce an event</p>
                   </div>
                 </div>
 
@@ -1188,8 +1192,8 @@ export function StudioProfileClient() {
                     </svg>
                   </div>
                   <div>
-                    <p className="text-white font-medium">Chat &amp; tips</p>
-                    <p className="text-gray-400 text-sm">Talk to listeners, receive tips, and reward your community</p>
+                    <p className="text-white font-medium">Chat & tips</p>
+                    <p className="text-gray-400 text-sm">Chat with listeners, receive tips, and reward your community</p>
                   </div>
                 </div>
               </div>

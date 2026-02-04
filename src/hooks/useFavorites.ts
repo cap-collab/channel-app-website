@@ -17,7 +17,7 @@ import {
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Show, IRLShowData } from "@/types";
-import { wordBoundaryMatch, showMatchesDJ, irlShowMatchesDJ } from "@/lib/dj-matching";
+import { wordBoundaryMatch } from "@/lib/dj-matching";
 
 // Helper to fetch enriched shows and IRL shows from API
 async function fetchEnrichedShowsAndIRL(): Promise<{ shows: Show[]; irlShows: IRLShowData[] }> {

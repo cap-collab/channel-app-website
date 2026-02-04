@@ -39,10 +39,6 @@ export async function POST(request: NextRequest) {
 
     console.log(`[dj-online] DJ ${djUsername} is active in chat`);
 
-    // Normalize DJ username for matching
-    const normalizedDjUsername = djUsername.replace(/[\s-]+/g, "").toLowerCase();
-    const djUsernameLower = djUsername.toLowerCase();
-
     // Get all users with djOnline notifications enabled
     const usersWithDjOnline = await queryUsersWhere(
       "emailNotifications.djOnline",
