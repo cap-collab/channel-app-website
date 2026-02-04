@@ -26,11 +26,11 @@ async function getDJDisplayName(username: string): Promise<string | null> {
       .where("chatUsernameNormalized", "==", normalized)
       .get();
 
-    for (const doc of pendingSnapshot.docs) {
-      if (doc.data().status === "pending") {
-        console.log("[DJ Metadata] Found pending profile:", doc.data().chatUsername);
-        return doc.data().chatUsername || null;
-      }
+    // Use first matching profile (no status filter - show page regardless of status)
+    if (pendingSnapshot.docs.length > 0) {
+      const doc = pendingSnapshot.docs[0];
+      console.log("[DJ Metadata] Found pending profile:", doc.data().chatUsername);
+      return doc.data().chatUsername || null;
     }
 
     // Check users collection (single where clause, filter roles client-side)

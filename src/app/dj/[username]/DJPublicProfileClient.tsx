@@ -417,10 +417,8 @@ export function DJPublicProfileClient({ username }: Props) {
         );
         const pendingSnapshot = await getDocs(pendingQ);
 
-        // Find the first pending profile (filter by status client-side)
-        const pendingDoc = pendingSnapshot.docs.find(
-          (doc) => doc.data().status === "pending"
-        );
+        // Use the first matching profile (no status filter - show page regardless of status)
+        const pendingDoc = pendingSnapshot.docs[0];
 
         if (pendingDoc) {
           const pendingData = pendingDoc.data();
