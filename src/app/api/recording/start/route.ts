@@ -47,16 +47,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate tagged DJs (optional, only for venue recordings)
+    // Note: Firestore doesn't accept undefined values, so we only include fields that have values
     let validatedTaggedDJs: TaggedDJ[] | undefined;
     if (taggedDJs && Array.isArray(taggedDJs)) {
       validatedTaggedDJs = taggedDJs
         .filter((dj: TaggedDJ) => dj.djName && typeof dj.djName === 'string' && dj.djName.trim())
-        .map((dj: TaggedDJ) => ({
-          djName: dj.djName.trim(),
-          email: dj.email?.trim() || undefined,
-          userId: dj.userId || undefined,
-          username: dj.username || undefined,
-        }));
+        .map((dj: TaggedDJ) => {
+          const entry: TaggedDJ = { djName: dj.djName.trim() };
+          if (dj.email?.trim()) entry.email = dj.email.trim();
+          if (dj.userId) entry.userId = dj.userId;
+          if (dj.username) entry.username = dj.username;
+          return entry;
+        });
       // Only include if there are valid entries
       if (validatedTaggedDJs.length === 0) {
         validatedTaggedDJs = undefined;

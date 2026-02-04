@@ -33,6 +33,7 @@ interface DJProfileSetupProps {
   defaultPromoHyperlink?: string;
   defaultThankYouMessage?: string;
   broadcastType?: 'venue' | 'remote' | 'recording';
+  isVenueRecording?: boolean;  // For recordings made at a venue (shows venue-specific terms)
   onComplete: (username: string, promoText?: string, promoHyperlink?: string, thankYouMessage?: string) => void;
 }
 
@@ -414,6 +415,12 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
           <ul className="text-gray-400 text-sm space-y-1 mb-4 ml-4">
             {broadcastType === 'venue' && (
               <li>• The venue and promoters have authorized this livestream and any related recording.</li>
+            )}
+            {broadcastType === 'recording' && (
+              <>
+                <li>• The venue and promoters have authorized this recording.</li>
+                <li>• I am responsible for ensuring the recording content complies with venue policies and applicable laws.</li>
+              </>
             )}
             <li>• Channel may {broadcastType === 'recording' ? 'use' : 'record'} this {broadcastType === 'recording' ? 'recording' : 'broadcast'} and replay it or make it available on Channel websites and channels.</li>
             <li>• All DJs listed on this {broadcastType === 'recording' ? 'recording' : 'broadcast'} are aware of and consent to being {broadcastType === 'recording' ? 'recorded' : 'livestreamed, recorded,'} and used by Channel.</li>
