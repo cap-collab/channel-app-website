@@ -9,36 +9,39 @@ import { Header } from "@/components/Header";
 
 const faqItems = [
   {
-    question: "What is Channel, and who is it for?",
+    question: "What is Channel?",
     answer:
-      "Channel is a live-streaming app for DJ content. It's built for DJs, venues, and producers who want deeper relationships with their community, and for listeners who care about independent DJ culture.",
+      "DJs use Channel to record or livestream sets and stay connected with their audience.\n\nChannel helps you follow DJs, never miss them playing, or in the chat.",
   },
   {
-    question: "How is Channel different from other streaming apps?",
+    question: "Who is Channel for?",
     answer:
-      "Everything on Channel is built to support the ecosystem around DJs — including promoters, venues, producers, and their communities. We prioritize live, community-driven experiences over passive streaming.",
+      "For DJs\n• One public DJ profile for sets, events, and links\n• Record or livestream sets from home or a venue\n• Automatically notify fans when you play or promote something new\n\nFor listeners\n• Follow DJs you care about\n• Get notified when they play or promote something new\n• Join DJ chats and support them directly",
   },
   {
-    question: "Can I listen on Channel today?",
+    question: "How is Channel different?",
     answer:
-      "Yes. Channel is live on the web (channel-app.com/channel) and available on iOS via TestFlight while we continue expanding access.\n\nYou can tune into live sets, see what's coming up, and join the chat.",
-    hasLink: true,
+      "Channel focuses on the people around DJs — including producers, promoters, radios, venues, and listeners.\n\nIt's built for relationships, and intentional discovery, not mass or mindless consumption.",
   },
   {
-    question: "Who can broadcast on Channel, and what do I need?",
+    question: "How much does it cost?",
     answer:
-      "Channel is open to DJs, producers, and venues who want to host or record live broadcasts. Sign up and apply here. If your setup connects to a computer, you're likely ready. Check our streaming guide for more info.",
-    hasLink: true,
+      "Channel is free to use. We operate on a revenue-share model and do not run ads.",
+  },
+  {
+    question: "Can DJs livestream or record on Channel?",
+    answer:
+      "Yes. If your setup connects to a computer, you're ready.\n\nYou can record or livestream sets from home or directly from a venue.",
   },
   {
     question: "Can listeners interact and support DJs?",
     answer:
-      "Yes. Listeners can join the chat, send love, and support DJs directly through tipping and community features. Channel does not run ads.",
+      "Yes. Listeners can join chats, react during sets, and support DJs through tips.",
   },
   {
     question: "How can I get involved?",
     answer:
-      "If you're a DJ, producer, venue, or radio and want to broadcast or be featured, reach out at info@channel-app.com.\n\nIf you're a listener, tune in, join the chat, and invite people who care about DJ culture.",
+      "DJs\nCreate your DJ profile, share it with your fans, and start recording or livestreaming sets.\n\nListeners\nDiscover DJs, follow them, and never miss them playing again.\n\nQuestions or partnerships: info@channel-app.com",
     hasLink: true,
   },
 ];
