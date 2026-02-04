@@ -4,12 +4,12 @@ import "./globals.css";
 import { Providers } from "./Providers";
 
 export const metadata: Metadata = {
-  title: "Super app for DJ communities",
-  description: "The live-streaming app for DJ shows. Turn every listen into real support for independent culture.",
+  title: "Never miss the DJs you care about.",
+  description: "Never miss the DJs you care about.",
   metadataBase: new URL("https://channel-app.com"),
   openGraph: {
-    title: "Super app for DJ communities",
-    description: "The live-streaming app for DJ shows. Turn every listen into real support for independent culture.",
+    title: "Never miss the DJs you care about.",
+    description: "Never miss the DJs you care about.",
     type: "website",
     url: "https://channel-app.com",
     images: [
@@ -22,8 +22,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Super app for DJ communities",
-    description: "The live-streaming app for DJ shows. Turn every listen into real support for independent culture.",
+    title: "Never miss the DJs you care about.",
+    description: "Never miss the DJs you care about.",
     images: ["/og-image.png"],
   },
   icons: {

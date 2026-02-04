@@ -1,14 +1,47 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <rect width="1200" height="630" fill="#000"/>
-
   <defs>
+    <!-- Pink gradient blob 1 -->
+    <radialGradient id="pinkBlob1" cx="30%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#D94099" stop-opacity="0.25"/>
+      <stop offset="50%" stop-color="#D94099" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#D94099" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Pink gradient blob 2 -->
+    <radialGradient id="pinkBlob2" cx="75%" cy="70%" r="45%">
+      <stop offset="0%" stop-color="#D94099" stop-opacity="0.2"/>
+      <stop offset="40%" stop-color="#D94099" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#D94099" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Subtle white glow -->
+    <radialGradient id="whiteGlow" cx="60%" cy="30%" r="40%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Dot pattern for text -->
     <pattern id="dots" patternUnits="userSpaceOnUse" width="8" height="8">
       <circle cx="4" cy="4" r="3" fill="white"/>
     </pattern>
     <mask id="textMask">
       <text x="600" y="370" text-anchor="middle" font-family="SF Pro Text, SF Pro, Helvetica, Arial, sans-serif" font-size="180" font-weight="900" letter-spacing="-8" fill="white" stroke="white" stroke-width="12">CHANNEL</text>
     </mask>
+    <!-- Blur filter for soft blobs -->
+    <filter id="blur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="60"/>
+    </filter>
   </defs>
 
+  <!-- Dark background -->
+  <rect width="1200" height="630" fill="#000000"/>
+
+  <!-- Pink blob 1 (top-left area) -->
+  <ellipse cx="300" cy="250" rx="500" ry="400" fill="url(#pinkBlob1)" filter="url(#blur)"/>
+
+  <!-- Pink blob 2 (bottom-right area) -->
+  <ellipse cx="900" cy="450" rx="450" ry="350" fill="url(#pinkBlob2)" filter="url(#blur)"/>
+
+  <!-- Subtle white glow (center-top) -->
+  <ellipse cx="700" cy="200" rx="400" ry="300" fill="url(#whiteGlow)" filter="url(#blur)"/>
+
+  <!-- CHANNEL text with dot pattern -->
   <rect x="20" y="200" width="1160" height="240" fill="url(#dots)" mask="url(#textMask)"/>
 </svg>
