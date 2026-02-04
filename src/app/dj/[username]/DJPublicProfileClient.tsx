@@ -423,7 +423,7 @@ export function DJPublicProfileClient({ username }: Props) {
         if (pendingDoc) {
           const pendingData = pendingDoc.data();
           setDjProfile({
-            chatUsername: pendingData.chatUsername,
+            chatUsername: pendingData.chatUsername || "",
             email: pendingData.email || "",
             djProfile: {
               bio: pendingData.djProfile?.bio || null,
@@ -469,7 +469,7 @@ export function DJPublicProfileClient({ username }: Props) {
         const data = doc.data();
 
         setDjProfile({
-          chatUsername: data.chatUsername,
+          chatUsername: data.chatUsername || "",
           email: data.email || "",
           djProfile: {
             bio: data.djProfile?.bio || null,
@@ -799,7 +799,7 @@ export function DJPublicProfileClient({ username }: Props) {
 
       try {
         // Normalize username for matching
-        const normalizedUsername = djProfile.chatUsername
+        const normalizedUsername = (djProfile.chatUsername || "")
           .toLowerCase()
           .replace(/[^a-z0-9]/g, "");
 
