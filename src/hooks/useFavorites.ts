@@ -17,6 +17,7 @@ import {
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Show, IRLShowData } from "@/types";
+import { wordBoundaryMatch, showMatchesDJ, irlShowMatchesDJ } from "@/lib/dj-matching";
 
 // Helper to fetch enriched shows and IRL shows from API
 async function fetchEnrichedShowsAndIRL(): Promise<{ shows: Show[]; irlShows: IRLShowData[] }> {
@@ -61,12 +62,10 @@ export function isRecurringFavorite(favorite: Favorite): boolean {
   return showType === "regular" || showType === "weekly" || showType === "biweekly" || showType === "monthly";
 }
 
-// Contains matching for DJ/show names (unidirectional - text must contain term)
-// e.g. watchlist "skee mask" matches show "Skee Mask Live" but NOT show "Skee"
+// Word boundary matching for DJ/show names
+// e.g. "PAC" matches "PAC" or "Night PAC" but NOT "pace" or "space"
 function containsMatch(text: string, term: string): boolean {
-  const textLower = text.toLowerCase();
-  const termLower = term.toLowerCase();
-  return textLower.includes(termLower);
+  return wordBoundaryMatch(text, term);
 }
 
 export function useFavorites() {
@@ -660,16 +659,14 @@ export function useFavorites() {
           where("type", "==", "irl")
         );
         const irlSnapshot = await getDocs(irlQuery);
-        const termLower = term.toLowerCase();
-        const normalizedTerm = term.replace(/[\s-]+/g, "").toLowerCase();
 
         for (const d of irlSnapshot.docs) {
           const data = d.data();
-          // Match by djName (contains) or djUsername (exact)
-          const djNameMatch = data.djName && data.djName.toLowerCase().includes(termLower);
-          const djUsernameMatch = data.djUsername && data.djUsername.toLowerCase() === normalizedTerm;
+          // Match by djName or djUsername (word boundary match)
+          const matches = (data.djName && wordBoundaryMatch(data.djName, term)) ||
+            (data.djUsername && wordBoundaryMatch(data.djUsername, term));
 
-          if (djNameMatch || djUsernameMatch) {
+          if (matches) {
             await deleteDoc(doc(db, "users", user.uid, "favorites", d.id));
             console.log(`[removeFromWatchlist] Removed IRL event: ${data.irlEventName}`);
           }
@@ -685,16 +682,13 @@ export function useFavorites() {
   );
 
   // Check if a term is in watchlist (must be type="search", not show favorites)
-  // Uses unidirectional contains match - term must contain watchlist entry
-  // e.g. "Skee Mask" (term) matches watchlist entry "skee" but NOT vice versa
+  // Uses word boundary match - "PAC" matches "PAC" but NOT "pace"
   const isInWatchlist = useCallback(
     (term: string): boolean => {
-      const termLower = term.toLowerCase();
       return favorites.some(
         (fav) =>
           fav.type === "search" &&
-          (fav.term.toLowerCase() === termLower ||
-            termLower.includes(fav.term.toLowerCase()))
+          wordBoundaryMatch(term, fav.term)
       );
     },
     [favorites]

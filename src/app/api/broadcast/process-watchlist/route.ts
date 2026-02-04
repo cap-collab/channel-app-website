@@ -5,13 +5,12 @@ import {
   addUserFavorite,
   isRestApiConfigured,
 } from "@/lib/firebase-rest";
+import { wordBoundaryMatch } from "@/lib/dj-matching";
 
-// Contains matching for DJ/show names (unidirectional - text must contain term)
-// e.g. watchlist "skee mask" matches show "Skee Mask Live" but NOT show "Skee"
+// Word boundary matching for DJ/show names
+// e.g. "PAC" matches "PAC" or "Night PAC" but NOT "pace" or "space"
 function containsMatch(text: string, term: string): boolean {
-  const textLower = text.toLowerCase();
-  const termLower = term.toLowerCase();
-  return textLower.includes(termLower);
+  return wordBoundaryMatch(text, term);
 }
 
 interface ProcessWatchlistRequest {

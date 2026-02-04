@@ -11,6 +11,7 @@ import { MyShowsCard } from "@/components/my-shows/MyShowsCard";
 import { WatchlistDJCard } from "@/components/my-shows/WatchlistDJCard";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { getStationById, getStationByMetadataKey } from "@/lib/stations";
+import { showMatchesDJ, wordBoundaryMatch } from "@/lib/dj-matching";
 import { Show, IRLShowData } from "@/types";
 
 // Cache for DJ profile lookups to avoid repeated queries
@@ -30,8 +31,8 @@ function getStation(stationId: string | undefined) {
 
 // Match a favorite against shows to find scheduled instances
 function findMatchingShows(favorite: Favorite, allShows: Show[]): Show[] {
-  const term = favorite.term.toLowerCase();
-  const showName = favorite.showName?.toLowerCase();
+  const term = favorite.term;
+  const showName = favorite.showName;
 
   return allShows.filter((show) => {
     // Match by station if specified
@@ -41,17 +42,12 @@ function findMatchingShows(favorite: Favorite, allShows: Show[]): Show[] {
       if (favStation?.id !== showStation?.id) return false;
     }
 
-    const showNameLower = show.name.toLowerCase();
-    const showDjLower = show.dj?.toLowerCase();
+    // Match by DJ (word boundary match)
+    const djMatch = showMatchesDJ(show, term);
+    // Also try matching against the stored showName (word boundary)
+    const storedNameMatch = showName && wordBoundaryMatch(show.name, showName);
 
-    // Match by name (bidirectional - either contains the other)
-    const nameMatch = showNameLower.includes(term) || term.includes(showNameLower);
-    // Also try matching against the stored showName
-    const storedNameMatch = showName && (showNameLower.includes(showName) || showName.includes(showNameLower));
-    // Match by DJ
-    const djMatch = showDjLower && (showDjLower.includes(term) || term.includes(showDjLower));
-
-    return nameMatch || storedNameMatch || djMatch;
+    return djMatch || storedNameMatch;
   });
 }
 
@@ -339,16 +335,13 @@ export function MyShowsClient() {
     const irlFavoriteKeys = new Set(
       irlEvents.map((f) => `${f.djUsername}-${f.irlDate}-${f.irlLocation}`.toLowerCase())
     );
-    const watchlistTerms = watchlist.map((w) => w.term.toLowerCase());
-    const watchlistNormalized = watchlist.map((w) => w.term.replace(/[\s-]+/g, "").toLowerCase());
+    const watchlistTerms = watchlist.map((w) => w.term);
 
     for (const irlShow of allIRLShows) {
-      // Check if this DJ is in the watchlist (by name or normalized username)
-      const djNameLower = irlShow.djName.toLowerCase();
-      const djUsernameLower = irlShow.djUsername.toLowerCase();
+      // Check if this DJ is in the watchlist (word boundary match)
       const isWatchlisted = watchlistTerms.some(
-        (term) => djNameLower.includes(term) || term.includes(djNameLower)
-      ) || watchlistNormalized.includes(djUsernameLower);
+        (term) => wordBoundaryMatch(irlShow.djName, term) || wordBoundaryMatch(irlShow.djUsername, term)
+      );
 
       if (!isWatchlisted) continue;
 

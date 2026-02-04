@@ -2,6 +2,7 @@ import { MetadataResponse, Show, ShowV2 } from "@/types";
 import { getStationByMetadataKey } from "./stations";
 import { db } from "./firebase";
 import { collection, getDocs, query, where, orderBy, Timestamp } from "firebase/firestore";
+import { showMatchesDJ } from "./dj-matching";
 
 const METADATA_URL = "https://cap-collab.github.io/channel-metadata/metadata.json";
 const NEWTOWN_SCHEDULE_URL = "https://newtownradio.com/weekly-schedule/";
@@ -504,21 +505,7 @@ export async function searchShows(query: string): Promise<Show[]> {
   });
 }
 
-// Check if a show matches any favorited terms
+// Check if a show matches any favorited terms (word boundary match)
 export function showMatchesFavorites(show: Show, favorites: string[]): boolean {
-  const lowerFavorites = favorites.map((f) => f.toLowerCase());
-
-  const nameMatch = lowerFavorites.some(
-    (fav) =>
-      show.name.toLowerCase().includes(fav) || fav.includes(show.name.toLowerCase())
-  );
-
-  const djMatch =
-    show.dj &&
-    lowerFavorites.some(
-      (fav) =>
-        show.dj!.toLowerCase().includes(fav) || fav.includes(show.dj!.toLowerCase())
-    );
-
-  return nameMatch || !!djMatch;
+  return favorites.some((fav) => showMatchesDJ(show, fav));
 }

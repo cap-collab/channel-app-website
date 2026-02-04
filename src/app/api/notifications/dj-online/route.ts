@@ -6,6 +6,7 @@ import {
   createDocument,
   isRestApiConfigured,
 } from "@/lib/firebase-rest";
+import { wordBoundaryMatch } from "@/lib/dj-matching";
 
 interface DjOnlineRequest {
   djUsername: string;
@@ -69,15 +70,10 @@ export async function POST(request: NextRequest) {
         }
 
         const followsDJ = watchlist.some((w) => {
-          const term = ((w.data.term as string) || "").toLowerCase();
-          const normalizedTerm = term.replace(/[\s-]+/g, "");
+          const term = ((w.data.term as string) || "");
 
-          // Match by normalized username
-          if (normalizedTerm === normalizedDjUsername) return true;
-
-          // Match by DJ username (contains)
-          if (djUsernameLower.includes(term) || term.includes(djUsernameLower))
-            return true;
+          // Match by DJ username (word boundary match)
+          if (wordBoundaryMatch(djUsername, term)) return true;
 
           return false;
         });

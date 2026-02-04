@@ -8,6 +8,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { Show } from '@/types';
 import { getStationById, getStationByMetadataKey } from '@/lib/stations';
 import { ExpandedShowCard } from './ExpandedShowCard';
+import { wordBoundaryMatch } from '@/lib/dj-matching';
 
 function getStation(stationId: string | undefined) {
   if (!stationId) return undefined;
@@ -42,12 +43,10 @@ function formatShowTime(startTime: string): { day: string; time: string } {
   }
 }
 
-// Contains matching for DJ/show names (unidirectional - text must contain term)
-// e.g. watchlist "skee mask" matches show "Skee Mask Live" but NOT show "Skee"
+// Word boundary matching for DJ/show names
+// e.g. "PAC" matches "PAC" or "Night PAC" but NOT "pace" or "space"
 function containsMatch(text: string, term: string): boolean {
-  const textLower = text.toLowerCase();
-  const termLower = term.toLowerCase();
-  return textLower.includes(termLower);
+  return wordBoundaryMatch(text, term);
 }
 
 // Match a favorite against shows to find scheduled instances

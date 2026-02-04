@@ -13,15 +13,14 @@ import { Header } from "@/components/Header";
 import { usePendingPayout } from "@/hooks/usePendingPayout";
 import { normalizeUrl } from "@/lib/url";
 import { uploadDJPhoto, deleteDJPhoto, validatePhoto } from "@/lib/photo-upload";
+import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { Show } from "@/types";
 import { getStationById } from "@/lib/stations";
 
-// Contains matching for DJ/show names (unidirectional - text must contain term)
-// e.g. watchlist "skee mask" matches show "Skee Mask Live" but NOT show "Skee"
+// Word boundary matching for DJ/show names
+// e.g. "PAC" matches "PAC" or "Night PAC" but NOT "pace" or "space"
 function containsMatch(text: string, term: string): boolean {
-  const textLower = text.toLowerCase();
-  const termLower = term.toLowerCase();
-  return textLower.includes(termLower);
+  return wordBoundaryMatch(text, term);
 }
 
 interface UpcomingShow {

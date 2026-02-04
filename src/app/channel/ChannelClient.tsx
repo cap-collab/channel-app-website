@@ -20,6 +20,7 @@ import { Show, Station, IRLShowData } from '@/types';
 import { STATIONS } from '@/lib/stations';
 import { useFavorites } from '@/hooks/useFavorites';
 import { getDefaultCity, matchesCity } from '@/lib/city-detection';
+import { showMatchesDJ } from '@/lib/dj-matching';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -198,7 +199,7 @@ export function ChannelClient() {
     // Get followed DJ names and favorited shows from favorites
     const followedDJNames = favorites
       .filter((f) => f.type === 'search')
-      .map((f) => f.term.toLowerCase());
+      .map((f) => f.term);
 
     const favoritedShows = favorites
       .filter((f) => f.type === 'show')
@@ -213,16 +214,11 @@ export function ChannelClient() {
       const startDate = new Date(show.startTime);
       if (startDate <= now) continue; // Only upcoming shows
 
-      const showDjName = show.dj || show.name;
-      if (showDjName) {
-        const djLower = showDjName.toLowerCase();
-        const matchesDJ = followedDJNames.some(
-          (name) => djLower.includes(name) || name.includes(djLower)
-        );
-        if (matchesDJ) {
-          excluded.add(show.id);
-          continue;
-        }
+      // Check if show matches any followed DJ (word boundary match)
+      const matchesDJFollow = followedDJNames.some((name) => showMatchesDJ(show, name));
+      if (matchesDJFollow) {
+        excluded.add(show.id);
+        continue;
       }
 
       // Check favorited shows

@@ -9,6 +9,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { Show, IRLShowData } from '@/types';
 import { getStationById } from '@/lib/stations';
 import { getContrastTextColor } from '@/lib/colorUtils';
+import { showMatchesDJ, showMatchesAnyDJ, irlShowMatchesAnyDJ } from '@/lib/dj-matching';
 
 // Cache for DJ profile lookups to avoid repeated queries
 interface DJProfileCache {
@@ -117,25 +118,19 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
   const djsWithoutEvents = useMemo(() => {
     const djsWithEvents = new Set<string>();
 
-    // Check shows
+    // Check shows (word boundary match)
     for (const show of shows) {
-      const showDjName = show.dj || show.name;
-      if (!showDjName) continue;
-      const djLower = showDjName.toLowerCase();
-      for (const name of followedDJNames) {
-        if (djLower.includes(name) || name.includes(djLower)) {
-          djsWithEvents.add(name);
-        }
+      const matchedName = showMatchesAnyDJ(show, followedDJNames);
+      if (matchedName) {
+        djsWithEvents.add(matchedName);
       }
     }
 
-    // Check IRL events
+    // Check IRL events (word boundary match)
     for (const irlShow of irlShows) {
-      const djLower = irlShow.djName.toLowerCase();
-      for (const name of followedDJNames) {
-        if (djLower.includes(name) || name.includes(djLower)) {
-          djsWithEvents.add(name);
-        }
+      const matchedName = irlShowMatchesAnyDJ(irlShow, followedDJNames);
+      if (matchedName) {
+        djsWithEvents.add(matchedName);
       }
     }
 
@@ -231,13 +226,8 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
     console.log('[MyDJsSection] irlShows count:', irlShows.length);
     console.log('[MyDJsSection] irlShows:', irlShows.map(s => ({ djName: s.djName, djUsername: s.djUsername, date: s.date })));
 
-    // Log shows that match followed DJs
-    const matchingShows = shows.filter(show => {
-      const showDjName = show.dj || show.name;
-      if (!showDjName) return false;
-      const djLower = showDjName.toLowerCase();
-      return followedDJNames.some(name => djLower.includes(name) || name.includes(djLower));
-    });
+    // Log shows that match followed DJs (word boundary match)
+    const matchingShows = shows.filter(show => showMatchesAnyDJ(show, followedDJNames));
     console.log('[MyDJsSection] Matching shows:', matchingShows.map(s => ({
       id: s.id,
       name: s.name,
@@ -261,10 +251,8 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
       const showDjName = show.dj || show.name;
       if (!showDjName) continue;
 
-      const djLower = showDjName.toLowerCase();
-      const matchedFollow = followedDJNames.find((name) =>
-        djLower.includes(name) || name.includes(djLower)
-      );
+      // Word boundary match
+      const matchedFollow = showMatchesAnyDJ(show, followedDJNames);
 
       if (!matchedFollow) continue;
 
@@ -317,13 +305,8 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
 
         if (!showNameMatch || !stationMatch) continue;
 
-        // Check if this show's DJ is already covered by a followed DJ
-        const showDjName = show.dj || show.name;
-        const djLower = showDjName?.toLowerCase() || '';
-        const isCoveredByDJ = followedDJNames.some((followedName) =>
-          djLower.includes(followedName) || followedName.includes(djLower) ||
-          show.djUsername?.toLowerCase() === followedName.replace(/[\s-]+/g, '')
-        );
+        // Check if this show's DJ is already covered by a followed DJ (word boundary match)
+        const isCoveredByDJ = showMatchesAnyDJ(show, followedDJNames);
         if (isCoveredByDJ) continue;
 
         const startDate = new Date(show.startTime);
@@ -354,31 +337,8 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
 
     // Third: Add all IRL events from followed DJs (one entry per IRL event)
     for (const irlShow of irlShows) {
-      const djNameLower = irlShow.djName.toLowerCase();
-      const djUsernameLower = irlShow.djUsername?.toLowerCase() || '';
-      // Normalize names for comparison (remove spaces/hyphens)
-      const djNameNormalized = djNameLower.replace(/[\s-]+/g, '');
-
-      const matchedFollow = followedDJNames.find((name) => {
-        const nameNormalized = name.replace(/[\s-]+/g, '');
-        const matches = (
-          djNameLower.includes(name) ||
-          name.includes(djNameLower) ||
-          djUsernameLower === nameNormalized ||
-          djNameNormalized === nameNormalized
-        );
-        console.log('[MyDJsSection] IRL matching:', {
-          followedName: name,
-          nameNormalized,
-          djName: irlShow.djName,
-          djNameLower,
-          djNameNormalized,
-          djUsername: irlShow.djUsername,
-          djUsernameLower,
-          matches
-        });
-        return matches;
-      });
+      // Word boundary match for IRL shows
+      const matchedFollow = irlShowMatchesAnyDJ(irlShow, followedDJNames);
 
       if (!matchedFollow) {
         console.log('[MyDJsSection] No match for IRL event:', irlShow.djName, irlShow.djUsername);
