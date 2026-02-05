@@ -25,6 +25,7 @@ interface MetadataShow {
   e: string; // end time (ISO 8601)
   j?: string | null; // dj/host
   p?: string | null; // profile username
+  t?: string | null; // type (weekly, monthly, restream, playlist)
 }
 
 interface Metadata {
@@ -42,6 +43,7 @@ interface LiveShow {
   stationId: string;
   stationName: string;
   streamUrl?: string;
+  showId: string; // Unique ID for dedup: "stationId-startTime"
   // Resolved DJ profile info
   djUsername?: string;
   djHasEmail?: boolean;
@@ -100,16 +102,20 @@ export async function GET(request: NextRequest) {
 
     const metadata: Metadata = await metadataResponse.json();
 
-    // 2. Find currently live shows (startTime <= now <= endTime)
+    // 2. Find shows starting within ±5 minutes of now (same window as Cloud Function)
     const now = new Date();
+    const windowStart = new Date(now.getTime() - 5 * 60 * 1000);
+    const windowEnd = new Date(now.getTime() + 5 * 60 * 1000);
     const liveShows: LiveShow[] = [];
 
     for (const [stationKey, shows] of Object.entries(metadata.stations)) {
       if (!Array.isArray(shows)) continue;
       for (const show of shows) {
+        // Skip playlist shows - don't notify for automated playlists
+        if (show.t === "playlist") continue;
+
         const start = new Date(show.s);
-        const end = new Date(show.e);
-        if (start <= now && end > now) {
+        if (start >= windowStart && start <= windowEnd) {
           liveShows.push({
             name: show.n,
             dj: show.j || undefined,
@@ -117,6 +123,7 @@ export async function GET(request: NextRequest) {
             stationId: stationKey,
             stationName: STATION_NAMES[stationKey] || stationKey,
             streamUrl: STATION_STREAM_URLS[stationKey],
+            showId: `${stationKey}-${show.s}`,
           });
         }
       }
@@ -137,6 +144,7 @@ export async function GET(request: NextRequest) {
         profileUsername: undefined,
         stationId: "broadcast",
         stationName: "Channel Broadcast",
+        showId: `broadcast-${slot.id}`,
         djUsername: data.djUsername as string | undefined,
         djHasEmail: !!(data.djEmail as string | undefined),
       });
@@ -214,8 +222,11 @@ export async function GET(request: NextRequest) {
       const userEmail = userData.email as string;
       if (!userEmail) continue;
 
-      // Rate limit: track which shows we've already emailed about
-      // Key: "stationId:showName" → timestamp
+      // Dedup: track which show occurrences we've already emailed about
+      // Key: showId (e.g. "nts1-2026-02-05T22:00:00Z") → timestamp
+      // Using showId (stationId + startTime) ensures:
+      // - Same show next week gets a new notification (different startTime)
+      // - 1-hour show doesn't trigger twice (same startTime, cron runs hourly)
       const lastShowStartingEmailAt = (userData.lastShowStartingEmailAt as Record<string, string>) || {};
 
       // Get user's favorites (both "show" type and "search" type)
@@ -259,16 +270,10 @@ export async function GET(request: NextRequest) {
 
         if (!matched) continue;
 
-        // Rate limit: don't email about the same show twice within 6 hours
-        const showKey = `${show.stationId}:${show.name.toLowerCase()}`;
-        const lastSent = lastShowStartingEmailAt[showKey];
-        if (lastSent) {
-          const lastSentTime = new Date(lastSent).getTime();
-          const sixHoursAgo = now.getTime() - 6 * 60 * 60 * 1000;
-          if (lastSentTime > sixHoursAgo) {
-            skipped++;
-            continue;
-          }
+        // Dedup: skip if we already emailed about this exact show occurrence
+        if (lastShowStartingEmailAt[show.showId]) {
+          skipped++;
+          continue;
         }
 
         // Send email
@@ -284,8 +289,8 @@ export async function GET(request: NextRequest) {
         });
 
         if (success) {
-          // Update rate limit tracker
-          lastShowStartingEmailAt[showKey] = now.toISOString();
+          // Mark this show occurrence as emailed
+          lastShowStartingEmailAt[show.showId] = now.toISOString();
           await updateUser(userId, { lastShowStartingEmailAt });
           emailsSent++;
           console.log(`[show-starting] Sent email to ${userId} for "${show.name}" on ${show.stationName}`);

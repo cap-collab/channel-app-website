@@ -50,7 +50,7 @@
     },
     {
       "path": "/api/cron/show-starting-emails",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 * * * *"
     }
   ]
 }
