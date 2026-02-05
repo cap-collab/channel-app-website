@@ -175,7 +175,23 @@ export function MyShowsClient() {
       (a, b) => new Date(a.show.startTime).getTime() - new Date(b.show.startTime).getTime()
     );
 
-    return { liveNow, comingUp, returningSoon, oneTime };
+    // Deduplicate returningSoon and oneTime by normalized show name
+    const dedupeByShowName = (favorites: Favorite[]): Favorite[] => {
+      const seen = new Set<string>();
+      return favorites.filter((fav) => {
+        const key = normalizeForLookup(fav.showName || fav.term);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    };
+
+    return {
+      liveNow,
+      comingUp,
+      returningSoon: dedupeByShowName(returningSoon),
+      oneTime: dedupeByShowName(oneTime),
+    };
   }, [stationShows, allShows]);
 
   // Build DJ profile cache from:
