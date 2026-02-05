@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 
 // Verify request is from Vercel Cron or has valid secret
 function verifyCronRequest(request: NextRequest): boolean {
@@ -146,6 +147,9 @@ export async function GET(request: NextRequest) {
         }
 
         batch.update(docRef, {
+          djName,
+          chatUsername: djName,
+          chatUsernameNormalized: normalizedId,
           "djProfile.bio": resident.description || null,
           "djProfile.photoUrl": resident.image_url || null,
           "djProfile.location": location,
@@ -201,7 +205,31 @@ export async function GET(request: NextRequest) {
       await batch.commit();
     }
 
-    console.log(`[sync-subtle-residents] Complete: created=${created}, updated=${updated}, skipped=${skipped}`);
+    // Reserve usernames for all auto profiles that don't have one yet
+    let usernamesReserved = 0;
+    const usernamesRef = db.collection("usernames");
+
+    for (const resident of residents) {
+      const djName = resident.show_name.trim();
+      if (!djName) continue;
+
+      const normalizedId = normalizeForId(djName);
+      const usernameDoc = await usernamesRef.doc(normalizedId).get();
+
+      if (!usernameDoc.exists) {
+        // Reserve the username
+        await usernamesRef.doc(normalizedId).set({
+          displayName: djName,
+          usernameHandle: normalizedId,
+          uid: `pending:${normalizedId}`,
+          isPending: true,
+          claimedAt: FieldValue.serverTimestamp(),
+        });
+        usernamesReserved++;
+      }
+    }
+
+    console.log(`[sync-subtle-residents] Complete: created=${created}, updated=${updated}, skipped=${skipped}, usernamesReserved=${usernamesReserved}`);
 
     return NextResponse.json({
       success: true,
@@ -209,6 +237,7 @@ export async function GET(request: NextRequest) {
       created,
       updated,
       skipped,
+      usernamesReserved,
     });
   } catch (error) {
     console.error("[sync-subtle-residents] Error:", error);

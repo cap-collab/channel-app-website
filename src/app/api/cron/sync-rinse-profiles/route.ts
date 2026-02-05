@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 
 // Verify request is from Vercel Cron or has valid secret
 function verifyCronRequest(request: NextRequest): boolean {
@@ -325,7 +326,11 @@ export async function GET(request: NextRequest) {
 
           // MERGE LOGIC: Only update empty fields - never overwrite existing data
           const existingDjProfile = existingData?.djProfile || {};
-          const updates: Record<string, unknown> = {};
+          const updates: Record<string, unknown> = {
+            djName: profile.name,
+            chatUsername: profile.name,
+            chatUsernameNormalized: normalizedId,
+          };
 
           if (!existingDjProfile.bio && profile.bio) {
             updates["djProfile.bio"] = profile.bio;
@@ -345,12 +350,10 @@ export async function GET(request: NextRequest) {
           updates.validatedFrom = profile.validationUrl;
           updates.updatedAt = now;
 
-          // Only write if there are actual profile updates (beyond just timestamps)
-          if (Object.keys(updates).length > 2) {
-            batch.update(docRef, updates);
-            updated++;
-            batchCount++;
-          }
+          // Always update to ensure chatUsername is set
+          batch.update(docRef, updates);
+          updated++;
+          batchCount++;
         } else {
           // CREATE new profile
           batch.set(docRef, {
@@ -404,6 +407,31 @@ export async function GET(request: NextRequest) {
       await batch.commit();
     }
 
+    // Reserve usernames for profiles processed in this batch
+    let usernamesReserved = 0;
+    const usernamesRef = db.collection("usernames");
+
+    for (const slug of slugsToProcess) {
+      const profile = await fetchShowProfile(slug);
+      if (!profile?.name) continue;
+
+      const normalizedId = normalizeForId(profile.name);
+      if (!normalizedId || normalizedId.length < 2) continue;
+
+      const usernameDoc = await usernamesRef.doc(normalizedId).get();
+
+      if (!usernameDoc.exists) {
+        await usernamesRef.doc(normalizedId).set({
+          displayName: profile.name,
+          usernameHandle: normalizedId,
+          uid: `pending:${normalizedId}`,
+          isPending: true,
+          claimedAt: FieldValue.serverTimestamp(),
+        });
+        usernamesReserved++;
+      }
+    }
+
     // Update cursor for next batch
     const newCursor = cursor + slugsToProcess.length;
     await syncStateRef.update({
@@ -414,7 +442,7 @@ export async function GET(request: NextRequest) {
     const remaining = allSlugs.length - newCursor;
 
     console.log(
-      `[sync-rinse-profiles] Batch complete: created=${created}, updated=${updated}, skipped=${skippedAdmin + skippedNoData}, errors=${errors}. Remaining: ${remaining}`
+      `[sync-rinse-profiles] Batch complete: created=${created}, updated=${updated}, skipped=${skippedAdmin + skippedNoData}, errors=${errors}, usernamesReserved=${usernamesReserved}. Remaining: ${remaining}`
     );
 
     return NextResponse.json({
@@ -427,6 +455,7 @@ export async function GET(request: NextRequest) {
         skippedAdmin,
         skippedNoData,
         errors,
+        usernamesReserved,
       },
       progress: {
         current: newCursor,
