@@ -260,12 +260,13 @@ function BroadcastCard({
       <div className="flex justify-between items-center mb-1 h-4 px-0.5">
         {bpm ? (
           <div
-            className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter flex items-center gap-1 animate-bpm-pulse"
+            className="text-[10px] font-mono text-zinc-400 uppercase tracking-tighter flex items-center gap-1.5 animate-bpm-pulse"
             style={{ ['--bpm-duration' as string]: bpmDuration }}
           >
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path d="M12 3v18M8 7v10M4 10v4M16 7v10M20 10v4" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-bpm-ping" style={{ ['--bpm-duration' as string]: bpmDuration }}></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
             {bpm} BPM
           </div>
         ) : (
@@ -426,12 +427,13 @@ function LiveShowCard({
       <div className="flex justify-between items-center mb-1 h-4 px-0.5">
         {bpm ? (
           <div
-            className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter flex items-center gap-1 animate-bpm-pulse"
+            className="text-[10px] font-mono text-zinc-400 uppercase tracking-tighter flex items-center gap-1.5 animate-bpm-pulse"
             style={{ ['--bpm-duration' as string]: bpmDuration }}
           >
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path d="M12 3v18M8 7v10M4 10v4M16 7v10M20 10v4" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-bpm-ping" style={{ ['--bpm-duration' as string]: bpmDuration }}></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
             {bpm} BPM
           </div>
         ) : (
