@@ -25,6 +25,7 @@ interface MetadataShow {
   s: string;
   e: string;
   j?: string | null;
+  p?: string | null; // profile username (for DJ profile link)
 }
 
 interface Metadata {
@@ -59,6 +60,7 @@ interface BroadcastShow extends Show {
   djEmail?: string;
   djUsername?: string;
   djPhotoUrl?: string;
+  profileUsername?: string; // `p` field from metadata - authoritative DJ profile key
   isIRL?: boolean;
   irlLocation?: string;
   irlTicketUrl?: string;
@@ -109,6 +111,7 @@ export async function GET(request: NextRequest) {
             startTime: show.s,
             stationId: stationKey,
             stationName: STATION_NAMES[stationKey] || stationKey,
+            profileUsername: show.p || undefined,
           });
         }
       }
@@ -404,14 +407,28 @@ export async function GET(request: NextRequest) {
         }
 
         if (matched) {
-          // Look up DJ profile info if not already set
-          // Try multiple sources: matched search term, show DJ name
+          // Look up DJ profile info
+          // Priority: 1) metadata `p` field (authoritative profile username)
+          //           2) broadcastShow.djUsername (already set for broadcast/IRL shows)
+          //           3) fuzzy match on search term or DJ name
           let djUsername = broadcastShow.djUsername;
           let djPhotoUrl = broadcastShow.djPhotoUrl;
+
+          // Use metadata `p` field as primary lookup key
+          if (broadcastShow.profileUsername) {
+            const djProfile = djNameToProfile.get(normalizeForLookup(broadcastShow.profileUsername));
+            if (djProfile) {
+              djUsername = djProfile.username;
+              djPhotoUrl = djProfile.photoUrl;
+            } else {
+              // Even without a Firebase profile, use `p` as the username for links
+              djUsername = djUsername || broadcastShow.profileUsername;
+            }
+          }
+
+          // Fallback: fuzzy match on search term or DJ name
           if (!djUsername) {
-            // Try matched search term first (e.g. watchlist "dor wand")
             let djProfile = matchedTerm ? djNameToProfile.get(normalizeForLookup(matchedTerm)) : undefined;
-            // Also try the show's DJ name if different
             if (!djProfile && show.dj) {
               djProfile = djNameToProfile.get(normalizeForLookup(show.dj));
             }

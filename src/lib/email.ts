@@ -439,10 +439,24 @@ export async function sendWatchlistDigestEmail({
         ? `${match.irlLocation || "TBA"} · ${dateStr}`
         : `${match.stationName} · ${dateStr} at ${timeStr} ${tzAbbr}`;
 
+      // Station accent colors (matches /my-shows fallback avatar behavior)
+      const stationAccentColors: Record<string, string> = {
+        broadcast: "#D94099",
+        nts1: "#FFFFFF",
+        nts2: "#FFFFFF",
+        rinse: "#228EFD",
+        rinsefr: "#8A8A8A",
+        dublab: "#0287FE",
+        subtle: "#C3E943",
+        newtown: "#ec92af",
+        irl: "#22c55e",
+      };
+      const fallbackColor = match.isIRL ? "#22c55e" : (stationAccentColors[match.stationId] || "#D94099");
+
       // DJ photo or fallback initial (email-compatible table-based fallback)
       const photoHtml = match.djPhotoUrl
         ? `<img src="${match.djPhotoUrl}" alt="${djDisplayName}" width="64" height="64" style="width: 64px; height: 64px; border-radius: 8px; object-fit: cover; border: 1px solid #333;" />`
-        : `<table width="64" height="64" cellpadding="0" cellspacing="0" border="0" style="border-radius: 8px; border: 1px solid #333; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);">
+        : `<table width="64" height="64" cellpadding="0" cellspacing="0" border="0" style="border-radius: 8px; border: 1px solid #333; background-color: ${fallbackColor};">
             <tr>
               <td align="center" valign="middle" style="font-size: 24px; font-weight: bold; color: #fff;">
                 ${djDisplayName.charAt(0).toUpperCase()}
