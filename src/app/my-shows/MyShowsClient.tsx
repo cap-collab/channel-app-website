@@ -123,6 +123,11 @@ export function MyShowsClient() {
     const returningSoon: Favorite[] = [];
     const oneTime: Favorite[] = [];
 
+    // Track which shows have already been added to avoid duplicates
+    // (multiple favorites can match the same show)
+    const seenLiveShowIds = new Set<string>();
+    const seenUpcomingShowIds = new Set<string>();
+
     for (const favorite of stationShows) {
       const matchingShows = findMatchingShows(favorite, allShows);
 
@@ -134,7 +139,11 @@ export function MyShowsClient() {
       });
 
       if (liveShow) {
-        liveNow.push({ favorite, show: liveShow });
+        // Only add if we haven't seen this show already
+        if (!seenLiveShowIds.has(liveShow.id)) {
+          seenLiveShowIds.add(liveShow.id);
+          liveNow.push({ favorite, show: liveShow });
+        }
         continue;
       }
 
@@ -145,7 +154,11 @@ export function MyShowsClient() {
 
       if (upcomingShows.length > 0) {
         const nextShow = upcomingShows[0];
-        comingUp.push({ favorite, show: nextShow });
+        // Only add if we haven't seen this show already
+        if (!seenUpcomingShowIds.has(nextShow.id)) {
+          seenUpcomingShowIds.add(nextShow.id);
+          comingUp.push({ favorite, show: nextShow });
+        }
         continue;
       }
 
