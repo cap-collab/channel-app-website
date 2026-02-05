@@ -22,6 +22,11 @@ interface DJProfileCache {
   genres?: string[];
 }
 
+// Normalize name for profile lookup (must match metadata build: lowercase, alphanumeric only)
+function normalizeForLookup(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 // Helper to find station by id OR metadataKey
 function getStation(stationId: string | undefined) {
   if (!stationId) return undefined;
@@ -167,9 +172,10 @@ export function MyShowsClient() {
     const newProfiles = new Map<string, DJProfileCache>();
 
     // Step 1: Extract profile data from shows that have djUsername
+    // djUsername from metadata is already normalized (lowercase, alphanumeric only)
     for (const show of allShows) {
       if (show.djUsername && (show.djPhotoUrl || show.djLocation || show.djGenres)) {
-        const key = show.djUsername.toLowerCase();
+        const key = show.djUsername; // Already normalized from metadata
         if (!newProfiles.has(key)) {
           newProfiles.set(key, {
             username: show.djUsername,
@@ -186,7 +192,7 @@ export function MyShowsClient() {
 
     // Watchlist items
     for (const item of watchlist) {
-      const normalized = item.term.replace(/[\s-]+/g, "").toLowerCase();
+      const normalized = normalizeForLookup(item.term);
       if (!newProfiles.has(normalized)) {
         itemsToLookup.push(normalized);
       }
@@ -195,7 +201,7 @@ export function MyShowsClient() {
     // Returning soon and one-time favorites (past shows not in current schedule)
     for (const item of [...categorizedShows.returningSoon, ...categorizedShows.oneTime]) {
       const name = item.djName || item.term;
-      const normalized = name.replace(/[\s-]+/g, "").toLowerCase();
+      const normalized = normalizeForLookup(name);
       if (!newProfiles.has(normalized)) {
         itemsToLookup.push(normalized);
       }
@@ -267,7 +273,7 @@ export function MyShowsClient() {
     for (const { favorite, show } of categorizedShows.liveNow) {
       // Look up DJ profile if show doesn't have profile data
       const djName = show.dj || favorite.djName || favorite.showName || favorite.term;
-      const djProfile = show.dj ? djProfiles.get(show.dj.toLowerCase()) : undefined;
+      const djProfile = show.dj ? djProfiles.get(normalizeForLookup(show.dj)) : undefined;
       // Only use DJ profile photos (not show.imageUrl which is a show cover, not a DJ photo)
       const djPhotoUrl = show.djPhotoUrl || djProfile?.photoUrl;
       const djUsername = show.djUsername || djProfile?.username;
@@ -291,7 +297,7 @@ export function MyShowsClient() {
     for (const { favorite, show } of categorizedShows.comingUp) {
       // Look up DJ profile if show doesn't have profile data
       const djName = show.dj || favorite.djName || favorite.showName || favorite.term;
-      const djProfile = show.dj ? djProfiles.get(show.dj.toLowerCase()) : undefined;
+      const djProfile = show.dj ? djProfiles.get(normalizeForLookup(show.dj)) : undefined;
       // Only use DJ profile photos (not show.imageUrl which is a show cover, not a DJ photo)
       const djPhotoUrl = show.djPhotoUrl || djProfile?.photoUrl;
       const djUsername = show.djUsername || djProfile?.username;
@@ -498,7 +504,7 @@ export function MyShowsClient() {
                 </h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {watchlist.map((favorite) => {
-                    const djProfile = djProfiles.get(favorite.term.toLowerCase());
+                    const djProfile = djProfiles.get(normalizeForLookup(favorite.term));
                     const displayName = djProfile?.username || favorite.term.charAt(0).toUpperCase() + favorite.term.slice(1);
                     // Always provide a djUsername for navigation - use normalized term as fallback
                     const normalizedTerm = favorite.term.replace(/[\s-]+/g, "").toLowerCase();
@@ -543,7 +549,7 @@ export function MyShowsClient() {
                         const accentColor = station?.accentColor || "#fff";
                         // Look up DJ profile from cache
                         const djName = favorite.djName || favorite.term;
-                        const djProfile = djProfiles.get(djName.toLowerCase());
+                        const djProfile = djProfiles.get(normalizeForLookup(djName));
 
                         return (
                           <MyShowsCard
@@ -577,7 +583,7 @@ export function MyShowsClient() {
                         const accentColor = station?.accentColor || "#fff";
                         // Look up DJ profile from cache
                         const djName = favorite.djName || favorite.term;
-                        const djProfile = djProfiles.get(djName.toLowerCase());
+                        const djProfile = djProfiles.get(normalizeForLookup(djName));
 
                         return (
                           <MyShowsCard
