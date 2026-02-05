@@ -423,7 +423,7 @@ export function DJPublicProfileClient({ username }: Props) {
         if (pendingDoc) {
           const pendingData = pendingDoc.data();
           setDjProfile({
-            chatUsername: pendingData.chatUsername || "",
+            chatUsername: pendingData.chatUsername || pendingData.djName || pendingData.chatUsernameNormalized || "",
             email: pendingData.email || "",
             djProfile: {
               bio: pendingData.djProfile?.bio || null,
