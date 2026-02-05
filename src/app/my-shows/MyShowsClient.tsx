@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useFavorites, Favorite, isRecurringFavorite } from "@/hooks/useFavorites";
 import { AuthModal } from "@/components/AuthModal";
@@ -14,14 +12,13 @@ import { getStationById, getStationByMetadataKey } from "@/lib/stations";
 import { showMatchesDJ, wordBoundaryMatch } from "@/lib/dj-matching";
 import { Show, IRLShowData } from "@/types";
 
-// Cache for DJ profile lookups to avoid repeated queries
+// Cache for DJ profile lookups (populated from /api/schedule data)
 interface DJProfileCache {
   username: string;
   photoUrl?: string;
   location?: string;
   genres?: string[];
 }
-const djProfileCache = new Map<string, DJProfileCache | null>();
 
 // Helper to find station by id OR metadataKey
 function getStation(stationId: string | undefined) {
@@ -161,107 +158,32 @@ export function MyShowsClient() {
     return { liveNow, comingUp, returningSoon, oneTime };
   }, [stationShows, allShows]);
 
-  // Look up DJ profiles from Firebase for all items that need profile lookups
+  // Build DJ profile cache from shows that already have profile data from /api/schedule
+  // No additional fetches needed - shows are already enriched with djPhotoUrl, djLocation, etc.
   useEffect(() => {
-    async function lookupDJProfiles() {
-      // Collect DJ names from upcoming shows that don't already have profile data
-      const upcomingDJNames: { djName: string; term: string }[] = [];
-      for (const { show } of [...categorizedShows.liveNow, ...categorizedShows.comingUp]) {
-        // Only look up if show doesn't already have djUsername/djPhotoUrl
-        if (!show.djUsername && show.dj) {
-          upcomingDJNames.push({ djName: show.dj, term: show.dj });
+    if (allShows.length === 0) return;
+
+    const newProfiles = new Map<string, DJProfileCache>();
+
+    // Extract profile data from shows that have djUsername
+    for (const show of allShows) {
+      if (show.djUsername && (show.djPhotoUrl || show.djLocation || show.djGenres)) {
+        const key = show.djUsername.toLowerCase();
+        if (!newProfiles.has(key)) {
+          newProfiles.set(key, {
+            username: show.djUsername,
+            photoUrl: show.djPhotoUrl,
+            location: show.djLocation,
+            genres: show.djGenres,
+          });
         }
-      }
-
-      // Combine watchlist items, history items, and upcoming shows that need profile lookups
-      const itemsToLookup = [
-        ...watchlist,
-        ...categorizedShows.returningSoon,
-        ...categorizedShows.oneTime,
-        ...upcomingDJNames,
-      ];
-
-      if (!db || itemsToLookup.length === 0) return;
-
-      const newProfiles = new Map<string, DJProfileCache>();
-
-      for (const item of itemsToLookup) {
-        // Use djName for history items (shows), term for watchlist
-        const name = (item.djName || item.term).toLowerCase();
-
-        // Check cache first
-        if (djProfileCache.has(name)) {
-          const cached = djProfileCache.get(name);
-          if (cached) newProfiles.set(name, cached);
-          continue;
-        }
-
-        // Normalize the name the same way as chatUsernameNormalized
-        const normalized = name.replace(/[\s-]+/g, "").toLowerCase();
-
-        try {
-          // Check pending-dj-profiles FIRST (has public read, avoids permission issues)
-          const pendingRef = collection(db, "pending-dj-profiles");
-          const pendingQ = query(
-            pendingRef,
-            where("chatUsernameNormalized", "==", normalized)
-          );
-          const pendingSnapshot = await getDocs(pendingQ);
-
-          if (!pendingSnapshot.empty) {
-            // Use first matching doc regardless of status
-            const data = pendingSnapshot.docs[0].data();
-            const profile: DJProfileCache = {
-              username: data.chatUsernameNormalized || data.chatUsername?.replace(/[\s-]+/g, "").toLowerCase() || normalized,
-              photoUrl: data.djProfile?.photoUrl || undefined,
-              location: data.djProfile?.location || undefined,
-              genres: data.djProfile?.genres || undefined,
-            };
-            djProfileCache.set(name, profile);
-            newProfiles.set(name, profile);
-            continue;
-          }
-
-          // Fall back to users collection (approved DJs)
-          const usersRef = collection(db, "users");
-          const usersQ = query(
-            usersRef,
-            where("chatUsernameNormalized", "==", normalized),
-            where("role", "in", ["dj", "broadcaster", "admin"])
-          );
-          const usersSnapshot = await getDocs(usersQ);
-
-          if (!usersSnapshot.empty) {
-            const data = usersSnapshot.docs[0].data();
-            const profile: DJProfileCache = {
-              username: data.chatUsernameNormalized || data.chatUsername?.replace(/[\s-]+/g, "").toLowerCase() || normalized,
-              photoUrl: data.djProfile?.photoUrl || undefined,
-              location: data.djProfile?.location || undefined,
-              genres: data.djProfile?.genres || undefined,
-            };
-            djProfileCache.set(name, profile);
-            newProfiles.set(name, profile);
-          } else {
-            // Cache the miss to avoid repeated lookups
-            djProfileCache.set(name, null);
-          }
-        } catch (error) {
-          console.error(`Error looking up DJ profile for ${name}:`, error);
-          djProfileCache.set(name, null);
-        }
-      }
-
-      if (newProfiles.size > 0) {
-        setDJProfiles((prev) => {
-          const merged = new Map(prev);
-          newProfiles.forEach((value, key) => merged.set(key, value));
-          return merged;
-        });
       }
     }
 
-    lookupDJProfiles();
-  }, [watchlist, categorizedShows.returningSoon, categorizedShows.oneTime, categorizedShows.liveNow, categorizedShows.comingUp]);
+    if (newProfiles.size > 0) {
+      setDJProfiles(newProfiles);
+    }
+  }, [allShows]);
 
   // Create unified upcoming shows list (online + IRL)
   const upcomingShows = useMemo(() => {

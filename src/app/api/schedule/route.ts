@@ -6,91 +6,119 @@ import { Show, IRLShowData } from "@/types";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// Normalize name for profile lookup (must match sync-auto-dj-profiles)
-function normalizeForProfileLookup(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
-}
-
-// Count words in a string
-function countWords(text: string): number {
-  return text.trim().split(/\s+/).filter(w => w.length > 0).length;
-}
-
-// Extract all candidate names for profile lookup from a show
-// Returns deduplicated names in priority order
-function extractCandidateNames(show: Show): string[] {
-  const candidates: string[] = [];
-  const seen = new Set<string>();
-
-  const addCandidate = (name: string | undefined) => {
-    if (!name) return;
-    const trimmed = name.trim();
-    const normalized = normalizeForProfileLookup(trimmed);
-    if (normalized.length >= 2 && !seen.has(normalized)) {
-      seen.add(normalized);
-      candidates.push(trimmed);
-    }
-  };
-
-  // 1. Direct dj field
-  addCandidate(show.dj);
-
-  // 2. Show name as-is
-  addCandidate(show.name);
-
-  // 3. Hyphen pattern: "X - Y" → try Y first, then X
-  // Also handles en-dash (–) and em-dash (—) which some stations use
-  const hyphenMatch = show.name.match(/^(.+?)\s+[-–—]\s+(.+)$/);
-  if (hyphenMatch) {
-    addCandidate(hyphenMatch[2].trim());
-    addCandidate(hyphenMatch[1].trim());
-  }
-
-  // 4. "w/" pattern: "X w/ Y" → try Y first, then X
-  const wMatch = show.name.match(/^(.+?)\s+w\/\s+(.+)$/i);
-  if (wMatch) {
-    addCandidate(wMatch[2].trim());
-    addCandidate(wMatch[1].trim());
-  }
-
-  // 5. "X Presents Y" pattern: "Geologist Presents: The O'Brien System" → try X first (DJ), then Y
-  const presentsMatch = show.name.match(/^(.+?)\s+presents?:?\s+(.+)$/i);
-  if (presentsMatch) {
-    addCandidate(presentsMatch[1].trim());  // Before "Presents" (likely DJ name)
-    addCandidate(presentsMatch[2].trim());  // After "Presents" (show/episode name)
-  }
-
-  // 6. "invite/invité/presents/present" pattern in dj field or show name → try part after
-  // Handles cases like "Presents DJ Name" or "Invité Special Guest"
-  const invitePattern = /^(invit[eé]s?|presents?)\s+(.+)$/i;
-  const djInviteMatch = show.dj?.match(invitePattern);
-  if (djInviteMatch) {
-    addCandidate(djInviteMatch[2].trim());
-  }
-  const nameInviteMatch = show.name.match(invitePattern);
-  if (nameInviteMatch) {
-    addCandidate(nameInviteMatch[2].trim());
-  }
-
-  // 7. Colon pattern: "X : Y" → try Y first, then X
-  if (show.name.includes(' : ')) {
-    const parts = show.name.split(' : ');
-    if (parts.length >= 2) {
-      addCandidate(parts[1].trim());
-      addCandidate(parts[0].trim());
-    }
-  }
-
-  return candidates;
-}
-
-// Fetch DJ profiles using Admin SDK (bypasses security rules)
+/**
+ * Enrich shows with DJ profiles from Firebase using the pre-matched `p` field (djUsername)
+ *
+ * The metadata build does the expensive regex matching and adds `p` field to shows.
+ * At runtime, we just do direct Firestore lookups by normalized username - O(unique profiles).
+ *
+ * This is much faster than the old approach which did O(shows × candidate names) lookups.
+ */
 async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
   const adminDb = getAdminDb();
   if (!adminDb) {
     console.log("[API /schedule] Admin SDK not available, skipping DJ profile enrichment");
+    return shows;
+  }
+
+  // Collect unique djUsernames from shows (pre-matched in metadata build)
+  const djUsernames = new Set<string>();
+  shows.forEach((show) => {
+    if (show.djUsername && show.stationId !== "broadcast") {
+      djUsernames.add(show.djUsername);
+    }
+  });
+
+  if (djUsernames.size === 0) {
+    return shows;
+  }
+
+  console.log(`[API /schedule] Looking up ${djUsernames.size} DJ profiles from Firebase`);
+
+  // Fetch profiles from Firebase (users collection first, then pending-dj-profiles)
+  const profiles: Record<string, {
+    displayName?: string;
+    bio?: string;
+    photoUrl?: string;
+    location?: string;
+    genres?: string[];
+  }> = {};
+
+  const promises = Array.from(djUsernames).map(async (normalized) => {
+    try {
+      // Try users collection first (claimed profiles have priority)
+      const usersSnapshot = await adminDb
+        .collection("users")
+        .where("chatUsernameNormalized", "==", normalized)
+        .limit(1)
+        .get();
+
+      if (!usersSnapshot.empty) {
+        const userData = usersSnapshot.docs[0].data();
+        const djProfile = userData?.djProfile;
+        profiles[normalized] = {
+          displayName: userData?.chatUsername,
+          bio: djProfile?.bio || undefined,
+          photoUrl: djProfile?.photoUrl || undefined,
+          location: djProfile?.location || undefined,
+          genres: djProfile?.genres || undefined,
+        };
+        return;
+      }
+
+      // Fall back to pending-dj-profiles (query by chatUsernameNormalized field)
+      const pendingSnapshot = await adminDb
+        .collection("pending-dj-profiles")
+        .where("chatUsernameNormalized", "==", normalized)
+        .limit(1)
+        .get();
+
+      if (!pendingSnapshot.empty) {
+        const data = pendingSnapshot.docs[0].data();
+        const djProfile = data?.djProfile;
+        profiles[normalized] = {
+          displayName: data?.chatUsername || data?.djName,
+          bio: djProfile?.bio || undefined,
+          photoUrl: djProfile?.photoUrl || undefined,
+          location: djProfile?.location || undefined,
+          genres: djProfile?.genres || undefined,
+        };
+      }
+    } catch {
+      // Silently ignore individual lookup errors
+    }
+  });
+
+  await Promise.all(promises);
+
+  console.log(`[API /schedule] Found ${Object.keys(profiles).length} profiles`);
+
+  // Enrich shows with profile data
+  return shows.map((show) => {
+    if (show.djUsername && show.stationId !== "broadcast") {
+      const profile = profiles[show.djUsername];
+      if (profile) {
+        return {
+          ...show,
+          dj: profile.displayName || show.dj,
+          djBio: profile.bio,
+          djPhotoUrl: profile.photoUrl,
+          djLocation: profile.location,
+          djGenres: profile.genres,
+        };
+      }
+    }
+    return show;
+  });
+}
+
+/**
+ * Enrich broadcast shows with live profile data from Firestore
+ * Broadcast shows need real-time data (promo text, payment info)
+ */
+async function enrichBroadcastShows(shows: Show[]): Promise<Show[]> {
+  const adminDb = getAdminDb();
+  if (!adminDb) {
     return shows;
   }
 
@@ -102,37 +130,14 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
     }
   });
 
-  // Collect all unique DJ/show names from external radio shows for pending-dj-profiles lookup
-  const externalDjNames = new Map<string, string>(); // normalized -> original name
-  shows.forEach((show) => {
-    // External radios (NTS, Rinse, Subtle, dublab)
-    if (show.stationId !== "broadcast" && show.stationId !== "newtown") {
-      // Extract all candidate names using unified pattern matching
-      const candidates = extractCandidateNames(show);
-      for (const name of candidates) {
-        const normalized = normalizeForProfileLookup(name);
-        if (normalized.length >= 2 && !externalDjNames.has(normalized)) {
-          externalDjNames.set(normalized, name);
-        }
-      }
-    }
-  });
-
-  // Also collect djUsername values from all shows (metadata-defined profiles)
-  // These take priority - when a show has djUsername, we ALWAYS use that profile's info
-  shows.forEach((show) => {
-    if (show.djUsername) {
-      const normalized = normalizeForProfileLookup(show.djUsername);
-      if (normalized.length >= 2 && !externalDjNames.has(normalized)) {
-        externalDjNames.set(normalized, show.djUsername);
-      }
-    }
-  });
+  if (djUserIds.size === 0) {
+    return shows;
+  }
 
   // Fetch broadcast DJ profiles from users collection
   const djProfiles: Record<string, { bio?: string; photoUrl?: string; promoText?: string; promoHyperlink?: string; location?: string }> = {};
 
-  const broadcastPromises = Array.from(djUserIds).map(async (userId) => {
+  const promises = Array.from(djUserIds).map(async (userId) => {
     try {
       const userDoc = await adminDb.collection("users").doc(userId).get();
       if (userDoc.exists) {
@@ -149,89 +154,14 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
         }
       }
     } catch (err) {
-      console.error(`[API /schedule] Failed to fetch DJ profile for ${userId}:`, err);
+      console.error(`[API /schedule] Failed to fetch broadcast DJ profile for ${userId}:`, err);
     }
   });
 
-  // Fetch external DJ profiles from pending-dj-profiles AND users collections
-  const externalProfiles: Record<string, { bio?: string; photoUrl?: string; username?: string; djName?: string; genres?: string[]; location?: string }> = {};
+  await Promise.all(promises);
 
-  const externalPromises = Array.from(externalDjNames.keys()).map(async (normalized) => {
-    try {
-      // First try users collection (claimed profiles have priority - more complete data)
-      const usersSnapshot = await adminDb
-        .collection("users")
-        .where("chatUsernameNormalized", "==", normalized)
-        .limit(1)
-        .get();
-
-      if (!usersSnapshot.empty) {
-        const userDoc = usersSnapshot.docs[0];
-        const userData = userDoc.data();
-        const djProfile = userData?.djProfile as { bio?: string; photoUrl?: string; genres?: string[]; location?: string } | undefined;
-        externalProfiles[normalized] = {
-          bio: djProfile?.bio || undefined,
-          photoUrl: djProfile?.photoUrl || undefined,
-          username: userData?.chatUsernameNormalized || userData?.chatUsername || undefined,
-          djName: userData?.chatUsername || undefined,
-          genres: djProfile?.genres || undefined,
-          location: djProfile?.location || undefined,
-        };
-        return;
-      }
-
-      // Fall back to pending-dj-profiles collection (auto-generated profiles)
-      const pendingDoc = await adminDb.collection("pending-dj-profiles").doc(normalized).get();
-      if (pendingDoc.exists) {
-        const data = pendingDoc.data();
-        const djProfile = data?.djProfile as { bio?: string; photoUrl?: string; genres?: string[]; location?: string } | undefined;
-        externalProfiles[normalized] = {
-          bio: djProfile?.bio || undefined,
-          photoUrl: djProfile?.photoUrl || undefined,
-          username: data?.chatUsernameNormalized || data?.chatUsername || undefined,
-          djName: data?.djName || undefined,
-          genres: djProfile?.genres || undefined,
-          location: djProfile?.location || undefined,
-        };
-      }
-    } catch {
-      // Silently ignore errors for external profiles
-    }
-  });
-
-  await Promise.all([...broadcastPromises, ...externalPromises]);
-
-  // Debug: log what profiles we fetched
-  console.log(`[API /schedule] Fetched ${Object.keys(externalProfiles).length} external profiles:`, Object.keys(externalProfiles).slice(0, 20));
-
-  // Enrich shows with DJ profile data
+  // Enrich broadcast shows only
   return shows.map((show) => {
-    // PRIORITY 1: If show has djUsername from metadata, ALWAYS use that profile's info
-    // This takes precedence over everything else - the linked profile is the source of truth
-    if (show.djUsername) {
-      const normalized = normalizeForProfileLookup(show.djUsername);
-      const profile = externalProfiles[normalized];
-
-      // Debug logging for specific profiles
-      if (normalized === "dorwand" || normalized === "bambi") {
-        console.log(`[API /schedule] Looking up ${normalized}: profile found = ${!!profile}, photoUrl = ${profile?.photoUrl}`);
-      }
-
-      if (profile) {
-        return {
-          ...show,
-          dj: profile.djName || show.dj,  // Profile name takes priority
-          djBio: profile.bio,
-          djPhotoUrl: profile.photoUrl,
-          djUsername: profile.username || show.djUsername,  // Preserve djUsername for profile links
-          djGenres: profile.genres,
-          djLocation: profile.location,
-        };
-      }
-      // If no profile found but djUsername exists, keep the show as-is (djUsername preserved via ...show)
-    }
-
-    // PRIORITY 2: Broadcast shows - use users collection
     if (show.stationId === "broadcast" && show.djUserId) {
       const profile = djProfiles[show.djUserId];
       if (profile) {
@@ -245,43 +175,6 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
         };
       }
     }
-
-    // PRIORITY 3: External radio shows - use pending-dj-profiles collection matching
-    // Skip dj-radio shows as they already have all profile data from fetchDJRadioShows
-    if (show.stationId !== "broadcast" && show.stationId !== "newtown" && show.stationId !== "dj-radio") {
-      // Try all candidate names in priority order until a profile is found
-      const candidates = extractCandidateNames(show);
-
-      for (const name of candidates) {
-        const normalized = normalizeForProfileLookup(name);
-        const profile = externalProfiles[normalized];
-
-        if (profile) {
-          // Determine DJ name to display:
-          // 1. dublab: always use part before hyphen
-          // 2. Others: use profile.djName, or show name if ≤2 words
-          let djName: string | undefined;
-          if (show.stationId === "dublab" && /\s+[-–—]\s+/.test(show.name)) {
-            djName = show.name.split(/\s+[-–—]\s+/)[0].trim();
-          } else if (profile.djName) {
-            djName = profile.djName;
-          } else if (countWords(show.name) <= 2) {
-            djName = show.name;
-          }
-
-          return {
-            ...show,
-            dj: djName || show.dj,
-            djBio: profile.bio,
-            djPhotoUrl: profile.photoUrl,
-            djUsername: profile.username || show.djUsername || normalized,  // Use normalized lookup key as fallback for profile URL
-            djGenres: profile.genres,
-            djLocation: profile.location,
-          };
-        }
-      }
-    }
-
     return show;
   });
 }
@@ -481,8 +374,12 @@ export async function GET() {
     // Merge DJ radio shows into the main shows array
     const allShows = [...shows, ...djRadioShows];
 
-    // Enrich shows with DJ profiles using Admin SDK
-    const enrichedShows = await enrichShowsWithDJProfiles(allShows);
+    // Enrich shows with DJ profiles from Firebase using pre-matched `p` field
+    // This does O(unique djUsernames) lookups instead of O(shows × candidate names)
+    const showsWithProfiles = await enrichShowsWithDJProfiles(allShows);
+
+    // Enrich broadcast shows with live data from Firestore (for promo text, payment info)
+    const enrichedShows = await enrichBroadcastShows(showsWithProfiles);
 
     return NextResponse.json({ shows: enrichedShows, irlShows });
   } catch (error) {

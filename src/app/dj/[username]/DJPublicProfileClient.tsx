@@ -523,13 +523,16 @@ export function DJPublicProfileClient({ username }: Props) {
     const now = Date.now();
     const djName = djProfile.chatUsername;
 
+    // Normalize profile username for matching
+    const normalizedProfileUsername = djName.replace(/[\s-]+/g, "").toLowerCase();
+
     // Check if live on Channel Broadcast
     const channelShow = allShows.find(
       (show) =>
         show.stationId === "broadcast" &&
         new Date(show.startTime).getTime() <= now &&
         new Date(show.endTime).getTime() > now &&
-        (show.dj && containsMatch(show.dj, djName))
+        show.djUsername === normalizedProfileUsername
     );
 
     if (channelShow) {
@@ -539,14 +542,13 @@ export function DJPublicProfileClient({ username }: Props) {
       return;
     }
 
-    // Check if live elsewhere
+    // Check if live elsewhere (external radio shows)
     const externalShow = allShows.find(
       (show) =>
         show.stationId !== "broadcast" &&
         new Date(show.startTime).getTime() <= now &&
         new Date(show.endTime).getTime() > now &&
-        ((show.dj && containsMatch(show.dj, djName)) ||
-          containsMatch(show.name, djName))
+        show.djUsername === normalizedProfileUsername
     );
 
     if (externalShow) {
@@ -639,30 +641,24 @@ export function DJPublicProfileClient({ username }: Props) {
         }
       }
 
-      // 2. Filter external radio shows from allShows (already fetched from /api/schedule)
-      // Use the same word-boundary matching as watchlist
-      const djName = djProfile.chatUsername;
+      // 2. Filter external radio shows by djUsername (pre-matched in metadata build)
+      // Simple O(1) lookup - no regex matching needed!
+      const normalizedProfileUsername = djProfile.chatUsername.replace(/[\s-]+/g, "").toLowerCase();
 
       allShows.forEach((show) => {
         // Skip broadcast shows (already handled above)
         if (show.stationId === "broadcast") return;
 
         // Skip dj-radio shows - these are added separately from djProfile.radioShows
-        // to avoid duplication and ensure we use the source data directly
         if (show.stationId === "dj-radio") return;
 
         // Skip shows that have already ended
         const endTime = new Date(show.endTime).getTime();
         if (endTime <= now) return;
 
-        // Match by DJ name, show name, or djUsername containing the DJ name (same as watchlist)
-        const djMatch = show.dj && containsMatch(show.dj, djName);
-        const showNameMatch = containsMatch(show.name, djName);
-        // Also match by djUsername if available (for profile-linked shows from metadata)
-        const normalizedProfileUsername = djName.replace(/\s+/g, "").toLowerCase();
-        const djUsernameMatch = show.djUsername && show.djUsername.toLowerCase() === normalizedProfileUsername;
-
-        if (djMatch || showNameMatch || djUsernameMatch) {
+        // Simple match: djUsername === normalized profile username
+        // The `p` field (djUsername) was pre-matched during metadata build
+        if (show.djUsername === normalizedProfileUsername) {
           const id = `external-${show.id}`;
           if (seenIds.has(id)) return;
           seenIds.add(id);
@@ -671,7 +667,7 @@ export function DJPublicProfileClient({ username }: Props) {
           upcomingShows.push({
             id,
             showName: show.name,
-            djName: show.dj || djName,
+            djName: show.dj || djProfile.chatUsername,
             startTime: new Date(show.startTime).getTime(),
             endTime: endTime,
             status: new Date(show.startTime).getTime() <= now && endTime > now ? "live" : "scheduled",
