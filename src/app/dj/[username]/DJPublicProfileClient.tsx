@@ -113,8 +113,8 @@ function formatDuration(seconds: number): string {
   return `${minutes}:${secs.toString().padStart(2, '0')}`;
 }
 
-// Truncated bio component for mobile
-const TruncatedBio = ({ bio }: { bio: string }) => {
+// Truncated bio component
+const TruncatedBio = ({ bio, maxLines = 3 }: { bio: string; maxLines?: number }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [truncatedText, setTruncatedText] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -122,9 +122,7 @@ const TruncatedBio = ({ bio }: { bio: string }) => {
 
   useEffect(() => {
     const calculateTruncation = () => {
-      // Only apply truncation on mobile (< 768px)
-      const isMobile = window.innerWidth < 768;
-      if (!isMobile || !containerRef.current || !measureRef.current) {
+      if (!containerRef.current || !measureRef.current) {
         setTruncatedText(null);
         return;
       }
@@ -136,7 +134,7 @@ const TruncatedBio = ({ bio }: { bio: string }) => {
       // Get actual computed line height (text-base leading-relaxed = 16px * 1.625 = 26px)
       const computedStyle = window.getComputedStyle(measure);
       const lineHeight = parseFloat(computedStyle.lineHeight) || 26;
-      const maxHeight = lineHeight * 3 + 2; // 3 lines with small tolerance
+      const maxHeight = lineHeight * maxLines + 2; // maxLines with small tolerance
 
       // Reset to measure full text
       measure.style.width = `${containerWidth}px`;
@@ -182,7 +180,7 @@ const TruncatedBio = ({ bio }: { bio: string }) => {
       clearTimeout(timer);
       window.removeEventListener('resize', calculateTruncation);
     };
-  }, [bio]);
+  }, [bio, maxLines]);
 
   const needsTruncation = truncatedText !== null;
   const displayText = !isExpanded && needsTruncation ? truncatedText : bio;
@@ -204,7 +202,7 @@ const TruncatedBio = ({ bio }: { bio: string }) => {
         {needsTruncation && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="md:hidden inline text-zinc-400 hover:text-white transition-colors"
+            className="inline text-zinc-400 hover:text-white transition-colors"
           >
             {isExpanded ? 'see less' : 'see more'}
             <svg
@@ -1166,7 +1164,7 @@ export function DJPublicProfileClient({ username }: Props) {
 
       <main className="max-w-5xl mx-auto px-6 py-4 pb-24">
         {/* SECTION A: IDENTITY */}
-        <section className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-6">
+        <section className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-6 md:items-start">
           <div className="md:col-span-4">
             <div className="aspect-square bg-zinc-900 overflow-hidden border border-white/10">
               {profile.djProfile.photoUrl ? (
@@ -1188,7 +1186,7 @@ export function DJPublicProfileClient({ username }: Props) {
             </div>
           </div>
 
-          <div className="md:col-span-8 flex flex-col justify-center">
+          <div className="md:col-span-8 flex flex-col">
             {/* Large: DJ Name */}
             <h1 className="text-5xl sm:text-7xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-4">
               {profile.chatUsername}
