@@ -124,9 +124,9 @@ export function MyShowsClient() {
     const oneTime: Favorite[] = [];
 
     // Track which shows have already been added to avoid duplicates
-    // (multiple favorites can match the same show)
-    const seenLiveShowIds = new Set<string>();
-    const seenUpcomingShowIds = new Set<string>();
+    // (multiple favorites can match the same show) - dedupe by normalized show name
+    const seenLiveShowNames = new Set<string>();
+    const seenUpcomingShowNames = new Set<string>();
 
     for (const favorite of stationShows) {
       const matchingShows = findMatchingShows(favorite, allShows);
@@ -139,9 +139,10 @@ export function MyShowsClient() {
       });
 
       if (liveShow) {
-        // Only add if we haven't seen this show already
-        if (!seenLiveShowIds.has(liveShow.id)) {
-          seenLiveShowIds.add(liveShow.id);
+        // Only add if we haven't seen this show name already
+        const showNameKey = normalizeForLookup(liveShow.name);
+        if (!seenLiveShowNames.has(showNameKey)) {
+          seenLiveShowNames.add(showNameKey);
           liveNow.push({ favorite, show: liveShow });
         }
         continue;
@@ -154,9 +155,10 @@ export function MyShowsClient() {
 
       if (upcomingShows.length > 0) {
         const nextShow = upcomingShows[0];
-        // Only add if we haven't seen this show already
-        if (!seenUpcomingShowIds.has(nextShow.id)) {
-          seenUpcomingShowIds.add(nextShow.id);
+        // Only add if we haven't seen this show name already
+        const showNameKey = normalizeForLookup(nextShow.name);
+        if (!seenUpcomingShowNames.has(showNameKey)) {
+          seenUpcomingShowNames.add(showNameKey);
           comingUp.push({ favorite, show: nextShow });
         }
         continue;
