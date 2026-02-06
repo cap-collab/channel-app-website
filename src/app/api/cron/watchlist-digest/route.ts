@@ -266,8 +266,10 @@ export async function GET(request: NextRequest) {
     // Value: { username (for URL), photoUrl (for picture) }
     // Sources: 1) pending-dj-profiles, 2) users with DJ role
     const djNameToProfile = new Map<string, { username: string; photoUrl?: string }>();
+    // Normalize to match how pending-dj-profiles stores chatUsernameNormalized
+    // Strip ALL non-alphanumeric characters and lowercase (like dublab sync does)
     const normalizeForLookup = (str: string): string => {
-      return str.replace(/[\s-]+/g, "").toLowerCase();
+      return str.toLowerCase().replace(/[^a-z0-9]/g, "");
     };
 
     // 1. Add from pending-dj-profiles (these take priority)
@@ -279,7 +281,19 @@ export async function GET(request: NextRequest) {
       const photoUrl = djProfile?.photoUrl as string | undefined;
 
       if (chatUsername && chatUsernameNormalized) {
-        djNameToProfile.set(chatUsernameNormalized, { username: chatUsername, photoUrl });
+        const profileInfo = { username: chatUsername, photoUrl };
+        // Index by the stored chatUsernameNormalized (primary key)
+        djNameToProfile.set(chatUsernameNormalized, profileInfo);
+        // Also index by our normalized version of chatUsername
+        const normalizedChatUsername = normalizeForLookup(chatUsername);
+        if (normalizedChatUsername !== chatUsernameNormalized) {
+          djNameToProfile.set(normalizedChatUsername, profileInfo);
+        }
+        // Also index by normalized version without hyphens (subtle uses hyphens, dublab doesn't)
+        const withoutHyphens = chatUsernameNormalized.replace(/-/g, "");
+        if (withoutHyphens !== chatUsernameNormalized && withoutHyphens !== normalizedChatUsername) {
+          djNameToProfile.set(withoutHyphens, profileInfo);
+        }
       }
     }
     console.log(`[watchlist-digest] Added ${pendingProfiles.length} pending DJ profiles to map`);
@@ -291,12 +305,40 @@ export async function GET(request: NextRequest) {
       const djProfile = djUser.data.djProfile as Record<string, unknown> | undefined;
       const photoUrl = djProfile?.photoUrl as string | undefined;
 
-      if (chatUsername && chatUsernameNormalized && !djNameToProfile.has(chatUsernameNormalized)) {
-        djNameToProfile.set(chatUsernameNormalized, { username: chatUsername, photoUrl });
+      if (chatUsername && chatUsernameNormalized) {
+        const profileInfo = { username: chatUsername, photoUrl };
+        if (!djNameToProfile.has(chatUsernameNormalized)) {
+          djNameToProfile.set(chatUsernameNormalized, profileInfo);
+        }
+        // Also index by our normalized version of chatUsername
+        const normalizedChatUsername = normalizeForLookup(chatUsername);
+        if (normalizedChatUsername !== chatUsernameNormalized && !djNameToProfile.has(normalizedChatUsername)) {
+          djNameToProfile.set(normalizedChatUsername, profileInfo);
+        }
+        // Also index by normalized version without hyphens
+        const withoutHyphens = chatUsernameNormalized.replace(/-/g, "");
+        if (withoutHyphens !== chatUsernameNormalized && withoutHyphens !== normalizedChatUsername && !djNameToProfile.has(withoutHyphens)) {
+          djNameToProfile.set(withoutHyphens, profileInfo);
+        }
       }
     }
 
     console.log(`[watchlist-digest] Built DJ profile map with ${djNameToProfile.size} total entries`);
+
+    // Debug: Log some sample entries with photos
+    let withPhotos = 0;
+    let withoutPhotos = 0;
+    djNameToProfile.forEach((profile, key) => {
+      if (profile.photoUrl) {
+        withPhotos++;
+        if (withPhotos <= 3) {
+          console.log(`[watchlist-digest] Sample profile with photo: ${key} -> ${profile.username}, photoUrl: ${profile.photoUrl?.substring(0, 50)}...`);
+        }
+      } else {
+        withoutPhotos++;
+      }
+    });
+    console.log(`[watchlist-digest] Profiles with photos: ${withPhotos}, without: ${withoutPhotos}`);
 
     // Get ALL users who have watchlist items (type="search" favorites)
     // We need to query all users and check their favorites
@@ -426,11 +468,16 @@ export async function GET(request: NextRequest) {
 
           // Use metadata `p` field as primary lookup key
           if (broadcastShow.profileUsername) {
-            const djProfile = djNameToProfile.get(normalizeForLookup(broadcastShow.profileUsername));
+            const lookupKey = normalizeForLookup(broadcastShow.profileUsername);
+            const djProfile = djNameToProfile.get(lookupKey);
             if (djProfile) {
               djUsername = djProfile.username;
               djPhotoUrl = djProfile.photoUrl;
+              if (!djPhotoUrl) {
+                console.log(`[watchlist-digest] Profile found for "${broadcastShow.profileUsername}" (key: ${lookupKey}) but no photoUrl`);
+              }
             } else {
+              console.log(`[watchlist-digest] No profile found for "${broadcastShow.profileUsername}" (key: ${lookupKey})`);
               // Even without a Firebase profile, use `p` as the username for links
               djUsername = djUsername || broadcastShow.profileUsername;
             }

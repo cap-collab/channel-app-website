@@ -58,9 +58,10 @@ const STATION_NAMES: Record<string, string> = {
   newtown: "Newtown Radio",
 };
 
-// Normalize for DJ profile lookup (must match chatUsernameNormalized format)
+// Normalize for DJ profile lookup - strip ALL non-alphanumeric and lowercase
+// This matches how pending-dj-profiles stores chatUsernameNormalized
 function normalizeForLookup(str: string): string {
-  return str.replace(/[\s-]+/g, "").toLowerCase();
+  return str.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 export async function GET(request: NextRequest) {
@@ -154,7 +155,17 @@ export async function GET(request: NextRequest) {
       const chatUsernameNormalized = pending.data.chatUsernameNormalized as string | undefined;
       const djEmail = pending.data.djEmail as string | undefined;
       if (chatUsername && chatUsernameNormalized) {
-        djNameToProfile.set(chatUsernameNormalized, { username: chatUsername, hasEmail: !!djEmail });
+        const profileInfo = { username: chatUsername, hasEmail: !!djEmail };
+        djNameToProfile.set(chatUsernameNormalized, profileInfo);
+        // Also index by normalized chatUsername and without hyphens
+        const normalizedChatUsername = normalizeForLookup(chatUsername);
+        if (normalizedChatUsername !== chatUsernameNormalized) {
+          djNameToProfile.set(normalizedChatUsername, profileInfo);
+        }
+        const withoutHyphens = chatUsernameNormalized.replace(/-/g, "");
+        if (withoutHyphens !== chatUsernameNormalized && withoutHyphens !== normalizedChatUsername) {
+          djNameToProfile.set(withoutHyphens, profileInfo);
+        }
       }
     }
 
@@ -164,8 +175,19 @@ export async function GET(request: NextRequest) {
       const chatUsername = djUser.data.chatUsername as string | undefined;
       const chatUsernameNormalized = djUser.data.chatUsernameNormalized as string | undefined;
       const email = djUser.data.email as string | undefined;
-      if (chatUsername && chatUsernameNormalized && !djNameToProfile.has(chatUsernameNormalized)) {
-        djNameToProfile.set(chatUsernameNormalized, { username: chatUsername, hasEmail: !!email });
+      if (chatUsername && chatUsernameNormalized) {
+        const profileInfo = { username: chatUsername, hasEmail: !!email };
+        if (!djNameToProfile.has(chatUsernameNormalized)) {
+          djNameToProfile.set(chatUsernameNormalized, profileInfo);
+        }
+        const normalizedChatUsername = normalizeForLookup(chatUsername);
+        if (normalizedChatUsername !== chatUsernameNormalized && !djNameToProfile.has(normalizedChatUsername)) {
+          djNameToProfile.set(normalizedChatUsername, profileInfo);
+        }
+        const withoutHyphens = chatUsernameNormalized.replace(/-/g, "");
+        if (withoutHyphens !== chatUsernameNormalized && withoutHyphens !== normalizedChatUsername && !djNameToProfile.has(withoutHyphens)) {
+          djNameToProfile.set(withoutHyphens, profileInfo);
+        }
       }
     }
 
