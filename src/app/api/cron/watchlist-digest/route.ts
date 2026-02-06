@@ -72,6 +72,14 @@ function containsMatch(text: string, term: string): boolean {
   return wordBoundaryMatch(text, term);
 }
 
+// Generate a unique ID for a show to track deduplication
+// Format: "stationId-showName-startDate" (normalized)
+function generateShowId(stationId: string, showName: string, startTime: Date): string {
+  const dateStr = startTime.toISOString().split("T")[0]; // YYYY-MM-DD
+  const normalizedName = showName.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return `${stationId}-${normalizedName}-${dateStr}`;
+}
+
 export async function GET(request: NextRequest) {
   if (!verifyCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -339,6 +347,10 @@ export async function GET(request: NextRequest) {
       const lastEmailAt = userData.lastWatchlistEmailAt as Date | string | undefined;
       const alreadySentEmailToday = lastEmailAt && new Date(lastEmailAt) >= today;
 
+      // Track which shows we've already emailed about (by unique show ID)
+      // Key: "stationId-showName-startDate" (e.g. "nts1-myshow-2026-02-10")
+      const lastWatchlistDigestShows = (userData.lastWatchlistDigestShows as Record<string, string>) || {};
+
       // Get user's watchlist (search type favorites)
       const favorites = await getUserFavorites(user.id, "search");
       const watchlistDocs = favorites.map((doc) => ({
@@ -351,10 +363,8 @@ export async function GET(request: NextRequest) {
       }
 
       // Find matching shows
-      // For auto-favoriting, we check all future shows
-      // For emails, we check since last email
-      const since = lastEmailAt ? new Date(lastEmailAt) : new Date(0);
       const matches: Array<{
+        showId: string; // Unique ID for deduplication
         showName: string;
         djName?: string;
         djUsername?: string;
@@ -438,7 +448,14 @@ export async function GET(request: NextRequest) {
             }
           }
 
+          // Generate unique show ID for deduplication
+          const showId = generateShowId(show.stationId, show.name, showStart);
+
+          // A show is "new for email" if we haven't emailed about it before
+          const isNewForEmail = !lastWatchlistDigestShows[showId];
+
           matches.push({
+            showId,
             showName: show.name,
             djName: show.dj,
             djUsername,
@@ -448,7 +465,7 @@ export async function GET(request: NextRequest) {
             startTime: showStart,
             searchTerm: matchedTerm,
             watchlistDocId: "",
-            isNewForEmail: showStart >= since,
+            isNewForEmail,
             isIRL: broadcastShow.isIRL,
             irlLocation: broadcastShow.irlLocation,
             irlTicketUrl: broadcastShow.irlTicketUrl,
@@ -505,8 +522,26 @@ export async function GET(request: NextRequest) {
           });
 
           if (success) {
+            // Track which shows we emailed about to avoid duplicates
+            const updatedDigestShows = { ...lastWatchlistDigestShows };
+            for (const match of newMatchesForEmail.slice(0, 10)) {
+              updatedDigestShows[match.showId] = now.toISOString();
+            }
+
+            // Clean up old entries (shows that have already passed)
+            for (const showId of Object.keys(updatedDigestShows)) {
+              // Extract date from showId (format: "stationId-showname-YYYY-MM-DD")
+              const parts = showId.split("-");
+              const dateStr = parts.slice(-3).join("-"); // Last 3 parts are YYYY-MM-DD
+              const showDate = new Date(dateStr);
+              if (showDate < today) {
+                delete updatedDigestShows[showId];
+              }
+            }
+
             await updateUser(user.id, {
               lastWatchlistEmailAt: new Date(),
+              lastWatchlistDigestShows: updatedDigestShows,
             });
             emailsSent++;
           }
