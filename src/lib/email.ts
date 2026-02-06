@@ -107,7 +107,8 @@ interface ShowStartingEmailParams {
   showName: string;
   djName?: string;
   djUsername?: string; // DJ's chat username for profile link
-  djHasEmail?: boolean; // Whether the DJ has an email linked to their account
+  djPhotoUrl?: string; // DJ profile photo
+  djHasEmail?: boolean; // Whether DJ has email set (can receive chat messages)
   stationName: string;
   stationId: string;
 }
@@ -117,6 +118,7 @@ export async function sendShowStartingEmail({
   showName,
   djName,
   djUsername,
+  djPhotoUrl,
   djHasEmail,
   stationName,
   stationId,
@@ -127,24 +129,52 @@ export async function sendShowStartingEmail({
   }
 
   const displayName = showName;
+  const djDisplayName = djName || showName;
 
-  // Show "Chat live with the DJ" if DJ has an email linked (can receive notifications)
+  // Show "Join the chat" ONLY if DJ has email set (can receive chat messages)
   // Otherwise show "Tune In" linking to the radio's website
   const canChatWithDJ = djHasEmail && djUsername;
   const buttonUrl = canChatWithDJ
     ? `https://channel-app.com/dj/${djUsername}`
     : getStationWebsiteUrl(stationId);
-  const buttonText = canChatWithDJ ? "Chat live with the DJ" : "Tune In";
+  const buttonText = canChatWithDJ ? "Join the chat" : "Tune In";
+
+  // Station accent colors for fallback avatar (same as watchlist digest)
+  const stationAccentColors: Record<string, string> = {
+    broadcast: "#D94099",
+    nts1: "#FFFFFF",
+    nts2: "#FFFFFF",
+    rinse: "#228EFD",
+    rinsefr: "#8A8A8A",
+    dublab: "#0287FE",
+    subtle: "#C3E943",
+    newtown: "#ec92af",
+  };
+  const fallbackColor = stationAccentColors[stationId] || "#D94099";
+
+  // DJ photo or fallback initial (email-compatible table-based fallback)
+  const photoHtml = djPhotoUrl
+    ? `<img src="${djPhotoUrl}" alt="${djDisplayName}" width="80" height="80" style="width: 80px; height: 80px; border-radius: 12px; object-fit: cover; border: 1px solid #333;" />`
+    : `<table width="80" height="80" cellpadding="0" cellspacing="0" border="0" style="border-radius: 12px; border: 1px solid #333; background-color: ${fallbackColor};">
+        <tr>
+          <td align="center" valign="middle" style="font-size: 32px; font-weight: bold; color: #fff;">
+            ${djDisplayName.charAt(0).toUpperCase()}
+          </td>
+        </tr>
+      </table>`;
 
   const content = `
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333;">
       <tr>
         <td align="center" style="padding: 32px;">
+          <!-- DJ Photo -->
+          <div style="margin-bottom: 16px;">
+            ${photoHtml}
+          </div>
           <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #fff;">
             ${displayName} <span style="color: #71717a;">is live</span>
           </h1>
-          <p style="margin: 0 0 8px; font-size: 14px; color: #a1a1aa;">on ${stationName}</p>
-          ${djName ? `<p style="margin: 0 0 24px; font-size: 14px; color: #71717a;">${djName}</p>` : '<div style="height: 16px;"></div>'}
+          <p style="margin: 0 0 24px; font-size: 14px; color: #a1a1aa;">on ${stationName}</p>
           <a href="${buttonUrl}" style="${PINK_BUTTON_STYLE}">${buttonText}</a>
         </td>
       </tr>

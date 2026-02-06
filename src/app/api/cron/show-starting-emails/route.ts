@@ -45,6 +45,7 @@ interface LiveShow {
   showId: string; // Unique ID for dedup: "stationId-startTime"
   // Resolved DJ profile info
   djUsername?: string;
+  djPhotoUrl?: string;
   djHasEmail?: boolean;
 }
 
@@ -135,7 +136,6 @@ export async function GET(request: NextRequest) {
         stationName: "Channel Broadcast",
         showId: `broadcast-${slot.id}`,
         djUsername: data.djUsername as string | undefined,
-        djHasEmail: !!(data.djEmail as string | undefined),
       });
     }
 
@@ -146,25 +146,29 @@ export async function GET(request: NextRequest) {
     console.log(`[show-starting] Found ${liveShows.length} live shows`);
 
     // 3. Build DJ profile lookup map (same approach as watchlist-digest)
-    const djNameToProfile = new Map<string, { username: string; hasEmail: boolean }>();
+    // Maps normalized name to { chatUsername, photoUrl, hasEmail }
+    const djNameToProfile = new Map<string, { username: string; photoUrl?: string; hasEmail: boolean }>();
 
     // From pending-dj-profiles
-    const pendingProfiles = await queryCollection("pending-dj-profiles", [], 500);
+    const pendingProfiles = await queryCollection("pending-dj-profiles", [], 10000);
     for (const pending of pendingProfiles) {
       const chatUsername = pending.data.chatUsername as string | undefined;
       const chatUsernameNormalized = pending.data.chatUsernameNormalized as string | undefined;
-      const djEmail = pending.data.djEmail as string | undefined;
+      const djProfile = pending.data.djProfile as Record<string, unknown> | undefined;
+      const photoUrl = djProfile?.photoUrl as string | undefined;
+      const email = pending.data.email as string | undefined;
+
       if (chatUsername && chatUsernameNormalized) {
-        const profileInfo = { username: chatUsername, hasEmail: !!djEmail };
-        djNameToProfile.set(chatUsernameNormalized, profileInfo);
+        const profileData = { username: chatUsername, photoUrl, hasEmail: !!email };
+        djNameToProfile.set(chatUsernameNormalized, profileData);
         // Also index by normalized chatUsername and without hyphens
         const normalizedChatUsername = normalizeForLookup(chatUsername);
         if (normalizedChatUsername !== chatUsernameNormalized) {
-          djNameToProfile.set(normalizedChatUsername, profileInfo);
+          djNameToProfile.set(normalizedChatUsername, profileData);
         }
         const withoutHyphens = chatUsernameNormalized.replace(/-/g, "");
         if (withoutHyphens !== chatUsernameNormalized && withoutHyphens !== normalizedChatUsername) {
-          djNameToProfile.set(withoutHyphens, profileInfo);
+          djNameToProfile.set(withoutHyphens, profileData);
         }
       }
     }
@@ -174,19 +178,24 @@ export async function GET(request: NextRequest) {
     for (const djUser of djUsers) {
       const chatUsername = djUser.data.chatUsername as string | undefined;
       const chatUsernameNormalized = djUser.data.chatUsernameNormalized as string | undefined;
+      const djProfile = djUser.data.djProfile as Record<string, unknown> | undefined;
+      const photoUrl = djProfile?.photoUrl as string | undefined;
       const email = djUser.data.email as string | undefined;
+
       if (chatUsername && chatUsernameNormalized) {
-        const profileInfo = { username: chatUsername, hasEmail: !!email };
         if (!djNameToProfile.has(chatUsernameNormalized)) {
-          djNameToProfile.set(chatUsernameNormalized, profileInfo);
+          const profileData = { username: chatUsername, photoUrl, hasEmail: !!email };
+          djNameToProfile.set(chatUsernameNormalized, profileData);
         }
         const normalizedChatUsername = normalizeForLookup(chatUsername);
         if (normalizedChatUsername !== chatUsernameNormalized && !djNameToProfile.has(normalizedChatUsername)) {
-          djNameToProfile.set(normalizedChatUsername, profileInfo);
+          const profileData = { username: chatUsername, photoUrl, hasEmail: !!email };
+          djNameToProfile.set(normalizedChatUsername, profileData);
         }
         const withoutHyphens = chatUsernameNormalized.replace(/-/g, "");
         if (withoutHyphens !== chatUsernameNormalized && withoutHyphens !== normalizedChatUsername && !djNameToProfile.has(withoutHyphens)) {
-          djNameToProfile.set(withoutHyphens, profileInfo);
+          const profileData = { username: chatUsername, photoUrl, hasEmail: !!email };
+          djNameToProfile.set(withoutHyphens, profileData);
         }
       }
     }
@@ -199,6 +208,7 @@ export async function GET(request: NextRequest) {
         const profile = djNameToProfile.get(normalizeForLookup(show.profileUsername));
         if (profile) {
           show.djUsername = profile.username;
+          show.djPhotoUrl = profile.photoUrl;
           show.djHasEmail = profile.hasEmail;
         } else {
           show.djUsername = show.profileUsername;
@@ -207,6 +217,7 @@ export async function GET(request: NextRequest) {
         const profile = djNameToProfile.get(normalizeForLookup(show.dj));
         if (profile) {
           show.djUsername = profile.username;
+          show.djPhotoUrl = profile.photoUrl;
           show.djHasEmail = profile.hasEmail;
         }
       }
@@ -292,6 +303,7 @@ export async function GET(request: NextRequest) {
           showName: show.name,
           djName: show.dj,
           djUsername: show.djUsername,
+          djPhotoUrl: show.djPhotoUrl,
           djHasEmail: show.djHasEmail,
           stationName: show.stationName,
           stationId: show.stationId,
