@@ -273,7 +273,8 @@ export async function GET(request: NextRequest) {
     };
 
     // 1. Add from pending-dj-profiles (these take priority)
-    const pendingProfiles = await queryCollection("pending-dj-profiles", [], 500);
+    // Note: We have 600+ profiles from dublab + subtle syncs, so need higher limit
+    const pendingProfiles = await queryCollection("pending-dj-profiles", [], 2000);
     for (const pending of pendingProfiles) {
       const chatUsername = pending.data.chatUsername as string | undefined;
       const chatUsernameNormalized = pending.data.chatUsernameNormalized as string | undefined;
