@@ -26,6 +26,21 @@ function getStationDeepLink(metadataStationId: string): string {
   return `https://channel-app.com/listen/${appStationId}`;
 }
 
+// Get the radio station's website URL by metadata key
+function getStationWebsiteUrl(metadataStationId: string): string {
+  const websiteUrls: Record<string, string> = {
+    nts1: "https://www.nts.live/",
+    nts2: "https://www.nts.live/",
+    rinse: "https://www.rinse.fm/",
+    rinsefr: "https://www.rinse.fm/channels/france",
+    dublab: "https://www.dublab.com/",
+    subtle: "https://www.subtleradio.com/",
+    newtown: "https://newtownradio.com",
+    broadcast: "https://channel-app.com/channel",
+  };
+  return websiteUrls[metadataStationId] || getStationDeepLink(metadataStationId);
+}
+
 // Settings deep link (opens app settings if installed, falls back to website)
 const SETTINGS_DEEP_LINK = "https://channel-app.com/settings";
 
@@ -116,11 +131,11 @@ export async function sendShowStartingEmail({
   const displayName = showName;
 
   // Show "Chat live with the DJ" if DJ has an email linked (can receive notifications)
-  // Otherwise show "Tune In" linking to the radio stream
+  // Otherwise show "Tune In" linking to the radio's website
   const canChatWithDJ = djHasEmail && djUsername;
   const buttonUrl = canChatWithDJ
     ? `https://channel-app.com/dj/${djUsername}`
-    : streamUrl || getStationDeepLink(stationId);
+    : getStationWebsiteUrl(stationId);
   const buttonText = canChatWithDJ ? "Chat live with the DJ" : "Tune In";
 
   const content = `
