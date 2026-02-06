@@ -110,7 +110,6 @@ interface ShowStartingEmailParams {
   djHasEmail?: boolean; // Whether the DJ has an email linked to their account
   stationName: string;
   stationId: string;
-  streamUrl?: string; // External radio stream URL
 }
 
 export async function sendShowStartingEmail({
@@ -121,7 +120,6 @@ export async function sendShowStartingEmail({
   djHasEmail,
   stationName,
   stationId,
-  streamUrl,
 }: ShowStartingEmailParams) {
   if (!resend) {
     console.warn("Email service not configured - skipping email");

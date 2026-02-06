@@ -42,7 +42,6 @@ interface LiveShow {
   profileUsername?: string;
   stationId: string;
   stationName: string;
-  streamUrl?: string;
   showId: string; // Unique ID for dedup: "stationId-startTime"
   // Resolved DJ profile info
   djUsername?: string;
@@ -57,16 +56,6 @@ const STATION_NAMES: Record<string, string> = {
   dublab: "dublab",
   subtle: "Subtle Radio",
   newtown: "Newtown Radio",
-};
-
-const STATION_STREAM_URLS: Record<string, string> = {
-  nts1: "https://stream-relay-geo.ntslive.net/stream",
-  nts2: "https://stream-relay-geo.ntslive.net/stream2",
-  rinse: "https://admin.stream.rinse.fm/proxy/rinse_uk/stream",
-  rinsefr: "https://radio10.pro-fhi.net/flux-trmqtiat/stream",
-  dublab: "https://dublab.out.airtime.pro/dublab_a",
-  subtle: "https://subtle.out.airtime.pro/subtle_a",
-  newtown: "https://streaming.radio.co/s0d090ee43/listen",
 };
 
 // Normalize for DJ profile lookup (must match chatUsernameNormalized format)
@@ -122,7 +111,6 @@ export async function GET(request: NextRequest) {
             profileUsername: show.p || undefined,
             stationId: stationKey,
             stationName: STATION_NAMES[stationKey] || stationKey,
-            streamUrl: STATION_STREAM_URLS[stationKey],
             showId: `${stationKey}-${show.s}`,
           });
         }
@@ -285,7 +273,6 @@ export async function GET(request: NextRequest) {
           djHasEmail: show.djHasEmail,
           stationName: show.stationName,
           stationId: show.stationId,
-          streamUrl: show.streamUrl,
         });
 
         if (success) {
