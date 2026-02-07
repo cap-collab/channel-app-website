@@ -93,13 +93,15 @@ export default function Home() {
                   Discovery here is intentional, rooted in trust, taste, and
                   local communities.
                 </p>
-                <Image
-                  src="/radio-portal/Curated.png"
-                  alt="Curated"
-                  width={600}
-                  height={400}
-                  className="rounded-xl w-full"
-                />
+                <div className="hidden md:block transform scale-[0.55] origin-top -mb-[45%]">
+                  <Image
+                    src="/radio-portal/Curated.png"
+                    alt="Curated"
+                    width={300}
+                    height={200}
+                    className="rounded-xl"
+                  />
+                </div>
               </div>
 
               {/* Independent */}
@@ -113,13 +115,15 @@ export default function Home() {
                   You can support them directly through tips. No ads, no
                   intermediary shaping what you hear.
                 </p>
-                <Image
-                  src="/radio-portal/independent.png"
-                  alt="Independent"
-                  width={600}
-                  height={400}
-                  className="rounded-xl w-full"
-                />
+                <div className="hidden md:block transform scale-[0.55] origin-top -mb-[45%]">
+                  <Image
+                    src="/radio-portal/independent.png"
+                    alt="Independent"
+                    width={300}
+                    height={200}
+                    className="rounded-xl"
+                  />
+                </div>
               </div>
 
               {/* Collaborative */}
@@ -134,13 +138,15 @@ export default function Home() {
                   discovery of the events, producers, and other selectors they
                   care about.
                 </p>
-                <Image
-                  src="/radio-portal/Collaborative.png"
-                  alt="Collaborative"
-                  width={600}
-                  height={400}
-                  className="rounded-xl w-full"
-                />
+                <div className="hidden md:block transform scale-[0.55] origin-top -mb-[45%]">
+                  <Image
+                    src="/radio-portal/Collaborative.png"
+                    alt="Collaborative"
+                    width={300}
+                    height={200}
+                    className="rounded-xl"
+                  />
+                </div>
               </div>
             </div>
           </div>
