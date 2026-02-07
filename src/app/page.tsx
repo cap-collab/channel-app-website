@@ -11,38 +11,22 @@ const faqItems = [
   {
     question: "What is Channel?",
     answer:
-      "DJs use Channel to record or livestream sets and stay connected with their audience.\n\nChannel helps you follow DJs, never miss them playing, or in the chat.",
+      "Channel is a place for DJs to record or livestream sets and stay connected with the people who care about their music. For listeners, it's a way to follow the selectors who shape your taste, get notified when they play, discover what's happening in your local scene or niche, and support DJs directly. No ads, no algorithms.",
   },
   {
-    question: "Who is Channel for?",
+    question: "Who is it for?",
     answer:
-      "For DJs\n• One public DJ profile for sets, events, and links\n• Record or livestream sets from home or a venue\n• Automatically notify fans when you play or promote something new\n\nFor listeners\n• Follow DJs you care about\n• Get notified when they play or promote something new\n• Join DJ chats and support them directly",
+      "For DJs: One profile that brings together your sets, your schedule, and your links. You can record or livestream from home or from a venue, and your listeners are automatically notified when you go live or share something new. You also have a \"My Recs\" section to highlight events, producers, or anything else you want your followers to see.\n\nFor listeners: Follow the DJs and radios you care about, and never miss them playing again. Discover selectors in your area or within your genre niche, see what they're recommending, join their chat rooms during sets, and support them through tips if you want to.",
   },
   {
     question: "How is Channel different?",
     answer:
-      "Channel focuses on the people around DJs — including producers, promoters, radios, venues, and listeners.\n\nIt's built for relationships, and intentional discovery, not mass or mindless consumption.",
+      "Channel is focused on the relationships that make DJ culture special — between DJs and their listeners, between promoters and venues, between radios and the communities they serve. It's built for connection and intentional discovery, not for passive consumption or algorithmic recommendations.",
   },
   {
     question: "How much does it cost?",
     answer:
-      "Channel is free to use. We operate on a revenue-share model and do not run ads.",
-  },
-  {
-    question: "Can DJs livestream or record on Channel?",
-    answer:
-      "Yes. If your setup connects to a computer, you're ready.\n\nYou can record or livestream sets from home or directly from a venue.",
-  },
-  {
-    question: "Can listeners interact and support DJs?",
-    answer:
-      "Yes. Listeners can join chats, react during sets, and support DJs through tips.",
-  },
-  {
-    question: "How can I get involved?",
-    answer:
-      "DJs\nCreate your DJ profile, share it with your fans, and start recording or livestreaming sets.\n\nListeners\nDiscover DJs, follow them, and never miss them playing again.\n\nQuestions or partnerships: info@channel-app.com",
-    hasLink: true,
+      "Channel is free to use. There are no ads. The platform operates on a revenue-share model, which means our incentives are aligned with the DJs and communities we serve, not with advertisers.",
   },
 ];
 
@@ -107,8 +91,10 @@ export default function Home() {
                   Curated
                 </h2>
                 <p className="text-gray-400 leading-relaxed text-center text-sm mb-8">
-                  Channel features community-driven DJs, radios, and curators,
-                  with intentionally curated content.
+                  Channel is built around DJs, radios, producers, and curators
+                  who are chosen by the community, not surfaced by an algorithm.
+                  Discovery here is intentional, rooted in trust, taste, and
+                  local communities.
                 </p>
                 <div className="transform scale-[0.55] origin-top -mb-[45%]">
                   <PhoneMockup className="w-[300px]">
@@ -123,8 +109,10 @@ export default function Home() {
                   Independent
                 </h2>
                 <p className="text-gray-400 leading-relaxed text-center text-sm mb-8">
-                  Fans get notified when their favorite DJs go live or do
-                  something new, and can support them directly.
+                  When a selector you follow goes live, or something new is
+                  happening in your hyper niche scene, you&apos;ll know about it.
+                  You can support them directly through tips. No ads, no
+                  intermediary shaping what you hear.
                 </p>
                 <div className="transform scale-[0.55] origin-top -mb-[45%]">
                   <PhoneMockup className="w-[300px]">
@@ -139,8 +127,11 @@ export default function Home() {
                   Collaborative
                 </h2>
                 <p className="text-gray-400 leading-relaxed text-center text-sm mb-8">
-                  Channel helps communities connect, including DJs, producers,
-                  radios, venues, and dancers.
+                  Culture doesn&apos;t happen in isolation. It&apos;s DJs, producers,
+                  promoters, venues, radios, and the people behind the speakers.
+                  Channel is designed around all of us, where DJs promote
+                  discovery of the events, producers, and other selectors they
+                  care about.
                 </p>
                 <div className="transform scale-[0.55] origin-top -mb-[45%]">
                   <PhoneMockup className="w-[300px]">
