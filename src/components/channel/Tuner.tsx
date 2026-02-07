@@ -71,9 +71,9 @@ export function Tuner({ selectedCity, onCityChange, selectedGenre, onGenreChange
 
   return (
     <div className="sticky top-[48px] z-[90] bg-black/90 backdrop-blur-sm border-b border-white/5">
-      <div className="flex items-center justify-center gap-2 h-8 px-3">
-        {/* City selector */}
-        <div className="relative">
+      <div className="flex items-center h-8">
+        {/* City selector - left column */}
+        <div className="relative flex-1 flex justify-center">
           <button
             onClick={() => {
               setCityDropdownOpen(!cityDropdownOpen);
@@ -153,8 +153,8 @@ export function Tuner({ selectedCity, onCityChange, selectedGenre, onGenreChange
           )}
         </div>
 
-        {/* Genre selector */}
-        <div className="relative">
+        {/* Genre selector - right column */}
+        <div className="relative flex-1 flex justify-center">
           <button
             onClick={() => {
               setGenreDropdownOpen(!genreDropdownOpen);

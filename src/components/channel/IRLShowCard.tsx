@@ -27,17 +27,14 @@ export function IRLShowCard({
       {/* Gradient scrims */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
-      {/* IRL badge - top left */}
-      <div className="absolute top-2 left-2">
+      {/* Top row: IRL badge left, Date right */}
+      <div className="absolute top-2 left-2 right-2 flex items-center justify-between">
         <span className="text-[10px] font-mono text-white uppercase tracking-tighter flex items-center gap-1 drop-shadow-lg">
           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
           </svg>
           IRL
         </span>
-      </div>
-      {/* Date - top right */}
-      <div className="absolute top-2 right-2">
         <span className="text-[10px] font-mono text-white uppercase tracking-tighter drop-shadow-lg">
           {new Date(show.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
         </span>

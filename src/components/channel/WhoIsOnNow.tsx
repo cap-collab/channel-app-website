@@ -265,19 +265,23 @@ function BroadcastCard({
 
   return (
     <div>
-      {/* BPM + red dot + LIVE above card */}
-      <div className="flex items-center gap-1.5 mb-1 h-4 px-0.5">
-        <div
-          className="text-[10px] font-mono text-zinc-400 uppercase tracking-tighter flex items-center gap-1.5 animate-bpm-pulse"
-          style={{ ['--bpm-duration' as string]: bpmDuration }}
-        >
-          {bpm && <>{bpm} BPM</>}
+      {/* Red dot + LIVE on left, BPM on right */}
+      <div className="flex items-center justify-between mb-1 h-4 px-0.5">
+        <div className="flex items-center gap-1.5">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
+          </span>
+          <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">LIVE</span>
         </div>
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
-        </span>
-        <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">LIVE</span>
+        {bpm && (
+          <div
+            className="text-[10px] font-mono text-zinc-400 uppercase tracking-tighter animate-bpm-pulse"
+            style={{ ['--bpm-duration' as string]: bpmDuration }}
+          >
+            {bpm} BPM
+          </div>
+        )}
       </div>
       <div className="bg-surface-card rounded-xl overflow-hidden">
         <div className="flex flex-col sm:flex-row">
@@ -414,19 +418,23 @@ function LiveShowCard({
 
   return (
     <div className="w-full group">
-      {/* BPM + red dot + LIVE above card */}
-      <div className="flex items-center gap-1.5 mb-1 h-4 px-0.5">
-        <div
-          className="text-[10px] font-mono text-zinc-400 uppercase tracking-tighter flex items-center gap-1.5 animate-bpm-pulse"
-          style={{ ['--bpm-duration' as string]: bpmDuration }}
-        >
-          {bpm && <>{bpm} BPM</>}
+      {/* Red dot + LIVE on left, BPM on right */}
+      <div className="flex items-center justify-between mb-1 h-4 px-0.5">
+        <div className="flex items-center gap-1.5">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
+          </span>
+          <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">LIVE</span>
         </div>
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
-        </span>
-        <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">LIVE</span>
+        {bpm && (
+          <div
+            className="text-[10px] font-mono text-zinc-400 uppercase tracking-tighter animate-bpm-pulse"
+            style={{ ['--bpm-duration' as string]: bpmDuration }}
+          >
+            {bpm} BPM
+          </div>
+        )}
       </div>
 
       {/* Full width 16:9 image with overlays */}
