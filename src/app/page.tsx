@@ -46,13 +46,13 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/channel"
-              className="inline-block bg-white text-black px-10 py-4 rounded-xl text-lg font-semibold hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(255,255,255,0.15)] transition-all"
+              className="inline-block bg-white text-black px-10 py-4 rounded text-lg font-semibold hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(255,255,255,0.15)] transition-all"
             >
               Discover Channel
             </Link>
             <Link
               href="/studio/join"
-              className="inline-block bg-transparent text-white border border-white px-10 py-4 rounded-xl text-lg font-semibold hover:-translate-y-0.5 hover:bg-white hover:text-black transition-all"
+              className="inline-block bg-transparent text-white border border-white px-10 py-4 rounded text-lg font-semibold hover:-translate-y-0.5 hover:bg-white hover:text-black transition-all"
             >
               Create your DJ profile
             </Link>
@@ -99,7 +99,7 @@ export default function Home() {
                     alt="Curated"
                     width={300}
                     height={200}
-                    className="rounded-xl"
+                    className="rounded"
                   />
                 </div>
               </div>
@@ -121,7 +121,7 @@ export default function Home() {
                     alt="Independent"
                     width={300}
                     height={200}
-                    className="rounded-xl"
+                    className="rounded"
                   />
                 </div>
               </div>
@@ -144,7 +144,7 @@ export default function Home() {
                     alt="Collaborative"
                     width={300}
                     height={200}
-                    className="rounded-xl"
+                    className="rounded"
                   />
                 </div>
               </div>
@@ -198,7 +198,7 @@ export default function Home() {
             <div className="mt-10 text-center">
               <a
                 href="mailto:info@channel-app.com"
-                className="inline-block bg-white text-black px-10 py-4 rounded-xl text-lg font-semibold hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(255,255,255,0.15)] transition-all"
+                className="inline-block bg-white text-black px-10 py-4 rounded text-lg font-semibold hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(255,255,255,0.15)] transition-all"
               >
                 Contact Us
               </a>

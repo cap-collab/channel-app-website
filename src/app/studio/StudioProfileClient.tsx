@@ -1233,7 +1233,7 @@ export function StudioProfileClient() {
             </p>
             <Link
               href="/studio/join"
-              className="bg-white text-black px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors inline-block"
+              className="bg-white text-black px-6 py-3 rounded font-medium hover:bg-gray-100 transition-colors inline-block"
             >
               Apply to DJ
             </Link>
@@ -1250,7 +1250,7 @@ export function StudioProfileClient() {
       <main className="max-w-xl mx-auto p-4">
         {/* DJ Name Setup Banner - shown when chatUsername is not set */}
         {!chatUsername && (
-          <div className="mb-6 bg-gradient-to-r from-purple-900/50 to-blue-900/50 border border-purple-500/30 rounded-lg p-4">
+          <div className="mb-6 bg-gradient-to-r from-purple-900/50 to-blue-900/50 border border-purple-500/30 rounded p-4">
             <h2 className="text-white font-medium mb-1">Set Your DJ Name</h2>
             <p className="text-gray-400 text-sm mb-4">
               Choose a name for your profile and personal URL. This will also be your chat username.
@@ -1273,7 +1273,7 @@ export function StudioProfileClient() {
                     }}
                     placeholder="e.g., DJ Cool"
                     maxLength={20}
-                    className="w-full bg-black border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-purple-500 focus:outline-none"
+                    className="w-full bg-black border border-gray-700 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-purple-500 focus:outline-none"
                   />
                   {checkingDjName && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -1298,7 +1298,7 @@ export function StudioProfileClient() {
                 <button
                   onClick={handleSaveDjName}
                   disabled={savingDjName || !djNameAvailable || !djNameInput.trim()}
-                  className="bg-white text-black px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-white text-black px-4 py-2 rounded font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {savingDjName ? "Saving..." : "Save"}
                 </button>
@@ -1321,7 +1321,7 @@ export function StudioProfileClient() {
             <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
               Profile
             </h2>
-            <div className="bg-[#1a1a1a] rounded-lg divide-y divide-gray-800">
+            <div className="bg-[#1a1a1a] rounded divide-y divide-gray-800">
               <div className="p-4 flex items-center justify-between">
                 <span className="text-gray-400">DJ Name</span>
                 <span className="text-white">
@@ -1347,13 +1347,13 @@ export function StudioProfileClient() {
             <div className="mt-4 flex flex-col sm:flex-row gap-3">
               <Link
                 href="/record"
-                className="flex-1 block bg-white text-black text-center py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+                className="flex-1 block bg-white text-black text-center py-3 rounded font-medium hover:bg-gray-100 transition-colors"
               >
                 Record my set
               </Link>
               <Link
                 href="/studio/join"
-                className="flex-1 block bg-gray-800 text-white text-center py-3 rounded-lg font-medium hover:bg-gray-700 transition-colors border border-gray-700"
+                className="flex-1 block bg-gray-800 text-white text-center py-3 rounded font-medium hover:bg-gray-700 transition-colors border border-gray-700"
               >
                 Request a live stream slot
               </Link>
@@ -1365,7 +1365,7 @@ export function StudioProfileClient() {
             <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
               Profile Photo
             </h2>
-            <div className="bg-[#1a1a1a] rounded-lg p-4">
+            <div className="bg-[#1a1a1a] rounded p-4">
               <div className="flex items-center gap-4">
                 <div className="relative w-20 h-20 flex-shrink-0">
                   {djProfile.photoUrl ? (
@@ -1399,7 +1399,7 @@ export function StudioProfileClient() {
                       disabled={uploadingPhoto}
                       className="block w-full text-sm text-gray-400
                         file:mr-4 file:py-2 file:px-4
-                        file:rounded-lg file:border-0
+                        file:rounded file:border-0
                         file:text-sm file:font-medium
                         file:bg-white file:text-black
                         file:cursor-pointer file:hover:bg-gray-100
@@ -1436,7 +1436,7 @@ export function StudioProfileClient() {
             <p className="text-gray-600 text-xs mb-3 px-1">
               Your bio appears on your public DJ profile and during broadcasts.
             </p>
-            <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
+            <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
               <div>
                 <label className="block text-gray-400 text-sm mb-2">
                   Bio
@@ -1447,7 +1447,7 @@ export function StudioProfileClient() {
                   placeholder="Tell listeners about yourself..."
                   rows={3}
                   maxLength={500}
-                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none resize-none"
+                  className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none resize-none"
                 />
                 <div className="flex justify-between items-center mt-1">
                   <span className="text-gray-600 text-xs">
@@ -1469,7 +1469,7 @@ export function StudioProfileClient() {
             <p className="text-gray-600 text-xs mb-3 px-1">
               This appears in chat when you&apos;re live on Channel Broadcast.
             </p>
-            <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
+            <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
               <div>
                 <label className="block text-gray-400 text-sm mb-2">
                   Promo Text
@@ -1480,7 +1480,7 @@ export function StudioProfileClient() {
                   onChange={(e) => setPromoTextInput(e.target.value)}
                   placeholder="e.g., New album out now!"
                   maxLength={200}
-                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                  className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
                 <p className="text-gray-600 text-xs mt-1 text-right">
                   {promoTextInput.length}/200
@@ -1495,7 +1495,7 @@ export function StudioProfileClient() {
                   value={promoHyperlinkInput}
                   onChange={(e) => setPromoHyperlinkInput(e.target.value)}
                   placeholder="bandcamp.com/your-album"
-                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                  className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
                 <p className="text-gray-600 text-xs mt-1">
                   {saving ? "Saving..." : saveSuccess ? "Saved" : ""}
@@ -1509,7 +1509,7 @@ export function StudioProfileClient() {
             <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
               Location & Genres
             </h2>
-            <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
+            <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
               <div>
                 <label className="block text-gray-400 text-sm mb-2">
                   Location (City)
@@ -1520,7 +1520,7 @@ export function StudioProfileClient() {
                   onChange={(e) => setLocationInput(e.target.value)}
                   placeholder="e.g., Los Angeles"
                   maxLength={100}
-                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                  className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
               </div>
               <div>
@@ -1532,7 +1532,7 @@ export function StudioProfileClient() {
                   value={genresInput}
                   onChange={(e) => setGenresInput(e.target.value)}
                   placeholder="e.g., House, Techno, Ambient"
-                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                  className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
                 <div className="flex justify-between items-center mt-1">
                   <span className="text-gray-600 text-xs">
@@ -1554,7 +1554,7 @@ export function StudioProfileClient() {
             <p className="text-gray-600 text-xs mb-3 px-1">
               This message shows to listeners after they tip you.
             </p>
-            <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
+            <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
               <div>
                 <label className="block text-gray-400 text-sm mb-2">
                   Message for Tippers
@@ -1565,7 +1565,7 @@ export function StudioProfileClient() {
                   placeholder="Thanks for the tip!"
                   rows={2}
                   maxLength={200}
-                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none resize-none"
+                  className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none resize-none"
                 />
                 <div className="flex justify-between items-center mt-1">
                   <span className="text-gray-600 text-xs">
@@ -1587,7 +1587,7 @@ export function StudioProfileClient() {
             <p className="text-gray-600 text-xs mb-3 px-1">
               These links appear on your public DJ profile.
             </p>
-            <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
+            <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
               <div>
                 <label className="block text-gray-400 text-sm mb-2">
                   Instagram
@@ -1597,7 +1597,7 @@ export function StudioProfileClient() {
                   value={instagramInput}
                   onChange={(e) => setInstagramInput(e.target.value)}
                   placeholder="@yourhandle"
-                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                  className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
               </div>
               <div>
@@ -1609,7 +1609,7 @@ export function StudioProfileClient() {
                   value={soundcloudInput}
                   onChange={(e) => setSoundcloudInput(e.target.value)}
                   placeholder="https://soundcloud.com/yourname"
-                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                  className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
               </div>
               <div>
@@ -1621,7 +1621,7 @@ export function StudioProfileClient() {
                   value={bandcampInput}
                   onChange={(e) => setBandcampInput(e.target.value)}
                   placeholder="https://yourname.bandcamp.com"
-                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                  className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
               </div>
               <div>
@@ -1633,7 +1633,7 @@ export function StudioProfileClient() {
                   value={youtubeInput}
                   onChange={(e) => setYoutubeInput(e.target.value)}
                   placeholder="https://youtube.com/@yourname"
-                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                  className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
               </div>
               <div>
@@ -1645,7 +1645,7 @@ export function StudioProfileClient() {
                   value={mixcloudInput}
                   onChange={(e) => setMixcloudInput(e.target.value)}
                   placeholder="https://mixcloud.com/yourname"
-                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                  className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
               </div>
               <div>
@@ -1657,7 +1657,7 @@ export function StudioProfileClient() {
                   value={residentAdvisorInput}
                   onChange={(e) => setResidentAdvisorInput(e.target.value)}
                   placeholder="https://ra.co/dj/yourname"
-                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                  className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
               </div>
               <div>
@@ -1669,7 +1669,7 @@ export function StudioProfileClient() {
                   value={bookingEmailInput}
                   onChange={(e) => setBookingEmailInput(e.target.value)}
                   placeholder="booking@yourdomain.com"
-                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                  className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
               </div>
 
@@ -1690,7 +1690,7 @@ export function StudioProfileClient() {
                           setCustomLinksInput(updated);
                         }}
                         placeholder="Label"
-                        className="w-1/3 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                        className="w-1/3 bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                       />
                       <input
                         type="text"
@@ -1701,7 +1701,7 @@ export function StudioProfileClient() {
                           setCustomLinksInput(updated);
                         }}
                         placeholder="URL"
-                        className="flex-1 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                        className="flex-1 bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                       />
                       <button
                         onClick={() => {
@@ -1742,7 +1742,7 @@ export function StudioProfileClient() {
             <p className="text-gray-600 text-xs mb-3 px-1">
               Manage your recorded sets. Publish them to your profile or delete them.
             </p>
-            <div className="bg-[#1a1a1a] rounded-lg">
+            <div className="bg-[#1a1a1a] rounded">
               {loadingRecordings ? (
                 <div className="p-4 flex items-center justify-center">
                   <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
@@ -1760,7 +1760,7 @@ export function StudioProfileClient() {
               ) : (
                 <div className="space-y-2 p-2">
                   {recordings.map((recording) => (
-                    <div key={recording.id} className="bg-[#252525] rounded-xl p-3">
+                    <div key={recording.id} className="bg-[#252525] rounded p-3">
                       <div className="flex items-center gap-3">
                         {/* Play button */}
                         <button
@@ -1874,7 +1874,7 @@ export function StudioProfileClient() {
             <p className="text-gray-600 text-xs mb-3 px-1">
               Promote your upcoming in-person gigs.
             </p>
-            <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
+            <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
               {irlShowsInput.map((show, index) => (
                 <div key={index} className="space-y-2">
                   <label className="block text-gray-400 text-sm">
@@ -1890,7 +1890,7 @@ export function StudioProfileClient() {
                         setIrlShowsInput(updated);
                       }}
                       placeholder="Event Name"
-                      className="flex-1 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                      className="flex-1 bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                     />
                     <input
                       type="text"
@@ -1901,7 +1901,7 @@ export function StudioProfileClient() {
                         setIrlShowsInput(updated);
                       }}
                       placeholder="City"
-                      className="w-32 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                      className="w-32 bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                     />
                   </div>
                   <div className="flex gap-2">
@@ -1914,7 +1914,7 @@ export function StudioProfileClient() {
                         setIrlShowsInput(updated);
                       }}
                       placeholder="Event URL (e.g., ra.co/events/...)"
-                      className="flex-1 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                      className="flex-1 bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                     />
                     <input
                       type="date"
@@ -1924,7 +1924,7 @@ export function StudioProfileClient() {
                         updated[index] = { ...updated[index], date: e.target.value };
                         setIrlShowsInput(updated);
                       }}
-                      className="w-36 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none [color-scheme:dark]"
+                      className="w-36 bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none [color-scheme:dark]"
                     />
                   </div>
                 </div>
@@ -1940,7 +1940,7 @@ export function StudioProfileClient() {
             <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
               Automatically Detected Shows
             </h2>
-            <div className="bg-[#1a1a1a] rounded-lg">
+            <div className="bg-[#1a1a1a] rounded">
               {loadingBroadcasts ? (
                 <div className="p-4 flex items-center justify-center">
                   <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
@@ -1986,7 +1986,7 @@ export function StudioProfileClient() {
             <p className="text-gray-600 text-xs mb-3 px-1">
               Promote your upcoming radio appearances on other stations.
             </p>
-            <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
+            <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
               {radioShowsInput.map((show, index) => (
                 <div key={index} className="space-y-2">
                   <label className="block text-gray-400 text-sm">
@@ -2002,7 +2002,7 @@ export function StudioProfileClient() {
                         setRadioShowsInput(updated);
                       }}
                       placeholder="Show Name"
-                      className="flex-1 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                      className="flex-1 bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                     />
                     <input
                       type="text"
@@ -2013,7 +2013,7 @@ export function StudioProfileClient() {
                         setRadioShowsInput(updated);
                       }}
                       placeholder="Radio Name"
-                      className="w-32 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                      className="w-32 bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                     />
                   </div>
                   <div className="flex gap-2">
@@ -2025,7 +2025,7 @@ export function StudioProfileClient() {
                         updated[index] = { ...updated[index], date: e.target.value };
                         setRadioShowsInput(updated);
                       }}
-                      className="flex-1 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none [color-scheme:dark]"
+                      className="flex-1 bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none [color-scheme:dark]"
                     />
                     <select
                       value={show.time}
@@ -2034,7 +2034,7 @@ export function StudioProfileClient() {
                         updated[index] = { ...updated[index], time: e.target.value };
                         setRadioShowsInput(updated);
                       }}
-                      className="w-24 bg-black border border-gray-800 rounded-lg px-2 py-2 text-white focus:border-gray-600 focus:outline-none"
+                      className="w-24 bg-black border border-gray-800 rounded px-2 py-2 text-white focus:border-gray-600 focus:outline-none"
                     >
                       <option value="">Time</option>
                       {Array.from({ length: 48 }, (_, i) => {
@@ -2052,7 +2052,7 @@ export function StudioProfileClient() {
                         updated[index] = { ...updated[index], duration: e.target.value };
                         setRadioShowsInput(updated);
                       }}
-                      className="w-20 bg-black border border-gray-800 rounded-lg px-2 py-2 text-white focus:border-gray-600 focus:outline-none"
+                      className="w-20 bg-black border border-gray-800 rounded px-2 py-2 text-white focus:border-gray-600 focus:outline-none"
                     >
                       <option value="0.5">0.5h</option>
                       <option value="1">1h</option>
@@ -2073,7 +2073,7 @@ export function StudioProfileClient() {
                       setRadioShowsInput(updated);
                     }}
                     placeholder="Radio URL (e.g., nts.live/shows/...)"
-                    className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                    className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                   />
                 </div>
               ))}
@@ -2100,7 +2100,7 @@ export function StudioProfileClient() {
             <p className="text-gray-600 text-xs mb-3 px-1">
               Share music and events you recommend with your listeners.
             </p>
-            <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-6">
+            <div className="bg-[#1a1a1a] rounded p-4 space-y-6">
               {/* Bandcamp subsection */}
               <div>
                 <label className="block text-gray-400 text-sm mb-2">
@@ -2118,7 +2118,7 @@ export function StudioProfileClient() {
                           setBandcampRecsInput(updated);
                         }}
                         placeholder="https://artist.bandcamp.com/album"
-                        className="flex-1 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                        className="flex-1 bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                       />
                       {bandcampRecsInput.length > 1 && (
                         <button
@@ -2165,7 +2165,7 @@ export function StudioProfileClient() {
                           setEventRecsInput(updated);
                         }}
                         placeholder="https://ra.co/events/..."
-                        className="flex-1 bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                        className="flex-1 bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                       />
                       {eventRecsInput.length > 1 && (
                         <button
@@ -2205,20 +2205,20 @@ export function StudioProfileClient() {
             <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
               Payments
             </h2>
-            <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
+            <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
               {stripeError && (
-                <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm">
+                <div className="p-3 bg-red-500/20 border border-red-500/30 rounded text-red-400 text-sm">
                   {stripeError}
                 </div>
               )}
 
               {djProfile.stripeAccountId ? (
                 <>
-                  <div className="p-3 bg-green-500/20 border border-green-500/30 rounded-lg text-green-400 text-sm">
+                  <div className="p-3 bg-green-500/20 border border-green-500/30 rounded text-green-400 text-sm">
                     Stripe connected! Tips are automatically transferred to your bank.
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-green-500/20">
+                    <div className="w-10 h-10 rounded flex items-center justify-center bg-green-500/20">
                       <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
@@ -2231,7 +2231,7 @@ export function StudioProfileClient() {
                       href="https://dashboard.stripe.com/"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors"
+                      className="px-4 py-2 bg-white text-black rounded font-medium hover:bg-gray-100 transition-colors"
                     >
                       Manage
                     </a>
@@ -2239,7 +2239,7 @@ export function StudioProfileClient() {
                 </>
               ) : (
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gray-800">
+                  <div className="w-10 h-10 rounded flex items-center justify-center bg-gray-800">
                     <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                     </svg>
@@ -2251,7 +2251,7 @@ export function StudioProfileClient() {
                   <button
                     onClick={handleConnectStripe}
                     disabled={connectingStripe}
-                    className="px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
+                    className="px-4 py-2 bg-white text-black rounded font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
                   >
                     {connectingStripe ? 'Connecting...' : 'Connect'}
                   </button>
@@ -2263,7 +2263,7 @@ export function StudioProfileClient() {
                   <h3 className="text-gray-400 text-sm mb-3">Earnings</h3>
                   <div className="grid grid-cols-2 gap-4">
                     {pendingCents > 0 && (
-                      <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
+                      <div className="bg-yellow-500/10 border border-yellow-500/20 rounded p-3">
                         <p className="text-yellow-400 text-lg font-medium">
                           ${(pendingCents / 100).toFixed(2)}
                         </p>
@@ -2273,7 +2273,7 @@ export function StudioProfileClient() {
                       </div>
                     )}
                     {transferredCents > 0 && (
-                      <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
+                      <div className="bg-green-500/10 border border-green-500/20 rounded p-3">
                         <p className="text-green-400 text-lg font-medium">
                           ${(transferredCents / 100).toFixed(2)}
                         </p>
@@ -2287,7 +2287,7 @@ export function StudioProfileClient() {
               )}
 
               {!djProfile.stripeAccountId && pendingCents > 0 && (
-                <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded">
                   <p className="text-yellow-400 text-sm">
                     You have ${(pendingCents / 100).toFixed(2)} in pending tips. Connect Stripe to receive them!
                   </p>

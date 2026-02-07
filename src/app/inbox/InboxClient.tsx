@@ -204,7 +204,7 @@ export function InboxClient() {
           <div className="flex gap-2 mb-4">
             <button
               onClick={() => setActiveTab('sent')}
-              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex-1 py-2 px-4 rounded text-sm font-medium transition-colors ${
                 activeTab === 'sent'
                   ? 'bg-white text-black'
                   : 'bg-gray-900 text-gray-400 hover:text-white'
@@ -214,7 +214,7 @@ export function InboxClient() {
             </button>
             <button
               onClick={() => setActiveTab('received')}
-              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex-1 py-2 px-4 rounded text-sm font-medium transition-colors ${
                 activeTab === 'received'
                   ? 'bg-white text-black'
                   : 'bg-gray-900 text-gray-400 hover:text-white'
@@ -226,7 +226,7 @@ export function InboxClient() {
         )}
 
         {error && (
-          <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-4 mb-4">
+          <div className="bg-red-900/30 border border-red-500/50 rounded p-4 mb-4">
             <p className="text-red-400 text-sm">{error}</p>
           </div>
         )}
@@ -252,7 +252,7 @@ export function InboxClient() {
           ) : (
             <div className="space-y-4">
               {/* Total Received Summary */}
-              <div className="bg-[#1a1a1a] rounded-lg p-4 mb-4">
+              <div className="bg-[#1a1a1a] rounded p-4 mb-4">
                 <p className="text-gray-500 text-sm">Total Received</p>
                 <p className="text-2xl font-bold text-white">{formatAmount(totalReceivedCents)}</p>
               </div>
@@ -260,7 +260,7 @@ export function InboxClient() {
               {receivedGroups.map((group) => {
                 const isExpanded = expandedTippers.has(group.tipperUsername);
                 return (
-                  <div key={group.tipperUsername} className="bg-[#1a1a1a] rounded-lg overflow-hidden">
+                  <div key={group.tipperUsername} className="bg-[#1a1a1a] rounded overflow-hidden">
                     {/* Tipper Header */}
                     <button
                       onClick={() => toggleTipper(group.tipperUsername)}
@@ -330,7 +330,7 @@ export function InboxClient() {
             {djGroups.map((group) => {
               const isExpanded = expandedDjs.has(group.djUsername);
               return (
-                <div key={group.djUsername} className="bg-[#1a1a1a] rounded-lg overflow-hidden">
+                <div key={group.djUsername} className="bg-[#1a1a1a] rounded overflow-hidden">
                   {/* DJ Header - Clickable to expand/collapse */}
                   <button
                     onClick={() => toggleDj(group.djUsername)}
@@ -382,7 +382,7 @@ export function InboxClient() {
                           {tip.showName && (
                             <p className="text-gray-500 text-sm mb-2">{tip.showName}</p>
                           )}
-                          <div className="bg-black/30 rounded-lg p-3">
+                          <div className="bg-black/30 rounded p-3">
                             <p className="text-gray-400 text-xs mb-1">Message from {group.djUsername}:</p>
                             <p className="text-white text-sm italic">&ldquo;{tip.djThankYouMessage}&rdquo;</p>
                           </div>

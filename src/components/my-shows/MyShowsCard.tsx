@@ -125,7 +125,7 @@ export function MyShowsCard({
   const fallbackStyle = showType === 'online' ? { backgroundColor: accentColor } : {};
 
   const photoContent = (
-    <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 border border-gray-700">
+    <div className="w-20 h-20 rounded overflow-hidden flex-shrink-0 border border-gray-700">
       {hasPhoto ? (
         <Image
           src={djPhotoUrl}
@@ -150,7 +150,7 @@ export function MyShowsCard({
   );
 
   return (
-    <div className="flex rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50 p-3 gap-3">
+    <div className="flex rounded overflow-hidden bg-[#1a1a1a] border border-gray-800/50 p-3 gap-3">
       {/* Photo - links to DJ profile if available */}
       {djUsername ? (
         <button

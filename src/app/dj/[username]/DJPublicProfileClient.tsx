@@ -1210,7 +1210,7 @@ export function DJPublicProfileClient({ username }: Props) {
                     href={profile.djProfile.promoHyperlink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block w-full bg-zinc-900/50 border border-white/10 p-4 rounded-2xl hover:bg-zinc-800/50 transition-colors"
+                    className="block w-full bg-zinc-900/50 border border-white/10 p-4 rounded hover:bg-zinc-800/50 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <p className="text-base leading-relaxed text-white">
@@ -1220,7 +1220,7 @@ export function DJPublicProfileClient({ username }: Props) {
                     </div>
                   </a>
                 ) : (
-                  <div className="w-full bg-zinc-900/50 border border-white/10 p-4 rounded-2xl">
+                  <div className="w-full bg-zinc-900/50 border border-white/10 p-4 rounded">
                     <p className="text-base leading-relaxed text-white">
                       {profile.djProfile.promoText}
                     </p>
@@ -1285,7 +1285,7 @@ export function DJPublicProfileClient({ username }: Props) {
         {/* LIVE SHOW CARD - Shown outside timeline when DJ is live */}
         {currentLiveShow && (
           <section className="mb-6">
-            <div className="bg-surface-card rounded-2xl overflow-hidden">
+            <div className="bg-surface-card rounded overflow-hidden">
               {/* Header: LIVE badge and radio name */}
               <div className="flex items-center justify-between px-4 py-3 bg-black/40">
                 <div className="flex items-center gap-2">
@@ -1326,7 +1326,7 @@ export function DJPublicProfileClient({ username }: Props) {
                 {liveOnChannel ? (
                   <Link
                     href="/channel"
-                    className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-accent hover:bg-accent/80 text-white transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-3 px-4 rounded text-sm font-semibold bg-accent hover:bg-accent/80 text-white transition-colors flex items-center justify-center gap-2"
                   >
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M8 5v14l11-7z" />
@@ -1338,7 +1338,7 @@ export function DJPublicProfileClient({ username }: Props) {
                     href={liveElsewhere.stationUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-3 px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
                   >
                     Join Stream
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1375,7 +1375,7 @@ export function DJPublicProfileClient({ username }: Props) {
                   return (
                     <div
                       key={broadcast.id}
-                      className="bg-surface-card rounded-2xl overflow-hidden"
+                      className="bg-surface-card rounded overflow-hidden"
                     >
                       {/* Header: Date + Time, Show Type, and Station name */}
                       <div className="flex items-center justify-between px-4 py-3 bg-black/40">
@@ -1419,7 +1419,7 @@ export function DJPublicProfileClient({ username }: Props) {
                         <button
                           onClick={(e) => handleToggleFavorite(broadcast, e)}
                           disabled={isToggling}
-                          className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
+                          className="w-full py-3 px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
                         >
                           {isToggling ? (
                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -1445,7 +1445,7 @@ export function DJPublicProfileClient({ username }: Props) {
                   return (
                     <div
                       key={irlShow.id}
-                      className="bg-surface-card rounded-2xl overflow-hidden"
+                      className="bg-surface-card rounded overflow-hidden"
                     >
                       {/* Header: Date, Show Type, and Location */}
                       <div className="flex items-center justify-between px-4 py-3 bg-black/40">
@@ -1477,13 +1477,13 @@ export function DJPublicProfileClient({ username }: Props) {
                             href={irlShow.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
+                            className="w-full py-3 px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
                           >
                             <CalendarIcon size={14} />
                             Get tickets
                           </a>
                         ) : (
-                          <div className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-white/10 text-zinc-400 flex items-center justify-center gap-2">
+                          <div className="w-full py-3 px-4 rounded text-sm font-semibold bg-white/10 text-zinc-400 flex items-center justify-center gap-2">
                             <CalendarIcon size={14} />
                             No tickets link
                           </div>
@@ -1521,7 +1521,7 @@ export function DJPublicProfileClient({ username }: Props) {
                   return (
                     <div
                       key={radioShow.id}
-                      className="bg-surface-card rounded-2xl overflow-hidden"
+                      className="bg-surface-card rounded overflow-hidden"
                     >
                       {/* Header: Date + Time, Show Type, and Radio name */}
                       <div className="flex items-center justify-between px-4 py-3 bg-black/40">
@@ -1579,7 +1579,7 @@ export function DJPublicProfileClient({ username }: Props) {
                             href={radioShow.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-accent hover:bg-accent/80 text-white transition-colors flex items-center justify-center gap-2"
+                            className="w-full py-3 px-4 rounded text-sm font-semibold bg-accent hover:bg-accent/80 text-white transition-colors flex items-center justify-center gap-2"
                           >
                             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                               <path d="M8 5v14l11-7z" />
@@ -1590,7 +1590,7 @@ export function DJPublicProfileClient({ username }: Props) {
                           <button
                             onClick={(e) => handleToggleRadioShowFavorite(radioShow, e)}
                             disabled={isToggling}
-                            className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
+                            className="w-full py-3 px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
                           >
                             {isToggling ? (
                               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -1627,7 +1627,7 @@ export function DJPublicProfileClient({ username }: Props) {
                 if (item.feedType === "irl") {
                   const irlShow = item as IrlShow & { feedType: "irl"; feedStatus: "past"; id: string };
                   return (
-                    <div key={irlShow.id} className="bg-surface-card rounded-xl p-4 opacity-60">
+                    <div key={irlShow.id} className="bg-surface-card rounded p-4 opacity-60">
                       <div className="flex items-start gap-4">
                         <div className="flex-1 min-w-0">
                           <h3 className="text-gray-400 font-semibold">
@@ -1644,7 +1644,7 @@ export function DJPublicProfileClient({ username }: Props) {
                 if (item.feedType === "dj-radio") {
                   const radioShow = item as RadioShow & { feedType: "dj-radio"; feedStatus: "past"; id: string };
                   return (
-                    <div key={radioShow.id} className="bg-surface-card rounded-xl p-4 opacity-60">
+                    <div key={radioShow.id} className="bg-surface-card rounded p-4 opacity-60">
                       <div className="flex items-start gap-4">
                         <div className="flex-1 min-w-0">
                           <h3 className="text-gray-400 font-semibold">
@@ -1665,10 +1665,10 @@ export function DJPublicProfileClient({ username }: Props) {
                   const showImage = archive.showImageUrl;
 
                   return (
-                    <div key={archive.id} className="bg-surface-card rounded-xl p-3">
+                    <div key={archive.id} className="bg-surface-card rounded p-3">
                       <div className="flex items-center gap-3">
                         {showImage && (
-                          <div className="w-12 h-12 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
+                          <div className="w-12 h-12 rounded bg-gray-800 flex-shrink-0 overflow-hidden">
                             <Image
                               src={showImage}
                               alt={archive.showName}
@@ -1762,7 +1762,7 @@ export function DJPublicProfileClient({ username }: Props) {
                   return (
                     <div
                       key={pastShow.id}
-                      className="bg-surface-card rounded-2xl overflow-hidden"
+                      className="bg-surface-card rounded overflow-hidden"
                     >
                       {/* Header: Date + Time and Station name */}
                       <div className="flex items-center justify-between px-4 py-3 bg-black/40">
@@ -1793,7 +1793,7 @@ export function DJPublicProfileClient({ username }: Props) {
                             setTogglingFavoriteId(null);
                           }}
                           disabled={isToggling || isWatching}
-                          className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                          className="w-full py-3 px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                           style={stationAccentColor ? { borderColor: stationAccentColor } : undefined}
                         >
                           {isToggling ? (

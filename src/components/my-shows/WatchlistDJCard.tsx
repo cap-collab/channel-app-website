@@ -36,7 +36,7 @@ export function WatchlistDJCard({
 
   return (
     <div
-      className={`rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50 relative group ${djUsername ? 'cursor-pointer' : ''}`}
+      className={`rounded overflow-hidden bg-[#1a1a1a] border border-gray-800/50 relative group ${djUsername ? 'cursor-pointer' : ''}`}
       onClick={handleCardClick}
     >
       {/* X remove button - top right corner */}

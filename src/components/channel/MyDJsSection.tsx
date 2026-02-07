@@ -475,6 +475,11 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
             {/* Name and status */}
             <div className="text-center max-w-[80px]">
               <p className="text-white text-[11px] font-medium truncate">{item.displayName}</p>
+              {item.eventType === 'live' && (
+                <p className="text-red-500 text-[10px] font-bold uppercase truncate">
+                  Live Now
+                </p>
+              )}
               {item.eventType === 'show' && item.showStartTime && (
                 <p className="text-gray-500 text-[10px] truncate">
                   {formatNextShowTime(item.showStartTime)}
@@ -482,7 +487,7 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
               )}
               {item.eventType === 'irl' && item.irlDate && (
                 <p className="text-green-400 text-[10px] truncate">
-                  {formatIRLDate(item.irlDate)}
+                  IRL · {formatIRLDate(item.irlDate)}
                 </p>
               )}
               {item.eventType === 'none' && (

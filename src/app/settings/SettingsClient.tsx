@@ -202,7 +202,7 @@ export function SettingsClient() {
             </p>
             <button
               onClick={() => setShowAuthModal(true)}
-              className="bg-white text-black px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+              className="bg-white text-black px-6 py-3 rounded font-medium hover:bg-gray-100 transition-colors"
             >
               Sign In
             </button>
@@ -214,7 +214,7 @@ export function SettingsClient() {
               <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
                 Account
               </h2>
-              <div className="bg-[#1a1a1a] rounded-lg p-4">
+              <div className="bg-[#1a1a1a] rounded p-4">
                 <div className="flex items-center gap-3">
                   {user?.photoURL ? (
                     <img
@@ -241,7 +241,7 @@ export function SettingsClient() {
                 <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
                   Broadcast on Channel
                 </h2>
-                <div className="bg-[#1a1a1a] rounded-lg p-4">
+                <div className="bg-[#1a1a1a] rounded p-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-white font-medium">Upgrade to DJ</p>
@@ -251,7 +251,7 @@ export function SettingsClient() {
                     </div>
                     <Link
                       href="/studio/join"
-                      className="px-4 py-2 rounded-lg text-sm font-medium bg-white text-black hover:bg-gray-100 transition-colors"
+                      className="px-4 py-2 rounded text-sm font-medium bg-white text-black hover:bg-gray-100 transition-colors"
                     >
                       Upgrade
                     </Link>
@@ -265,7 +265,7 @@ export function SettingsClient() {
               <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
                 Email Notifications
               </h2>
-              <div className="bg-[#1a1a1a] rounded-lg divide-y divide-gray-800">
+              <div className="bg-[#1a1a1a] rounded divide-y divide-gray-800">
                 <div className="p-4 flex items-center justify-between">
                   <div>
                     <p className="text-white font-medium">Show going live</p>
@@ -382,7 +382,7 @@ export function SettingsClient() {
               <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
                 Chat Activity Messages
               </h2>
-              <div className="bg-[#1a1a1a] rounded-lg divide-y divide-gray-800">
+              <div className="bg-[#1a1a1a] rounded divide-y divide-gray-800">
                 <div className="p-4 flex items-center justify-between">
                   <div>
                     <p className="text-white font-medium">Love reactions</p>
@@ -457,7 +457,7 @@ export function SettingsClient() {
               <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
                 Danger Zone
               </h2>
-              <div className="bg-[#1a1a1a] rounded-lg p-4">
+              <div className="bg-[#1a1a1a] rounded p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-white font-medium">Delete my account</p>
@@ -467,7 +467,7 @@ export function SettingsClient() {
                   </div>
                   <button
                     onClick={() => setShowDeleteConfirm(true)}
-                    className="px-4 py-2 rounded-lg text-sm font-medium bg-red-900/50 text-red-400 hover:bg-red-900 hover:text-red-300 transition-colors"
+                    className="px-4 py-2 rounded text-sm font-medium bg-red-900/50 text-red-400 hover:bg-red-900 hover:text-red-300 transition-colors"
                   >
                     Delete
                   </button>
@@ -486,7 +486,7 @@ export function SettingsClient() {
       {/* Delete confirmation modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1a1a1a] rounded-xl max-w-md w-full p-6">
+          <div className="bg-[#1a1a1a] rounded max-w-md w-full p-6">
             <h3 className="text-xl font-semibold text-white mb-2">
               Delete your account?
             </h3>
@@ -501,14 +501,14 @@ export function SettingsClient() {
               <button
                 onClick={() => setShowDeleteConfirm(false)}
                 disabled={deleting}
-                className="flex-1 px-4 py-3 rounded-lg font-medium bg-gray-800 text-white hover:bg-gray-700 transition-colors disabled:opacity-50"
+                className="flex-1 px-4 py-3 rounded font-medium bg-gray-800 text-white hover:bg-gray-700 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteAccount}
                 disabled={deleting}
-                className="flex-1 px-4 py-3 rounded-lg font-medium bg-red-600 text-white hover:bg-red-500 transition-colors disabled:opacity-50"
+                className="flex-1 px-4 py-3 rounded font-medium bg-red-600 text-white hover:bg-red-500 transition-colors disabled:opacity-50"
               >
                 {deleting ? "Deleting..." : "Delete Account"}
               </button>

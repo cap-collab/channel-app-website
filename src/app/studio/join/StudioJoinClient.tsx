@@ -305,7 +305,7 @@ export function StudioJoinClient() {
             </p>
             <Link
               href="/"
-              className="inline-block bg-white text-black px-8 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
+              className="inline-block bg-white text-black px-8 py-3 rounded font-semibold hover:bg-gray-200 transition-colors"
             >
               Back to Channel
             </Link>
@@ -422,7 +422,7 @@ export function StudioJoinClient() {
                     You&apos;re logged in as {user?.email}. Accept the DJ Terms to unlock your DJ profile.
                   </p>
 
-                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+                  <div className="bg-gray-900 border border-gray-800 rounded p-6">
                     <label className="flex items-start gap-3 cursor-pointer mb-4">
                       <input
                         type="checkbox"
@@ -449,7 +449,7 @@ export function StudioJoinClient() {
                     <button
                       onClick={handleUpgradeToDJ}
                       disabled={!agreedToDJTerms || upgradingToDJ}
-                      className="bg-white text-black px-8 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      className="bg-white text-black px-8 py-3 rounded font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       {upgradingToDJ ? (
                         <>
@@ -513,7 +513,7 @@ export function StudioJoinClient() {
                   onChange={handleInputChange}
                   placeholder="Your DJ name"
                   disabled={profileFields.djName}
-                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -533,7 +533,7 @@ export function StudioJoinClient() {
                   onChange={handleInputChange}
                   placeholder="you@example.com"
                   disabled={isAuthenticated}
-                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60"
+                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60"
                 />
               </div>
 
@@ -552,7 +552,7 @@ export function StudioJoinClient() {
                   value={formData.showName}
                   onChange={handleInputChange}
                   placeholder="Name of your show or set"
-                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
+                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
                 />
               </div>
 
@@ -577,7 +577,7 @@ export function StudioJoinClient() {
                     min={0.5}
                     max={24}
                     step={0.5}
-                    className="w-32 px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors text-center"
+                    className="w-32 px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors text-center"
                   />
                   <span className="text-gray-400">hours</span>
                 </div>
@@ -592,7 +592,7 @@ export function StudioJoinClient() {
                   <button
                     type="button"
                     onClick={() => handleLocationChange('home')}
-                    className={`flex-1 py-3 px-4 rounded-xl border transition-colors ${
+                    className={`flex-1 py-3 px-4 rounded border transition-colors ${
                       formData.locationType === 'home'
                         ? 'bg-white text-black border-white'
                         : 'bg-[#1a1a1a] text-gray-300 border-gray-800 hover:border-gray-600'
@@ -603,7 +603,7 @@ export function StudioJoinClient() {
                   <button
                     type="button"
                     onClick={() => handleLocationChange('venue')}
-                    className={`flex-1 py-3 px-4 rounded-xl border transition-colors ${
+                    className={`flex-1 py-3 px-4 rounded border transition-colors ${
                       formData.locationType === 'venue'
                         ? 'bg-white text-black border-white'
                         : 'bg-[#1a1a1a] text-gray-300 border-gray-800 hover:border-gray-600'
@@ -630,7 +630,7 @@ export function StudioJoinClient() {
                     value={formData.venueName}
                     onChange={handleInputChange}
                     placeholder="Name of the venue"
-                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
+                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
                   />
                 </div>
               )}
@@ -673,7 +673,7 @@ export function StudioJoinClient() {
                     onChange={handleInputChange}
                     placeholder="https://soundcloud.com/yourname"
                     disabled={profileFields.soundcloud}
-                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
 
@@ -692,7 +692,7 @@ export function StudioJoinClient() {
                     onChange={handleInputChange}
                     placeholder="@yourhandle"
                     disabled={profileFields.instagram}
-                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
 
@@ -711,7 +711,7 @@ export function StudioJoinClient() {
                     onChange={handleInputChange}
                     placeholder="https://youtube.com/@yourname"
                     disabled={profileFields.youtube}
-                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -746,7 +746,7 @@ export function StudioJoinClient() {
                   onChange={handleInputChange}
                   placeholder="Anything else you'd like us to know about your set, style, or availability?"
                   rows={4}
-                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors resize-none"
+                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors resize-none"
                 />
               </div>
 
@@ -765,7 +765,7 @@ export function StudioJoinClient() {
 
               {/* Error message */}
               {errorMessage && (
-                <div className="p-4 bg-red-900/30 border border-red-800 rounded-xl text-red-400 text-sm">
+                <div className="p-4 bg-red-900/30 border border-red-800 rounded text-red-400 text-sm">
                   {errorMessage}
                 </div>
               )}
@@ -774,7 +774,7 @@ export function StudioJoinClient() {
               <button
                 type="submit"
                 disabled={status === 'submitting'}
-                className="w-full bg-white text-black py-4 rounded-xl font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full bg-white text-black py-4 rounded font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {status === 'submitting' ? (
                   <>
