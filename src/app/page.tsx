@@ -55,13 +55,11 @@ export default function Home() {
       <section className="min-h-screen flex flex-col justify-center items-center px-6 pt-24 pb-20 relative bg-[#1a1a1a]">
         <div className="max-w-3xl text-center">
           <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
-            Never miss the DJs you care about.
+            Don&apos;t compromise on taste.
           </h1>
 
           <p className="text-lg md:text-xl text-gray-400 mb-12 max-w-xl mx-auto leading-relaxed">
-            Stop chasing Instagram stories.<br />
-            Get notified when they play on radio or at a venue.<br />
-            Join their chat and support them directly.
+            Ditch algorithms. Stay in the know with the selectors who matter.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
