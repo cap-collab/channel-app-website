@@ -167,6 +167,18 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
     [followDJ, removeFromWatchlist, isInWatchlist, isAuthenticated, onAuthRequired]
   );
 
+  // Compute match label for a show based on active filters
+  const computeLabel = useCallback((show: Show) => {
+    const isAnywhere = selectedCity === 'Anywhere';
+    const cityMatch = !isAnywhere && selectedCity && show.djLocation
+      ? matchesCity(show.djLocation, selectedCity) : false;
+    const genreMatch = selectedGenre ? showMatchesGenre(show.djGenres, selectedGenre) : false;
+    if (cityMatch && genreMatch) return `${selectedCity!.toUpperCase()} + ${selectedGenre!.toUpperCase()}`;
+    if (cityMatch) return selectedCity!.toUpperCase();
+    if (genreMatch) return selectedGenre!.toUpperCase();
+    return undefined;
+  }, [selectedCity, selectedGenre]);
+
   if (loading) {
     return (
       <section className="mb-2 md:mb-6">
@@ -200,6 +212,7 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
             isPlaying={isPlaying}
             isStreamLoading={isStreamLoading}
             bpm={stationBPM[getMetadataKeyByStationId(broadcastShow.stationId) || '']?.bpm ?? null}
+            matchLabel={computeLabel(broadcastShow)}
           />
           {chatSlot}
         </div>
@@ -224,6 +237,7 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
                   isTogglingFollow={togglingFollowId === show.id}
                   onFollow={() => handleFollow(show)}
                   bpm={stationBPM[getMetadataKeyByStationId(show.stationId) || '']?.bpm ?? null}
+                  matchLabel={computeLabel(show)}
                 />
               );
             })}
@@ -244,6 +258,7 @@ interface BroadcastCardProps {
   isPlaying?: boolean;
   isStreamLoading?: boolean;
   bpm: number | null;
+  matchLabel?: string;
 }
 
 function BroadcastCard({
@@ -256,6 +271,7 @@ function BroadcastCard({
   isPlaying,
   isStreamLoading,
   bpm,
+  matchLabel,
 }: BroadcastCardProps) {
   const [imageError, setImageError] = useState(false);
   const imageUrl = !imageError ? (show.djPhotoUrl || show.imageUrl) : null;
@@ -265,23 +281,26 @@ function BroadcastCard({
 
   return (
     <div>
-      {/* Red dot + LIVE on left, BPM on right */}
+      {/* Match label on left, BPM + Live on right */}
       <div className="flex items-center justify-between mb-1 h-4 px-0.5">
-        <div className="flex items-center gap-1.5">
+        {matchLabel ? (
+          <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">{matchLabel}</span>
+        ) : <div />}
+        <div className="flex items-center gap-2">
+          {bpm && (
+            <div
+              className="text-[10px] font-mono text-zinc-400 uppercase tracking-tighter animate-bpm-pulse"
+              style={{ ['--bpm-duration' as string]: bpmDuration }}
+            >
+              {bpm} BPM
+            </div>
+          )}
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
           </span>
-          <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">LIVE</span>
+          <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">Live</span>
         </div>
-        {bpm && (
-          <div
-            className="text-[10px] font-mono text-zinc-400 uppercase tracking-tighter animate-bpm-pulse"
-            style={{ ['--bpm-duration' as string]: bpmDuration }}
-          >
-            {bpm} BPM
-          </div>
-        )}
       </div>
       <div className="bg-surface-card rounded-xl overflow-hidden">
         <div className="flex flex-col sm:flex-row">
@@ -390,6 +409,7 @@ interface LiveShowCardProps {
   isTogglingFollow: boolean;
   onFollow: () => void;
   bpm: number | null;
+  matchLabel?: string;
 }
 
 function LiveShowCard({
@@ -399,6 +419,7 @@ function LiveShowCard({
   isTogglingFollow,
   onFollow,
   bpm,
+  matchLabel,
 }: LiveShowCardProps) {
   const [imageError, setImageError] = useState(false);
   const photoUrl = show.djPhotoUrl;
@@ -418,23 +439,26 @@ function LiveShowCard({
 
   return (
     <div className="w-full group">
-      {/* Red dot + LIVE on left, BPM on right */}
+      {/* Match label on left, BPM + Live on right */}
       <div className="flex items-center justify-between mb-1 h-4 px-0.5">
-        <div className="flex items-center gap-1.5">
+        {matchLabel ? (
+          <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">{matchLabel}</span>
+        ) : <div />}
+        <div className="flex items-center gap-2">
+          {bpm && (
+            <div
+              className="text-[10px] font-mono text-zinc-400 uppercase tracking-tighter animate-bpm-pulse"
+              style={{ ['--bpm-duration' as string]: bpmDuration }}
+            >
+              {bpm} BPM
+            </div>
+          )}
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
           </span>
-          <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">LIVE</span>
+          <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">Live</span>
         </div>
-        {bpm && (
-          <div
-            className="text-[10px] font-mono text-zinc-400 uppercase tracking-tighter animate-bpm-pulse"
-            style={{ ['--bpm-duration' as string]: bpmDuration }}
-          >
-            {bpm} BPM
-          </div>
-        )}
       </div>
 
       {/* Full width 16:9 image with overlays */}

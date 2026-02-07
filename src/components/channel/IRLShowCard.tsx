@@ -10,6 +10,7 @@ interface IRLShowCardProps {
   isFollowing: boolean;
   isAddingFollow: boolean;
   onFollow: () => void;
+  matchLabel?: string;
 }
 
 export function IRLShowCard({
@@ -17,6 +18,7 @@ export function IRLShowCard({
   isFollowing,
   isAddingFollow,
   onFollow,
+  matchLabel,
 }: IRLShowCardProps) {
   const [imageError, setImageError] = useState(false);
 
@@ -55,6 +57,14 @@ export function IRLShowCard({
 
   return (
     <div className="w-full group">
+      {/* Match label row */}
+      {matchLabel && (
+        <div className="flex items-center mb-1 h-4 px-0.5">
+          <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">
+            {matchLabel}
+          </span>
+        </div>
+      )}
       {/* Full width image with overlays - links to DJ profile */}
       {show.djUsername ? (
         <Link href={`/dj/${show.djUsername}`} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">

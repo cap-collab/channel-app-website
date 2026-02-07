@@ -9,9 +9,11 @@ interface TunerProps {
   onCityChange: (city: string) => void;
   selectedGenre: string;
   onGenreChange: (genre: string) => void;
+  cityResultCount?: number;
+  genreResultCount?: number;
 }
 
-export function Tuner({ selectedCity, onCityChange, selectedGenre, onGenreChange }: TunerProps) {
+export function Tuner({ selectedCity, onCityChange, selectedGenre, onGenreChange, cityResultCount, genreResultCount }: TunerProps) {
   // City dropdown state
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
   const [cityCustomMode, setCityCustomMode] = useState(false);
@@ -79,9 +81,10 @@ export function Tuner({ selectedCity, onCityChange, selectedGenre, onGenreChange
               setCityDropdownOpen(!cityDropdownOpen);
               closeGenreDropdown();
             }}
-            className="h-6 px-2.5 font-mono text-[11px] text-zinc-400 uppercase tracking-tight flex items-center gap-1 hover:text-white transition-colors rounded-sm bg-white/5 hover:bg-white/10"
+            className={`h-6 px-2.5 font-mono text-[11px] uppercase tracking-tight flex items-center gap-1 transition-colors rounded-sm bg-white/5 hover:bg-white/10 ${cityResultCount === 0 ? 'text-zinc-600' : 'text-zinc-400 hover:text-white'}`}
           >
             <span className="truncate max-w-[120px]">{selectedCity || 'City'}</span>
+            {cityResultCount === 0 && <span className="text-zinc-600 text-[9px]">(0)</span>}
             <svg
               className={`w-2.5 h-2.5 flex-shrink-0 transition-transform ${cityDropdownOpen ? 'rotate-180' : ''}`}
               fill="none"
@@ -135,6 +138,17 @@ export function Tuner({ selectedCity, onCityChange, selectedGenre, onGenreChange
                   </button>
                 )}
                 <div className="border-t border-white/10 my-1" />
+                <button
+                  onClick={() => handleSelectCity('Anywhere')}
+                  className={`w-full text-left px-3 py-2 text-sm transition-colors font-mono ${
+                    selectedCity === 'Anywhere'
+                      ? 'bg-white/10 text-white'
+                      : 'text-gray-300 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  Anywhere
+                </button>
+                <div className="border-t border-white/10 my-1" />
                 {SUPPORTED_CITIES.map((city) => (
                   <button
                     key={city}
@@ -160,9 +174,10 @@ export function Tuner({ selectedCity, onCityChange, selectedGenre, onGenreChange
               setGenreDropdownOpen(!genreDropdownOpen);
               closeCityDropdown();
             }}
-            className="h-6 px-2.5 font-mono text-[11px] text-zinc-400 uppercase tracking-tight flex items-center gap-1 hover:text-white transition-colors rounded-sm bg-white/5 hover:bg-white/10"
+            className={`h-6 px-2.5 font-mono text-[11px] uppercase tracking-tight flex items-center gap-1 transition-colors rounded-sm bg-white/5 hover:bg-white/10 ${genreResultCount === 0 ? 'text-zinc-600' : 'text-zinc-400 hover:text-white'}`}
           >
             <span className="truncate max-w-[120px]">{selectedGenre || 'Genre'}</span>
+            {genreResultCount === 0 && <span className="text-zinc-600 text-[9px]">(0)</span>}
             <svg
               className={`w-2.5 h-2.5 flex-shrink-0 transition-transform ${genreDropdownOpen ? 'rotate-180' : ''}`}
               fill="none"

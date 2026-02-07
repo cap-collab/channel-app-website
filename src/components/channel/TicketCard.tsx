@@ -15,6 +15,7 @@ interface TicketCardProps {
   isAddingReminder: boolean;
   onFollow: () => void;
   onRemindMe: () => void;
+  matchLabel?: string;
 }
 
 export function TicketCard({
@@ -26,6 +27,7 @@ export function TicketCard({
   isAddingReminder,
   onFollow,
   onRemindMe,
+  matchLabel,
 }: TicketCardProps) {
   const [imageError, setImageError] = useState(false);
 
@@ -66,6 +68,14 @@ export function TicketCard({
 
   return (
     <div className="w-full group">
+      {/* Match label row */}
+      {matchLabel && (
+        <div className="flex items-center mb-1 h-4 px-0.5">
+          <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">
+            {matchLabel}
+          </span>
+        </div>
+      )}
       {/* Full width image with overlays - links to DJ profile if available */}
       {show.djUsername ? (
         <Link href={`/dj/${show.djUsername}`} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">

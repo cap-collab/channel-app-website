@@ -91,9 +91,13 @@ export function LocalDJsSection({
 
   // Filter IRL shows by selected city (max 5)
   // IRL shows don't have a recurring type, so just diversify by location
+  const isAnywhere = selectedCity === 'Anywhere';
+
   const filteredIRLShows = useMemo(() => {
     if (!selectedCity) return [];
-    const filtered = irlShows.filter((show) => matchesCity(show.location, selectedCity));
+    const filtered = isAnywhere
+      ? irlShows
+      : irlShows.filter((show) => matchesCity(show.location, selectedCity));
     // Diversify by DJ location (their home city) to show variety
     return prioritizeShows(
       filtered,
@@ -102,7 +106,7 @@ export function LocalDJsSection({
       (show) => show.djLocation,
       5
     );
-  }, [irlShows, selectedCity]);
+  }, [irlShows, selectedCity, isAnywhere]);
 
   // Get DJ name from first IRL show (to avoid featuring same DJ first in radio shows)
   const firstIRLDJName = useMemo(() => {
@@ -122,14 +126,13 @@ export function LocalDJsSection({
     const now = new Date();
     const filtered = shows.filter((show) => {
       const startDate = new Date(show.startTime);
-      // Only upcoming shows with djLocation that matches the selected city
-      // Must have photo and DJ profile
+      // Only upcoming shows with DJ profile and photo
       const hasPhoto = show.djPhotoUrl || show.imageUrl;
       const isRestreamOrPlaylist = show.type === 'playlist' || show.type === 'restream';
+      const cityMatch = isAnywhere || (show.djLocation && matchesCity(show.djLocation, selectedCity));
       return (
         startDate > now &&
-        show.djLocation &&
-        matchesCity(show.djLocation, selectedCity) &&
+        cityMatch &&
         show.dj &&
         (show.djUsername || show.djUserId) &&
         hasPhoto &&
@@ -151,7 +154,7 @@ export function LocalDJsSection({
     // Avoid putting IRL-featured DJ first in radio shows
     const featuredNames = firstIRLDJName ? [firstIRLDJName] : [];
     return avoidFeaturedFirst(prioritized, (show) => show.dj, featuredNames);
-  }, [shows, selectedCity, selectedGenre, firstIRLDJName]);
+  }, [shows, selectedCity, selectedGenre, firstIRLDJName, isAnywhere]);
 
   const hasIRLShows = filteredIRLShows.length > 0;
   const hasRadioShows = localDJShows.length > 0;
@@ -248,17 +251,6 @@ export function LocalDJsSection({
 
   return (
     <section className={isEmpty ? 'mb-2' : 'mb-4 md:mb-6'}>
-      {/* Section header */}
-      <div className={`flex items-center ${isEmpty ? 'mb-1' : 'mb-2 md:mb-3'}`}>
-        <h2 className="text-white text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
-          {/* Pin/location icon */}
-          <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-          </svg>
-          Local Shows
-        </h2>
-      </div>
-
       {/* Empty state - both sections empty */}
       {isEmpty && (
         <div className="text-center py-3">
@@ -308,7 +300,7 @@ export function LocalDJsSection({
                 );
               }),
               ...(filteredIRLShows.length < 5 && !hasRadioShows
-                ? [<InviteCard key="invite-card" message={`Invite your favorite ${selectedCity} DJs to join Channel`} />]
+                ? [<InviteCard key="invite-card" message={`Invite your favorite ${isAnywhere ? '' : selectedCity + ' '}DJs to join Channel`} />]
                 : []),
             ]}
           </SwipeableCardCarousel>
@@ -345,7 +337,7 @@ export function LocalDJsSection({
                   );
                 }),
               ...(localDJShows.length < 5
-                ? [<InviteCard key="invite-card" message={`Invite your favorite ${selectedCity} DJs to join Channel`} />]
+                ? [<InviteCard key="invite-card" message={`Invite your favorite ${isAnywhere ? '' : selectedCity + ' '}DJs to join Channel`} />]
                 : []),
             ]}
           </SwipeableCardCarousel>
