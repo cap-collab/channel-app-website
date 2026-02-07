@@ -1,10 +1,7 @@
 import Link from "next/link";
+import Image from "next/image";
 import ScrollReveal from "@/components/ScrollReveal";
 import FAQAccordion from "@/components/FAQAccordion";
-import PhoneMockup from "@/components/PhoneMockup";
-import StreamingGuideScreen from "@/components/mockups/StreamingGuideScreen";
-import TipsInboxScreen from "@/components/mockups/TipsInboxScreen";
-import DJProfileScreen from "@/components/mockups/DJProfileScreen";
 import { Header } from "@/components/Header";
 
 const faqItems = [
@@ -96,11 +93,13 @@ export default function Home() {
                   Discovery here is intentional, rooted in trust, taste, and
                   local communities.
                 </p>
-                <div className="transform scale-[0.55] origin-top -mb-[45%]">
-                  <PhoneMockup className="w-[300px]">
-                    <StreamingGuideScreen />
-                  </PhoneMockup>
-                </div>
+                <Image
+                  src="/radio-portal/Curated.png"
+                  alt="Curated"
+                  width={600}
+                  height={400}
+                  className="rounded-xl w-full"
+                />
               </div>
 
               {/* Independent */}
@@ -114,11 +113,13 @@ export default function Home() {
                   You can support them directly through tips. No ads, no
                   intermediary shaping what you hear.
                 </p>
-                <div className="transform scale-[0.55] origin-top -mb-[45%]">
-                  <PhoneMockup className="w-[300px]">
-                    <TipsInboxScreen />
-                  </PhoneMockup>
-                </div>
+                <Image
+                  src="/radio-portal/independent.png"
+                  alt="Independent"
+                  width={600}
+                  height={400}
+                  className="rounded-xl w-full"
+                />
               </div>
 
               {/* Collaborative */}
@@ -133,11 +134,13 @@ export default function Home() {
                   discovery of the events, producers, and other selectors they
                   care about.
                 </p>
-                <div className="transform scale-[0.55] origin-top -mb-[45%]">
-                  <PhoneMockup className="w-[300px]">
-                    <DJProfileScreen />
-                  </PhoneMockup>
-                </div>
+                <Image
+                  src="/radio-portal/Collaborative.png"
+                  alt="Collaborative"
+                  width={600}
+                  height={400}
+                  className="rounded-xl w-full"
+                />
               </div>
             </div>
           </div>
