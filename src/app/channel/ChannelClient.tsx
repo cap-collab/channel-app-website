@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -11,6 +11,7 @@ import { TipThankYouModal } from '@/components/channel/TipThankYouModal';
 import { MyDJsSection } from '@/components/channel/MyDJsSection';
 import { WhoNotToMiss } from '@/components/channel/WhoNotToMiss';
 import { LocalDJsSection } from '@/components/channel/LocalDJsSection';
+import { Tuner } from '@/components/channel/Tuner';
 import { AuthModal } from '@/components/AuthModal';
 import { useBroadcastStream } from '@/hooks/useBroadcastStream';
 import { useListenerChat } from '@/hooks/useListenerChat';
@@ -52,6 +53,10 @@ export function ChannelClient() {
   // Selected city for local DJs section (lifted up for deduplication)
   const [selectedCity, setSelectedCity] = useState<string>('');
   const [cityInitialized, setCityInitialized] = useState(false);
+
+  // Selected genre for Who Not To Miss section (lifted up for Tuner bar)
+  const [selectedGenre, setSelectedGenre] = useState<string>('');
+  const genreInitialized = useRef(false);
 
   // Track featured DJ names (first position in carousels) to avoid repeating across sections
   const [featuredDJNames, setFeaturedDJNames] = useState<string[]>([]);
@@ -116,6 +121,69 @@ export function ChannelClient() {
       // Save to localStorage for unauthenticated users
       try {
         localStorage.setItem('channel-selected-city', city);
+      } catch {
+        // localStorage not available
+      }
+    }
+  }, [user?.uid]);
+
+  // Load saved genre preference from user profile (auth) or localStorage (unauth)
+  useEffect(() => {
+    async function loadSavedGenre() {
+      if (genreInitialized.current) return;
+
+      // For authenticated users, load from Firebase
+      if (user?.uid && db) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const savedGenre = userDoc.data()?.preferredGenre;
+            if (savedGenre) {
+              setSelectedGenre(savedGenre);
+              genreInitialized.current = true;
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('Error loading saved genre:', error);
+        }
+        // Authenticated user without saved preference - default to House
+        setSelectedGenre('House');
+        genreInitialized.current = true;
+        return;
+      }
+
+      // For unauthenticated users, try localStorage (no default - empty if not set)
+      try {
+        const localGenre = localStorage.getItem('channel-selected-genre');
+        if (localGenre) {
+          setSelectedGenre(localGenre);
+        }
+      } catch {
+        // localStorage not available
+      }
+      genreInitialized.current = true;
+    }
+
+    loadSavedGenre();
+  }, [user?.uid]);
+
+  // Handle genre change and save to profile
+  const handleGenreChange = useCallback(async (genre: string) => {
+    setSelectedGenre(genre);
+
+    if (user?.uid && db) {
+      try {
+        const userRef = doc(db, 'users', user.uid);
+        await updateDoc(userRef, {
+          preferredGenre: genre,
+        });
+      } catch (error) {
+        console.error('Error saving genre preference:', error);
+      }
+    } else {
+      try {
+        localStorage.setItem('channel-selected-genre', genre);
       } catch {
         // localStorage not available
       }
@@ -350,28 +418,28 @@ export function ChannelClient() {
       {/* Use shared Header with profile icon */}
       <Header currentPage="channel" position="sticky" />
 
+      {/* Tuner bar - sticky below header */}
+      <Tuner
+        selectedCity={selectedCity}
+        onCityChange={handleCityChange}
+        selectedGenre={selectedGenre}
+        onGenreChange={handleGenreChange}
+      />
+
       {/* Main content - flex-1 and min-h-0 to fill remaining space */}
       <main className="max-w-7xl mx-auto flex-1 min-h-0 w-full flex flex-col">
         {/* Unified layout for all screen sizes */}
         <div className="flex flex-col overflow-y-auto">
-          {/* My DJs Section - only shows for authenticated users with followed DJs */}
-          <div className="flex-shrink-0 px-4 pt-3 md:pt-4">
-            <MyDJsSection
-              shows={liveAndUpcomingShows}
-              irlShows={irlShows}
-              isAuthenticated={isAuthenticated}
-              isLoading={allShowsLoading}
-            />
-          </div>
-
           {/* Who Is On Now - live DJ cards with Play button for broadcast, chat below broadcast card */}
-          <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
+          <div className="flex-shrink-0 px-4 pt-3 md:pt-4">
             <WhoIsOnNow
               onAuthRequired={handleAuthRequired}
               onTogglePlay={toggle}
               isPlaying={isPlaying}
               isStreamLoading={isLoading}
               isBroadcastLive={isLive}
+              selectedGenre={selectedGenre}
+              selectedCity={selectedCity}
               chatSlot={isLive ? (
                 <div className="bg-surface-card rounded-xl overflow-hidden h-[300px] lg:h-[400px]">
                   <ListenerChatPanel
@@ -398,6 +466,16 @@ export function ChannelClient() {
             />
           </div>
 
+          {/* My DJs Section - only shows for authenticated users with followed DJs */}
+          <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
+            <MyDJsSection
+              shows={liveAndUpcomingShows}
+              irlShows={irlShows}
+              isAuthenticated={isAuthenticated}
+              isLoading={allShowsLoading}
+            />
+          </div>
+
           {/* Your Local DJs - unified section with IRL and Radio Shows subsections */}
           <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
             <LocalDJsSection
@@ -408,7 +486,7 @@ export function ChannelClient() {
               onAuthRequired={handleRemindMe}
               onIRLAuthRequired={handleIRLAuthRequired}
               selectedCity={selectedCity}
-              onCityChange={handleCityChange}
+              selectedGenre={selectedGenre}
               onFeaturedDJs={setFeaturedDJNames}
             />
           </div>
@@ -422,6 +500,7 @@ export function ChannelClient() {
               onAuthRequired={handleRemindMe}
               excludedShowIds={excludedShowIds}
               featuredDJNames={featuredDJNames}
+              selectedGenre={selectedGenre}
             />
           </div>
 

@@ -1,35 +1,13 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useState, useMemo } from 'react';
 import { Show, Station } from '@/types';
 import { useFavorites } from '@/hooks/useFavorites';
-import { useAuthContext } from '@/contexts/AuthContext';
 import { TicketCard } from './TicketCard';
 import { SwipeableCardCarousel } from './SwipeableCardCarousel';
 import { InviteCard } from './InviteCard';
 import { prioritizeShowArray } from '@/lib/show-prioritization';
-
-const SUPPORTED_GENRES = [
-  'Ambient',
-  'Bass',
-  'Dance',
-  'Disco',
-  'Drum and Bass',
-  'Dub',
-  'Electronic',
-  'Funk',
-  'Garage',
-  'Hip Hop',
-  'House',
-  'Jungle',
-  'Rap',
-  'Reggae',
-  'Soul',
-  'Techno',
-  'World',
-];
+import { GENRE_ALIASES } from '@/lib/genres';
 
 interface WhoNotToMissProps {
   shows: Show[];
@@ -38,25 +16,8 @@ interface WhoNotToMissProps {
   onAuthRequired: (show: Show) => void;
   excludedShowIds?: Set<string>; // Shows already displayed in My Favorites or Local DJs sections
   featuredDJNames?: string[]; // DJ names already featured (first position) in earlier sections - avoid featuring them first here
+  selectedGenre: string; // Selected genre from Tuner bar
 }
-
-// Genre aliases for flexible matching
-const GENRE_ALIASES: Record<string, string[]> = {
-  'ambient': ['ambiant', 'ambience', 'atmospheric'],
-  'dance': ['dance music'],
-  'drum and bass': ['drum & bass', 'dnb', 'd&b', 'd and b', 'drum n bass', "drum'n'bass", 'drumnbass'],
-  'hip hop': ['hip-hop', 'hiphop'],
-  'garage': ['uk garage', 'ukg', '2-step', '2step'],
-  'dub': ['dubstep'],
-  'disco': ['nu disco', 'nu-disco'],
-  'funk': ['funky'],
-  'soul': ['neo soul', 'neo-soul', 'r&b', 'rnb'],
-  'electronic': ['electronica'],
-  'house': ['deep house', 'tech house'],
-  'techno': ['tech'],
-  'jungle': ['junglist'],
-  'reggae': ['roots', 'dancehall'],
-};
 
 // Helper to check if a show matches a genre (case-insensitive partial match)
 // Supports aliases like d&b for Drum and Bass, etc.
@@ -118,103 +79,11 @@ export function WhoNotToMiss({
   onAuthRequired,
   excludedShowIds = new Set(),
   featuredDJNames = [],
+  selectedGenre,
 }: WhoNotToMissProps) {
-  const { user } = useAuthContext();
   const { isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
   const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
   const [addingReminderShowId, setAddingReminderShowId] = useState<string | null>(null);
-  // Start with empty string - will be populated from Firebase/localStorage
-  const [selectedGenre, setSelectedGenre] = useState<string>('');
-  const [customGenreInput, setCustomGenreInput] = useState<string>('');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isCustomMode, setIsCustomMode] = useState(false);
-  const [copySuccess, setCopySuccess] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const initialLoadDone = useRef(false);
-
-  // Load saved genre preference from user profile (auth) or localStorage (unauth)
-  useEffect(() => {
-    async function loadSavedGenre() {
-      if (initialLoadDone.current) return;
-
-      // For authenticated users, load from Firebase
-      if (user?.uid && db) {
-        try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            const savedGenre = userDoc.data()?.preferredGenre;
-            if (savedGenre) {
-              setSelectedGenre(savedGenre);
-              initialLoadDone.current = true;
-              return;
-            }
-          }
-        } catch (error) {
-          console.error('Error loading saved genre:', error);
-        }
-        // Authenticated user without saved preference - default to House
-        setSelectedGenre('House');
-        initialLoadDone.current = true;
-        return;
-      }
-
-      // For unauthenticated users, try localStorage (no default - empty if not set)
-      try {
-        const localGenre = localStorage.getItem('channel-selected-genre');
-        if (localGenre) {
-          setSelectedGenre(localGenre);
-        }
-        // If no localStorage value, selectedGenre stays empty (no default for unauth)
-      } catch {
-        // localStorage not available
-      }
-      initialLoadDone.current = true;
-    }
-
-    loadSavedGenre();
-  }, [user?.uid]);
-
-  // Handle genre selection and save to profile (Firebase for auth, localStorage for unauth)
-  const handleSelectGenre = (genre: string) => {
-    setSelectedGenre(genre);
-    setIsDropdownOpen(false);
-    setIsCustomMode(false);
-    setCustomGenreInput('');
-
-    // Save to Firebase if authenticated
-    if (user?.uid && db) {
-      try {
-        const userRef = doc(db, 'users', user.uid);
-        updateDoc(userRef, {
-          preferredGenre: genre,
-        });
-      } catch (error) {
-        console.error('Error saving genre preference:', error);
-      }
-    } else {
-      // Save to localStorage for unauthenticated users
-      try {
-        localStorage.setItem('channel-selected-genre', genre);
-      } catch {
-        // localStorage not available
-      }
-    }
-  };
-
-  // Handle custom genre submission
-  const handleCustomGenreSubmit = () => {
-    const trimmed = customGenreInput.trim();
-    if (trimmed) {
-      handleSelectGenre(trimmed);
-    }
-  };
-
-  // Focus input when entering custom mode
-  useEffect(() => {
-    if (isCustomMode && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isCustomMode]);
 
   // Base filter for upcoming shows with DJ profiles
   const upcomingShowsBase = useMemo(() => {
@@ -246,50 +115,7 @@ export function WhoNotToMiss({
     return avoidFeaturedFirst(prioritized, (show) => show.dj, featuredDJNames);
   }, [upcomingShowsBase, selectedGenre, excludedShowIds, featuredDJNames]);
 
-  // Track all featured DJs (from earlier sections + genre section first)
-  const allFeaturedDJNames = useMemo(() => {
-    const featured = [...featuredDJNames];
-    if (genreFilteredShows.length > 0 && genreFilteredShows[0].dj) {
-      featured.push(genreFilteredShows[0].dj.toLowerCase());
-    }
-    return featured;
-  }, [featuredDJNames, genreFilteredShows]);
-
-  // "Our Picks" - prioritize recurring shows, then by profile completeness
-  // Weekly/bi-weekly first, then monthly, then others
-  // Also diversify by station and location
-  // Avoid featuring DJs already featured in earlier sections or genre section
-  const ourPicks = useMemo(() => {
-    // Exclude shows already in genre section to avoid duplicates
-    const genreShowIds = new Set(genreFilteredShows.map((s) => s.id));
-
-    // Filter out excluded shows and genre section shows
-    const candidates = upcomingShowsBase.filter(
-      (show) => !excludedShowIds.has(show.id) && !genreShowIds.has(show.id)
-    );
-
-    // Apply prioritization (weekly/bi-weekly first, diversify by station/location)
-    const prioritized = prioritizeShowArray(candidates);
-
-    // Take top 5 and avoid putting already-featured DJs first
-    const top5 = prioritized.slice(0, 5);
-    return avoidFeaturedFirst(top5, (show) => show.dj, allFeaturedDJNames);
-  }, [upcomingShowsBase, genreFilteredShows, excludedShowIds, allFeaturedDJNames]);
-
   const hasGenreShows = genreFilteredShows.length > 0;
-  const hasOurPicks = ourPicks.length > 0;
-
-  // Handle copy URL
-  const handleCopyUrl = useCallback(async () => {
-    try {
-      const url = `${window.location.origin}/studio/join`;
-      await navigator.clipboard.writeText(url);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
-    } catch (error) {
-      console.error('Failed to copy URL:', error);
-    }
-  }, []);
 
   // Follow/Unfollow: toggles DJ in watchlist
   const handleFollow = async (show: Show) => {
@@ -330,228 +156,60 @@ export function WhoNotToMiss({
   };
 
   // Don't render if no shows at all
-  if (!hasGenreShows && !hasOurPicks) {
+  if (!hasGenreShows) {
     return null;
   }
 
   return (
-    <div>
-      {/* Genre-filtered section */}
-      <section className="mb-4 md:mb-6">
-        {/* Header with genre dropdown */}
-        <div className="flex justify-between items-center mb-2 md:mb-3">
-          <h2 className="text-white text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
-            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" />
-            </svg>
-            Who Not To Miss
-          </h2>
+    <section className="mb-4 md:mb-6">
+      {/* Section header */}
+      <div className="flex items-center mb-2 md:mb-3">
+        <h2 className="text-white text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
+          <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" />
+          </svg>
+          Who Not To Miss
+        </h2>
+      </div>
 
-          {/* Genre dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
-            >
-              {selectedGenre || 'Genre'}
-              <svg
-                className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
+      <SwipeableCardCarousel>
+        {[
+          ...genreFilteredShows
+            .filter((show) => stations.get(show.stationId))
+            .map((show) => {
+              const station = stations.get(show.stationId)!;
+              const isFollowing = show.dj ? isInWatchlist(show.dj) : false;
+              const isFavorited = isShowFavorited(show);
+              const isAddingFollow = addingFollowDj === show.dj;
+              const isAddingReminder = addingReminderShowId === show.id;
 
-            {isDropdownOpen && (
-              <>
-                {/* Backdrop to close dropdown */}
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => {
-                    setIsDropdownOpen(false);
-                    setIsCustomMode(false);
-                    setCustomGenreInput('');
-                  }}
+              return (
+                <TicketCard
+                  key={show.id}
+                  show={show}
+                  station={station}
+                  isAuthenticated={isAuthenticated}
+                  isFollowing={isFollowing}
+                  isShowFavorited={isFavorited}
+                  isAddingFollow={isAddingFollow}
+                  isAddingReminder={isAddingReminder}
+                  onFollow={() => handleFollow(show)}
+                  onRemindMe={() => handleRemindMe(show)}
                 />
-                {/* Dropdown menu */}
-                <div className="absolute right-0 mt-1 w-48 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl z-20 py-1 max-h-72 overflow-y-auto">
-                  {/* Custom genre input option */}
-                  {isCustomMode ? (
-                    <div className="px-2 py-1">
-                      <div className="flex gap-1">
-                        <input
-                          ref={inputRef}
-                          type="text"
-                          value={customGenreInput}
-                          onChange={(e) => setCustomGenreInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              handleCustomGenreSubmit();
-                            } else if (e.key === 'Escape') {
-                              setIsCustomMode(false);
-                              setCustomGenreInput('');
-                            }
-                          }}
-                          placeholder="Enter genre..."
-                          className="flex-1 bg-black border border-white/20 rounded px-2 py-1 text-sm text-white placeholder-gray-500 focus:border-white/40 focus:outline-none"
-                        />
-                        <button
-                          onClick={handleCustomGenreSubmit}
-                          disabled={!customGenreInput.trim()}
-                          className="px-2 py-1 bg-white text-black rounded text-sm font-medium disabled:opacity-50"
-                        >
-                          Go
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setIsCustomMode(true)}
-                      className="w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-2"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                      </svg>
-                      Type your genre...
-                    </button>
-                  )}
-
-                  {/* Divider */}
-                  <div className="border-t border-white/10 my-1" />
-
-                  {/* Genre list */}
-                  {SUPPORTED_GENRES.map((genre) => (
-                    <button
-                      key={genre}
-                      onClick={() => handleSelectGenre(genre)}
-                      className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                        selectedGenre === genre
-                          ? 'bg-white/10 text-white'
-                          : 'text-gray-300 hover:bg-white/5 hover:text-white'
-                      }`}
-                    >
-                      {genre}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Genre-filtered shows or empty state */}
-        {!hasGenreShows ? (
-          <div className="text-center py-3">
-            <p className="text-gray-400 text-sm mb-3">
-              {selectedGenre
-                ? `Invite your favorite ${selectedGenre} DJs to join Channel`
-                : 'Invite your favorite DJs to join Channel'}
-            </p>
-            <button
-              onClick={handleCopyUrl}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
-            >
-              {copySuccess ? (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  Copy invite link
-                </>
-              )}
-            </button>
-          </div>
-        ) : (
-          <SwipeableCardCarousel>
-            {[
-              ...genreFilteredShows
-                .filter((show) => stations.get(show.stationId))
-                .map((show) => {
-                  const station = stations.get(show.stationId)!;
-                  const isFollowing = show.dj ? isInWatchlist(show.dj) : false;
-                  const isFavorited = isShowFavorited(show);
-                  const isAddingFollow = addingFollowDj === show.dj;
-                  const isAddingReminder = addingReminderShowId === show.id;
-
-                  return (
-                    <TicketCard
-                      key={show.id}
-                      show={show}
-                      station={station}
-                      isAuthenticated={isAuthenticated}
-                      isFollowing={isFollowing}
-                      isShowFavorited={isFavorited}
-                      isAddingFollow={isAddingFollow}
-                      isAddingReminder={isAddingReminder}
-                      onFollow={() => handleFollow(show)}
-                      onRemindMe={() => handleRemindMe(show)}
-                    />
-                  );
-                }),
-              ...(genreFilteredShows.length < 5
-                ? [
-                    <InviteCard
-                      key="invite-card"
-                      message={selectedGenre
-                        ? `Invite your favorite ${selectedGenre} DJs to join Channel`
-                        : 'Invite your favorite DJs to join Channel'}
-                    />,
-                  ]
-                : []),
-            ]}
-          </SwipeableCardCarousel>
-        )}
-      </section>
-
-      {/* Our Picks section */}
-      {hasOurPicks && (
-        <section className="mb-4 md:mb-6">
-          <div className="flex justify-between items-center mb-2 md:mb-3">
-            <h2 className="text-white text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
-              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-              </svg>
-              Our Picks
-            </h2>
-          </div>
-
-          <SwipeableCardCarousel>
-            {ourPicks
-              .filter((show) => stations.get(show.stationId))
-              .map((show) => {
-                const station = stations.get(show.stationId)!;
-                const isFollowing = show.dj ? isInWatchlist(show.dj) : false;
-                const isFavorited = isShowFavorited(show);
-                const isAddingFollow = addingFollowDj === show.dj;
-                const isAddingReminder = addingReminderShowId === show.id;
-
-                return (
-                  <TicketCard
-                    key={show.id}
-                    show={show}
-                    station={station}
-                    isAuthenticated={isAuthenticated}
-                    isFollowing={isFollowing}
-                    isShowFavorited={isFavorited}
-                    isAddingFollow={isAddingFollow}
-                    isAddingReminder={isAddingReminder}
-                    onFollow={() => handleFollow(show)}
-                    onRemindMe={() => handleRemindMe(show)}
-                  />
-                );
-              })}
-          </SwipeableCardCarousel>
-        </section>
-      )}
-    </div>
+              );
+            }),
+          ...(genreFilteredShows.length < 5
+            ? [
+                <InviteCard
+                  key="invite-card"
+                  message={selectedGenre
+                    ? `Invite your favorite ${selectedGenre} DJs to join Channel`
+                    : 'Invite your favorite DJs to join Channel'}
+                />,
+              ]
+            : []),
+        ]}
+      </SwipeableCardCarousel>
+    </section>
   );
 }

@@ -22,22 +22,43 @@ export function IRLShowCard({
 
   const hasPhoto = show.djPhotoUrl && !imageError;
 
-  return (
-    <div className="w-full group">
-      {/* Date and IRL badge above image */}
-      <div className="flex justify-between items-center mb-1 h-4 px-0.5">
-        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">
-          {new Date(show.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-        </div>
-        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter flex items-center gap-1">
+  const imageOverlays = (
+    <>
+      {/* Gradient scrims */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
+      {/* IRL badge - top left */}
+      <div className="absolute top-2 left-2">
+        <span className="text-[10px] font-mono text-white uppercase tracking-tighter flex items-center gap-1 drop-shadow-lg">
           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
           </svg>
           IRL
-        </div>
+        </span>
       </div>
+      {/* Date - top right */}
+      <div className="absolute top-2 right-2">
+        <span className="text-[10px] font-mono text-white uppercase tracking-tighter drop-shadow-lg">
+          {new Date(show.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+        </span>
+      </div>
+      {/* DJ Name and Location - bottom left */}
+      <div className="absolute bottom-2 left-2 right-2">
+        <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+          {show.djName}
+        </span>
+        {show.djLocation && (
+          <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
+            {show.djLocation}
+          </span>
+        )}
+      </div>
+    </>
+  );
 
-      {/* Full width image with DJ overlay - links to DJ profile */}
+  return (
+    <div className="w-full group">
+      {/* Full width image with overlays - links to DJ profile */}
       {show.djUsername ? (
         <Link href={`/dj/${show.djUsername}`} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
           {hasPhoto ? (
@@ -50,28 +71,7 @@ export function IRLShowCard({
                 unoptimized
                 onError={() => setImageError(true)}
               />
-              {/* Gradient scrims - top left and bottom left corners */}
-              <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
-              {/* DJ Name and Location Overlay on top-left */}
-              <div className="absolute top-2 left-2 right-2">
-                <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
-                  {show.djName}
-                </span>
-                {show.djLocation && (
-                  <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
-                    {show.djLocation}
-                  </span>
-                )}
-              </div>
-              {/* Genre tags on bottom-left */}
-              {show.djGenres && show.djGenres.length > 0 && (
-                <div className="absolute bottom-2 left-2 right-2">
-                  <span className="text-[10px] font-mono text-white/80 uppercase tracking-tighter drop-shadow-lg">
-                    {show.djGenres.join(' · ')}
-                  </span>
-                </div>
-              )}
+              {imageOverlays}
             </>
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900 to-pink-900">
@@ -93,28 +93,7 @@ export function IRLShowCard({
                 unoptimized
                 onError={() => setImageError(true)}
               />
-              {/* Gradient scrims - top left and bottom left corners */}
-              <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
-              {/* DJ Name and Location Overlay on top-left */}
-              <div className="absolute top-2 left-2 right-2">
-                <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
-                  {show.djName}
-                </span>
-                {show.djLocation && (
-                  <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
-                    {show.djLocation}
-                  </span>
-                )}
-              </div>
-              {/* Genre tags on bottom-left */}
-              {show.djGenres && show.djGenres.length > 0 && (
-                <div className="absolute bottom-2 left-2 right-2">
-                  <span className="text-[10px] font-mono text-white/80 uppercase tracking-tighter drop-shadow-lg">
-                    {show.djGenres.join(' · ')}
-                  </span>
-                </div>
-              )}
+              {imageOverlays}
             </>
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900 to-pink-900">
@@ -127,13 +106,18 @@ export function IRLShowCard({
       )}
 
       {/* Event Info */}
-      <div className="h-14 flex flex-col justify-start py-2">
+      <div className="flex flex-col justify-start py-2">
         <h3 className="text-sm font-bold leading-tight truncate">
           {show.eventName}
         </h3>
         <p className="text-[10px] text-zinc-500 mt-0.5 uppercase">
           in {show.location}
         </p>
+        {show.djGenres && show.djGenres.length > 0 && (
+          <p className="text-[10px] font-mono text-zinc-500 mt-0.5 uppercase tracking-tighter">
+            {show.djGenres.join(' · ')}
+          </p>
+        )}
       </div>
 
       {/* Action Buttons */}

@@ -22,9 +22,6 @@ export function InviteCard({ message = 'Know a DJ? Invite them to Channel' }: In
 
   return (
     <div className="w-full">
-      {/* Empty header to match TicketCard spacing */}
-      <div className="h-4 mb-1" />
-
       {/* Card matching TicketCard dimensions */}
       <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10 border-dashed bg-white/5 flex flex-col items-center justify-center p-4">
         <p className="text-gray-400 text-sm text-center mb-3">{message}</p>

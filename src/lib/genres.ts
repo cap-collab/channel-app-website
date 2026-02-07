@@ -1,0 +1,37 @@
+export const SUPPORTED_GENRES = [
+  'Ambient',
+  'Bass',
+  'Dance',
+  'Disco',
+  'Drum and Bass',
+  'Dub',
+  'Electronic',
+  'Funk',
+  'Garage',
+  'Hip Hop',
+  'House',
+  'Jungle',
+  'Rap',
+  'Reggae',
+  'Soul',
+  'Techno',
+  'World',
+];
+
+// Genre aliases for flexible matching
+export const GENRE_ALIASES: Record<string, string[]> = {
+  'ambient': ['ambiant', 'ambience', 'atmospheric'],
+  'dance': ['dance music'],
+  'drum and bass': ['drum & bass', 'dnb', 'd&b', 'd and b', 'drum n bass', "drum'n'bass", 'drumnbass'],
+  'hip hop': ['hip-hop', 'hiphop'],
+  'garage': ['uk garage', 'ukg', '2-step', '2step'],
+  'dub': ['dubstep'],
+  'disco': ['nu disco', 'nu-disco'],
+  'funk': ['funky'],
+  'soul': ['neo soul', 'neo-soul', 'r&b', 'rnb'],
+  'electronic': ['electronica'],
+  'house': ['deep house', 'tech house'],
+  'techno': ['tech'],
+  'jungle': ['junglist'],
+  'reggae': ['roots', 'dancehall'],
+};

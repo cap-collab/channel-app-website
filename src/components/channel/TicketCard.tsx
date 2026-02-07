@@ -33,22 +33,43 @@ export function TicketCard({
   const photoUrl = show.djPhotoUrl || show.imageUrl;
   const hasPhoto = photoUrl && !imageError;
 
-  return (
-    <div className="w-full group">
-      {/* Date/time and Online badge above image */}
-      <div className="flex justify-between items-center mb-1 h-4 px-0.5">
-        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">
-          {new Date(show.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · {new Date(show.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-        </div>
-        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter flex items-center gap-1">
+  const imageOverlays = (
+    <>
+      {/* Gradient scrims */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
+      {/* Online badge - top left */}
+      <div className="absolute top-2 left-2">
+        <span className="text-[10px] font-mono text-white uppercase tracking-tighter flex items-center gap-1 drop-shadow-lg">
           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
             <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
           </svg>
           Online
-        </div>
+        </span>
       </div>
+      {/* Date/time - top right */}
+      <div className="absolute top-2 right-2">
+        <span className="text-[10px] font-mono text-white uppercase tracking-tighter drop-shadow-lg">
+          {new Date(show.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · {new Date(show.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+        </span>
+      </div>
+      {/* DJ Name and Location - bottom left */}
+      <div className="absolute bottom-2 left-2 right-2">
+        <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+          {djName}
+        </span>
+        {show.djLocation && (
+          <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
+            {show.djLocation}
+          </span>
+        )}
+      </div>
+    </>
+  );
 
-      {/* Full width image with DJ overlay - links to DJ profile if available */}
+  return (
+    <div className="w-full group">
+      {/* Full width image with overlays - links to DJ profile if available */}
       {show.djUsername ? (
         <Link href={`/dj/${show.djUsername}`} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
           {hasPhoto ? (
@@ -61,28 +82,7 @@ export function TicketCard({
                 unoptimized
                 onError={() => setImageError(true)}
               />
-              {/* Gradient scrims - top left and bottom left corners */}
-              <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
-              {/* DJ Name and Location Overlay on top-left */}
-              <div className="absolute top-2 left-2 right-2">
-                <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
-                  {djName}
-                </span>
-                {show.djLocation && (
-                  <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
-                    {show.djLocation}
-                  </span>
-                )}
-              </div>
-              {/* Genre tags on bottom-left */}
-              {show.djGenres && show.djGenres.length > 0 && (
-                <div className="absolute bottom-2 left-2 right-2">
-                  <span className="text-[10px] font-mono text-white/80 uppercase tracking-tighter drop-shadow-lg">
-                    {show.djGenres.join(' · ')}
-                  </span>
-                </div>
-              )}
+              {imageOverlays}
             </>
           ) : (
             <div
@@ -107,28 +107,7 @@ export function TicketCard({
                 unoptimized
                 onError={() => setImageError(true)}
               />
-              {/* Gradient scrims - top left and bottom left corners */}
-              <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
-              {/* DJ Name and Location Overlay on top-left */}
-              <div className="absolute top-2 left-2 right-2">
-                <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
-                  {djName}
-                </span>
-                {show.djLocation && (
-                  <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
-                    {show.djLocation}
-                  </span>
-                )}
-              </div>
-              {/* Genre tags on bottom-left */}
-              {show.djGenres && show.djGenres.length > 0 && (
-                <div className="absolute bottom-2 left-2 right-2">
-                  <span className="text-[10px] font-mono text-white/80 uppercase tracking-tighter drop-shadow-lg">
-                    {show.djGenres.join(' · ')}
-                  </span>
-                </div>
-              )}
+              {imageOverlays}
             </>
           ) : (
             <div
@@ -144,7 +123,7 @@ export function TicketCard({
       )}
 
       {/* Show Info */}
-      <div className="h-14 flex flex-col justify-start py-2">
+      <div className="flex flex-col justify-start py-2">
         <h3 className="text-sm font-bold leading-tight truncate">
           {show.djUsername ? (
             <Link href={`/dj/${show.djUsername}`} className="hover:underline">
@@ -155,8 +134,13 @@ export function TicketCard({
           )}
         </h3>
         <p className="text-[10px] text-zinc-500 mt-0.5 uppercase">
-          on {station.name}
+          Selected by {station.name}
         </p>
+        {show.djGenres && show.djGenres.length > 0 && (
+          <p className="text-[10px] font-mono text-zinc-500 mt-0.5 uppercase tracking-tighter">
+            {show.djGenres.join(' · ')}
+          </p>
+        )}
       </div>
 
       {/* Action Buttons */}

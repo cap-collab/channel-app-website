@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Show, Station, IRLShowData } from '@/types';
 import { useFavorites } from '@/hooks/useFavorites';
 import { IRLShowCard } from './IRLShowCard';
 import { TicketCard } from './TicketCard';
 import { SwipeableCardCarousel } from './SwipeableCardCarousel';
 import { InviteCard } from './InviteCard';
-import { SUPPORTED_CITIES, matchesCity } from '@/lib/city-detection';
+import { matchesCity } from '@/lib/city-detection';
 import { prioritizeShowArray, prioritizeShows } from '@/lib/show-prioritization';
+import { GENRE_ALIASES } from '@/lib/genres';
 
 // Helper to reorder array so already-featured DJs don't appear first (unless only option)
 function avoidFeaturedFirst<T>(
@@ -39,6 +40,27 @@ function avoidFeaturedFirst<T>(
   return items;
 }
 
+// Helper to check if a show matches a genre (case-insensitive partial match with aliases)
+function showMatchesGenre(showGenres: string[] | undefined, selectedGenre: string): boolean {
+  if (!showGenres || showGenres.length === 0 || !selectedGenre) return false;
+  const genreLower = selectedGenre.toLowerCase();
+
+  const aliases = GENRE_ALIASES[genreLower] || [];
+  const allTerms = [genreLower, ...aliases];
+
+  for (const [canonical, aliasList] of Object.entries(GENRE_ALIASES)) {
+    if (aliasList.includes(genreLower)) {
+      allTerms.push(canonical, ...aliasList);
+      break;
+    }
+  }
+
+  return showGenres.some((g) => {
+    const gLower = g.toLowerCase();
+    return allTerms.some((term) => gLower.includes(term) || term.includes(gLower));
+  });
+}
+
 interface LocalDJsSectionProps {
   shows: Show[];
   irlShows: IRLShowData[];
@@ -47,7 +69,7 @@ interface LocalDJsSectionProps {
   onAuthRequired: (show: Show) => void;
   onIRLAuthRequired: (djName: string) => void;
   selectedCity: string;
-  onCityChange: (city: string) => void;
+  selectedGenre?: string;
   onFeaturedDJs?: (djNames: string[]) => void; // Reports DJ names in first position of each carousel
 }
 
@@ -59,40 +81,13 @@ export function LocalDJsSection({
   onAuthRequired,
   onIRLAuthRequired,
   selectedCity,
-  onCityChange,
+  selectedGenre,
   onFeaturedDJs,
 }: LocalDJsSectionProps) {
   const { isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
   const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
   const [addingReminderShowId, setAddingReminderShowId] = useState<string | null>(null);
-  const [customCityInput, setCustomCityInput] = useState<string>('');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isCustomMode, setIsCustomMode] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // Handle city selection
-  const handleSelectCity = (city: string) => {
-    onCityChange(city);
-    setIsDropdownOpen(false);
-    setIsCustomMode(false);
-    setCustomCityInput('');
-  };
-
-  // Handle custom city submission
-  const handleCustomCitySubmit = () => {
-    const trimmed = customCityInput.trim();
-    if (trimmed) {
-      handleSelectCity(trimmed);
-    }
-  };
-
-  // Focus input when entering custom mode
-  useEffect(() => {
-    if (isCustomMode && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isCustomMode]);
 
   // Filter IRL shows by selected city (max 5)
   // IRL shows don't have a recurring type, so just diversify by location
@@ -142,12 +137,21 @@ export function LocalDJsSection({
       );
     });
 
-    const prioritized = prioritizeShowArray(filtered, 5);
+    // Sort genre-matching shows first before prioritization
+    const genreSorted = selectedGenre
+      ? [...filtered].sort((a, b) => {
+          const aMatch = showMatchesGenre(a.djGenres, selectedGenre) ? 1 : 0;
+          const bMatch = showMatchesGenre(b.djGenres, selectedGenre) ? 1 : 0;
+          return bMatch - aMatch;
+        })
+      : filtered;
+
+    const prioritized = prioritizeShowArray(genreSorted, 5);
 
     // Avoid putting IRL-featured DJ first in radio shows
     const featuredNames = firstIRLDJName ? [firstIRLDJName] : [];
     return avoidFeaturedFirst(prioritized, (show) => show.dj, featuredNames);
-  }, [shows, selectedCity, firstIRLDJName]);
+  }, [shows, selectedCity, selectedGenre, firstIRLDJName]);
 
   const hasIRLShows = filteredIRLShows.length > 0;
   const hasRadioShows = localDJShows.length > 0;
@@ -244,8 +248,8 @@ export function LocalDJsSection({
 
   return (
     <section className={isEmpty ? 'mb-2' : 'mb-4 md:mb-6'}>
-      {/* Header with city dropdown - always visible */}
-      <div className={`flex justify-between items-center ${isEmpty ? 'mb-1' : 'mb-2 md:mb-3'}`}>
+      {/* Section header */}
+      <div className={`flex items-center ${isEmpty ? 'mb-1' : 'mb-2 md:mb-3'}`}>
         <h2 className="text-white text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
           {/* Pin/location icon */}
           <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -253,99 +257,6 @@ export function LocalDJsSection({
           </svg>
           Local Shows
         </h2>
-
-        {/* City dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
-          >
-            {selectedCity || 'Select city'}
-            <svg
-              className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-
-          {isDropdownOpen && (
-            <>
-              {/* Backdrop to close dropdown */}
-              <div
-                className="fixed inset-0 z-10"
-                onClick={() => {
-                  setIsDropdownOpen(false);
-                  setIsCustomMode(false);
-                  setCustomCityInput('');
-                }}
-              />
-              {/* Dropdown menu */}
-              <div className="absolute right-0 mt-1 w-48 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl z-20 py-1 max-h-72 overflow-y-auto">
-                {/* Custom city input option */}
-                {isCustomMode ? (
-                  <div className="px-2 py-1">
-                    <div className="flex gap-1">
-                      <input
-                        ref={inputRef}
-                        type="text"
-                        value={customCityInput}
-                        onChange={(e) => setCustomCityInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleCustomCitySubmit();
-                          } else if (e.key === 'Escape') {
-                            setIsCustomMode(false);
-                            setCustomCityInput('');
-                          }
-                        }}
-                        placeholder="Enter city..."
-                        className="flex-1 bg-black border border-white/20 rounded px-2 py-1 text-sm text-white placeholder-gray-500 focus:border-white/40 focus:outline-none"
-                      />
-                      <button
-                        onClick={handleCustomCitySubmit}
-                        disabled={!customCityInput.trim()}
-                        className="px-2 py-1 bg-white text-black rounded text-sm font-medium disabled:opacity-50"
-                      >
-                        Go
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setIsCustomMode(true)}
-                    className="w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                    Type your city...
-                  </button>
-                )}
-
-                {/* Divider */}
-                <div className="border-t border-white/10 my-1" />
-
-                {/* City list */}
-                {SUPPORTED_CITIES.map((city) => (
-                  <button
-                    key={city}
-                    onClick={() => handleSelectCity(city)}
-                    className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                      selectedCity === city
-                        ? 'bg-white/10 text-white'
-                        : 'text-gray-300 hover:bg-white/5 hover:text-white'
-                    }`}
-                  >
-                    {city}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
       </div>
 
       {/* Empty state - both sections empty */}

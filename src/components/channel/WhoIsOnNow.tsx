@@ -9,6 +9,9 @@ import { useBPM } from '@/contexts/BPMContext';
 import { Show, Station } from '@/types';
 import { STATIONS, getMetadataKeyByStationId } from '@/lib/stations';
 import { getContrastTextColor } from '@/lib/colorUtils';
+import { SwipeableCardCarousel } from './SwipeableCardCarousel';
+import { GENRE_ALIASES } from '@/lib/genres';
+import { matchesCity } from '@/lib/city-detection';
 
 interface WhoIsOnNowProps {
   onAuthRequired?: () => void;
@@ -20,9 +23,33 @@ interface WhoIsOnNowProps {
   isBroadcastLive?: boolean;
   // Optional chat element to render directly below the broadcast DJ card
   chatSlot?: React.ReactNode;
+  // Genre and city for priority sorting
+  selectedGenre?: string;
+  selectedCity?: string;
 }
 
-export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLoading, isBroadcastLive, chatSlot }: WhoIsOnNowProps) {
+// Helper to check if a show matches a genre (case-insensitive partial match with aliases)
+function showMatchesGenre(showGenres: string[] | undefined, selectedGenre: string): boolean {
+  if (!showGenres || showGenres.length === 0 || !selectedGenre) return false;
+  const genreLower = selectedGenre.toLowerCase();
+
+  const aliases = GENRE_ALIASES[genreLower] || [];
+  const allTerms = [genreLower, ...aliases];
+
+  for (const [canonical, aliasList] of Object.entries(GENRE_ALIASES)) {
+    if (aliasList.includes(genreLower)) {
+      allTerms.push(canonical, ...aliasList);
+      break;
+    }
+  }
+
+  return showGenres.some((g) => {
+    const gLower = g.toLowerCase();
+    return allTerms.some((term) => gLower.includes(term) || term.includes(gLower));
+  });
+}
+
+export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLoading, isBroadcastLive, chatSlot, selectedGenre, selectedCity }: WhoIsOnNowProps) {
   const { isAuthenticated } = useAuthContext();
   const { isInWatchlist, followDJ, removeFromWatchlist } = useFavorites();
   const { stationBPM } = useBPM();
@@ -85,24 +112,34 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
         return true;
       })
       .sort((a, b) => {
-        // Sort: broadcast first, then by station order
+        // Sort: broadcast first
         if (a.stationId === 'broadcast' && b.stationId !== 'broadcast') return -1;
         if (a.stationId !== 'broadcast' && b.stationId === 'broadcast') return 1;
 
-        // Then sort by: picture + genre > picture only > no picture
-        // Only use djPhotoUrl (from DJ profile) as reliable photo indicator
+        // Then prioritize by genre match
+        const aMatchesGenre = selectedGenre ? showMatchesGenre(a.djGenres, selectedGenre) : false;
+        const bMatchesGenre = selectedGenre ? showMatchesGenre(b.djGenres, selectedGenre) : false;
+        if (aMatchesGenre && !bMatchesGenre) return -1;
+        if (!aMatchesGenre && bMatchesGenre) return 1;
+
+        // Then prioritize by location match
+        const aMatchesCity = selectedCity && a.djLocation ? matchesCity(a.djLocation, selectedCity) : false;
+        const bMatchesCity = selectedCity && b.djLocation ? matchesCity(b.djLocation, selectedCity) : false;
+        if (aMatchesCity && !bMatchesCity) return -1;
+        if (!aMatchesCity && bMatchesCity) return 1;
+
+        // Then by: picture + genre > picture only > no picture
         const aHasPhoto = !!a.djPhotoUrl;
         const bHasPhoto = !!b.djPhotoUrl;
         const aHasGenre = !!(a.djGenres && a.djGenres.length > 0);
         const bHasGenre = !!(b.djGenres && b.djGenres.length > 0);
 
-        // Calculate priority: photo+genre=3, photo only=2, no photo=1
         const aPriority = aHasPhoto ? (aHasGenre ? 3 : 2) : 1;
         const bPriority = bHasPhoto ? (bHasGenre ? 3 : 2) : 1;
 
         return bPriority - aPriority;
       });
-  }, [allShows, currentTime, isBroadcastLive]);
+  }, [allShows, currentTime, isBroadcastLive, selectedGenre, selectedCity]);
 
   const handleFollow = useCallback(
     async (show: Show) => {
@@ -196,29 +233,29 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
         </div>
       )}
 
-      {/* Horizontal scroll strip for other live shows - 3 visible on desktop, scroll for more */}
+      {/* Other live shows - full width cards in carousel */}
       {otherLiveShows.length > 0 && (
-        <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 no-scrollbar">
-          {otherLiveShows.map((show) => {
-            const station = stationsMap.get(show.stationId);
-            if (!station) return null;
+        <SwipeableCardCarousel>
+          {otherLiveShows
+            .filter((show) => stationsMap.get(show.stationId))
+            .map((show) => {
+              const station = stationsMap.get(show.stationId)!;
+              const djNameForWatchlist = show.dj || show.name;
+              const isFollowed = djNameForWatchlist ? isInWatchlist(djNameForWatchlist) : false;
 
-            const djNameForWatchlist = show.dj || show.name;
-            const isFollowed = djNameForWatchlist ? isInWatchlist(djNameForWatchlist) : false;
-
-            return (
-              <LiveShowCard
-                key={show.id}
-                show={show}
-                station={station}
-                isFollowed={isFollowed}
-                isTogglingFollow={togglingFollowId === show.id}
-                onFollow={() => handleFollow(show)}
-                bpm={stationBPM[getMetadataKeyByStationId(show.stationId) || '']?.bpm ?? null}
-              />
-            );
-          })}
-        </div>
+              return (
+                <LiveShowCard
+                  key={show.id}
+                  show={show}
+                  station={station}
+                  isFollowed={isFollowed}
+                  isTogglingFollow={togglingFollowId === show.id}
+                  onFollow={() => handleFollow(show)}
+                  bpm={stationBPM[getMetadataKeyByStationId(show.stationId) || '']?.bpm ?? null}
+                />
+              );
+            })}
+        </SwipeableCardCarousel>
       )}
     </section>
   );
@@ -256,28 +293,19 @@ function BroadcastCard({
 
   return (
     <div>
-      {/* BPM and Online badge above card */}
-      <div className="flex justify-between items-center mb-1 h-4 px-0.5">
-        {bpm ? (
-          <div
-            className="text-[10px] font-mono text-zinc-400 uppercase tracking-tighter flex items-center gap-1.5 animate-bpm-pulse"
-            style={{ ['--bpm-duration' as string]: bpmDuration }}
-          >
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-bpm-ping" style={{ ['--bpm-duration' as string]: bpmDuration }}></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-            </span>
-            {bpm} BPM
-          </div>
-        ) : (
-          <div />
-        )}
-        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter flex items-center gap-1">
-          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
-          </svg>
-          Online
+      {/* BPM + red dot + LIVE above card */}
+      <div className="flex items-center gap-1.5 mb-1 h-4 px-0.5">
+        <div
+          className="text-[10px] font-mono text-zinc-400 uppercase tracking-tighter flex items-center gap-1.5 animate-bpm-pulse"
+          style={{ ['--bpm-duration' as string]: bpmDuration }}
+        >
+          {bpm && <>{bpm} BPM</>}
         </div>
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
+        </span>
+        <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">LIVE</span>
       </div>
       <div className="bg-surface-card rounded-xl overflow-hidden">
         <div className="flex flex-col sm:flex-row">
@@ -299,9 +327,19 @@ function BroadcastCard({
                 </svg>
               </div>
             )}
-            {/* Gradient scrim */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent sm:bg-gradient-to-r" />
-            {/* DJ Name and Location Overlay */}
+            {/* Gradient scrims */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
+            {/* Online badge - top left */}
+            <div className="absolute top-2 left-2">
+              <span className="text-[10px] font-mono text-white uppercase tracking-tighter flex items-center gap-1 drop-shadow-lg">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
+                </svg>
+                Online
+              </span>
+            </div>
+            {/* DJ Name and Location Overlay - bottom left */}
             {show.dj && (
               <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4">
                 <span className="text-sm font-black uppercase tracking-widest text-white drop-shadow-lg">
@@ -410,46 +448,62 @@ function LiveShowCard({
   bpm,
 }: LiveShowCardProps) {
   const [imageError, setImageError] = useState(false);
-  // Only use djPhotoUrl from DJ profile, not show.imageUrl
   const photoUrl = show.djPhotoUrl;
   const hasPhoto = photoUrl && !imageError;
   const djName = show.dj || show.name;
 
-  // For no-photo variant, use station color with contrast text
   const textColor = hasPhoto ? '#ffffff' : getContrastTextColor(station.accentColor);
 
-  // Calculate animation duration from BPM (one beat = 60/bpm seconds)
   const bpmDuration = bpm ? `${Math.round(60000 / bpm)}ms` : '500ms';
 
-  return (
-    <div className="flex-shrink-0 w-44 sm:w-56 md:w-[calc((100%-2rem)/3)] snap-start group flex flex-col">
-      {/* BPM and Online badge above image */}
-      <div className="flex justify-between items-center mb-1 h-4 px-0.5">
-        {bpm ? (
-          <div
-            className="text-[10px] font-mono text-zinc-400 uppercase tracking-tighter flex items-center gap-1.5 animate-bpm-pulse"
-            style={{ ['--bpm-duration' as string]: bpmDuration }}
-          >
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-bpm-ping" style={{ ['--bpm-duration' as string]: bpmDuration }}></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-            </span>
-            {bpm} BPM
-          </div>
-        ) : (
-          <div />
-        )}
-        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter flex items-center gap-1">
+  const imageOverlays = (
+    <>
+      {/* Gradient scrims */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
+      {/* Online badge - top left */}
+      <div className="absolute top-2 left-2">
+        <span className="text-[10px] font-mono text-white uppercase tracking-tighter flex items-center gap-1 drop-shadow-lg">
           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
             <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
           </svg>
           Online
+        </span>
+      </div>
+      {/* DJ Name and Location - bottom left */}
+      <div className="absolute bottom-2 left-2 right-2">
+        <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+          {djName}
+        </span>
+        {show.djLocation && (
+          <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
+            {show.djLocation}
+          </span>
+        )}
+      </div>
+    </>
+  );
+
+  return (
+    <div className="w-full group">
+      {/* BPM + red dot + LIVE above card */}
+      <div className="flex items-center gap-1.5 mb-1 h-4 px-0.5">
+        <div
+          className="text-[10px] font-mono text-zinc-400 uppercase tracking-tighter flex items-center gap-1.5 animate-bpm-pulse"
+          style={{ ['--bpm-duration' as string]: bpmDuration }}
+        >
+          {bpm && <>{bpm} BPM</>}
         </div>
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
+        </span>
+        <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">LIVE</span>
       </div>
 
-      {/* Image or Graphic Card - links to DJ profile if available */}
+      {/* Full width 16:9 image with overlays */}
       {show.djUsername ? (
-        <Link href={`/dj/${show.djUsername}`} className="block relative aspect-square overflow-hidden border border-white/10">
+        <Link href={`/dj/${show.djUsername}`} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
           {hasPhoto ? (
             <>
               <Image
@@ -460,50 +514,21 @@ function LiveShowCard({
                 unoptimized
                 onError={() => setImageError(true)}
               />
-              {/* Gradient scrims - top left and bottom left corners */}
-              <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
-              {/* DJ Name and Location Overlay on top-left */}
-              {djName && (
-                <div className="absolute top-2 left-2 right-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
-                    {djName}
-                  </span>
-                  {show.djLocation && (
-                    <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
-                      {show.djLocation}
-                    </span>
-                  )}
-                </div>
-              )}
-              {/* Genre tags on bottom-left */}
-              {show.djGenres && show.djGenres.length > 0 && (
-                <div className="absolute bottom-2 left-2 right-2">
-                  <span className="text-[10px] font-mono text-white/80 uppercase tracking-tighter drop-shadow-lg">
-                    {show.djGenres.join(' · ')}
-                  </span>
-                </div>
-              )}
+              {imageOverlays}
             </>
           ) : (
-            // Graphic Card: No Photo - vinyl label style with station accent color
             <div
               className="w-full h-full flex items-center justify-center"
               style={{ backgroundColor: station.accentColor }}
             >
-              <div className="text-center px-3">
-                <h2
-                  className="text-2xl sm:text-3xl font-black uppercase tracking-tight leading-none"
-                  style={{ color: textColor }}
-                >
-                  {djName}
-                </h2>
-              </div>
+              <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-center px-4" style={{ color: textColor }}>
+                {djName}
+              </h2>
             </div>
           )}
         </Link>
       ) : (
-        <div className="relative aspect-square overflow-hidden border border-white/10">
+        <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10">
           {hasPhoto ? (
             <>
               <Image
@@ -514,52 +539,23 @@ function LiveShowCard({
                 unoptimized
                 onError={() => setImageError(true)}
               />
-              {/* Gradient scrims - top left and bottom left corners */}
-              <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
-              {/* DJ Name and Location Overlay on top-left */}
-              {djName && (
-                <div className="absolute top-2 left-2 right-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
-                    {djName}
-                  </span>
-                  {show.djLocation && (
-                    <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
-                      {show.djLocation}
-                    </span>
-                  )}
-                </div>
-              )}
-              {/* Genre tags on bottom-left */}
-              {show.djGenres && show.djGenres.length > 0 && (
-                <div className="absolute bottom-2 left-2 right-2">
-                  <span className="text-[10px] font-mono text-white/80 uppercase tracking-tighter drop-shadow-lg">
-                    {show.djGenres.join(' · ')}
-                  </span>
-                </div>
-              )}
+              {imageOverlays}
             </>
           ) : (
-            // Graphic Card: No Photo - vinyl label style with station accent color
             <div
               className="w-full h-full flex items-center justify-center"
               style={{ backgroundColor: station.accentColor }}
             >
-              <div className="text-center px-3">
-                <h2
-                  className="text-2xl sm:text-3xl font-black uppercase tracking-tight leading-none"
-                  style={{ color: textColor }}
-                >
-                  {djName}
-                </h2>
-              </div>
+              <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-center px-4" style={{ color: textColor }}>
+                {djName}
+              </h2>
             </div>
           )}
         </div>
       )}
 
-      {/* Show Info - fixed height container */}
-      <div className="h-14 flex flex-col justify-start py-2">
+      {/* Show Info */}
+      <div className="flex flex-col justify-start py-2">
         <h3 className="text-sm font-bold leading-tight truncate">
           {show.djUsername ? (
             <Link href={`/dj/${show.djUsername}`} className="hover:underline">
@@ -580,41 +576,48 @@ function LiveShowCard({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
           </svg>
         </a>
+        {show.djGenres && show.djGenres.length > 0 && (
+          <p className="text-[10px] font-mono text-zinc-500 mt-0.5 uppercase tracking-tighter">
+            {show.djGenres.join(' · ')}
+          </p>
+        )}
       </div>
 
       {/* CTA Buttons */}
-      <div className="grid grid-cols-2 gap-1.5 mt-auto">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onFollow();
-          }}
-          disabled={isTogglingFollow}
-          className={`text-[9px] font-black uppercase py-1.5 rounded-lg transition flex items-center justify-center gap-0.5 ${
-            isFollowed
-              ? 'bg-white/10 text-white hover:bg-white/20'
-              : 'bg-white text-gray-900 hover:bg-gray-100'
-          }`}
-        >
-          {isTogglingFollow ? (
-            <div className={`w-3 h-3 border-2 ${isFollowed ? 'border-white' : 'border-gray-900'} border-t-transparent rounded-full animate-spin`} />
-          ) : isFollowed ? (
-            'Following'
-          ) : (
-            '+ Follow'
-          )}
-        </button>
-        <a
-          href={station.websiteUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="bg-zinc-800 text-white text-[9px] font-black uppercase py-1.5 rounded-lg flex items-center justify-center gap-0.5 hover:bg-zinc-700 transition"
-        >
-          Join
-          <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-          </svg>
-        </a>
+      <div className="space-y-2 mt-auto">
+        <div className="flex gap-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onFollow();
+            }}
+            disabled={isTogglingFollow}
+            className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-colors ${
+              isFollowed
+                ? 'bg-white/10 hover:bg-white/20 text-white'
+                : 'bg-white hover:bg-gray-100 text-gray-900'
+            } disabled:opacity-50`}
+          >
+            {isTogglingFollow ? (
+              <div className={`w-4 h-4 border-2 ${isFollowed ? 'border-white' : 'border-gray-900'} border-t-transparent rounded-full animate-spin mx-auto`} />
+            ) : isFollowed ? (
+              'Following'
+            ) : (
+              '+ Follow'
+            )}
+          </button>
+          <a
+            href={station.websiteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1"
+          >
+            Join
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        </div>
       </div>
     </div>
   );
