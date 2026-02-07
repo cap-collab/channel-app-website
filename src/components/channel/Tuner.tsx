@@ -70,20 +70,20 @@ export function Tuner({ selectedCity, onCityChange, selectedGenre, onGenreChange
   };
 
   return (
-    <div className="sticky top-[48px] z-[90] bg-black border-b border-white/10">
-      <div className="flex h-12">
-        {/* City selector - left half */}
-        <div className="relative flex-1 border-r border-white/10">
+    <div className="sticky top-[48px] z-[90] bg-black/90 backdrop-blur-sm border-b border-white/5">
+      <div className="flex items-center justify-center gap-2 h-8 px-3">
+        {/* City selector */}
+        <div className="relative">
           <button
             onClick={() => {
               setCityDropdownOpen(!cityDropdownOpen);
               closeGenreDropdown();
             }}
-            className="w-full h-full px-4 font-mono text-sm text-white uppercase tracking-tighter flex items-center justify-between hover:bg-white/5 transition-colors"
+            className="h-6 px-2.5 font-mono text-[11px] text-zinc-400 uppercase tracking-tight flex items-center gap-1 hover:text-white transition-colors rounded-sm bg-white/5 hover:bg-white/10"
           >
-            <span className="truncate">{selectedCity || 'Select city'}</span>
+            <span className="truncate max-w-[120px]">{selectedCity || 'City'}</span>
             <svg
-              className={`w-3 h-3 flex-shrink-0 ml-2 transition-transform ${cityDropdownOpen ? 'rotate-180' : ''}`}
+              className={`w-2.5 h-2.5 flex-shrink-0 transition-transform ${cityDropdownOpen ? 'rotate-180' : ''}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -95,7 +95,7 @@ export function Tuner({ selectedCity, onCityChange, selectedGenre, onGenreChange
           {cityDropdownOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={closeCityDropdown} />
-              <div className="absolute left-0 right-0 mt-0 bg-[#1a1a1a] border border-white/10 rounded-b-lg shadow-xl z-20 py-1 max-h-72 overflow-y-auto">
+              <div className="absolute left-0 mt-1 w-48 bg-[#111] border border-white/10 rounded shadow-xl z-20 py-1 max-h-72 overflow-y-auto">
                 {cityCustomMode ? (
                   <div className="px-2 py-1">
                     <div className="flex gap-1">
@@ -153,18 +153,18 @@ export function Tuner({ selectedCity, onCityChange, selectedGenre, onGenreChange
           )}
         </div>
 
-        {/* Genre selector - right half */}
-        <div className="relative flex-1">
+        {/* Genre selector */}
+        <div className="relative">
           <button
             onClick={() => {
               setGenreDropdownOpen(!genreDropdownOpen);
               closeCityDropdown();
             }}
-            className="w-full h-full px-4 font-mono text-sm text-white uppercase tracking-tighter flex items-center justify-between hover:bg-white/5 transition-colors"
+            className="h-6 px-2.5 font-mono text-[11px] text-zinc-400 uppercase tracking-tight flex items-center gap-1 hover:text-white transition-colors rounded-sm bg-white/5 hover:bg-white/10"
           >
-            <span className="truncate">{selectedGenre || 'Genre'}</span>
+            <span className="truncate max-w-[120px]">{selectedGenre || 'Genre'}</span>
             <svg
-              className={`w-3 h-3 flex-shrink-0 ml-2 transition-transform ${genreDropdownOpen ? 'rotate-180' : ''}`}
+              className={`w-2.5 h-2.5 flex-shrink-0 transition-transform ${genreDropdownOpen ? 'rotate-180' : ''}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -176,7 +176,7 @@ export function Tuner({ selectedCity, onCityChange, selectedGenre, onGenreChange
           {genreDropdownOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={closeGenreDropdown} />
-              <div className="absolute left-0 right-0 mt-0 bg-[#1a1a1a] border border-white/10 rounded-b-lg shadow-xl z-20 py-1 max-h-72 overflow-y-auto">
+              <div className="absolute right-0 mt-1 w-48 bg-[#111] border border-white/10 rounded shadow-xl z-20 py-1 max-h-72 overflow-y-auto">
                 {genreCustomMode ? (
                   <div className="px-2 py-1">
                     <div className="flex gap-1">

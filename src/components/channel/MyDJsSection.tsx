@@ -434,10 +434,16 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
             href={item.username ? `/dj/${item.username}` : '/my-shows'}
             className="flex-shrink-0 flex flex-col items-center gap-2 group"
           >
-            {/* Avatar with live/IRL indicator */}
+            {/* Avatar with glowing ring for live/IRL */}
             <div className="relative">
               <div
-                className="w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors border-gray-700 group-hover:border-gray-500"
+                className={`w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors ${
+                  item.eventType === 'live'
+                    ? 'border-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'
+                    : item.eventType === 'irl'
+                    ? 'border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]'
+                    : 'border-gray-700 group-hover:border-gray-500'
+                }`}
               >
                 {item.photoUrl ? (
                   <Image
@@ -464,25 +470,11 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
                   })()
                 )}
               </div>
-
-              {/* Live indicator */}
-              {item.eventType === 'live' && (
-                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-[#ff0000] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                  LIVE
-                </span>
-              )}
-
-              {/* IRL indicator */}
-              {item.eventType === 'irl' && (
-                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-green-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                  IRL
-                </span>
-              )}
             </div>
 
             {/* Name and status */}
-            <div className="text-center max-w-[70px]">
-              <p className="text-white text-xs font-medium truncate">{item.displayName}</p>
+            <div className="text-center max-w-[80px]">
+              <p className="text-white text-[11px] font-medium truncate">{item.displayName}</p>
               {item.eventType === 'show' && item.showStartTime && (
                 <p className="text-gray-500 text-[10px] truncate">
                   {formatNextShowTime(item.showStartTime)}

@@ -27,7 +27,7 @@ export function InviteCard({ message = 'Know a DJ? Invite them to Channel' }: In
         <p className="text-gray-400 text-sm text-center mb-3">{message}</p>
         <button
           onClick={handleCopyUrl}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
         >
           {copySuccess ? (
             <>

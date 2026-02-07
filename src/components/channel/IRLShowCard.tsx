@@ -127,7 +127,7 @@ export function IRLShowCard({
           <button
             onClick={onFollow}
             disabled={isAddingFollow}
-            className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-colors ${
+            className={`flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors ${
               isFollowing
                 ? 'bg-white/10 hover:bg-white/20 text-white'
                 : 'bg-white hover:bg-gray-100 text-gray-900'
@@ -147,7 +147,7 @@ export function IRLShowCard({
             href={show.ticketUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white flex items-center justify-center gap-2"
+            className="flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white flex items-center justify-center gap-2"
           >
             Tickets
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -170,15 +170,6 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
   if (loading) {
     return (
       <section className="mb-2 md:mb-6">
-        <div className="flex justify-between items-end mb-2 md:mb-3">
-          <h2 className="text-white text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600"></span>
-            </span>
-            Live Now
-          </h2>
-        </div>
         <div className="flex items-center justify-center py-8">
           <div className="w-6 h-6 border-2 border-zinc-700 border-t-white rounded-full animate-spin" />
         </div>
@@ -194,27 +185,8 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
   const broadcastShow = liveShows.find((s) => s.stationId === 'broadcast');
   const otherLiveShows = liveShows.filter((s) => s.stationId !== 'broadcast');
 
-  // Only show "View All" if there are more shows to see (placeholder for future functionality)
-  const showViewAll = false; // Hidden for now since there's no "view all" page
-
   return (
     <section className="mb-2 md:mb-6">
-      {/* Header with pulsing red dot */}
-      <div className="flex justify-between items-end mb-2 md:mb-3">
-        <h2 className="text-white text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600"></span>
-          </span>
-          Live Now
-        </h2>
-        {showViewAll && (
-          <button className="text-xs text-zinc-500 uppercase font-bold hover:text-white transition-colors">
-            View All →
-          </button>
-        )}
-      </div>
-
       {/* Broadcast show - full width with chat below */}
       {broadcastShow && (
         <div className="mb-3 md:mb-4">
@@ -327,31 +299,8 @@ function BroadcastCard({
                 </svg>
               </div>
             )}
-            {/* Gradient scrims */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
-            <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
-            {/* Online badge - top left */}
-            <div className="absolute top-2 left-2">
-              <span className="text-[10px] font-mono text-white uppercase tracking-tighter flex items-center gap-1 drop-shadow-lg">
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
-                </svg>
-                Online
-              </span>
-            </div>
-            {/* DJ Name and Location Overlay - bottom left */}
-            {show.dj && (
-              <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4">
-                <span className="text-sm font-black uppercase tracking-widest text-white drop-shadow-lg">
-                  {show.dj}
-                </span>
-                {show.djLocation && (
-                  <span className="block text-xs text-white/80 drop-shadow-lg mt-0.5">
-                    {show.djLocation}
-                  </span>
-                )}
-              </div>
-            )}
+            {/* Gradient scrim - bottom only */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
           </div>
 
         {/* Info & Controls */}
@@ -376,7 +325,7 @@ function BroadcastCard({
                 onFollow();
               }}
               disabled={isTogglingFollow}
-              className={`text-[10px] font-black uppercase py-2.5 transition flex items-center justify-center gap-1 rounded-lg ${
+              className={`text-[10px] font-black uppercase py-2 transition flex items-center justify-center gap-1 rounded ${
                 isFollowed
                   ? 'bg-blue-500 text-white hover:bg-blue-600'
                   : 'bg-white text-black hover:bg-blue-500 hover:text-white'
@@ -401,7 +350,7 @@ function BroadcastCard({
                 onTogglePlay?.();
               }}
               disabled={isStreamLoading}
-              className="bg-accent text-white text-[10px] font-black uppercase py-2.5 flex items-center justify-center gap-1 hover:bg-accent-hover transition rounded-lg disabled:opacity-50"
+              className="bg-accent text-white text-[10px] font-black uppercase py-2 flex items-center justify-center gap-1 hover:bg-accent-hover transition rounded disabled:opacity-50"
             >
               {isStreamLoading ? (
                 <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -458,29 +407,8 @@ function LiveShowCard({
 
   const imageOverlays = (
     <>
-      {/* Gradient scrims */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
-      {/* Online badge - top left */}
-      <div className="absolute top-2 left-2">
-        <span className="text-[10px] font-mono text-white uppercase tracking-tighter flex items-center gap-1 drop-shadow-lg">
-          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
-          </svg>
-          Online
-        </span>
-      </div>
-      {/* DJ Name and Location - bottom left */}
-      <div className="absolute bottom-2 left-2 right-2">
-        <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
-          {djName}
-        </span>
-        {show.djLocation && (
-          <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
-            {show.djLocation}
-          </span>
-        )}
-      </div>
+      {/* Gradient scrim - bottom only for readability */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
     </>
   );
 
@@ -592,7 +520,7 @@ function LiveShowCard({
               onFollow();
             }}
             disabled={isTogglingFollow}
-            className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-colors ${
+            className={`flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors ${
               isFollowed
                 ? 'bg-white/10 hover:bg-white/20 text-white'
                 : 'bg-white hover:bg-gray-100 text-gray-900'
@@ -610,7 +538,7 @@ function LiveShowCard({
             href={station.websiteUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1"
+            className="flex-1 py-2 px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1"
           >
             Join
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
