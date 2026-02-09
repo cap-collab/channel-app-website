@@ -377,6 +377,16 @@ export function ChannelClient() {
     };
   }, [allShows, irlShows, curatorRecs, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, getMatchingGenres, genreLabelFor, isShowLive, isValidShow, followedDJNames]);
 
+  // When the main grid (Section 1) is empty, find the first carousel section with content to promote to grid
+  const noMainGrid = locationGenreCards.length === 0;
+  const promotedSection = noMainGrid
+    ? (liveGenreCards.length > 0 ? 'liveGenre'
+      : genreCards.length > 0 ? 'genre'
+      : locationCards.length > 0 ? 'location'
+      : radioCards.length > 0 ? 'radio'
+      : null)
+    : null;
+
   // Compute result counts for Tuner bar
   const allCardCount = locationGenreCards.length +
     liveGenreCards.length + genreCards.length + locationCards.length + radioCards.length;
@@ -545,39 +555,63 @@ export function ChannelClient() {
             </div>
           )}
 
-          {/* Section 4: Live Genre matching (swipe, max 5) */}
+          {/* Section 4: Live Genre matching (swipe, max 5 — promoted to grid if main grid is empty) */}
           {liveGenreCards.length > 0 && (
-            <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
-              <SwipeableCardCarousel>
-                {liveGenreCards.map((item, index) => renderCard(item, index))}
-              </SwipeableCardCarousel>
+            <div className={`flex-shrink-0 px-4 ${promotedSection === 'liveGenre' ? 'pt-3 md:pt-4' : ''} pb-3 md:pb-4`}>
+              {promotedSection === 'liveGenre' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {liveGenreCards.map((item, index) => renderCard(item, index))}
+                </div>
+              ) : (
+                <SwipeableCardCarousel>
+                  {liveGenreCards.map((item, index) => renderCard(item, index))}
+                </SwipeableCardCarousel>
+              )}
             </div>
           )}
 
-          {/* Section 5: Genre matching (swipe, max 5) */}
+          {/* Section 5: Genre matching (swipe, max 5 — promoted to grid if main grid is empty) */}
           {genreCards.length > 0 && (
-            <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
-              <SwipeableCardCarousel>
-                {genreCards.map((item, index) => renderCard(item, index))}
-              </SwipeableCardCarousel>
+            <div className={`flex-shrink-0 px-4 ${promotedSection === 'genre' ? 'pt-3 md:pt-4' : ''} pb-3 md:pb-4`}>
+              {promotedSection === 'genre' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {genreCards.map((item, index) => renderCard(item, index))}
+                </div>
+              ) : (
+                <SwipeableCardCarousel>
+                  {genreCards.map((item, index) => renderCard(item, index))}
+                </SwipeableCardCarousel>
+              )}
             </div>
           )}
 
-          {/* Section 6: Location matching (swipe, max 5) */}
+          {/* Section 6: Location matching (swipe, max 5 — promoted to grid if main grid is empty) */}
           {locationCards.length > 0 && (
-            <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
-              <SwipeableCardCarousel>
-                {locationCards.map((item, index) => renderCard(item, index))}
-              </SwipeableCardCarousel>
+            <div className={`flex-shrink-0 px-4 ${promotedSection === 'location' ? 'pt-3 md:pt-4' : ''} pb-3 md:pb-4`}>
+              {promotedSection === 'location' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {locationCards.map((item, index) => renderCard(item, index))}
+                </div>
+              ) : (
+                <SwipeableCardCarousel>
+                  {locationCards.map((item, index) => renderCard(item, index))}
+                </SwipeableCardCarousel>
+              )}
             </div>
           )}
 
-          {/* Section 7: Selected by Radio (swipe, max 5) */}
+          {/* Section 7: Selected by Radio (swipe, max 5 — promoted to grid if main grid is empty) */}
           {radioCards.length > 0 && (
-            <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
-              <SwipeableCardCarousel>
-                {radioCards.map((item, index) => renderCard(item, index))}
-              </SwipeableCardCarousel>
+            <div className={`flex-shrink-0 px-4 ${promotedSection === 'radio' ? 'pt-3 md:pt-4' : ''} pb-3 md:pb-4`}>
+              {promotedSection === 'radio' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {radioCards.map((item, index) => renderCard(item, index))}
+                </div>
+              ) : (
+                <SwipeableCardCarousel>
+                  {radioCards.map((item, index) => renderCard(item, index))}
+                </SwipeableCardCarousel>
+              )}
             </div>
           )}
 
