@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 
-// One-off fix: patch pending-dj-profiles that are missing chatUsername
+// Valid chatUsername: letters, numbers, and spaces only (same as register-username)
+function isValidChatUsername(name: string): boolean {
+  return /^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(name);
+}
+
+// One-off fix: patch pending-dj-profiles that have missing or invalid chatUsername
 // and ensure all profiles have a corresponding entry in the usernames collection.
 // Protected by CRON_SECRET for easy one-shot invocation.
 
@@ -23,8 +28,10 @@ export async function GET(request: NextRequest) {
     const results = {
       total: pendingSnapshot.size,
       fixedChatUsername: 0,
+      fixedInvalidChatUsername: 0,
       fixedNormalized: 0,
       usernamesCreated: 0,
+      usernamesFixed: 0,
       usernamesAlreadyExist: 0,
       usernamesConflict: [] as string[],
       errors: [] as string[],
@@ -34,49 +41,65 @@ export async function GET(request: NextRequest) {
       const data = doc.data();
       let chatUsername = data.chatUsername as string | undefined;
       let chatUsernameNormalized = data.chatUsernameNormalized as string | undefined;
-      const djName = data.djName as string | undefined;
 
-      // Fix missing chatUsername: derive from chatUsernameNormalized or djName or doc ID
-      if (!chatUsername) {
-        const fallback = djName || chatUsernameNormalized || doc.id;
-        try {
-          await doc.ref.update({ chatUsername: fallback });
-          chatUsername = fallback;
-          results.fixedChatUsername++;
-          console.log(`[fix-pending] Set chatUsername="${fallback}" for doc ${doc.id}`);
-        } catch (err) {
-          results.errors.push(`${doc.id} chatUsername fix failed: ${err}`);
-          continue;
+      // Fix missing chatUsernameNormalized first (needed for everything else)
+      if (!chatUsernameNormalized) {
+        if (chatUsername) {
+          chatUsernameNormalized = chatUsername.replace(/\s+/g, "").toLowerCase();
+        } else {
+          chatUsernameNormalized = doc.id;
         }
-      }
-
-      // Fix missing chatUsernameNormalized
-      if (!chatUsernameNormalized && chatUsername) {
-        const normalized = chatUsername.replace(/\s+/g, "").toLowerCase();
         try {
-          await doc.ref.update({ chatUsernameNormalized: normalized });
-          chatUsernameNormalized = normalized;
+          await doc.ref.update({ chatUsernameNormalized });
           results.fixedNormalized++;
-          console.log(`[fix-pending] Set chatUsernameNormalized="${normalized}" for doc ${doc.id}`);
         } catch (err) {
           results.errors.push(`${doc.id} normalized fix failed: ${err}`);
           continue;
         }
       }
 
-      if (!chatUsernameNormalized) {
-        results.errors.push(`${doc.id} - still no normalized username after fixes`);
-        continue;
+      // Fix missing or invalid chatUsername
+      // chatUsername must be a valid display name (letters, numbers, spaces)
+      // If it's invalid (e.g. "COPYPASTE w/ KLS.RDR"), replace with chatUsernameNormalized
+      if (!chatUsername) {
+        chatUsername = chatUsernameNormalized;
+        try {
+          await doc.ref.update({ chatUsername });
+          results.fixedChatUsername++;
+        } catch (err) {
+          results.errors.push(`${doc.id} chatUsername fix failed: ${err}`);
+          continue;
+        }
+      } else if (!isValidChatUsername(chatUsername)) {
+        // chatUsername has invalid chars — replace with chatUsernameNormalized
+        chatUsername = chatUsernameNormalized;
+        try {
+          await doc.ref.update({ chatUsername });
+          results.fixedInvalidChatUsername++;
+        } catch (err) {
+          results.errors.push(`${doc.id} invalid chatUsername fix failed: ${err}`);
+          continue;
+        }
       }
 
-      // Ensure username reservation exists
+      // Ensure username reservation exists and has correct displayName
       const usernameRef = db.collection("usernames").doc(chatUsernameNormalized);
       const usernameDoc = await usernameRef.get();
 
       if (usernameDoc.exists) {
         const existing = usernameDoc.data();
         if (existing?.isPending) {
-          results.usernamesAlreadyExist++;
+          // Fix displayName if it doesn't match chatUsername
+          if (existing.displayName !== chatUsername) {
+            try {
+              await usernameRef.update({ displayName: chatUsername });
+              results.usernamesFixed++;
+            } catch (err) {
+              results.errors.push(`${chatUsernameNormalized} username displayName fix failed: ${err}`);
+            }
+          } else {
+            results.usernamesAlreadyExist++;
+          }
         } else {
           results.usernamesConflict.push(`${chatUsername} → ${chatUsernameNormalized} (taken by uid: ${existing?.uid})`);
         }
