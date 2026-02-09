@@ -108,13 +108,13 @@ function normalizeDjUsername(djUsername: string): string {
 }
 
 // Get a photo URL for emails
-// Uses the direct URL when available, falls back to proxy when only username is known
-// The proxy looks up the photo from Firestore and serves it via a clean URL
+// Always prefer the proxy when djUsername is known — it serves a clean, short URL
+// that email clients handle reliably (no long tokens, spaces, or special chars)
 function getEmailPhotoUrl(djUsername?: string, djPhotoUrl?: string): string | undefined {
-  if (djPhotoUrl) return djPhotoUrl;
   if (djUsername) {
     return `https://channel-app.com/api/dj-photo/${normalizeDjUsername(djUsername)}`;
   }
+  if (djPhotoUrl) return djPhotoUrl;
   return undefined;
 }
 
