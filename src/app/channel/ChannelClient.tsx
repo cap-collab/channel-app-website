@@ -195,7 +195,6 @@ export function ChannelClient() {
 
   // Compute all 7 sections with deduplication
   const {
-    liveLocationGenreCards,
     locationGenreCards,
     filteredCuratorRecs,
     liveGenreCards,
@@ -233,9 +232,14 @@ export function ChannelClient() {
     // Helper: get genre match count for sorting (more matches = higher priority)
     const genreMatchCount = (genres: string[] | undefined): number => getMatchingGenres(genres).length;
 
-    // Helper: collect candidates, sort by genre match count desc, then dedup + take top N
-    const takeSorted = (candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number }[], max: number): MatchedItem[] => {
-      candidates.sort((a, b) => b.matchCount - a.matchCount);
+    // Helper: collect candidates, sort by genre match count desc (live first as tiebreaker), then dedup + take top N
+    const takeSorted = (candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; live?: boolean }[], max: number): MatchedItem[] => {
+      candidates.sort((a, b) => {
+        if (b.matchCount !== a.matchCount) return b.matchCount - a.matchCount;
+        // Same match count: live shows first
+        if (a.live !== b.live) return a.live ? -1 : 1;
+        return 0;
+      });
       const result: MatchedItem[] = [];
       for (const c of candidates) {
         if (result.length >= max) break;
@@ -245,25 +249,10 @@ export function ChannelClient() {
       return result;
     };
 
-    // Section 1: Live + Location + Genre (grid, max 4)
+    // Section 1: Location + Genre (grid, max 4) — live and upcoming mixed, sorted by match count then live first
     let s1: MatchedItem[] = [];
     if (!isAnywhere && hasGenreFilter) {
-      const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number }[] = [];
-      for (const show of allShows) {
-        if (!isValidShow(show)) continue;
-        if (!isShowLive(show)) continue;
-        const cityMatch = show.djLocation ? matchesCity(show.djLocation, selectedCity) : false;
-        if (!cityMatch || !matchesAnyGenre(show.djGenres)) continue;
-        const item = makeRadioItem(show, `LIVE · ${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`, true);
-        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres) });
-      }
-      s1 = takeSorted(candidates, 4);
-    }
-
-    // Section 2: Location + Genre (grid, max 4) — upcoming, not live
-    let s2: MatchedItem[] = [];
-    if (!isAnywhere && hasGenreFilter) {
-      const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number }[] = [];
+      const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; live?: boolean }[] = [];
       // IRL shows
       for (const show of irlShows) {
         const cityMatch = matchesCity(show.location, selectedCity);
@@ -271,17 +260,20 @@ export function ChannelClient() {
         const id = `irl-${show.djUsername}-${show.date}`;
         candidates.push({ item: makeIRLItem(show, `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres) });
       }
-      // Radio shows
+      // Radio shows (live and upcoming)
       for (const show of allShows) {
         if (!isValidShow(show)) continue;
         if (new Date(show.endTime) <= now) continue;
-        if (isShowLive(show)) continue;
         const cityMatch = show.djLocation ? matchesCity(show.djLocation, selectedCity) : false;
         if (!cityMatch || !matchesAnyGenre(show.djGenres)) continue;
-        const item = makeRadioItem(show, `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`);
-        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres) });
+        const live = isShowLive(show);
+        const label = live
+          ? `LIVE · ${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`
+          : `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`;
+        const item = makeRadioItem(show, label, live || undefined);
+        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), live });
       }
-      s2 = takeSorted(candidates, 4);
+      s1 = takeSorted(candidates, 4);
     }
 
     // Section 3: Curator recs from followed DJs (grid, max 4)
@@ -369,8 +361,7 @@ export function ChannelClient() {
     }
 
     return {
-      liveLocationGenreCards: s1,
-      locationGenreCards: s2,
+      locationGenreCards: s1,
       filteredCuratorRecs: s3,
       liveGenreCards: s4,
       genreCards: s5,
@@ -380,18 +371,18 @@ export function ChannelClient() {
   }, [allShows, irlShows, curatorRecs, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, getMatchingGenres, genreLabelFor, isShowLive, isValidShow, followedDJNames]);
 
   // Compute result counts for Tuner bar
-  const allCardCount = liveLocationGenreCards.length + locationGenreCards.length +
+  const allCardCount = locationGenreCards.length +
     liveGenreCards.length + genreCards.length + locationCards.length + radioCards.length;
 
   const cityResultCount = useMemo(() => {
     if (!selectedCity || selectedCity === 'Anywhere') return undefined;
-    return liveLocationGenreCards.length + locationGenreCards.length + locationCards.length;
-  }, [selectedCity, liveLocationGenreCards, locationGenreCards, locationCards]);
+    return locationGenreCards.length + locationCards.length;
+  }, [selectedCity, locationGenreCards, locationCards]);
 
   const genreResultCount = useMemo(() => {
     if (selectedGenres.length === 0) return undefined;
-    return liveLocationGenreCards.length + locationGenreCards.length + liveGenreCards.length + genreCards.length;
-  }, [selectedGenres, liveLocationGenreCards, locationGenreCards, liveGenreCards, genreCards]);
+    return locationGenreCards.length + liveGenreCards.length + genreCards.length;
+  }, [selectedGenres, locationGenreCards, liveGenreCards, genreCards]);
 
   // Auth handlers
   const handleRemindMe = useCallback((show: Show) => {
@@ -524,18 +515,9 @@ export function ChannelClient() {
       <main className="max-w-7xl mx-auto flex-1 min-h-0 w-full flex flex-col">
         <div className="flex flex-col overflow-y-auto">
 
-          {/* Section 1: Live + Location + Genre (grid, max 4) */}
-          {liveLocationGenreCards.length > 0 && (
-            <div className="flex-shrink-0 px-4 pt-3 md:pt-4 pb-3 md:pb-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {liveLocationGenreCards.map((item, index) => renderCard(item, index))}
-              </div>
-            </div>
-          )}
-
-          {/* Section 2: Location + Genre (grid, max 4) */}
+          {/* Section 1: Location + Genre (grid, max 4) — sorted by match count, live first as tiebreaker */}
           {locationGenreCards.length > 0 && (
-            <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
+            <div className="flex-shrink-0 px-4 pt-3 md:pt-4 pb-3 md:pb-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {locationGenreCards.map((item, index) => renderCard(item, index))}
               </div>
