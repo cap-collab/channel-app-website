@@ -233,28 +233,17 @@ export function ChannelClient() {
     const genreMatchCount = (genres: string[] | undefined): number => getMatchingGenres(genres).length;
 
     // Helper: collect candidates, sort by genre match count desc (live first as tiebreaker), then dedup + take top N
-    // When skipGlobalDedup is true, only dedup within this batch (genre sections should show regardless of location sections)
-    const takeSorted = (candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; live?: boolean }[], max: number, skipGlobalDedup?: boolean): MatchedItem[] => {
+    const takeSorted = (candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; live?: boolean }[], max: number): MatchedItem[] => {
       candidates.sort((a, b) => {
         if (b.matchCount !== a.matchCount) return b.matchCount - a.matchCount;
         // Same match count: live shows first
         if (a.live !== b.live) return a.live ? -1 : 1;
         return 0;
       });
-      const localSeenIds = skipGlobalDedup ? new Set<string>() : null;
-      const localSeenDJs = skipGlobalDedup ? new Set<string>() : null;
       const result: MatchedItem[] = [];
       for (const c of candidates) {
         if (result.length >= max) break;
-        if (skipGlobalDedup) {
-          const djKey = c.djName?.toLowerCase();
-          if (localSeenIds!.has(c.id)) continue;
-          if (djKey && localSeenDJs!.has(djKey)) continue;
-          localSeenIds!.add(c.id);
-          if (djKey) localSeenDJs!.add(djKey);
-        } else {
-          if (!tryAddShow(c.id, c.djName)) continue;
-        }
+        if (!tryAddShow(c.id, c.djName)) continue;
         result.push(c.item);
       }
       return result;
@@ -317,7 +306,7 @@ export function ChannelClient() {
         const item = makeRadioItem(show, genreLabelFor(show.djGenres), true);
         if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres) });
       }
-      s4 = takeSorted(candidates, 5, true);
+      s4 = takeSorted(candidates, 5);
     }
 
     // Section 5: Genre matching (swipe, max 5) — upcoming, not live
@@ -339,7 +328,7 @@ export function ChannelClient() {
         const item = makeRadioItem(show, genreLabelFor(show.djGenres));
         if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres) });
       }
-      s5 = takeSorted(candidates, 5, true);
+      s5 = takeSorted(candidates, 5);
     }
 
     // Section 6: Location matching (swipe, max 5) — upcoming shows matching location

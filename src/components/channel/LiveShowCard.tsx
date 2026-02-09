@@ -32,7 +32,22 @@ export function LiveShowCard({
   const stationLogo = getStationLogoUrl(station.id);
 
   const imageOverlays = (
-    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+    <>
+      {/* Gradient scrims */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
+      {/* DJ Name and Location - bottom left */}
+      <div className="absolute bottom-2 left-2 right-2">
+        <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+          {djName}
+        </span>
+        {show.djLocation && (
+          <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
+            {show.djLocation}
+          </span>
+        )}
+      </div>
+    </>
   );
 
   const stationLogoOverlay = stationLogo ? (
