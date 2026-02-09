@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -25,7 +25,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { getDefaultCity, matchesCity } from '@/lib/city-detection';
 import { GENRE_ALIASES } from '@/lib/genres';
 import { showMatchesDJ } from '@/lib/dj-matching';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 interface TipSuccessData {
@@ -59,57 +59,41 @@ export function ChannelClient() {
 
   // Selected city for local DJs section (lifted up for deduplication)
   const [selectedCity, setSelectedCity] = useState<string>('');
-  const [cityInitialized, setCityInitialized] = useState(false);
 
   // Selected genre for Who Not To Miss section (lifted up for Tuner bar)
   const [selectedGenre, setSelectedGenre] = useState<string>('');
-  const genreInitialized = useRef(false);
 
   // Follow/remind state for unified cards section
   const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
   const [addingReminderShowId, setAddingReminderShowId] = useState<string | null>(null);
 
-  // Load saved city preference from user profile (auth) or localStorage (unauth)
+  // Load city/genre preferences: Firebase (real-time) for auth users, localStorage for unauth
   useEffect(() => {
-    async function loadSavedCity() {
-      if (cityInitialized) return;
-
-      // For authenticated users, load from Firebase
-      if (user?.uid && db) {
-        try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            const savedCity = userDoc.data()?.irlCity;
-            if (savedCity) {
-              setSelectedCity(savedCity);
-              setCityInitialized(true);
-              return;
-            }
-          }
-        } catch (error) {
-          console.error('Error loading saved city:', error);
-        }
-      }
-
-      // For unauthenticated users (or auth users without saved city), try localStorage
-      try {
-        const localCity = localStorage.getItem('channel-selected-city');
-        if (localCity) {
-          setSelectedCity(localCity);
-          setCityInitialized(true);
-          return;
-        }
-      } catch {
-        // localStorage not available
-      }
-
-      // Final fallback to timezone detection
-      setSelectedCity(getDefaultCity());
-      setCityInitialized(true);
+    // Authenticated users: use onSnapshot for real-time sync with Firebase
+    if (user?.uid && db) {
+      const userRef = doc(db, 'users', user.uid);
+      const unsubscribe = onSnapshot(userRef, (snapshot) => {
+        const data = snapshot.data();
+        setSelectedCity(data?.irlCity || getDefaultCity());
+        setSelectedGenre(data?.preferredGenre || 'House');
+      });
+      return () => unsubscribe();
     }
 
-    loadSavedCity();
-  }, [user?.uid, cityInitialized]);
+    // Unauthenticated users: load from localStorage with fallbacks
+    try {
+      const localCity = localStorage.getItem('channel-selected-city');
+      setSelectedCity(localCity || getDefaultCity());
+    } catch {
+      setSelectedCity(getDefaultCity());
+    }
+    try {
+      const localGenre = localStorage.getItem('channel-selected-genre');
+      if (localGenre) setSelectedGenre(localGenre);
+    } catch {
+      // localStorage not available
+    }
+  }, [user?.uid]);
 
   // Handle city change and save to profile (Firebase for auth, localStorage for unauth)
   const handleCityChange = useCallback(async (city: string) => {
@@ -119,9 +103,7 @@ export function ChannelClient() {
     if (user?.uid && db) {
       try {
         const userRef = doc(db, 'users', user.uid);
-        await updateDoc(userRef, {
-          irlCity: city,
-        });
+        await updateDoc(userRef, { irlCity: city });
       } catch (error) {
         console.error('Error saving city preference:', error);
       }
@@ -138,47 +120,6 @@ export function ChannelClient() {
     router.refresh();
   }, [user?.uid, router]);
 
-  // Load saved genre preference from user profile (auth) or localStorage (unauth)
-  useEffect(() => {
-    async function loadSavedGenre() {
-      if (genreInitialized.current) return;
-
-      // For authenticated users, load from Firebase
-      if (user?.uid && db) {
-        try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            const savedGenre = userDoc.data()?.preferredGenre;
-            if (savedGenre) {
-              setSelectedGenre(savedGenre);
-              genreInitialized.current = true;
-              return;
-            }
-          }
-        } catch (error) {
-          console.error('Error loading saved genre:', error);
-        }
-        // Authenticated user without saved preference - default to House
-        setSelectedGenre('House');
-        genreInitialized.current = true;
-        return;
-      }
-
-      // For unauthenticated users, try localStorage (no default - empty if not set)
-      try {
-        const localGenre = localStorage.getItem('channel-selected-genre');
-        if (localGenre) {
-          setSelectedGenre(localGenre);
-        }
-      } catch {
-        // localStorage not available
-      }
-      genreInitialized.current = true;
-    }
-
-    loadSavedGenre();
-  }, [user?.uid]);
-
   // Handle genre change and save to profile
   const handleGenreChange = useCallback(async (genre: string) => {
     setSelectedGenre(genre);
@@ -186,9 +127,7 @@ export function ChannelClient() {
     if (user?.uid && db) {
       try {
         const userRef = doc(db, 'users', user.uid);
-        await updateDoc(userRef, {
-          preferredGenre: genre,
-        });
+        await updateDoc(userRef, { preferredGenre: genre });
       } catch (error) {
         console.error('Error saving genre preference:', error);
       }
