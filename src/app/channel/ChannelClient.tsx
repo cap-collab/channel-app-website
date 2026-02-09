@@ -249,32 +249,28 @@ export function ChannelClient() {
       return result;
     };
 
-    // Section 1: Location + Genre OR Genre-only (grid, max 4) — live and upcoming mixed, sorted by match count then live first
+    // Section 1: Location + Genre (grid, max 4) — live and upcoming mixed, sorted by match count then live first
+    // Only show when a specific city is selected (not "Anywhere")
     let s1: MatchedItem[] = [];
-    if (hasGenreFilter) {
+    if (hasGenreFilter && !isAnywhere) {
       const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; live?: boolean }[] = [];
       // IRL shows
       for (const show of irlShows) {
-        if (!isAnywhere) {
-          const cityMatch = matchesCity(show.location, selectedCity);
-          if (!cityMatch) continue;
-        }
+        if (!matchesCity(show.location, selectedCity)) continue;
         if (!matchesAnyGenre(show.djGenres)) continue;
         const id = `irl-${show.djUsername}-${show.date}`;
-        const label = isAnywhere ? genreLabelFor(show.djGenres) : `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`;
+        const label = `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`;
         candidates.push({ item: makeIRLItem(show, label), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres) });
       }
       // Radio shows (live and upcoming)
       for (const show of allShows) {
         if (!isValidShow(show)) continue;
         if (new Date(show.endTime) <= now) continue;
-        if (!isAnywhere) {
-          const cityMatch = show.djLocation ? matchesCity(show.djLocation, selectedCity) : false;
-          if (!cityMatch) continue;
-        }
+        const cityMatch = show.djLocation ? matchesCity(show.djLocation, selectedCity) : false;
+        if (!cityMatch) continue;
         if (!matchesAnyGenre(show.djGenres)) continue;
         const live = isShowLive(show);
-        const label = isAnywhere ? genreLabelFor(show.djGenres) : `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`;
+        const label = `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`;
         const item = makeRadioItem(show, label, live || undefined);
         if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), live });
       }
@@ -354,17 +350,32 @@ export function ChannelClient() {
       }
     }
 
-    // Section 7: Selected by Radio (swipe, max 5) — external station shows
-    const s7: MatchedItem[] = [];
+    // Section 7: Selected by Radio (swipe, max 5) — external station shows, live shows promoted to top
+    const s7Candidates: { item: MatchedItem; id: string; djName: string | undefined; live: boolean }[] = [];
     for (const show of allShows) {
-      if (s7.length >= 5) break;
       if (!isValidShow(show)) continue;
       if (new Date(show.endTime) <= now) continue;
       if (show.stationId === 'broadcast' || show.stationId === 'dj-radio') continue;
-      if (!tryAddShow(show.id, show.dj)) continue;
       const station = stationsMap.get(show.stationId);
       if (!station) continue;
-      s7.push({ type: 'radio', data: show, station, matchLabel: `SELECTED BY ${station.name.toUpperCase()}` });
+      const live = isShowLive(show);
+      s7Candidates.push({
+        item: { type: 'radio', data: show, station, matchLabel: `SELECTED BY ${station.name.toUpperCase()}`, live: live || undefined },
+        id: show.id,
+        djName: show.dj,
+        live,
+      });
+    }
+    // Sort live shows first
+    s7Candidates.sort((a, b) => {
+      if (a.live !== b.live) return a.live ? -1 : 1;
+      return 0;
+    });
+    const s7: MatchedItem[] = [];
+    for (const c of s7Candidates) {
+      if (s7.length >= 5) break;
+      if (!tryAddShow(c.id, c.djName)) continue;
+      s7.push(c.item);
     }
 
     return {
