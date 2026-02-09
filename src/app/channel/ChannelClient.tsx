@@ -273,7 +273,9 @@ export function ChannelClient() {
         const item = makeRadioItem(show, label, live || undefined);
         if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), live });
       }
+      console.log('[S1 candidates]', candidates.map(c => ({ djName: c.djName, matchCount: c.matchCount, live: c.live, label: c.item.matchLabel })));
       s1 = takeSorted(candidates, 4);
+      console.log('[S1 result]', s1.map(item => ({ matchLabel: item.matchLabel, type: item.type, dj: item.type === 'radio' ? item.data.dj : item.data.djName })));
     }
 
     // Section 3: Curator recs from followed DJs (grid, max 4)
