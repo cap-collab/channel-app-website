@@ -156,18 +156,23 @@ export function ChannelClient() {
     });
   }, []);
 
-  // Helper: check if a show matches any of the selected genres
-  const matchesAnyGenre = useCallback((showGenres: string[] | undefined): boolean => {
-    if (selectedGenres.length === 0) return false;
-    return selectedGenres.some((genre) => matchesGenre(showGenres, genre));
+  // Helper: return which of the selected genres match a show's genres
+  const getMatchingGenres = useCallback((showGenres: string[] | undefined): string[] => {
+    if (selectedGenres.length === 0 || !showGenres || showGenres.length === 0) return [];
+    return selectedGenres.filter((genre) => matchesGenre(showGenres, genre));
   }, [selectedGenres, matchesGenre]);
 
-  // Genre label for match tags
-  const genreLabel = useMemo(() => {
-    if (selectedGenres.length === 0) return '';
-    if (selectedGenres.length === 1) return selectedGenres[0].toUpperCase();
-    return selectedGenres.map((g) => g.toUpperCase()).join(' + ');
-  }, [selectedGenres]);
+  // Helper: check if a show matches any of the selected genres
+  const matchesAnyGenre = useCallback((showGenres: string[] | undefined): boolean => {
+    return getMatchingGenres(showGenres).length > 0;
+  }, [getMatchingGenres]);
+
+  // Helper: build a genre label from only the genres that match a specific show
+  const genreLabelFor = useCallback((showGenres: string[] | undefined): string => {
+    const matching = getMatchingGenres(showGenres);
+    if (matching.length === 0) return '';
+    return matching.map((g) => g.toUpperCase()).join(' + ');
+  }, [getMatchingGenres]);
 
   // Helper: check if a show is currently live
   const isShowLive = useCallback((show: Show): boolean => {
@@ -225,48 +230,58 @@ export function ChannelClient() {
       return { type: 'irl', data: show, matchLabel };
     };
 
+    // Helper: get genre match count for sorting (more matches = higher priority)
+    const genreMatchCount = (genres: string[] | undefined): number => getMatchingGenres(genres).length;
+
+    // Helper: collect candidates, sort by genre match count desc, then dedup + take top N
+    const takeSorted = (candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number }[], max: number): MatchedItem[] => {
+      candidates.sort((a, b) => b.matchCount - a.matchCount);
+      const result: MatchedItem[] = [];
+      for (const c of candidates) {
+        if (result.length >= max) break;
+        if (!tryAddShow(c.id, c.djName)) continue;
+        result.push(c.item);
+      }
+      return result;
+    };
+
     // Section 1: Live + Location + Genre (grid, max 4)
-    const s1: MatchedItem[] = [];
+    let s1: MatchedItem[] = [];
     if (!isAnywhere && hasGenreFilter) {
+      const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number }[] = [];
       for (const show of allShows) {
-        if (s1.length >= 4) break;
         if (!isValidShow(show)) continue;
         if (!isShowLive(show)) continue;
         const cityMatch = show.djLocation ? matchesCity(show.djLocation, selectedCity) : false;
-        const genreMatch = matchesAnyGenre(show.djGenres);
-        if (!cityMatch || !genreMatch) continue;
-        if (!tryAddShow(show.id, show.dj)) continue;
-        const item = makeRadioItem(show, `LIVE · ${selectedCity.toUpperCase()} + ${genreLabel}`, true);
-        if (item) s1.push(item);
+        if (!cityMatch || !matchesAnyGenre(show.djGenres)) continue;
+        const item = makeRadioItem(show, `LIVE · ${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`, true);
+        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres) });
       }
+      s1 = takeSorted(candidates, 4);
     }
 
     // Section 2: Location + Genre (grid, max 4) — upcoming, not live
-    const s2: MatchedItem[] = [];
+    let s2: MatchedItem[] = [];
     if (!isAnywhere && hasGenreFilter) {
+      const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number }[] = [];
       // IRL shows
       for (const show of irlShows) {
-        if (s2.length >= 4) break;
         const cityMatch = matchesCity(show.location, selectedCity);
-        const genreMatch = matchesAnyGenre(show.djGenres);
-        if (!cityMatch || !genreMatch) continue;
+        if (!cityMatch || !matchesAnyGenre(show.djGenres)) continue;
         const id = `irl-${show.djUsername}-${show.date}`;
-        if (!tryAddShow(id, show.djName)) continue;
-        s2.push(makeIRLItem(show, `${selectedCity.toUpperCase()} + ${genreLabel}`));
+        candidates.push({ item: makeIRLItem(show, `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres) });
       }
       // Radio shows
       for (const show of allShows) {
-        if (s2.length >= 4) break;
         if (!isValidShow(show)) continue;
         if (new Date(show.endTime) <= now) continue;
         if (isShowLive(show)) continue;
         const cityMatch = show.djLocation ? matchesCity(show.djLocation, selectedCity) : false;
-        const genreMatch = matchesAnyGenre(show.djGenres);
-        if (!cityMatch || !genreMatch) continue;
-        if (!tryAddShow(show.id, show.dj)) continue;
-        const item = makeRadioItem(show, `${selectedCity.toUpperCase()} + ${genreLabel}`);
-        if (item) s2.push(item);
+        if (!cityMatch || !matchesAnyGenre(show.djGenres)) continue;
+        const item = makeRadioItem(show, `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`);
+        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres) });
       }
+      s2 = takeSorted(candidates, 4);
     }
 
     // Section 3: Curator recs from followed DJs (grid, max 4)
@@ -282,41 +297,39 @@ export function ChannelClient() {
     }
 
     // Section 4: Live Genre matching (swipe, max 5) — live shows matching genre
-    const s4: MatchedItem[] = [];
+    let s4: MatchedItem[] = [];
     if (hasGenreFilter) {
+      const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number }[] = [];
       for (const show of allShows) {
-        if (s4.length >= 5) break;
         if (!isValidShow(show)) continue;
         if (!isShowLive(show)) continue;
         if (!matchesAnyGenre(show.djGenres)) continue;
-        if (!tryAddShow(show.id, show.dj)) continue;
-        const item = makeRadioItem(show, `LIVE · ${genreLabel}`, true);
-        if (item) s4.push(item);
+        const item = makeRadioItem(show, `LIVE · ${genreLabelFor(show.djGenres)}`, true);
+        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres) });
       }
+      s4 = takeSorted(candidates, 5);
     }
 
     // Section 5: Genre matching (swipe, max 5) — upcoming, not live
-    const s5: MatchedItem[] = [];
+    let s5: MatchedItem[] = [];
     if (hasGenreFilter) {
+      const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number }[] = [];
       // IRL shows
       for (const show of irlShows) {
-        if (s5.length >= 5) break;
         if (!matchesAnyGenre(show.djGenres)) continue;
         const id = `irl-${show.djUsername}-${show.date}`;
-        if (!tryAddShow(id, show.djName)) continue;
-        s5.push(makeIRLItem(show, genreLabel));
+        candidates.push({ item: makeIRLItem(show, genreLabelFor(show.djGenres)), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres) });
       }
       // Radio shows
       for (const show of allShows) {
-        if (s5.length >= 5) break;
         if (!isValidShow(show)) continue;
         if (new Date(show.endTime) <= now) continue;
         if (isShowLive(show)) continue;
         if (!matchesAnyGenre(show.djGenres)) continue;
-        if (!tryAddShow(show.id, show.dj)) continue;
-        const item = makeRadioItem(show, genreLabel);
-        if (item) s5.push(item);
+        const item = makeRadioItem(show, genreLabelFor(show.djGenres));
+        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres) });
       }
+      s5 = takeSorted(candidates, 5);
     }
 
     // Section 6: Location matching (swipe, max 5) — upcoming shows matching location
@@ -364,7 +377,7 @@ export function ChannelClient() {
       locationCards: s6,
       radioCards: s7,
     };
-  }, [allShows, irlShows, curatorRecs, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, genreLabel, isShowLive, isValidShow, followedDJNames]);
+  }, [allShows, irlShows, curatorRecs, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, getMatchingGenres, genreLabelFor, isShowLive, isValidShow, followedDJNames]);
 
   // Compute result counts for Tuner bar
   const allCardCount = liveLocationGenreCards.length + locationGenreCards.length +
