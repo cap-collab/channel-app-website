@@ -260,25 +260,32 @@ export function ChannelClient() {
       return result;
     };
 
-    // Section 1: Location + Genre (grid, max 4) — live and upcoming mixed, sorted by match count then live first
+    // Section 1: Location + Genre OR Genre-only (grid, max 4) — live and upcoming mixed, sorted by match count then live first
     let s1: MatchedItem[] = [];
-    if (!isAnywhere && hasGenreFilter) {
+    if (hasGenreFilter) {
       const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; live?: boolean }[] = [];
       // IRL shows
       for (const show of irlShows) {
-        const cityMatch = matchesCity(show.location, selectedCity);
-        if (!cityMatch || !matchesAnyGenre(show.djGenres)) continue;
+        if (!isAnywhere) {
+          const cityMatch = matchesCity(show.location, selectedCity);
+          if (!cityMatch) continue;
+        }
+        if (!matchesAnyGenre(show.djGenres)) continue;
         const id = `irl-${show.djUsername}-${show.date}`;
-        candidates.push({ item: makeIRLItem(show, `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres) });
+        const label = isAnywhere ? genreLabelFor(show.djGenres) : `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`;
+        candidates.push({ item: makeIRLItem(show, label), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres) });
       }
       // Radio shows (live and upcoming)
       for (const show of allShows) {
         if (!isValidShow(show)) continue;
         if (new Date(show.endTime) <= now) continue;
-        const cityMatch = show.djLocation ? matchesCity(show.djLocation, selectedCity) : false;
-        if (!cityMatch || !matchesAnyGenre(show.djGenres)) continue;
+        if (!isAnywhere) {
+          const cityMatch = show.djLocation ? matchesCity(show.djLocation, selectedCity) : false;
+          if (!cityMatch) continue;
+        }
+        if (!matchesAnyGenre(show.djGenres)) continue;
         const live = isShowLive(show);
-        const label = `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`;
+        const label = isAnywhere ? genreLabelFor(show.djGenres) : `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`;
         const item = makeRadioItem(show, label, live || undefined);
         if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), live });
       }
