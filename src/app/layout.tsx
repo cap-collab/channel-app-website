@@ -12,19 +12,11 @@ export const metadata: Metadata = {
     description: "Ditch the algorithms. Stay in the know with the curators who move your world forward.",
     type: "website",
     url: "https://channel-app.com",
-    images: [
-      {
-        url: "/og-image.png",
-        width: 600,
-        height: 600,
-      },
-    ],
   },
   twitter: {
     card: "summary",
     title: "Embrace your scene.",
     description: "Ditch the algorithms. Stay in the know with the curators who move your world forward.",
-    images: ["/og-image.png"],
   },
   icons: {
     icon: [
