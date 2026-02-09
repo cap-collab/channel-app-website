@@ -4,26 +4,26 @@ import "./globals.css";
 import { Providers } from "./Providers";
 
 export const metadata: Metadata = {
-  title: "Never miss the DJs you care about.",
-  description: "Never miss the DJs you care about.",
+  title: "Embrace your scene.",
+  description: "Ditch the algorithms. Stay in the know with the curators who move your world forward.",
   metadataBase: new URL("https://channel-app.com"),
   openGraph: {
-    title: "Never miss the DJs you care about.",
-    description: "Never miss the DJs you care about.",
+    title: "Embrace your scene.",
+    description: "Ditch the algorithms. Stay in the know with the curators who move your world forward.",
     type: "website",
     url: "https://channel-app.com",
     images: [
       {
         url: "/og-image.png",
-        width: 1200,
-        height: 630,
+        width: 600,
+        height: 600,
       },
     ],
   },
   twitter: {
-    card: "summary_large_image",
-    title: "Never miss the DJs you care about.",
-    description: "Never miss the DJs you care about.",
+    card: "summary",
+    title: "Embrace your scene.",
+    description: "Ditch the algorithms. Stay in the know with the curators who move your world forward.",
     images: ["/og-image.png"],
   },
   icons: {

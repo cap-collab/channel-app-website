@@ -540,7 +540,7 @@ export function ChannelClient() {
         genreResultCount={genreResultCount}
       />
 
-      <main className="max-w-7xl mx-auto flex-1 min-h-0 w-full flex flex-col">
+      <main className="max-w-7xl mx-auto flex-1 min-h-0 w-full flex flex-col pt-3 md:pt-4">
         <div className="flex flex-col overflow-y-auto">
 
           {/* Section 1: Location + Genre (grid, max 4) — sorted by match count, live first as tiebreaker */}
