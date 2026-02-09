@@ -267,9 +267,7 @@ export function ChannelClient() {
         const cityMatch = show.djLocation ? matchesCity(show.djLocation, selectedCity) : false;
         if (!cityMatch || !matchesAnyGenre(show.djGenres)) continue;
         const live = isShowLive(show);
-        const label = live
-          ? `LIVE · ${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`
-          : `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`;
+        const label = `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`;
         const item = makeRadioItem(show, label, live || undefined);
         if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), live });
       }
@@ -298,7 +296,7 @@ export function ChannelClient() {
         if (!isValidShow(show)) continue;
         if (!isShowLive(show)) continue;
         if (!matchesAnyGenre(show.djGenres)) continue;
-        const item = makeRadioItem(show, `LIVE · ${genreLabelFor(show.djGenres)}`, true);
+        const item = makeRadioItem(show, genreLabelFor(show.djGenres), true);
         if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres) });
       }
       s4 = takeSorted(candidates, 5);

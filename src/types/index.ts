@@ -128,6 +128,9 @@ export interface CuratorRec {
   djPhotoUrl?: string;
   url: string;
   type: 'bandcamp' | 'event';
+  ogTitle?: string;
+  ogImage?: string;
+  ogDescription?: string;
 }
 
 // Station application

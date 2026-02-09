@@ -192,10 +192,6 @@ export function TicketCard({
           </button>
         </div>
 
-        {/* Helper text */}
-        {!isFollowing && (
-          <p className="text-gray-500 text-xs text-center">Follow to get live alerts</p>
-        )}
       </div>
     </div>
   );

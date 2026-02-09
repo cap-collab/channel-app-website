@@ -14,7 +14,9 @@ export function CuratorRecCard({ rec, matchLabel }: CuratorRecCardProps) {
   const [imageError, setImageError] = useState(false);
 
   const cleanUrl = rec.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
-  const hasPhoto = rec.djPhotoUrl && !imageError;
+  const imageUrl = rec.ogImage || rec.djPhotoUrl;
+  const hasPhoto = imageUrl && !imageError;
+  const displayTitle = rec.ogTitle || cleanUrl;
 
   return (
     <div className="w-full group">
@@ -34,8 +36,8 @@ export function CuratorRecCard({ rec, matchLabel }: CuratorRecCardProps) {
         {hasPhoto ? (
           <>
             <Image
-              src={rec.djPhotoUrl!}
-              alt={rec.djName}
+              src={imageUrl}
+              alt={displayTitle}
               fill
               className="object-cover"
               unoptimized
@@ -49,10 +51,21 @@ export function CuratorRecCard({ rec, matchLabel }: CuratorRecCardProps) {
         )}
         <div className="absolute top-2 left-2 right-2 flex items-center justify-between">
           <span className="text-[10px] font-mono text-white uppercase tracking-tighter flex items-center gap-1 drop-shadow-lg">
-            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-            </svg>
-            {rec.type === 'bandcamp' ? 'Music' : 'Event'}
+            {rec.type === 'event' ? (
+              <>
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
+                </svg>
+                IRL
+              </>
+            ) : (
+              <>
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z" />
+                </svg>
+                Online
+              </>
+            )}
           </span>
         </div>
         <div className="absolute bottom-2 left-2 right-2">
@@ -65,7 +78,7 @@ export function CuratorRecCard({ rec, matchLabel }: CuratorRecCardProps) {
       <div className="flex flex-col justify-start py-2">
         <h3 className="text-sm font-bold leading-tight truncate">
           <a href={rec.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-            {cleanUrl}
+            {displayTitle}
           </a>
         </h3>
         <p className="text-[10px] text-zinc-500 mt-0.5 uppercase">

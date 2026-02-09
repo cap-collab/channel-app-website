@@ -362,6 +362,39 @@ async function fetchDJRadioShows(): Promise<Show[]> {
   }
 }
 
+// Fetch Open Graph metadata from a URL (title, image, description)
+async function fetchOgMetadata(url: string): Promise<{ ogTitle?: string; ogImage?: string; ogDescription?: string }> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; ChannelBot/1.0)" },
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return {};
+    const html = await res.text();
+
+    const ogTitle = html.match(/<meta\s+(?:property|name)="og:title"\s+content="([^"]+)"/i)?.[1]
+      || html.match(/<meta\s+content="([^"]+)"\s+(?:property|name)="og:title"/i)?.[1]
+      || html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1];
+    const ogImage = html.match(/<meta\s+(?:property|name)="og:image"\s+content="([^"]+)"/i)?.[1]
+      || html.match(/<meta\s+content="([^"]+)"\s+(?:property|name)="og:image"/i)?.[1]
+      || html.match(/<meta\s+(?:property|name)="twitter:image"\s+content="([^"]+)"/i)?.[1]
+      || html.match(/<meta\s+content="([^"]+)"\s+(?:property|name)="twitter:image"/i)?.[1];
+    const ogDescription = html.match(/<meta\s+(?:property|name)="og:description"\s+content="([^"]+)"/i)?.[1]
+      || html.match(/<meta\s+content="([^"]+)"\s+(?:property|name)="og:description"/i)?.[1];
+
+    return {
+      ogTitle: ogTitle?.trim(),
+      ogImage: ogImage?.trim(),
+      ogDescription: ogDescription?.trim(),
+    };
+  } catch {
+    return {};
+  }
+}
+
 // Fetch curator recommendations (myRecs) from DJ profiles
 async function fetchCuratorRecs(): Promise<CuratorRec[]> {
   const adminDb = getAdminDb();
@@ -400,7 +433,17 @@ async function fetchCuratorRecs(): Promise<CuratorRec[]> {
       }
     });
 
-    return recs;
+    // Fetch OG metadata for all recommendation URLs in parallel
+    const enriched = await Promise.allSettled(
+      recs.map(async (rec) => {
+        const og = await fetchOgMetadata(rec.url);
+        return { ...rec, ...og };
+      })
+    );
+
+    return enriched.map((result, i) =>
+      result.status === "fulfilled" ? result.value : recs[i]
+    );
   } catch (error) {
     console.error("[API /schedule] Error fetching curator recs:", error);
     return [];
