@@ -19,7 +19,7 @@ export function CuratorRecCard({ rec }: CuratorRecCardProps) {
   const hasOgTitle = !!rec.ogTitle;
 
   return (
-    <div className="w-full group">
+    <div className="w-full group flex flex-col h-full">
       <div className="flex items-center mb-1 h-4 px-0.5">
         <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">
           REC&apos;D BY {rec.djName.toUpperCase()}

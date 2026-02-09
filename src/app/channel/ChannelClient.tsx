@@ -40,7 +40,7 @@ export function ChannelClient() {
   const [curatorRecs, setCuratorRecs] = useState<CuratorRec[]>([]);
 
   // Selected city and genres
-  const [selectedCity, setSelectedCity] = useState<string>('');
+  const [selectedCity, setSelectedCity] = useState<string>(getDefaultCity());
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
 
   // Follow/remind state

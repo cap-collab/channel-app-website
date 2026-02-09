@@ -56,7 +56,7 @@ export function IRLShowCard({
   );
 
   return (
-    <div className="w-full group">
+    <div className="w-full group flex flex-col h-full">
       {/* Match label row */}
       {matchLabel && (
         <div className="flex items-center mb-1 h-4 px-0.5">

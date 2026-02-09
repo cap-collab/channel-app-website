@@ -122,7 +122,7 @@ export function SwipeableCardCarousel({ children, className = '' }: SwipeableCar
           {children.map((child, index) => (
             <div
               key={index}
-              className="w-full md:w-1/2 flex-shrink-0 px-1"
+              className="w-full md:w-1/2 flex-shrink-0 px-1 self-stretch"
               style={{ userSelect: 'none' }}
             >
               {child}
