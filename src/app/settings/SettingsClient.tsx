@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   doc,
@@ -17,6 +17,8 @@ import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useUserRole, isDJ } from "@/hooks/useUserRole";
 import { AuthModal } from "@/components/AuthModal";
+import { SUPPORTED_CITIES } from "@/lib/city-detection";
+import { SUPPORTED_GENRES } from "@/lib/genres";
 
 interface NotificationSettings {
   showStarting: boolean;
@@ -52,6 +54,14 @@ export function SettingsClient() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Channel preferences state
+  const [selectedCity, setSelectedCity] = useState<string>("");
+  const [selectedGenre, setSelectedGenre] = useState<string>("");
+  const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
+  const [genreDropdownOpen, setGenreDropdownOpen] = useState(false);
+  const cityDropdownRef = useRef<HTMLDivElement>(null);
+  const genreDropdownRef = useRef<HTMLDivElement>(null);
+
   // Load user's notification settings
   useEffect(() => {
     if (!user || !db) return;
@@ -76,6 +86,9 @@ export function SettingsClient() {
           showFavoriteMessages: data.activityMessages.showFavoriteMessages ?? true,
         });
       }
+      // Channel preferences
+      if (data?.irlCity) setSelectedCity(data.irlCity);
+      if (data?.preferredGenre) setSelectedGenre(data.preferredGenre);
     });
 
     return () => unsubscribe();
@@ -118,6 +131,44 @@ export function SettingsClient() {
       setSaving(false);
     }
   };
+
+  const handleCityChange = async (city: string) => {
+    if (!user || !db) return;
+    setSelectedCity(city);
+    setCityDropdownOpen(false);
+    try {
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, { irlCity: city });
+    } catch (error) {
+      console.error("Error saving city preference:", error);
+    }
+  };
+
+  const handleGenreChange = async (genre: string) => {
+    if (!user || !db) return;
+    setSelectedGenre(genre);
+    setGenreDropdownOpen(false);
+    try {
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, { preferredGenre: genre });
+    } catch (error) {
+      console.error("Error saving genre preference:", error);
+    }
+  };
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (cityDropdownRef.current && !cityDropdownRef.current.contains(e.target as Node)) {
+        setCityDropdownOpen(false);
+      }
+      if (genreDropdownRef.current && !genreDropdownRef.current.contains(e.target as Node)) {
+        setGenreDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleDeleteAccount = async () => {
     if (!user || !db) return;
@@ -233,6 +284,120 @@ export function SettingsClient() {
                   </div>
                 </div>
               </div>
+            </section>
+
+            {/* Channel preferences section */}
+            <section>
+              <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+                Channel Preferences
+              </h2>
+              <div className="bg-[#1a1a1a] rounded divide-y divide-gray-800">
+                {/* City preference */}
+                <div className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-medium">City</p>
+                    <p className="text-gray-500 text-sm">
+                      Filter shows and DJs near you
+                    </p>
+                  </div>
+                  <div className="relative" ref={cityDropdownRef}>
+                    <button
+                      onClick={() => {
+                        setCityDropdownOpen(!cityDropdownOpen);
+                        setGenreDropdownOpen(false);
+                      }}
+                      className="px-3 py-1.5 rounded text-sm font-mono bg-white/5 text-white hover:bg-white/10 transition-colors flex items-center gap-1.5"
+                    >
+                      <span className="truncate max-w-[140px]">{selectedCity || "Not set"}</span>
+                      <svg
+                        className={`w-3 h-3 flex-shrink-0 transition-transform ${cityDropdownOpen ? "rotate-180" : ""}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {cityDropdownOpen && (
+                      <div className="absolute right-0 mt-1 w-48 bg-[#111] border border-white/10 rounded shadow-xl z-20 py-1 max-h-60 overflow-y-auto">
+                        <button
+                          onClick={() => handleCityChange("Anywhere")}
+                          className={`w-full text-left px-3 py-2 text-sm transition-colors font-mono ${
+                            selectedCity === "Anywhere"
+                              ? "bg-white/10 text-white"
+                              : "text-gray-300 hover:bg-white/5 hover:text-white"
+                          }`}
+                        >
+                          Anywhere
+                        </button>
+                        <div className="border-t border-white/10 my-1" />
+                        {SUPPORTED_CITIES.map((city) => (
+                          <button
+                            key={city}
+                            onClick={() => handleCityChange(city)}
+                            className={`w-full text-left px-3 py-2 text-sm transition-colors font-mono ${
+                              selectedCity === city
+                                ? "bg-white/10 text-white"
+                                : "text-gray-300 hover:bg-white/5 hover:text-white"
+                            }`}
+                          >
+                            {city}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Genre preference */}
+                <div className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-medium">Genre</p>
+                    <p className="text-gray-500 text-sm">
+                      Your preferred music genre
+                    </p>
+                  </div>
+                  <div className="relative" ref={genreDropdownRef}>
+                    <button
+                      onClick={() => {
+                        setGenreDropdownOpen(!genreDropdownOpen);
+                        setCityDropdownOpen(false);
+                      }}
+                      className="px-3 py-1.5 rounded text-sm font-mono bg-white/5 text-white hover:bg-white/10 transition-colors flex items-center gap-1.5"
+                    >
+                      <span className="truncate max-w-[140px]">{selectedGenre || "Not set"}</span>
+                      <svg
+                        className={`w-3 h-3 flex-shrink-0 transition-transform ${genreDropdownOpen ? "rotate-180" : ""}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {genreDropdownOpen && (
+                      <div className="absolute right-0 mt-1 w-48 bg-[#111] border border-white/10 rounded shadow-xl z-20 py-1 max-h-60 overflow-y-auto">
+                        {SUPPORTED_GENRES.map((genre) => (
+                          <button
+                            key={genre}
+                            onClick={() => handleGenreChange(genre)}
+                            className={`w-full text-left px-3 py-2 text-sm transition-colors font-mono ${
+                              selectedGenre === genre
+                                ? "bg-white/10 text-white"
+                                : "text-gray-300 hover:bg-white/5 hover:text-white"
+                            }`}
+                          >
+                            {genre}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <p className="text-gray-600 text-xs mt-2 px-1">
+                These preferences are used to personalize your Channel feed
+              </p>
             </section>
 
             {/* Upgrade to DJ section - only show for non-DJ users */}

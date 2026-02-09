@@ -133,7 +133,10 @@ export function ChannelClient() {
         // localStorage not available
       }
     }
-  }, [user?.uid]);
+
+    // Refresh page to re-fetch data with new city
+    router.refresh();
+  }, [user?.uid, router]);
 
   // Load saved genre preference from user profile (auth) or localStorage (unauth)
   useEffect(() => {
@@ -196,7 +199,10 @@ export function ChannelClient() {
         // localStorage not available
       }
     }
-  }, [user?.uid]);
+
+    // Refresh page to re-fetch data with new genre
+    router.refresh();
+  }, [user?.uid, router]);
 
   // Stations map for quick lookup
   const stationsMap = useMemo(() => {
