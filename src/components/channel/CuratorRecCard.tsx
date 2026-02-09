@@ -13,6 +13,7 @@ export function CuratorRecCard({ rec }: CuratorRecCardProps) {
   const [imageError, setImageError] = useState(false);
 
   const cleanUrl = rec.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const domain = rec.url.replace(/^https?:\/\//, '').split('/')[0].replace(/^www\./, '');
   const imageUrl = rec.ogImage || rec.djPhotoUrl;
   const hasPhoto = imageUrl && !imageError;
   const hasOgTitle = !!rec.ogTitle;
@@ -44,44 +45,50 @@ export function CuratorRecCard({ rec }: CuratorRecCardProps) {
             <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
           </>
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900 to-pink-900" />
+          <div className="w-full h-full flex items-center justify-center bg-[#D94099]">
+            <span className="text-2xl font-black uppercase tracking-tight text-white text-center px-4">
+              {domain}
+            </span>
+          </div>
         )}
         <div className="absolute top-2 left-2 right-2 flex items-center justify-between">
           <span className="text-[10px] font-mono text-white uppercase tracking-tighter flex items-center gap-1 drop-shadow-lg">
-            {rec.type === 'event' ? (
+            {rec.type === 'bandcamp' ? (
+              <>
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm0-12.5c-2.49 0-4.5 2.01-4.5 4.5s2.01 4.5 4.5 4.5 4.5-2.01 4.5-4.5-2.01-4.5-4.5-4.5zm0 5.5c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z" />
+                </svg>
+                Music
+              </>
+            ) : (
               <>
                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
                 </svg>
                 IRL
               </>
-            ) : (
-              <>
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z" />
-                </svg>
-                Online
-              </>
             )}
           </span>
         </div>
-        <div className="absolute bottom-2 left-2 right-2 flex items-end gap-2">
-          {rec.djPhotoUrl && (
-            <Image
-              src={rec.djPhotoUrl}
-              alt={rec.djName}
-              width={28}
-              height={28}
-              className="rounded-full border border-white/30 flex-shrink-0 object-cover"
-              unoptimized
-            />
-          )}
-          {hasOgTitle && (
+        {hasOgTitle && (
+          <div className="absolute bottom-2 left-2 right-12">
             <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-2">
               {rec.ogTitle}
             </span>
-          )}
-        </div>
+          </div>
+        )}
+        {rec.djPhotoUrl && (
+          <div className="absolute -bottom-4 right-3">
+            <Image
+              src={rec.djPhotoUrl}
+              alt={rec.djName}
+              width={32}
+              height={32}
+              className="rounded border border-white/30 object-cover"
+              unoptimized
+            />
+          </div>
+        )}
       </a>
 
       <div className="flex flex-col justify-start py-2">

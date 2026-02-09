@@ -35,13 +35,13 @@ export function LiveShowCard({
     <>
       <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
       {stationLogo && (
-        <div className="absolute bottom-2 left-2">
+        <div className="absolute -bottom-4 right-3">
           <Image
             src={stationLogo}
             alt={station.name}
-            width={28}
-            height={28}
-            className="rounded-full border border-white/30 object-cover"
+            width={32}
+            height={32}
+            className="rounded border border-white/30 object-cover"
           />
         </div>
       )}

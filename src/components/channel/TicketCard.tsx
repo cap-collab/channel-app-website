@@ -55,27 +55,27 @@ export function TicketCard({
         </span>
       </div>
       {/* DJ Name and Location - bottom left */}
-      <div className="absolute bottom-2 left-2 right-2 flex items-end gap-2">
-        {stationLogo && (
+      <div className="absolute bottom-2 left-2 right-12">
+        <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+          {djName}
+        </span>
+        {show.djLocation && (
+          <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
+            {show.djLocation}
+          </span>
+        )}
+      </div>
+      {stationLogo && (
+        <div className="absolute -bottom-4 right-3">
           <Image
             src={stationLogo}
             alt={station.name}
-            width={28}
-            height={28}
-            className="rounded-full border border-white/30 flex-shrink-0 object-cover"
+            width={32}
+            height={32}
+            className="rounded border border-white/30 object-cover"
           />
-        )}
-        <div>
-          <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
-            {djName}
-          </span>
-          {show.djLocation && (
-            <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
-              {show.djLocation}
-            </span>
-          )}
         </div>
-      </div>
+      )}
     </>
   );
 
