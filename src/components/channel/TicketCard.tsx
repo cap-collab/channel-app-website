@@ -65,18 +65,19 @@ export function TicketCard({
           </span>
         )}
       </div>
-      {stationLogo && (
-        <div className="absolute -bottom-4 right-3 w-8 h-8 rounded border border-white/30 overflow-hidden bg-black">
-          <Image
-            src={stationLogo}
-            alt={station.name}
-            fill
-            className="object-contain"
-          />
-        </div>
-      )}
     </>
   );
+
+  const stationLogoOverlay = stationLogo ? (
+    <div className="absolute -bottom-4 right-3 w-8 h-8 rounded border border-white/30 overflow-hidden bg-black z-10">
+      <Image
+        src={stationLogo}
+        alt={station.name}
+        fill
+        className="object-contain"
+      />
+    </div>
+  ) : null;
 
   return (
     <div className="w-full group">
@@ -89,57 +90,60 @@ export function TicketCard({
         </div>
       )}
       {/* Full width image with overlays - links to DJ profile if available */}
-      {show.djUsername ? (
-        <Link href={`/dj/${show.djUsername}`} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
-          {hasPhoto ? (
-            <>
-              <Image
-                src={photoUrl}
-                alt={djName}
-                fill
-                className="object-cover"
-                unoptimized
-                onError={() => setImageError(true)}
-              />
-              {imageOverlays}
-            </>
-          ) : (
-            <div
-              className="w-full h-full flex items-center justify-center"
-              style={{ backgroundColor: station.accentColor }}
-            >
-              <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-white text-center px-4">
-                {djName}
-              </h2>
-            </div>
-          )}
-        </Link>
-      ) : (
-        <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10">
-          {hasPhoto ? (
-            <>
-              <Image
-                src={photoUrl}
-                alt={djName}
-                fill
-                className="object-cover"
-                unoptimized
-                onError={() => setImageError(true)}
-              />
-              {imageOverlays}
-            </>
-          ) : (
-            <div
-              className="w-full h-full flex items-center justify-center"
-              style={{ backgroundColor: station.accentColor }}
-            >
-              <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-white text-center px-4">
-                {djName}
-              </h2>
-            </div>
-          )}
-        </div>
-      )}
+      <div className="relative">
+        {show.djUsername ? (
+          <Link href={`/dj/${show.djUsername}`} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
+            {hasPhoto ? (
+              <>
+                <Image
+                  src={photoUrl}
+                  alt={djName}
+                  fill
+                  className="object-cover"
+                  unoptimized
+                  onError={() => setImageError(true)}
+                />
+                {imageOverlays}
+              </>
+            ) : (
+              <div
+                className="w-full h-full flex items-center justify-center"
+                style={{ backgroundColor: station.accentColor }}
+              >
+                <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-white text-center px-4">
+                  {djName}
+                </h2>
+              </div>
+            )}
+          </Link>
+        ) : (
+          <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10">
+            {hasPhoto ? (
+              <>
+                <Image
+                  src={photoUrl}
+                  alt={djName}
+                  fill
+                  className="object-cover"
+                  unoptimized
+                  onError={() => setImageError(true)}
+                />
+                {imageOverlays}
+              </>
+            ) : (
+              <div
+                className="w-full h-full flex items-center justify-center"
+                style={{ backgroundColor: station.accentColor }}
+              >
+                <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-white text-center px-4">
+                  {djName}
+                </h2>
+              </div>
+            )}
+          </div>
+        )}
+        {stationLogoOverlay}
+      </div>
 
       {/* Show Info */}
       <div className="flex flex-col justify-start py-2">
