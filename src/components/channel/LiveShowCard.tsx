@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Show, Station } from '@/types';
 import { getContrastTextColor } from '@/lib/colorUtils';
+import { getStationLogoUrl } from '@/lib/stations';
 
 interface LiveShowCardProps {
   show: Show;
@@ -28,10 +29,22 @@ export function LiveShowCard({
   const hasPhoto = photoUrl && !imageError;
   const djName = show.dj || show.name;
   const textColor = hasPhoto ? '#ffffff' : getContrastTextColor(station.accentColor);
+  const stationLogo = getStationLogoUrl(station.id);
 
   const imageOverlays = (
     <>
       <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+      {stationLogo && (
+        <div className="absolute bottom-2 left-2">
+          <Image
+            src={stationLogo}
+            alt={station.name}
+            width={28}
+            height={28}
+            className="rounded-full border border-white/30 object-cover"
+          />
+        </div>
+      )}
     </>
   );
 

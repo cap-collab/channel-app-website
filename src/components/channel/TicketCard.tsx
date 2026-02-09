@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Show, Station } from '@/types';
+import { getStationLogoUrl } from '@/lib/stations';
 
 interface TicketCardProps {
   show: Show;
@@ -34,6 +35,7 @@ export function TicketCard({
   const djName = show.dj || show.name;
   const photoUrl = show.djPhotoUrl || show.imageUrl;
   const hasPhoto = photoUrl && !imageError;
+  const stationLogo = getStationLogoUrl(station.id);
 
   const imageOverlays = (
     <>
@@ -53,15 +55,26 @@ export function TicketCard({
         </span>
       </div>
       {/* DJ Name and Location - bottom left */}
-      <div className="absolute bottom-2 left-2 right-2">
-        <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
-          {djName}
-        </span>
-        {show.djLocation && (
-          <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
-            {show.djLocation}
-          </span>
+      <div className="absolute bottom-2 left-2 right-2 flex items-end gap-2">
+        {stationLogo && (
+          <Image
+            src={stationLogo}
+            alt={station.name}
+            width={28}
+            height={28}
+            className="rounded-full border border-white/30 flex-shrink-0 object-cover"
+          />
         )}
+        <div>
+          <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+            {djName}
+          </span>
+          {show.djLocation && (
+            <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
+              {show.djLocation}
+            </span>
+          )}
+        </div>
       </div>
     </>
   );

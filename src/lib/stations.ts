@@ -104,3 +104,16 @@ export function getStationByMetadataKey(key: string): Station | undefined {
 export function getMetadataKeyByStationId(stationId: string): string | undefined {
   return STATIONS.find((s) => s.id === stationId)?.metadataKey;
 }
+
+const STATION_LOGOS: Record<string, string> = {
+  "nts-1": "/stations/nts-logo.png",
+  "nts-2": "/stations/nts-logo.png",
+  "rinse-fm": "/stations/rinsefm-logo.png",
+  "rinse-fr": "/stations/rinsefr-logo.png",
+  "subtle": "/stations/subtle-logo.png",
+  "dublab": "/stations/dublab-logo.png",
+};
+
+export function getStationLogoUrl(stationId: string): string | undefined {
+  return STATION_LOGOS[stationId];
+}

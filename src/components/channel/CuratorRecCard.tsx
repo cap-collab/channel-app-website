@@ -7,26 +7,23 @@ import { CuratorRec } from '@/types';
 
 interface CuratorRecCardProps {
   rec: CuratorRec;
-  matchLabel?: string;
 }
 
-export function CuratorRecCard({ rec, matchLabel }: CuratorRecCardProps) {
+export function CuratorRecCard({ rec }: CuratorRecCardProps) {
   const [imageError, setImageError] = useState(false);
 
   const cleanUrl = rec.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
   const imageUrl = rec.ogImage || rec.djPhotoUrl;
   const hasPhoto = imageUrl && !imageError;
-  const displayTitle = rec.ogTitle || cleanUrl;
+  const hasOgTitle = !!rec.ogTitle;
 
   return (
     <div className="w-full group">
-      {matchLabel && (
-        <div className="flex items-center mb-1 h-4 px-0.5">
-          <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">
-            {matchLabel}
-          </span>
-        </div>
-      )}
+      <div className="flex items-center mb-1 h-4 px-0.5">
+        <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">
+          REC&apos;D BY {rec.djName.toUpperCase()}
+        </span>
+      </div>
       <a
         href={rec.url}
         target="_blank"
@@ -37,7 +34,7 @@ export function CuratorRecCard({ rec, matchLabel }: CuratorRecCardProps) {
           <>
             <Image
               src={imageUrl}
-              alt={displayTitle}
+              alt={rec.ogTitle || rec.djName}
               fill
               className="object-cover"
               unoptimized
@@ -68,25 +65,55 @@ export function CuratorRecCard({ rec, matchLabel }: CuratorRecCardProps) {
             )}
           </span>
         </div>
-        <div className="absolute bottom-2 left-2 right-2">
-          <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
-            {rec.djName}
-          </span>
+        <div className="absolute bottom-2 left-2 right-2 flex items-end gap-2">
+          {rec.djPhotoUrl && (
+            <Image
+              src={rec.djPhotoUrl}
+              alt={rec.djName}
+              width={28}
+              height={28}
+              className="rounded-full border border-white/30 flex-shrink-0 object-cover"
+              unoptimized
+            />
+          )}
+          {hasOgTitle && (
+            <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-2">
+              {rec.ogTitle}
+            </span>
+          )}
         </div>
       </a>
 
       <div className="flex flex-col justify-start py-2">
         <h3 className="text-sm font-bold leading-tight truncate">
           <a href={rec.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-            {displayTitle}
+            {cleanUrl}
           </a>
         </h3>
-        <p className="text-[10px] text-zinc-500 mt-0.5 uppercase">
-          Rec&apos;d by{' '}
-          <Link href={`/dj/${rec.djUsername}`} className="hover:underline">
-            {rec.djName}
+      </div>
+
+      {/* Action Buttons */}
+      <div className="space-y-2 mt-auto pt-2">
+        <div className="flex gap-2">
+          <Link
+            href={`/dj/${rec.djUsername}#chat`}
+            className="flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white hover:bg-gray-100 text-gray-900 text-center"
+          >
+            Chat with {rec.djName}
           </Link>
-        </p>
+          <a
+            href={rec.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white flex items-center justify-center gap-2"
+          >
+            Visit Link
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        </div>
       </div>
     </div>
   );

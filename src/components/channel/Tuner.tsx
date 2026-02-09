@@ -109,7 +109,7 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
           {cityDropdownOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={closeCityDropdown} />
-              <div className="absolute left-0 mt-1 w-48 bg-[#111] border border-white/10 rounded shadow-xl z-20 py-1 max-h-72 overflow-y-auto">
+              <div className="absolute top-full left-0 mt-1 w-48 bg-[#111] border border-white/10 rounded shadow-xl z-20 py-1 max-h-72 overflow-y-auto">
                 {cityCustomMode ? (
                   <div className="px-2 py-1">
                     <div className="flex gap-1">
@@ -202,7 +202,7 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
           {genreDropdownOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={closeGenreDropdown} />
-              <div className="absolute right-0 mt-1 w-48 bg-[#111] border border-white/10 rounded shadow-xl z-20 py-1 max-h-72 overflow-y-auto">
+              <div className="absolute top-full right-0 mt-1 w-48 bg-[#111] border border-white/10 rounded shadow-xl z-20 py-1 max-h-72 overflow-y-auto">
                 {genreCustomMode ? (
                   <div className="px-2 py-1">
                     <div className="flex gap-1">
