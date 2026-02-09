@@ -65,12 +65,25 @@ async function sendTestEmail(to: string) {
   // Look up real DJ profiles - only set username if profile exists
   const pariahProfile = await getDJProfile("pariah");
   const dorWandProfile = await getDJProfile("dor wand");
+  const klsRdrProfile = await getDJProfile("copypastewklsrdr");
 
   console.log("[test-email] Pariah profile:", pariahProfile);
   console.log("[test-email] Dor Wand profile:", dorWandProfile);
+  console.log("[test-email] KLS.RDR profile:", klsRdrProfile);
 
   // Sample data matching the original email from Feb 4
   const sampleMatches = [
+    {
+      showName: "COPYPASTE w/ KLS.RDR",
+      djName: "KLS.RDR",
+      djUsername: klsRdrProfile?.username || "copypastewklsrdr",
+      djPhotoUrl: klsRdrProfile?.photoUrl,
+      stationName: "Subtle Radio",
+      stationId: "subtle",
+      startTime: new Date("2026-02-08T04:00:00Z"),
+      searchTerm: "copypaste",
+      isIRL: false,
+    },
     {
       showName: "Pariah presents Voam",
       djName: "pariah",

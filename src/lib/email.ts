@@ -102,6 +102,18 @@ function wrapEmailContent(content: string, footerText: string): string {
 // Pink gradient button style
 const PINK_BUTTON_STYLE = "display: inline-block; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: #fff !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;";
 
+// Get a photo URL for emails
+// Uses the direct URL when available, falls back to proxy when only username is known
+// The proxy looks up the photo from Firestore and serves it via a clean URL
+function getEmailPhotoUrl(djUsername?: string, djPhotoUrl?: string): string | undefined {
+  if (djPhotoUrl) return djPhotoUrl;
+  if (djUsername) {
+    const normalized = djUsername.toLowerCase().replace(/[^a-z0-9]/g, "");
+    return `https://channel-app.com/api/dj-photo/${normalized}`;
+  }
+  return undefined;
+}
+
 interface ShowStartingEmailParams {
   to: string;
   showName: string;
@@ -153,8 +165,10 @@ export async function sendShowStartingEmail({
   const fallbackColor = stationAccentColors[stationId] || "#D94099";
 
   // DJ photo or fallback initial (email-compatible table-based fallback)
-  const photoHtml = djPhotoUrl
-    ? `<img src="${djPhotoUrl}" alt="${djDisplayName}" width="80" height="80" style="width: 80px; height: 80px; border-radius: 12px; object-fit: cover; border: 1px solid #333;" />`
+  // Use proxy URL for reliable loading in email clients
+  const emailPhotoUrl = getEmailPhotoUrl(djUsername, djPhotoUrl);
+  const photoHtml = emailPhotoUrl
+    ? `<img src="${emailPhotoUrl}" alt="${djDisplayName}" width="80" height="80" style="width: 80px; height: 80px; border-radius: 12px; object-fit: cover; border: 1px solid #333;" />`
     : `<table width="80" height="80" cellpadding="0" cellspacing="0" border="0" style="border-radius: 12px; border: 1px solid #333; background-color: ${fallbackColor};">
         <tr>
           <td align="center" valign="middle" style="font-size: 32px; font-weight: bold; color: #fff;">
@@ -497,8 +511,10 @@ export async function sendWatchlistDigestEmail({
       const fallbackColor = match.isIRL ? "#22c55e" : (stationAccentColors[match.stationId] || "#D94099");
 
       // DJ photo or fallback initial (email-compatible table-based fallback)
-      const photoHtml = match.djPhotoUrl
-        ? `<img src="${match.djPhotoUrl}" alt="${djDisplayName}" width="64" height="64" style="width: 64px; height: 64px; border-radius: 8px; object-fit: cover; border: 1px solid #333;" />`
+      // Use proxy URL for reliable loading in email clients
+      const emailPhotoUrl = getEmailPhotoUrl(match.djUsername, match.djPhotoUrl);
+      const photoHtml = emailPhotoUrl
+        ? `<img src="${emailPhotoUrl}" alt="${djDisplayName}" width="64" height="64" style="width: 64px; height: 64px; border-radius: 8px; object-fit: cover; border: 1px solid #333;" />`
         : `<table width="64" height="64" cellpadding="0" cellspacing="0" border="0" style="border-radius: 8px; border: 1px solid #333; background-color: ${fallbackColor};">
             <tr>
               <td align="center" valign="middle" style="font-size: 24px; font-weight: bold; color: #fff;">
