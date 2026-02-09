@@ -102,14 +102,18 @@ function wrapEmailContent(content: string, footerText: string): string {
 // Pink gradient button style
 const PINK_BUTTON_STYLE = "display: inline-block; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: #fff !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;";
 
+// Normalize a DJ username for use in URLs (e.g. "COPYPASTE w/ KLS.RDR" → "copypastewklsrdr")
+function normalizeDjUsername(djUsername: string): string {
+  return djUsername.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 // Get a photo URL for emails
 // Uses the direct URL when available, falls back to proxy when only username is known
 // The proxy looks up the photo from Firestore and serves it via a clean URL
 function getEmailPhotoUrl(djUsername?: string, djPhotoUrl?: string): string | undefined {
   if (djPhotoUrl) return djPhotoUrl;
   if (djUsername) {
-    const normalized = djUsername.toLowerCase().replace(/[^a-z0-9]/g, "");
-    return `https://channel-app.com/api/dj-photo/${normalized}`;
+    return `https://channel-app.com/api/dj-photo/${normalizeDjUsername(djUsername)}`;
   }
   return undefined;
 }
@@ -147,7 +151,7 @@ export async function sendShowStartingEmail({
   // Otherwise show "Tune In" linking to the radio's website
   const canChatWithDJ = djHasEmail && djUsername;
   const buttonUrl = canChatWithDJ
-    ? `https://channel-app.com/dj/${djUsername}`
+    ? `https://channel-app.com/dj/${normalizeDjUsername(djUsername)}`
     : getStationWebsiteUrl(stationId);
   const buttonText = canChatWithDJ ? "Join the chat" : "Tune In";
 
@@ -239,7 +243,7 @@ export async function sendMentionEmail({
 
   // Link to DJ profile chat if available, otherwise fall back to station
   const chatUrl = djUsername
-    ? `https://channel-app.com/dj/${djUsername}#chat`
+    ? `https://channel-app.com/dj/${normalizeDjUsername(djUsername)}#chat`
     : getStationDeepLink(stationId);
 
   const content = `
@@ -305,7 +309,7 @@ export async function sendPopularityAlertEmail({
 
   // Link to DJ profile chat if available, otherwise fall back to station
   const listenUrl = djUsername
-    ? `https://channel-app.com/dj/${djUsername}#chat`
+    ? `https://channel-app.com/dj/${normalizeDjUsername(djUsername)}#chat`
     : getStationDeepLink(stationId);
 
   const content = `
@@ -475,7 +479,7 @@ export async function sendWatchlistDigestEmail({
 
       // DJ profile URL - link to profile if exists, fallback to my-shows
       const djProfileUrl = match.djUsername
-        ? `https://channel-app.com/dj/${match.djUsername}`
+        ? `https://channel-app.com/dj/${normalizeDjUsername(match.djUsername)}`
         : "https://channel-app.com/my-shows";
 
       // CTA URL: For IRL events with tickets, link to tickets; otherwise link to DJ profile
@@ -671,7 +675,7 @@ export async function sendDjOnlineEmail({
     return false;
   }
 
-  const chatUrl = `https://channel-app.com/dj/${djUsername}#chat`;
+  const chatUrl = `https://channel-app.com/dj/${normalizeDjUsername(djUsername)}#chat`;
 
   const content = `
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333;">
