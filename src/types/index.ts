@@ -121,6 +121,15 @@ export interface IRLShowData {
   date: string;       // ISO date string (YYYY-MM-DD)
 }
 
+// Curator recommendation (bandcamp/event link from DJ's "My Recs")
+export interface CuratorRec {
+  djUsername: string;
+  djName: string;
+  djPhotoUrl?: string;
+  url: string;
+  type: 'bandcamp' | 'event';
+}
+
 // Station application
 export interface StationApplication {
   stationName: string;

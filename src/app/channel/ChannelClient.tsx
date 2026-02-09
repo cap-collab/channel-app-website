@@ -1,86 +1,72 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { useUserProfile } from '@/hooks/useUserProfile';
 import { Header } from '@/components/Header';
-import { WhoIsOnNow } from '@/components/channel/WhoIsOnNow';
-import { ListenerChatPanel } from '@/components/channel/ListenerChatPanel';
-import { TipThankYouModal } from '@/components/channel/TipThankYouModal';
-import { MyDJsSection } from '@/components/channel/MyDJsSection';
 import { Tuner } from '@/components/channel/Tuner';
 import { SwipeableCardCarousel } from '@/components/channel/SwipeableCardCarousel';
 import { TicketCard } from '@/components/channel/TicketCard';
+import { LiveShowCard } from '@/components/channel/LiveShowCard';
 import { IRLShowCard } from '@/components/channel/IRLShowCard';
+import { CuratorRecCard } from '@/components/channel/CuratorRecCard';
 import { InviteCard } from '@/components/channel/InviteCard';
 import { AuthModal } from '@/components/AuthModal';
-import { useBroadcastStream } from '@/hooks/useBroadcastStream';
-import { useListenerChat } from '@/hooks/useListenerChat';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
-import { saveTipToLocalStorage } from '@/lib/tip-history-storage';
-import { Show, Station, IRLShowData } from '@/types';
+import { Show, Station, IRLShowData, CuratorRec } from '@/types';
 import { STATIONS } from '@/lib/stations';
 import { useFavorites } from '@/hooks/useFavorites';
 import { getDefaultCity, matchesCity } from '@/lib/city-detection';
 import { GENRE_ALIASES } from '@/lib/genres';
-import { showMatchesDJ } from '@/lib/dj-matching';
 import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
-interface TipSuccessData {
-  djUsername: string;
-  djThankYouMessage: string;
-  tipAmountCents: number;
-  showName: string;
-}
-
 type MatchedItem =
-  | { type: 'irl'; data: IRLShowData; priority: number; matchLabel: string | undefined }
-  | { type: 'radio'; data: Show; station: Station; priority: number; matchLabel: string | undefined };
+  | { type: 'irl'; data: IRLShowData; matchLabel: string | undefined }
+  | { type: 'radio'; data: Show; station: Station; matchLabel: string | undefined; live?: boolean };
 
 export function ChannelClient() {
   const { user, isAuthenticated } = useAuthContext();
-  const { chatUsername, loading: profileLoading, setChatUsername } = useUserProfile(user?.uid);
   const { favorites, isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
-  const searchParams = useSearchParams();
   const router = useRouter();
 
   // Auth modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
 
-  // All shows data for MyDJs and WhatNotToMiss
+  // All shows data
   const [allShows, setAllShows] = useState<Show[]>([]);
-  const [allShowsLoading, setAllShowsLoading] = useState(true);
-
-  // IRL shows data
   const [irlShows, setIrlShows] = useState<IRLShowData[]>([]);
+  const [curatorRecs, setCuratorRecs] = useState<CuratorRec[]>([]);
 
-  // Selected city for local DJs section (lifted up for deduplication)
+  // Selected city and genres
   const [selectedCity, setSelectedCity] = useState<string>('');
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
 
-  // Selected genre for Who Not To Miss section (lifted up for Tuner bar)
-  const [selectedGenre, setSelectedGenre] = useState<string>('');
-
-  // Follow/remind state for unified cards section
+  // Follow/remind state
   const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
   const [addingReminderShowId, setAddingReminderShowId] = useState<string | null>(null);
 
   // Load city/genre preferences: Firebase (real-time) for auth users, localStorage for unauth
   useEffect(() => {
-    // Authenticated users: use onSnapshot for real-time sync with Firebase
     if (user?.uid && db) {
       const userRef = doc(db, 'users', user.uid);
       const unsubscribe = onSnapshot(userRef, (snapshot) => {
         const data = snapshot.data();
         setSelectedCity(data?.irlCity || getDefaultCity());
-        setSelectedGenre(data?.preferredGenre || 'House');
+        // Support both old string and new array format
+        const genres = data?.preferredGenres;
+        if (Array.isArray(genres)) {
+          setSelectedGenres(genres);
+        } else if (data?.preferredGenre) {
+          setSelectedGenres([data.preferredGenre]);
+        } else {
+          setSelectedGenres(['House']);
+        }
       });
       return () => unsubscribe();
     }
 
-    // Unauthenticated users: load from localStorage with fallbacks
     try {
       const localCity = localStorage.getItem('channel-selected-city');
       setSelectedCity(localCity || getDefaultCity());
@@ -88,18 +74,21 @@ export function ChannelClient() {
       setSelectedCity(getDefaultCity());
     }
     try {
-      const localGenre = localStorage.getItem('channel-selected-genre');
-      if (localGenre) setSelectedGenre(localGenre);
+      const stored = localStorage.getItem('channel-selected-genres');
+      if (stored) {
+        setSelectedGenres(JSON.parse(stored));
+      } else {
+        // Migrate old single genre
+        const localGenre = localStorage.getItem('channel-selected-genre');
+        if (localGenre) setSelectedGenres([localGenre]);
+      }
     } catch {
       // localStorage not available
     }
   }, [user?.uid]);
 
-  // Handle city change and save to profile (Firebase for auth, localStorage for unauth)
   const handleCityChange = useCallback(async (city: string) => {
     setSelectedCity(city);
-
-    // Save to Firebase if authenticated
     if (user?.uid && db) {
       try {
         const userRef = doc(db, 'users', user.uid);
@@ -108,38 +97,23 @@ export function ChannelClient() {
         console.error('Error saving city preference:', error);
       }
     } else {
-      // Save to localStorage for unauthenticated users
-      try {
-        localStorage.setItem('channel-selected-city', city);
-      } catch {
-        // localStorage not available
-      }
+      try { localStorage.setItem('channel-selected-city', city); } catch {}
     }
-
-    // Refresh page to re-fetch data with new city
     router.refresh();
   }, [user?.uid, router]);
 
-  // Handle genre change and save to profile
-  const handleGenreChange = useCallback(async (genre: string) => {
-    setSelectedGenre(genre);
-
+  const handleGenresChange = useCallback(async (genres: string[]) => {
+    setSelectedGenres(genres);
     if (user?.uid && db) {
       try {
         const userRef = doc(db, 'users', user.uid);
-        await updateDoc(userRef, { preferredGenre: genre });
+        await updateDoc(userRef, { preferredGenres: genres });
       } catch (error) {
-        console.error('Error saving genre preference:', error);
+        console.error('Error saving genre preferences:', error);
       }
     } else {
-      try {
-        localStorage.setItem('channel-selected-genre', genre);
-      } catch {
-        // localStorage not available
-      }
+      try { localStorage.setItem('channel-selected-genres', JSON.stringify(genres)); } catch {}
     }
-
-    // Refresh page to re-fetch data with new genre
     router.refresh();
   }, [user?.uid, router]);
 
@@ -152,48 +126,6 @@ export function ChannelClient() {
     return map;
   }, []);
 
-  // Tip success modal state
-  const [showThankYouModal, setShowThankYouModal] = useState(false);
-  const [tipSuccessData, setTipSuccessData] = useState<TipSuccessData | null>(null);
-
-  // Handle tip success redirect from Stripe
-  const handleTipSuccess = useCallback(async (sessionId: string) => {
-    try {
-      const response = await fetch(`/api/tips/by-session?sessionId=${sessionId}`);
-      if (!response.ok) {
-        console.error('Failed to fetch tip data');
-        return;
-      }
-
-      const tipData = await response.json();
-
-      // Save to localStorage for guest users (or all users for offline access)
-      saveTipToLocalStorage({
-        id: tipData.id,
-        stripeSessionId: sessionId,
-        djUsername: tipData.djUsername,
-        showName: tipData.showName,
-        tipAmountCents: tipData.tipAmountCents,
-        djThankYouMessage: tipData.djThankYouMessage,
-        createdAt: Date.now(),
-      });
-
-      // Show the thank you modal
-      setTipSuccessData({
-        djUsername: tipData.djUsername,
-        djThankYouMessage: tipData.djThankYouMessage,
-        tipAmountCents: tipData.tipAmountCents,
-        showName: tipData.showName,
-      });
-      setShowThankYouModal(true);
-
-      // Clear URL params
-      router.replace('/channel', { scroll: false });
-    } catch (error) {
-      console.error('Error handling tip success:', error);
-    }
-  }, [router]);
-
   // Fetch all shows on mount
   useEffect(() => {
     fetch('/api/schedule')
@@ -201,18 +133,12 @@ export function ChannelClient() {
       .then((data) => {
         setAllShows(data.shows || []);
         setIrlShows(data.irlShows || []);
+        setCuratorRecs(data.curatorRecs || []);
       })
-      .catch(console.error)
-      .finally(() => setAllShowsLoading(false));
+      .catch(console.error);
   }, []);
 
-  // Filter to only live and upcoming shows (exclude past shows)
-  const liveAndUpcomingShows = useMemo(() => {
-    const now = new Date();
-    return allShows.filter((show) => new Date(show.endTime) > now);
-  }, [allShows]);
-
-  // Helper: check if a show matches the selected genre (with aliases)
+  // Helper: check if a show matches a single genre (with aliases)
   const matchesGenre = useCallback((showGenres: string[] | undefined, genre: string): boolean => {
     if (!showGenres || showGenres.length === 0 || !genre) return false;
     const genreLower = genre.toLowerCase();
@@ -230,209 +156,245 @@ export function ChannelClient() {
     });
   }, []);
 
-  // Compute show IDs already in My DJs section (to exclude from unified cards)
-  const myDJsShowIds = useMemo(() => {
-    const excluded = new Set<string>();
+  // Helper: check if a show matches any of the selected genres
+  const matchesAnyGenre = useCallback((showGenres: string[] | undefined): boolean => {
+    if (selectedGenres.length === 0) return false;
+    return selectedGenres.some((genre) => matchesGenre(showGenres, genre));
+  }, [selectedGenres, matchesGenre]);
+
+  // Genre label for match tags
+  const genreLabel = useMemo(() => {
+    if (selectedGenres.length === 0) return '';
+    if (selectedGenres.length === 1) return selectedGenres[0].toUpperCase();
+    return selectedGenres.map((g) => g.toUpperCase()).join(' + ');
+  }, [selectedGenres]);
+
+  // Helper: check if a show is currently live
+  const isShowLive = useCallback((show: Show): boolean => {
     const now = new Date();
-    const followedDJNames = favorites
-      .filter((f) => f.type === 'search')
-      .map((f) => f.term);
-    const favoritedShows = favorites
-      .filter((f) => f.type === 'show')
-      .map((f) => ({
-        term: f.term.toLowerCase(),
-        showName: f.showName,
-        stationId: f.stationId,
-      }));
+    return new Date(show.startTime) <= now && new Date(show.endTime) > now;
+  }, []);
 
-    for (const show of allShows) {
-      const startDate = new Date(show.startTime);
-      if (startDate <= now) continue;
-      const matchesDJFollow = followedDJNames.some((name) => showMatchesDJ(show, name));
-      if (matchesDJFollow) { excluded.add(show.id); continue; }
-      const showNameLower = show.name?.toLowerCase() || '';
-      const matchesFavorite = favoritedShows.some((fav) => {
-        const nameMatch = showNameLower === fav.term ||
-          (fav.showName && showNameLower === fav.showName.toLowerCase());
-        const stationMatch = !fav.stationId || show.stationId === fav.stationId;
-        return nameMatch && stationMatch;
-      });
-      if (matchesFavorite) { excluded.add(show.id); }
-    }
-    return excluded;
-  }, [allShows, favorites]);
+  // Helper: valid show for display
+  const isValidShow = useCallback((show: Show): boolean => {
+    const hasPhoto = show.djPhotoUrl || show.imageUrl;
+    const isRestreamOrPlaylist = show.type === 'playlist' || show.type === 'restream';
+    return !!(show.dj && (show.djUsername || show.djUserId) && hasPhoto && !isRestreamOrPlaylist);
+  }, []);
 
-  // Compute matched card groups by priority
-  // Priority 3: city + genre match (standalone cards)
-  // Priority 2: city only match (swipeable carousel, max 5)
-  // Priority 1: genre only match (swipeable carousel, max 5)
-  // When no genre selected: treat as "all genres" — only city filtering applies
-  // When city is Anywhere or empty: no city filtering, only genre applies
-  const { bothCards, cityOnlyCards, genreOnlyCards } = useMemo(() => {
+  // Followed DJ names for curator recs filtering
+  const followedDJNames = useMemo(() =>
+    favorites.filter((f) => f.type === 'search').map((f) => f.term.toLowerCase()),
+    [favorites]
+  );
+
+  // Compute all 7 sections with deduplication
+  const {
+    liveLocationGenreCards,
+    locationGenreCards,
+    filteredCuratorRecs,
+    liveGenreCards,
+    genreCards,
+    locationCards,
+    radioCards,
+  } = useMemo(() => {
     const isAnywhere = !selectedCity || selectedCity === 'Anywhere';
-    const hasGenreFilter = !!selectedGenre;
-    const both: MatchedItem[] = [];
-    const cityOnly: MatchedItem[] = [];
-    const genreOnly: MatchedItem[] = [];
+    const hasGenreFilter = selectedGenres.length > 0;
     const now = new Date();
+    const seenShowIds = new Set<string>();
     const seenDJs = new Set<string>();
 
-    const addItem = (item: MatchedItem, djName: string | undefined) => {
-      const key = djName?.toLowerCase();
-      if (key && seenDJs.has(key)) return;
-      if (key) seenDJs.add(key);
-
-      if (item.priority === 3) both.push(item);
-      else if (item.priority === 2) cityOnly.push(item);
-      else if (item.priority === 1) genreOnly.push(item);
-      // priority 0: only when Anywhere + no genre, goes to cityOnly as generic cards
-      else cityOnly.push(item);
+    const tryAddShow = (id: string, djName: string | undefined): boolean => {
+      const djKey = djName?.toLowerCase();
+      if (seenShowIds.has(id)) return false;
+      if (djKey && seenDJs.has(djKey)) return false;
+      seenShowIds.add(id);
+      if (djKey) seenDJs.add(djKey);
+      return true;
     };
 
-    // Process IRL shows
-    for (const show of irlShows) {
-      const cityMatch = !isAnywhere && matchesCity(show.location, selectedCity);
-      const genreMatch = hasGenreFilter ? matchesGenre(show.djGenres, selectedGenre) : false;
+    // Helper to create a MatchedItem from a radio show
+    const makeRadioItem = (show: Show, matchLabel: string | undefined, live?: boolean): MatchedItem | null => {
+      const station = stationsMap.get(show.stationId);
+      if (!station) return null;
+      return { type: 'radio', data: show, station, matchLabel, live };
+    };
 
-      // Include if: city matches, genre matches, or no filters active (Anywhere + no genre)
-      if (!cityMatch && !genreMatch && !isAnywhere) continue;
-      if (isAnywhere && hasGenreFilter && !genreMatch) continue;
+    // Helper to create a MatchedItem from an IRL show
+    const makeIRLItem = (show: IRLShowData, matchLabel: string | undefined): MatchedItem => {
+      return { type: 'irl', data: show, matchLabel };
+    };
 
-      const priority = (cityMatch ? 2 : 0) + (genreMatch ? 1 : 0);
-      let matchLabel: string | undefined;
-      if (cityMatch && genreMatch) matchLabel = `${selectedCity.toUpperCase()} + ${selectedGenre.toUpperCase()}`;
-      else if (cityMatch) matchLabel = selectedCity.toUpperCase();
-      else if (genreMatch) matchLabel = selectedGenre.toUpperCase();
-
-      addItem({ type: 'irl', data: show, priority, matchLabel }, show.djName);
+    // Section 1: Live + Location + Genre (grid, max 4)
+    const s1: MatchedItem[] = [];
+    if (!isAnywhere && hasGenreFilter) {
+      for (const show of allShows) {
+        if (s1.length >= 4) break;
+        if (!isValidShow(show)) continue;
+        if (!isShowLive(show)) continue;
+        const cityMatch = show.djLocation ? matchesCity(show.djLocation, selectedCity) : false;
+        const genreMatch = matchesAnyGenre(show.djGenres);
+        if (!cityMatch || !genreMatch) continue;
+        if (!tryAddShow(show.id, show.dj)) continue;
+        const item = makeRadioItem(show, `LIVE · ${selectedCity.toUpperCase()} + ${genreLabel}`, true);
+        if (item) s1.push(item);
+      }
     }
 
-    // Process radio shows
-    for (const show of allShows) {
-      const startDate = new Date(show.startTime);
-      if (startDate <= now) continue;
-      if (myDJsShowIds.has(show.id)) continue;
-      const hasPhoto = show.djPhotoUrl || show.imageUrl;
-      const isRestreamOrPlaylist = show.type === 'playlist' || show.type === 'restream';
-      if (!show.dj || !(show.djUsername || show.djUserId) || !hasPhoto || isRestreamOrPlaylist) continue;
+    // Section 2: Location + Genre (grid, max 4) — upcoming, not live
+    const s2: MatchedItem[] = [];
+    if (!isAnywhere && hasGenreFilter) {
+      // IRL shows
+      for (const show of irlShows) {
+        if (s2.length >= 4) break;
+        const cityMatch = matchesCity(show.location, selectedCity);
+        const genreMatch = matchesAnyGenre(show.djGenres);
+        if (!cityMatch || !genreMatch) continue;
+        const id = `irl-${show.djUsername}-${show.date}`;
+        if (!tryAddShow(id, show.djName)) continue;
+        s2.push(makeIRLItem(show, `${selectedCity.toUpperCase()} + ${genreLabel}`));
+      }
+      // Radio shows
+      for (const show of allShows) {
+        if (s2.length >= 4) break;
+        if (!isValidShow(show)) continue;
+        if (new Date(show.endTime) <= now) continue;
+        if (isShowLive(show)) continue;
+        const cityMatch = show.djLocation ? matchesCity(show.djLocation, selectedCity) : false;
+        const genreMatch = matchesAnyGenre(show.djGenres);
+        if (!cityMatch || !genreMatch) continue;
+        if (!tryAddShow(show.id, show.dj)) continue;
+        const item = makeRadioItem(show, `${selectedCity.toUpperCase()} + ${genreLabel}`);
+        if (item) s2.push(item);
+      }
+    }
 
+    // Section 3: Curator recs from followed DJs (grid, max 4)
+    const s3: CuratorRec[] = [];
+    if (followedDJNames.length > 0) {
+      for (const rec of curatorRecs) {
+        if (s3.length >= 4) break;
+        if (followedDJNames.includes(rec.djUsername.toLowerCase()) ||
+            followedDJNames.includes(rec.djName.toLowerCase())) {
+          s3.push(rec);
+        }
+      }
+    }
+
+    // Section 4: Live Genre matching (swipe, max 5) — live shows matching genre
+    const s4: MatchedItem[] = [];
+    if (hasGenreFilter) {
+      for (const show of allShows) {
+        if (s4.length >= 5) break;
+        if (!isValidShow(show)) continue;
+        if (!isShowLive(show)) continue;
+        if (!matchesAnyGenre(show.djGenres)) continue;
+        if (!tryAddShow(show.id, show.dj)) continue;
+        const item = makeRadioItem(show, `LIVE · ${genreLabel}`, true);
+        if (item) s4.push(item);
+      }
+    }
+
+    // Section 5: Genre matching (swipe, max 5) — upcoming, not live
+    const s5: MatchedItem[] = [];
+    if (hasGenreFilter) {
+      // IRL shows
+      for (const show of irlShows) {
+        if (s5.length >= 5) break;
+        if (!matchesAnyGenre(show.djGenres)) continue;
+        const id = `irl-${show.djUsername}-${show.date}`;
+        if (!tryAddShow(id, show.djName)) continue;
+        s5.push(makeIRLItem(show, genreLabel));
+      }
+      // Radio shows
+      for (const show of allShows) {
+        if (s5.length >= 5) break;
+        if (!isValidShow(show)) continue;
+        if (new Date(show.endTime) <= now) continue;
+        if (isShowLive(show)) continue;
+        if (!matchesAnyGenre(show.djGenres)) continue;
+        if (!tryAddShow(show.id, show.dj)) continue;
+        const item = makeRadioItem(show, genreLabel);
+        if (item) s5.push(item);
+      }
+    }
+
+    // Section 6: Location matching (swipe, max 5) — upcoming shows matching location
+    const s6: MatchedItem[] = [];
+    if (!isAnywhere) {
+      // IRL shows
+      for (const show of irlShows) {
+        if (s6.length >= 5) break;
+        if (!matchesCity(show.location, selectedCity)) continue;
+        const id = `irl-${show.djUsername}-${show.date}`;
+        if (!tryAddShow(id, show.djName)) continue;
+        s6.push(makeIRLItem(show, selectedCity.toUpperCase()));
+      }
+      // Radio shows
+      for (const show of allShows) {
+        if (s6.length >= 5) break;
+        if (!isValidShow(show)) continue;
+        if (new Date(show.endTime) <= now) continue;
+        if (!show.djLocation || !matchesCity(show.djLocation, selectedCity)) continue;
+        if (!tryAddShow(show.id, show.dj)) continue;
+        const item = makeRadioItem(show, selectedCity.toUpperCase());
+        if (item) s6.push(item);
+      }
+    }
+
+    // Section 7: Selected by Radio (swipe, max 5) — external station shows
+    const s7: MatchedItem[] = [];
+    for (const show of allShows) {
+      if (s7.length >= 5) break;
+      if (!isValidShow(show)) continue;
+      if (new Date(show.endTime) <= now) continue;
+      if (show.stationId === 'broadcast' || show.stationId === 'dj-radio') continue;
+      if (!tryAddShow(show.id, show.dj)) continue;
       const station = stationsMap.get(show.stationId);
       if (!station) continue;
-
-      const cityMatch = !isAnywhere && show.djLocation
-        ? matchesCity(show.djLocation, selectedCity) : false;
-      const genreMatch = hasGenreFilter ? matchesGenre(show.djGenres, selectedGenre) : false;
-
-      // Include if: city matches, genre matches, or no filters active
-      if (!cityMatch && !genreMatch && !isAnywhere) continue;
-      if (isAnywhere && hasGenreFilter && !genreMatch) continue;
-
-      const priority = (cityMatch ? 2 : 0) + (genreMatch ? 1 : 0);
-      let matchLabel: string | undefined;
-      if (cityMatch && genreMatch) matchLabel = `${selectedCity.toUpperCase()} + ${selectedGenre.toUpperCase()}`;
-      else if (cityMatch) matchLabel = selectedCity.toUpperCase();
-      else if (genreMatch) matchLabel = selectedGenre.toUpperCase();
-
-      addItem({ type: 'radio', data: show, station, priority, matchLabel }, show.dj);
+      s7.push({ type: 'radio', data: show, station, matchLabel: `SELECTED BY ${station.name.toUpperCase()}` });
     }
 
     return {
-      bothCards: both.slice(0, 5),
-      cityOnlyCards: cityOnly.slice(0, 5),
-      genreOnlyCards: genreOnly.slice(0, 5),
+      liveLocationGenreCards: s1,
+      locationGenreCards: s2,
+      filteredCuratorRecs: s3,
+      liveGenreCards: s4,
+      genreCards: s5,
+      locationCards: s6,
+      radioCards: s7,
     };
-  }, [allShows, irlShows, selectedCity, selectedGenre, stationsMap, myDJsShowIds, matchesGenre]);
+  }, [allShows, irlShows, curatorRecs, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, genreLabel, isShowLive, isValidShow, followedDJNames]);
 
-  // All unified cards combined (for result counts)
-  const allUnifiedCards = useMemo(
-    () => [...bothCards, ...cityOnlyCards, ...genreOnlyCards],
-    [bothCards, cityOnlyCards, genreOnlyCards]
-  );
+  // Compute result counts for Tuner bar
+  const allCardCount = liveLocationGenreCards.length + locationGenreCards.length +
+    liveGenreCards.length + genreCards.length + locationCards.length + radioCards.length;
 
-  // Compute result counts for Tuner bar indicators
   const cityResultCount = useMemo(() => {
     if (!selectedCity || selectedCity === 'Anywhere') return undefined;
-    return allUnifiedCards.filter((c) => c.priority >= 2).length;
-  }, [selectedCity, allUnifiedCards]);
+    return liveLocationGenreCards.length + locationGenreCards.length + locationCards.length;
+  }, [selectedCity, liveLocationGenreCards, locationGenreCards, locationCards]);
 
   const genreResultCount = useMemo(() => {
-    if (!selectedGenre) return undefined;
-    return allUnifiedCards.filter((c) => c.priority === 1 || c.priority === 3).length;
-  }, [selectedGenre, allUnifiedCards]);
+    if (selectedGenres.length === 0) return undefined;
+    return liveLocationGenreCards.length + locationGenreCards.length + liveGenreCards.length + genreCards.length;
+  }, [selectedGenres, liveLocationGenreCards, locationGenreCards, liveGenreCards, genreCards]);
 
-  // Check for tip success on mount
-  useEffect(() => {
-    const tipParam = searchParams.get('tip');
-    const sessionId = searchParams.get('session');
-
-    if (tipParam === 'success' && sessionId) {
-      handleTipSuccess(sessionId);
-    }
-  }, [searchParams, handleTipSuccess]);
-
-  const handleCloseThankYouModal = useCallback(() => {
-    setShowThankYouModal(false);
-    setTipSuccessData(null);
-  }, []);
-
-  // Only use chatUsername from Firestore - do NOT fall back to displayName
-  // Users must explicitly choose their chat username
-  const username = chatUsername || undefined;
-
-  const {
-    isPlaying,
-    isLoading,
-    isLive,
-    currentShow,
-    currentDJ,
-    toggle,
-    listenerCount,
-  } = useBroadcastStream();
-
-  // Get current DJ slot info for venue broadcasts with multiple DJs
-  // Placed early so we can use it for currentDjSlotStartTime
-  const currentDjSlot = useMemo(() => {
-    if (currentShow?.djSlots && currentShow.djSlots.length > 0) {
-      const now = Date.now();
-      return currentShow.djSlots.find(
-        (djSlot) => djSlot.startTime <= now && djSlot.endTime > now
-      );
-    }
-    return null;
-  }, [currentShow?.djSlots]);
-
-  // For venue broadcasts, use DJ slot start time so promo/love resets per DJ
-  // For remote broadcasts or shows without DJ slots, use show start time
-  const currentDjSlotStartTime = currentDjSlot?.startTime || currentShow?.startTime;
-
-  // Get love count from chat - pass DJ slot start time so love count resets per DJ
-  const { loveCount } = useListenerChat({ username, currentShowStartTime: currentDjSlotStartTime });
-
-  
-  const handleAuthRequired = useCallback(() => {
-    setAuthModalMessage(undefined);
-    setShowAuthModal(true);
-  }, []);
-
-  // Handle Remind Me click from WhatNotToMiss (for non-authenticated users)
+  // Auth handlers
   const handleRemindMe = useCallback((show: Show) => {
     const djName = show.dj || show.name;
     setAuthModalMessage(`Sign in to get notified when ${djName} goes live`);
     setShowAuthModal(true);
   }, []);
 
-  // Handle Follow click from IRLNearYou (for non-authenticated users)
   const handleIRLAuthRequired = useCallback((djName: string) => {
     setAuthModalMessage(`Sign in to follow ${djName}`);
     setShowAuthModal(true);
   }, []);
 
-  // Follow/Unfollow for unified radio shows
+  // Follow/Unfollow for radio shows
   const handleUnifiedFollow = useCallback(async (show: Show) => {
-    if (!isAuthenticated) {
-      handleRemindMe(show);
-      return;
-    }
+    if (!isAuthenticated) { handleRemindMe(show); return; }
     if (!show.dj) return;
     setAddingFollowDj(show.dj);
     try {
@@ -446,12 +408,9 @@ export function ChannelClient() {
     }
   }, [isAuthenticated, handleRemindMe, isInWatchlist, removeFromWatchlist, followDJ]);
 
-  // Follow/Unfollow for unified IRL shows
+  // Follow/Unfollow for IRL shows
   const handleUnifiedIRLFollow = useCallback(async (show: IRLShowData) => {
-    if (!isAuthenticated) {
-      handleIRLAuthRequired(show.djName);
-      return;
-    }
+    if (!isAuthenticated) { handleIRLAuthRequired(show.djName); return; }
     if (!show.djName) return;
     setAddingFollowDj(show.djName);
     try {
@@ -465,12 +424,9 @@ export function ChannelClient() {
     }
   }, [isAuthenticated, handleIRLAuthRequired, isInWatchlist, removeFromWatchlist, followDJ]);
 
-  // Remind Me for unified radio shows
+  // Remind Me for radio shows
   const handleUnifiedRemindMe = useCallback(async (show: Show) => {
-    if (!isAuthenticated) {
-      handleRemindMe(show);
-      return;
-    }
+    if (!isAuthenticated) { handleRemindMe(show); return; }
     setAddingReminderShowId(show.id);
     try {
       if (!isShowFavorited(show)) {
@@ -480,36 +436,6 @@ export function ChannelClient() {
       setAddingReminderShowId(null);
     }
   }, [isAuthenticated, handleRemindMe, isShowFavorited, toggleFavorite]);
-
-  
-  // For tipping: get the DJ with identity from djProfiles (for B3B) or slot-level
-  // For now, just pick the first DJ with identity - in the future we could prefer DJ with Stripe
-  const { currentDJEmail, currentDJUserId } = useMemo(() => {
-    // B3B: check djProfiles first
-    if (currentDjSlot?.djProfiles && currentDjSlot.djProfiles.length > 0) {
-      const djWithIdentity = currentDjSlot.djProfiles.find(p => p.email || p.userId);
-      if (djWithIdentity) {
-        return {
-          currentDJEmail: djWithIdentity.email || null,
-          currentDJUserId: djWithIdentity.userId || null
-        };
-      }
-    }
-
-    // Single DJ slot: use slot-level fields
-    if (currentDjSlot) {
-      return {
-        currentDJEmail: currentDjSlot.djEmail || null,
-        currentDJUserId: currentDjSlot.djUserId || currentDjSlot.liveDjUserId || null
-      };
-    }
-
-    // Remote broadcast: use show-level fields
-    return {
-      currentDJEmail: currentShow?.djEmail || null,
-      currentDJUserId: currentShow?.djUserId || currentShow?.liveDjUserId || null
-    };
-  }, [currentDjSlot, currentShow]);
 
   // Render a single matched card (IRL or Radio)
   const renderCard = (item: MatchedItem, index: number) => {
@@ -531,8 +457,24 @@ export function ChannelClient() {
       const show = item.data;
       const station = item.station;
       const following = show.dj ? isInWatchlist(show.dj) : false;
-      const favorited = isShowFavorited(show);
       const addingFollow = addingFollowDj === show.dj;
+
+      // Use LiveShowCard for live shows (red dot, "Join" button)
+      if (item.live) {
+        return (
+          <LiveShowCard
+            key={show.id}
+            show={show}
+            station={station}
+            isFollowing={following}
+            isAddingFollow={addingFollow}
+            onFollow={() => handleUnifiedFollow(show)}
+            matchLabel={item.matchLabel}
+          />
+        );
+      }
+
+      const favorited = isShowFavorited(show);
       const addingReminder = addingReminderShowId === show.id;
       return (
         <TicketCard
@@ -555,112 +497,95 @@ export function ChannelClient() {
   return (
     <div className="min-h-[100dvh] text-white relative flex flex-col">
       <AnimatedBackground />
-      {/* Use shared Header with profile icon */}
       <Header currentPage="channel" position="sticky" />
 
-      {/* Tuner bar - sticky below header */}
       <Tuner
         selectedCity={selectedCity}
         onCityChange={handleCityChange}
-        selectedGenre={selectedGenre}
-        onGenreChange={handleGenreChange}
+        selectedGenres={selectedGenres}
+        onGenresChange={handleGenresChange}
         cityResultCount={cityResultCount}
         genreResultCount={genreResultCount}
       />
 
-      {/* Main content - flex-1 and min-h-0 to fill remaining space */}
       <main className="max-w-7xl mx-auto flex-1 min-h-0 w-full flex flex-col">
-        {/* Unified layout for all screen sizes */}
         <div className="flex flex-col overflow-y-auto">
-          {/* Who Is On Now - live DJ cards with Play button for broadcast, chat below broadcast card */}
-          <div className="flex-shrink-0 px-4 pt-3 md:pt-4">
-            <WhoIsOnNow
-              onAuthRequired={handleAuthRequired}
-              onTogglePlay={toggle}
-              isPlaying={isPlaying}
-              isStreamLoading={isLoading}
-              isBroadcastLive={isLive}
-              selectedGenre={selectedGenre}
-              selectedCity={selectedCity}
-              chatSlot={isLive ? (
-                <div className="bg-surface-card rounded-xl overflow-hidden h-[300px] lg:h-[400px]">
-                  <ListenerChatPanel
-                    isAuthenticated={isAuthenticated}
-                    username={username}
-                    userId={user?.uid}
-                    currentDJ={currentDJ}
-                    currentDJUserId={currentDJUserId}
-                    currentDJEmail={currentDJEmail}
-                    showName={currentShow?.showName}
-                    broadcastSlotId={currentShow?.id}
-                    isLive={isLive}
-                    profileLoading={profileLoading}
-                    currentShowStartTime={currentDjSlotStartTime}
-                    onSetUsername={setChatUsername}
-                    isVenue={currentShow?.broadcastType === 'venue'}
-                    activePromoText={currentDjSlot?.promoText || currentDjSlot?.djPromoText}
-                    activePromoHyperlink={currentDjSlot?.promoHyperlink || currentDjSlot?.djPromoHyperlink}
-                    listenerCount={listenerCount}
-                    loveCount={loveCount}
-                  />
-                </div>
-              ) : undefined}
-            />
-          </div>
 
-          {/* My DJs Section - only shows for authenticated users with followed DJs */}
-          <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
-            <MyDJsSection
-              shows={liveAndUpcomingShows}
-              irlShows={irlShows}
-              isAuthenticated={isAuthenticated}
-              isLoading={allShowsLoading}
-            />
-          </div>
-
-          {/* City + Genre match cards - standalone, one per row */}
-          {bothCards.length > 0 && (
-            <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
+          {/* Section 1: Live + Location + Genre (grid, max 4) */}
+          {liveLocationGenreCards.length > 0 && (
+            <div className="flex-shrink-0 px-4 pt-3 md:pt-4 pb-3 md:pb-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {bothCards.map((item, index) => renderCard(item, index))}
+                {liveLocationGenreCards.map((item, index) => renderCard(item, index))}
               </div>
             </div>
           )}
 
-          {/* City-only match cards - swipeable carousel */}
-          {cityOnlyCards.length > 0 && (
+          {/* Section 2: Location + Genre (grid, max 4) */}
+          {locationGenreCards.length > 0 && (
+            <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {locationGenreCards.map((item, index) => renderCard(item, index))}
+              </div>
+            </div>
+          )}
+
+          {/* Section 3: Selected by your favorite curators (grid, max 4) */}
+          {filteredCuratorRecs.length > 0 && (
+            <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredCuratorRecs.map((rec, index) => (
+                  <CuratorRecCard
+                    key={`rec-${rec.djUsername}-${index}`}
+                    rec={rec}
+                    matchLabel={`REC'D BY ${rec.djName.toUpperCase()}`}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Section 4: Live Genre matching (swipe, max 5) */}
+          {liveGenreCards.length > 0 && (
             <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
               <SwipeableCardCarousel>
-                {[
-                  ...cityOnlyCards.map((item, index) => renderCard(item, index)),
-                  ...(cityOnlyCards.length < 5
-                    ? [<InviteCard key="invite-city" message={`Invite your favorite ${selectedCity === 'Anywhere' ? '' : selectedCity + ' '}DJs to join Channel`} />]
-                    : []),
-                ]}
+                {liveGenreCards.map((item, index) => renderCard(item, index))}
               </SwipeableCardCarousel>
             </div>
           )}
 
-          {/* Genre-only match cards - swipeable carousel */}
-          {genreOnlyCards.length > 0 && (
+          {/* Section 5: Genre matching (swipe, max 5) */}
+          {genreCards.length > 0 && (
             <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
               <SwipeableCardCarousel>
-                {[
-                  ...genreOnlyCards.map((item, index) => renderCard(item, index)),
-                  ...(genreOnlyCards.length < 5
-                    ? [<InviteCard key="invite-genre" message={selectedGenre ? `Invite your favorite ${selectedGenre} DJs to join Channel` : 'Invite your favorite DJs to join Channel'} />]
-                    : []),
-                ]}
+                {genreCards.map((item, index) => renderCard(item, index))}
+              </SwipeableCardCarousel>
+            </div>
+          )}
+
+          {/* Section 6: Location matching (swipe, max 5) */}
+          {locationCards.length > 0 && (
+            <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
+              <SwipeableCardCarousel>
+                {locationCards.map((item, index) => renderCard(item, index))}
+              </SwipeableCardCarousel>
+            </div>
+          )}
+
+          {/* Section 7: Selected by Radio (swipe, max 5) */}
+          {radioCards.length > 0 && (
+            <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
+              <SwipeableCardCarousel>
+                {radioCards.map((item, index) => renderCard(item, index))}
               </SwipeableCardCarousel>
             </div>
           )}
 
           {/* Empty state when no matches at all */}
-          {allUnifiedCards.length === 0 && (
+          {allCardCount === 0 && (
             <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
               <div className="text-center py-3">
                 <p className="text-gray-400 text-sm mb-3">
-                  Invite your favorite {selectedCity === 'Anywhere' ? '' : selectedCity + ' '}{selectedGenre ? selectedGenre + ' ' : ''}DJs to join Channel
+                  Invite your favorite {selectedCity === 'Anywhere' ? '' : selectedCity + ' '}{selectedGenres.length > 0 ? selectedGenres.join(', ') + ' ' : ''}DJs to join Channel
                 </p>
                 <InviteCard />
               </div>
@@ -670,7 +595,6 @@ export function ChannelClient() {
         </div>
       </main>
 
-      {/* Auth Modal */}
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => {
@@ -679,17 +603,6 @@ export function ChannelClient() {
         }}
         message={authModalMessage}
       />
-
-      {/* Tip Thank You Modal */}
-      {tipSuccessData && (
-        <TipThankYouModal
-          isOpen={showThankYouModal}
-          onClose={handleCloseThankYouModal}
-          djUsername={tipSuccessData.djUsername}
-          thankYouMessage={tipSuccessData.djThankYouMessage}
-          tipAmountCents={tipSuccessData.tipAmountCents}
-        />
-      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAllShows } from "@/lib/metadata";
 import { getAdminDb } from "@/lib/firebase-admin";
-import { Show, IRLShowData } from "@/types";
+import { Show, IRLShowData, CuratorRec } from "@/types";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -362,13 +362,59 @@ async function fetchDJRadioShows(): Promise<Show[]> {
   }
 }
 
+// Fetch curator recommendations (myRecs) from DJ profiles
+async function fetchCuratorRecs(): Promise<CuratorRec[]> {
+  const adminDb = getAdminDb();
+  if (!adminDb) {
+    return [];
+  }
+
+  try {
+    const usersSnapshot = await adminDb
+      .collection("users")
+      .where("role", "in", ["dj", "broadcaster", "admin"])
+      .get();
+
+    const recs: CuratorRec[] = [];
+
+    usersSnapshot.forEach((doc) => {
+      const userData = doc.data();
+      const djProfile = userData?.djProfile;
+      const chatUsername = userData?.chatUsername;
+
+      if (!chatUsername || !djProfile?.myRecs) return;
+
+      const djUsername = chatUsername.replace(/\s+/g, "").toLowerCase();
+      const djName = chatUsername;
+      const djPhotoUrl = djProfile.photoUrl || undefined;
+
+      if (djProfile.myRecs.bandcampLinks) {
+        for (const url of djProfile.myRecs.bandcampLinks) {
+          if (url) recs.push({ djUsername, djName, djPhotoUrl, url, type: "bandcamp" });
+        }
+      }
+      if (djProfile.myRecs.eventLinks) {
+        for (const url of djProfile.myRecs.eventLinks) {
+          if (url) recs.push({ djUsername, djName, djPhotoUrl, url, type: "event" });
+        }
+      }
+    });
+
+    return recs;
+  } catch (error) {
+    console.error("[API /schedule] Error fetching curator recs:", error);
+    return [];
+  }
+}
+
 export async function GET() {
   try {
-    // Fetch shows, IRL shows, and DJ radio shows in parallel
-    const [shows, irlShows, djRadioShows] = await Promise.all([
+    // Fetch shows, IRL shows, DJ radio shows, and curator recs in parallel
+    const [shows, irlShows, djRadioShows, curatorRecs] = await Promise.all([
       getAllShows(),
       fetchIRLShows(),
       fetchDJRadioShows(),
+      fetchCuratorRecs(),
     ]);
 
     // Merge DJ radio shows into the main shows array
@@ -381,9 +427,9 @@ export async function GET() {
     // Enrich broadcast shows with live data from Firestore (for promo text, payment info)
     const enrichedShows = await enrichBroadcastShows(showsWithProfiles);
 
-    return NextResponse.json({ shows: enrichedShows, irlShows });
+    return NextResponse.json({ shows: enrichedShows, irlShows, curatorRecs });
   } catch (error) {
     console.error("[API /schedule] Error fetching shows:", error);
-    return NextResponse.json({ shows: [], irlShows: [], error: "Failed to fetch shows" }, { status: 500 });
+    return NextResponse.json({ shows: [], irlShows: [], curatorRecs: [], error: "Failed to fetch shows" }, { status: 500 });
   }
 }
