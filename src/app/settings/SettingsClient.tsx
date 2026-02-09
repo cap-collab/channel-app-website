@@ -56,7 +56,7 @@ export function SettingsClient() {
 
   // Channel preferences state
   const [selectedCity, setSelectedCity] = useState<string>("");
-  const [selectedGenre, setSelectedGenre] = useState<string>("");
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
   const [genreDropdownOpen, setGenreDropdownOpen] = useState(false);
   const cityDropdownRef = useRef<HTMLDivElement>(null);
@@ -88,7 +88,13 @@ export function SettingsClient() {
       }
       // Channel preferences
       if (data?.irlCity) setSelectedCity(data.irlCity);
-      if (data?.preferredGenre) setSelectedGenre(data.preferredGenre);
+      // Support both old string and new array format
+      const genres = data?.preferredGenres;
+      if (Array.isArray(genres)) {
+        setSelectedGenres(genres);
+      } else if (data?.preferredGenre) {
+        setSelectedGenres([data.preferredGenre]);
+      }
     });
 
     return () => unsubscribe();
@@ -144,15 +150,28 @@ export function SettingsClient() {
     }
   };
 
-  const handleGenreChange = async (genre: string) => {
+  const handleToggleGenre = async (genre: string) => {
     if (!user || !db) return;
-    setSelectedGenre(genre);
-    setGenreDropdownOpen(false);
+    const newGenres = selectedGenres.includes(genre)
+      ? selectedGenres.filter((g) => g !== genre)
+      : [...selectedGenres, genre];
+    setSelectedGenres(newGenres);
     try {
       const userRef = doc(db, "users", user.uid);
-      await updateDoc(userRef, { preferredGenre: genre });
+      await updateDoc(userRef, { preferredGenres: newGenres });
     } catch (error) {
-      console.error("Error saving genre preference:", error);
+      console.error("Error saving genre preferences:", error);
+    }
+  };
+
+  const handleClearGenres = async () => {
+    if (!user || !db) return;
+    setSelectedGenres([]);
+    try {
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, { preferredGenres: [] });
+    } catch (error) {
+      console.error("Error clearing genre preferences:", error);
     }
   };
 
@@ -352,9 +371,9 @@ export function SettingsClient() {
                 {/* Genre preference */}
                 <div className="p-4 flex items-center justify-between">
                   <div>
-                    <p className="text-white font-medium">Genre</p>
+                    <p className="text-white font-medium">Genres</p>
                     <p className="text-gray-500 text-sm">
-                      Your preferred music genre
+                      Your preferred music genres
                     </p>
                   </div>
                   <div className="relative" ref={genreDropdownRef}>
@@ -365,7 +384,13 @@ export function SettingsClient() {
                       }}
                       className="px-3 py-1.5 rounded text-sm font-mono bg-white/5 text-white hover:bg-white/10 transition-colors flex items-center gap-1.5"
                     >
-                      <span className="truncate max-w-[140px]">{selectedGenre || "Not set"}</span>
+                      <span className="truncate max-w-[140px]">
+                        {selectedGenres.length === 0
+                          ? "Not set"
+                          : selectedGenres.length === 1
+                            ? selectedGenres[0]
+                            : `${selectedGenres[0]} +${selectedGenres.length - 1}`}
+                      </span>
                       <svg
                         className={`w-3 h-3 flex-shrink-0 transition-transform ${genreDropdownOpen ? "rotate-180" : ""}`}
                         fill="none"
@@ -377,19 +402,38 @@ export function SettingsClient() {
                     </button>
                     {genreDropdownOpen && (
                       <div className="absolute right-0 mt-1 w-48 bg-[#111] border border-white/10 rounded shadow-xl z-20 py-1 max-h-60 overflow-y-auto">
-                        {SUPPORTED_GENRES.map((genre) => (
-                          <button
-                            key={genre}
-                            onClick={() => handleGenreChange(genre)}
-                            className={`w-full text-left px-3 py-2 text-sm transition-colors font-mono ${
-                              selectedGenre === genre
-                                ? "bg-white/10 text-white"
-                                : "text-gray-300 hover:bg-white/5 hover:text-white"
-                            }`}
-                          >
-                            {genre}
-                          </button>
-                        ))}
+                        {selectedGenres.length > 0 && (
+                          <>
+                            <button
+                              onClick={handleClearGenres}
+                              className="w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors font-mono"
+                            >
+                              Clear all
+                            </button>
+                            <div className="border-t border-white/10 my-1" />
+                          </>
+                        )}
+                        {SUPPORTED_GENRES.map((genre) => {
+                          const isSelected = selectedGenres.includes(genre);
+                          return (
+                            <button
+                              key={genre}
+                              onClick={() => handleToggleGenre(genre)}
+                              className={`w-full text-left px-3 py-2 text-sm transition-colors font-mono flex items-center justify-between ${
+                                isSelected
+                                  ? "bg-white/10 text-white"
+                                  : "text-gray-300 hover:bg-white/5 hover:text-white"
+                              }`}
+                            >
+                              {genre}
+                              {isSelected && (
+                                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

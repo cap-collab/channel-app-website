@@ -7,13 +7,13 @@ import { SUPPORTED_GENRES } from '@/lib/genres';
 interface TunerProps {
   selectedCity: string;
   onCityChange: (city: string) => void;
-  selectedGenre: string;
-  onGenreChange: (genre: string) => void;
+  selectedGenres: string[];
+  onGenresChange: (genres: string[]) => void;
   cityResultCount?: number;
   genreResultCount?: number;
 }
 
-export function Tuner({ selectedCity, onCityChange, selectedGenre, onGenreChange, cityResultCount, genreResultCount }: TunerProps) {
+export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChange, cityResultCount, genreResultCount }: TunerProps) {
   // City dropdown state
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
   const [cityCustomMode, setCityCustomMode] = useState(false);
@@ -47,16 +47,21 @@ export function Tuner({ selectedCity, onCityChange, selectedGenre, onGenreChange
     if (trimmed) handleSelectCity(trimmed);
   };
 
-  const handleSelectGenre = (genre: string) => {
-    onGenreChange(genre);
-    setGenreDropdownOpen(false);
-    setGenreCustomMode(false);
-    setGenreCustomInput('');
+  const handleToggleGenre = (genre: string) => {
+    if (selectedGenres.includes(genre)) {
+      onGenresChange(selectedGenres.filter((g) => g !== genre));
+    } else {
+      onGenresChange([...selectedGenres, genre]);
+    }
   };
 
   const handleGenreCustomSubmit = () => {
     const trimmed = genreCustomInput.trim();
-    if (trimmed) handleSelectGenre(trimmed);
+    if (trimmed && !selectedGenres.includes(trimmed)) {
+      onGenresChange([...selectedGenres, trimmed]);
+    }
+    setGenreCustomMode(false);
+    setGenreCustomInput('');
   };
 
   const closeCityDropdown = () => {
@@ -70,6 +75,12 @@ export function Tuner({ selectedCity, onCityChange, selectedGenre, onGenreChange
     setGenreCustomMode(false);
     setGenreCustomInput('');
   };
+
+  const genreLabel = selectedGenres.length === 0
+    ? 'Genre'
+    : selectedGenres.length === 1
+      ? selectedGenres[0]
+      : `${selectedGenres[0]} +${selectedGenres.length - 1}`;
 
   return (
     <div className="sticky top-[48px] z-[90] bg-black/90 backdrop-blur-sm border-b border-white/5">
@@ -176,7 +187,7 @@ export function Tuner({ selectedCity, onCityChange, selectedGenre, onGenreChange
             }}
             className={`h-6 px-2.5 font-mono text-[11px] uppercase tracking-tight flex items-center gap-1 transition-colors rounded-sm bg-white/5 hover:bg-white/10 ${genreResultCount === 0 ? 'text-zinc-600' : 'text-zinc-400 hover:text-white'}`}
           >
-            <span className="truncate max-w-[120px]">{selectedGenre || 'Genre'}</span>
+            <span className="truncate max-w-[120px]">{genreLabel}</span>
             {genreResultCount === 0 && <span className="text-zinc-600 text-[9px]">(0)</span>}
             <svg
               className={`w-2.5 h-2.5 flex-shrink-0 transition-transform ${genreDropdownOpen ? 'rotate-180' : ''}`}
@@ -231,19 +242,38 @@ export function Tuner({ selectedCity, onCityChange, selectedGenre, onGenreChange
                   </button>
                 )}
                 <div className="border-t border-white/10 my-1" />
-                {SUPPORTED_GENRES.map((genre) => (
-                  <button
-                    key={genre}
-                    onClick={() => handleSelectGenre(genre)}
-                    className={`w-full text-left px-3 py-2 text-sm transition-colors font-mono ${
-                      selectedGenre === genre
-                        ? 'bg-white/10 text-white'
-                        : 'text-gray-300 hover:bg-white/5 hover:text-white'
-                    }`}
-                  >
-                    {genre}
-                  </button>
-                ))}
+                {selectedGenres.length > 0 && (
+                  <>
+                    <button
+                      onClick={() => onGenresChange([])}
+                      className="w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors font-mono"
+                    >
+                      Clear all
+                    </button>
+                    <div className="border-t border-white/10 my-1" />
+                  </>
+                )}
+                {SUPPORTED_GENRES.map((genre) => {
+                  const isSelected = selectedGenres.includes(genre);
+                  return (
+                    <button
+                      key={genre}
+                      onClick={() => handleToggleGenre(genre)}
+                      className={`w-full text-left px-3 py-2 text-sm transition-colors font-mono flex items-center justify-between ${
+                        isSelected
+                          ? 'bg-white/10 text-white'
+                          : 'text-gray-300 hover:bg-white/5 hover:text-white'
+                      }`}
+                    >
+                      {genre}
+                      {isSelected && (
+                        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </>
           )}
