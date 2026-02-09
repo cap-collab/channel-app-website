@@ -14,7 +14,7 @@ export function CuratorRecCard({ rec }: CuratorRecCardProps) {
 
   const cleanUrl = rec.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
   const domain = rec.url.replace(/^https?:\/\//, '').split('/')[0].replace(/^www\./, '');
-  const imageUrl = rec.ogImage || rec.djPhotoUrl;
+  const imageUrl = rec.ogImage;
   const hasPhoto = imageUrl && !imageError;
   const hasOgTitle = !!rec.ogTitle;
 
@@ -84,7 +84,7 @@ export function CuratorRecCard({ rec }: CuratorRecCardProps) {
               alt={rec.djName}
               width={32}
               height={32}
-              className="rounded border border-white/30 object-cover"
+              className="rounded border border-white/30 object-contain bg-black"
               unoptimized
             />
           </div>
@@ -104,7 +104,7 @@ export function CuratorRecCard({ rec }: CuratorRecCardProps) {
         <div className="flex gap-2">
           <Link
             href={`/dj/${rec.djUsername}#chat`}
-            className="flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white hover:bg-gray-100 text-gray-900 text-center"
+            className="flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white hover:bg-gray-100 text-gray-900 text-center whitespace-nowrap truncate"
           >
             Chat with {rec.djName}
           </Link>
@@ -112,7 +112,7 @@ export function CuratorRecCard({ rec }: CuratorRecCardProps) {
             href={rec.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white flex items-center justify-center gap-2"
+            className="shrink-0 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white flex items-center justify-center gap-2"
           >
             Visit Link
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
