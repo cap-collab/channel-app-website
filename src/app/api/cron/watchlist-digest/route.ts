@@ -280,12 +280,13 @@ export async function GET(request: NextRequest) {
       const djProfile = pending.data.djProfile as Record<string, unknown> | undefined;
       const photoUrl = djProfile?.photoUrl as string | undefined;
 
-      if (chatUsername && chatUsernameNormalized) {
-        const profileInfo = { username: chatUsername, photoUrl };
+      if (chatUsernameNormalized) {
+        const displayName = chatUsername || chatUsernameNormalized;
+        const profileInfo = { username: displayName, photoUrl };
         // Index by the stored chatUsernameNormalized (primary key)
         djNameToProfile.set(chatUsernameNormalized, profileInfo);
         // Also index by our normalized version of chatUsername
-        const normalizedChatUsername = normalizeForLookup(chatUsername);
+        const normalizedChatUsername = normalizeForLookup(displayName);
         if (normalizedChatUsername !== chatUsernameNormalized) {
           djNameToProfile.set(normalizedChatUsername, profileInfo);
         }
@@ -305,13 +306,14 @@ export async function GET(request: NextRequest) {
       const djProfile = djUser.data.djProfile as Record<string, unknown> | undefined;
       const photoUrl = djProfile?.photoUrl as string | undefined;
 
-      if (chatUsername && chatUsernameNormalized) {
-        const profileInfo = { username: chatUsername, photoUrl };
+      if (chatUsernameNormalized) {
+        const displayName = chatUsername || chatUsernameNormalized;
+        const profileInfo = { username: displayName, photoUrl };
         if (!djNameToProfile.has(chatUsernameNormalized)) {
           djNameToProfile.set(chatUsernameNormalized, profileInfo);
         }
         // Also index by our normalized version of chatUsername
-        const normalizedChatUsername = normalizeForLookup(chatUsername);
+        const normalizedChatUsername = normalizeForLookup(displayName);
         if (normalizedChatUsername !== chatUsernameNormalized && !djNameToProfile.has(normalizedChatUsername)) {
           djNameToProfile.set(normalizedChatUsername, profileInfo);
         }

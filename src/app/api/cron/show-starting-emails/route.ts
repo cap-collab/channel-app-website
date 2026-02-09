@@ -158,11 +158,12 @@ export async function GET(request: NextRequest) {
       const photoUrl = djProfile?.photoUrl as string | undefined;
       const email = pending.data.email as string | undefined;
 
-      if (chatUsername && chatUsernameNormalized) {
-        const profileData = { username: chatUsername, photoUrl, hasEmail: !!email };
+      if (chatUsernameNormalized) {
+        const displayName = chatUsername || chatUsernameNormalized;
+        const profileData = { username: displayName, photoUrl, hasEmail: !!email };
         djNameToProfile.set(chatUsernameNormalized, profileData);
         // Also index by normalized chatUsername and without hyphens
-        const normalizedChatUsername = normalizeForLookup(chatUsername);
+        const normalizedChatUsername = normalizeForLookup(displayName);
         if (normalizedChatUsername !== chatUsernameNormalized) {
           djNameToProfile.set(normalizedChatUsername, profileData);
         }
@@ -182,19 +183,20 @@ export async function GET(request: NextRequest) {
       const photoUrl = djProfile?.photoUrl as string | undefined;
       const email = djUser.data.email as string | undefined;
 
-      if (chatUsername && chatUsernameNormalized) {
+      if (chatUsernameNormalized) {
+        const displayName = chatUsername || chatUsernameNormalized;
         if (!djNameToProfile.has(chatUsernameNormalized)) {
-          const profileData = { username: chatUsername, photoUrl, hasEmail: !!email };
+          const profileData = { username: displayName, photoUrl, hasEmail: !!email };
           djNameToProfile.set(chatUsernameNormalized, profileData);
         }
-        const normalizedChatUsername = normalizeForLookup(chatUsername);
+        const normalizedChatUsername = normalizeForLookup(displayName);
         if (normalizedChatUsername !== chatUsernameNormalized && !djNameToProfile.has(normalizedChatUsername)) {
-          const profileData = { username: chatUsername, photoUrl, hasEmail: !!email };
+          const profileData = { username: displayName, photoUrl, hasEmail: !!email };
           djNameToProfile.set(normalizedChatUsername, profileData);
         }
         const withoutHyphens = chatUsernameNormalized.replace(/-/g, "");
         if (withoutHyphens !== chatUsernameNormalized && withoutHyphens !== normalizedChatUsername && !djNameToProfile.has(withoutHyphens)) {
-          const profileData = { username: chatUsername, photoUrl, hasEmail: !!email };
+          const profileData = { username: displayName, photoUrl, hasEmail: !!email };
           djNameToProfile.set(withoutHyphens, profileData);
         }
       }

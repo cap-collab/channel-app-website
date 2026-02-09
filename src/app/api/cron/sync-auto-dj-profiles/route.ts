@@ -428,6 +428,8 @@ export async function GET(request: NextRequest) {
         }
 
         await profileRef.update({
+          chatUsername: existingData?.chatUsername || data.djName,
+          chatUsernameNormalized: existingData?.chatUsernameNormalized || normalized,
           autoSources: data.sources.map((s: AutoSource) => ({
             stationId: s.stationId,
             showName: s.showName,
