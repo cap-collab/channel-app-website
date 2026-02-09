@@ -1,15 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">
   <defs>
-    <!-- Soft pink glow -->
-    <radialGradient id="pinkGlow" cx="50%" cy="55%" r="50%">
-      <stop offset="0%" stop-color="#D94099" stop-opacity="0.12"/>
-      <stop offset="40%" stop-color="#D94099" stop-opacity="0.06"/>
-      <stop offset="100%" stop-color="#D94099" stop-opacity="0"/>
-    </radialGradient>
-    <!-- Secondary subtle pink -->
-    <radialGradient id="pinkEdge" cx="25%" cy="75%" r="50%">
-      <stop offset="0%" stop-color="#D94099" stop-opacity="0.08"/>
-      <stop offset="60%" stop-color="#D94099" stop-opacity="0.03"/>
+    <!-- Very subtle pink glow, tightly centered so edges stay black -->
+    <radialGradient id="pinkGlow" cx="50%" cy="50%" r="35%">
+      <stop offset="0%" stop-color="#D94099" stop-opacity="0.10"/>
+      <stop offset="50%" stop-color="#D94099" stop-opacity="0.04"/>
       <stop offset="100%" stop-color="#D94099" stop-opacity="0"/>
     </radialGradient>
     <!-- Dot pattern for text -->
@@ -21,18 +15,18 @@
     </mask>
     <!-- Blur filter -->
     <filter id="blur" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="80"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="60"/>
     </filter>
   </defs>
 
-  <!-- Dark background -->
-  <rect width="600" height="600" fill="#000000"/>
+  <!-- Background matching /channel page -->
+  <rect width="600" height="600" fill="#1a1a1a"/>
 
-  <!-- Soft pink glow (center) -->
-  <ellipse cx="300" cy="330" rx="350" ry="300" fill="url(#pinkGlow)" filter="url(#blur)"/>
+  <!-- Black border around all edges so iMessage picks up black -->
+  <rect x="0" y="0" width="600" height="600" fill="none" stroke="#000000" stroke-width="40"/>
 
-  <!-- Subtle pink edge (bottom-left) -->
-  <ellipse cx="150" cy="450" rx="300" ry="250" fill="url(#pinkEdge)" filter="url(#blur)"/>
+  <!-- Subtle centered pink glow -->
+  <ellipse cx="300" cy="300" rx="250" ry="220" fill="url(#pinkGlow)" filter="url(#blur)"/>
 
   <!-- CHANNEL text with dot pattern -->
   <rect x="10" y="200" width="580" height="200" fill="url(#dots)" mask="url(#textMask)"/>
