@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { StudioProfileClient } from "./StudioProfileClient";
 
 export const metadata = {
-  title: "DJ Studio - Channel",
+  title: "Studio - Channel",
   description: "Manage your DJ profile and broadcast settings",
 };
 

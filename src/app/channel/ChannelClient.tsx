@@ -309,8 +309,9 @@ export function ChannelClient() {
     let s5: MatchedItem[] = [];
     if (hasGenreFilter) {
       const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number }[] = [];
-      // IRL shows
+      // IRL shows — only include if user has a location selected and it matches
       for (const show of irlShows) {
+        if (isAnywhere || !matchesCity(show.location, selectedCity)) continue;
         if (!matchesAnyGenre(show.djGenres)) continue;
         const id = `irl-${show.djUsername}-${show.date}`;
         candidates.push({ item: makeIRLItem(show, genreLabelFor(show.djGenres)), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres) });

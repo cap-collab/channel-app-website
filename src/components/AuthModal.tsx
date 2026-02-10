@@ -476,7 +476,7 @@ export function AuthModal({
                 </svg>
               </div>
               <span className="text-sm text-white/60 group-hover:text-white/80 transition-colors">
-                Email me when my favorite DJs or shows are scheduled
+                Email me when my favorite curators or shows are scheduled
               </span>
             </label>
           </div>

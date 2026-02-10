@@ -344,8 +344,8 @@ export function StudioJoinClient() {
           {/* Hero Section - Only show for non-DJs */}
           {!userIsDJ && (
             <div className="mb-12">
-              <h1 className="text-3xl font-bold mb-4">DJ Studio</h1>
-              <p className="text-xl text-gray-300 mb-6">Bring your DJ profile to Channel</p>
+              <h1 className="text-3xl font-bold mb-4">Studio</h1>
+              <p className="text-xl text-gray-300 mb-6">Bring your curator profile to Channel</p>
 
               <p className="text-gray-400 leading-relaxed mb-4">
                 Channel is a home for DJs to publish sets, notify fans, and stay connected across radios, events, and venues.
@@ -364,9 +364,9 @@ export function StudioJoinClient() {
                     </svg>
                   </div>
                   <div>
-                    <p className="text-white font-medium">A public DJ profile</p>
+                    <p className="text-white font-medium">A public curator profile</p>
                     <p className="text-gray-400 text-sm">
-                      One DJ page with ALL your links, events, radio shows, and recordings (example →{' '}
+                      One page with ALL your links, events, radio shows, recommendations, and recordings (example →{' '}
                       <Link href="/dj/beyondalgorithms" className="text-white underline hover:text-gray-300">channel-app.com/dj/beyondalgorithms</Link>)
                     </p>
                   </div>
@@ -470,7 +470,7 @@ export function StudioJoinClient() {
                     <AuthModal
                       isOpen={true}
                       onClose={() => {}}
-                      message="Create your DJ profile"
+                      message="Create your curator profile"
                       inline
                       includeDjTerms
                     />
