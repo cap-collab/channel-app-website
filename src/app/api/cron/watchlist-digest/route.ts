@@ -956,7 +956,7 @@ export async function GET(request: NextRequest) {
           favoriteShows,
           curatorRecs: userCuratorRecs,
           preferenceShows: preferenceMatches,
-          hasGenrePreferences: preferredGenres.length > 0,
+          preferredGenres,
         });
 
         if (success) {
