@@ -533,7 +533,7 @@ function buildShowCardHtml(
   `;
 }
 
-// Build a curator rec card HTML block
+// Build a curator rec card HTML block (matches show card layout)
 function buildCuratorRecCardHtml(rec: {
   djName: string;
   djUsername: string;
@@ -547,68 +547,52 @@ function buildCuratorRecCardHtml(rec: {
 }): string {
   const cleanUrl = rec.url ? rec.url.replace(/^https?:\/\//, "").replace(/\/$/, "") : "";
   const domain = rec.url ? rec.url.replace(/^https?:\/\//, "").split("/")[0].replace(/^www\./, "") : "";
-  const emailPhotoUrl = getEmailPhotoUrl(rec.djUsername, rec.djPhotoUrl);
   const typeBadge = rec.type === "irl" ? "🌲 IRL" : rec.type === "online" ? "📺 Online" : "🎵 Music";
-
+  const displayTitle = rec.title || rec.ogTitle || cleanUrl;
   const displayImage = rec.imageUrl || rec.ogImage;
-  const displayTitle = rec.title || rec.ogTitle;
-  const ogImageHtml = displayImage
-    ? `<a href="${rec.url}" style="text-decoration: none;">
-        <img src="${displayImage}" alt="${displayTitle || domain}" width="388" style="width: 100%; height: 120px; object-fit: cover; display: block; border-radius: 8px 8px 0 0;" />
-      </a>`
-    : `<a href="${rec.url}" style="text-decoration: none;">
-        <table width="100%" cellpadding="0" cellspacing="0" border="0">
-          <tr>
-            <td align="center" style="height: 80px; background: #D94099; border-radius: 8px 8px 0 0;">
-              <span style="font-size: 16px; font-weight: 700; color: #fff; text-transform: uppercase;">${domain}</span>
-            </td>
-          </tr>
-        </table>
-      </a>`;
 
-  const djPhotoHtml = emailPhotoUrl
-    ? `<img src="${emailPhotoUrl}" alt="${rec.djName}" width="32" height="32" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 1px solid #333;" />`
-    : `<table width="32" height="32" cellpadding="0" cellspacing="0" border="0" style="border-radius: 50%; background-color: #D94099; border: 1px solid #333;">
-        <tr><td align="center" valign="middle" style="font-size: 14px; font-weight: bold; color: #fff;">${rec.djName.charAt(0).toUpperCase()}</td></tr>
+  const djProfileUrl = `https://channel-app.com/dj/${normalizeDjUsername(rec.djUsername)}`;
+
+  // Use rec image if DJ uploaded one, otherwise fall back to DJ photo, otherwise initials
+  const photoUrl = displayImage || getEmailPhotoUrl(rec.djUsername, rec.djPhotoUrl);
+  const photoHtml = photoUrl
+    ? `<img src="${photoUrl}" alt="${displayTitle}" width="64" height="64" style="width: 64px; height: 64px; border-radius: 8px; object-fit: cover; border: 1px solid #333;" />`
+    : `<table width="64" height="64" cellpadding="0" cellspacing="0" border="0" style="border-radius: 8px; border: 1px solid #333; background-color: #D94099;">
+        <tr>
+          <td align="center" valign="middle" style="font-size: 24px; font-weight: bold; color: #fff;">
+            ${rec.djName.charAt(0).toUpperCase()}
+          </td>
+        </tr>
       </table>`;
 
   return `
     <!-- Curator Rec Card -->
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px;">
       <tr>
-        <td style="background: #1a1a1a; border: 1px solid rgba(255,255,255,0.1); overflow: hidden;">
-          <!-- Tag -->
-          <div style="padding: 12px 16px 8px;">
-            <span style="font-size: 10px; font-family: monospace; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px;">REC'D BY ${rec.djName.toUpperCase()}</span>
-          </div>
-          <!-- OG Image -->
-          <div style="padding: 0 16px;">
-            ${ogImageHtml}
-          </div>
-          <!-- Content -->
+        <td style="background: #1a1a1a; padding: 16px; border: 1px solid rgba(255,255,255,0.1);">
           <table width="100%" cellpadding="0" cellspacing="0" border="0">
             <tr>
-              <td style="padding: 12px 16px;">
-                <table cellpadding="0" cellspacing="0" border="0">
-                  <tr>
-                    <td width="32" valign="middle" style="padding-right: 8px;">
-                      ${djPhotoHtml}
-                    </td>
-                    <td valign="middle">
-                      <div style="font-size: 10px; font-family: monospace; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px;">${typeBadge}</div>
-                      <div style="font-size: 13px; color: #fff; font-weight: 600; margin-top: 2px;">
-                        <a href="${rec.url}" style="color: #fff; text-decoration: none;">${displayTitle || cleanUrl}</a>
-                      </div>
-                    </td>
-                  </tr>
-                </table>
+              <td width="64" valign="top" style="padding-right: 12px;">
+                <a href="${rec.url}" style="text-decoration: none;">
+                  ${photoHtml}
+                </a>
+              </td>
+              <td valign="top">
+                <div style="margin-bottom: 4px;">
+                  <span style="display: inline-block; font-size: 10px; font-family: monospace; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.5px;">${typeBadge}</span>
+                </div>
+                <div style="font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 4px; line-height: 1.3;">
+                  <a href="${rec.url}" style="color: #fff; text-decoration: none;">${displayTitle}</a>
+                </div>
+                <div style="font-size: 12px; color: #71717a;">
+                  ${domain}
+                </div>
               </td>
             </tr>
           </table>
-          <!-- CTA -->
-          <div style="padding: 0 16px 12px; text-align: center;">
-            <a href="${rec.url}" style="display: inline-block; background: rgba(255,255,255,0.1); color: #fff !important; padding: 8px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none;">
-              Visit Link &#8599;
+          <div style="margin-top: 12px; text-align: center;">
+            <a href="${djProfileUrl}" style="display: inline-block; background: rgba(255,255,255,0.1); color: #fff !important; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+              See ${rec.djName} Profile
             </a>
           </div>
         </td>
@@ -793,11 +777,20 @@ export async function sendWatchlistDigestEmail({
     }
   }
 
-  // Curator recs section (separate from timeline)
+  // Curator recs section (separate from timeline, grouped by DJ)
   if (curatorRecs.length > 0) {
-    timelineHtml += buildDayHeaderHtml("REC'D BY DJS YOU FOLLOW");
+    const recsByDj = new Map<string, typeof curatorRecs>();
     for (const rec of curatorRecs) {
-      timelineHtml += buildCuratorRecCardHtml(rec);
+      const key = rec.djUsername.toLowerCase();
+      if (!recsByDj.has(key)) recsByDj.set(key, []);
+      recsByDj.get(key)!.push(rec);
+    }
+    for (const [, djRecs] of recsByDj) {
+      const djName = djRecs[0].djName;
+      timelineHtml += buildDayHeaderHtml(`Recommended by ${djName}`);
+      for (const rec of djRecs) {
+        timelineHtml += buildCuratorRecCardHtml(rec);
+      }
     }
   }
 
