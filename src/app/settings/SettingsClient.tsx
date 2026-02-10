@@ -200,17 +200,7 @@ export function SettingsClient() {
         batch.delete(docSnap.ref);
       });
 
-      // 2. Delete pending mention emails for this user
-      const mentionsQuery = query(
-        collection(db, "pendingMentionEmails"),
-        where("userId", "==", user.uid)
-      );
-      const mentionsSnapshot = await getDocs(mentionsQuery);
-      mentionsSnapshot.docs.forEach((docSnap) => {
-        batch.delete(docSnap.ref);
-      });
-
-      // 3. Delete pending popularity emails for this user
+      // 2. Delete pending popularity emails
       const popularityQuery = query(
         collection(db, "pendingPopularityEmails"),
         where("userId", "==", user.uid)
@@ -220,7 +210,7 @@ export function SettingsClient() {
         batch.delete(docSnap.ref);
       });
 
-      // 4. Delete username reservation for this user
+      // 3. Delete username reservation
       const usernamesQuery = query(
         collection(db, "usernames"),
         where("uid", "==", user.uid)
@@ -230,7 +220,7 @@ export function SettingsClient() {
         batch.delete(docSnap.ref);
       });
 
-      // 5. Delete user document
+      // 4. Delete user document
       const userRef = doc(db, "users", user.uid);
       batch.delete(userRef);
 
