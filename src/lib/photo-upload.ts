@@ -61,6 +61,39 @@ export async function uploadDJPhoto(userId: string, file: File): Promise<UploadP
 }
 
 /**
+ * Upload a recommendation image to Firebase Storage
+ */
+export async function uploadRecImage(userId: string, recIndex: number, file: File): Promise<UploadPhotoResult> {
+  if (!storage) {
+    return { success: false, error: 'Storage not configured' };
+  }
+
+  const validation = validatePhoto(file);
+  if (!validation.valid) {
+    return { success: false, error: validation.error };
+  }
+
+  try {
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const filename = `rec-${recIndex}.${ext}`;
+    const photoRef = ref(storage, `rec-images/${userId}/${filename}`);
+
+    await uploadBytes(photoRef, file, {
+      contentType: file.type,
+      customMetadata: {
+        uploadedAt: new Date().toISOString(),
+      },
+    });
+
+    const url = await getDownloadURL(photoRef);
+    return { success: true, url };
+  } catch (error) {
+    console.error('Rec image upload failed:', error);
+    return { success: false, error: 'Failed to upload image. Please try again.' };
+  }
+}
+
+/**
  * Upload a show image to Firebase Storage
  */
 export async function uploadShowImage(slotId: string, file: File): Promise<UploadPhotoResult> {

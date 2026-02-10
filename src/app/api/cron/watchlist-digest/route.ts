@@ -354,7 +354,9 @@ export async function GET(request: NextRequest) {
       djName: string;
       djPhotoUrl?: string;
       url: string;
-      type: "bandcamp" | "event";
+      type: "music" | "irl" | "online";
+      title?: string;
+      imageUrl?: string;
       ogTitle?: string;
       ogImage?: string;
     }
@@ -364,17 +366,26 @@ export async function GET(request: NextRequest) {
       const chatUsername = djUser.data.chatUsername as string | undefined;
       if (!chatUsername || !djProfile) continue;
 
-      const myRecs = djProfile.myRecs as { bandcampLinks?: string[]; eventLinks?: string[] } | undefined;
-      if (!myRecs) continue;
+      const rawRecs = djProfile.myRecs;
+      if (!rawRecs) continue;
 
       const djUsername = chatUsername.replace(/\s+/g, "").toLowerCase();
       const djPhotoUrl = (djProfile.photoUrl as string) || undefined;
 
-      for (const url of myRecs.bandcampLinks || []) {
-        if (url) allCuratorRecs.push({ djUsername, djName: chatUsername, djPhotoUrl, url, type: "bandcamp" });
-      }
-      for (const url of myRecs.eventLinks || []) {
-        if (url) allCuratorRecs.push({ djUsername, djName: chatUsername, djPhotoUrl, url, type: "event" });
+      if (Array.isArray(rawRecs)) {
+        for (const item of rawRecs as Array<{ type?: string; title?: string; url?: string; imageUrl?: string }>) {
+          if (item?.url || item?.title) {
+            allCuratorRecs.push({ djUsername, djName: chatUsername, djPhotoUrl, url: item.url || "", type: (item.type as "music" | "irl" | "online") || "music", title: item.title, imageUrl: item.imageUrl });
+          }
+        }
+      } else {
+        const myRecs = rawRecs as { bandcampLinks?: string[]; eventLinks?: string[] };
+        for (const url of myRecs.bandcampLinks || []) {
+          if (url) allCuratorRecs.push({ djUsername, djName: chatUsername, djPhotoUrl, url, type: "music" });
+        }
+        for (const url of myRecs.eventLinks || []) {
+          if (url) allCuratorRecs.push({ djUsername, djName: chatUsername, djPhotoUrl, url, type: "irl" });
+        }
       }
     }
 
@@ -779,6 +790,8 @@ export async function GET(request: NextRequest) {
                 }
               }
 
+              if (!djUsername || !djPhotoUrl) continue; // Must have profile + photo
+
               // For IRL shows, use event location for city matching
               const showLocation = broadcastShow.isIRL ? broadcastShow.irlLocation : djLocation;
 
@@ -815,6 +828,7 @@ export async function GET(request: NextRequest) {
           }
 
           // If not enough preference matches to fill empty days, add fallback shows
+          // Only pick shows with a DJ profile + photo (card looks good, links to profile)
           if (preferenceMatches.length < 4) {
             const prefKeys = new Set(preferenceMatches.map((s) => `${s.showName.toLowerCase()}-${s.stationId}`));
             for (const show of allShows) {
@@ -834,6 +848,8 @@ export async function GET(request: NextRequest) {
                 if (profile) { djUsername = profile.username; djPhotoUrl = profile.photoUrl; }
               }
 
+              if (!djUsername || !djPhotoUrl) continue; // Must have profile + photo
+
               preferenceMatches.push({
                 showName: show.name,
                 djName: show.dj,
@@ -845,7 +861,6 @@ export async function GET(request: NextRequest) {
                 isIRL: broadcastShow.isIRL,
                 irlLocation: broadcastShow.irlLocation,
                 irlTicketUrl: broadcastShow.irlTicketUrl,
-                matchLabel: show.stationName.toUpperCase(),
               });
               prefKeys.add(showKey);
             }

@@ -383,7 +383,9 @@ async function sendTestEmail(to: string, section?: string) {
     djUsername: string;
     djPhotoUrl?: string;
     url: string;
-    type: "bandcamp" | "event";
+    type: "music" | "irl" | "online";
+    title?: string;
+    imageUrl?: string;
     ogTitle?: string;
     ogImage?: string;
   }
@@ -404,19 +406,29 @@ async function sendTestEmail(to: string, section?: string) {
     );
     if (!isFollowed) continue;
 
-    const myRecs = djProfile.myRecs as { bandcampLinks?: string[]; eventLinks?: string[] } | undefined;
-    if (!myRecs) continue;
+    const rawRecs = djProfile.myRecs;
+    if (!rawRecs) continue;
 
     const djPhotoUrl = (djProfile.photoUrl as string) || undefined;
 
-    for (const url of myRecs.bandcampLinks || []) {
-      if (url && curatorRecs.length < 4) {
-        curatorRecs.push({ djUsername: djUsernameLower, djName: chatUsername, djPhotoUrl, url, type: "bandcamp" });
+    if (Array.isArray(rawRecs)) {
+      for (const item of rawRecs as Array<{ type?: string; title?: string; url?: string; imageUrl?: string }>) {
+        if (curatorRecs.length >= 4) break;
+        if (item?.url || item?.title) {
+          curatorRecs.push({ djUsername: djUsernameLower, djName: chatUsername, djPhotoUrl, url: item.url || "", type: (item.type as "music" | "irl" | "online") || "music", title: item.title, imageUrl: item.imageUrl });
+        }
       }
-    }
-    for (const url of myRecs.eventLinks || []) {
-      if (url && curatorRecs.length < 4) {
-        curatorRecs.push({ djUsername: djUsernameLower, djName: chatUsername, djPhotoUrl, url, type: "event" });
+    } else {
+      const myRecs = rawRecs as { bandcampLinks?: string[]; eventLinks?: string[] };
+      for (const url of myRecs.bandcampLinks || []) {
+        if (url && curatorRecs.length < 4) {
+          curatorRecs.push({ djUsername: djUsernameLower, djName: chatUsername, djPhotoUrl, url, type: "music" });
+        }
+      }
+      for (const url of myRecs.eventLinks || []) {
+        if (url && curatorRecs.length < 4) {
+          curatorRecs.push({ djUsername: djUsernameLower, djName: chatUsername, djPhotoUrl, url, type: "irl" });
+        }
       }
     }
     if (curatorRecs.length >= 4) break;
@@ -474,6 +486,8 @@ async function sendTestEmail(to: string, section?: string) {
         }
       }
 
+      if (!djUsername || !djPhotoUrl) continue; // Must have profile + photo
+
       const showLocation = show.isIRL ? show.irlLocation : djLocation;
       const cityMatch = irlCity && showLocation ? matchesCity(showLocation, irlCity) : false;
       const genreMatch = djGenres && preferredGenres.length > 0
@@ -506,12 +520,13 @@ async function sendTestEmail(to: string, section?: string) {
   }
 
   // If we don't have enough preference shows to fill empty days, add fallback shows
-  // (any upcoming show with a DJ name, not already in favorites or prefs)
+  // Only pick shows that have a DJ profile with photo (so the card looks good and links to a profile)
   if (preferenceShows.length < 4) {
     const prefShowKeys = new Set(preferenceShows.map((s) => `${s.showName.toLowerCase()}-${s.stationId}`));
     for (const show of futureShows) {
       if (preferenceShows.length >= 6) break;
       if (!show.dj) continue;
+      if (!show.djUsername || !show.djPhotoUrl) continue; // Must have profile + photo
       const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
       if (favoriteShowKeys.has(showKey)) continue;
       if (prefShowKeys.has(showKey)) continue;
@@ -527,7 +542,6 @@ async function sendTestEmail(to: string, section?: string) {
         isIRL: show.isIRL,
         irlLocation: show.irlLocation,
         irlTicketUrl: show.irlTicketUrl,
-        matchLabel: show.stationName.toUpperCase(),
       });
       prefShowKeys.add(showKey);
     }

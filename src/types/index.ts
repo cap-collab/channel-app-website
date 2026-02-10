@@ -127,7 +127,9 @@ export interface CuratorRec {
   djName: string;
   djPhotoUrl?: string;
   url: string;
-  type: 'bandcamp' | 'event';
+  type: 'music' | 'irl' | 'online';
+  title?: string;
+  imageUrl?: string;
   ogTitle?: string;
   ogImage?: string;
   ogDescription?: string;

@@ -12,7 +12,7 @@ import { AuthModal } from "@/components/AuthModal";
 import { Header } from "@/components/Header";
 import { usePendingPayout } from "@/hooks/usePendingPayout";
 import { normalizeUrl } from "@/lib/url";
-import { uploadDJPhoto, deleteDJPhoto, validatePhoto } from "@/lib/photo-upload";
+import { uploadDJPhoto, deleteDJPhoto, validatePhoto, uploadRecImage } from "@/lib/photo-upload";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { Show } from "@/types";
 import { getStationById } from "@/lib/stations";
@@ -79,10 +79,14 @@ interface DJProfile {
   };
   irlShows?: IrlShow[];
   radioShows?: RadioShow[];
-  myRecs?: {
-    bandcampLinks?: string[];
-    eventLinks?: string[];
-  };
+  myRecs?: RecItem[];
+}
+
+interface RecItem {
+  type: 'music' | 'irl' | 'online';
+  title: string;
+  url: string;
+  imageUrl?: string;
 }
 
 export function StudioProfileClient() {
@@ -105,7 +109,7 @@ export function StudioProfileClient() {
     socialLinks: {},
     irlShows: [],
     radioShows: [],
-    myRecs: { bandcampLinks: [], eventLinks: [] },
+    myRecs: [],
   });
 
   // Photo upload state
@@ -163,10 +167,10 @@ export function StudioProfileClient() {
   const [saveRadioShowsSuccess, setSaveRadioShowsSuccess] = useState(false);
 
   // Form state - My Recs section
-  const [bandcampRecsInput, setBandcampRecsInput] = useState<string[]>([""]);
-  const [eventRecsInput, setEventRecsInput] = useState<string[]>([""]);
+  const [recsInput, setRecsInput] = useState<RecItem[]>([{ type: "music", title: "", url: "" }]);
   const [savingMyRecs, setSavingMyRecs] = useState(false);
   const [saveMyRecsSuccess, setSaveMyRecsSuccess] = useState(false);
+  const [uploadingRecImage, setUploadingRecImage] = useState<number | null>(null);
 
   // Form state - Thank You Message section
   const [thankYouInput, setThankYouInput] = useState("");
@@ -243,7 +247,7 @@ export function StudioProfileClient() {
             socialLinks: data.djProfile.socialLinks || {},
             irlShows: data.djProfile.irlShows || [],
             radioShows: data.djProfile.radioShows || [],
-            myRecs: data.djProfile.myRecs || { bandcampLinks: [], eventLinks: [] },
+            myRecs: Array.isArray(data.djProfile.myRecs) ? data.djProfile.myRecs : [],
           });
           // Only set input values on initial load to avoid overwriting user edits
           if (initialLoadRef.current) {
@@ -273,11 +277,23 @@ export function StudioProfileClient() {
               { name: "", radioName: "", url: "", date: "", time: "", duration: "1", ...radioShows[0] },
               { name: "", radioName: "", url: "", date: "", time: "", duration: "1", ...radioShows[1] },
             ]);
-            // My Recs - ensure at least one empty field
-            const bandcampRecs = data.djProfile.myRecs?.bandcampLinks || [];
-            setBandcampRecsInput(bandcampRecs.length > 0 ? bandcampRecs : [""]);
-            const eventRecs = data.djProfile.myRecs?.eventLinks || [];
-            setEventRecsInput(eventRecs.length > 0 ? eventRecs : [""]);
+            // My Recs - migrate old format or load new format
+            const rawRecs = data.djProfile.myRecs;
+            if (Array.isArray(rawRecs) && rawRecs.length > 0) {
+              setRecsInput(rawRecs);
+            } else if (rawRecs && !Array.isArray(rawRecs)) {
+              // Backward compat: migrate old bandcampLinks/eventLinks format
+              const migrated: RecItem[] = [];
+              for (const url of (rawRecs.bandcampLinks || [])) {
+                if (url) migrated.push({ type: "music", title: "", url });
+              }
+              for (const url of (rawRecs.eventLinks || [])) {
+                if (url) migrated.push({ type: "irl", title: "", url });
+              }
+              setRecsInput(migrated.length > 0 ? migrated : [{ type: "music", title: "", url: "" }]);
+            } else {
+              setRecsInput([{ type: "music", title: "", url: "" }]);
+            }
             initialLoadRef.current = false;
           }
         }
@@ -771,7 +787,7 @@ export function StudioProfileClient() {
     }
   }, [user, chatUsername, djProfile.photoUrl]);
 
-  const saveMyRecs = useCallback(async (bandcampRecs: string[], eventRecs: string[]) => {
+  const saveMyRecs = useCallback(async (recs: RecItem[]) => {
     if (!user || !db) return;
 
     setSavingMyRecs(true);
@@ -779,19 +795,18 @@ export function StudioProfileClient() {
 
     try {
       const userRef = doc(db, "users", user.uid);
-      // Filter out empty links and normalize URLs
-      const validBandcampLinks = bandcampRecs
-        .filter((url) => url.trim())
-        .map((url) => normalizeUrl(url.trim()));
-      const validEventLinks = eventRecs
-        .filter((url) => url.trim())
-        .map((url) => normalizeUrl(url.trim()));
+      // Filter out recs with no title and no URL, normalize URLs
+      const validRecs = recs
+        .filter((rec) => rec.title.trim() || rec.url.trim())
+        .map((rec) => ({
+          type: rec.type,
+          title: rec.title.trim(),
+          url: rec.url.trim() ? normalizeUrl(rec.url.trim()) : "",
+          ...(rec.imageUrl ? { imageUrl: rec.imageUrl } : {}),
+        }));
 
       await updateDoc(userRef, {
-        "djProfile.myRecs": {
-          bandcampLinks: validBandcampLinks.length > 0 ? validBandcampLinks : null,
-          eventLinks: validEventLinks.length > 0 ? validEventLinks : null,
-        },
+        "djProfile.myRecs": validRecs.length > 0 ? validRecs : null,
       });
       setSaveMyRecsSuccess(true);
       setTimeout(() => setSaveMyRecsSuccess(false), 2000);
@@ -911,9 +926,9 @@ export function StudioProfileClient() {
   useEffect(() => {
     if (initialLoadRef.current) return;
     if (myRecsDebounceRef.current) clearTimeout(myRecsDebounceRef.current);
-    myRecsDebounceRef.current = setTimeout(() => saveMyRecs(bandcampRecsInput, eventRecsInput), 1000);
+    myRecsDebounceRef.current = setTimeout(() => saveMyRecs(recsInput), 1000);
     return () => { if (myRecsDebounceRef.current) clearTimeout(myRecsDebounceRef.current); };
-  }, [bandcampRecsInput, eventRecsInput, saveMyRecs]);
+  }, [recsInput, saveMyRecs]);
 
   // Check DJ name availability with debounce
   const checkDjNameAvailability = async (name: string) => {
@@ -2098,105 +2113,146 @@ export function StudioProfileClient() {
               My Recs
             </h2>
             <p className="text-gray-600 text-xs mb-3 px-1">
-              Share music and events you recommend with your listeners.
+              Share music, IRL shows, and online shows you recommend with your listeners.
             </p>
-            <div className="bg-[#1a1a1a] rounded p-4 space-y-6">
-              {/* Bandcamp subsection */}
-              <div>
-                <label className="block text-gray-400 text-sm mb-2">
-                  Bandcamp
-                </label>
-                <div className="space-y-2">
-                  {bandcampRecsInput.map((url, index) => (
-                    <div key={index} className="flex gap-2">
-                      <input
-                        type="text"
-                        value={url}
-                        onChange={(e) => {
-                          const updated = [...bandcampRecsInput];
-                          updated[index] = e.target.value;
-                          setBandcampRecsInput(updated);
+            <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
+              {recsInput.map((rec, index) => (
+                <div key={index} className={`space-y-3 ${index > 0 ? "border-t border-gray-800 pt-4" : ""}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-500 text-xs font-mono">REC {index + 1}</span>
+                    {recsInput.length > 1 && (
+                      <button
+                        onClick={() => {
+                          const updated = recsInput.filter((_, i) => i !== index);
+                          setRecsInput(updated);
                         }}
-                        placeholder="https://artist.bandcamp.com/album"
-                        className="flex-1 bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
-                      />
-                      {bandcampRecsInput.length > 1 && (
+                        className="px-2 py-1 text-gray-500 hover:text-red-400 transition-colors"
+                        aria-label="Remove rec"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  {/* Type selector */}
+                  <div className="flex gap-2">
+                    {(["music", "irl", "online"] as const).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => {
+                          const updated = [...recsInput];
+                          updated[index] = { ...updated[index], type: t };
+                          setRecsInput(updated);
+                        }}
+                        className={`px-3 py-1.5 rounded text-xs font-semibold uppercase tracking-wide transition-colors ${
+                          rec.type === t
+                            ? "bg-white text-black"
+                            : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                        }`}
+                      >
+                        {t === "irl" ? "IRL Show" : t === "online" ? "Online Show" : "Music"}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Title */}
+                  <input
+                    type="text"
+                    value={rec.title}
+                    onChange={(e) => {
+                      const updated = [...recsInput];
+                      updated[index] = { ...updated[index], title: e.target.value };
+                      setRecsInput(updated);
+                    }}
+                    placeholder="Title"
+                    className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                  />
+                  {/* URL */}
+                  <input
+                    type="text"
+                    value={rec.url}
+                    onChange={(e) => {
+                      const updated = [...recsInput];
+                      updated[index] = { ...updated[index], url: e.target.value };
+                      setRecsInput(updated);
+                    }}
+                    placeholder="https://..."
+                    className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                  />
+                  {/* Image upload */}
+                  <div className="flex items-center gap-3">
+                    {rec.imageUrl ? (
+                      <div className="relative w-20 h-12 rounded overflow-hidden border border-gray-700">
+                        <Image
+                          src={rec.imageUrl}
+                          alt="Rec image"
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
                         <button
                           onClick={() => {
-                            const updated = bandcampRecsInput.filter((_, i) => i !== index);
-                            setBandcampRecsInput(updated);
+                            const updated = [...recsInput];
+                            updated[index] = { ...updated[index], imageUrl: undefined };
+                            setRecsInput(updated);
                           }}
-                          className="px-3 py-2 text-gray-500 hover:text-red-400 transition-colors"
-                          aria-label="Remove link"
+                          className="absolute top-0 right-0 bg-black/70 p-0.5 rounded-bl"
+                          aria-label="Remove image"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                           </svg>
                         </button>
-                      )}
-                    </div>
-                  ))}
-                  <button
-                    onClick={() => setBandcampRecsInput([...bandcampRecsInput, ""])}
-                    className="text-gray-400 hover:text-white text-sm transition-colors flex items-center gap-1"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add Bandcamp Link
-                  </button>
-                </div>
-              </div>
-
-              {/* Events subsection */}
-              <div className="border-t border-gray-800 pt-4">
-                <label className="block text-gray-400 text-sm mb-2">
-                  Events
-                </label>
-                <div className="space-y-2">
-                  {eventRecsInput.map((url, index) => (
-                    <div key={index} className="flex gap-2">
-                      <input
-                        type="text"
-                        value={url}
-                        onChange={(e) => {
-                          const updated = [...eventRecsInput];
-                          updated[index] = e.target.value;
-                          setEventRecsInput(updated);
-                        }}
-                        placeholder="https://ra.co/events/..."
-                        className="flex-1 bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
-                      />
-                      {eventRecsInput.length > 1 && (
-                        <button
-                          onClick={() => {
-                            const updated = eventRecsInput.filter((_, i) => i !== index);
-                            setEventRecsInput(updated);
+                      </div>
+                    ) : (
+                      <label className="flex items-center gap-2 px-3 py-2 bg-black border border-gray-800 rounded text-gray-400 hover:text-white text-sm cursor-pointer transition-colors">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        {uploadingRecImage === index ? "Uploading..." : "Add Image"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={uploadingRecImage === index}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file || !user) return;
+                            const validation = validatePhoto(file);
+                            if (!validation.valid) {
+                              alert(validation.error);
+                              return;
+                            }
+                            setUploadingRecImage(index);
+                            const result = await uploadRecImage(user.uid, index, file);
+                            if (result.success && result.url) {
+                              const updated = [...recsInput];
+                              updated[index] = { ...updated[index], imageUrl: result.url };
+                              setRecsInput(updated);
+                            } else {
+                              alert(result.error || "Upload failed");
+                            }
+                            setUploadingRecImage(null);
+                            e.target.value = "";
                           }}
-                          className="px-3 py-2 text-gray-500 hover:text-red-400 transition-colors"
-                          aria-label="Remove link"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <button
-                    onClick={() => setEventRecsInput([...eventRecsInput, ""])}
-                    className="text-gray-400 hover:text-white text-sm transition-colors flex items-center gap-1"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add Event Link
-                  </button>
+                        />
+                      </label>
+                    )}
+                  </div>
                 </div>
-                <p className="text-gray-600 text-xs mt-2">
-                  {savingMyRecs ? "Saving..." : saveMyRecsSuccess ? "Saved" : ""}
-                </p>
-              </div>
+              ))}
+              <button
+                onClick={() => setRecsInput([...recsInput, { type: "music", title: "", url: "" }])}
+                className="text-gray-400 hover:text-white text-sm transition-colors flex items-center gap-1"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Add Recommendation
+              </button>
+              <p className="text-gray-600 text-xs">
+                {savingMyRecs ? "Saving..." : saveMyRecsSuccess ? "Saved" : ""}
+              </p>
             </div>
           </section>
 

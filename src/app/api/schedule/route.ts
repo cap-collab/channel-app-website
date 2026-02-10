@@ -421,23 +421,45 @@ async function fetchCuratorRecs(): Promise<CuratorRec[]> {
       const djName = chatUsername;
       const djPhotoUrl = djProfile.photoUrl || undefined;
 
-      if (djProfile.myRecs.bandcampLinks) {
-        for (const url of djProfile.myRecs.bandcampLinks) {
-          if (url) recs.push({ djUsername, djName, djPhotoUrl, url, type: "bandcamp" });
+      const myRecs = djProfile.myRecs;
+      if (Array.isArray(myRecs)) {
+        // New format: array of { type, title, url, imageUrl? }
+        for (const item of myRecs) {
+          if (item?.url || item?.title) {
+            recs.push({
+              djUsername,
+              djName,
+              djPhotoUrl,
+              url: item.url || "",
+              type: item.type || "music",
+              title: item.title || undefined,
+              imageUrl: item.imageUrl || undefined,
+            });
+          }
         }
-      }
-      if (djProfile.myRecs.eventLinks) {
-        for (const url of djProfile.myRecs.eventLinks) {
-          if (url) recs.push({ djUsername, djName, djPhotoUrl, url, type: "event" });
+      } else {
+        // Legacy format: { bandcampLinks, eventLinks }
+        if (myRecs.bandcampLinks) {
+          for (const url of myRecs.bandcampLinks) {
+            if (url) recs.push({ djUsername, djName, djPhotoUrl, url, type: "music" });
+          }
+        }
+        if (myRecs.eventLinks) {
+          for (const url of myRecs.eventLinks) {
+            if (url) recs.push({ djUsername, djName, djPhotoUrl, url, type: "irl" });
+          }
         }
       }
     });
 
-    // Fetch OG metadata for all recommendation URLs in parallel
+    // Fetch OG metadata for recs that need it (no DJ-provided title/image and have a URL)
     const enriched = await Promise.allSettled(
       recs.map(async (rec) => {
-        const og = await fetchOgMetadata(rec.url);
-        return { ...rec, ...og };
+        if (rec.url && (!rec.title || !rec.imageUrl)) {
+          const og = await fetchOgMetadata(rec.url);
+          return { ...rec, ...og };
+        }
+        return rec;
       })
     );
 

@@ -538,18 +538,22 @@ function buildCuratorRecCardHtml(rec: {
   djUsername: string;
   djPhotoUrl?: string;
   url: string;
-  type: "bandcamp" | "event";
+  type: "music" | "irl" | "online";
+  title?: string;
+  imageUrl?: string;
   ogTitle?: string;
   ogImage?: string;
 }): string {
-  const cleanUrl = rec.url.replace(/^https?:\/\//, "").replace(/\/$/, "");
-  const domain = rec.url.replace(/^https?:\/\//, "").split("/")[0].replace(/^www\./, "");
+  const cleanUrl = rec.url ? rec.url.replace(/^https?:\/\//, "").replace(/\/$/, "") : "";
+  const domain = rec.url ? rec.url.replace(/^https?:\/\//, "").split("/")[0].replace(/^www\./, "") : "";
   const emailPhotoUrl = getEmailPhotoUrl(rec.djUsername, rec.djPhotoUrl);
-  const typeBadge = rec.type === "bandcamp" ? "🎵 Music" : "🌲 IRL";
+  const typeBadge = rec.type === "irl" ? "🌲 IRL" : rec.type === "online" ? "📺 Online" : "🎵 Music";
 
-  const ogImageHtml = rec.ogImage
+  const displayImage = rec.imageUrl || rec.ogImage;
+  const displayTitle = rec.title || rec.ogTitle;
+  const ogImageHtml = displayImage
     ? `<a href="${rec.url}" style="text-decoration: none;">
-        <img src="${rec.ogImage}" alt="${rec.ogTitle || domain}" width="388" style="width: 100%; height: 120px; object-fit: cover; display: block; border-radius: 8px 8px 0 0;" />
+        <img src="${displayImage}" alt="${displayTitle || domain}" width="388" style="width: 100%; height: 120px; object-fit: cover; display: block; border-radius: 8px 8px 0 0;" />
       </a>`
     : `<a href="${rec.url}" style="text-decoration: none;">
         <table width="100%" cellpadding="0" cellspacing="0" border="0">
@@ -592,7 +596,7 @@ function buildCuratorRecCardHtml(rec: {
                     <td valign="middle">
                       <div style="font-size: 10px; font-family: monospace; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px;">${typeBadge}</div>
                       <div style="font-size: 13px; color: #fff; font-weight: 600; margin-top: 2px;">
-                        <a href="${rec.url}" style="color: #fff; text-decoration: none;">${rec.ogTitle || cleanUrl}</a>
+                        <a href="${rec.url}" style="color: #fff; text-decoration: none;">${displayTitle || cleanUrl}</a>
                       </div>
                     </td>
                   </tr>
@@ -646,7 +650,9 @@ interface WatchlistDigestEmailParams {
     djUsername: string;
     djPhotoUrl?: string;
     url: string;
-    type: "bandcamp" | "event";
+    type: "music" | "irl" | "online";
+    title?: string;
+    imageUrl?: string;
     ogTitle?: string;
     ogImage?: string;
   }>;
