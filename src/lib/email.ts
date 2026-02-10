@@ -101,7 +101,7 @@ function wrapEmailContent(content: string, footerText: string): string {
 }
 
 // Pink gradient button style
-const PINK_BUTTON_STYLE = "display: inline-block; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: #fff !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;";
+const PINK_BUTTON_STYLE = "display: inline-block; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: #fff !important; padding: 14px 28px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 14px;";
 
 // Normalize a DJ username for use in URLs (e.g. "COPYPASTE w/ KLS.RDR" → "copypastewklsrdr")
 function normalizeDjUsername(djUsername: string): string {
@@ -173,8 +173,8 @@ export async function sendShowStartingEmail({
   // Use proxy URL for reliable loading in email clients
   const emailPhotoUrl = getEmailPhotoUrl(djUsername, djPhotoUrl);
   const photoHtml = emailPhotoUrl
-    ? `<img src="${emailPhotoUrl}" alt="${djDisplayName}" width="80" height="80" style="width: 80px; height: 80px; border-radius: 12px; object-fit: cover; border: 1px solid #333;" />`
-    : `<table width="80" height="80" cellpadding="0" cellspacing="0" border="0" style="border-radius: 12px; border: 1px solid #333; background-color: ${fallbackColor};">
+    ? `<img src="${emailPhotoUrl}" alt="${djDisplayName}" width="80" height="80" style="width: 80px; height: 80px; border-radius: 0; object-fit: cover; border: 1px solid #333;" />`
+    : `<table width="80" height="80" cellpadding="0" cellspacing="0" border="0" style="border-radius: 0; border: 1px solid #333; background-color: ${fallbackColor};">
         <tr>
           <td align="center" valign="middle" style="font-size: 32px; font-weight: bold; color: #fff;">
             ${djDisplayName.charAt(0).toUpperCase()}
@@ -183,7 +183,7 @@ export async function sendShowStartingEmail({
       </table>`;
 
   const content = `
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 0; border: 1px solid #333;">
       <tr>
         <td align="center" style="padding: 32px;">
           <!-- DJ Photo -->
@@ -248,7 +248,7 @@ export async function sendMentionEmail({
     : getStationDeepLink(stationId);
 
   const content = `
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 0; border: 1px solid #333;">
       <tr>
         <td align="center" style="padding: 32px;">
           <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #fff;">
@@ -256,7 +256,7 @@ export async function sendMentionEmail({
           </h1>
           <p style="margin: 0 0 ${messagePreview ? '16px' : '24px'}; font-size: 14px; color: #a1a1aa;">in ${stationName} chat</p>
           ${messagePreview ? `
-            <div style="background: #0a0a0a; border-radius: 8px; padding: 16px; margin-bottom: 24px; font-style: italic; color: #a1a1aa; text-align: left; border: 1px solid #333;">
+            <div style="background: #0a0a0a; border-radius: 0; padding: 16px; margin-bottom: 24px; font-style: italic; color: #a1a1aa; text-align: left; border: 1px solid #333;">
               "${messagePreview}"
             </div>
           ` : ''}
@@ -314,7 +314,7 @@ export async function sendPopularityAlertEmail({
     : getStationDeepLink(stationId);
 
   const content = `
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 0; border: 1px solid #333;">
       <tr>
         <td align="center" style="padding: 32px;">
           <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #fff;">
@@ -384,11 +384,11 @@ export async function sendTipReminderEmail({
 
   // Use amber color for urgent, pink gradient for normal
   const buttonStyle = isUrgent
-    ? "display: inline-block; background: #fbbf24; color: #000 !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;"
+    ? "display: inline-block; background: #fbbf24; color: #000 !important; padding: 14px 28px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 14px;"
     : PINK_BUTTON_STYLE;
 
   const content = `
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 0; border: 1px solid #333;">
       <tr>
         <td align="center" style="padding: 32px;">
           <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #fff;">
@@ -398,7 +398,7 @@ export async function sendTipReminderEmail({
           <div style="font-size: 40px; font-weight: 700; color: ${isUrgent ? '#fbbf24' : '#fff'}; margin: 16px 0;">${amountFormatted}</div>
           <p style="margin: 0 0 24px; font-size: 14px; color: ${isUrgent ? '#fbbf24' : '#71717a'};">${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} left to claim</p>
           <a href="${stripeOnboardingUrl}" style="${buttonStyle}">Connect Stripe to Receive</a>
-          <div style="margin-top: 24px; padding: 16px; background: #0a0a0a; border-radius: 8px; border: 1px solid #333; text-align: left;">
+          <div style="margin-top: 24px; padding: 16px; background: #0a0a0a; border-radius: 0; border: 1px solid #333; text-align: left;">
             <p style="margin: 0; font-size: 13px; color: #71717a;">Connect your Stripe account to receive tips from listeners. The process takes about 5 minutes.</p>
             ${isUrgent ? '<p style="margin: 12px 0 0; font-size: 13px; color: #fbbf24;"><strong>After 60 days, unclaimed tips are reallocated to the DJ Support Pool.</strong></p>' : ''}
           </div>
@@ -482,8 +482,8 @@ function buildShowCardHtml(
   const fallbackColor = show.isIRL ? "#22c55e" : (STATION_ACCENT_COLORS[show.stationId] || "#D94099");
   const emailPhotoUrl = getEmailPhotoUrl(show.djUsername, show.djPhotoUrl);
   const photoHtml = emailPhotoUrl
-    ? `<img src="${emailPhotoUrl}" alt="${djDisplayName}" width="64" height="64" style="width: 64px; height: 64px; border-radius: 8px; object-fit: cover; border: 1px solid #333;" />`
-    : `<table width="64" height="64" cellpadding="0" cellspacing="0" border="0" style="border-radius: 8px; border: 1px solid #333; background-color: ${fallbackColor};">
+    ? `<img src="${emailPhotoUrl}" alt="${djDisplayName}" width="64" height="64" style="width: 64px; height: 64px; border-radius: 0; object-fit: cover; border: 1px solid #333;" />`
+    : `<table width="64" height="64" cellpadding="0" cellspacing="0" border="0" style="border-radius: 0; border: 1px solid #333; background-color: ${fallbackColor};">
         <tr>
           <td align="center" valign="middle" style="font-size: 24px; font-weight: bold; color: #fff;">
             ${djDisplayName.charAt(0).toUpperCase()}
@@ -524,7 +524,7 @@ function buildShowCardHtml(
             </tr>
           </table>
           <div style="margin-top: 12px; text-align: center;">
-            <a href="${ctaUrl}" style="display: inline-block; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: #fff !important; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+            <a href="${ctaUrl}" style="display: inline-block; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: #fff !important; padding: 10px 24px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
               ${ctaText}
             </a>
           </div>
@@ -557,8 +557,8 @@ function buildCuratorRecCardHtml(rec: {
   // Use rec image (DJ-uploaded or OG) if available, otherwise DJ photo
   const photoUrl = displayImage || getEmailPhotoUrl(rec.djUsername, rec.djPhotoUrl);
   const photoHtml = photoUrl
-    ? `<img src="${photoUrl}" alt="${displayTitle}" width="64" height="64" style="width: 64px; height: 64px; border-radius: 8px; object-fit: cover; border: 1px solid #333;" />`
-    : `<table width="64" height="64" cellpadding="0" cellspacing="0" border="0" style="border-radius: 8px; border: 1px solid #333; background-color: #D94099;">
+    ? `<img src="${photoUrl}" alt="${displayTitle}" width="64" height="64" style="width: 64px; height: 64px; border-radius: 0; object-fit: cover; border: 1px solid #333;" />`
+    : `<table width="64" height="64" cellpadding="0" cellspacing="0" border="0" style="border-radius: 0; border: 1px solid #333; background-color: #D94099;">
         <tr>
           <td align="center" valign="middle" style="font-size: 24px; font-weight: bold; color: #fff;">
             ${rec.djName.charAt(0).toUpperCase()}
@@ -592,7 +592,7 @@ function buildCuratorRecCardHtml(rec: {
             </tr>
           </table>
           <div style="margin-top: 12px; text-align: center;">
-            <a href="${djProfileUrl}" style="display: inline-block; background: rgba(255,255,255,0.1); color: #fff !important; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+            <a href="${djProfileUrl}" style="display: inline-block; background: rgba(255,255,255,0.1); color: #fff !important; padding: 10px 24px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
               See ${rec.djName} Profile
             </a>
           </div>
@@ -872,7 +872,7 @@ export async function sendDjOnlineEmail({
   const chatUrl = `https://channel-app.com/dj/${normalizeDjUsername(djUsername)}#chat`;
 
   const content = `
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 0; border: 1px solid #333;">
       <tr>
         <td align="center" style="padding: 32px;">
           <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #fff;">
