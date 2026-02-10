@@ -610,6 +610,7 @@ async function sendTestEmail(to: string, section?: string) {
       favoriteShows: finalFavorites,
       curatorRecs: finalRecs,
       preferenceShows: finalPrefs,
+      hasGenrePreferences: preferredGenres.length > 0,
     });
 
     if (success) {

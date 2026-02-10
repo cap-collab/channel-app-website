@@ -654,6 +654,7 @@ interface WatchlistDigestEmailParams {
     irlTicketUrl?: string;
     matchLabel?: string;
   }>;
+  hasGenrePreferences?: boolean;
 }
 
 export async function sendWatchlistDigestEmail({
@@ -662,6 +663,7 @@ export async function sendWatchlistDigestEmail({
   favoriteShows,
   curatorRecs,
   preferenceShows,
+  hasGenrePreferences,
 }: WatchlistDigestEmailParams) {
   if (!resend) {
     console.warn("Email service not configured - skipping email");
@@ -808,11 +810,27 @@ export async function sendWatchlistDigestEmail({
 
   const titleText = highlightName ? `Upcoming for you: ${highlightName} & more` : "Upcoming for you";
 
+  const genreBannerHtml = !hasGenrePreferences
+    ? `
+    <!-- Genre Preferences Banner -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px;">
+      <tr>
+        <td style="background-color: #1e1e2e; border: 1px solid #333; border-radius: 8px; padding: 14px 16px; text-align: center;">
+          <span style="font-size: 13px; color: #a1a1aa; line-height: 1.5;">
+            <a href="https://channel-app.com/settings" style="color: #fff; text-decoration: underline;">Set your email preferences</a> to receive alerts that match your tastes
+          </span>
+        </td>
+      </tr>
+    </table>
+    `
+    : "";
+
   const content = `
     <!-- Title -->
     <h1 style="margin: 0 0 24px; font-size: 22px; font-weight: 700; color: #fff; line-height: 1.3; text-align: center;">
       ${titleText}
     </h1>
+    ${genreBannerHtml}
     <!-- Timeline -->
     ${timelineHtml}
   `;
