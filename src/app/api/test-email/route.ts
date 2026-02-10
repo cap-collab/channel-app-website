@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendWatchlistDigestEmail } from "@/lib/email";
-import { queryUsersWhere, queryCollection } from "@/lib/firebase-rest";
+import { queryUsersWhere, queryCollection, getUserFavorites } from "@/lib/firebase-rest";
+import { wordBoundaryMatch } from "@/lib/dj-matching";
+import { matchesGenre } from "@/lib/genres";
+import { matchesCity } from "@/lib/city-detection";
 
 const STATION_NAMES: Record<string, string> = {
   nts1: "NTS 1",
@@ -28,9 +31,23 @@ interface Metadata {
   };
 }
 
-// Normalize a name for lookup (same as chatUsernameNormalized in DB)
-function normalizeUsername(name: string): string {
-  return name.replace(/[\s-]+/g, "").toLowerCase();
+interface ShowData {
+  name: string;
+  dj?: string;
+  startTime: string;
+  stationId: string;
+  stationName: string;
+  profileUsername?: string;
+  djUsername?: string;
+  djPhotoUrl?: string;
+  isIRL?: boolean;
+  irlLocation?: string;
+  irlTicketUrl?: string;
+}
+
+// Strip ALL non-alphanumeric characters and lowercase (like the cron does)
+function normalizeForLookup(str: string): string {
+  return str.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 // Fetch OG metadata from a URL (with timeout)
@@ -59,21 +76,28 @@ async function fetchOgMetadata(url: string): Promise<{ ogTitle?: string; ogImage
 async function sendTestEmail(to: string, section?: string) {
   const now = new Date();
 
-  // ── Fetch REAL upcoming shows from metadata ──────────────────────
-  const allShows: Array<{
-    name: string;
-    dj?: string;
-    startTime: string;
-    stationId: string;
-    stationName: string;
-    profileUsername?: string;
-    djUsername?: string;
-    djPhotoUrl?: string;
-    isIRL?: boolean;
-    irlLocation?: string;
-    irlTicketUrl?: string;
-  }> = [];
+  // ── Find the user by email ───────────────────────────────────────
+  const matchingUsers = await queryUsersWhere("email", "EQUAL", to);
+  const user = matchingUsers[0];
+  if (!user) {
+    return NextResponse.json({
+      success: false,
+      error: `No user found with email: ${to}`,
+    }, { status: 404 });
+  }
 
+  const userId = user.id;
+  const userData = user.data;
+  const userTimezone = (userData.timezone as string) || "America/Los_Angeles";
+  const irlCity = userData.irlCity as string | undefined;
+  const preferredGenres = (userData.preferredGenres as string[]) || [];
+
+  console.log(`[test-email] Found user ${userId}, timezone: ${userTimezone}, city: ${irlCity}, genres: ${preferredGenres.join(", ")}`);
+
+  // ── Fetch ALL upcoming shows (same as cron) ──────────────────────
+  const allShows: ShowData[] = [];
+
+  // 1. From metadata (NTS, Rinse, dublab, Subtle)
   try {
     const metadataResponse = await fetch(
       "https://cap-collab.github.io/channel-metadata/metadata.json",
@@ -100,7 +124,7 @@ async function sendTestEmail(to: string, section?: string) {
     console.error("[test-email] Failed to fetch metadata:", error);
   }
 
-  // Also fetch broadcast slots from Firebase
+  // 2. From Firebase broadcast slots
   try {
     const broadcastSlots = await queryCollection(
       "broadcast-slots",
@@ -109,8 +133,7 @@ async function sendTestEmail(to: string, section?: string) {
     );
     for (const slot of broadcastSlots) {
       const data = slot.data;
-      const status = data.status as string;
-      if (status === "cancelled") continue;
+      if ((data.status as string) === "cancelled") continue;
       allShows.push({
         name: data.showName as string,
         dj: data.djName as string | undefined,
@@ -123,7 +146,7 @@ async function sendTestEmail(to: string, section?: string) {
     console.error("[test-email] Failed to fetch broadcast slots:", error);
   }
 
-  // Also fetch IRL events from DJ profiles
+  // 3. IRL events from DJ profiles
   const todayStr = now.toISOString().split("T")[0];
   let djUsers: Array<{ id: string; data: Record<string, unknown> }> = [];
   try {
@@ -162,36 +185,62 @@ async function sendTestEmail(to: string, section?: string) {
     console.error("[test-email] Failed to fetch DJ users:", error);
   }
 
-  // Filter to only future shows
-  const futureShows = allShows.filter((s) => new Date(s.startTime) > now);
-  futureShows.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-
-  console.log(`[test-email] Found ${futureShows.length} upcoming shows`);
-
-  // Build DJ profile map for photo lookups
-  const djProfileMap = new Map<string, { username: string; photoUrl?: string }>();
+  // Build DJ profile map for photo/genre/location lookups
+  const djProfileMap = new Map<string, { username: string; photoUrl?: string; genres?: string[]; location?: string }>();
   for (const djUser of djUsers) {
     const djProfile = djUser.data.djProfile as Record<string, unknown> | undefined;
     const chatUsername = djUser.data.chatUsername as string | undefined;
     if (!chatUsername) continue;
-    const normalized = normalizeUsername(chatUsername);
-    djProfileMap.set(normalized, {
+    djProfileMap.set(normalizeForLookup(chatUsername), {
       username: chatUsername,
       photoUrl: (djProfile?.photoUrl as string) || undefined,
+      genres: (djProfile?.genres as string[]) || undefined,
+      location: (djProfile?.location as string) || undefined,
     });
   }
 
-  // Resolve DJ photos for shows (using profileUsername or dj name)
+  // Also add pending-dj-profiles
+  try {
+    const pendingProfiles = await queryCollection("pending-dj-profiles", [], 10000);
+    for (const pending of pendingProfiles) {
+      const chatUsername = pending.data.chatUsername as string | undefined;
+      const chatUsernameNormalized = pending.data.chatUsernameNormalized as string | undefined;
+      const djProfile = pending.data.djProfile as Record<string, unknown> | undefined;
+      const photoUrl = djProfile?.photoUrl as string | undefined;
+      if (chatUsernameNormalized) {
+        const displayName = chatUsername || chatUsernameNormalized;
+        if (!djProfileMap.has(chatUsernameNormalized)) {
+          djProfileMap.set(chatUsernameNormalized, {
+            username: displayName,
+            photoUrl,
+            genres: (djProfile?.genres as string[]) || undefined,
+            location: (djProfile?.location as string) || undefined,
+          });
+        }
+        const normalized2 = normalizeForLookup(displayName);
+        if (normalized2 !== chatUsernameNormalized && !djProfileMap.has(normalized2)) {
+          djProfileMap.set(normalized2, djProfileMap.get(chatUsernameNormalized)!);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("[test-email] Failed to fetch pending profiles:", error);
+  }
+
+  // Resolve DJ photos for all shows
+  const futureShows = allShows.filter((s) => new Date(s.startTime) > now);
+  futureShows.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
   for (const show of futureShows) {
     if (show.profileUsername) {
-      const profile = djProfileMap.get(normalizeUsername(show.profileUsername));
+      const profile = djProfileMap.get(normalizeForLookup(show.profileUsername));
       if (profile) {
         show.djUsername = profile.username;
         show.djPhotoUrl = profile.photoUrl;
       }
     }
     if (!show.djUsername && show.dj) {
-      const profile = djProfileMap.get(normalizeUsername(show.dj));
+      const profile = djProfileMap.get(normalizeForLookup(show.dj));
       if (profile) {
         show.djUsername = profile.username;
         show.djPhotoUrl = profile.photoUrl;
@@ -199,26 +248,19 @@ async function sendTestEmail(to: string, section?: string) {
     }
   }
 
-  // ── Section 1: Pick real upcoming shows as "favorites" ───────────
-  // Take up to 4 shows spread across different days
-  const fourDayEnd = new Date(now);
-  fourDayEnd.setDate(fourDayEnd.getDate() + 4);
-  fourDayEnd.setHours(23, 59, 59, 999);
+  console.log(`[test-email] ${futureShows.length} upcoming shows total`);
 
-  const showsInRange = futureShows.filter((s) => new Date(s.startTime) <= fourDayEnd);
-  // Pick shows that have a DJ name (more interesting for the email)
-  const showsWithDJ = showsInRange.filter((s) => s.dj);
-  const favoritePool = showsWithDJ.length >= 3 ? showsWithDJ : showsInRange;
+  // ── Section 1: User's REAL favorite shows ────────────────────────
+  // Fetch all favorite types: show, irl, search (watchlist)
+  const [showFavorites, irlFavorites, watchlistFavorites] = await Promise.all([
+    getUserFavorites(userId, "show"),
+    getUserFavorites(userId, "irl"),
+    getUserFavorites(userId, "search"),
+  ]);
 
-  // Spread across days: pick 1 per day, up to 4
-  const dayBuckets = new Map<string, typeof favoritePool>();
-  for (const show of favoritePool) {
-    const dayKey = new Date(show.startTime).toISOString().split("T")[0];
-    if (!dayBuckets.has(dayKey)) dayBuckets.set(dayKey, []);
-    dayBuckets.get(dayKey)!.push(show);
-  }
+  console.log(`[test-email] User favorites: ${showFavorites.length} shows, ${irlFavorites.length} IRL, ${watchlistFavorites.length} watchlist`);
 
-  const sampleFavoriteShows: Array<{
+  const favoriteShows: Array<{
     showName: string;
     djName?: string;
     djUsername?: string;
@@ -230,30 +272,112 @@ async function sendTestEmail(to: string, section?: string) {
     irlLocation?: string;
     irlTicketUrl?: string;
   }> = [];
+  const favoriteShowKeys = new Set<string>();
 
-  // Take first show from each day, max 4 days
-  let daysUsed = 0;
-  dayBuckets.forEach((shows) => {
-    if (daysUsed >= 4) return;
-    const show = shows[0];
-    sampleFavoriteShows.push({
-      showName: show.name,
-      djName: show.dj,
-      djUsername: show.djUsername,
-      djPhotoUrl: show.djPhotoUrl,
-      stationName: show.stationName,
-      stationId: show.stationId,
-      startTime: new Date(show.startTime),
-      isIRL: show.isIRL,
-      irlLocation: show.irlLocation,
-      irlTicketUrl: show.irlTicketUrl,
-    });
-    daysUsed++;
-  });
+  // Match show favorites against upcoming shows
+  for (const fav of showFavorites) {
+    const favTerm = (fav.data.term as string)?.toLowerCase();
+    const favStation = fav.data.stationId as string | undefined;
+    if (!favTerm) continue;
 
-  console.log(`[test-email] Selected ${sampleFavoriteShows.length} real favorite shows`);
+    for (const show of futureShows) {
+      const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
+      if (favoriteShowKeys.has(showKey)) continue;
 
-  // ── Section 2: Fetch REAL curator recs from DJ profiles ──────────
+      if (show.name.toLowerCase() === favTerm && (!favStation || show.stationId === favStation)) {
+        let djUsername = show.djUsername;
+        let djPhotoUrl = show.djPhotoUrl;
+        if (!djUsername && show.dj) {
+          const profile = djProfileMap.get(normalizeForLookup(show.dj));
+          if (profile) { djUsername = profile.username; djPhotoUrl = profile.photoUrl; }
+        }
+        favoriteShows.push({
+          showName: show.name,
+          djName: show.dj,
+          djUsername,
+          djPhotoUrl,
+          stationName: show.stationName,
+          stationId: show.stationId,
+          startTime: new Date(show.startTime),
+          isIRL: show.isIRL,
+          irlLocation: show.irlLocation,
+          irlTicketUrl: show.irlTicketUrl,
+        });
+        favoriteShowKeys.add(showKey);
+        break;
+      }
+    }
+  }
+
+  // Match watchlist (search) favorites against upcoming shows using word boundary matching
+  for (const fav of watchlistFavorites) {
+    const term = (fav.data.term as string)?.toLowerCase();
+    if (!term) continue;
+
+    for (const show of futureShows) {
+      const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
+      if (favoriteShowKeys.has(showKey)) continue;
+
+      const nameMatch = wordBoundaryMatch(show.name, term);
+      const djMatch = show.dj ? wordBoundaryMatch(show.dj, term) : false;
+
+      if (nameMatch || djMatch) {
+        let djUsername = show.djUsername;
+        let djPhotoUrl = show.djPhotoUrl;
+        if (!djUsername && show.dj) {
+          const profile = djProfileMap.get(normalizeForLookup(show.dj));
+          if (profile) { djUsername = profile.username; djPhotoUrl = profile.photoUrl; }
+        }
+        favoriteShows.push({
+          showName: show.name,
+          djName: show.dj,
+          djUsername,
+          djPhotoUrl,
+          stationName: show.stationName,
+          stationId: show.stationId,
+          startTime: new Date(show.startTime),
+          isIRL: show.isIRL,
+          irlLocation: show.irlLocation,
+          irlTicketUrl: show.irlTicketUrl,
+        });
+        favoriteShowKeys.add(showKey);
+      }
+    }
+  }
+
+  // Match IRL favorites against upcoming IRL shows
+  for (const fav of irlFavorites) {
+    const favDjName = (fav.data.djName as string) || (fav.data.term as string);
+    if (!favDjName) continue;
+
+    for (const show of futureShows) {
+      if (!show.isIRL) continue;
+      const showKey = `${show.name.toLowerCase()}-irl`;
+      if (favoriteShowKeys.has(showKey)) continue;
+
+      if (show.dj && wordBoundaryMatch(show.dj, favDjName)) {
+        favoriteShows.push({
+          showName: show.name,
+          djName: show.dj,
+          djUsername: show.djUsername,
+          djPhotoUrl: show.djPhotoUrl,
+          stationName: show.stationName,
+          stationId: show.stationId,
+          startTime: new Date(show.startTime),
+          isIRL: true,
+          irlLocation: show.irlLocation,
+          irlTicketUrl: show.irlTicketUrl,
+        });
+        favoriteShowKeys.add(showKey);
+        break;
+      }
+    }
+  }
+
+  favoriteShows.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+  console.log(`[test-email] Matched ${favoriteShows.length} favorite shows: ${favoriteShows.map((s) => s.showName).join(", ")}`);
+
+  // ── Section 2: Curator recs from followed DJs ────────────────────
   interface CuratorRecData {
     djName: string;
     djUsername: string;
@@ -263,51 +387,58 @@ async function sendTestEmail(to: string, section?: string) {
     ogTitle?: string;
     ogImage?: string;
   }
-  const sampleCuratorRecs: CuratorRecData[] = [];
+  const curatorRecs: CuratorRecData[] = [];
+
+  // Watchlist terms are the DJs the user follows
+  const followedTerms = watchlistFavorites.map((w) => (w.data.term as string)?.toLowerCase()).filter(Boolean);
 
   for (const djUser of djUsers) {
     const djProfile = djUser.data.djProfile as Record<string, unknown> | undefined;
     const chatUsername = djUser.data.chatUsername as string | undefined;
     if (!chatUsername || !djProfile) continue;
 
+    // Check if this DJ is followed by the user
+    const djUsernameLower = chatUsername.replace(/\s+/g, "").toLowerCase();
+    const isFollowed = followedTerms.some((term) =>
+      term === djUsernameLower || term === chatUsername.toLowerCase()
+    );
+    if (!isFollowed) continue;
+
     const myRecs = djProfile.myRecs as { bandcampLinks?: string[]; eventLinks?: string[] } | undefined;
     if (!myRecs) continue;
 
-    const djUsername = chatUsername.replace(/\s+/g, "").toLowerCase();
     const djPhotoUrl = (djProfile.photoUrl as string) || undefined;
 
     for (const url of myRecs.bandcampLinks || []) {
-      if (url && sampleCuratorRecs.length < 3) {
-        sampleCuratorRecs.push({ djUsername, djName: chatUsername, djPhotoUrl, url, type: "bandcamp" });
+      if (url && curatorRecs.length < 4) {
+        curatorRecs.push({ djUsername: djUsernameLower, djName: chatUsername, djPhotoUrl, url, type: "bandcamp" });
       }
     }
     for (const url of myRecs.eventLinks || []) {
-      if (url && sampleCuratorRecs.length < 3) {
-        sampleCuratorRecs.push({ djUsername, djName: chatUsername, djPhotoUrl, url, type: "event" });
+      if (url && curatorRecs.length < 4) {
+        curatorRecs.push({ djUsername: djUsernameLower, djName: chatUsername, djPhotoUrl, url, type: "event" });
       }
     }
-    if (sampleCuratorRecs.length >= 3) break;
+    if (curatorRecs.length >= 4) break;
   }
 
   // Enrich curator recs with OG metadata
-  if (sampleCuratorRecs.length > 0) {
+  if (curatorRecs.length > 0) {
     const ogResults = await Promise.allSettled(
-      sampleCuratorRecs.map((rec) => fetchOgMetadata(rec.url))
+      curatorRecs.map((rec) => fetchOgMetadata(rec.url))
     );
     ogResults.forEach((result, i) => {
       if (result.status === "fulfilled") {
-        if (result.value.ogTitle) sampleCuratorRecs[i].ogTitle = result.value.ogTitle;
-        if (result.value.ogImage) sampleCuratorRecs[i].ogImage = result.value.ogImage;
+        if (result.value.ogTitle) curatorRecs[i].ogTitle = result.value.ogTitle;
+        if (result.value.ogImage) curatorRecs[i].ogImage = result.value.ogImage;
       }
     });
   }
 
-  console.log(`[test-email] Found ${sampleCuratorRecs.length} real curator recs`);
+  console.log(`[test-email] Found ${curatorRecs.length} curator recs from followed DJs`);
 
-  // ── Section 3: Pick real preference-matched shows ────────────────
-  // Use shows not already picked as favorites, label with station/genre info
-  const favoriteShowKeys = new Set(sampleFavoriteShows.map((s) => `${s.showName.toLowerCase()}-${s.stationId}`));
-  const samplePreferenceShows: Array<{
+  // ── Section 3: Preference-matched shows (city + genre) ──────────
+  const preferenceShows: Array<{
     showName: string;
     djName?: string;
     djUsername?: string;
@@ -321,74 +452,104 @@ async function sendTestEmail(to: string, section?: string) {
     matchLabel?: string;
   }> = [];
 
-  for (const show of showsInRange) {
-    const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
-    if (favoriteShowKeys.has(showKey)) continue;
-    if (samplePreferenceShows.length >= 3) break;
+  if (irlCity || preferredGenres.length > 0) {
+    for (const show of futureShows) {
+      const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
+      if (favoriteShowKeys.has(showKey)) continue;
+      if (preferenceShows.length >= 5) break;
 
-    // Build a match label from station name
-    const matchLabel = show.stationName.toUpperCase();
+      // Get DJ profile for genre/location data
+      let djGenres: string[] | undefined;
+      let djLocation: string | undefined;
+      let djUsername = show.djUsername;
+      let djPhotoUrl = show.djPhotoUrl;
 
-    samplePreferenceShows.push({
-      showName: show.name,
-      djName: show.dj,
-      djUsername: show.djUsername,
-      djPhotoUrl: show.djPhotoUrl,
-      stationName: show.stationName,
-      stationId: show.stationId,
-      startTime: new Date(show.startTime),
-      isIRL: show.isIRL,
-      irlLocation: show.irlLocation,
-      irlTicketUrl: show.irlTicketUrl,
-      matchLabel,
-    });
+      if (show.dj) {
+        const profile = djProfileMap.get(normalizeForLookup(show.dj));
+        if (profile) {
+          djGenres = profile.genres;
+          djLocation = profile.location;
+          if (!djUsername) djUsername = profile.username;
+          if (!djPhotoUrl) djPhotoUrl = profile.photoUrl;
+        }
+      }
+
+      const showLocation = show.isIRL ? show.irlLocation : djLocation;
+      const cityMatch = irlCity && showLocation ? matchesCity(showLocation, irlCity) : false;
+      const genreMatch = djGenres && preferredGenres.length > 0
+        ? preferredGenres.some((g) => matchesGenre(djGenres!, g))
+        : false;
+
+      if (cityMatch || genreMatch) {
+        const matchParts: string[] = [];
+        if (cityMatch && irlCity) matchParts.push(irlCity.toUpperCase());
+        if (genreMatch) {
+          const matchingGenres = preferredGenres.filter((g) => djGenres && matchesGenre(djGenres, g));
+          matchParts.push(matchingGenres.map((g) => g.toUpperCase()).join(" + "));
+        }
+
+        preferenceShows.push({
+          showName: show.name,
+          djName: show.dj,
+          djUsername,
+          djPhotoUrl,
+          stationName: show.stationName,
+          stationId: show.stationId,
+          startTime: new Date(show.startTime),
+          isIRL: show.isIRL,
+          irlLocation: show.irlLocation,
+          irlTicketUrl: show.irlTicketUrl,
+          matchLabel: matchParts.join(" + "),
+        });
+      }
+    }
   }
 
-  console.log(`[test-email] Selected ${samplePreferenceShows.length} real preference shows`);
+  console.log(`[test-email] Found ${preferenceShows.length} preference-matched shows`);
 
   // Filter by section if specified
-  const favoriteShows = section === "2" || section === "3" ? [] : sampleFavoriteShows;
-  const curatorRecs = section === "1" || section === "3" ? [] : sampleCuratorRecs;
-  const preferenceShows = section === "1" || section === "2" ? [] : samplePreferenceShows;
+  const finalFavorites = section === "2" || section === "3" ? [] : favoriteShows;
+  const finalRecs = section === "1" || section === "3" ? [] : curatorRecs;
+  const finalPrefs = section === "1" || section === "2" ? [] : preferenceShows;
 
   try {
     const success = await sendWatchlistDigestEmail({
       to,
-      userTimezone: "America/Los_Angeles",
-      favoriteShows,
-      curatorRecs,
-      preferenceShows,
+      userTimezone,
+      favoriteShows: finalFavorites,
+      curatorRecs: finalRecs,
+      preferenceShows: finalPrefs,
     });
 
     if (success) {
       return NextResponse.json({
         success: true,
         message: `Test email sent to ${to}`,
+        userId,
         section: section || "all",
-        favoriteShowCount: favoriteShows.length,
-        curatorRecCount: curatorRecs.length,
-        preferenceShowCount: preferenceShows.length,
-        favoriteShowNames: favoriteShows.map((s) => s.showName),
-        curatorRecDJs: curatorRecs.map((r) => r.djName),
-        preferenceShowNames: preferenceShows.map((s) => s.showName),
+        favoriteShowCount: finalFavorites.length,
+        curatorRecCount: finalRecs.length,
+        preferenceShowCount: finalPrefs.length,
+        favoriteShowNames: finalFavorites.map((s) => s.showName),
+        curatorRecDJs: finalRecs.map((r) => r.djName),
+        preferenceShowNames: finalPrefs.map((s) => s.showName),
       });
     } else {
       return NextResponse.json({
         success: false,
-        error: "Failed to send email - check server logs"
+        error: "Failed to send email - check server logs (no content to send?)",
       }, { status: 500 });
     }
   } catch (error) {
     console.error("Test email error:", error);
     return NextResponse.json({
       success: false,
-      error: String(error)
+      error: String(error),
     }, { status: 500 });
   }
 }
 
-// Test endpoint to preview the watchlist digest email template
-// Only works with a secret to prevent abuse
+// Test endpoint to preview the watchlist digest email — uses the REAL user's favorites
 // Query params:
 //   ?secret=XXX          (required)
 //   &to=email@example    (optional, defaults to cap@channel-app.com)

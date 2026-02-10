@@ -698,7 +698,14 @@ export async function sendWatchlistDigestEmail({
     const d = new Date(now.getTime() + i * 24 * 60 * 60 * 1000);
     const key = getDateKey(d);
     dayKeys.push(key);
-    const label = d.toLocaleDateString("en-US", { timeZone: timezone, weekday: "long", month: "short", day: "numeric" }).toUpperCase();
+    let label: string;
+    if (i === 0) {
+      label = "TODAY";
+    } else if (i === 1) {
+      label = "TOMORROW";
+    } else {
+      label = d.toLocaleDateString("en-US", { timeZone: timezone, weekday: "long", month: "short", day: "numeric" }).toUpperCase();
+    }
     dayLabels.set(key, label);
   }
 
