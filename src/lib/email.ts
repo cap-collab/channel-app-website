@@ -466,8 +466,9 @@ function buildShowCardHtml(
     ? `https://channel-app.com/dj/${normalizeDjUsername(show.djUsername)}`
     : "https://channel-app.com/my-shows";
 
+  const isFavorite = tag === "FAVORITE";
   const ctaUrl = show.isIRL && show.irlTicketUrl ? show.irlTicketUrl : djProfileUrl;
-  const ctaText = show.isIRL && show.irlTicketUrl ? "GET TICKETS" : "REMIND ME";
+  const ctaText = show.isIRL && show.irlTicketUrl ? "GET TICKETS" : isFavorite ? "SEE PROFILE" : "REMIND ME";
 
   const badgeHtml = show.isIRL
     ? `<span style="display: inline-block; font-size: 10px; font-family: monospace; color: #22c55e; text-transform: uppercase; letter-spacing: 0.5px;">🌲 IRL</span>`
@@ -815,16 +816,30 @@ export async function sendWatchlistDigestEmail({
     }
   }
 
+  // Build highlight name for title: priority is favorite DJ > favorite show > preference DJ
+  let highlightName = "";
+  const firstFavWithDJ = favoriteShows.find((s) => s.djName);
+  if (firstFavWithDJ?.djName) {
+    highlightName = firstFavWithDJ.djName;
+  } else if (favoriteShows.length > 0) {
+    highlightName = favoriteShows[0].showName;
+  } else if (preferenceShows.length > 0) {
+    const firstPrefWithDJ = preferenceShows.find((s) => s.djName);
+    highlightName = firstPrefWithDJ?.djName || preferenceShows[0].showName;
+  }
+
+  const titleText = highlightName ? `Upcoming for you: ${highlightName} & more` : "Upcoming for you";
+
   const content = `
     <!-- Title -->
     <h1 style="margin: 0 0 24px; font-size: 22px; font-weight: 700; color: #fff; line-height: 1.3; text-align: center;">
-      Upcoming for you
+      ${titleText}
     </h1>
     <!-- Timeline -->
     ${timelineHtml}
   `;
 
-  const subject = `Upcoming for you — ${totalItems} show${totalItems !== 1 ? "s" : ""} this week`;
+  const subject = highlightName ? `Upcoming for you: ${highlightName} & more` : "Upcoming for you";
 
   try {
     const { error } = await resend.emails.send({
