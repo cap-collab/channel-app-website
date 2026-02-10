@@ -104,8 +104,8 @@ function wrapEmailContent(content: string, footerText: string): string {
   `);
 }
 
-// Pink gradient button style
-const PINK_BUTTON_STYLE = "display: inline-block; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: #fff !important; padding: 14px 28px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 14px;";
+// Standard button style (subtle grey)
+const BUTTON_STYLE = "display: inline-block; background: rgba(255,255,255,0.1); color: #fff !important; padding: 14px 28px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 14px;";
 
 // Normalize a DJ username for use in URLs (e.g. "COPYPASTE w/ KLS.RDR" → "copypastewklsrdr")
 function normalizeDjUsername(djUsername: string): string {
@@ -198,7 +198,7 @@ export async function sendShowStartingEmail({
             ${displayName} <span style="color: #71717a;">is live</span>
           </h1>
           <p style="margin: 0 0 24px; font-size: 14px; color: #a1a1aa;">on ${stationName}</p>
-          <a href="${buttonUrl}" style="${PINK_BUTTON_STYLE}">${buttonText}</a>
+          <a href="${buttonUrl}" style="${BUTTON_STYLE}">${buttonText}</a>
         </td>
       </tr>
     </table>
@@ -224,71 +224,6 @@ export async function sendShowStartingEmail({
   }
 }
 
-interface MentionEmailParams {
-  to: string;
-  mentionerUsername: string;
-  stationName: string;
-  stationId: string;
-  djUsername?: string; // DJ's profile username for chat link
-  messagePreview?: string;
-}
-
-export async function sendMentionEmail({
-  to,
-  mentionerUsername,
-  stationName,
-  stationId,
-  djUsername,
-  messagePreview,
-}: MentionEmailParams) {
-  if (!resend) {
-    console.warn("Email service not configured - skipping email");
-    return false;
-  }
-
-  // Link to DJ profile chat if available, otherwise fall back to station
-  const chatUrl = djUsername
-    ? `https://channel-app.com/dj/${normalizeDjUsername(djUsername)}#chat`
-    : getStationDeepLink(stationId);
-
-  const content = `
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 0; border: 1px solid #333;">
-      <tr>
-        <td align="center" style="padding: 32px;">
-          <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #fff;">
-            @${mentionerUsername} <span style="color: #71717a;">mentioned you</span>
-          </h1>
-          <p style="margin: 0 0 ${messagePreview ? '16px' : '24px'}; font-size: 14px; color: #a1a1aa;">in ${stationName} chat</p>
-          ${messagePreview ? `
-            <div style="background: #0a0a0a; border-radius: 0; padding: 16px; margin-bottom: 24px; font-style: italic; color: #a1a1aa; text-align: left; border: 1px solid #333;">
-              "${messagePreview}"
-            </div>
-          ` : ''}
-          <a href="${chatUrl}" style="${PINK_BUTTON_STYLE}">Join Chat</a>
-        </td>
-      </tr>
-    </table>
-  `;
-
-  try {
-    const { error } = await resend.emails.send({
-      from: FROM_EMAIL,
-      to,
-      subject: `${mentionerUsername} mentioned you in ${stationName} chat`,
-      html: wrapEmailContent(content, "You're receiving this because someone mentioned you."),
-    });
-
-    if (error) {
-      console.error("Error sending mention email:", error);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error sending mention email:", error);
-    return false;
-  }
-}
 
 interface PopularityAlertEmailParams {
   to: string;
@@ -326,7 +261,7 @@ export async function sendPopularityAlertEmail({
           </h1>
           <p style="margin: 0 0 16px; font-size: 14px; color: #a1a1aa;">is trending on ${stationName}</p>
           <div style="font-size: 36px; margin-bottom: 24px;">${loveCount} ❤️</div>
-          <a href="${listenUrl}" style="${PINK_BUTTON_STYLE}">Tune In</a>
+          <a href="${listenUrl}" style="${BUTTON_STYLE}">Tune In</a>
         </td>
       </tr>
     </table>
@@ -386,10 +321,7 @@ export async function sendTipReminderEmail({
     subject = `You have ${amountFormatted} in pending support on Channel`;
   }
 
-  // Use amber color for urgent, pink gradient for normal
-  const buttonStyle = isUrgent
-    ? "display: inline-block; background: #fbbf24; color: #000 !important; padding: 14px 28px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 14px;"
-    : PINK_BUTTON_STYLE;
+  const buttonStyle = BUTTON_STYLE;
 
   const content = `
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 0; border: 1px solid #333;">
@@ -528,7 +460,7 @@ function buildShowCardHtml(
             </tr>
           </table>
           <div style="margin-top: 12px; text-align: center;">
-            <a href="${ctaUrl}" style="display: inline-block; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: #fff !important; padding: 10px 24px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+            <a href="${ctaUrl}" style="display: inline-block; background: rgba(255,255,255,0.1); color: #fff !important; padding: 10px 24px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
               ${ctaText}
             </a>
           </div>
@@ -883,7 +815,7 @@ export async function sendDjOnlineEmail({
             <span style="display: inline-block; width: 10px; height: 10px; background: #22c55e; border-radius: 50%; margin-right: 8px; vertical-align: middle;"></span>${djUsername}
           </h1>
           <p style="margin: 0 0 24px; font-size: 14px; color: #a1a1aa;">is active in their chat right now</p>
-          <a href="${chatUrl}" style="${PINK_BUTTON_STYLE}">Join the Chat</a>
+          <a href="${chatUrl}" style="${BUTTON_STYLE}">Join the Chat</a>
         </td>
       </tr>
     </table>
