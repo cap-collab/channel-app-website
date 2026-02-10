@@ -88,6 +88,7 @@ function wrapEmailContent(content: string, footerText: string): string {
                   <a href="${SETTINGS_DEEP_LINK}" style="font-size: 12px; color: #71717a; text-decoration: underline;">
                     Unsubscribe
                   </a>
+                  <div style="display:none;font-size:0;line-height:0;max-height:0;overflow:hidden;">${Date.now()}</div>
                 </td>
               </tr>
             </table>
