@@ -434,9 +434,9 @@ function buildShowCardHtml(
 
   return `
     <!-- Show Card -->
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px; background: #1a1a1a; border: 1px solid #333;">
       <tr>
-        <td style="padding: 0;">
+        <td style="padding: 16px;">
           <!-- Tag -->
           <div style="margin-bottom: 8px;">
             <span style="font-size: 10px; font-family: monospace; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px;">${tag}</span>
@@ -515,9 +515,9 @@ function buildCuratorRecCardHtml(rec: {
 
   return `
     <!-- Curator Rec Card -->
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px; background: #1a1a1a; border: 1px solid #333;">
       <tr>
-        <td style="padding: 0;">
+        <td style="padding: 16px;">
           <table width="100%" cellpadding="0" cellspacing="0" border="0">
             <tr class="card-row">
               <td class="card-content" valign="top">
