@@ -10,6 +10,8 @@ import {
   queryCollection,
 } from "@/lib/firebase-rest";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
+import { matchesGenre } from "@/lib/genres";
+import { matchesCity } from "@/lib/city-detection";
 
 // Verify request is from Vercel Cron
 function verifyCronRequest(request: NextRequest): boolean {
@@ -265,7 +267,7 @@ export async function GET(request: NextRequest) {
     // Key: chatUsernameNormalized from DB (authoritative)
     // Value: { username (for URL), photoUrl (for picture) }
     // Sources: 1) pending-dj-profiles, 2) users with DJ role
-    const djNameToProfile = new Map<string, { username: string; photoUrl?: string }>();
+    const djNameToProfile = new Map<string, { username: string; photoUrl?: string; genres?: string[]; location?: string }>();
     // Normalize to match how pending-dj-profiles stores chatUsernameNormalized
     // Strip ALL non-alphanumeric characters and lowercase (like dublab sync does)
     const normalizeForLookup = (str: string): string => {
@@ -282,7 +284,9 @@ export async function GET(request: NextRequest) {
 
       if (chatUsernameNormalized) {
         const displayName = chatUsername || chatUsernameNormalized;
-        const profileInfo = { username: displayName, photoUrl };
+        const genres = (djProfile?.genres as string[]) || undefined;
+        const location = (djProfile?.location as string) || undefined;
+        const profileInfo = { username: displayName, photoUrl, genres, location };
         // Index by the stored chatUsernameNormalized (primary key)
         djNameToProfile.set(chatUsernameNormalized, profileInfo);
         // Also index by our normalized version of chatUsername
@@ -308,7 +312,9 @@ export async function GET(request: NextRequest) {
 
       if (chatUsernameNormalized) {
         const displayName = chatUsername || chatUsernameNormalized;
-        const profileInfo = { username: displayName, photoUrl };
+        const genres = (djProfile?.genres as string[]) || undefined;
+        const location = (djProfile?.location as string) || undefined;
+        const profileInfo = { username: displayName, photoUrl, genres, location };
         if (!djNameToProfile.has(chatUsernameNormalized)) {
           djNameToProfile.set(chatUsernameNormalized, profileInfo);
         }
@@ -341,6 +347,70 @@ export async function GET(request: NextRequest) {
       }
     });
     console.log(`[watchlist-digest] Profiles with photos: ${withPhotos}, without: ${withoutPhotos}`);
+
+    // Collect curator recs from DJ profiles (for Section 2 of digest email)
+    interface CuratorRecData {
+      djUsername: string;
+      djName: string;
+      djPhotoUrl?: string;
+      url: string;
+      type: "bandcamp" | "event";
+      ogTitle?: string;
+      ogImage?: string;
+    }
+    const allCuratorRecs: CuratorRecData[] = [];
+    for (const djUser of djUsers) {
+      const djProfile = djUser.data.djProfile as Record<string, unknown> | undefined;
+      const chatUsername = djUser.data.chatUsername as string | undefined;
+      if (!chatUsername || !djProfile) continue;
+
+      const myRecs = djProfile.myRecs as { bandcampLinks?: string[]; eventLinks?: string[] } | undefined;
+      if (!myRecs) continue;
+
+      const djUsername = chatUsername.replace(/\s+/g, "").toLowerCase();
+      const djPhotoUrl = (djProfile.photoUrl as string) || undefined;
+
+      for (const url of myRecs.bandcampLinks || []) {
+        if (url) allCuratorRecs.push({ djUsername, djName: chatUsername, djPhotoUrl, url, type: "bandcamp" });
+      }
+      for (const url of myRecs.eventLinks || []) {
+        if (url) allCuratorRecs.push({ djUsername, djName: chatUsername, djPhotoUrl, url, type: "event" });
+      }
+    }
+
+    // Fetch OG metadata for curator recs in parallel (with timeout)
+    if (allCuratorRecs.length > 0) {
+      const ogResults = await Promise.allSettled(
+        allCuratorRecs.map(async (rec) => {
+          try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 3000);
+            const res = await fetch(rec.url, {
+              signal: controller.signal,
+              headers: { "User-Agent": "Mozilla/5.0 (compatible; ChannelBot/1.0)" },
+            });
+            clearTimeout(timeout);
+            if (!res.ok) return {};
+            const html = await res.text();
+            const ogTitle = html.match(/<meta\s+(?:property|name)="og:title"\s+content="([^"]+)"/i)?.[1]
+              || html.match(/<meta\s+content="([^"]+)"\s+(?:property|name)="og:title"/i)?.[1]
+              || html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1];
+            const ogImage = html.match(/<meta\s+(?:property|name)="og:image"\s+content="([^"]+)"/i)?.[1]
+              || html.match(/<meta\s+content="([^"]+)"\s+(?:property|name)="og:image"/i)?.[1];
+            return { ogTitle: ogTitle?.trim(), ogImage: ogImage?.trim() };
+          } catch {
+            return {};
+          }
+        })
+      );
+      ogResults.forEach((result, i) => {
+        if (result.status === "fulfilled" && result.value) {
+          if (result.value.ogTitle) allCuratorRecs[i].ogTitle = result.value.ogTitle;
+          if (result.value.ogImage) allCuratorRecs[i].ogImage = result.value.ogImage;
+        }
+      });
+    }
+    console.log(`[watchlist-digest] Collected ${allCuratorRecs.length} curator recs from DJ profiles`);
 
     // Get ALL users who have watchlist items (type="search" favorites)
     // We need to query all users and check their favorites
@@ -562,37 +632,222 @@ export async function GET(request: NextRequest) {
 
         // Only send email if user wants notifications and hasn't received one today
         const newMatchesForEmail = uniqueMatches.filter((m) => m.isNewForEmail);
-        if (user.wantsEmail && !alreadySentEmailToday && newMatchesForEmail.length > 0) {
-          // Send digest email (max 10 matches)
-          const success = await sendWatchlistDigestEmail({
-            to: userData.email as string,
-            userTimezone: userData.timezone as string | undefined,
-            matches: newMatchesForEmail.slice(0, 10),
-          });
 
-          if (success) {
-            // Track which shows we emailed about to avoid duplicates
-            const updatedDigestShows = { ...lastWatchlistDigestShows };
-            for (const match of newMatchesForEmail.slice(0, 10)) {
-              updatedDigestShows[match.showId] = now.toISOString();
-            }
+        // Check if user has preferences set (gate for new digest email)
+        const irlCity = userData.irlCity as string | undefined;
+        const preferredGenres = (userData.preferredGenres as string[]) || [];
+        const hasPreferences = !!(irlCity || preferredGenres.length > 0);
 
-            // Clean up old entries (shows that have already passed)
-            for (const showId of Object.keys(updatedDigestShows)) {
-              // Extract date from showId (format: "stationId-showname-YYYY-MM-DD")
-              const parts = showId.split("-");
-              const dateStr = parts.slice(-3).join("-"); // Last 3 parts are YYYY-MM-DD
-              const showDate = new Date(dateStr);
-              if (showDate < today) {
-                delete updatedDigestShows[showId];
+        if (user.wantsEmail && !alreadySentEmailToday && hasPreferences) {
+          // Build Section 1: favorite shows (all watchlist matches, no cap)
+          const favoriteShows = newMatchesForEmail.map((m) => ({
+            showName: m.showName,
+            djName: m.djName,
+            djUsername: m.djUsername,
+            djPhotoUrl: m.djPhotoUrl,
+            stationName: m.stationName,
+            stationId: m.stationId,
+            startTime: m.startTime,
+            isIRL: m.isIRL,
+            irlLocation: m.irlLocation,
+            irlTicketUrl: m.irlTicketUrl,
+          }));
+
+          // Also include already-favorited shows that are upcoming
+          const showFavorites = await getUserFavorites(user.id, "show");
+          const irlFavorites = await getUserFavorites(user.id, "irl");
+
+          // Match show favorites against allShows to find upcoming instances
+          const favoriteShowNames = new Set(favoriteShows.map((f) => `${f.showName.toLowerCase()}-${f.stationId}`));
+          for (const fav of showFavorites) {
+            const favTerm = (fav.data.term as string)?.toLowerCase();
+            const favStation = fav.data.stationId as string | undefined;
+            if (!favTerm) continue;
+
+            for (const show of allShows) {
+              const showStart = new Date(show.startTime);
+              if (showStart < now) continue;
+              const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
+              if (favoriteShowNames.has(showKey)) continue;
+
+              if (show.name.toLowerCase() === favTerm && (!favStation || show.stationId === favStation)) {
+                const broadcastShow = show as BroadcastShow;
+                let djUsername = broadcastShow.djUsername;
+                let djPhotoUrl = broadcastShow.djPhotoUrl;
+                if (!djUsername && show.dj) {
+                  const djProfile = djNameToProfile.get(normalizeForLookup(show.dj));
+                  if (djProfile) { djUsername = djProfile.username; djPhotoUrl = djProfile.photoUrl; }
+                }
+                favoriteShows.push({
+                  showName: show.name,
+                  djName: show.dj,
+                  djUsername,
+                  djPhotoUrl,
+                  stationName: show.stationName,
+                  stationId: show.stationId,
+                  startTime: showStart,
+                  isIRL: broadcastShow.isIRL,
+                  irlLocation: broadcastShow.irlLocation,
+                  irlTicketUrl: broadcastShow.irlTicketUrl,
+                });
+                favoriteShowNames.add(showKey);
+                break; // Only add first upcoming instance
               }
             }
+          }
 
-            await updateUser(user.id, {
-              lastWatchlistEmailAt: new Date(),
-              lastWatchlistDigestShows: updatedDigestShows,
+          // Match IRL favorites against allShows
+          for (const fav of irlFavorites) {
+            const favDjName = (fav.data.djName as string) || (fav.data.term as string);
+            if (!favDjName) continue;
+
+            for (const show of allShows) {
+              const broadcastShow = show as BroadcastShow;
+              if (!broadcastShow.isIRL) continue;
+              const showStart = new Date(show.startTime);
+              if (showStart < now) continue;
+              const showKey = `${show.name.toLowerCase()}-irl`;
+              if (favoriteShowNames.has(showKey)) continue;
+
+              if (show.dj && containsMatch(show.dj, favDjName.toLowerCase())) {
+                favoriteShows.push({
+                  showName: show.name,
+                  djName: show.dj,
+                  djUsername: broadcastShow.djUsername,
+                  djPhotoUrl: broadcastShow.djPhotoUrl,
+                  stationName: show.stationName,
+                  stationId: show.stationId,
+                  startTime: showStart,
+                  isIRL: true,
+                  irlLocation: broadcastShow.irlLocation,
+                  irlTicketUrl: broadcastShow.irlTicketUrl,
+                });
+                favoriteShowNames.add(showKey);
+                break;
+              }
+            }
+          }
+
+          // Sort favorites by start time
+          favoriteShows.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+
+          // Build Section 2: curator recs from followed DJs
+          const followedDJNames = watchlistDocs.map((w) => w.term.toLowerCase());
+          const userCuratorRecs = allCuratorRecs.filter((rec) =>
+            followedDJNames.includes(rec.djUsername.toLowerCase()) ||
+            followedDJNames.includes(rec.djName.toLowerCase())
+          ).slice(0, 4);
+
+          // Build Section 3: preference-matched shows (city + genre)
+          const preferenceMatches: Array<{
+            showName: string;
+            djName?: string;
+            djUsername?: string;
+            djPhotoUrl?: string;
+            stationName: string;
+            stationId: string;
+            startTime: Date;
+            isIRL?: boolean;
+            irlLocation?: string;
+            irlTicketUrl?: string;
+            matchLabel?: string;
+          }> = [];
+
+          if (irlCity || preferredGenres.length > 0) {
+            for (const show of allShows) {
+              const showStart = new Date(show.startTime);
+              if (showStart < now) continue;
+              const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
+              if (favoriteShowNames.has(showKey)) continue;
+              if (preferenceMatches.length >= 5) break;
+
+              const broadcastShow = show as BroadcastShow;
+
+              // Get DJ profile for genre/location data
+              let djGenres: string[] | undefined;
+              let djLocation: string | undefined;
+              let djUsername = broadcastShow.djUsername;
+              let djPhotoUrl = broadcastShow.djPhotoUrl;
+
+              if (show.dj) {
+                const profile = djNameToProfile.get(normalizeForLookup(show.dj));
+                if (profile) {
+                  djGenres = profile.genres;
+                  djLocation = profile.location;
+                  if (!djUsername) djUsername = profile.username;
+                  if (!djPhotoUrl) djPhotoUrl = profile.photoUrl;
+                }
+              }
+
+              // For IRL shows, use event location for city matching
+              const showLocation = broadcastShow.isIRL ? broadcastShow.irlLocation : djLocation;
+
+              // Check city match
+              const cityMatch = irlCity && showLocation ? matchesCity(showLocation, irlCity) : false;
+              // Check genre match
+              const genreMatch = djGenres && preferredGenres.length > 0
+                ? preferredGenres.some((g) => matchesGenre(djGenres!, g))
+                : false;
+
+              if (cityMatch || genreMatch) {
+                const matchParts: string[] = [];
+                if (cityMatch && irlCity) matchParts.push(irlCity.toUpperCase());
+                if (genreMatch) {
+                  const matchingGenres = preferredGenres.filter((g) => djGenres && matchesGenre(djGenres, g));
+                  matchParts.push(matchingGenres.map((g) => g.toUpperCase()).join(" + "));
+                }
+
+                preferenceMatches.push({
+                  showName: show.name,
+                  djName: show.dj,
+                  djUsername,
+                  djPhotoUrl,
+                  stationName: show.stationName,
+                  stationId: show.stationId,
+                  startTime: showStart,
+                  isIRL: broadcastShow.isIRL,
+                  irlLocation: broadcastShow.irlLocation,
+                  irlTicketUrl: broadcastShow.irlTicketUrl,
+                  matchLabel: matchParts.join(" + "),
+                });
+              }
+            }
+          }
+
+          // Send digest email if we have any content
+          const hasContent = favoriteShows.length > 0 || userCuratorRecs.length > 0 || preferenceMatches.length > 0;
+          if (hasContent) {
+            const success = await sendWatchlistDigestEmail({
+              to: userData.email as string,
+              userTimezone: userData.timezone as string | undefined,
+              favoriteShows,
+              curatorRecs: userCuratorRecs,
+              preferenceShows: preferenceMatches,
             });
-            emailsSent++;
+
+            if (success) {
+              // Track which shows we emailed about to avoid duplicates
+              const updatedDigestShows = { ...lastWatchlistDigestShows };
+              for (const match of newMatchesForEmail) {
+                updatedDigestShows[match.showId] = now.toISOString();
+              }
+
+              // Clean up old entries (shows that have already passed)
+              for (const showId of Object.keys(updatedDigestShows)) {
+                const parts = showId.split("-");
+                const dateStr = parts.slice(-3).join("-");
+                const showDate = new Date(dateStr);
+                if (showDate < today) {
+                  delete updatedDigestShows[showId];
+                }
+              }
+
+              await updateUser(user.id, {
+                lastWatchlistEmailAt: new Date(),
+                lastWatchlistDigestShows: updatedDigestShows,
+              });
+              emailsSent++;
+            }
           }
         }
       }

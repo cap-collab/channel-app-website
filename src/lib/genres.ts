@@ -35,3 +35,21 @@ export const GENRE_ALIASES: Record<string, string[]> = {
   'jungle': ['junglist'],
   'reggae': ['roots', 'dancehall'],
 };
+
+// Check if a show's genres match a single target genre (with alias support)
+export function matchesGenre(showGenres: string[], genre: string): boolean {
+  if (showGenres.length === 0 || !genre) return false;
+  const genreLower = genre.toLowerCase();
+  const aliases = GENRE_ALIASES[genreLower] || [];
+  const allTerms = [genreLower, ...aliases];
+  for (const [canonical, aliasList] of Object.entries(GENRE_ALIASES)) {
+    if (aliasList.includes(genreLower)) {
+      allTerms.push(canonical, ...aliasList);
+      break;
+    }
+  }
+  return showGenres.some((g) => {
+    const gLower = g.toLowerCase();
+    return allTerms.some((term) => gLower.includes(term) || term.includes(gLower));
+  });
+}

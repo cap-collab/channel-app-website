@@ -426,227 +426,399 @@ export async function sendTipReminderEmail({
   }
 }
 
-interface WatchlistDigestEmailParams {
-  to: string;
-  userTimezone?: string; // User's IANA timezone for formatting dates
-  matches: Array<{
+// Station accent colors for fallback avatars
+const STATION_ACCENT_COLORS: Record<string, string> = {
+  broadcast: "#D94099",
+  nts1: "#FFFFFF",
+  nts2: "#FFFFFF",
+  rinse: "#228EFD",
+  rinsefr: "#8A8A8A",
+  dublab: "#0287FE",
+  subtle: "#C3E943",
+  newtown: "#ec92af",
+  irl: "#22c55e",
+};
+
+// Build a show card HTML block (used for favorite shows and preference-matched shows)
+function buildShowCardHtml(
+  show: {
     showName: string;
     djName?: string;
-    djUsername?: string; // For DJ profile link
-    djPhotoUrl?: string; // DJ profile photo
+    djUsername?: string;
+    djPhotoUrl?: string;
     stationName: string;
     stationId: string;
     startTime: Date;
-    searchTerm: string;
-    isIRL?: boolean; // IRL event flag
-    irlLocation?: string; // City for IRL events
-    irlTicketUrl?: string; // Ticket link for IRL events
-  }>;
-}
+    isIRL?: boolean;
+    irlLocation?: string;
+    irlTicketUrl?: string;
+  },
+  tag: string,
+  timezone: string,
+): string {
+  const djDisplayName = show.djName || show.showName;
+  const timeStr = new Date(show.startTime).toLocaleTimeString("en-US", { timeZone: timezone, hour: "numeric", minute: "2-digit" });
+  const formatter = new Intl.DateTimeFormat("en-US", { timeZone: timezone, timeZoneName: "short" });
+  const parts = formatter.formatToParts(new Date(show.startTime));
+  const tzAbbr = parts.find((p) => p.type === "timeZoneName")?.value || timezone;
 
-export async function sendWatchlistDigestEmail({
-  to,
-  userTimezone,
-  matches,
-}: WatchlistDigestEmailParams) {
-  if (!resend) {
-    console.warn("Email service not configured - skipping email");
-    return false;
-  }
+  const djProfileUrl = show.djUsername
+    ? `https://channel-app.com/dj/${normalizeDjUsername(show.djUsername)}`
+    : "https://channel-app.com/my-shows";
 
-  if (matches.length === 0) return false;
+  const ctaUrl = show.isIRL && show.irlTicketUrl ? show.irlTicketUrl : djProfileUrl;
+  const ctaText = show.isIRL && show.irlTicketUrl ? "GET TICKETS" : "REMIND ME";
 
-  // Channel logo URL (hosted on the website)
-  const logoUrl = "https://channel-app.com/logo-white.png";
+  const badgeHtml = show.isIRL
+    ? `<span style="display: inline-block; font-size: 10px; font-family: monospace; color: #22c55e; text-transform: uppercase; letter-spacing: 0.5px;">🌲 IRL</span>`
+    : `<span style="display: inline-block; font-size: 10px; font-family: monospace; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.5px;">☁️ Online</span>`;
 
-  // Use user's timezone for formatting, fallback to America/New_York
-  const timezone = userTimezone || "America/New_York";
+  const locationInfo = show.isIRL
+    ? `${show.irlLocation || "TBA"}`
+    : `${show.stationName} · ${timeStr} ${tzAbbr}`;
 
-  // Get short timezone abbreviation (e.g., "EST", "PST")
-  const getTimezoneAbbr = (tz: string, date: Date) => {
-    const formatter = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "short" });
-    const parts = formatter.formatToParts(date);
-    return parts.find((p) => p.type === "timeZoneName")?.value || tz;
-  };
+  const fallbackColor = show.isIRL ? "#22c55e" : (STATION_ACCENT_COLORS[show.stationId] || "#D94099");
+  const emailPhotoUrl = getEmailPhotoUrl(show.djUsername, show.djPhotoUrl);
+  const photoHtml = emailPhotoUrl
+    ? `<img src="${emailPhotoUrl}" alt="${djDisplayName}" width="64" height="64" style="width: 64px; height: 64px; border-radius: 8px; object-fit: cover; border: 1px solid #333;" />`
+    : `<table width="64" height="64" cellpadding="0" cellspacing="0" border="0" style="border-radius: 8px; border: 1px solid #333; background-color: ${fallbackColor};">
+        <tr>
+          <td align="center" valign="middle" style="font-size: 24px; font-weight: bold; color: #fff;">
+            ${djDisplayName.charAt(0).toUpperCase()}
+          </td>
+        </tr>
+      </table>`;
 
-  // Build show cards HTML - Digital Flyer style with center spine layout
-  const showCardsHtml = matches
-    .map((match) => {
-      const dateStr = new Date(match.startTime).toLocaleDateString("en-US", { timeZone: timezone, weekday: "short", month: "short", day: "numeric" });
-      const timeStr = new Date(match.startTime).toLocaleTimeString("en-US", { timeZone: timezone, hour: "numeric", minute: "2-digit" });
-      const tzAbbr = getTimezoneAbbr(timezone, new Date(match.startTime));
-      const djDisplayName = match.djName || match.searchTerm;
-
-      // DJ profile URL - link to profile if exists, fallback to my-shows
-      const djProfileUrl = match.djUsername
-        ? `https://channel-app.com/dj/${normalizeDjUsername(match.djUsername)}`
-        : "https://channel-app.com/my-shows";
-
-      // CTA URL: For IRL events with tickets, link to tickets; otherwise link to DJ profile
-      const ctaUrl = match.isIRL && match.irlTicketUrl
-        ? match.irlTicketUrl
-        : djProfileUrl;
-
-      // CTA text
-      const ctaText = match.isIRL && match.irlTicketUrl ? "GET TICKETS" : "REMIND ME";
-
-      // Badge for IRL vs Online
-      const badgeHtml = match.isIRL
-        ? `<span style="display: inline-block; font-size: 10px; font-family: monospace; color: #22c55e; text-transform: uppercase; letter-spacing: 0.5px;">🌲 IRL</span>`
-        : `<span style="display: inline-block; font-size: 10px; font-family: monospace; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.5px;">☁️ Online</span>`;
-
-      // Location/Station info (include timezone for online shows)
-      const locationInfo = match.isIRL
-        ? `${match.irlLocation || "TBA"} · ${dateStr}`
-        : `${match.stationName} · ${dateStr} at ${timeStr} ${tzAbbr}`;
-
-      // Station accent colors (matches /my-shows fallback avatar behavior)
-      const stationAccentColors: Record<string, string> = {
-        broadcast: "#D94099",
-        nts1: "#FFFFFF",
-        nts2: "#FFFFFF",
-        rinse: "#228EFD",
-        rinsefr: "#8A8A8A",
-        dublab: "#0287FE",
-        subtle: "#C3E943",
-        newtown: "#ec92af",
-        irl: "#22c55e",
-      };
-      const fallbackColor = match.isIRL ? "#22c55e" : (stationAccentColors[match.stationId] || "#D94099");
-
-      // DJ photo or fallback initial (email-compatible table-based fallback)
-      // Use proxy URL for reliable loading in email clients
-      const emailPhotoUrl = getEmailPhotoUrl(match.djUsername, match.djPhotoUrl);
-      const photoHtml = emailPhotoUrl
-        ? `<img src="${emailPhotoUrl}" alt="${djDisplayName}" width="64" height="64" style="width: 64px; height: 64px; border-radius: 8px; object-fit: cover; border: 1px solid #333;" />`
-        : `<table width="64" height="64" cellpadding="0" cellspacing="0" border="0" style="border-radius: 8px; border: 1px solid #333; background-color: ${fallbackColor};">
+  return `
+    <!-- Show Card -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px;">
+      <tr>
+        <td style="background: #1a1a1a; border-radius: 12px; padding: 16px; border: 1px solid #333;">
+          <!-- Tag -->
+          <div style="margin-bottom: 8px;">
+            <span style="font-size: 10px; font-family: monospace; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px;">${tag}</span>
+          </div>
+          <table width="100%" cellpadding="0" cellspacing="0" border="0">
             <tr>
-              <td align="center" valign="middle" style="font-size: 24px; font-weight: bold; color: #fff;">
-                ${djDisplayName.charAt(0).toUpperCase()}
+              <td width="64" valign="top" style="padding-right: 12px;">
+                <a href="${djProfileUrl}" style="text-decoration: none;">
+                  ${photoHtml}
+                </a>
+              </td>
+              <td valign="top">
+                <div style="margin-bottom: 4px;">
+                  ${badgeHtml}
+                </div>
+                <div style="font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 4px; line-height: 1.3;">
+                  ${show.showName}
+                </div>
+                <div style="font-size: 13px; color: #a1a1aa; margin-bottom: 4px;">
+                  <a href="${djProfileUrl}" style="color: #a1a1aa; text-decoration: none;">${djDisplayName}</a>
+                </div>
+                <div style="font-size: 12px; color: #71717a;">
+                  ${locationInfo}
+                </div>
               </td>
             </tr>
-          </table>`;
+          </table>
+          <div style="margin-top: 12px; text-align: center;">
+            <a href="${ctaUrl}" style="display: inline-block; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: #fff !important; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+              ${ctaText}
+            </a>
+          </div>
+        </td>
+      </tr>
+    </table>
+  `;
+}
 
-      return `
-        <!-- Show Card -->
-        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px;">
+// Build a curator rec card HTML block
+function buildCuratorRecCardHtml(rec: {
+  djName: string;
+  djUsername: string;
+  djPhotoUrl?: string;
+  url: string;
+  type: "bandcamp" | "event";
+  ogTitle?: string;
+  ogImage?: string;
+}): string {
+  const cleanUrl = rec.url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const domain = rec.url.replace(/^https?:\/\//, "").split("/")[0].replace(/^www\./, "");
+  const emailPhotoUrl = getEmailPhotoUrl(rec.djUsername, rec.djPhotoUrl);
+  const typeBadge = rec.type === "bandcamp" ? "🎵 Music" : "🌲 IRL";
+
+  const ogImageHtml = rec.ogImage
+    ? `<a href="${rec.url}" style="text-decoration: none;">
+        <img src="${rec.ogImage}" alt="${rec.ogTitle || domain}" width="388" style="width: 100%; height: 120px; object-fit: cover; display: block; border-radius: 8px 8px 0 0;" />
+      </a>`
+    : `<a href="${rec.url}" style="text-decoration: none;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
           <tr>
-            <td style="background: #1a1a1a; border-radius: 12px; padding: 16px; border: 1px solid #333;">
-              <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                  <!-- DJ Photo -->
-                  <td width="64" valign="top" style="padding-right: 12px;">
-                    <a href="${djProfileUrl}" style="text-decoration: none;">
-                      ${photoHtml}
-                    </a>
-                  </td>
-                  <!-- Content -->
-                  <td valign="top">
-                    <!-- Badge -->
-                    <div style="margin-bottom: 4px;">
-                      ${badgeHtml}
-                    </div>
-                    <!-- Show Name -->
-                    <div style="font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 4px; line-height: 1.3;">
-                      ${match.showName}
-                    </div>
-                    <!-- DJ Name -->
-                    <div style="font-size: 13px; color: #a1a1aa; margin-bottom: 4px;">
-                      <a href="${djProfileUrl}" style="color: #a1a1aa; text-decoration: none;">${djDisplayName}</a>
-                    </div>
-                    <!-- Location/Time -->
-                    <div style="font-size: 12px; color: #71717a;">
-                      ${locationInfo}
-                    </div>
-                  </td>
-                </tr>
-              </table>
-              <!-- CTA Button -->
-              <div style="margin-top: 12px; text-align: center;">
-                <a href="${ctaUrl}" style="display: inline-block; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: #fff !important; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
-                  ${ctaText}
-                </a>
-              </div>
+            <td align="center" style="height: 80px; background: #D94099; border-radius: 8px 8px 0 0;">
+              <span style="font-size: 16px; font-weight: 700; color: #fff; text-transform: uppercase;">${domain}</span>
             </td>
           </tr>
         </table>
-      `;
-    })
-    .join(`
-      <!-- Spine divider -->
-      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px;">
-        <tr>
-          <td align="center">
-            <div style="width: 2px; height: 24px; background: linear-gradient(180deg, #ec4899 0%, #8b5cf6 100%); border-radius: 1px;"></div>
-          </td>
-        </tr>
-      </table>
-    `);
+      </a>`;
 
-  try {
-    const { error } = await resend.emails.send({
-      from: FROM_EMAIL,
-      to,
-      subject: `${matches.length} new show${matches.length > 1 ? "s" : ""} coming up from your favorite DJs`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <meta name="color-scheme" content="dark">
-          <meta name="supported-color-schemes" content="dark">
-          <title>New Shows from Your Favorite DJs</title>
-          <style>
-            :root { color-scheme: dark; }
-            body, .body-bg { background-color: #0a0a0a !important; }
-          </style>
-        </head>
-        <body class="body-bg" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0a0a0a; color: #fff; margin: 0; padding: 0;">
-          <!-- Wrapper -->
-          <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0a0a0a" style="background-color: #0a0a0a;">
+  const djPhotoHtml = emailPhotoUrl
+    ? `<img src="${emailPhotoUrl}" alt="${rec.djName}" width="32" height="32" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 1px solid #333;" />`
+    : `<table width="32" height="32" cellpadding="0" cellspacing="0" border="0" style="border-radius: 50%; background-color: #D94099; border: 1px solid #333;">
+        <tr><td align="center" valign="middle" style="font-size: 14px; font-weight: bold; color: #fff;">${rec.djName.charAt(0).toUpperCase()}</td></tr>
+      </table>`;
+
+  return `
+    <!-- Curator Rec Card -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px;">
+      <tr>
+        <td style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333; overflow: hidden;">
+          <!-- Tag -->
+          <div style="padding: 12px 16px 8px;">
+            <span style="font-size: 10px; font-family: monospace; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px;">REC'D BY ${rec.djName.toUpperCase()}</span>
+          </div>
+          <!-- OG Image -->
+          <div style="padding: 0 16px;">
+            ${ogImageHtml}
+          </div>
+          <!-- Content -->
+          <table width="100%" cellpadding="0" cellspacing="0" border="0">
             <tr>
-              <td align="center" style="padding: 40px 20px;" bgcolor="#0a0a0a">
-                <!-- Container -->
-                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 420px;">
-                  <!-- Logo Header -->
+              <td style="padding: 12px 16px;">
+                <table cellpadding="0" cellspacing="0" border="0">
                   <tr>
-                    <td align="center" style="padding-bottom: 32px;" bgcolor="#0a0a0a">
-                      <img src="${logoUrl}" alt="Channel" width="120" style="width: 120px; height: auto;" />
+                    <td width="32" valign="middle" style="padding-right: 8px;">
+                      ${djPhotoHtml}
                     </td>
-                  </tr>
-                  <!-- Title -->
-                  <tr>
-                    <td align="center" style="padding-bottom: 32px;" bgcolor="#0a0a0a">
-                      <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #fff; line-height: 1.3;">
-                        New shows from your<br/>favorite DJs
-                      </h1>
-                    </td>
-                  </tr>
-                  <!-- Show Cards -->
-                  <tr>
-                    <td bgcolor="#0a0a0a">
-                      ${showCardsHtml}
-                    </td>
-                  </tr>
-                  <!-- Footer -->
-                  <tr>
-                    <td align="center" style="padding-top: 32px; border-top: 1px solid #333;" bgcolor="#0a0a0a">
-                      <p style="margin: 0 0 12px; font-size: 13px; color: #71717a;">
-                        These shows have been added to your favorites.
-                      </p>
-                      <a href="${SETTINGS_DEEP_LINK}" style="font-size: 12px; color: #71717a; text-decoration: underline;">
-                        Unsubscribe
-                      </a>
+                    <td valign="middle">
+                      <div style="font-size: 10px; font-family: monospace; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px;">${typeBadge}</div>
+                      <div style="font-size: 13px; color: #fff; font-weight: 600; margin-top: 2px;">
+                        <a href="${rec.url}" style="color: #fff; text-decoration: none;">${rec.ogTitle || cleanUrl}</a>
+                      </div>
                     </td>
                   </tr>
                 </table>
               </td>
             </tr>
           </table>
-        </body>
-        </html>
-      `,
+          <!-- CTA -->
+          <div style="padding: 0 16px 12px; text-align: center;">
+            <a href="${rec.url}" style="display: inline-block; background: rgba(255,255,255,0.1); color: #fff !important; padding: 8px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none;">
+              Visit Link &#8599;
+            </a>
+          </div>
+        </td>
+      </tr>
+    </table>
+  `;
+}
+
+// Build a day header HTML block
+function buildDayHeaderHtml(dayLabel: string): string {
+  return `
+    <!-- Day Header -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px; margin-top: 8px;">
+      <tr>
+        <td style="padding: 8px 0; border-bottom: 1px solid #333;">
+          <span style="font-size: 12px; font-family: monospace; color: #a1a1aa; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">${dayLabel}</span>
+        </td>
+      </tr>
+    </table>
+  `;
+}
+
+interface WatchlistDigestEmailParams {
+  to: string;
+  userTimezone?: string;
+  favoriteShows: Array<{
+    showName: string;
+    djName?: string;
+    djUsername?: string;
+    djPhotoUrl?: string;
+    stationName: string;
+    stationId: string;
+    startTime: Date;
+    isIRL?: boolean;
+    irlLocation?: string;
+    irlTicketUrl?: string;
+  }>;
+  curatorRecs: Array<{
+    djName: string;
+    djUsername: string;
+    djPhotoUrl?: string;
+    url: string;
+    type: "bandcamp" | "event";
+    ogTitle?: string;
+    ogImage?: string;
+  }>;
+  preferenceShows: Array<{
+    showName: string;
+    djName?: string;
+    djUsername?: string;
+    djPhotoUrl?: string;
+    stationName: string;
+    stationId: string;
+    startTime: Date;
+    isIRL?: boolean;
+    irlLocation?: string;
+    irlTicketUrl?: string;
+    matchLabel?: string;
+  }>;
+}
+
+export async function sendWatchlistDigestEmail({
+  to,
+  userTimezone,
+  favoriteShows,
+  curatorRecs,
+  preferenceShows,
+}: WatchlistDigestEmailParams) {
+  if (!resend) {
+    console.warn("Email service not configured - skipping email");
+    return false;
+  }
+
+  const timezone = userTimezone || "America/New_York";
+
+  // Build 4 day buckets: today + next 3 days (in user's timezone)
+  const now = new Date();
+  type TimelineItem =
+    | { kind: "show"; tag: string; show: WatchlistDigestEmailParams["favoriteShows"][0] }
+    | { kind: "rec"; rec: WatchlistDigestEmailParams["curatorRecs"][0] }
+    | { kind: "preference"; tag: string; show: WatchlistDigestEmailParams["preferenceShows"][0] };
+
+  // Get the date string (YYYY-MM-DD) for a given Date in user's timezone
+  const getDateKey = (d: Date): string => {
+    return d.toLocaleDateString("en-CA", { timeZone: timezone }); // en-CA gives YYYY-MM-DD
+  };
+
+  // Build day keys for today + next 3 days
+  const dayKeys: string[] = [];
+  const dayLabels: Map<string, string> = new Map();
+  for (let i = 0; i < 4; i++) {
+    const d = new Date(now.getTime() + i * 24 * 60 * 60 * 1000);
+    const key = getDateKey(d);
+    dayKeys.push(key);
+    const label = d.toLocaleDateString("en-US", { timeZone: timezone, weekday: "long", month: "short", day: "numeric" }).toUpperCase();
+    dayLabels.set(key, label);
+  }
+
+  // Initialize buckets
+  const buckets = new Map<string, TimelineItem[]>();
+  for (const key of dayKeys) {
+    buckets.set(key, []);
+  }
+
+  // Place all favorite shows into buckets
+  for (const show of favoriteShows) {
+    const key = getDateKey(new Date(show.startTime));
+    const bucket = buckets.get(key);
+    if (bucket) {
+      bucket.push({ kind: "show", tag: "FAVORITE", show });
+    }
+    // Shows outside the 4-day window are still included if they fall on a bucket day
+  }
+
+  // Place preference shows into their day buckets (used for gap-filling later)
+  const prefsByDay = new Map<string, WatchlistDigestEmailParams["preferenceShows"][0][]>();
+  for (const show of preferenceShows) {
+    const key = getDateKey(new Date(show.startTime));
+    if (!prefsByDay.has(key)) prefsByDay.set(key, []);
+    prefsByDay.get(key)!.push(show);
+  }
+
+  // Gap-fill empty days: curator recs first, then preference shows
+  const unusedRecs = [...curatorRecs];
+  for (const key of dayKeys) {
+    const bucket = buckets.get(key)!;
+    if (bucket.length > 0) continue;
+
+    // Try a curator rec first
+    if (unusedRecs.length > 0) {
+      const rec = unusedRecs.shift()!;
+      bucket.push({ kind: "rec", rec });
+      continue;
+    }
+
+    // Try a preference show for this day
+    const dayPrefs = prefsByDay.get(key);
+    if (dayPrefs && dayPrefs.length > 0) {
+      const pref = dayPrefs.shift()!;
+      const tag = pref.matchLabel ? `PICKED FOR YOU · ${pref.matchLabel}` : "PICKED FOR YOU";
+      bucket.push({ kind: "preference", tag, show: pref });
+      continue;
+    }
+
+    // Try any preference show from any day
+    const allPrefEntries = Array.from(prefsByDay.values());
+    for (const prefs of allPrefEntries) {
+      if (prefs.length > 0) {
+        const pref = prefs.shift()!;
+        const tag = pref.matchLabel ? `PICKED FOR YOU · ${pref.matchLabel}` : "PICKED FOR YOU";
+        bucket.push({ kind: "preference", tag, show: pref });
+        break;
+      }
+    }
+  }
+
+  // Count total items and check if we have anything to send
+  let totalItems = 0;
+  dayKeys.forEach((key) => {
+    totalItems += (buckets.get(key) || []).length;
+  });
+  if (totalItems === 0) return false;
+
+  // Build HTML for each day
+  let timelineHtml = "";
+  for (const key of dayKeys) {
+    const items = buckets.get(key)!;
+    if (items.length === 0) continue;
+
+    const label = dayLabels.get(key) || key;
+    timelineHtml += buildDayHeaderHtml(label);
+
+    // Sort items within a day by start time (shows only, recs go first since they're dateless)
+    items.sort((a, b) => {
+      if (a.kind === "rec") return -1;
+      if (b.kind === "rec") return 1;
+      const aTime = "show" in a ? new Date(a.show.startTime).getTime() : 0;
+      const bTime = "show" in b ? new Date(b.show.startTime).getTime() : 0;
+      return aTime - bTime;
+    });
+
+    for (const item of items) {
+      if (item.kind === "rec") {
+        timelineHtml += buildCuratorRecCardHtml(item.rec);
+      } else {
+        timelineHtml += buildShowCardHtml(item.show, item.tag, timezone);
+      }
+    }
+  }
+
+  // Add remaining unused curator recs under an "Anytime" section
+  if (unusedRecs.length > 0) {
+    timelineHtml += buildDayHeaderHtml("MORE FROM YOUR FAVORITES");
+    for (const rec of unusedRecs) {
+      timelineHtml += buildCuratorRecCardHtml(rec);
+    }
+  }
+
+  const content = `
+    <!-- Title -->
+    <h1 style="margin: 0 0 24px; font-size: 22px; font-weight: 700; color: #fff; line-height: 1.3; text-align: center;">
+      Upcoming in your scene
+    </h1>
+    <!-- Timeline -->
+    ${timelineHtml}
+  `;
+
+  const subject = `Upcoming in your scene — ${totalItems} show${totalItems !== 1 ? "s" : ""} this week`;
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject,
+      html: wrapEmailContent(content, "Based on your preferences and favorites."),
     });
 
     if (error) {
