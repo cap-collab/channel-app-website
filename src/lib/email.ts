@@ -553,10 +553,10 @@ function buildCuratorRecCardHtml(rec: {
 
   const djProfileUrl = `https://channel-app.com/dj/${normalizeDjUsername(rec.djUsername)}`;
 
-  // Use rec image if DJ uploaded one, otherwise fall back to DJ photo, otherwise initials
-  const photoUrl = displayImage || getEmailPhotoUrl(rec.djUsername, rec.djPhotoUrl);
-  const photoHtml = photoUrl
-    ? `<img src="${photoUrl}" alt="${displayTitle}" width="64" height="64" style="width: 64px; height: 64px; border-radius: 8px; object-fit: cover; border: 1px solid #333;" />`
+  // DJ photo (always shown as identity, 64x64)
+  const djPhotoUrl = getEmailPhotoUrl(rec.djUsername, rec.djPhotoUrl);
+  const djPhotoHtml = djPhotoUrl
+    ? `<img src="${djPhotoUrl}" alt="${rec.djName}" width="64" height="64" style="width: 64px; height: 64px; border-radius: 8px; object-fit: cover; border: 1px solid #333;" />`
     : `<table width="64" height="64" cellpadding="0" cellspacing="0" border="0" style="border-radius: 8px; border: 1px solid #333; background-color: #D94099;">
         <tr>
           <td align="center" valign="middle" style="font-size: 24px; font-weight: bold; color: #fff;">
@@ -565,35 +565,45 @@ function buildCuratorRecCardHtml(rec: {
         </tr>
       </table>`;
 
+  // Rec image banner (DJ-uploaded or OG image, shown above content when available)
+  const recImageHtml = displayImage
+    ? `<a href="${rec.url}" style="text-decoration: none;">
+        <img src="${displayImage}" alt="${displayTitle}" width="388" style="width: 100%; height: 120px; object-fit: cover; display: block; margin-bottom: 12px;" />
+      </a>`
+    : "";
+
   return `
     <!-- Curator Rec Card -->
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px;">
       <tr>
-        <td style="background: #1a1a1a; padding: 16px; border: 1px solid rgba(255,255,255,0.1);">
-          <table width="100%" cellpadding="0" cellspacing="0" border="0">
-            <tr>
-              <td width="64" valign="top" style="padding-right: 12px;">
-                <a href="${rec.url}" style="text-decoration: none;">
-                  ${photoHtml}
-                </a>
-              </td>
-              <td valign="top">
-                <div style="margin-bottom: 4px;">
-                  <span style="display: inline-block; font-size: 10px; font-family: monospace; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.5px;">${typeBadge}</span>
-                </div>
-                <div style="font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 4px; line-height: 1.3;">
-                  <a href="${rec.url}" style="color: #fff; text-decoration: none;">${displayTitle}</a>
-                </div>
-                <div style="font-size: 12px; color: #71717a;">
-                  ${domain}
-                </div>
-              </td>
-            </tr>
-          </table>
-          <div style="margin-top: 12px; text-align: center;">
-            <a href="${djProfileUrl}" style="display: inline-block; background: rgba(255,255,255,0.1); color: #fff !important; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
-              See ${rec.djName} Profile
-            </a>
+        <td style="background: #1a1a1a; border: 1px solid rgba(255,255,255,0.1); overflow: hidden;">
+          ${recImageHtml}
+          <div style="padding: ${displayImage ? "0 16px 16px" : "16px"};">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td width="64" valign="top" style="padding-right: 12px;">
+                  <a href="${djProfileUrl}" style="text-decoration: none;">
+                    ${djPhotoHtml}
+                  </a>
+                </td>
+                <td valign="top">
+                  <div style="margin-bottom: 4px;">
+                    <span style="display: inline-block; font-size: 10px; font-family: monospace; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.5px;">${typeBadge}</span>
+                  </div>
+                  <div style="font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 4px; line-height: 1.3;">
+                    <a href="${rec.url}" style="color: #fff; text-decoration: none;">${displayTitle}</a>
+                  </div>
+                  <div style="font-size: 12px; color: #71717a;">
+                    ${domain}
+                  </div>
+                </td>
+              </tr>
+            </table>
+            <div style="margin-top: 12px; text-align: center;">
+              <a href="${djProfileUrl}" style="display: inline-block; background: rgba(255,255,255,0.1); color: #fff !important; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+                See ${rec.djName} Profile
+              </a>
+            </div>
           </div>
         </td>
       </tr>
