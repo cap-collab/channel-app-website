@@ -60,7 +60,7 @@ async function sendTestEmail(to: string, section?: string) {
   const now = new Date();
 
   // ── Fetch REAL upcoming shows from metadata ──────────────────────
-  let allShows: Array<{
+  const allShows: Array<{
     name: string;
     dj?: string;
     startTime: string;
