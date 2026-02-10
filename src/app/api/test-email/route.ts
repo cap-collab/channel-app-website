@@ -623,6 +623,7 @@ async function sendTestEmail(to: string, section?: string) {
         preferenceShowCount: finalPrefs.length,
         favoriteShowNames: finalFavorites.map((s) => s.showName),
         curatorRecDJs: finalRecs.map((r) => r.djName),
+        curatorRecDetails: finalRecs.map((r) => ({ title: r.title, imageUrl: r.imageUrl, ogTitle: r.ogTitle, ogImage: r.ogImage, url: r.url })),
         preferenceShowNames: finalPrefs.map((s) => s.showName),
       });
     } else {
