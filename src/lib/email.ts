@@ -805,13 +805,13 @@ export async function sendWatchlistDigestEmail({
   const content = `
     <!-- Title -->
     <h1 style="margin: 0 0 24px; font-size: 22px; font-weight: 700; color: #fff; line-height: 1.3; text-align: center;">
-      Upcoming in your scene
+      Upcoming for you
     </h1>
     <!-- Timeline -->
     ${timelineHtml}
   `;
 
-  const subject = `Upcoming in your scene — ${totalItems} show${totalItems !== 1 ? "s" : ""} this week`;
+  const subject = `Upcoming for you — ${totalItems} show${totalItems !== 1 ? "s" : ""} this week`;
 
   try {
     const { error } = await resend.emails.send({
