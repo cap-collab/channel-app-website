@@ -1327,9 +1327,9 @@ export function DJPublicProfileClient({ username }: Props) {
                   <div className="flex gap-2">
                     <Link
                       href="/channel"
-                      className="flex-1 py-3 px-4 rounded text-sm font-semibold bg-accent hover:bg-accent/80 text-white transition-colors flex items-center justify-center gap-2"
+                      className="flex-1 min-w-0 py-3 px-2 sm:px-4 rounded text-sm font-semibold bg-accent hover:bg-accent/80 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
                     >
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M8 5v14l11-7z" />
                       </svg>
                       Play
@@ -1339,9 +1339,9 @@ export function DJPublicProfileClient({ username }: Props) {
                         if (!isAuthenticated) { setShowAuthModal(true); return; }
                         if (currentLiveShow) toggleFavorite(currentLiveShow);
                       }}
-                      className="flex-1 py-3 px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
+                      className="flex-1 min-w-0 py-3 px-2 sm:px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
                     >
-                      <svg className="w-4 h-4" fill={currentLiveShow && isShowFavorited(currentLiveShow) ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 shrink-0" fill={currentLiveShow && isShowFavorited(currentLiveShow) ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                       </svg>
                       {currentLiveShow && isShowFavorited(currentLiveShow) ? "Reminded" : "Remind Me"}
@@ -1353,10 +1353,10 @@ export function DJPublicProfileClient({ username }: Props) {
                       href={liveElsewhere.stationUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 py-3 px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
+                      className="flex-1 min-w-0 py-3 px-2 sm:px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
                     >
                       Join Stream
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                       </svg>
                     </a>
@@ -1365,9 +1365,9 @@ export function DJPublicProfileClient({ username }: Props) {
                         if (!isAuthenticated) { setShowAuthModal(true); return; }
                         if (currentLiveShow) toggleFavorite(currentLiveShow);
                       }}
-                      className="flex-1 py-3 px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
+                      className="flex-1 min-w-0 py-3 px-2 sm:px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
                     >
-                      <svg className="w-4 h-4" fill={currentLiveShow && isShowFavorited(currentLiveShow) ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 shrink-0" fill={currentLiveShow && isShowFavorited(currentLiveShow) ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                       </svg>
                       {currentLiveShow && isShowFavorited(currentLiveShow) ? "Reminded" : "Remind Me"}
@@ -1608,9 +1608,9 @@ export function DJPublicProfileClient({ username }: Props) {
                               href={radioShow.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex-1 py-3 px-4 rounded text-sm font-semibold bg-accent hover:bg-accent/80 text-white transition-colors flex items-center justify-center gap-2"
+                              className="flex-1 min-w-0 py-3 px-2 sm:px-4 rounded text-sm font-semibold bg-accent hover:bg-accent/80 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
                             >
-                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M8 5v14l11-7z" />
                               </svg>
                               Join Stream
@@ -1618,13 +1618,13 @@ export function DJPublicProfileClient({ username }: Props) {
                             <button
                               onClick={(e) => handleToggleRadioShowFavorite(radioShow, e)}
                               disabled={isToggling}
-                              className="flex-1 py-3 px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
+                              className="flex-1 min-w-0 py-3 px-2 sm:px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
                             >
                               {isToggling ? (
                                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                               ) : (
                                 <>
-                                  <svg className="w-4 h-4" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                  <svg className="w-4 h-4 shrink-0" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                                   </svg>
                                   {isFavorited ? "Reminded" : "Remind Me"}
