@@ -130,7 +130,7 @@ export function BroadcastHeader({ stationName = "Channel Broadcast", openInNewWi
                           }}
                           className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                         >
-                          DJ Profile
+                          Profile
                         </a>
                       )}
                       <a

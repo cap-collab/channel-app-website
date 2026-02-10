@@ -164,7 +164,7 @@ export function StudioJoinClient() {
 
   const validateForm = (): boolean => {
     if (!formData.djName.trim()) {
-      setErrorMessage('DJ name is required');
+      setErrorMessage('Curator name is required');
       return false;
     }
     if (!formData.email.trim()) {
@@ -348,7 +348,7 @@ export function StudioJoinClient() {
               <p className="text-xl text-gray-300 mb-6">Bring your curator profile to Channel</p>
 
               <p className="text-gray-400 leading-relaxed mb-4">
-                Channel is a home for DJs to publish sets, notify fans, and stay connected across radios, events, and venues.
+                Channel is a home for curators to publish their recommendations, their sets, notify fans, and stay connected across radios, events, and venues.
               </p>
 
               <p className="text-gray-400 leading-relaxed mb-8">
@@ -497,13 +497,13 @@ export function StudioJoinClient() {
 
               {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-6 mt-8">
-              {/* DJ Name */}
+              {/* Curator Name */}
               <div>
                 <label
                   htmlFor="djName"
                   className="block text-sm font-medium text-gray-300 mb-2"
                 >
-                  DJ Name *
+                  Curator Name *
                 </label>
                 <input
                   type="text"
@@ -511,7 +511,7 @@ export function StudioJoinClient() {
                   name="djName"
                   value={formData.djName}
                   onChange={handleInputChange}
-                  placeholder="Your DJ name"
+                  placeholder="Your curator name"
                   disabled={profileFields.djName}
                   className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 />

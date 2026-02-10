@@ -1137,7 +1137,7 @@ export function StudioProfileClient() {
               <p className="text-xl text-gray-300 mb-6">Bring your curator profile to Channel</p>
 
               <p className="text-gray-400 leading-relaxed mb-4">
-                Channel is a home for DJs to publish sets, notify fans, and stay connected across radios, events, and venues.
+                Channel is a home for curators to publish their recommendations, their sets, notify fans, and stay connected across radios, events, and venues.
               </p>
 
               <p className="text-gray-400 leading-relaxed mb-8">
@@ -1248,10 +1248,10 @@ export function StudioProfileClient() {
       <Header currentPage="studio" position="sticky" />
 
       <main className="max-w-xl mx-auto p-4">
-        {/* DJ Name Setup Banner - shown when chatUsername is not set */}
+        {/* Curator Name Setup Banner - shown when chatUsername is not set */}
         {!chatUsername && (
           <div className="mb-6 bg-gradient-to-r from-purple-900/50 to-blue-900/50 border border-purple-500/30 rounded p-4">
-            <h2 className="text-white font-medium mb-1">Set Your DJ Name</h2>
+            <h2 className="text-white font-medium mb-1">Set Your Curator Name</h2>
             <p className="text-gray-400 text-sm mb-4">
               Choose a name for your profile and personal URL. This will also be your chat username.
             </p>
@@ -1323,7 +1323,7 @@ export function StudioProfileClient() {
             </h2>
             <div className="bg-[#1a1a1a] rounded divide-y divide-gray-800">
               <div className="p-4 flex items-center justify-between">
-                <span className="text-gray-400">DJ Name</span>
+                <span className="text-gray-400">Curator Name</span>
                 <span className="text-white">
                   {chatUsername || <span className="text-gray-600">Not set</span>}
                 </span>
@@ -1525,7 +1525,7 @@ export function StudioProfileClient() {
               </div>
               <div>
                 <label className="block text-gray-400 text-sm mb-2">
-                  Genres / Vibes
+                  Genre tags
                 </label>
                 <input
                   type="text"
