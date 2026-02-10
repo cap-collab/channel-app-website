@@ -494,7 +494,7 @@ function buildShowCardHtml(
     <!-- Show Card -->
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px;">
       <tr>
-        <td style="background: #1a1a1a; padding: 16px; border: 1px solid rgba(255,255,255,0.1);">
+        <td style="padding: 0;">
           <!-- Tag -->
           <div style="margin-bottom: 8px;">
             <span style="font-size: 10px; font-family: monospace; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px;">${tag}</span>
@@ -569,7 +569,7 @@ function buildCuratorRecCardHtml(rec: {
     <!-- Curator Rec Card -->
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px;">
       <tr>
-        <td style="background: #1a1a1a; padding: 16px; border: 1px solid rgba(255,255,255,0.1);">
+        <td style="padding: 0;">
           <table width="100%" cellpadding="0" cellspacing="0" border="0">
             <tr>
               <td width="64" valign="top" style="padding-right: 12px;">
@@ -589,7 +589,7 @@ function buildCuratorRecCardHtml(rec: {
                 </div>
               </td>
             </tr>
-            </table>
+          </table>
           <div style="margin-top: 12px; text-align: center;">
             <a href="${djProfileUrl}" style="display: inline-block; background: rgba(255,255,255,0.1); color: #fff !important; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
               See ${rec.djName} Profile
@@ -607,7 +607,7 @@ function buildDayHeaderHtml(dayLabel: string): string {
     <!-- Day Header -->
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px; margin-top: 8px;">
       <tr>
-        <td style="padding: 8px 0; border-bottom: 1px solid #333;">
+        <td style="padding: 8px 0;">
           <span style="font-size: 12px; font-family: monospace; color: #a1a1aa; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">${dayLabel}</span>
         </td>
       </tr>
