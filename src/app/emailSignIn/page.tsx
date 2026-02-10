@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { isSignInWithEmailLink, signInWithEmailLink } from "firebase/auth";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
+import { getDefaultCity } from "@/lib/city-detection";
 
 const EMAIL_FOR_SIGN_IN_KEY = "emailForSignIn";
 
@@ -57,6 +58,7 @@ export default function EmailSignInPage() {
           createdAt: serverTimestamp(),
           lastSeenAt: serverTimestamp(),
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          irlCity: getDefaultCity(),
           emailNotifications: {
             showStarting: true,
             watchlistMatch: true,

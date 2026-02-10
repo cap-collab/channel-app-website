@@ -16,6 +16,7 @@ import {
 } from "firebase/auth";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db, googleProvider, appleProvider } from "@/lib/firebase";
+import { getDefaultCity } from "@/lib/city-detection";
 
 const EMAIL_FOR_SIGN_IN_KEY = "emailForSignIn";
 const NOTIFICATIONS_PREF_KEY = "notificationsPref";
@@ -73,6 +74,7 @@ export function useAuth() {
                 createdAt: serverTimestamp(),
                 lastSeenAt: serverTimestamp(),
                 timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                irlCity: getDefaultCity(),
                 emailNotifications: {
                   showStarting: enableNotifications,
                   watchlistMatch: enableNotifications,
@@ -190,6 +192,7 @@ export function useAuth() {
           createdAt: serverTimestamp(),
           lastSeenAt: serverTimestamp(),
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          irlCity: getDefaultCity(),
           emailNotifications: {
             showStarting: enableNotifications,
             watchlistMatch: enableNotifications,
@@ -286,6 +289,7 @@ export function useAuth() {
           createdAt: serverTimestamp(),
           lastSeenAt: serverTimestamp(),
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          irlCity: getDefaultCity(),
           emailNotifications: {
             showStarting: enableNotifications,
             watchlistMatch: enableNotifications,
@@ -445,6 +449,7 @@ export function useAuth() {
           createdAt: serverTimestamp(),
           lastSeenAt: serverTimestamp(),
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          irlCity: getDefaultCity(),
           emailNotifications: {
             showStarting: enableNotifications,
             watchlistMatch: enableNotifications,
@@ -501,6 +506,7 @@ export function useAuth() {
         createdAt: serverTimestamp(),
         lastSeenAt: serverTimestamp(),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        irlCity: getDefaultCity(),
         emailNotifications: {
           showStarting: enableNotifications,
           watchlistMatch: enableNotifications,

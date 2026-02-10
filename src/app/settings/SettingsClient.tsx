@@ -17,7 +17,7 @@ import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useUserRole, isDJ } from "@/hooks/useUserRole";
 import { AuthModal } from "@/components/AuthModal";
-import { SUPPORTED_CITIES } from "@/lib/city-detection";
+import { SUPPORTED_CITIES, getDefaultCity } from "@/lib/city-detection";
 import { SUPPORTED_GENRES } from "@/lib/genres";
 
 interface NotificationSettings {
@@ -86,8 +86,8 @@ export function SettingsClient() {
           showFavoriteMessages: data.activityMessages.showFavoriteMessages ?? true,
         });
       }
-      // Channel preferences
-      if (data?.irlCity) setSelectedCity(data.irlCity);
+      // Channel preferences - default to device timezone city if not set
+      setSelectedCity(data?.irlCity || getDefaultCity());
       // Support both old string and new array format
       const genres = data?.preferredGenres;
       if (Array.isArray(genres)) {
