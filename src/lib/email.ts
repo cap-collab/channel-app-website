@@ -494,7 +494,7 @@ function buildShowCardHtml(
     <!-- Show Card -->
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px;">
       <tr>
-        <td style="background: #1a1a1a; border-radius: 12px; padding: 16px; border: 1px solid #333;">
+        <td style="background: #1a1a1a; padding: 16px; border: 1px solid rgba(255,255,255,0.1);">
           <!-- Tag -->
           <div style="margin-bottom: 8px;">
             <span style="font-size: 10px; font-family: monospace; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px;">${tag}</span>
@@ -576,7 +576,7 @@ function buildCuratorRecCardHtml(rec: {
     <!-- Curator Rec Card -->
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px;">
       <tr>
-        <td style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333; overflow: hidden;">
+        <td style="background: #1a1a1a; border: 1px solid rgba(255,255,255,0.1); overflow: hidden;">
           <!-- Tag -->
           <div style="padding: 12px 16px 8px;">
             <span style="font-size: 10px; font-family: monospace; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px;">REC'D BY ${rec.djName.toUpperCase()}</span>
