@@ -483,11 +483,7 @@ export async function GET(request: NextRequest) {
         term: doc.data.term as string,
       }));
 
-      if (watchlistDocs.length === 0) {
-        continue;
-      }
-
-      // Find matching shows
+      // Find matching shows from watchlist
       const matches: Array<{
         showId: string; // Unique ID for deduplication
         showName: string;
@@ -603,11 +599,9 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // Auto-favorite watchlist matches
       if (matches.length > 0) {
-        // Sort by start time
         matches.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
-
-        // Deduplicate shows by name + station (keep first occurrence)
         const uniqueMatches = matches.filter(
           (match, index, self) =>
             index === self.findIndex(
@@ -615,9 +609,7 @@ export async function GET(request: NextRequest) {
             )
         );
 
-        // Add matched shows to favorites (as type "show")
         for (const match of uniqueMatches) {
-          // Check if show already favorited (same name + station)
           const existingFavorites = await getUserFavorites(user.id, "show");
           const alreadyFavorited = existingFavorites.some(
             (f) =>
@@ -640,267 +632,349 @@ export async function GET(request: NextRequest) {
             console.log(`[watchlist-digest] Added "${match.showName}" to favorites for user ${user.id}`);
           }
         }
+      }
 
-        // Only send email if user wants notifications and hasn't received one today
-        const newMatchesForEmail = uniqueMatches.filter((m) => m.isNewForEmail);
+      // ── Build digest email ──────────────────────────────────────────
+      const irlCity = userData.irlCity as string | undefined;
+      const preferredGenres = (userData.preferredGenres as string[]) || [];
 
-        // Check if user has preferences set (gate for new digest email)
-        const irlCity = userData.irlCity as string | undefined;
-        const preferredGenres = (userData.preferredGenres as string[]) || [];
-        const hasPreferences = !!(irlCity || preferredGenres.length > 0);
+      if (!user.wantsEmail || alreadySentEmailToday) {
+        usersProcessed++;
+        continue;
+      }
 
-        if (user.wantsEmail && !alreadySentEmailToday && hasPreferences) {
-          // Build Section 1: favorite shows (all watchlist matches, no cap)
-          const favoriteShows = newMatchesForEmail.map((m) => ({
-            showName: m.showName,
-            djName: m.djName,
-            djUsername: m.djUsername,
-            djPhotoUrl: m.djPhotoUrl,
-            stationName: m.stationName,
-            stationId: m.stationId,
-            startTime: m.startTime,
-            isIRL: m.isIRL,
-            irlLocation: m.irlLocation,
-            irlTicketUrl: m.irlTicketUrl,
-          }));
+      // Build Section 1: favorite shows (from all favorite types)
+      const showFavorites = await getUserFavorites(user.id, "show");
+      const irlFavorites = await getUserFavorites(user.id, "irl");
 
-          // Also include already-favorited shows that are upcoming
-          const showFavorites = await getUserFavorites(user.id, "show");
-          const irlFavorites = await getUserFavorites(user.id, "irl");
+      const favoriteShows: Array<{
+        showName: string;
+        djName?: string;
+        djUsername?: string;
+        djPhotoUrl?: string;
+        stationName: string;
+        stationId: string;
+        startTime: Date;
+        isIRL?: boolean;
+        irlLocation?: string;
+        irlTicketUrl?: string;
+      }> = [];
+      const favoriteShowNames = new Set<string>();
 
-          // Match show favorites against allShows to find upcoming instances
-          const favoriteShowNames = new Set(favoriteShows.map((f) => `${f.showName.toLowerCase()}-${f.stationId}`));
-          for (const fav of showFavorites) {
-            const favTerm = (fav.data.term as string)?.toLowerCase();
-            const favStation = fav.data.stationId as string | undefined;
-            if (!favTerm) continue;
+      // Match show favorites against allShows to find upcoming instances
+      for (const fav of showFavorites) {
+        const favTerm = (fav.data.term as string)?.toLowerCase();
+        const favStation = fav.data.stationId as string | undefined;
+        if (!favTerm) continue;
 
-            for (const show of allShows) {
-              const showStart = new Date(show.startTime);
-              if (showStart < now) continue;
-              const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
-              if (favoriteShowNames.has(showKey)) continue;
+        for (const show of allShows) {
+          const showStart = new Date(show.startTime);
+          if (showStart < now) continue;
+          const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
+          if (favoriteShowNames.has(showKey)) continue;
 
-              if (show.name.toLowerCase() === favTerm && (!favStation || show.stationId === favStation)) {
-                const broadcastShow = show as BroadcastShow;
-                let djUsername = broadcastShow.djUsername;
-                let djPhotoUrl = broadcastShow.djPhotoUrl;
-                if (!djUsername && show.dj) {
-                  const djProfile = djNameToProfile.get(normalizeForLookup(show.dj));
-                  if (djProfile) { djUsername = djProfile.username; djPhotoUrl = djProfile.photoUrl; }
-                }
-                favoriteShows.push({
-                  showName: show.name,
-                  djName: show.dj,
-                  djUsername,
-                  djPhotoUrl,
-                  stationName: show.stationName,
-                  stationId: show.stationId,
-                  startTime: showStart,
-                  isIRL: broadcastShow.isIRL,
-                  irlLocation: broadcastShow.irlLocation,
-                  irlTicketUrl: broadcastShow.irlTicketUrl,
-                });
-                favoriteShowNames.add(showKey);
-                break; // Only add first upcoming instance
-              }
+          if (show.name.toLowerCase() === favTerm && (!favStation || show.stationId === favStation)) {
+            const broadcastShow = show as BroadcastShow;
+            let djUsername = broadcastShow.djUsername;
+            let djPhotoUrl = broadcastShow.djPhotoUrl;
+            if (!djUsername && show.dj) {
+              const djProfile = djNameToProfile.get(normalizeForLookup(show.dj));
+              if (djProfile) { djUsername = djProfile.username; djPhotoUrl = djProfile.photoUrl; }
             }
-          }
-
-          // Match IRL favorites against allShows
-          for (const fav of irlFavorites) {
-            const favDjName = (fav.data.djName as string) || (fav.data.term as string);
-            if (!favDjName) continue;
-
-            for (const show of allShows) {
-              const broadcastShow = show as BroadcastShow;
-              if (!broadcastShow.isIRL) continue;
-              const showStart = new Date(show.startTime);
-              if (showStart < now) continue;
-              const showKey = `${show.name.toLowerCase()}-irl`;
-              if (favoriteShowNames.has(showKey)) continue;
-
-              if (show.dj && containsMatch(show.dj, favDjName.toLowerCase())) {
-                favoriteShows.push({
-                  showName: show.name,
-                  djName: show.dj,
-                  djUsername: broadcastShow.djUsername,
-                  djPhotoUrl: broadcastShow.djPhotoUrl,
-                  stationName: show.stationName,
-                  stationId: show.stationId,
-                  startTime: showStart,
-                  isIRL: true,
-                  irlLocation: broadcastShow.irlLocation,
-                  irlTicketUrl: broadcastShow.irlTicketUrl,
-                });
-                favoriteShowNames.add(showKey);
-                break;
-              }
-            }
-          }
-
-          // Sort favorites by start time
-          favoriteShows.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
-
-          // Build Section 2: curator recs from followed DJs
-          const followedDJNames = watchlistDocs.map((w) => w.term.toLowerCase());
-          const userCuratorRecs = allCuratorRecs.filter((rec) =>
-            followedDJNames.includes(rec.djUsername.toLowerCase()) ||
-            followedDJNames.includes(rec.djName.toLowerCase())
-          ).slice(0, 4);
-
-          // Build Section 3: preference-matched shows (city + genre)
-          const preferenceMatches: Array<{
-            showName: string;
-            djName?: string;
-            djUsername?: string;
-            djPhotoUrl?: string;
-            stationName: string;
-            stationId: string;
-            startTime: Date;
-            isIRL?: boolean;
-            irlLocation?: string;
-            irlTicketUrl?: string;
-            matchLabel?: string;
-          }> = [];
-
-          if (irlCity || preferredGenres.length > 0) {
-            for (const show of allShows) {
-              const showStart = new Date(show.startTime);
-              if (showStart < now) continue;
-              const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
-              if (favoriteShowNames.has(showKey)) continue;
-              if (preferenceMatches.length >= 5) break;
-
-              const broadcastShow = show as BroadcastShow;
-
-              // Get DJ profile for genre/location data
-              let djGenres: string[] | undefined;
-              let djLocation: string | undefined;
-              let djUsername = broadcastShow.djUsername;
-              let djPhotoUrl = broadcastShow.djPhotoUrl;
-
-              if (show.dj) {
-                const profile = djNameToProfile.get(normalizeForLookup(show.dj));
-                if (profile) {
-                  djGenres = profile.genres;
-                  djLocation = profile.location;
-                  if (!djUsername) djUsername = profile.username;
-                  if (!djPhotoUrl) djPhotoUrl = profile.photoUrl;
-                }
-              }
-
-              if (!djUsername || !djPhotoUrl) continue; // Must have profile + photo
-
-              // For IRL shows, use event location for city matching
-              const showLocation = broadcastShow.isIRL ? broadcastShow.irlLocation : djLocation;
-
-              // Check city match
-              const cityMatch = irlCity && showLocation ? matchesCity(showLocation, irlCity) : false;
-              // Check genre match
-              const genreMatch = djGenres && preferredGenres.length > 0
-                ? preferredGenres.some((g) => matchesGenre(djGenres!, g))
-                : false;
-
-              if (cityMatch || genreMatch) {
-                const matchParts: string[] = [];
-                if (cityMatch && irlCity) matchParts.push(irlCity.toUpperCase());
-                if (genreMatch) {
-                  const matchingGenres = preferredGenres.filter((g) => djGenres && matchesGenre(djGenres, g));
-                  matchParts.push(matchingGenres.map((g) => g.toUpperCase()).join(" + "));
-                }
-
-                preferenceMatches.push({
-                  showName: show.name,
-                  djName: show.dj,
-                  djUsername,
-                  djPhotoUrl,
-                  stationName: show.stationName,
-                  stationId: show.stationId,
-                  startTime: showStart,
-                  isIRL: broadcastShow.isIRL,
-                  irlLocation: broadcastShow.irlLocation,
-                  irlTicketUrl: broadcastShow.irlTicketUrl,
-                  matchLabel: matchParts.join(" + "),
-                });
-              }
-            }
-          }
-
-          // If not enough preference matches to fill empty days, add fallback shows
-          // Only pick shows with a DJ profile + photo (card looks good, links to profile)
-          if (preferenceMatches.length < 4) {
-            const prefKeys = new Set(preferenceMatches.map((s) => `${s.showName.toLowerCase()}-${s.stationId}`));
-            for (const show of allShows) {
-              if (preferenceMatches.length >= 6) break;
-              const showStart = new Date(show.startTime);
-              if (showStart < now) continue;
-              if (!show.dj) continue;
-              const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
-              if (favoriteShowNames.has(showKey)) continue;
-              if (prefKeys.has(showKey)) continue;
-
-              const broadcastShow = show as BroadcastShow;
-              let djUsername = broadcastShow.djUsername;
-              let djPhotoUrl = broadcastShow.djPhotoUrl;
-              if (!djUsername && show.dj) {
-                const profile = djNameToProfile.get(normalizeForLookup(show.dj));
-                if (profile) { djUsername = profile.username; djPhotoUrl = profile.photoUrl; }
-              }
-
-              if (!djUsername || !djPhotoUrl) continue; // Must have profile + photo
-
-              preferenceMatches.push({
-                showName: show.name,
-                djName: show.dj,
-                djUsername,
-                djPhotoUrl,
-                stationName: show.stationName,
-                stationId: show.stationId,
-                startTime: showStart,
-                isIRL: broadcastShow.isIRL,
-                irlLocation: broadcastShow.irlLocation,
-                irlTicketUrl: broadcastShow.irlTicketUrl,
-              });
-              prefKeys.add(showKey);
-            }
-          }
-
-          // Send digest email if we have any content
-          const hasContent = favoriteShows.length > 0 || userCuratorRecs.length > 0 || preferenceMatches.length > 0;
-          if (hasContent) {
-            const success = await sendWatchlistDigestEmail({
-              to: userData.email as string,
-              userTimezone: userData.timezone as string | undefined,
-              favoriteShows,
-              curatorRecs: userCuratorRecs,
-              preferenceShows: preferenceMatches,
+            favoriteShows.push({
+              showName: show.name,
+              djName: show.dj,
+              djUsername,
+              djPhotoUrl,
+              stationName: show.stationName,
+              stationId: show.stationId,
+              startTime: showStart,
+              isIRL: broadcastShow.isIRL,
+              irlLocation: broadcastShow.irlLocation,
+              irlTicketUrl: broadcastShow.irlTicketUrl,
             });
+            favoriteShowNames.add(showKey);
+            break;
+          }
+        }
+      }
 
-            if (success) {
-              // Track which shows we emailed about to avoid duplicates
-              const updatedDigestShows = { ...lastWatchlistDigestShows };
-              for (const match of newMatchesForEmail) {
-                updatedDigestShows[match.showId] = now.toISOString();
-              }
+      // Match watchlist (search) favorites
+      for (const watchlistDoc of watchlistDocs) {
+        const term = watchlistDoc.term.toLowerCase();
+        for (const show of allShows) {
+          const showStart = new Date(show.startTime);
+          if (showStart < now) continue;
+          const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
+          if (favoriteShowNames.has(showKey)) continue;
 
-              // Clean up old entries (shows that have already passed)
-              for (const showId of Object.keys(updatedDigestShows)) {
-                const parts = showId.split("-");
-                const dateStr = parts.slice(-3).join("-");
-                const showDate = new Date(dateStr);
-                if (showDate < today) {
-                  delete updatedDigestShows[showId];
-                }
-              }
+          if (containsMatch(show.name, term) || (show.dj && containsMatch(show.dj, term))) {
+            const broadcastShow = show as BroadcastShow;
+            let djUsername = broadcastShow.djUsername;
+            let djPhotoUrl = broadcastShow.djPhotoUrl;
+            if (!djUsername && show.dj) {
+              const djProfile = djNameToProfile.get(normalizeForLookup(show.dj));
+              if (djProfile) { djUsername = djProfile.username; djPhotoUrl = djProfile.photoUrl; }
+            }
+            favoriteShows.push({
+              showName: show.name,
+              djName: show.dj,
+              djUsername,
+              djPhotoUrl,
+              stationName: show.stationName,
+              stationId: show.stationId,
+              startTime: showStart,
+              isIRL: broadcastShow.isIRL,
+              irlLocation: broadcastShow.irlLocation,
+              irlTicketUrl: broadcastShow.irlTicketUrl,
+            });
+            favoriteShowNames.add(showKey);
+          }
+        }
+      }
 
-              await updateUser(user.id, {
-                lastWatchlistEmailAt: new Date(),
-                lastWatchlistDigestShows: updatedDigestShows,
-              });
-              emailsSent++;
+      // Match IRL favorites against allShows
+      for (const fav of irlFavorites) {
+        const favDjName = (fav.data.djName as string) || (fav.data.term as string);
+        if (!favDjName) continue;
+
+        for (const show of allShows) {
+          const broadcastShow = show as BroadcastShow;
+          if (!broadcastShow.isIRL) continue;
+          const showStart = new Date(show.startTime);
+          if (showStart < now) continue;
+          const showKey = `${show.name.toLowerCase()}-irl`;
+          if (favoriteShowNames.has(showKey)) continue;
+
+          if (show.dj && containsMatch(show.dj, favDjName.toLowerCase())) {
+            favoriteShows.push({
+              showName: show.name,
+              djName: show.dj,
+              djUsername: broadcastShow.djUsername,
+              djPhotoUrl: broadcastShow.djPhotoUrl,
+              stationName: show.stationName,
+              stationId: show.stationId,
+              startTime: showStart,
+              isIRL: true,
+              irlLocation: broadcastShow.irlLocation,
+              irlTicketUrl: broadcastShow.irlTicketUrl,
+            });
+            favoriteShowNames.add(showKey);
+            break;
+          }
+        }
+      }
+
+      favoriteShows.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+
+      // Build Section 2: curator recs from followed DJs
+      const followedDJNames = watchlistDocs.map((w) => w.term.toLowerCase());
+      const userCuratorRecs = allCuratorRecs.filter((rec) =>
+        followedDJNames.includes(rec.djUsername.toLowerCase()) ||
+        followedDJNames.includes(rec.djName.toLowerCase())
+      ).slice(0, 4);
+
+      // Build Section 3: picked-for-you shows
+      // Priority: 1) genre match (if user has genres), 2) random online shows with profile+photo
+      // No IRL events unless user has location set
+      const preferenceMatches: Array<{
+        showName: string;
+        djName?: string;
+        djUsername?: string;
+        djPhotoUrl?: string;
+        stationName: string;
+        stationId: string;
+        startTime: Date;
+        isIRL?: boolean;
+        irlLocation?: string;
+        irlTicketUrl?: string;
+        matchLabel?: string;
+      }> = [];
+
+      const prefKeys = new Set<string>();
+
+      // Step 1: Genre-matched shows (if user has preferred genres)
+      if (preferredGenres.length > 0) {
+        for (const show of allShows) {
+          const showStart = new Date(show.startTime);
+          if (showStart < now) continue;
+          const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
+          if (favoriteShowNames.has(showKey)) continue;
+          if (prefKeys.has(showKey)) continue;
+          if (preferenceMatches.length >= 6) break;
+
+          const broadcastShow = show as BroadcastShow;
+
+          // Skip IRL events if user has no location set
+          if (broadcastShow.isIRL && !irlCity) continue;
+
+          let djGenres: string[] | undefined;
+          let djLocation: string | undefined;
+          let djUsername = broadcastShow.djUsername;
+          let djPhotoUrl = broadcastShow.djPhotoUrl;
+
+          if (show.dj) {
+            const profile = djNameToProfile.get(normalizeForLookup(show.dj));
+            if (profile) {
+              djGenres = profile.genres;
+              djLocation = profile.location;
+              if (!djUsername) djUsername = profile.username;
+              if (!djPhotoUrl) djPhotoUrl = profile.photoUrl;
             }
           }
+
+          if (!djUsername || !djPhotoUrl) continue;
+
+          const genreMatch = djGenres
+            ? preferredGenres.some((g) => matchesGenre(djGenres!, g))
+            : false;
+
+          // Also check city match if available (for matchLabel)
+          const showLocation = broadcastShow.isIRL ? broadcastShow.irlLocation : djLocation;
+          const cityMatch = irlCity && showLocation ? matchesCity(showLocation, irlCity) : false;
+
+          if (genreMatch) {
+            const matchParts: string[] = [];
+            if (cityMatch && irlCity) matchParts.push(irlCity.toUpperCase());
+            const matchingGenres = preferredGenres.filter((g) => djGenres && matchesGenre(djGenres, g));
+            matchParts.push(matchingGenres.map((g) => g.toUpperCase()).join(" + "));
+
+            preferenceMatches.push({
+              showName: show.name,
+              djName: show.dj,
+              djUsername,
+              djPhotoUrl,
+              stationName: show.stationName,
+              stationId: show.stationId,
+              startTime: showStart,
+              isIRL: broadcastShow.isIRL,
+              irlLocation: broadcastShow.irlLocation,
+              irlTicketUrl: broadcastShow.irlTicketUrl,
+              matchLabel: matchParts.join(" + "),
+            });
+            prefKeys.add(showKey);
+          }
+        }
+      }
+
+      // Step 2: If still not enough, add city-matched shows (if user has city but we need more)
+      if (preferenceMatches.length < 4 && irlCity) {
+        for (const show of allShows) {
+          const showStart = new Date(show.startTime);
+          if (showStart < now) continue;
+          const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
+          if (favoriteShowNames.has(showKey)) continue;
+          if (prefKeys.has(showKey)) continue;
+          if (preferenceMatches.length >= 6) break;
+
+          const broadcastShow = show as BroadcastShow;
+
+          let djLocation: string | undefined;
+          let djUsername = broadcastShow.djUsername;
+          let djPhotoUrl = broadcastShow.djPhotoUrl;
+
+          if (show.dj) {
+            const profile = djNameToProfile.get(normalizeForLookup(show.dj));
+            if (profile) {
+              djLocation = profile.location;
+              if (!djUsername) djUsername = profile.username;
+              if (!djPhotoUrl) djPhotoUrl = profile.photoUrl;
+            }
+          }
+
+          if (!djUsername || !djPhotoUrl) continue;
+
+          const showLocation = broadcastShow.isIRL ? broadcastShow.irlLocation : djLocation;
+          const cityMatch = showLocation ? matchesCity(showLocation, irlCity) : false;
+
+          if (cityMatch) {
+            preferenceMatches.push({
+              showName: show.name,
+              djName: show.dj,
+              djUsername,
+              djPhotoUrl,
+              stationName: show.stationName,
+              stationId: show.stationId,
+              startTime: showStart,
+              isIRL: broadcastShow.isIRL,
+              irlLocation: broadcastShow.irlLocation,
+              irlTicketUrl: broadcastShow.irlTicketUrl,
+              matchLabel: irlCity.toUpperCase(),
+            });
+            prefKeys.add(showKey);
+          }
+        }
+      }
+
+      // Step 3: If still not enough, add any online shows with profile+photo (no IRL)
+      if (preferenceMatches.length < 4) {
+        for (const show of allShows) {
+          if (preferenceMatches.length >= 6) break;
+          const showStart = new Date(show.startTime);
+          if (showStart < now) continue;
+          if (!show.dj) continue;
+          const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
+          if (favoriteShowNames.has(showKey)) continue;
+          if (prefKeys.has(showKey)) continue;
+
+          const broadcastShow = show as BroadcastShow;
+          if (broadcastShow.isIRL) continue; // No IRL in random fallback
+
+          let djUsername = broadcastShow.djUsername;
+          let djPhotoUrl = broadcastShow.djPhotoUrl;
+          if (!djUsername && show.dj) {
+            const profile = djNameToProfile.get(normalizeForLookup(show.dj));
+            if (profile) { djUsername = profile.username; djPhotoUrl = profile.photoUrl; }
+          }
+
+          if (!djUsername || !djPhotoUrl) continue;
+
+          preferenceMatches.push({
+            showName: show.name,
+            djName: show.dj,
+            djUsername,
+            djPhotoUrl,
+            stationName: show.stationName,
+            stationId: show.stationId,
+            startTime: showStart,
+          });
+          prefKeys.add(showKey);
+        }
+      }
+
+      // Only send if user has preferences OR upcoming favorites
+      const hasPreferences = !!(irlCity || preferredGenres.length > 0);
+      const hasContent = favoriteShows.length > 0 || userCuratorRecs.length > 0 || preferenceMatches.length > 0;
+
+      if ((hasPreferences || favoriteShows.length > 0) && hasContent) {
+        const success = await sendWatchlistDigestEmail({
+          to: userData.email as string,
+          userTimezone: userData.timezone as string | undefined,
+          favoriteShows,
+          curatorRecs: userCuratorRecs,
+          preferenceShows: preferenceMatches,
+        });
+
+        if (success) {
+          const updatedDigestShows = { ...lastWatchlistDigestShows };
+          for (const match of matches.filter((m) => m.isNewForEmail)) {
+            updatedDigestShows[match.showId] = now.toISOString();
+          }
+
+          for (const showId of Object.keys(updatedDigestShows)) {
+            const parts = showId.split("-");
+            const dateStr = parts.slice(-3).join("-");
+            const showDate = new Date(dateStr);
+            if (showDate < today) {
+              delete updatedDigestShows[showId];
+            }
+          }
+
+          await updateUser(user.id, {
+            lastWatchlistEmailAt: new Date(),
+            lastWatchlistDigestShows: updatedDigestShows,
+          });
+          emailsSent++;
         }
       }
 

@@ -449,7 +449,9 @@ async function sendTestEmail(to: string, section?: string) {
 
   console.log(`[test-email] Found ${curatorRecs.length} curator recs from followed DJs`);
 
-  // ── Section 3: Preference-matched shows (city + genre) ──────────
+  // ── Section 3: Picked-for-you shows ─────────────────────────────
+  // Priority: 1) genre match, 2) city match, 3) any online show with profile+photo
+  // No IRL events unless user has location set
   const preferenceShows: Array<{
     showName: string;
     djName?: string;
@@ -464,13 +466,19 @@ async function sendTestEmail(to: string, section?: string) {
     matchLabel?: string;
   }> = [];
 
-  if (irlCity || preferredGenres.length > 0) {
+  const prefShowKeys = new Set<string>();
+
+  // Step 1: Genre-matched shows
+  if (preferredGenres.length > 0) {
     for (const show of futureShows) {
       const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
       if (favoriteShowKeys.has(showKey)) continue;
-      if (preferenceShows.length >= 5) break;
+      if (prefShowKeys.has(showKey)) continue;
+      if (preferenceShows.length >= 6) break;
 
-      // Get DJ profile for genre/location data
+      // Skip IRL events if user has no location set
+      if (show.isIRL && !irlCity) continue;
+
       let djGenres: string[] | undefined;
       let djLocation: string | undefined;
       let djUsername = show.djUsername;
@@ -486,21 +494,20 @@ async function sendTestEmail(to: string, section?: string) {
         }
       }
 
-      if (!djUsername || !djPhotoUrl) continue; // Must have profile + photo
+      if (!djUsername || !djPhotoUrl) continue;
 
-      const showLocation = show.isIRL ? show.irlLocation : djLocation;
-      const cityMatch = irlCity && showLocation ? matchesCity(showLocation, irlCity) : false;
-      const genreMatch = djGenres && preferredGenres.length > 0
+      const genreMatch = djGenres
         ? preferredGenres.some((g) => matchesGenre(djGenres!, g))
         : false;
 
-      if (cityMatch || genreMatch) {
+      const showLocation = show.isIRL ? show.irlLocation : djLocation;
+      const cityMatch = irlCity && showLocation ? matchesCity(showLocation, irlCity) : false;
+
+      if (genreMatch) {
         const matchParts: string[] = [];
         if (cityMatch && irlCity) matchParts.push(irlCity.toUpperCase());
-        if (genreMatch) {
-          const matchingGenres = preferredGenres.filter((g) => djGenres && matchesGenre(djGenres, g));
-          matchParts.push(matchingGenres.map((g) => g.toUpperCase()).join(" + "));
-        }
+        const matchingGenres = preferredGenres.filter((g) => djGenres && matchesGenre(djGenres, g));
+        matchParts.push(matchingGenres.map((g) => g.toUpperCase()).join(" + "));
 
         preferenceShows.push({
           showName: show.name,
@@ -515,21 +522,66 @@ async function sendTestEmail(to: string, section?: string) {
           irlTicketUrl: show.irlTicketUrl,
           matchLabel: matchParts.join(" + "),
         });
+        prefShowKeys.add(showKey);
       }
     }
   }
 
-  // If we don't have enough preference shows to fill empty days, add fallback shows
-  // Only pick shows that have a DJ profile with photo (so the card looks good and links to a profile)
-  if (preferenceShows.length < 4) {
-    const prefShowKeys = new Set(preferenceShows.map((s) => `${s.showName.toLowerCase()}-${s.stationId}`));
+  // Step 2: City-matched shows (if still not enough and user has city)
+  if (preferenceShows.length < 4 && irlCity) {
     for (const show of futureShows) {
-      if (preferenceShows.length >= 6) break;
-      if (!show.dj) continue;
-      if (!show.djUsername || !show.djPhotoUrl) continue; // Must have profile + photo
       const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
       if (favoriteShowKeys.has(showKey)) continue;
       if (prefShowKeys.has(showKey)) continue;
+      if (preferenceShows.length >= 6) break;
+
+      let djLocation: string | undefined;
+      let djUsername = show.djUsername;
+      let djPhotoUrl = show.djPhotoUrl;
+
+      if (show.dj) {
+        const profile = djProfileMap.get(normalizeForLookup(show.dj));
+        if (profile) {
+          djLocation = profile.location;
+          if (!djUsername) djUsername = profile.username;
+          if (!djPhotoUrl) djPhotoUrl = profile.photoUrl;
+        }
+      }
+
+      if (!djUsername || !djPhotoUrl) continue;
+
+      const showLocation = show.isIRL ? show.irlLocation : djLocation;
+      const cityMatch = showLocation ? matchesCity(showLocation, irlCity) : false;
+
+      if (cityMatch) {
+        preferenceShows.push({
+          showName: show.name,
+          djName: show.dj,
+          djUsername,
+          djPhotoUrl,
+          stationName: show.stationName,
+          stationId: show.stationId,
+          startTime: new Date(show.startTime),
+          isIRL: show.isIRL,
+          irlLocation: show.irlLocation,
+          irlTicketUrl: show.irlTicketUrl,
+          matchLabel: irlCity.toUpperCase(),
+        });
+        prefShowKeys.add(showKey);
+      }
+    }
+  }
+
+  // Step 3: Any online show with profile+photo (no IRL)
+  if (preferenceShows.length < 4) {
+    for (const show of futureShows) {
+      if (preferenceShows.length >= 6) break;
+      if (!show.dj) continue;
+      if (show.isIRL) continue; // No IRL in random fallback
+      const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
+      if (favoriteShowKeys.has(showKey)) continue;
+      if (prefShowKeys.has(showKey)) continue;
+      if (!show.djUsername || !show.djPhotoUrl) continue;
 
       preferenceShows.push({
         showName: show.name,
@@ -539,9 +591,6 @@ async function sendTestEmail(to: string, section?: string) {
         stationName: show.stationName,
         stationId: show.stationId,
         startTime: new Date(show.startTime),
-        isIRL: show.isIRL,
-        irlLocation: show.irlLocation,
-        irlTicketUrl: show.irlTicketUrl,
       });
       prefShowKeys.add(showKey);
     }
