@@ -785,7 +785,7 @@ export async function sendWatchlistDigestEmail({
       if (!recsByDj.has(key)) recsByDj.set(key, []);
       recsByDj.get(key)!.push(rec);
     }
-    for (const [, djRecs] of recsByDj) {
+    for (const [, djRecs] of Array.from(recsByDj)) {
       const djName = djRecs[0].djName;
       timelineHtml += buildDayHeaderHtml(`Recommended by ${djName}`);
       for (const rec of djRecs) {
