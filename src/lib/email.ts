@@ -48,8 +48,12 @@ const SETTINGS_DEEP_LINK = "https://channel-app.com/settings";
 const LOGO_URL = "https://channel-app.com/logo-white.png";
 
 // Shared email wrapper with Channel branding
+function minifyHtml(html: string): string {
+  return html.replace(/\n\s+/g, "\n").replace(/\n+/g, "\n").trim();
+}
+
 function wrapEmailContent(content: string, footerText: string): string {
-  return `
+  return minifyHtml(`
     <!DOCTYPE html>
     <html>
     <head>
@@ -97,7 +101,7 @@ function wrapEmailContent(content: string, footerText: string): string {
       </table>
     </body>
     </html>
-  `;
+  `);
 }
 
 // Pink gradient button style
