@@ -38,6 +38,11 @@ export function ChannelClient() {
   // Loading state
   const [isLoading, setIsLoading] = useState(true);
 
+  // Track whether user has seen curator recs before (move to bottom after first view)
+  const [hasSeenCuratorRecs, setHasSeenCuratorRecs] = useState(() => {
+    try { return localStorage.getItem('channel-seen-curator-recs') === '1'; } catch { return false; }
+  });
+
   // All shows data
   const [allShows, setAllShows] = useState<Show[]>([]);
   const [irlShows, setIrlShows] = useState<IRLShowData[]>([]);
@@ -394,6 +399,14 @@ export function ChannelClient() {
     };
   }, [allShows, irlShows, curatorRecs, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, getMatchingGenres, genreLabelFor, isShowLive, isValidShow, followedDJNames]);
 
+  // Mark curator recs as seen once they render at the top for the first time
+  useEffect(() => {
+    if (!hasSeenCuratorRecs && filteredCuratorRecs.length > 0) {
+      try { localStorage.setItem('channel-seen-curator-recs', '1'); } catch {}
+      setHasSeenCuratorRecs(true);
+    }
+  }, [hasSeenCuratorRecs, filteredCuratorRecs]);
+
   // When the main grid (Section 1) is empty, find the first carousel section with content to promote to grid
   const noMainGrid = locationGenreCards.length === 0;
   const promotedSection = noMainGrid
@@ -584,8 +597,8 @@ export function ChannelClient() {
             </div>
           )}
 
-          {/* Section 3: Selected by your favorite curators (grid, max 4) */}
-          {filteredCuratorRecs.length > 0 && (
+          {/* Section 3: Selected by your favorite curators (grid, max 4) — shown here on first visit, at the bottom after */}
+          {!hasSeenCuratorRecs && filteredCuratorRecs.length > 0 && (
             <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredCuratorRecs.map((rec, index) => (
@@ -655,6 +668,20 @@ export function ChannelClient() {
                   {radioCards.map((item, index) => renderCard(item, index))}
                 </SwipeableCardCarousel>
               )}
+            </div>
+          )}
+
+          {/* Section 3 (bottom): Curator recs moved here after user has seen them once */}
+          {hasSeenCuratorRecs && filteredCuratorRecs.length > 0 && (
+            <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredCuratorRecs.map((rec, index) => (
+                  <CuratorRecCard
+                    key={`rec-${rec.djUsername}-${index}`}
+                    rec={rec}
+                  />
+                ))}
+              </div>
             </div>
           )}
 
