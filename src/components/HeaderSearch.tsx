@@ -314,7 +314,7 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
           }}
           onFocus={() => setIsOpen(true)}
           placeholder="Search DJs"
-          className={`w-full pl-10 py-2 bg-white/10 rounded-lg text-white text-base md:text-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-accent focus:bg-white/15 transition-colors border border-white/10 ${query ? 'pr-10' : 'pr-4'}`}
+          className={`w-full pl-10 py-2 bg-white/10 rounded-none text-white text-base md:text-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-accent focus:bg-white/15 transition-colors border border-white/10 ${query ? 'pr-10' : 'pr-4'}`}
         />
         {query && (
           <button
