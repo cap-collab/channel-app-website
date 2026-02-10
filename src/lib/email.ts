@@ -815,30 +815,19 @@ export async function sendWatchlistDigestEmail({
     const genreList = preferredGenres.length === 1
       ? preferredGenres[0]
       : preferredGenres.slice(0, -1).join(", ") + ", and " + preferredGenres[preferredGenres.length - 1];
-    genreBannerText = `You are receiving this email based on your preference for ${genreList}. To change your preferences, visit your <a href="https://channel-app.com/settings" style="color: #fff; text-decoration: underline;">settings</a>`;
+    genreBannerText = `You are receiving this email based on your preference for ${genreList}. To change your preferences, visit your <a href="https://channel-app.com/settings" style="color: #a1a1aa; text-decoration: underline;">settings</a>`;
   } else {
-    genreBannerText = `<a href="https://channel-app.com/settings" style="color: #fff; text-decoration: underline;">Set your email preferences</a> to receive alerts that match your tastes`;
+    genreBannerText = `<a href="https://channel-app.com/settings" style="color: #a1a1aa; text-decoration: underline;">Set your email preferences</a> to receive alerts that match your tastes`;
   }
-
-  const genreBannerHtml = `
-    <!-- Genre Preferences Banner -->
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px;">
-      <tr>
-        <td style="background-color: #1e1e2e; border: 1px solid #333; border-radius: 8px; padding: 14px 16px; text-align: center;">
-          <span style="font-size: 13px; color: #a1a1aa; line-height: 1.5;">
-            ${genreBannerText}
-          </span>
-        </td>
-      </tr>
-    </table>
-    `;
 
   const content = `
     <!-- Title -->
-    <h1 style="margin: 0 0 24px; font-size: 22px; font-weight: 700; color: #fff; line-height: 1.3; text-align: center;">
+    <h1 style="margin: 0 0 4px; font-size: 22px; font-weight: 700; color: #fff; line-height: 1.3; text-align: center;">
       ${titleText}
     </h1>
-    ${genreBannerHtml}
+    <p style="margin: 0 0 24px; font-size: 12px; color: #71717a; line-height: 1.4; text-align: center;">
+      ${genreBannerText}
+    </p>
     <!-- Timeline -->
     ${timelineHtml}
   `;
