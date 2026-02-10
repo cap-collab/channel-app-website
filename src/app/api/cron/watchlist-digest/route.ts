@@ -814,6 +814,43 @@ export async function GET(request: NextRequest) {
             }
           }
 
+          // If not enough preference matches to fill empty days, add fallback shows
+          if (preferenceMatches.length < 4) {
+            const prefKeys = new Set(preferenceMatches.map((s) => `${s.showName.toLowerCase()}-${s.stationId}`));
+            for (const show of allShows) {
+              if (preferenceMatches.length >= 6) break;
+              const showStart = new Date(show.startTime);
+              if (showStart < now) continue;
+              if (!show.dj) continue;
+              const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
+              if (favoriteShowNames.has(showKey)) continue;
+              if (prefKeys.has(showKey)) continue;
+
+              const broadcastShow = show as BroadcastShow;
+              let djUsername = broadcastShow.djUsername;
+              let djPhotoUrl = broadcastShow.djPhotoUrl;
+              if (!djUsername && show.dj) {
+                const profile = djNameToProfile.get(normalizeForLookup(show.dj));
+                if (profile) { djUsername = profile.username; djPhotoUrl = profile.photoUrl; }
+              }
+
+              preferenceMatches.push({
+                showName: show.name,
+                djName: show.dj,
+                djUsername,
+                djPhotoUrl,
+                stationName: show.stationName,
+                stationId: show.stationId,
+                startTime: showStart,
+                isIRL: broadcastShow.isIRL,
+                irlLocation: broadcastShow.irlLocation,
+                irlTicketUrl: broadcastShow.irlTicketUrl,
+                matchLabel: show.stationName.toUpperCase(),
+              });
+              prefKeys.add(showKey);
+            }
+          }
+
           // Send digest email if we have any content
           const hasContent = favoriteShows.length > 0 || userCuratorRecs.length > 0 || preferenceMatches.length > 0;
           if (hasContent) {

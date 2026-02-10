@@ -505,7 +505,35 @@ async function sendTestEmail(to: string, section?: string) {
     }
   }
 
-  console.log(`[test-email] Found ${preferenceShows.length} preference-matched shows`);
+  // If we don't have enough preference shows to fill empty days, add fallback shows
+  // (any upcoming show with a DJ name, not already in favorites or prefs)
+  if (preferenceShows.length < 4) {
+    const prefShowKeys = new Set(preferenceShows.map((s) => `${s.showName.toLowerCase()}-${s.stationId}`));
+    for (const show of futureShows) {
+      if (preferenceShows.length >= 6) break;
+      if (!show.dj) continue;
+      const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
+      if (favoriteShowKeys.has(showKey)) continue;
+      if (prefShowKeys.has(showKey)) continue;
+
+      preferenceShows.push({
+        showName: show.name,
+        djName: show.dj,
+        djUsername: show.djUsername,
+        djPhotoUrl: show.djPhotoUrl,
+        stationName: show.stationName,
+        stationId: show.stationId,
+        startTime: new Date(show.startTime),
+        isIRL: show.isIRL,
+        irlLocation: show.irlLocation,
+        irlTicketUrl: show.irlTicketUrl,
+        matchLabel: show.stationName.toUpperCase(),
+      });
+      prefShowKeys.add(showKey);
+    }
+  }
+
+  console.log(`[test-email] Found ${preferenceShows.length} preference shows (incl. fallbacks)`);
 
   // Filter by section if specified
   const finalFavorites = section === "2" || section === "3" ? [] : favoriteShows;
