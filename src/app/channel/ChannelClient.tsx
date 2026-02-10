@@ -11,6 +11,7 @@ import { LiveShowCard } from '@/components/channel/LiveShowCard';
 import { IRLShowCard } from '@/components/channel/IRLShowCard';
 import { CuratorRecCard } from '@/components/channel/CuratorRecCard';
 import { InviteCard } from '@/components/channel/InviteCard';
+import { SkeletonCard } from '@/components/channel/SkeletonCard';
 import { AuthModal } from '@/components/AuthModal';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { Show, Station, IRLShowData, CuratorRec } from '@/types';
@@ -33,6 +34,9 @@ export function ChannelClient() {
   // Auth modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
+
+  // Loading state
+  const [isLoading, setIsLoading] = useState(true);
 
   // All shows data
   const [allShows, setAllShows] = useState<Show[]>([]);
@@ -135,7 +139,8 @@ export function ChannelClient() {
         setIrlShows(data.irlShows || []);
         setCuratorRecs(data.curatorRecs || []);
       })
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setIsLoading(false));
   }, []);
 
   // Helper: check if a show matches a single genre (with aliases)
@@ -544,6 +549,32 @@ export function ChannelClient() {
       <main className="max-w-7xl mx-auto flex-1 min-h-0 w-full flex flex-col pt-3 md:pt-4">
         <div className="flex flex-col overflow-y-auto">
 
+          {isLoading ? (
+            <>
+              {/* Skeleton grid section */}
+              <div className="flex-shrink-0 px-4 pt-3 md:pt-4 pb-3 md:pb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <SkeletonCard />
+                  <SkeletonCard />
+                  <SkeletonCard />
+                  <SkeletonCard />
+                </div>
+              </div>
+              {/* Skeleton carousel section */}
+              <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
+                <div className="flex">
+                  <div className="w-full md:w-1/2 flex-shrink-0 px-1">
+                    <SkeletonCard />
+                  </div>
+                  <div className="hidden md:block w-1/2 flex-shrink-0 px-1">
+                    <SkeletonCard />
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+          <>
+
           {/* Section 1: Location + Genre (grid, max 4) — sorted by match count, live first as tiebreaker */}
           {locationGenreCards.length > 0 && (
             <div className="flex-shrink-0 px-4 pt-3 md:pt-4 pb-3 md:pb-4">
@@ -628,7 +659,7 @@ export function ChannelClient() {
           )}
 
           {/* Empty state when no matches at all */}
-          {allCardCount === 0 && (
+          {!isLoading && allCardCount === 0 && (
             <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
               <div className="text-center py-3">
                 <p className="text-gray-400 text-sm mb-3">
@@ -637,6 +668,9 @@ export function ChannelClient() {
                 <InviteCard />
               </div>
             </div>
+          )}
+
+          </>
           )}
 
         </div>
