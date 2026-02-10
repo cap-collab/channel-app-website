@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Header } from '@/components/Header';
@@ -13,13 +13,14 @@ import { CuratorRecCard } from '@/components/channel/CuratorRecCard';
 import { InviteCard } from '@/components/channel/InviteCard';
 import { SkeletonCard } from '@/components/channel/SkeletonCard';
 import { AuthModal } from '@/components/AuthModal';
+import { GenreAlertPrompt } from '@/components/channel/GenreAlertPrompt';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { Show, Station, IRLShowData, CuratorRec } from '@/types';
 import { STATIONS } from '@/lib/stations';
 import { useFavorites } from '@/hooks/useFavorites';
 import { getDefaultCity, matchesCity } from '@/lib/city-detection';
 import { GENRE_ALIASES } from '@/lib/genres';
-import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { doc, updateDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 type MatchedItem =
@@ -51,6 +52,10 @@ export function ChannelClient() {
   // Selected city and genres
   const [selectedCity, setSelectedCity] = useState<string>(getDefaultCity());
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+
+  // Genre alert prompt state (for logged-out users)
+  const [showGenreAlertPrompt, setShowGenreAlertPrompt] = useState(false);
+  const genreAlertShownRef = useRef(false);
 
   // Follow/remind state
   const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
@@ -94,6 +99,54 @@ export function ChannelClient() {
     } catch {
       // localStorage not available
     }
+  }, [user?.uid]);
+
+  // Migrate localStorage preferences to Firestore when user signs up/in
+  const prevUserRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (user?.uid && prevUserRef.current === null && db) {
+      try {
+        const storedGenres = localStorage.getItem('channel-selected-genres');
+        const storedCity = localStorage.getItem('channel-selected-city');
+        const storedGenreLegacy = localStorage.getItem('channel-selected-genre');
+
+        if (storedGenres || storedCity || storedGenreLegacy) {
+          const userDocRef = doc(db, 'users', user.uid);
+          getDoc(userDocRef).then((snap) => {
+            const data = snap.data();
+            const update: Record<string, unknown> = {};
+
+            // Only write genres if the user doesn't already have them in Firestore
+            if (!data?.preferredGenres || data.preferredGenres.length === 0) {
+              if (storedGenres) {
+                const genres = JSON.parse(storedGenres);
+                if (Array.isArray(genres) && genres.length > 0) {
+                  update.preferredGenres = genres;
+                }
+              } else if (storedGenreLegacy) {
+                update.preferredGenres = [storedGenreLegacy];
+              }
+            }
+
+            // Only write city if the user doesn't already have one
+            if (!data?.irlCity && storedCity && storedCity !== 'Anywhere') {
+              update.irlCity = storedCity;
+            }
+
+            if (Object.keys(update).length > 0) {
+              updateDoc(userDocRef, update).then(() => {
+                localStorage.removeItem('channel-selected-genres');
+                localStorage.removeItem('channel-selected-city');
+                localStorage.removeItem('channel-selected-genre');
+              }).catch(console.error);
+            }
+          }).catch(console.error);
+        }
+      } catch (e) {
+        console.error('Preference migration error:', e);
+      }
+    }
+    prevUserRef.current = user?.uid ?? null;
   }, [user?.uid]);
 
   const handleCityChange = useCallback(async (city: string) => {
@@ -431,6 +484,20 @@ export function ChannelClient() {
     return locationGenreCards.length + liveGenreCards.length + genreCards.length;
   }, [selectedGenres, locationGenreCards, liveGenreCards, genreCards]);
 
+  // Genre alert prompt handlers
+  const handleGenreDropdownClose = useCallback(() => {
+    if (!isAuthenticated && selectedGenres.length > 0 && !genreAlertShownRef.current) {
+      genreAlertShownRef.current = true;
+      setShowGenreAlertPrompt(true);
+    }
+  }, [isAuthenticated, selectedGenres]);
+
+  const handleGenreAlertSignUp = useCallback(() => {
+    setShowGenreAlertPrompt(false);
+    setAuthModalMessage('Sign up to receive alerts for shows matching your genre preferences');
+    setShowAuthModal(true);
+  }, []);
+
   // Auth handlers
   const handleRemindMe = useCallback((show: Show) => {
     const djName = show.dj || show.name;
@@ -557,6 +624,7 @@ export function ChannelClient() {
         onGenresChange={handleGenresChange}
         cityResultCount={cityResultCount}
         genreResultCount={genreResultCount}
+        onGenreDropdownClose={handleGenreDropdownClose}
       />
 
       <main className="max-w-7xl mx-auto flex-1 min-h-0 w-full flex flex-col pt-3 md:pt-4">
@@ -702,6 +770,12 @@ export function ChannelClient() {
 
         </div>
       </main>
+
+      <GenreAlertPrompt
+        isOpen={showGenreAlertPrompt}
+        onClose={() => setShowGenreAlertPrompt(false)}
+        onSignUp={handleGenreAlertSignUp}
+      />
 
       <AuthModal
         isOpen={showAuthModal}

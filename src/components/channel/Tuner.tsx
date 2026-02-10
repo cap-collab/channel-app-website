@@ -11,9 +11,10 @@ interface TunerProps {
   onGenresChange: (genres: string[]) => void;
   cityResultCount?: number;
   genreResultCount?: number;
+  onGenreDropdownClose?: () => void;
 }
 
-export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChange, cityResultCount, genreResultCount }: TunerProps) {
+export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChange, cityResultCount, genreResultCount, onGenreDropdownClose }: TunerProps) {
   // City dropdown state
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
   const [cityCustomMode, setCityCustomMode] = useState(false);
@@ -74,6 +75,7 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
     setGenreDropdownOpen(false);
     setGenreCustomMode(false);
     setGenreCustomInput('');
+    onGenreDropdownClose?.();
   };
 
   const genreLabel = selectedGenres.length === 0
@@ -182,8 +184,12 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
         <div className="relative flex-1 flex justify-center">
           <button
             onClick={() => {
-              setGenreDropdownOpen(!genreDropdownOpen);
-              closeCityDropdown();
+              if (genreDropdownOpen) {
+                closeGenreDropdown();
+              } else {
+                setGenreDropdownOpen(true);
+                closeCityDropdown();
+              }
             }}
             className={`h-6 px-2.5 font-mono text-[11px] uppercase tracking-tight flex items-center gap-1 transition-colors rounded-sm bg-white/5 hover:bg-white/10 ${genreResultCount === 0 ? 'text-zinc-600' : 'text-zinc-400 hover:text-white'}`}
           >
