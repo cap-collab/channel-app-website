@@ -23,7 +23,6 @@ import { SUPPORTED_GENRES } from "@/lib/genres";
 interface NotificationSettings {
   showStarting: boolean;
   watchlistMatch: boolean;
-  mentions: boolean;
   popularity: boolean;
   djOnline: boolean;
 }
@@ -41,7 +40,6 @@ export function SettingsClient() {
   const [notifications, setNotifications] = useState<NotificationSettings>({
     showStarting: false,
     watchlistMatch: false,
-    mentions: false,
     popularity: false,
     djOnline: false,
   });
@@ -73,7 +71,6 @@ export function SettingsClient() {
         setNotifications({
           showStarting: data.emailNotifications.showStarting || false,
           watchlistMatch: data.emailNotifications.watchlistMatch || false,
-          mentions: data.emailNotifications.mentions || false,
           popularity: data.emailNotifications.popularity || false,
           djOnline: data.emailNotifications.djOnline || false,
         });
@@ -498,9 +495,9 @@ export function SettingsClient() {
                 </div>
                 <div className="p-4 flex items-center justify-between">
                   <div>
-                    <p className="text-white font-medium">DJ show match</p>
+                    <p className="text-white font-medium">Curated for you</p>
                     <p className="text-gray-500 text-sm">
-                      Daily email when new shows match your watchlist
+                      Bi-weekly email with shows picked for you
                     </p>
                   </div>
                   <button
@@ -513,27 +510,6 @@ export function SettingsClient() {
                     <div
                       className={`w-5 h-5 rounded-full bg-black transition-transform mx-1 ${
                         notifications.watchlistMatch ? "translate-x-5" : ""
-                      }`}
-                    />
-                  </button>
-                </div>
-                <div className="p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-white font-medium">Chat mentions</p>
-                    <p className="text-gray-500 text-sm">
-                      Email when someone @mentions you in chat
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => handleToggle("mentions")}
-                    disabled={saving}
-                    className={`w-12 h-7 rounded-full transition-colors ${
-                      notifications.mentions ? "bg-white" : "bg-gray-700"
-                    }`}
-                  >
-                    <div
-                      className={`w-5 h-5 rounded-full bg-black transition-transform mx-1 ${
-                        notifications.mentions ? "translate-x-5" : ""
                       }`}
                     />
                   </button>
