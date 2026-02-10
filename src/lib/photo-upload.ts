@@ -76,7 +76,7 @@ export async function uploadRecImage(userId: string, recIndex: number, file: Fil
   try {
     const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
     const filename = `rec-${recIndex}.${ext}`;
-    const photoRef = ref(storage, `rec-images/${userId}/${filename}`);
+    const photoRef = ref(storage, `dj-photos/${userId}/${filename}`);
 
     await uploadBytes(photoRef, file, {
       contentType: file.type,
