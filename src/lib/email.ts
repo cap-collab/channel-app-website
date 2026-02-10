@@ -64,6 +64,11 @@ function wrapEmailContent(content: string, footerText: string): string {
       <style>
         :root { color-scheme: dark; }
         body, .body-bg { background-color: #0a0a0a !important; }
+        @media only screen and (max-width: 480px) {
+          .card-row { display: block !important; }
+          .card-content { display: block !important; width: 100% !important; }
+          .card-btn { display: block !important; width: 100% !important; text-align: center !important; padding-top: 12px !important; padding-left: 0 !important; }
+        }
       </style>
     </head>
     <body class="body-bg" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0a0a0a; color: #fff; margin: 0; padding: 0;">
@@ -437,33 +442,39 @@ function buildShowCardHtml(
             <span style="font-size: 10px; font-family: monospace; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px;">${tag}</span>
           </div>
           <table width="100%" cellpadding="0" cellspacing="0" border="0">
-            <tr>
-              <td width="64" valign="top" style="padding-right: 12px;">
-                <a href="${djProfileUrl}" style="text-decoration: none;">
-                  ${photoHtml}
-                </a>
+            <tr class="card-row">
+              <td class="card-content" valign="top">
+                <table cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td width="64" valign="top" style="padding-right: 12px;">
+                      <a href="${djProfileUrl}" style="text-decoration: none;">
+                        ${photoHtml}
+                      </a>
+                    </td>
+                    <td valign="top">
+                      <div style="margin-bottom: 4px;">
+                        ${badgeHtml}
+                      </div>
+                      <div style="font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 4px; line-height: 1.3;">
+                        ${show.showName}
+                      </div>
+                      <div style="font-size: 13px; color: #a1a1aa; margin-bottom: 4px;">
+                        <a href="${djProfileUrl}" style="color: #a1a1aa; text-decoration: none;">${djDisplayName}</a>
+                      </div>
+                      <div style="font-size: 12px; color: #71717a;">
+                        ${locationInfo}
+                      </div>
+                    </td>
+                  </tr>
+                </table>
               </td>
-              <td valign="top">
-                <div style="margin-bottom: 4px;">
-                  ${badgeHtml}
-                </div>
-                <div style="font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 4px; line-height: 1.3;">
-                  ${show.showName}
-                </div>
-                <div style="font-size: 13px; color: #a1a1aa; margin-bottom: 4px;">
-                  <a href="${djProfileUrl}" style="color: #a1a1aa; text-decoration: none;">${djDisplayName}</a>
-                </div>
-                <div style="font-size: 12px; color: #71717a;">
-                  ${locationInfo}
-                </div>
+              <td class="card-btn" valign="middle" style="text-align: right; padding-left: 12px; white-space: nowrap;">
+                <a href="${ctaUrl}" style="display: inline-block; background: rgba(255,255,255,0.1); color: #fff !important; padding: 10px 24px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+                  ${ctaText}
+                </a>
               </td>
             </tr>
           </table>
-          <div style="margin-top: 12px; text-align: center;">
-            <a href="${ctaUrl}" style="display: inline-block; background: rgba(255,255,255,0.1); color: #fff !important; padding: 10px 24px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
-              ${ctaText}
-            </a>
-          </div>
         </td>
       </tr>
     </table>
@@ -508,30 +519,36 @@ function buildCuratorRecCardHtml(rec: {
       <tr>
         <td style="padding: 0;">
           <table width="100%" cellpadding="0" cellspacing="0" border="0">
-            <tr>
-              <td width="64" valign="top" style="padding-right: 12px;">
-                <a href="${rec.url}" style="text-decoration: none;">
-                  ${photoHtml}
-                </a>
+            <tr class="card-row">
+              <td class="card-content" valign="top">
+                <table cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td width="64" valign="top" style="padding-right: 12px;">
+                      <a href="${rec.url}" style="text-decoration: none;">
+                        ${photoHtml}
+                      </a>
+                    </td>
+                    <td valign="top">
+                      <div style="margin-bottom: 4px;">
+                        <span style="display: inline-block; font-size: 10px; font-family: monospace; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.5px;">${typeBadge}</span>
+                      </div>
+                      <div style="font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 4px; line-height: 1.3;">
+                        <a href="${rec.url}" style="color: #fff; text-decoration: none;">${displayTitle}</a>
+                      </div>
+                      <div style="font-size: 12px; color: #71717a;">
+                        ${domain}
+                      </div>
+                    </td>
+                  </tr>
+                </table>
               </td>
-              <td valign="top">
-                <div style="margin-bottom: 4px;">
-                  <span style="display: inline-block; font-size: 10px; font-family: monospace; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.5px;">${typeBadge}</span>
-                </div>
-                <div style="font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 4px; line-height: 1.3;">
-                  <a href="${rec.url}" style="color: #fff; text-decoration: none;">${displayTitle}</a>
-                </div>
-                <div style="font-size: 12px; color: #71717a;">
-                  ${domain}
-                </div>
+              <td class="card-btn" valign="middle" style="text-align: right; padding-left: 12px; white-space: nowrap;">
+                <a href="${djProfileUrl}" style="display: inline-block; background: rgba(255,255,255,0.1); color: #fff !important; padding: 10px 24px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+                  See ${rec.djName} Profile
+                </a>
               </td>
             </tr>
           </table>
-          <div style="margin-top: 12px; text-align: center;">
-            <a href="${djProfileUrl}" style="display: inline-block; background: rgba(255,255,255,0.1); color: #fff !important; padding: 10px 24px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
-              See ${rec.djName} Profile
-            </a>
-          </div>
         </td>
       </tr>
     </table>
