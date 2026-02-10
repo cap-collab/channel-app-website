@@ -690,7 +690,6 @@ export async function sendWatchlistDigestEmail({
   const now = new Date();
   type TimelineItem =
     | { kind: "show"; tag: string; show: WatchlistDigestEmailParams["favoriteShows"][0] }
-    | { kind: "rec"; rec: WatchlistDigestEmailParams["curatorRecs"][0] }
     | { kind: "preference"; tag: string; show: WatchlistDigestEmailParams["preferenceShows"][0] };
 
   // Get the date string (YYYY-MM-DD) for a given Date in user's timezone
@@ -740,18 +739,10 @@ export async function sendWatchlistDigestEmail({
     prefsByDay.get(key)!.push(show);
   }
 
-  // Gap-fill empty days: curator recs first, then preference shows
-  const unusedRecs = [...curatorRecs];
+  // Gap-fill empty days with preference shows
   for (const key of dayKeys) {
     const bucket = buckets.get(key)!;
     if (bucket.length > 0) continue;
-
-    // Try a curator rec first
-    if (unusedRecs.length > 0) {
-      const rec = unusedRecs.shift()!;
-      bucket.push({ kind: "rec", rec });
-      continue;
-    }
 
     // Try a preference show for this day
     const dayPrefs = prefsByDay.get(key);
@@ -790,28 +781,22 @@ export async function sendWatchlistDigestEmail({
     const label = dayLabels.get(key) || key;
     timelineHtml += buildDayHeaderHtml(label);
 
-    // Sort items within a day by start time (shows only, recs go first since they're dateless)
+    // Sort items within a day by start time
     items.sort((a, b) => {
-      if (a.kind === "rec") return -1;
-      if (b.kind === "rec") return 1;
-      const aTime = "show" in a ? new Date(a.show.startTime).getTime() : 0;
-      const bTime = "show" in b ? new Date(b.show.startTime).getTime() : 0;
+      const aTime = new Date(a.show.startTime).getTime();
+      const bTime = new Date(b.show.startTime).getTime();
       return aTime - bTime;
     });
 
     for (const item of items) {
-      if (item.kind === "rec") {
-        timelineHtml += buildCuratorRecCardHtml(item.rec);
-      } else {
-        timelineHtml += buildShowCardHtml(item.show, item.tag, timezone);
-      }
+      timelineHtml += buildShowCardHtml(item.show, item.tag, timezone);
     }
   }
 
-  // Add remaining unused curator recs under an "Anytime" section
-  if (unusedRecs.length > 0) {
-    timelineHtml += buildDayHeaderHtml("MORE FROM YOUR FAVORITES");
-    for (const rec of unusedRecs) {
+  // Curator recs section (separate from timeline)
+  if (curatorRecs.length > 0) {
+    timelineHtml += buildDayHeaderHtml("REC'D BY DJS YOU FOLLOW");
+    for (const rec of curatorRecs) {
       timelineHtml += buildCuratorRecCardHtml(rec);
     }
   }

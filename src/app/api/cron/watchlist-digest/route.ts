@@ -475,6 +475,8 @@ export async function GET(request: NextRequest) {
       // Track which shows we've already emailed about (by unique show ID)
       // Key: "stationId-showName-startDate" (e.g. "nts1-myshow-2026-02-10")
       const lastWatchlistDigestShows = (userData.lastWatchlistDigestShows as Record<string, string>) || {};
+      const lastSentCuratorRecs = (userData.lastSentCuratorRecs as string[]) || [];
+      const sentRecUrls = new Set(lastSentCuratorRecs);
 
       // Get user's watchlist (search type favorites)
       const favorites = await getUserFavorites(user.id, "search");
@@ -767,11 +769,12 @@ export async function GET(request: NextRequest) {
 
       favoriteShows.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
-      // Build Section 2: curator recs from followed DJs
+      // Build Section 2: curator recs from followed DJs (exclude already-sent ones)
       const followedDJNames = watchlistDocs.map((w) => w.term.toLowerCase());
       const userCuratorRecs = allCuratorRecs.filter((rec) =>
-        followedDJNames.includes(rec.djUsername.toLowerCase()) ||
-        followedDJNames.includes(rec.djName.toLowerCase())
+        (followedDJNames.includes(rec.djUsername.toLowerCase()) ||
+        followedDJNames.includes(rec.djName.toLowerCase())) &&
+        !sentRecUrls.has(rec.url)
       ).slice(0, 4);
 
       // Build Section 3: picked-for-you shows
@@ -970,9 +973,13 @@ export async function GET(request: NextRequest) {
             }
           }
 
+          // Track sent curator rec URLs so they're not repeated
+          const updatedSentRecs = [...lastSentCuratorRecs, ...userCuratorRecs.map((r) => r.url)];
+
           await updateUser(user.id, {
             lastWatchlistEmailAt: new Date(),
             lastWatchlistDigestShows: updatedDigestShows,
+            lastSentCuratorRecs: updatedSentRecs,
           });
           emailsSent++;
         }
