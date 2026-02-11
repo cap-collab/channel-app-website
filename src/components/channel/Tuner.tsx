@@ -21,12 +21,14 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
   const [cityCustomMode, setCityCustomMode] = useState(false);
   const [cityCustomInput, setCityCustomInput] = useState('');
   const cityInputRef = useRef<HTMLInputElement>(null);
+  const cityButtonRef = useRef<HTMLButtonElement>(null);
 
   // Genre dropdown state
   const [genreDropdownOpen, setGenreDropdownOpen] = useState(false);
   const [genreCustomMode, setGenreCustomMode] = useState(false);
   const [genreCustomInput, setGenreCustomInput] = useState('');
   const genreInputRef = useRef<HTMLInputElement>(null);
+  const genreButtonRef = useRef<HTMLButtonElement>(null);
 
   // Focus inputs when entering custom mode
   useEffect(() => {
@@ -114,6 +116,7 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
         {/* City selector - left column */}
         <div className="relative flex-1 flex justify-center">
           <button
+            ref={cityButtonRef}
             onClick={() => {
               if (!cityDropdownOpen) document.dispatchEvent(new CustomEvent('closemenu'));
               setCityDropdownOpen(!cityDropdownOpen);
@@ -133,13 +136,16 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
             </svg>
           </button>
 
-          {cityDropdownOpen && (
+          {cityDropdownOpen && createPortal(
             <>
-              {createPortal(
-                <div className="fixed inset-0 z-[999]" onClick={closeCityDropdown} />,
-                document.body
-              )}
-              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-48 bg-[#111] border border-white/10 rounded shadow-xl z-[1000] py-1 max-h-72 overflow-y-auto">
+              <div className="fixed inset-0 z-[999]" onClick={closeCityDropdown} />
+              <div
+                className="fixed w-48 bg-[#111] border border-white/10 rounded shadow-xl z-[1000] py-1 max-h-72 overflow-y-auto"
+                style={{
+                  top: (cityButtonRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
+                  left: (cityButtonRef.current?.getBoundingClientRect().left ?? 0) + (cityButtonRef.current?.getBoundingClientRect().width ?? 0) / 2 - 96,
+                }}
+              >
                 {cityCustomMode ? (
                   <div className="px-2 py-1">
                     <div className="flex gap-1">
@@ -204,13 +210,15 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
                   </button>
                 ))}
               </div>
-            </>
+            </>,
+            document.body
           )}
         </div>
 
         {/* Genre selector - right column */}
         <div className="relative flex-1 flex justify-center">
           <button
+            ref={genreButtonRef}
             onClick={() => {
               if (genreDropdownOpen) {
                 closeGenreDropdown();
@@ -234,13 +242,16 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
             </svg>
           </button>
 
-          {genreDropdownOpen && (
+          {genreDropdownOpen && createPortal(
             <>
-              {createPortal(
-                <div className="fixed inset-0 z-[999]" onClick={closeGenreDropdown} />,
-                document.body
-              )}
-              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-48 bg-[#111] border border-white/10 rounded shadow-xl z-[1000] py-1 max-h-72 overflow-y-auto">
+              <div className="fixed inset-0 z-[999]" onClick={closeGenreDropdown} />
+              <div
+                className="fixed w-48 bg-[#111] border border-white/10 rounded shadow-xl z-[1000] py-1 max-h-72 overflow-y-auto"
+                style={{
+                  top: (genreButtonRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
+                  left: (genreButtonRef.current?.getBoundingClientRect().left ?? 0) + (genreButtonRef.current?.getBoundingClientRect().width ?? 0) / 2 - 96,
+                }}
+              >
                 {genreCustomMode ? (
                   <div className="px-2 py-1">
                     <div className="flex gap-1">
@@ -313,7 +324,8 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
                   );
                 })}
               </div>
-            </>
+            </>,
+            document.body
           )}
         </div>
       </div>
