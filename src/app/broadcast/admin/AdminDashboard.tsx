@@ -390,6 +390,18 @@ See you on air!
             >
               Create DJ Profile
             </Link>
+            <Link
+              href="/broadcast/admin/venues"
+              className="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-800 text-gray-300 hover:bg-gray-700"
+            >
+              Venues
+            </Link>
+            <Link
+              href="/broadcast/admin/events"
+              className="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-800 text-gray-300 hover:bg-gray-700"
+            >
+              Events
+            </Link>
           </div>
 
           {/* Tab Content */}

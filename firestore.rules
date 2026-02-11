@@ -97,6 +97,22 @@ service cloud.firestore {
       allow write: if isBroadcaster();
     }
 
+    // Events (admin-managed)
+    // - Anyone can read (needed for public event display)
+    // - Only broadcasters/admins can write
+    match /events/{eventId} {
+      allow read: if true;
+      allow write: if isBroadcaster();
+    }
+
+    // Venues (admin-managed)
+    // - Anyone can read (needed for public venue pages)
+    // - Only broadcasters/admins can write
+    match /venues/{venueId} {
+      allow read: if true;
+      allow write: if isBroadcaster();
+    }
+
     // Scheduled notifications (cron job)
     match /scheduledNotifications/{notificationId} {
       allow read, write: if request.auth != null && request.auth.token.email == 'cron@channel-app.com';

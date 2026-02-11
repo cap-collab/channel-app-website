@@ -223,6 +223,128 @@ export async function deletePendingDJPhoto(profileId: string, photoUrl: string):
 }
 
 /**
+ * Upload a venue photo to Firebase Storage
+ */
+export async function uploadVenuePhoto(venueId: string, file: File): Promise<UploadPhotoResult> {
+  if (!storage) {
+    return { success: false, error: 'Storage not configured' };
+  }
+
+  const validation = validatePhoto(file);
+  if (!validation.valid) {
+    return { success: false, error: validation.error };
+  }
+
+  try {
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const filename = `photo.${ext}`;
+    const photoRef = ref(storage, `venue-photos/${venueId}/${filename}`);
+
+    await uploadBytes(photoRef, file, {
+      contentType: file.type,
+      customMetadata: {
+        uploadedAt: new Date().toISOString(),
+      },
+    });
+
+    const url = await getDownloadURL(photoRef);
+    return { success: true, url };
+  } catch (error) {
+    console.error('Venue photo upload failed:', error);
+    return { success: false, error: 'Failed to upload photo. Please try again.' };
+  }
+}
+
+/**
+ * Delete a venue photo from Firebase Storage
+ */
+export async function deleteVenuePhoto(venueId: string, photoUrl: string): Promise<boolean> {
+  if (!storage) return false;
+
+  try {
+    const match = photoUrl.match(/venue-photos%2F[^%]+%2F([^?]+)/);
+    let filename = 'photo.jpg';
+
+    if (match) {
+      filename = decodeURIComponent(match[1]);
+    } else {
+      const altMatch = photoUrl.match(/venue-photos\/[^/]+\/([^?]+)/);
+      if (altMatch) {
+        filename = altMatch[1];
+      }
+    }
+
+    const photoRef = ref(storage, `venue-photos/${venueId}/${filename}`);
+    await deleteObject(photoRef);
+    return true;
+  } catch (error) {
+    console.error('Venue photo delete failed:', error);
+    return false;
+  }
+}
+
+/**
+ * Upload an event photo to Firebase Storage
+ */
+export async function uploadEventPhoto(eventId: string, file: File): Promise<UploadPhotoResult> {
+  if (!storage) {
+    return { success: false, error: 'Storage not configured' };
+  }
+
+  const validation = validatePhoto(file);
+  if (!validation.valid) {
+    return { success: false, error: validation.error };
+  }
+
+  try {
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const filename = `photo.${ext}`;
+    const photoRef = ref(storage, `event-photos/${eventId}/${filename}`);
+
+    await uploadBytes(photoRef, file, {
+      contentType: file.type,
+      customMetadata: {
+        uploadedAt: new Date().toISOString(),
+      },
+    });
+
+    const url = await getDownloadURL(photoRef);
+    return { success: true, url };
+  } catch (error) {
+    console.error('Event photo upload failed:', error);
+    return { success: false, error: 'Failed to upload photo. Please try again.' };
+  }
+}
+
+/**
+ * Delete an event photo from Firebase Storage
+ */
+export async function deleteEventPhoto(eventId: string, photoUrl: string): Promise<boolean> {
+  if (!storage) return false;
+
+  try {
+    const match = photoUrl.match(/event-photos%2F[^%]+%2F([^?]+)/);
+    let filename = 'photo.jpg';
+
+    if (match) {
+      filename = decodeURIComponent(match[1]);
+    } else {
+      const altMatch = photoUrl.match(/event-photos\/[^/]+\/([^?]+)/);
+      if (altMatch) {
+        filename = altMatch[1];
+      }
+    }
+
+    const photoRef = ref(storage, `event-photos/${eventId}/${filename}`);
+    await deleteObject(photoRef);
+    return true;
+  } catch (error) {
+    console.error('Event photo delete failed:', error);
+    return false;
+  }
+}
+
+/**
  * Delete a DJ profile photo from Firebase Storage
  */
 export async function deleteDJPhoto(userId: string, photoUrl: string): Promise<boolean> {
