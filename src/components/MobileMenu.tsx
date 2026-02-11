@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useUserRole, isDJ } from "@/hooks/useUserRole";
 
@@ -25,11 +25,22 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
     setIsOpen(false);
   };
 
+  // Listen for 'closemenu' events from other components (e.g. Tuner dropdowns)
+  useEffect(() => {
+    const handleCloseMenu = () => setIsOpen(false);
+    document.addEventListener('closemenu', handleCloseMenu);
+    return () => document.removeEventListener('closemenu', handleCloseMenu);
+  }, []);
+
   return (
     <div className="relative">
       {/* Hamburger button - now visible on all screen sizes */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          const opening = !isOpen;
+          setIsOpen(opening);
+          if (opening) document.dispatchEvent(new CustomEvent('closetuner'));
+        }}
         className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
         aria-label="Menu"
       >

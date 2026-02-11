@@ -36,6 +36,29 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
     if (genreCustomMode && genreInputRef.current) genreInputRef.current.focus();
   }, [genreCustomMode]);
 
+  // Escape key to close dropdowns
+  useEffect(() => {
+    if (!cityDropdownOpen && !genreDropdownOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeCityDropdown();
+        closeGenreDropdown();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [cityDropdownOpen, genreDropdownOpen]);
+
+  // Listen for 'closetuner' events from other components (e.g. MobileMenu)
+  useEffect(() => {
+    const handleCloseTuner = () => {
+      closeCityDropdown();
+      closeGenreDropdown();
+    };
+    document.addEventListener('closetuner', handleCloseTuner);
+    return () => document.removeEventListener('closetuner', handleCloseTuner);
+  }, []);
+
   const handleSelectCity = (city: string) => {
     onCityChange(city);
     setCityDropdownOpen(false);
@@ -91,6 +114,7 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
         <div className="relative flex-1 flex justify-center">
           <button
             onClick={() => {
+              if (!cityDropdownOpen) document.dispatchEvent(new CustomEvent('closemenu'));
               setCityDropdownOpen(!cityDropdownOpen);
               closeGenreDropdown();
             }}
@@ -110,8 +134,8 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
 
           {cityDropdownOpen && (
             <>
-              <div className="fixed inset-0 z-10" onClick={closeCityDropdown} />
-              <div className="absolute top-full left-0 mt-1 w-48 bg-[#111] border border-white/10 rounded shadow-xl z-20 py-1 max-h-72 overflow-y-auto">
+              <div className="fixed inset-0 z-[999]" onClick={closeCityDropdown} />
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-48 bg-[#111] border border-white/10 rounded shadow-xl z-[1000] py-1 max-h-72 overflow-y-auto">
                 {cityCustomMode ? (
                   <div className="px-2 py-1">
                     <div className="flex gap-1">
@@ -187,6 +211,7 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
               if (genreDropdownOpen) {
                 closeGenreDropdown();
               } else {
+                document.dispatchEvent(new CustomEvent('closemenu'));
                 setGenreDropdownOpen(true);
                 closeCityDropdown();
               }
@@ -207,8 +232,8 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
 
           {genreDropdownOpen && (
             <>
-              <div className="fixed inset-0 z-10" onClick={closeGenreDropdown} />
-              <div className="absolute top-full right-0 mt-1 w-48 bg-[#111] border border-white/10 rounded shadow-xl z-20 py-1 max-h-72 overflow-y-auto">
+              <div className="fixed inset-0 z-[999]" onClick={closeGenreDropdown} />
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-48 bg-[#111] border border-white/10 rounded shadow-xl z-[1000] py-1 max-h-72 overflow-y-auto">
                 {genreCustomMode ? (
                   <div className="px-2 py-1">
                     <div className="flex gap-1">
