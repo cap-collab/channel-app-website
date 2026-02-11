@@ -18,8 +18,8 @@ import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { Show, Station, IRLShowData, CuratorRec } from '@/types';
 import { STATIONS } from '@/lib/stations';
 import { useFavorites } from '@/hooks/useFavorites';
-import { getDefaultCity, matchesCity } from '@/lib/city-detection';
-import { GENRE_ALIASES } from '@/lib/genres';
+import { getDefaultCity, matchesCity, SUPPORTED_CITIES } from '@/lib/city-detection';
+import { GENRE_ALIASES, SUPPORTED_GENRES, matchesGenre as matchesGenreLib } from '@/lib/genres';
 import { doc, updateDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -499,6 +499,42 @@ export function ChannelClient() {
     });
   }, [selectedGenres, locationGenreCards, liveGenreCards, genreCards, matchesGenre]);
 
+  // Compute which cities and genres have at least one matching show (for hiding empty options in dropdown)
+  const citiesWithMatches = useMemo(() => {
+    const now = new Date();
+    const set = new Set<string>();
+    for (const city of SUPPORTED_CITIES) {
+      const hasMatch = allShows.some((show) =>
+        isValidShow(show) && new Date(show.endTime) > now && show.djLocation && matchesCity(show.djLocation, city)
+      ) || irlShows.some((show) => matchesCity(show.location, city));
+      if (hasMatch) set.add(city);
+    }
+    return set;
+  }, [allShows, irlShows, isValidShow]);
+
+  const genresWithMatches = useMemo(() => {
+    const now = new Date();
+    const set = new Set<string>();
+    // Collect all DJ genres from valid upcoming/live shows and IRL shows
+    const allDjGenres: string[][] = [];
+    for (const show of allShows) {
+      if (isValidShow(show) && new Date(show.endTime) > now && show.djGenres && show.djGenres.length > 0) {
+        allDjGenres.push(show.djGenres);
+      }
+    }
+    for (const show of irlShows) {
+      if (show.djGenres && show.djGenres.length > 0) {
+        allDjGenres.push(show.djGenres);
+      }
+    }
+    for (const genre of SUPPORTED_GENRES) {
+      if (allDjGenres.some((djGenres) => matchesGenreLib(djGenres, genre))) {
+        set.add(genre);
+      }
+    }
+    return set;
+  }, [allShows, irlShows, isValidShow]);
+
   // Genre alert prompt handlers
   const handleGenreDropdownClose = useCallback(() => {
     if (!isAuthenticated && selectedGenres.length > 0 && !genreAlertShownRef.current) {
@@ -640,6 +676,8 @@ export function ChannelClient() {
         cityResultCount={cityResultCount}
         genreResultCount={genreResultCount}
         onGenreDropdownClose={handleGenreDropdownClose}
+        citiesWithMatches={citiesWithMatches}
+        genresWithMatches={genresWithMatches}
       />
 
       <main className="max-w-7xl mx-auto flex-1 min-h-0 w-full flex flex-col pt-3 md:pt-4">

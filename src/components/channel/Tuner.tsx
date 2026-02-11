@@ -13,9 +13,11 @@ interface TunerProps {
   cityResultCount?: number;
   genreResultCount?: number;
   onGenreDropdownClose?: () => void;
+  citiesWithMatches?: Set<string>;
+  genresWithMatches?: Set<string>;
 }
 
-export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChange, cityResultCount, genreResultCount, onGenreDropdownClose }: TunerProps) {
+export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChange, cityResultCount, genreResultCount, onGenreDropdownClose, citiesWithMatches, genresWithMatches }: TunerProps) {
   // City dropdown state
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
   const [cityCustomMode, setCityCustomMode] = useState(false);
@@ -196,7 +198,9 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
                   Anywhere
                 </button>
                 <div className="border-t border-white/10 my-1" />
-                {SUPPORTED_CITIES.map((city) => (
+                {SUPPORTED_CITIES.filter((city) =>
+                  !citiesWithMatches || citiesWithMatches.has(city) || selectedCity === city
+                ).map((city) => (
                   <button
                     key={city}
                     onClick={() => handleSelectCity(city)}
@@ -302,7 +306,9 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
                     <div className="border-t border-white/10 my-1" />
                   </>
                 )}
-                {SUPPORTED_GENRES.map((genre) => {
+                {SUPPORTED_GENRES.filter((genre) =>
+                  !genresWithMatches || genresWithMatches.has(genre) || selectedGenres.includes(genre)
+                ).map((genre) => {
                   const isSelected = selectedGenres.includes(genre);
                   return (
                     <button
