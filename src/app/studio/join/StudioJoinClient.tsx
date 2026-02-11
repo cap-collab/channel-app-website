@@ -483,7 +483,7 @@ export function StudioJoinClient() {
 {/* Channel Broadcast Application Section - Only show for DJs */}
           {userIsDJ && (
             <div className="border-t border-gray-800 pt-12">
-              <h2 className="text-2xl font-semibold mb-4">Apply to Channel Broadcast</h2>
+              <h2 className="text-2xl font-semibold mb-4">Request a live stream slot</h2>
               <p className="text-gray-400 mb-4">
                 Apply to schedule a live set on our radio. If you&apos;re unsure about your setup, check the{' '}
                 <Link href="/streaming-guide" className="text-white underline hover:text-gray-300 transition-colors">
