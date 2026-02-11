@@ -776,7 +776,7 @@ export function ChannelClient() {
             <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
               <div className="text-center py-3">
                 <p className="text-gray-400 text-sm mb-3">
-                  We don't have a curator here yet. Know a great curator? Invite them to Channel
+                  We don&apos;t have a curator here yet. Know a great curator? Invite them to Channel
                 </p>
                 <InviteCard />
               </div>
