@@ -22,9 +22,8 @@ export function InviteCard({ message = 'Know a DJ? Invite them to Channel' }: In
 
   return (
     <div className="w-full">
-      {/* Card matching TicketCard dimensions */}
-      <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10 border-dashed bg-white/5 flex flex-col items-center justify-center p-4">
-        <p className="text-gray-400 text-sm text-center mb-3">{message}</p>
+      <div className="relative w-full py-4 md:py-3 overflow-hidden border border-white/10 border-dashed bg-white/5 flex flex-col md:flex-row items-center justify-center gap-2 md:gap-4 px-4">
+        <p className="text-gray-400 text-sm text-center md:text-left">{message}</p>
         <button
           onClick={handleCopyUrl}
           className="inline-flex items-center gap-2 px-4 py-2 rounded bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
@@ -51,9 +50,6 @@ export function InviteCard({ message = 'Know a DJ? Invite them to Channel' }: In
           )}
         </button>
       </div>
-
-      {/* Empty footer to match TicketCard spacing */}
-      <div className="h-8 mt-2" />
     </div>
   );
 }
