@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { SUPPORTED_CITIES } from '@/lib/city-detection';
 import { SUPPORTED_GENRES } from '@/lib/genres';
 
@@ -134,7 +135,10 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
 
           {cityDropdownOpen && (
             <>
-              <div className="fixed inset-0 z-[999]" onClick={closeCityDropdown} />
+              {createPortal(
+                <div className="fixed inset-0 z-[999]" onClick={closeCityDropdown} />,
+                document.body
+              )}
               <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-48 bg-[#111] border border-white/10 rounded shadow-xl z-[1000] py-1 max-h-72 overflow-y-auto">
                 {cityCustomMode ? (
                   <div className="px-2 py-1">
@@ -232,7 +236,10 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
 
           {genreDropdownOpen && (
             <>
-              <div className="fixed inset-0 z-[999]" onClick={closeGenreDropdown} />
+              {createPortal(
+                <div className="fixed inset-0 z-[999]" onClick={closeGenreDropdown} />,
+                document.body
+              )}
               <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-48 bg-[#111] border border-white/10 rounded shadow-xl z-[1000] py-1 max-h-72 overflow-y-auto">
                 {genreCustomMode ? (
                   <div className="px-2 py-1">
