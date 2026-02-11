@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
@@ -12,6 +12,15 @@ import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { normalizeUrl } from '@/lib/url';
 import { uploadEventPhoto, deleteEventPhoto, validatePhoto } from '@/lib/photo-upload';
 import { Event, EventDJRef, Venue } from '@/types/events';
+
+interface DJOption {
+  label: string;
+  djName: string;
+  djUserId?: string;
+  djUsername?: string;
+  djPhotoUrl?: string;
+  source: 'user' | 'pending';
+}
 
 export function EventsAdmin() {
   const router = useRouter();
@@ -30,7 +39,7 @@ export function EventsAdmin() {
   const [location, setLocation] = useState('');
   const [genres, setGenres] = useState('');
   const [ticketLink, setTicketLink] = useState('');
-  const [djs, setDjs] = useState<EventDJRef[]>([{ djName: '', djEmail: '' }]);
+  const [djs, setDjs] = useState<EventDJRef[]>([{ djName: '' }]);
 
   // Photo state
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -46,6 +55,7 @@ export function EventsAdmin() {
   // Data
   const [events, setEvents] = useState<Event[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
+  const [djOptions, setDjOptions] = useState<DJOption[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
 
   const hasBroadcasterAccess = isBroadcaster(role);
@@ -72,6 +82,53 @@ export function EventsAdmin() {
       setVenues(venuesList);
     } catch (err) {
       console.error('Error fetching venues:', err);
+    }
+  }, []);
+
+  // Fetch all available DJs (pending profiles + DJ users)
+  const fetchDJOptions = useCallback(async () => {
+    if (!db) return;
+    try {
+      const options: DJOption[] = [];
+      const seenUsernames = new Set<string>();
+
+      const pendingRef = collection(db, 'pending-dj-profiles');
+      const pendingSnapshot = await getDocs(pendingRef);
+      pendingSnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.status !== 'pending') return;
+        const username = data.chatUsernameNormalized || '';
+        if (username) seenUsernames.add(username);
+        options.push({
+          label: data.chatUsername || data.chatUsernameNormalized || 'Unknown',
+          djName: data.chatUsername || data.chatUsernameNormalized || 'Unknown',
+          djUsername: data.chatUsernameNormalized,
+          djPhotoUrl: data.djProfile?.photoUrl || undefined,
+          source: 'pending',
+        });
+      });
+
+      const usersRef = collection(db, 'users');
+      const djQuery = query(usersRef, where('role', 'in', ['dj', 'broadcaster', 'admin']));
+      const usersSnapshot = await getDocs(djQuery);
+      usersSnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const username = data.chatUsernameNormalized || '';
+        if (username && seenUsernames.has(username)) return;
+        options.push({
+          label: data.chatUsername || data.displayName || 'Unknown',
+          djName: data.chatUsername || data.displayName || 'Unknown',
+          djUserId: docSnap.id,
+          djUsername: data.chatUsernameNormalized || data.chatUsername,
+          djPhotoUrl: data.djProfile?.photoUrl || undefined,
+          source: 'user',
+        });
+      });
+
+      options.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+      setDjOptions(options);
+    } catch (err) {
+      console.error('Error fetching DJ options:', err);
     }
   }, []);
 
@@ -119,10 +176,11 @@ export function EventsAdmin() {
     if (isAuthenticated && hasBroadcasterAccess) {
       fetchVenues();
       fetchEvents();
+      fetchDJOptions();
     } else {
       setLoadingEvents(false);
     }
-  }, [isAuthenticated, hasBroadcasterAccess, fetchVenues, fetchEvents]);
+  }, [isAuthenticated, hasBroadcasterAccess, fetchVenues, fetchEvents, fetchDJOptions]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -152,7 +210,7 @@ export function EventsAdmin() {
     setLocation('');
     setGenres('');
     setTicketLink('');
-    setDjs([{ djName: '', djEmail: '' }]);
+    setDjs([{ djName: '' }]);
     setPhotoUrl(null);
     setPhotoError(null);
     setEditingEvent(null);
@@ -170,7 +228,7 @@ export function EventsAdmin() {
     setLocation(event.location || '');
     setGenres(event.genres?.join(', ') || '');
     setTicketLink(event.ticketLink || '');
-    setDjs(event.djs.length > 0 ? event.djs : [{ djName: '', djEmail: '' }]);
+    setDjs(event.djs.length > 0 ? event.djs : [{ djName: '' }]);
     setPhotoUrl(event.photo || null);
     setPhotoError(null);
     setError(null);
@@ -230,30 +288,23 @@ export function EventsAdmin() {
     }
   };
 
-  // Lookup DJ profile by email
-  const lookupDJ = async (index: number) => {
-    const dj = djs[index];
-    if (!dj.djEmail) return;
-
-    try {
-      const res = await fetch(`/api/users/lookup-by-email?email=${encodeURIComponent(dj.djEmail)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.user) {
-          const updated = [...djs];
-          updated[index] = {
-            ...updated[index],
-            djUserId: data.user.uid,
-            djUsername: data.user.chatUsernameNormalized || data.user.chatUsername,
-            djPhotoUrl: data.user.djProfile?.photoUrl || undefined,
-            djName: updated[index].djName || data.user.chatUsername || data.user.displayName,
-          };
-          setDjs(updated);
-        }
+  // Handle selecting a DJ from the dropdown
+  const handleDJSelect = (index: number, value: string) => {
+    const updated = [...djs];
+    if (value === '__manual__') {
+      updated[index] = { djName: '' };
+    } else {
+      const option = djOptions.find(o => (o.djUsername || o.djName) === value);
+      if (option) {
+        updated[index] = {
+          djName: option.djName,
+          djUserId: option.djUserId,
+          djUsername: option.djUsername,
+          djPhotoUrl: option.djPhotoUrl,
+        };
       }
-    } catch (err) {
-      console.error('Error looking up DJ:', err);
     }
+    setDjs(updated);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -281,7 +332,7 @@ export function EventsAdmin() {
         return;
       }
 
-      const filteredDJs = djs.filter(dj => dj.djName.trim() || dj.djEmail?.trim());
+      const filteredDJs = djs.filter(dj => dj.djName.trim());
 
       const payload = {
         ...(editingEvent ? { eventId: editingEvent.id } : {}),
@@ -559,12 +610,10 @@ export function EventsAdmin() {
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                maxLength={500}
                 rows={3}
                 className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white resize-none"
                 placeholder="Event description..."
               />
-              <p className="text-xs text-gray-500 mt-1">{description.length}/500</p>
             </div>
 
             {/* Genres */}
@@ -594,50 +643,56 @@ export function EventsAdmin() {
             {/* DJs */}
             <div className="mb-6">
               <label className="block text-sm text-gray-400 mb-3">DJs Playing</label>
-              {djs.map((dj, i) => (
-                <div key={i} className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={dj.djName}
-                    onChange={(e) => {
-                      const updated = [...djs];
-                      updated[i] = { ...updated[i], djName: e.target.value };
-                      setDjs(updated);
-                    }}
-                    className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
-                    placeholder="DJ Name"
-                  />
-                  <input
-                    type="email"
-                    value={dj.djEmail || ''}
-                    onChange={(e) => {
-                      const updated = [...djs];
-                      updated[i] = { ...updated[i], djEmail: e.target.value };
-                      setDjs(updated);
-                    }}
-                    onBlur={() => lookupDJ(i)}
-                    className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
-                    placeholder="Email (for profile lookup)"
-                  />
-                  {dj.djUsername && (
-                    <span className="flex items-center text-green-400 text-xs px-2">
-                      @{dj.djUsername}
-                    </span>
-                  )}
-                  {djs.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => setDjs(djs.filter((_, j) => j !== i))}
-                      className="text-red-400 hover:text-red-300 px-2"
+              {djs.map((dj, i) => {
+                const isManual = !djOptions.some(o => (o.djUsername || o.djName) === (dj.djUsername || dj.djName)) && dj.djName;
+                return (
+                  <div key={i} className="flex gap-2 mb-2">
+                    <select
+                      value={isManual ? '__manual__' : (dj.djUsername || dj.djName || '')}
+                      onChange={(e) => handleDJSelect(i, e.target.value)}
+                      className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white"
                     >
-                      &times;
-                    </button>
-                  )}
-                </div>
-              ))}
+                      <option value="">Select DJ...</option>
+                      {djOptions.map((option) => (
+                        <option key={option.djUsername || option.djName} value={option.djUsername || option.djName}>
+                          {option.label}
+                        </option>
+                      ))}
+                      <option value="__manual__">Other (type name)</option>
+                    </select>
+                    {isManual && (
+                      <input
+                        type="text"
+                        value={dj.djName}
+                        onChange={(e) => {
+                          const updated = [...djs];
+                          updated[i] = { ...updated[i], djName: e.target.value };
+                          setDjs(updated);
+                        }}
+                        className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
+                        placeholder="DJ Name"
+                      />
+                    )}
+                    {dj.djUsername && (
+                      <span className="flex items-center text-green-400 text-xs px-2">
+                        @{dj.djUsername}
+                      </span>
+                    )}
+                    {djs.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setDjs(djs.filter((_, j) => j !== i))}
+                        className="text-red-400 hover:text-red-300 px-2"
+                      >
+                        &times;
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
               <button
                 type="button"
-                onClick={() => setDjs([...djs, { djName: '', djEmail: '' }])}
+                onClick={() => setDjs([...djs, { djName: '' }])}
                 className="text-sm text-gray-400 hover:text-white mt-1"
               >
                 + Add DJ

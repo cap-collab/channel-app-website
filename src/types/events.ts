@@ -3,7 +3,6 @@ export interface EventDJRef {
   djName: string;
   djUserId?: string;
   djUsername?: string;
-  djEmail?: string;
   djPhotoUrl?: string;
 }
 
