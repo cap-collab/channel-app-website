@@ -82,42 +82,46 @@ export function VenuePublicPage({ slug }: Props) {
         };
 
         setVenue(venueData);
-
-        // Fetch upcoming events for this venue
-        const now = Date.now();
-        const eventsRef = collection(db, "events");
-        const eventsQ = query(
-          eventsRef,
-          where("venueId", "==", doc.id),
-          where("date", ">=", now),
-          orderBy("date", "asc")
-        );
-        const eventsSnapshot = await getDocs(eventsQ);
-
-        const eventsList: Event[] = [];
-        eventsSnapshot.forEach((eventDoc) => {
-          const eventData = eventDoc.data();
-          eventsList.push({
-            id: eventDoc.id,
-            name: eventData.name,
-            slug: eventData.slug,
-            date: eventData.date,
-            endDate: eventData.endDate || undefined,
-            photo: eventData.photo || null,
-            description: eventData.description || null,
-            venueId: eventData.venueId || null,
-            venueName: eventData.venueName || null,
-            djs: eventData.djs || [],
-            genres: eventData.genres || [],
-            location: eventData.location || null,
-            ticketLink: eventData.ticketLink || null,
-            createdAt: eventData.createdAt?.toMillis?.() || Date.now(),
-            createdBy: eventData.createdBy,
-          });
-        });
-
-        setUpcomingEvents(eventsList);
         setLoading(false);
+
+        // Fetch upcoming events for this venue (separate try/catch so venue still shows if this fails)
+        try {
+          const now = Date.now();
+          const eventsRef = collection(db, "events");
+          const eventsQ = query(
+            eventsRef,
+            where("venueId", "==", doc.id),
+            where("date", ">=", now),
+            orderBy("date", "asc")
+          );
+          const eventsSnapshot = await getDocs(eventsQ);
+
+          const eventsList: Event[] = [];
+          eventsSnapshot.forEach((eventDoc) => {
+            const eventData = eventDoc.data();
+            eventsList.push({
+              id: eventDoc.id,
+              name: eventData.name,
+              slug: eventData.slug,
+              date: eventData.date,
+              endDate: eventData.endDate || undefined,
+              photo: eventData.photo || null,
+              description: eventData.description || null,
+              venueId: eventData.venueId || null,
+              venueName: eventData.venueName || null,
+              djs: eventData.djs || [],
+              genres: eventData.genres || [],
+              location: eventData.location || null,
+              ticketLink: eventData.ticketLink || null,
+              createdAt: eventData.createdAt?.toMillis?.() || Date.now(),
+              createdBy: eventData.createdBy,
+            });
+          });
+
+          setUpcomingEvents(eventsList);
+        } catch (eventsError) {
+          console.error("Error fetching venue events:", eventsError);
+        }
       } catch (error) {
         console.error("Error fetching venue:", error);
         setNotFound(true);
