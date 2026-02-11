@@ -36,11 +36,11 @@ export default function Home() {
       <section className="min-h-screen flex flex-col justify-center items-center px-6 pt-24 pb-20 relative bg-[#1a1a1a]">
         <div className="max-w-3xl text-center">
           <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
-            Embrace your scene.
+            Mapping local underground scenes.
           </h1>
 
           <p className="text-lg md:text-xl text-gray-400 mb-12 max-w-xl mx-auto leading-relaxed">
-            Ditch the algorithms. Stay in the know with the curators who move your world forward.
+            Driven by people and taste, not algorithms.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
