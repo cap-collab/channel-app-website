@@ -657,11 +657,15 @@ export function ChannelClient() {
           <>
 
           {/* Section 1: Location + Genre (grid, max 4) — sorted by match count, live first as tiebreaker */}
-          {locationGenreCards.length > 0 && (
+          {locationGenreCards.length > 0 ? (
             <div className="flex-shrink-0 px-4 pt-3 md:pt-4 pb-3 md:pb-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {locationGenreCards.map((item, index) => renderCard(item, index))}
               </div>
+            </div>
+          ) : selectedCity && selectedCity !== 'Anywhere' && selectedGenres.length > 0 && (
+            <div className="flex-shrink-0 px-4 pt-3 md:pt-4 pb-3 md:pb-4">
+              <InviteCard message={`Know a great ${selectedGenres.join(', ')} curator in ${selectedCity}? Invite them to Channel`} />
             </div>
           )}
 
@@ -676,6 +680,13 @@ export function ChannelClient() {
                   />
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Invite card when genre selected but no genre matches (skip if city+genre invite already shown) */}
+          {selectedGenres.length > 0 && liveGenreCards.length === 0 && genreCards.length === 0 && locationGenreCards.length === 0 && !(selectedCity && selectedCity !== 'Anywhere') && (
+            <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
+              <InviteCard message={`Know a great ${selectedGenres.join(', ')} curator? Invite them to Channel`} />
             </div>
           )}
 
@@ -706,6 +717,13 @@ export function ChannelClient() {
                   {genreCards.map((item, index) => renderCard(item, index))}
                 </SwipeableCardCarousel>
               )}
+            </div>
+          )}
+
+          {/* Invite card when city selected but no location matches (skip if city+genre invite already shown) */}
+          {selectedCity && selectedCity !== 'Anywhere' && locationCards.length === 0 && locationGenreCards.length === 0 && selectedGenres.length === 0 && (
+            <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
+              <InviteCard message={`Know a great curator in ${selectedCity}? Invite them to Channel`} />
             </div>
           )}
 
@@ -753,12 +771,12 @@ export function ChannelClient() {
             </div>
           )}
 
-          {/* Empty state when no matches at all */}
-          {!isLoading && allCardCount === 0 && (
+          {/* Empty state when no matches at all and no inline invite cards shown above */}
+          {!isLoading && allCardCount === 0 && !selectedCity && selectedGenres.length === 0 && (
             <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
               <div className="text-center py-3">
                 <p className="text-gray-400 text-sm mb-3">
-                  Invite your favorite {selectedCity === 'Anywhere' ? '' : selectedCity + ' '}{selectedGenres.length > 0 ? selectedGenres.join(', ') + ' ' : ''}DJs to join Channel
+                  Know a great curator? Invite them to Channel
                 </p>
                 <InviteCard />
               </div>
