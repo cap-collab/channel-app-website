@@ -500,25 +500,34 @@ export function ChannelClient() {
   }, [selectedGenres, locationGenreCards, liveGenreCards, genreCards, matchesGenre]);
 
   // Compute which cities and genres have at least one matching show (for hiding empty options in dropdown)
+  // Mirror the actual section logic: radio shows need isValidShow + not ended + valid station
   const citiesWithMatches = useMemo(() => {
     const now = new Date();
     const set = new Set<string>();
+    // Collect all valid locations from displayable shows
+    const radioLocations: string[] = [];
+    for (const show of allShows) {
+      if (!isValidShow(show) || new Date(show.endTime) <= now || !stationsMap.has(show.stationId)) continue;
+      if (show.djLocation) radioLocations.push(show.djLocation);
+    }
+    const irlLocations = irlShows.map((show) => show.location);
+    const allLocations = [...radioLocations, ...irlLocations];
     for (const city of SUPPORTED_CITIES) {
-      const hasMatch = allShows.some((show) =>
-        isValidShow(show) && new Date(show.endTime) > now && show.djLocation && matchesCity(show.djLocation, city)
-      ) || irlShows.some((show) => matchesCity(show.location, city));
-      if (hasMatch) set.add(city);
+      if (allLocations.some((loc) => matchesCity(loc, city))) {
+        set.add(city);
+      }
     }
     return set;
-  }, [allShows, irlShows, isValidShow]);
+  }, [allShows, irlShows, isValidShow, stationsMap]);
 
   const genresWithMatches = useMemo(() => {
     const now = new Date();
     const set = new Set<string>();
-    // Collect all DJ genres from valid upcoming/live shows and IRL shows
+    // Collect all DJ genres from displayable shows (valid + not ended + valid station) and IRL shows
     const allDjGenres: string[][] = [];
     for (const show of allShows) {
-      if (isValidShow(show) && new Date(show.endTime) > now && show.djGenres && show.djGenres.length > 0) {
+      if (!isValidShow(show) || new Date(show.endTime) <= now || !stationsMap.has(show.stationId)) continue;
+      if (show.djGenres && show.djGenres.length > 0) {
         allDjGenres.push(show.djGenres);
       }
     }
@@ -533,7 +542,7 @@ export function ChannelClient() {
       }
     }
     return set;
-  }, [allShows, irlShows, isValidShow]);
+  }, [allShows, irlShows, isValidShow, stationsMap]);
 
   // Genre alert prompt handlers
   const handleGenreDropdownClose = useCallback(() => {
