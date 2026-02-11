@@ -484,6 +484,21 @@ export function ChannelClient() {
     return locationGenreCards.length + liveGenreCards.length + genreCards.length;
   }, [selectedGenres, locationGenreCards, liveGenreCards, genreCards]);
 
+  // Determine which selected genres have zero matches across all shows
+  const noCuratorsInCity = selectedCity && selectedCity !== 'Anywhere' && locationCards.length === 0 && locationGenreCards.length === 0;
+  const missingGenres = useMemo(() => {
+    if (selectedGenres.length === 0) return [];
+    if (locationGenreCards.length === 0 && liveGenreCards.length === 0 && genreCards.length === 0) return selectedGenres;
+    // Check each genre individually — a genre is "missing" if no card across S1/S4/S5 matches it
+    const allGenreCards = [...locationGenreCards, ...liveGenreCards, ...genreCards];
+    return selectedGenres.filter((genre) => {
+      return !allGenreCards.some((item) => {
+        const showGenres = item.type === 'radio' ? item.data.djGenres : item.data.djGenres;
+        return showGenres ? matchesGenre(showGenres, genre) : false;
+      });
+    });
+  }, [selectedGenres, locationGenreCards, liveGenreCards, genreCards, matchesGenre]);
+
   // Genre alert prompt handlers
   const handleGenreDropdownClose = useCallback(() => {
     if (!isAuthenticated && selectedGenres.length > 0 && !genreAlertShownRef.current) {
@@ -657,15 +672,22 @@ export function ChannelClient() {
           <>
 
           {/* Section 1: Location + Genre (grid, max 4) — sorted by match count, live first as tiebreaker */}
-          {locationGenreCards.length > 0 ? (
+          {locationGenreCards.length > 0 && (
             <div className="flex-shrink-0 px-4 pt-3 md:pt-4 pb-3 md:pb-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {locationGenreCards.map((item, index) => renderCard(item, index))}
               </div>
             </div>
-          ) : selectedCity && selectedCity !== 'Anywhere' && selectedGenres.length > 0 && (
+          )}
+
+          {/* Invite card: priority 1 = no curators in city, priority 2 = missing genres */}
+          {noCuratorsInCity ? (
             <div className="flex-shrink-0 px-4 pt-3 md:pt-4 pb-3 md:pb-4">
-              <InviteCard message={`We don't have a ${selectedGenres.join(', ')} curator in ${selectedCity} yet. Know a great curator? Invite them to Channel`} />
+              <InviteCard message={`We don't have curators in ${selectedCity} yet. Know a great curator? Invite them to Channel`} />
+            </div>
+          ) : missingGenres.length > 0 && (
+            <div className="flex-shrink-0 px-4 pt-3 md:pt-4 pb-3 md:pb-4">
+              <InviteCard message={`We don't have ${missingGenres.join(', ')} curators yet. Know a great curator? Invite them to Channel`} />
             </div>
           )}
 
@@ -680,13 +702,6 @@ export function ChannelClient() {
                   />
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* Invite card when genre selected but no genre matches (skip if city+genre invite already shown) */}
-          {selectedGenres.length > 0 && liveGenreCards.length === 0 && genreCards.length === 0 && locationGenreCards.length === 0 && !(selectedCity && selectedCity !== 'Anywhere') && (
-            <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
-              <InviteCard message={`We don't have a ${selectedGenres.join(', ')} curator yet. Know a great curator? Invite them to Channel`} />
             </div>
           )}
 
@@ -717,13 +732,6 @@ export function ChannelClient() {
                   {genreCards.map((item, index) => renderCard(item, index))}
                 </SwipeableCardCarousel>
               )}
-            </div>
-          )}
-
-          {/* Invite card when city selected but no location matches (skip if city+genre invite already shown) */}
-          {selectedCity && selectedCity !== 'Anywhere' && locationCards.length === 0 && locationGenreCards.length === 0 && selectedGenres.length === 0 && (
-            <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
-              <InviteCard message={`We don't have a curator in ${selectedCity} yet. Know a great curator? Invite them to Channel`} />
             </div>
           )}
 
@@ -771,15 +779,10 @@ export function ChannelClient() {
             </div>
           )}
 
-          {/* Empty state when no matches at all and no inline invite cards shown above */}
-          {!isLoading && allCardCount === 0 && !selectedCity && selectedGenres.length === 0 && (
+          {/* Empty state when no matches at all and no invite card already shown above */}
+          {!isLoading && allCardCount === 0 && !noCuratorsInCity && missingGenres.length === 0 && (
             <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
-              <div className="text-center py-3">
-                <p className="text-gray-400 text-sm mb-3">
-                  We don&apos;t have a curator here yet. Know a great curator? Invite them to Channel
-                </p>
-                <InviteCard />
-              </div>
+              <InviteCard message="We don't have curators here yet. Know a great curator? Invite them to Channel" />
             </div>
           )}
 

@@ -1156,7 +1156,7 @@ export function StudioProfileClient() {
               </p>
 
               <p className="text-gray-400 leading-relaxed mb-8">
-                Think SoundCloud + Linktree + Instagram, built for DJs and their communities.
+                Think SoundCloud + Linktree + Instagram, built for curators, DJs, and their communities.
               </p>
 
               <h2 className="text-lg font-semibold mb-4">What you get</h2>
