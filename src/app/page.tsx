@@ -88,10 +88,10 @@ export default function Home() {
                   Curated
                 </h2>
                 <p className="text-gray-400 leading-relaxed text-center text-sm mb-8">
-                  Channel is built around DJs, radios, producers, and curators
-                  who are chosen by the community, not surfaced by an algorithm.
-                  Discovery here is intentional, rooted in trust, taste, and
-                  local communities.
+                  Channel is built around selectors, radios, producers, and
+                  curators chosen by their communities, not surfaced by an
+                  algorithm. Discovery here is intentional and rooted in trust,
+                  taste, and local ecosystems.
                 </p>
                 <div className="hidden md:block transform scale-[0.55] origin-top -mb-[45%]">
                   <Image
@@ -110,10 +110,10 @@ export default function Home() {
                   Independent
                 </h2>
                 <p className="text-gray-400 leading-relaxed text-center text-sm mb-8">
-                  When a selector you follow goes live, or something new is
-                  happening in your hyper niche scene, you&apos;ll know about it.
-                  You can support them directly through tips. No ads, no
-                  intermediary shaping what you hear.
+                  When someone you follow goes live or announces something new
+                  in your scene, you hear about it directly. You can support
+                  them through tips. Updates go to your inbox. No ads. No feed
+                  shaping what you see.
                 </p>
                 <div className="hidden md:block transform scale-[0.55] origin-top -mb-[45%]">
                   <Image
@@ -132,11 +132,11 @@ export default function Home() {
                   Collaborative
                 </h2>
                 <p className="text-gray-400 leading-relaxed text-center text-sm mb-8">
-                  Culture doesn&apos;t happen in isolation. It&apos;s DJs, producers,
-                  promoters, venues, radios, and the people behind the speakers.
-                  Channel is designed around all of us, where DJs promote
-                  discovery of the events, producers, and other selectors they
-                  care about.
+                  Underground culture is collective. DJs, producers, venues,
+                  promoters, radios, curators, and dancers all shape it
+                  together. Channel reflects that. Selectors highlight the
+                  events, spaces, and people they support, and scenes are mapped
+                  as ecosystems.
                 </p>
                 <div className="hidden md:block transform scale-[0.55] origin-top -mb-[45%]">
                   <Image
