@@ -236,8 +236,8 @@ export function LAmbientClient() {
       <main className="max-w-5xl mx-auto px-6 py-4 pb-24">
         {/* Page Header */}
         <section className="mb-10">
-          <h1 className="text-xl sm:text-3xl md:text-5xl font-light uppercase tracking-tighter leading-none whitespace-nowrap">
-            LA Scene — Ambient x Techno
+          <h1 className="text-xl sm:text-3xl md:text-5xl font-light tracking-tighter leading-none whitespace-nowrap">
+            LA SCENE — AMBIENT x TECHNO
           </h1>
           <p className="text-zinc-400 text-base font-light max-w-xl mt-2">
             A map of the selectors and spaces shaping LA&apos;s ambient x techno scene.
@@ -264,7 +264,7 @@ export function LAmbientClient() {
               onFollow={handleFollow}
               onRemindMe={handleRemindMe}
             />
-            <UpcomingDatesSection irlShows={irlShows} events={events} venueSlugMap={venueSlugMap} />
+            <UpcomingDatesSection irlShows={irlShows} events={events} venueSlugMap={venueSlugMap} venues={venues} />
             <PastShowsSection
               shows={pastShows}
               isInWatchlist={isInWatchlist}
@@ -417,43 +417,74 @@ function VenuesSection({ venues }: { venues: Venue[] }) {
 }
 
 function VenueCard({ venue }: { venue: Venue }) {
+  const [imageError, setImageError] = useState(false);
+  const hasPhoto = venue.photo && !imageError;
+
   const content = (
-    <div className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors">
-      <p className="text-white font-medium">{venue.name}</p>
-      {venue.location && (
-        <p className="text-zinc-500 text-xs uppercase tracking-wide mt-0.5">
-          {venue.location}
-        </p>
-      )}
-      {venue.genres && venue.genres.length > 0 && (
-        <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter mt-1">
-          {venue.genres.join(' · ')}
-        </p>
-      )}
-      {venue.residentDJs && venue.residentDJs.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {venue.residentDJs
-            .filter((dj: EventDJRef) => dj.djName)
-            .map((dj: EventDJRef, i: number) =>
-              dj.djUsername ? (
-                <Link
-                  key={i}
-                  href={`/dj/${dj.djUsername}`}
-                  className="text-xs text-zinc-400 hover:text-white transition-colors"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {dj.djName}
-                  {i < (venue.residentDJs?.length ?? 0) - 1 ? ',' : ''}
-                </Link>
-              ) : (
-                <span key={i} className="text-xs text-zinc-400">
-                  {dj.djName}
-                  {i < (venue.residentDJs?.length ?? 0) - 1 ? ',' : ''}
-                </span>
-              )
-            )}
+    <div className="flex flex-col">
+      <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10">
+        {hasPhoto ? (
+          <>
+            <Image
+              src={venue.photo!}
+              alt={venue.name}
+              fill
+              className="object-cover"
+              unoptimized
+              onError={() => setImageError(true)}
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
+          </>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-white">
+            <span className="text-4xl font-black uppercase tracking-tight leading-none text-black text-center px-4">
+              {venue.name.charAt(0).toUpperCase()}
+            </span>
+          </div>
+        )}
+        <div className="absolute bottom-2 left-2 right-2">
+          <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+            {venue.name}
+          </span>
+          {venue.location && (
+            <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
+              {venue.location}
+            </span>
+          )}
         </div>
-      )}
+      </div>
+      <div className="py-2">
+        {venue.genres && venue.genres.length > 0 && (
+          <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">
+            {venue.genres.join(' · ')}
+          </p>
+        )}
+        {venue.residentDJs && venue.residentDJs.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-1">
+            {venue.residentDJs
+              .filter((dj: EventDJRef) => dj.djName)
+              .map((dj: EventDJRef, i: number) =>
+                dj.djUsername ? (
+                  <Link
+                    key={i}
+                    href={`/dj/${dj.djUsername}`}
+                    className="text-xs text-zinc-400 hover:text-white transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {dj.djName}
+                    {i < (venue.residentDJs?.length ?? 0) - 1 ? ',' : ''}
+                  </Link>
+                ) : (
+                  <span key={i} className="text-xs text-zinc-400">
+                    {dj.djName}
+                    {i < (venue.residentDJs?.length ?? 0) - 1 ? ',' : ''}
+                  </span>
+                )
+              )}
+          </div>
+        )}
+      </div>
     </div>
   );
 
@@ -652,11 +683,19 @@ function UpcomingDatesSection({
   irlShows,
   events,
   venueSlugMap,
+  venues,
 }: {
   irlShows: IRLShowData[];
   events: Event[];
   venueSlugMap: Map<string, string>;
+  venues: Venue[];
 }) {
+  // Build venue photo lookup
+  const venuePhotoMap = new Map<string, string>();
+  for (const v of venues) {
+    if (v.id && v.photo) venuePhotoMap.set(v.id, v.photo);
+  }
+
   // Merge and sort all upcoming items by date
   const items: UpcomingEntry[] = [];
 
@@ -696,7 +735,7 @@ function UpcomingDatesSection({
             item.type === 'irl' ? (
               <IRLDateCard key={item.key} show={item.data} />
             ) : (
-              <EventDateCard key={item.key} event={item.data} venueSlugMap={venueSlugMap} />
+              <EventDateCard key={item.key} event={item.data} venueSlugMap={venueSlugMap} venuePhotoMap={venuePhotoMap} />
             )
           )}
         </div>
@@ -706,9 +745,35 @@ function UpcomingDatesSection({
 }
 
 function IRLDateCard({ show }: { show: IRLShowData }) {
+  const [imageError, setImageError] = useState(false);
+  const hasPhoto = show.djPhotoUrl && !imageError;
+
   return (
     <div className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors">
       <div className="flex items-start gap-4">
+        {show.djUsername ? (
+          <Link href={`/dj/${show.djUsername}`} className="flex-shrink-0">
+            {hasPhoto ? (
+              <Image
+                src={show.djPhotoUrl!}
+                alt={show.djName}
+                width={48}
+                height={48}
+                className="w-12 h-12 rounded-full object-cover"
+                unoptimized
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center">
+                <span className="text-lg font-black text-black">{show.djName.charAt(0).toUpperCase()}</span>
+              </div>
+            )}
+          </Link>
+        ) : (
+          <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center flex-shrink-0">
+            <span className="text-lg font-black text-black">{show.djName.charAt(0).toUpperCase()}</span>
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <p className="text-white font-medium">{show.eventName}</p>
           <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">
@@ -746,21 +811,75 @@ function IRLDateCard({ show }: { show: IRLShowData }) {
   );
 }
 
-function EventDateCard({ event, venueSlugMap }: { event: Event; venueSlugMap: Map<string, string> }) {
+function DJAvatar({ dj }: { dj: EventDJRef }) {
+  const [imageError, setImageError] = useState(false);
+  const hasPhoto = dj.djPhotoUrl && !imageError;
+
+  const avatar = hasPhoto ? (
+    <Image
+      src={dj.djPhotoUrl!}
+      alt={dj.djName}
+      width={28}
+      height={28}
+      className="w-7 h-7 rounded-full object-cover border-2 border-zinc-900"
+      unoptimized
+      onError={() => setImageError(true)}
+    />
+  ) : (
+    <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center border-2 border-zinc-900">
+      <span className="text-[10px] font-black text-black">{dj.djName.charAt(0).toUpperCase()}</span>
+    </div>
+  );
+
+  if (dj.djUsername) {
+    return <Link href={`/dj/${dj.djUsername}`}>{avatar}</Link>;
+  }
+  return avatar;
+}
+
+function EventDateCard({ event, venueSlugMap, venuePhotoMap }: { event: Event; venueSlugMap: Map<string, string>; venuePhotoMap: Map<string, string> }) {
   const venueSlug = event.venueId ? venueSlugMap.get(event.venueId) : undefined;
+  const venuePhoto = event.venueId ? venuePhotoMap.get(event.venueId) : undefined;
+  const [venueImageError, setVenueImageError] = useState(false);
+  const hasVenuePhoto = (event.photo || venuePhoto) && !venueImageError;
+  const displayPhoto = event.photo || venuePhoto;
 
   return (
     <div className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors">
       <div className="flex items-start gap-4">
-        {event.photo && (
+        {/* Venue photo or fallback icon */}
+        {venueSlug ? (
+          <Link href={`/venue/${venueSlug}`} className="flex-shrink-0">
+            {hasVenuePhoto ? (
+              <Image
+                src={displayPhoto!}
+                alt={event.venueName || event.name}
+                width={64}
+                height={64}
+                className="w-16 h-16 rounded-lg object-cover"
+                unoptimized
+                onError={() => setVenueImageError(true)}
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-lg bg-white flex items-center justify-center">
+                <span className="text-2xl font-black text-black">{(event.venueName || event.name).charAt(0).toUpperCase()}</span>
+              </div>
+            )}
+          </Link>
+        ) : hasVenuePhoto ? (
           <Image
-            src={event.photo}
-            alt={event.name}
+            src={displayPhoto!}
+            alt={event.venueName || event.name}
             width={64}
             height={64}
             className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
             unoptimized
+            onError={() => setVenueImageError(true)}
           />
+        ) : (
+          <div className="w-16 h-16 rounded-lg bg-white flex items-center justify-center flex-shrink-0">
+            <span className="text-2xl font-black text-black">{(event.venueName || event.name).charAt(0).toUpperCase()}</span>
+          </div>
         )}
         <div className="flex-1 min-w-0">
           <p className="text-white font-medium">{event.name}</p>
@@ -780,24 +899,31 @@ function EventDateCard({ event, venueSlugMap }: { event: Event; venueSlugMap: Ma
             ) : null}
           </p>
           {event.djs.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {event.djs.map((dj: EventDJRef, i: number) =>
-                dj.djUsername ? (
-                  <Link
-                    key={i}
-                    href={`/dj/${dj.djUsername}`}
-                    className="text-xs text-zinc-400 hover:text-white transition-colors"
-                  >
-                    {dj.djName}
-                    {i < event.djs.length - 1 ? ',' : ''}
-                  </Link>
-                ) : (
-                  <span key={i} className="text-xs text-zinc-400">
-                    {dj.djName}
-                    {i < event.djs.length - 1 ? ',' : ''}
-                  </span>
-                )
-              )}
+            <div className="flex items-center gap-2">
+              <div className="flex -space-x-2">
+                {event.djs.slice(0, 5).map((dj: EventDJRef, i: number) => (
+                  <DJAvatar key={i} dj={dj} />
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {event.djs.map((dj: EventDJRef, i: number) =>
+                  dj.djUsername ? (
+                    <Link
+                      key={i}
+                      href={`/dj/${dj.djUsername}`}
+                      className="text-xs text-zinc-400 hover:text-white transition-colors"
+                    >
+                      {dj.djName}
+                      {i < event.djs.length - 1 ? ',' : ''}
+                    </Link>
+                  ) : (
+                    <span key={i} className="text-xs text-zinc-400">
+                      {dj.djName}
+                      {i < event.djs.length - 1 ? ',' : ''}
+                    </span>
+                  )
+                )}
+              </div>
             </div>
           )}
         </div>
