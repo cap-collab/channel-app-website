@@ -372,8 +372,11 @@ export function DJPublicProfileClient({ username }: Props) {
   // Past recordings (archives with recordings)
   const [pastRecordings, setPastRecordings] = useState<Archive[]>([]);
 
-  // Past external shows (from other stations like NTS, Subtle, etc.) - only recurring shows
+  // Past external shows (from other stations like NTS, Subtle, etc.)
   const [pastExternalShows, setPastExternalShows] = useState<PastShow[]>([]);
+
+  // Past Channel Broadcast shows (without recordings)
+  const [pastBroadcastShows, setPastBroadcastShows] = useState<PastShow[]>([]);
 
   // Audio player state for recordings
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -778,6 +781,29 @@ export function DJPublicProfileClient({ username }: Props) {
             }
           });
           setPastRecordings(djArchives);
+
+          // Find broadcast slots that don't have a recording
+          const slotsWithRecordings = new Set(
+            djArchives
+              .filter(a => a.broadcastSlotId)
+              .map(a => a.broadcastSlotId)
+          );
+
+          const broadcastShowsWithoutRecordings: PastShow[] = [];
+          pastSlotsMap.forEach((slot, slotId) => {
+            if (!slotsWithRecordings.has(slotId)) {
+              broadcastShowsWithoutRecordings.push({
+                id: `broadcast-${slotId}`,
+                showName: slot.showName,
+                startTime: slot.startTime,
+                endTime: slot.endTime,
+                showImageUrl: slot.showImageUrl,
+                stationId: "broadcast",
+                stationName: "Channel Broadcast",
+              });
+            }
+          });
+          setPastBroadcastShows(broadcastShowsWithoutRecordings);
         }
       } catch (error) {
         console.error("Error fetching past shows:", error);
@@ -786,51 +812,33 @@ export function DJPublicProfileClient({ username }: Props) {
     fetchPastShowsAndRecordings();
   }, [djProfile]);
 
-  // Fetch past external shows from Firebase (NTS, Subtle, dublab, etc.)
+  // Fetch past external shows from history.json via API
   useEffect(() => {
     async function fetchPastExternalShows() {
-      if (!djProfile || !db) return;
+      if (!djProfile) return;
 
       try {
-        // Normalize username for matching
         const normalizedUsername = (djProfile.chatUsername || "")
           .toLowerCase()
           .replace(/[^a-z0-9]/g, "");
 
-        // Query past-external-shows where djUsername matches
-        // Note: This query requires a composite index on djUsername + endTime
-        const externalShowsRef = collection(db, "past-external-shows");
-        const q = query(
-          externalShowsRef,
-          where("djUsername", "==", normalizedUsername)
-        );
+        if (!normalizedUsername) return;
 
-        console.log("[DJ Profile] Querying past-external-shows for djUsername:", normalizedUsername);
-        const snapshot = await getDocs(q);
-        console.log("[DJ Profile] Found", snapshot.docs.length, "past external shows");
+        const res = await fetch(`/api/past-shows?dj=${normalizedUsername}`);
+        if (!res.ok) return;
 
-        // Map and filter for recurring shows only (weekly, monthly, biweekly, regular)
-        const shows: PastShow[] = snapshot.docs
-          .map((doc) => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              showName: data.showName,
-              startTime: data.startTime?.toMillis?.() || data.startTime,
-              endTime: data.endTime?.toMillis?.() || data.endTime,
-              stationId: data.stationId,
-              stationName: data.stationName,
-              showType: data.showType,
-            };
+        const data = await res.json();
+        const shows: PastShow[] = (data.shows || []).map(
+          (show: { id: string; showName: string; startTime: string; endTime: string; stationId: string; stationName: string; showType?: string }) => ({
+            id: show.id,
+            showName: show.showName,
+            startTime: new Date(show.startTime).getTime(),
+            endTime: new Date(show.endTime).getTime(),
+            stationId: show.stationId,
+            stationName: show.stationName,
+            showType: show.showType,
           })
-          .filter((show) => {
-            // Only show recurring shows (weekly, monthly, biweekly, regular)
-            const type = show.showType?.toLowerCase();
-            return type === "weekly" || type === "monthly" || type === "biweekly" || type === "regular";
-          });
-
-        // Sort by endTime descending (newest first)
-        shows.sort((a, b) => b.endTime - a.endTime);
+        );
 
         setPastExternalShows(shows);
       } catch (error) {
@@ -1072,10 +1080,16 @@ export function DJPublicProfileClient({ username }: Props) {
       });
     });
 
-    // Note: pastShows (Channel Broadcast shows without recordings) are not included
-    // because Channel Broadcast shows are never recurring
+    // Add past Channel Broadcast shows (without recordings)
+    pastBroadcastShows.forEach((show) => {
+      past.push({
+        ...show,
+        feedType: "show",
+        feedStatus: "past",
+      });
+    });
 
-    // Add past external shows (NTS, Subtle, dublab, etc.) - only recurring ones are included
+    // Add past external shows (NTS, Subtle, dublab, etc.)
     pastExternalShows.forEach((show) => {
       past.push({
         ...show,
@@ -1102,7 +1116,7 @@ export function DJPublicProfileClient({ username }: Props) {
     past.sort(sortPast);
 
     return { upcomingShows: upcoming, pastActivities: past };
-  }, [upcomingBroadcasts, pastRecordings, pastExternalShows, djProfile]);
+  }, [upcomingBroadcasts, pastRecordings, pastExternalShows, pastBroadcastShows, djProfile]);
 
   // Create Artist Selects (recommendations)
   const artistSelects = useMemo(() => {

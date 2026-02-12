@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { collection, query, where, getDocs } from 'firebase/firestore';
@@ -62,6 +62,9 @@ export function LAmbientClient() {
   const [authModalMessage, setAuthModalMessage] = useState<string | undefined>();
   const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
   const [addingReminderShowId, setAddingReminderShowId] = useState<string | null>(null);
+
+  // Past shows from history.json
+  const [pastHistoryShows, setPastHistoryShows] = useState<Show[]>([]);
 
   // Follow handler for online shows
   const handleFollow = useCallback(async (show: Show) => {
@@ -142,10 +145,82 @@ export function LAmbientClient() {
     fetchAll();
   }, []);
 
+  // Fetch past shows from history.json once selectors are loaded
+  useEffect(() => {
+    async function fetchPastHistory() {
+      if (selectors.length === 0) return;
+
+      const djUsernames = selectors.map(s => s.username).join(',');
+      try {
+        const res = await fetch(`/api/past-shows?djs=${djUsernames}`);
+        if (!res.ok) return;
+
+        const data = await res.json();
+        // Build a lookup from normalized username to selector profile
+        const selectorMap = new Map<string, SelectorProfile>();
+        for (const s of selectors) {
+          selectorMap.set(s.username, s);
+        }
+
+        const shows: Show[] = (data.shows || []).map(
+          (show: { id: string; showName: string; startTime: string; endTime: string; stationId: string; showType?: string }) => {
+            // Find which selector this show matched via the p field
+            // The API filters by p, and stationId comes back resolved
+            // We need to find the DJ — try matching show name against selectors
+            let matchedSelector: SelectorProfile | undefined;
+            for (const s of selectors) {
+              if (show.showName.toLowerCase().includes(s.displayName.toLowerCase())) {
+                matchedSelector = s;
+                break;
+              }
+            }
+
+            return {
+              id: show.id,
+              name: show.showName,
+              startTime: show.startTime,
+              endTime: show.endTime,
+              stationId: show.stationId,
+              dj: matchedSelector?.displayName,
+              djUsername: matchedSelector?.username,
+              djPhotoUrl: matchedSelector?.photoUrl,
+              type: show.showType,
+            } as Show;
+          }
+        );
+
+        setPastHistoryShows(shows);
+      } catch (err) {
+        console.error('[la-ambient] Error fetching past history shows:', err);
+      }
+    }
+
+    fetchPastHistory();
+  }, [selectors]);
+
   // Split online shows into upcoming vs past
   const now = Date.now();
   const upcomingShows = onlineShows.filter(s => new Date(s.endTime || s.startTime).getTime() >= now);
-  const pastShows = onlineShows.filter(s => new Date(s.endTime || s.startTime).getTime() < now);
+  const schedulePastShows = onlineShows.filter(s => new Date(s.endTime || s.startTime).getTime() < now);
+
+  // Merge schedule past shows with history past shows, deduplicating by ID
+  const pastShows = useMemo(() => {
+    const seen = new Set<string>();
+    const merged: Show[] = [];
+    // Schedule shows take priority (have richer data like djLocation, djGenres)
+    for (const show of schedulePastShows) {
+      seen.add(show.id);
+      merged.push(show);
+    }
+    for (const show of pastHistoryShows) {
+      if (!seen.has(show.id)) {
+        merged.push(show);
+      }
+    }
+    // Sort by start time descending (newest first)
+    merged.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+    return merged;
+  }, [schedulePastShows, pastHistoryShows]);
 
   // Build venue slug lookup from fetched venues
   const venueSlugMap = new Map<string, string>();
