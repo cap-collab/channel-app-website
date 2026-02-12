@@ -13,6 +13,11 @@ interface ApplicationModalProps {
   ) => Promise<{ broadcastUrl?: string } | void>;
 }
 
+function getApplicationType(app: DJApplicationSerialized): 'profile' | 'livestream' {
+  if (app.city || app.genre) return 'profile';
+  return 'livestream';
+}
+
 export function ApplicationModal({ application, onClose, onStatusChange }: ApplicationModalProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
@@ -20,6 +25,7 @@ export function ApplicationModal({ application, onClose, onStatusChange }: Appli
 
   const preferredSlots = application.preferredSlots || [];
   const selectedSlot = selectedSlotIndex !== null ? preferredSlots[selectedSlotIndex] : null;
+  const appType = getApplicationType(application);
 
   // Generate mailto link - opens in new tab
   const openMailto = (subject: string, body: string) => {
@@ -73,7 +79,7 @@ export function ApplicationModal({ application, onClose, onStatusChange }: Appli
 You're officially scheduled to livestream on Channel!
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Show: ${application.showName}
+Show: ${application.showName || application.djName}
 Date: ${formattedDate}
 Time: ${formattedStart} – ${formattedEnd} ${djTz}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -229,7 +235,16 @@ Thanks for understanding.
       <div className="bg-[#1a1a1a] rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-[#1a1a1a] border-b border-gray-800 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Application Details</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-semibold">Application Details</h2>
+            <span className={`px-2 py-0.5 text-xs rounded border ${
+              appType === 'profile'
+                ? 'bg-purple-900/30 text-purple-400 border-purple-800'
+                : 'bg-cyan-900/30 text-cyan-400 border-cyan-800'
+            }`}>
+              {appType === 'profile' ? 'Profile Claim' : 'Livestream Request'}
+            </span>
+          </div>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
@@ -252,25 +267,57 @@ Thanks for understanding.
               <label className="text-xs text-gray-500 uppercase tracking-wide">Email</label>
               <p className="text-white">{application.email}</p>
             </div>
-            <div>
-              <label className="text-xs text-gray-500 uppercase tracking-wide">Show Name</label>
-              <p className="text-white">{application.showName}</p>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 uppercase tracking-wide">Set Duration</label>
-              <p className="text-white">{application.setDuration} hours</p>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 uppercase tracking-wide">Location</label>
-              <p className="text-white capitalize">
-                {application.locationType}
-                {application.venueName && ` - ${application.venueName}`}
-              </p>
-            </div>
           </div>
 
-          {/* Setup Support Flag */}
-          {application.needsSetupSupport && (
+          {/* Profile Claim fields */}
+          {appType === 'profile' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-gray-500 uppercase tracking-wide">City</label>
+                <p className="text-white">{application.city || '—'}</p>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 uppercase tracking-wide">Genre</label>
+                <p className="text-white">{application.genre || '—'}</p>
+              </div>
+              {application.onlineRadioShow && (
+                <div className="col-span-2">
+                  <label className="text-xs text-gray-500 uppercase tracking-wide">Online Radio Show</label>
+                  <p className="text-white">{application.onlineRadioShow}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Livestream-specific fields */}
+          {appType === 'livestream' && (
+            <div className="grid grid-cols-2 gap-4">
+              {application.showName && (
+                <div>
+                  <label className="text-xs text-gray-500 uppercase tracking-wide">Show Name</label>
+                  <p className="text-white">{application.showName}</p>
+                </div>
+              )}
+              {application.setDuration && (
+                <div>
+                  <label className="text-xs text-gray-500 uppercase tracking-wide">Set Duration</label>
+                  <p className="text-white">{application.setDuration} hours</p>
+                </div>
+              )}
+              {application.locationType && (
+                <div>
+                  <label className="text-xs text-gray-500 uppercase tracking-wide">Location</label>
+                  <p className="text-white capitalize">
+                    {application.locationType}
+                    {application.venueName && ` - ${application.venueName}`}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Setup Support Flag (livestream only) */}
+          {appType === 'livestream' && application.needsSetupSupport && (
             <div className="p-3 bg-yellow-900/30 border border-yellow-800 rounded-xl">
               <p className="text-yellow-400 text-sm font-medium flex items-center gap-2">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -328,31 +375,33 @@ Thanks for understanding.
             </div>
           )}
 
-          {/* Preferred Slots */}
-          <div>
-            <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">
-              Preferred Time Slots
-              {isActionable && <span className="text-gray-600 normal-case"> (select one to approve)</span>}
-            </label>
-            <div className="space-y-2">
-              {preferredSlots.map((slot, index) => (
-                <button
-                  key={index}
-                  onClick={() => isActionable && setSelectedSlotIndex(index)}
-                  disabled={!isActionable}
-                  className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
-                    selectedSlotIndex === index
-                      ? 'bg-green-900/30 border-green-700 text-green-400'
-                      : isActionable
-                      ? 'bg-gray-800/50 border-gray-700 hover:border-gray-600 text-gray-300'
-                      : 'bg-gray-800/30 border-gray-800 text-gray-500'
-                  }`}
-                >
-                  {formatSlotTime(slot)}
-                </button>
-              ))}
+          {/* Preferred Slots (livestream only) */}
+          {preferredSlots.length > 0 && (
+            <div>
+              <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">
+                Preferred Time Slots
+                {isActionable && <span className="text-gray-600 normal-case"> (select one to approve)</span>}
+              </label>
+              <div className="space-y-2">
+                {preferredSlots.map((slot, index) => (
+                  <button
+                    key={index}
+                    onClick={() => isActionable && setSelectedSlotIndex(index)}
+                    disabled={!isActionable}
+                    className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
+                      selectedSlotIndex === index
+                        ? 'bg-green-900/30 border-green-700 text-green-400'
+                        : isActionable
+                        ? 'bg-gray-800/50 border-gray-700 hover:border-gray-600 text-gray-300'
+                        : 'bg-gray-800/30 border-gray-800 text-gray-500'
+                    }`}
+                  >
+                    {formatSlotTime(slot)}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Submitted Date */}
           <div>
@@ -372,32 +421,58 @@ Thanks for understanding.
           {/* Actions */}
           {isActionable && (
             <div className="pt-4 border-t border-gray-800">
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={handleApprove}
-                  disabled={isProcessing || selectedSlotIndex === null}
-                  className="flex-1 min-w-[140px] py-3 px-4 bg-green-600 text-white rounded-xl font-medium hover:bg-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isProcessing ? 'Processing...' : 'Approve & Schedule'}
-                </button>
-                <button
-                  onClick={handleRequestInfo}
-                  disabled={isProcessing}
-                  className="flex-1 min-w-[140px] py-3 px-4 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-500 transition-colors disabled:opacity-50"
-                >
-                  Request Info
-                </button>
-                <button
-                  onClick={handleDeny}
-                  disabled={isProcessing}
-                  className="flex-1 min-w-[140px] py-3 px-4 bg-gray-700 text-white rounded-xl font-medium hover:bg-gray-600 transition-colors disabled:opacity-50"
-                >
-                  Deny
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 mt-3 text-center">
-                Each action will open your email app with a pre-filled message to edit and send.
-              </p>
+              {appType === 'livestream' ? (
+                <>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={handleApprove}
+                      disabled={isProcessing || selectedSlotIndex === null}
+                      className="flex-1 min-w-[140px] py-3 px-4 bg-green-600 text-white rounded-xl font-medium hover:bg-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isProcessing ? 'Processing...' : 'Approve & Schedule'}
+                    </button>
+                    <button
+                      onClick={handleRequestInfo}
+                      disabled={isProcessing}
+                      className="flex-1 min-w-[140px] py-3 px-4 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-500 transition-colors disabled:opacity-50"
+                    >
+                      Request Info
+                    </button>
+                    <button
+                      onClick={handleDeny}
+                      disabled={isProcessing}
+                      className="flex-1 min-w-[140px] py-3 px-4 bg-gray-700 text-white rounded-xl font-medium hover:bg-gray-600 transition-colors disabled:opacity-50"
+                    >
+                      Deny
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-3 text-center">
+                    Each action will open your email app with a pre-filled message to edit and send.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={handleRequestInfo}
+                      disabled={isProcessing}
+                      className="flex-1 min-w-[140px] py-3 px-4 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-500 transition-colors disabled:opacity-50"
+                    >
+                      Request Info
+                    </button>
+                    <button
+                      onClick={handleDeny}
+                      disabled={isProcessing}
+                      className="flex-1 min-w-[140px] py-3 px-4 bg-gray-700 text-white rounded-xl font-medium hover:bg-gray-600 transition-colors disabled:opacity-50"
+                    >
+                      Deny
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-3 text-center">
+                    Each action will open your email app with a pre-filled message to edit and send.
+                  </p>
+                </>
+              )}
             </div>
           )}
 

@@ -176,6 +176,12 @@ export function DJApplicationsTab({ userId, onPendingCountChange }: DJApplicatio
   );
 }
 
+// Determine application type
+function getApplicationType(app: DJApplicationSerialized): 'profile' | 'livestream' {
+  if (app.city || app.genre) return 'profile';
+  return 'livestream';
+}
+
 // Application Card Component
 function ApplicationCard({
   application,
@@ -199,6 +205,7 @@ function ApplicationCard({
   };
 
   const submittedDate = new Date(application.submittedAt);
+  const appType = getApplicationType(application);
 
   return (
     <button
@@ -212,12 +219,29 @@ function ApplicationCard({
             <span className={`px-2 py-0.5 text-xs rounded border ${statusColors[application.status]}`}>
               {statusLabels[application.status]}
             </span>
+            <span className={`px-2 py-0.5 text-xs rounded border ${
+              appType === 'profile'
+                ? 'bg-purple-900/30 text-purple-400 border-purple-800'
+                : 'bg-cyan-900/30 text-cyan-400 border-cyan-800'
+            }`}>
+              {appType === 'profile' ? 'Profile' : 'Livestream'}
+            </span>
           </div>
-          <p className="text-sm text-gray-400 truncate">{application.showName}</p>
           <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-            <span className="capitalize">{application.locationType}</span>
-            {application.venueName && <span>@ {application.venueName}</span>}
-            <span>{(application.preferredSlots || []).length} time slot(s)</span>
+            {appType === 'profile' ? (
+              <>
+                {application.city && <span>{application.city}</span>}
+                {application.genre && <span>{application.genre}</span>}
+                {application.onlineRadioShow && <span>Radio: {application.onlineRadioShow}</span>}
+              </>
+            ) : (
+              <>
+                {application.showName && <p className="text-sm text-gray-400 truncate">{application.showName}</p>}
+                {application.locationType && <span className="capitalize">{application.locationType}</span>}
+                {application.venueName && <span>@ {application.venueName}</span>}
+                <span>{(application.preferredSlots || []).length} time slot(s)</span>
+              </>
+            )}
           </div>
         </div>
         <div className="text-right text-xs text-gray-500 shrink-0">
