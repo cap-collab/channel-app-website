@@ -165,7 +165,7 @@ export function LAmbientClient() {
             LA Scene — Ambient x Techno
           </h1>
           <p className="text-zinc-400 text-base font-light max-w-xl mt-2">
-            A map of the selectors and spaces shaping LA&apos;s ambient and techno scene.
+            A map of the selectors and spaces shaping LA&apos;s ambient x techno scene.
           </p>
         </section>
 
@@ -298,22 +298,8 @@ function SelectorCard({
         </Link>
       </div>
 
-      {/* Info */}
-      <div className="flex flex-col justify-start py-2">
-        <h3 className="text-sm font-bold leading-tight truncate">
-          <Link href={`/dj/${selector.username}`} className="hover:underline">
-            {selector.displayName}
-          </Link>
-        </h3>
-        {selector.genres && selector.genres.length > 0 && (
-          <p className="text-[10px] font-mono text-zinc-500 mt-0.5 uppercase tracking-tighter">
-            {selector.genres.join(' · ')}
-          </p>
-        )}
-      </div>
-
       {/* Follow + View Profile buttons */}
-      <div className="flex gap-2 mt-auto">
+      <div className="flex gap-2 mt-2">
         <button
           onClick={onFollow}
           disabled={isAddingFollow}

@@ -5,16 +5,16 @@ import { LAmbientClient } from "./LAmbientClient";
 export const metadata: Metadata = {
   title: "LA Scene — Ambient x Techno | Channel",
   description:
-    "A map of the selectors and spaces shaping LA's ambient and techno scene.",
+    "A map of the selectors and spaces shaping LA's ambient x techno scene.",
   openGraph: {
     title: "LA Scene — Ambient x Techno | Channel",
     description:
-      "A map of the selectors and spaces shaping LA's ambient and techno scene.",
+      "A map of the selectors and spaces shaping LA's ambient x techno scene.",
   },
   twitter: {
     title: "LA Scene — Ambient x Techno | Channel",
     description:
-      "A map of the selectors and spaces shaping LA's ambient and techno scene.",
+      "A map of the selectors and spaces shaping LA's ambient x techno scene.",
   },
 };
 
