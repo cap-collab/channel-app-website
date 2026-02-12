@@ -73,7 +73,7 @@ export function DJPortalClient() {
       setErrorMessage('Please enter a valid email address');
       return false;
     }
-    if (!formData.showName.trim()) {
+    if (!formData.showName?.trim()) {
       setErrorMessage('Show name is required');
       return false;
     }
@@ -89,7 +89,7 @@ export function DJPortalClient() {
       setErrorMessage('Please enter the venue name');
       return false;
     }
-    if (formData.preferredSlots.length === 0) {
+    if (!formData.preferredSlots || formData.preferredSlots.length === 0) {
       setErrorMessage('Please select at least one preferred time slot');
       return false;
     }
@@ -427,9 +427,9 @@ export function DJPortalClient() {
                   Click a start time to add a {formData.setDuration}-hour slot. Click again to remove it.
                 </p>
                 <TimeSlotPicker
-                  selectedSlots={formData.preferredSlots}
+                  selectedSlots={formData.preferredSlots || []}
                   onChange={handleSlotsChange}
-                  setDuration={formData.setDuration}
+                  setDuration={formData.setDuration || 2}
                 />
               </div>
 

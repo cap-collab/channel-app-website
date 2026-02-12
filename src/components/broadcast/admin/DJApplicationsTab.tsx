@@ -217,7 +217,7 @@ function ApplicationCard({
           <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
             <span className="capitalize">{application.locationType}</span>
             {application.venueName && <span>@ {application.venueName}</span>}
-            <span>{application.preferredSlots.length} time slot(s)</span>
+            <span>{(application.preferredSlots || []).length} time slot(s)</span>
           </div>
         </div>
         <div className="text-right text-xs text-gray-500 shrink-0">

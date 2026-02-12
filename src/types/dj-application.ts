@@ -12,17 +12,20 @@ export interface DJApplication {
   id: string;
   djName: string;
   email: string;
-  showName: string;
-  setDuration: number; // Duration in hours (0.5 to 24, 0.5 increments)
-  locationType: LocationType;
+  showName?: string;
+  setDuration?: number;
+  locationType?: LocationType;
   venueName?: string;
   soundcloud?: string;
   instagram?: string;
   youtube?: string;
-  preferredSlots: TimeSlot[];
-  timezone: string; // IANA timezone, e.g., "America/New_York"
+  preferredSlots?: TimeSlot[];
+  timezone?: string;
   comments?: string;
   needsSetupSupport?: boolean;
+  city?: string;
+  genre?: string;
+  onlineRadioShow?: string;
   status: DJApplicationStatus;
   submittedAt: Timestamp;
   adminNotes?: string;
@@ -34,17 +37,20 @@ export interface DJApplicationSerialized {
   id: string;
   djName: string;
   email: string;
-  showName: string;
-  setDuration: number; // Duration in hours (0.5 to 24, 0.5 increments)
-  locationType: LocationType;
+  showName?: string;
+  setDuration?: number;
+  locationType?: LocationType;
   venueName?: string;
   soundcloud?: string;
   instagram?: string;
   youtube?: string;
-  preferredSlots: TimeSlot[];
-  timezone: string;
+  preferredSlots?: TimeSlot[];
+  timezone?: string;
   comments?: string;
   needsSetupSupport?: boolean;
+  city?: string;
+  genre?: string;
+  onlineRadioShow?: string;
   status: DJApplicationStatus;
   submittedAt: number;
   adminNotes?: string;
@@ -55,15 +61,18 @@ export interface DJApplicationSerialized {
 export interface DJApplicationFormData {
   djName: string;
   email: string;
-  showName: string;
-  setDuration: number; // Duration in hours (0.5 to 24, 0.5 increments)
-  locationType: LocationType;
+  showName?: string;
+  setDuration?: number;
+  locationType?: LocationType;
   venueName?: string;
   soundcloud?: string;
   instagram?: string;
   youtube?: string;
-  preferredSlots: TimeSlot[];
-  timezone: string;
+  preferredSlots?: TimeSlot[];
+  timezone?: string;
   comments?: string;
   needsSetupSupport?: boolean;
+  city?: string;
+  genre?: string;
+  onlineRadioShow?: string;
 }

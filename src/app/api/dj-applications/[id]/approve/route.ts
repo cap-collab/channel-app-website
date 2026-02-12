@@ -117,7 +117,7 @@ export async function POST(
 
     const slotData: Record<string, unknown> = {
       stationId: STATION_ID,
-      showName: application.showName,
+      showName: application.showName || application.djName,
       djName: djNameFromProfile || application.djName, // Use profile name if available
       djEmail: application.email, // Store DJ's email for matching/reconciliation
       djSlots: null,
@@ -147,7 +147,7 @@ export async function POST(
     const slot: BroadcastSlotSerialized = {
       id: docRef.id,
       stationId: STATION_ID,
-      showName: application.showName,
+      showName: application.showName || application.djName,
       djName: djNameFromProfile || application.djName,
       djUserId: djUserId || undefined,
       djEmail: application.email,

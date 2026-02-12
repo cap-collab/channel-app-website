@@ -1250,7 +1250,7 @@ export function StudioProfileClient() {
               href="/studio/join"
               className="bg-white text-black px-6 py-3 rounded font-medium hover:bg-gray-100 transition-colors inline-block"
             >
-              Apply to DJ
+              Claim your curator profile
             </Link>
           </div>
         </main>
@@ -1367,7 +1367,7 @@ export function StudioProfileClient() {
                 Record my set
               </Link>
               <Link
-                href="/studio/join"
+                href="/studio/livestream"
                 className="flex-1 block bg-gray-800 text-white text-center py-3 rounded font-medium hover:bg-gray-700 transition-colors border border-gray-700"
               >
                 Request a live stream slot

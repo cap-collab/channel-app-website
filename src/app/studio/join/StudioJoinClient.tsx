@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { HeaderSearch } from '@/components/HeaderSearch';
-import { TimeSlotPicker } from '@/components/dj-portal/TimeSlotPicker';
-import { DJApplicationFormData, TimeSlot, LocationType } from '@/types/dj-application';
+import { DJApplicationFormData } from '@/types/dj-application';
 import { AuthModal } from '@/components/AuthModal';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isDJ } from '@/hooks/useUserRole';
@@ -23,17 +22,13 @@ export function StudioJoinClient() {
   const [formData, setFormData] = useState<DJApplicationFormData>({
     djName: '',
     email: '',
-    showName: '',
-    setDuration: 2, // Default 2 hours
-    locationType: 'home',
-    venueName: '',
+    city: '',
+    genre: '',
+    onlineRadioShow: '',
     soundcloud: '',
     instagram: '',
     youtube: '',
-    preferredSlots: [],
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, // Auto-detect user's timezone
     comments: '',
-    needsSetupSupport: false,
   });
   const [agreedToDJTerms, setAgreedToDJTerms] = useState(false);
   const [status, setStatus] = useState<FormStatus>('idle');
@@ -138,30 +133,6 @@ export function StudioJoinClient() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleLocationChange = (locationType: LocationType) => {
-    setFormData((prev) => ({ ...prev, locationType, venueName: '' }));
-  };
-
-  const handleSlotsChange = (slots: TimeSlot[]) => {
-    setFormData((prev) => ({ ...prev, preferredSlots: slots }));
-  };
-
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, checked } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: checked }));
-  };
-
-  const handleDurationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawValue = parseFloat(e.target.value);
-    if (isNaN(rawValue)) return;
-
-    // Round to nearest 0.5 and clamp to valid range
-    const roundedValue = Math.round(rawValue * 2) / 2;
-    const clampedValue = Math.max(0.5, Math.min(24, roundedValue));
-
-    setFormData((prev) => ({ ...prev, setDuration: clampedValue }));
-  };
-
   const validateForm = (): boolean => {
     if (!formData.djName.trim()) {
       setErrorMessage('Curator name is required');
@@ -176,24 +147,12 @@ export function StudioJoinClient() {
       setErrorMessage('Please enter a valid email address');
       return false;
     }
-    if (!formData.showName.trim()) {
-      setErrorMessage('Show name is required');
+    if (!formData.city?.trim()) {
+      setErrorMessage('City is required');
       return false;
     }
-    if (!formData.setDuration || formData.setDuration < 0.5 || formData.setDuration > 24) {
-      setErrorMessage('Set duration must be between 0.5 and 24 hours');
-      return false;
-    }
-    if ((formData.setDuration * 2) % 1 !== 0) {
-      setErrorMessage('Set duration must be in 0.5 hour increments (e.g., 2 or 2.5, not 2.3)');
-      return false;
-    }
-    if (formData.locationType === 'venue' && !formData.venueName?.trim()) {
-      setErrorMessage('Please enter the venue name');
-      return false;
-    }
-    if (formData.preferredSlots.length === 0) {
-      setErrorMessage('Please select at least one preferred time slot');
+    if (!formData.genre?.trim()) {
+      setErrorMessage('Genre is required');
       return false;
     }
     return true;
@@ -299,9 +258,9 @@ export function StudioJoinClient() {
                 />
               </svg>
             </div>
-            <h1 className="text-3xl font-bold mb-4">Application Submitted!</h1>
+            <h1 className="text-3xl font-bold mb-4">Thank you!</h1>
             <p className="text-gray-400 mb-8">
-              Thanks {formData.djName}! We&apos;ll review your application and get back to you soon.
+              Thanks {formData.djName}! We&apos;ll get back to you within 3 business days.
             </p>
             <Link
               href="/"
@@ -480,16 +439,12 @@ export function StudioJoinClient() {
             </div>
           )}
 
-{/* Channel Broadcast Application Section - Only show for DJs */}
+          {/* Claim Your Curator Profile Section - Only show for DJs */}
           {userIsDJ && (
             <div className="border-t border-gray-800 pt-12">
-              <h2 className="text-2xl font-semibold mb-4">Request a live stream slot</h2>
+              <h2 className="text-2xl font-semibold mb-4">Claim your curator profile</h2>
               <p className="text-gray-400 mb-4">
-                Apply to schedule a live set on our radio. If you&apos;re unsure about your setup, check the{' '}
-                <Link href="/streaming-guide" className="text-white underline hover:text-gray-300 transition-colors">
-                  streaming guide
-                </Link>{' '}
-                or reach out at{' '}
+                Tell us a bit about yourself so we can set up your profile. If you have questions, reach out at{' '}
                 <a href="mailto:info@channel-app.com" className="text-white underline hover:text-gray-300 transition-colors">
                   info@channel-app.com
                 </a>.
@@ -537,121 +492,64 @@ export function StudioJoinClient() {
                 />
               </div>
 
-              {/* Show Name */}
+              {/* City */}
               <div>
                 <label
-                  htmlFor="showName"
+                  htmlFor="city"
                   className="block text-sm font-medium text-gray-300 mb-2"
                 >
-                  Show Name *
+                  City *
                 </label>
                 <input
                   type="text"
-                  id="showName"
-                  name="showName"
-                  value={formData.showName}
+                  id="city"
+                  name="city"
+                  value={formData.city}
                   onChange={handleInputChange}
-                  placeholder="Name of your show or set"
+                  placeholder="e.g., Los Angeles"
                   className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
                 />
               </div>
 
-              {/* Set Duration */}
+              {/* Genre */}
               <div>
                 <label
-                  htmlFor="setDuration"
+                  htmlFor="genre"
                   className="block text-sm font-medium text-gray-300 mb-2"
                 >
-                  Set Duration (hours) *
+                  Genre *
                 </label>
-                <p className="text-sm text-gray-500 mb-3">
-                  How long will your set be? All your preferred time slots will use this duration.
+                <input
+                  type="text"
+                  id="genre"
+                  name="genre"
+                  value={formData.genre}
+                  onChange={handleInputChange}
+                  placeholder="e.g., House, Techno, Ambient"
+                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
+                />
+                <p className="text-sm text-gray-600 mt-1">
+                  Separate genres with commas
                 </p>
-                <div className="flex items-center gap-4">
-                  <input
-                    type="number"
-                    id="setDuration"
-                    name="setDuration"
-                    value={formData.setDuration}
-                    onChange={handleDurationChange}
-                    min={0.5}
-                    max={24}
-                    step={0.5}
-                    className="w-32 px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors text-center"
-                  />
-                  <span className="text-gray-400">hours</span>
-                </div>
               </div>
 
-              {/* Location Type */}
+              {/* Online Radio Show */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-3">
-                  Where will you be streaming from? *
+                <label
+                  htmlFor="onlineRadioShow"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
+                  Online Radio Show
                 </label>
-                <div className="flex gap-4">
-                  <button
-                    type="button"
-                    onClick={() => handleLocationChange('home')}
-                    className={`flex-1 py-3 px-4 rounded border transition-colors ${
-                      formData.locationType === 'home'
-                        ? 'bg-white text-black border-white'
-                        : 'bg-[#1a1a1a] text-gray-300 border-gray-800 hover:border-gray-600'
-                    }`}
-                  >
-                    Home
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleLocationChange('venue')}
-                    className={`flex-1 py-3 px-4 rounded border transition-colors ${
-                      formData.locationType === 'venue'
-                        ? 'bg-white text-black border-white'
-                        : 'bg-[#1a1a1a] text-gray-300 border-gray-800 hover:border-gray-600'
-                    }`}
-                  >
-                    Venue
-                  </button>
-                </div>
-              </div>
-
-              {/* Venue Name (conditional) */}
-              {formData.locationType === 'venue' && (
-                <div>
-                  <label
-                    htmlFor="venueName"
-                    className="block text-sm font-medium text-gray-300 mb-2"
-                  >
-                    Venue Name *
-                  </label>
-                  <input
-                    type="text"
-                    id="venueName"
-                    name="venueName"
-                    value={formData.venueName}
-                    onChange={handleInputChange}
-                    placeholder="Name of the venue"
-                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
-                  />
-                </div>
-              )}
-
-              {/* Setup Support Checkbox */}
-              <div className="pt-4">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="needsSetupSupport"
-                    checked={formData.needsSetupSupport}
-                    onChange={handleCheckboxChange}
-                    className="mt-1 w-5 h-5 rounded border-gray-700 bg-[#1a1a1a] text-white focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                  />
-                  <span className="text-sm text-gray-300">
-                    I need help setting up my livestream
-                    <span className="block text-gray-500 mt-1">
-                      We&apos;ll reach out to walk you through the setup process before your scheduled time.
-                    </span>
-                  </span>
-                </label>
+                <input
+                  type="text"
+                  id="onlineRadioShow"
+                  name="onlineRadioShow"
+                  value={formData.onlineRadioShow}
+                  onChange={handleInputChange}
+                  placeholder="Name of your radio show (if any)"
+                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
+                />
               </div>
 
               {/* Social Links */}
@@ -716,21 +614,6 @@ export function StudioJoinClient() {
                 </div>
               </div>
 
-              {/* Time Slot Picker */}
-              <div className="pt-6">
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Preferred Set Times *
-                </label>
-                <p className="text-sm text-gray-500 mb-4">
-                  Click a start time to add a {formData.setDuration}-hour slot. Click again to remove it.
-                </p>
-                <TimeSlotPicker
-                  selectedSlots={formData.preferredSlots}
-                  onChange={handleSlotsChange}
-                  setDuration={formData.setDuration}
-                />
-              </div>
-
               {/* Comments */}
               <div className="pt-6">
                 <label
@@ -744,7 +627,7 @@ export function StudioJoinClient() {
                   name="comments"
                   value={formData.comments}
                   onChange={handleInputChange}
-                  placeholder="Anything else you'd like us to know about your set, style, or availability?"
+                  placeholder="Anything else you'd like us to know?"
                   rows={4}
                   className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors resize-none"
                 />
@@ -753,7 +636,7 @@ export function StudioJoinClient() {
               {/* Help text */}
               <div className="pt-6 border-t border-gray-800">
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  If you have questions or aren&apos;t sure whether your setup works, reach out at{' '}
+                  If you have questions, reach out at{' '}
                   <a
                     href="mailto:info@channel-app.com"
                     className="text-white hover:underline"
@@ -782,7 +665,7 @@ export function StudioJoinClient() {
                     Submitting...
                   </>
                 ) : (
-                  'Apply'
+                  'Submit'
                 )}
               </button>
             </form>

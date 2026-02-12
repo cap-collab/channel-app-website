@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Resend } from 'resend';
 import { getApplications, createApplication } from '@/lib/dj-applications';
 import { DJApplicationFormData } from '@/types/dj-application';
+
+const resend = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null;
 
 // POST: Create new application
 export async function POST(request: NextRequest) {
@@ -14,23 +19,34 @@ export async function POST(request: NextRequest) {
     if (!data.email?.trim()) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
-    if (!data.showName?.trim()) {
-      return NextResponse.json({ error: 'Show name is required' }, { status: 400 });
-    }
-    if (!data.setDuration || data.setDuration < 0.5 || data.setDuration > 24) {
-      return NextResponse.json({ error: 'Set duration must be between 0.5 and 24 hours' }, { status: 400 });
-    }
-    if ((data.setDuration * 2) % 1 !== 0) {
-      return NextResponse.json({ error: 'Set duration must be in 0.5 hour increments' }, { status: 400 });
-    }
-    if (!data.preferredSlots || data.preferredSlots.length === 0) {
-      return NextResponse.json({ error: 'At least one preferred time slot is required' }, { status: 400 });
-    }
-    if (data.locationType === 'venue' && !data.venueName?.trim()) {
-      return NextResponse.json({ error: 'Venue name is required' }, { status: 400 });
-    }
 
     const application = await createApplication(data);
+
+    // Send notification email (fire-and-forget)
+    try {
+      if (resend) {
+        const fields = [
+          `<strong>Curator Name:</strong> ${data.djName}`,
+          `<strong>Email:</strong> ${data.email}`,
+          data.city ? `<strong>City:</strong> ${data.city}` : null,
+          data.genre ? `<strong>Genre:</strong> ${data.genre}` : null,
+          data.onlineRadioShow ? `<strong>Online Radio Show:</strong> ${data.onlineRadioShow}` : null,
+          data.soundcloud ? `<strong>SoundCloud:</strong> ${data.soundcloud}` : null,
+          data.instagram ? `<strong>Instagram:</strong> ${data.instagram}` : null,
+          data.youtube ? `<strong>YouTube:</strong> ${data.youtube}` : null,
+          data.comments ? `<strong>Comments:</strong> ${data.comments}` : null,
+        ].filter(Boolean);
+
+        await resend.emails.send({
+          from: 'Channel <djshows@channel-app.com>',
+          to: 'cap@channel-app.com',
+          subject: `New Curator Profile Claim: ${data.djName}`,
+          html: `<div style="font-family: sans-serif; line-height: 1.6;">${fields.join('<br/>')}</div>`,
+        });
+      }
+    } catch (emailError) {
+      console.error('Failed to send notification email:', emailError);
+    }
 
     return NextResponse.json({ application }, { status: 201 });
   } catch (error) {

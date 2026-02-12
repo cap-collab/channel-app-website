@@ -18,7 +18,8 @@ export function ApplicationModal({ application, onClose, onStatusChange }: Appli
   const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const selectedSlot = selectedSlotIndex !== null ? application.preferredSlots[selectedSlotIndex] : null;
+  const preferredSlots = application.preferredSlots || [];
+  const selectedSlot = selectedSlotIndex !== null ? preferredSlots[selectedSlotIndex] : null;
 
   // Generate mailto link - opens in new tab
   const openMailto = (subject: string, body: string) => {
@@ -334,7 +335,7 @@ Thanks for understanding.
               {isActionable && <span className="text-gray-600 normal-case"> (select one to approve)</span>}
             </label>
             <div className="space-y-2">
-              {application.preferredSlots.map((slot, index) => (
+              {preferredSlots.map((slot, index) => (
                 <button
                   key={index}
                   onClick={() => isActionable && setSelectedSlotIndex(index)}
