@@ -420,70 +420,65 @@ function VenueCard({ venue }: { venue: Venue }) {
   const [imageError, setImageError] = useState(false);
   const hasPhoto = venue.photo && !imageError;
 
+  const thumbnail = hasPhoto ? (
+    <Image
+      src={venue.photo!}
+      alt={venue.name}
+      width={64}
+      height={64}
+      className="w-16 h-16 rounded-lg object-cover"
+      unoptimized
+      onError={() => setImageError(true)}
+    />
+  ) : (
+    <div className="w-16 h-16 rounded-lg bg-white flex items-center justify-center">
+      <span className="text-2xl font-black text-black">{venue.name.charAt(0).toUpperCase()}</span>
+    </div>
+  );
+
   const content = (
-    <div className="flex flex-col">
-      <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10">
-        {hasPhoto ? (
-          <>
-            <Image
-              src={venue.photo!}
-              alt={venue.name}
-              fill
-              className="object-cover"
-              unoptimized
-              onError={() => setImageError(true)}
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
-            <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
-          </>
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-white">
-            <span className="text-4xl font-black uppercase tracking-tight leading-none text-black text-center px-4">
-              {venue.name.charAt(0).toUpperCase()}
-            </span>
-          </div>
-        )}
-        <div className="absolute bottom-2 left-2 right-2">
-          <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
-            {venue.name}
-          </span>
+    <div className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors">
+      <div className="flex items-start gap-4">
+        <div className="flex-shrink-0">
+          {thumbnail}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-medium">{venue.name}</p>
           {venue.location && (
-            <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
+            <p className="text-zinc-500 text-xs uppercase tracking-wide mt-0.5">
               {venue.location}
-            </span>
+            </p>
+          )}
+          {venue.genres && venue.genres.length > 0 && (
+            <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter mt-1">
+              {venue.genres.join(' · ')}
+            </p>
+          )}
+          {venue.residentDJs && venue.residentDJs.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              {venue.residentDJs
+                .filter((dj: EventDJRef) => dj.djName)
+                .map((dj: EventDJRef, i: number) =>
+                  dj.djUsername ? (
+                    <Link
+                      key={i}
+                      href={`/dj/${dj.djUsername}`}
+                      className="text-xs text-zinc-400 hover:text-white transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {dj.djName}
+                      {i < (venue.residentDJs?.length ?? 0) - 1 ? ',' : ''}
+                    </Link>
+                  ) : (
+                    <span key={i} className="text-xs text-zinc-400">
+                      {dj.djName}
+                      {i < (venue.residentDJs?.length ?? 0) - 1 ? ',' : ''}
+                    </span>
+                  )
+                )}
+            </div>
           )}
         </div>
-      </div>
-      <div className="py-2">
-        {venue.genres && venue.genres.length > 0 && (
-          <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">
-            {venue.genres.join(' · ')}
-          </p>
-        )}
-        {venue.residentDJs && venue.residentDJs.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-1">
-            {venue.residentDJs
-              .filter((dj: EventDJRef) => dj.djName)
-              .map((dj: EventDJRef, i: number) =>
-                dj.djUsername ? (
-                  <Link
-                    key={i}
-                    href={`/dj/${dj.djUsername}`}
-                    className="text-xs text-zinc-400 hover:text-white transition-colors"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {dj.djName}
-                    {i < (venue.residentDJs?.length ?? 0) - 1 ? ',' : ''}
-                  </Link>
-                ) : (
-                  <span key={i} className="text-xs text-zinc-400">
-                    {dj.djName}
-                    {i < (venue.residentDJs?.length ?? 0) - 1 ? ',' : ''}
-                  </span>
-                )
-              )}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -722,12 +717,12 @@ function UpcomingDatesSection({
   return (
     <section className="mb-10">
       <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">
-        Upcoming LA Dates
+        Upcoming IRL Events
       </h2>
 
       {items.length === 0 ? (
         <p className="text-zinc-500 text-sm py-8">
-          No upcoming LA dates currently listed.
+          No upcoming IRL events currently listed.
         </p>
       ) : (
         <div className="space-y-3">
@@ -748,60 +743,66 @@ function IRLDateCard({ show }: { show: IRLShowData }) {
   const [imageError, setImageError] = useState(false);
   const hasPhoto = show.djPhotoUrl && !imageError;
 
+  const djThumb = hasPhoto ? (
+    <Image
+      src={show.djPhotoUrl!}
+      alt={show.djName}
+      width={48}
+      height={48}
+      className="w-12 h-12 rounded-full object-cover"
+      unoptimized
+      onError={() => setImageError(true)}
+    />
+  ) : (
+    <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center">
+      <span className="text-lg font-black text-black">{show.djName.charAt(0).toUpperCase()}</span>
+    </div>
+  );
+
   return (
-    <div className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors">
-      <div className="flex items-start gap-4">
-        {show.djUsername ? (
-          <Link href={`/dj/${show.djUsername}`} className="flex-shrink-0">
-            {hasPhoto ? (
-              <Image
-                src={show.djPhotoUrl!}
-                alt={show.djName}
-                width={48}
-                height={48}
-                className="w-12 h-12 rounded-full object-cover"
-                unoptimized
-                onError={() => setImageError(true)}
-              />
-            ) : (
-              <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center">
-                <span className="text-lg font-black text-black">{show.djName.charAt(0).toUpperCase()}</span>
-              </div>
-            )}
-          </Link>
-        ) : (
-          <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center flex-shrink-0">
-            <span className="text-lg font-black text-black">{show.djName.charAt(0).toUpperCase()}</span>
+    <div>
+      {/* Date above card */}
+      <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter mb-1">
+        {new Date(show.date + 'T00:00:00').toLocaleDateString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+        })}
+      </p>
+      <div className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors">
+        <div className="flex items-start gap-4">
+          <div className="flex-shrink-0">
+            {show.djUsername ? (
+              <Link href={`/dj/${show.djUsername}`}>{djThumb}</Link>
+            ) : djThumb}
           </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <p className="text-white font-medium">{show.eventName}</p>
-          <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">
-            {new Date(show.date + 'T00:00:00').toLocaleDateString('en-US', {
-              weekday: 'short',
-              month: 'short',
-              day: 'numeric',
-            })}
-            {show.location && <> &middot; {show.location}</>}
-          </p>
-          {show.djUsername && (
-            <Link
-              href={`/dj/${show.djUsername}`}
-              className="text-xs text-zinc-400 hover:text-white transition-colors"
-            >
-              {show.djName}
-            </Link>
-          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-medium">{show.eventName}</p>
+            {show.location && (
+              <p className="text-zinc-500 text-xs uppercase tracking-wide mt-0.5">
+                {show.location}
+              </p>
+            )}
+            {show.djUsername && (
+              <Link
+                href={`/dj/${show.djUsername}`}
+                className="text-xs text-zinc-400 hover:text-white transition-colors"
+              >
+                {show.djName}
+              </Link>
+            )}
+          </div>
         </div>
+        {/* Tickets button below */}
         {show.ticketUrl && (
           <a
             href={show.ticketUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black text-xs font-medium rounded-full hover:bg-zinc-200 transition-colors flex-shrink-0"
+            className="flex items-center justify-center gap-2 w-full mt-3 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white"
           >
             Tickets
-            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
           </a>
@@ -844,68 +845,58 @@ function EventDateCard({ event, venueSlugMap, venuePhotoMap }: { event: Event; v
   const hasVenuePhoto = (event.photo || venuePhoto) && !venueImageError;
   const displayPhoto = event.photo || venuePhoto;
 
+  const venueThumb = hasVenuePhoto ? (
+    <Image
+      src={displayPhoto!}
+      alt={event.venueName || event.name}
+      width={48}
+      height={48}
+      className="w-12 h-12 rounded-lg object-cover"
+      unoptimized
+      onError={() => setVenueImageError(true)}
+    />
+  ) : (
+    <div className="w-12 h-12 rounded-lg bg-white flex items-center justify-center">
+      <span className="text-lg font-black text-black">{(event.venueName || event.name).charAt(0).toUpperCase()}</span>
+    </div>
+  );
+
   return (
-    <div className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors">
-      <div className="flex items-start gap-4">
-        {/* Venue photo or fallback icon */}
-        {venueSlug ? (
-          <Link href={`/venue/${venueSlug}`} className="flex-shrink-0">
-            {hasVenuePhoto ? (
-              <Image
-                src={displayPhoto!}
-                alt={event.venueName || event.name}
-                width={64}
-                height={64}
-                className="w-16 h-16 rounded-lg object-cover"
-                unoptimized
-                onError={() => setVenueImageError(true)}
-              />
-            ) : (
-              <div className="w-16 h-16 rounded-lg bg-white flex items-center justify-center">
-                <span className="text-2xl font-black text-black">{(event.venueName || event.name).charAt(0).toUpperCase()}</span>
-              </div>
-            )}
-          </Link>
-        ) : hasVenuePhoto ? (
-          <Image
-            src={displayPhoto!}
-            alt={event.venueName || event.name}
-            width={64}
-            height={64}
-            className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-            unoptimized
-            onError={() => setVenueImageError(true)}
-          />
-        ) : (
-          <div className="w-16 h-16 rounded-lg bg-white flex items-center justify-center flex-shrink-0">
-            <span className="text-2xl font-black text-black">{(event.venueName || event.name).charAt(0).toUpperCase()}</span>
-          </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <p className="text-white font-medium">{event.name}</p>
-          <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">
-            {formatEventDate(event.date)}
-            {event.venueName && venueSlug ? (
-              <>
-                {' '}&middot;{' '}
-                <Link href={`/venue/${venueSlug}`} className="hover:text-white transition-colors">
-                  {event.venueName}
-                </Link>
-              </>
-            ) : event.venueName ? (
-              <> &middot; {event.venueName}</>
-            ) : event.location ? (
-              <> &middot; {event.location}</>
-            ) : null}
-          </p>
-          {event.djs.length > 0 && (
-            <div className="flex items-center gap-2">
+    <div>
+      {/* Date above card */}
+      <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter mb-1">
+        {formatEventDate(event.date)}
+      </p>
+      <div className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors">
+        <div className="flex items-start gap-4">
+          {/* Venue + DJ images */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {venueSlug ? (
+              <Link href={`/venue/${venueSlug}`}>{venueThumb}</Link>
+            ) : venueThumb}
+            {event.djs.length > 0 && (
               <div className="flex -space-x-2">
-                {event.djs.slice(0, 5).map((dj: EventDJRef, i: number) => (
+                {event.djs.slice(0, 3).map((dj: EventDJRef, i: number) => (
                   <DJAvatar key={i} dj={dj} />
                 ))}
               </div>
-              <div className="flex flex-wrap gap-1.5">
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-medium">{event.name}</p>
+            <p className="text-zinc-500 text-xs uppercase tracking-wide mt-0.5">
+              {event.venueName && venueSlug ? (
+                <Link href={`/venue/${venueSlug}`} className="hover:text-white transition-colors">
+                  {event.venueName}
+                </Link>
+              ) : event.venueName ? (
+                <>{event.venueName}</>
+              ) : event.location ? (
+                <>{event.location}</>
+              ) : null}
+            </p>
+            {event.djs.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-1">
                 {event.djs.map((dj: EventDJRef, i: number) =>
                   dj.djUsername ? (
                     <Link
@@ -924,18 +915,19 @@ function EventDateCard({ event, venueSlugMap, venuePhotoMap }: { event: Event; v
                   )
                 )}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
+        {/* Tickets button below */}
         {event.ticketLink && (
           <a
             href={event.ticketLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black text-xs font-medium rounded-full hover:bg-zinc-200 transition-colors flex-shrink-0"
+            className="flex items-center justify-center gap-2 w-full mt-3 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white"
           >
             Tickets
-            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
           </a>
