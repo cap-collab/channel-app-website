@@ -517,70 +517,47 @@ async function fetchSelectors(): Promise<SelectorProfile[]> {
   const profiles: SelectorProfile[] = [];
   const seenUsernames = new Set<string>();
 
-  // Query users collection
+  function processDoc(data: Record<string, unknown>) {
+    const djProfile = data?.djProfile as Record<string, unknown> | undefined;
+    const username = data?.chatUsername as string | undefined;
+    if (!username || !djProfile) return;
+
+    const location = (djProfile.location as string) || '';
+    if (!matchesCity(location, 'Los Angeles')) return;
+
+    const genres: string[] = (djProfile.genres as string[]) || [];
+    if (!matchesAmbient(genres)) return;
+
+    const normalized = username.replace(/\s+/g, '').toLowerCase();
+    if (seenUsernames.has(normalized)) return;
+    seenUsernames.add(normalized);
+
+    profiles.push({
+      username: normalized,
+      displayName: username,
+      photoUrl: (djProfile.photoUrl as string) || undefined,
+      location: location || undefined,
+      genres,
+      bio: (djProfile.bio as string) || undefined,
+    });
+  }
+
+  // Query users collection — fetch all DJs, filter client-side
   try {
     const usersQ = query(
       collection(db, 'users'),
-      where('djProfile.location', '==', 'Los Angeles')
+      where('role', 'in', ['dj', 'broadcaster', 'admin'])
     );
     const usersSnapshot = await getDocs(usersQ);
-
-    usersSnapshot.forEach((doc) => {
-      const data = doc.data();
-      const djProfile = data?.djProfile;
-      const username = data?.chatUsername;
-      if (!username || !djProfile) return;
-
-      const genres: string[] = djProfile.genres || [];
-      if (!matchesAmbient(genres)) return;
-
-      const normalized = username.replace(/\s+/g, '').toLowerCase();
-      if (seenUsernames.has(normalized)) return;
-      seenUsernames.add(normalized);
-
-      profiles.push({
-        username: normalized,
-        displayName: username,
-        photoUrl: djProfile.photoUrl || undefined,
-        location: djProfile.location || undefined,
-        genres,
-        bio: djProfile.bio || undefined,
-      });
-    });
+    usersSnapshot.forEach((doc) => processDoc(doc.data()));
   } catch (err) {
     console.error('[la-ambient] Error fetching users:', err);
   }
 
-  // Query pending-dj-profiles collection
+  // Query pending-dj-profiles collection — fetch all, filter client-side
   try {
-    const pendingQ = query(
-      collection(db, 'pending-dj-profiles'),
-      where('djProfile.location', '==', 'Los Angeles')
-    );
-    const pendingSnapshot = await getDocs(pendingQ);
-
-    pendingSnapshot.forEach((doc) => {
-      const data = doc.data();
-      const djProfile = data?.djProfile;
-      const username = data?.chatUsername;
-      if (!username || !djProfile) return;
-
-      const genres: string[] = djProfile.genres || [];
-      if (!matchesAmbient(genres)) return;
-
-      const normalized = username.replace(/\s+/g, '').toLowerCase();
-      if (seenUsernames.has(normalized)) return;
-      seenUsernames.add(normalized);
-
-      profiles.push({
-        username: normalized,
-        displayName: username,
-        photoUrl: djProfile.photoUrl || undefined,
-        location: djProfile.location || undefined,
-        genres,
-        bio: djProfile.bio || undefined,
-      });
-    });
+    const pendingSnapshot = await getDocs(collection(db, 'pending-dj-profiles'));
+    pendingSnapshot.forEach((doc) => processDoc(doc.data()));
   } catch (err) {
     console.error('[la-ambient] Error fetching pending profiles:', err);
   }
@@ -592,15 +569,15 @@ async function fetchVenues(): Promise<Venue[]> {
   if (!db) return [];
 
   try {
-    const venuesQ = query(
-      collection(db, 'venues'),
-      where('location', '==', 'Los Angeles')
-    );
-    const snapshot = await getDocs(venuesQ);
+    // Fetch all venues, filter by LA location + ambient genres client-side
+    const snapshot = await getDocs(collection(db, 'venues'));
 
     const results: Venue[] = [];
     snapshot.forEach((doc) => {
       const data = doc.data();
+      const location = data.location || '';
+      if (!matchesCity(location, 'Los Angeles')) return;
+
       const genres: string[] = data.genres || [];
       if (!matchesAmbient(genres)) return;
 
@@ -631,9 +608,9 @@ async function fetchEvents(): Promise<Event[]> {
 
   try {
     const now = Date.now();
+    // Only filter by future date in Firestore, do location + genre filtering client-side
     const eventsQ = query(
       collection(db, 'events'),
-      where('location', '==', 'Los Angeles'),
       where('date', '>=', now),
       orderBy('date', 'asc')
     );
@@ -642,6 +619,9 @@ async function fetchEvents(): Promise<Event[]> {
     const results: Event[] = [];
     snapshot.forEach((doc) => {
       const data = doc.data();
+      const location = data.location || '';
+      if (!matchesCity(location, 'Los Angeles')) return;
+
       const genres: string[] = data.genres || [];
       if (!matchesAmbient(genres)) return;
 
