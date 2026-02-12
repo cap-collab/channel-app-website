@@ -675,19 +675,21 @@ export function ChannelClient() {
   return (
     <div className="min-h-[100dvh] text-white relative flex flex-col">
       <AnimatedBackground />
-      <Header currentPage="channel" position="sticky" />
+      <div className="sticky top-0 z-[100]">
+        <Header currentPage="channel" position="sticky" />
 
-      <Tuner
-        selectedCity={selectedCity}
-        onCityChange={handleCityChange}
-        selectedGenres={selectedGenres}
-        onGenresChange={handleGenresChange}
-        cityResultCount={cityResultCount}
-        genreResultCount={genreResultCount}
-        onGenreDropdownClose={handleGenreDropdownClose}
-        citiesWithMatches={citiesWithMatches}
-        genresWithMatches={genresWithMatches}
-      />
+        <Tuner
+          selectedCity={selectedCity}
+          onCityChange={handleCityChange}
+          selectedGenres={selectedGenres}
+          onGenresChange={handleGenresChange}
+          cityResultCount={cityResultCount}
+          genreResultCount={genreResultCount}
+          onGenreDropdownClose={handleGenreDropdownClose}
+          citiesWithMatches={citiesWithMatches}
+          genresWithMatches={genresWithMatches}
+        />
+      </div>
 
       <main className="max-w-7xl mx-auto flex-1 w-full flex flex-col pt-3 md:pt-4">
         <div className="flex flex-col">
