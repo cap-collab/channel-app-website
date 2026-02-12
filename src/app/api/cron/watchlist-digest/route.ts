@@ -87,6 +87,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Test mode: ?testEmail=user@example.com bypasses schedule/dedup and only sends to that email
+  const testEmail = request.nextUrl.searchParams.get("testEmail");
+
   if (!isRestApiConfigured()) {
     return NextResponse.json(
       { error: "Firebase REST API not configured" },
@@ -468,17 +471,25 @@ export async function GET(request: NextRequest) {
       const userEmail = userData.email as string | undefined;
       const userId = user.id;
 
-      // Check if it's 8 AM in the user's local timezone (Mon or Thu)
-      const userTimezone = (userData.timezone as string) || "America/New_York";
-      const userLocalHour = new Date().toLocaleString("en-US", { timeZone: userTimezone, hour: "numeric", hour12: false });
-      if (parseInt(userLocalHour, 10) !== 8) {
+      // Test mode: skip users that don't match the test email
+      if (testEmail && userEmail?.toLowerCase() !== testEmail.toLowerCase()) {
         usersProcessed++;
         continue;
       }
 
-      // Check if we already processed this user today (for email)
+      // Check if it's 8 AM in the user's local timezone (Mon or Thu) — skip in test mode
+      if (!testEmail) {
+        const userTimezone = (userData.timezone as string) || "America/New_York";
+        const userLocalHour = new Date().toLocaleString("en-US", { timeZone: userTimezone, hour: "numeric", hour12: false });
+        if (parseInt(userLocalHour, 10) !== 8) {
+          usersProcessed++;
+          continue;
+        }
+      }
+
+      // Check if we already processed this user today (for email) — skip in test mode
       const lastEmailAt = userData.lastWatchlistEmailAt as Date | string | undefined;
-      const alreadySentEmailToday = lastEmailAt && new Date(lastEmailAt) >= today;
+      const alreadySentEmailToday = !testEmail && lastEmailAt && new Date(lastEmailAt) >= today;
 
       // Track which shows we've already emailed about (by unique show ID)
       // Key: "stationId-showName-startDate" (e.g. "nts1-myshow-2026-02-10")
