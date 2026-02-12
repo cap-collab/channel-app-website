@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { Header } from '@/components/Header';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { db } from '@/lib/firebase';
@@ -608,17 +608,14 @@ async function fetchEvents(): Promise<Event[]> {
 
   try {
     const now = Date.now();
-    // Only filter by future date in Firestore, do location + genre filtering client-side
-    const eventsQ = query(
-      collection(db, 'events'),
-      where('date', '>=', now),
-      orderBy('date', 'asc')
-    );
-    const snapshot = await getDocs(eventsQ);
+    // Fetch all events, filter client-side for location + genre + future date
+    const snapshot = await getDocs(collection(db, 'events'));
 
     const results: Event[] = [];
     snapshot.forEach((doc) => {
       const data = doc.data();
+      if (!data.date || data.date < now) return;
+
       const location = data.location || '';
       if (!matchesCity(location, 'Los Angeles')) return;
 
@@ -644,7 +641,7 @@ async function fetchEvents(): Promise<Event[]> {
       });
     });
 
-    return results;
+    return results.sort((a, b) => a.date - b.date);
   } catch (err) {
     console.error('[la-ambient] Error fetching events:', err);
     return [];
