@@ -406,7 +406,9 @@ function buildShowCardHtml(
 
   const djProfileUrl = show.djUsername
     ? `https://channel-app.com/dj/${normalizeDjUsername(show.djUsername)}`
-    : "https://channel-app.com/my-shows";
+    : show.djName
+      ? `https://channel-app.com/dj/${normalizeDjUsername(show.djName)}`
+      : `https://channel-app.com/dj/${normalizeDjUsername(show.showName)}`;
 
   const isFavorite = tag === "FAVORITE";
   const ctaUrl = show.isIRL && show.irlTicketUrl ? show.irlTicketUrl : djProfileUrl;
@@ -679,21 +681,25 @@ export async function sendWatchlistDigestEmail({
     prefsByDay.get(key)!.push(show);
   }
 
-  // Gap-fill empty days with preference shows
+  // Gap-fill: ensure each day has at least 1 show (minimum 4 total across 4 days)
+  // First pass: fill empty days with preference shows from that day
   for (const key of dayKeys) {
     const bucket = buckets.get(key)!;
     if (bucket.length > 0) continue;
 
-    // Try a preference show for this day
     const dayPrefs = prefsByDay.get(key);
     if (dayPrefs && dayPrefs.length > 0) {
       const pref = dayPrefs.shift()!;
       const tag = pref.matchLabel ? `PICKED FOR YOU · ${pref.matchLabel}` : "PICKED FOR YOU";
       bucket.push({ kind: "preference", tag, show: pref });
-      continue;
     }
+  }
 
-    // Try any preference show from any day
+  // Second pass: fill remaining empty days with preference shows from any day
+  for (const key of dayKeys) {
+    const bucket = buckets.get(key)!;
+    if (bucket.length > 0) continue;
+
     const allPrefEntries = Array.from(prefsByDay.values());
     for (const prefs of allPrefEntries) {
       if (prefs.length > 0) {
@@ -705,12 +711,12 @@ export async function sendWatchlistDigestEmail({
     }
   }
 
-  // Count total items and check if we have anything to send
+  // Count total items and check if we have enough to send (minimum 4)
   let totalItems = 0;
   dayKeys.forEach((key) => {
     totalItems += (buckets.get(key) || []).length;
   });
-  if (totalItems === 0) return false;
+  if (totalItems < 4) return false;
 
   // Build HTML for each day
   let timelineHtml = "";

@@ -468,6 +468,14 @@ export async function GET(request: NextRequest) {
       const userEmail = userData.email as string | undefined;
       const userId = user.id;
 
+      // Check if it's 8 AM in the user's local timezone (Mon or Thu)
+      const userTimezone = (userData.timezone as string) || "America/New_York";
+      const userLocalHour = new Date().toLocaleString("en-US", { timeZone: userTimezone, hour: "numeric", hour12: false });
+      if (parseInt(userLocalHour, 10) !== 8) {
+        usersProcessed++;
+        continue;
+      }
+
       // Check if we already processed this user today (for email)
       const lastEmailAt = userData.lastWatchlistEmailAt as Date | string | undefined;
       const alreadySentEmailToday = lastEmailAt && new Date(lastEmailAt) >= today;
@@ -679,6 +687,18 @@ export async function GET(request: NextRequest) {
             const broadcastShow = show as BroadcastShow;
             let djUsername = broadcastShow.djUsername;
             let djPhotoUrl = broadcastShow.djPhotoUrl;
+            // Use metadata `p` field as primary lookup key (same as watchlist section)
+            if (broadcastShow.profileUsername) {
+              const lookupKey = normalizeForLookup(broadcastShow.profileUsername);
+              const djProfile = djNameToProfile.get(lookupKey);
+              if (djProfile) {
+                djUsername = djProfile.username;
+                djPhotoUrl = djProfile.photoUrl;
+              } else {
+                djUsername = djUsername || broadcastShow.profileUsername;
+              }
+            }
+            // Fallback: fuzzy match on DJ name
             if (!djUsername && show.dj) {
               const djProfile = djNameToProfile.get(normalizeForLookup(show.dj));
               if (djProfile) { djUsername = djProfile.username; djPhotoUrl = djProfile.photoUrl; }
@@ -714,6 +734,17 @@ export async function GET(request: NextRequest) {
             const broadcastShow = show as BroadcastShow;
             let djUsername = broadcastShow.djUsername;
             let djPhotoUrl = broadcastShow.djPhotoUrl;
+            // Use metadata `p` field as primary lookup key
+            if (broadcastShow.profileUsername) {
+              const lookupKey = normalizeForLookup(broadcastShow.profileUsername);
+              const djProfile = djNameToProfile.get(lookupKey);
+              if (djProfile) {
+                djUsername = djProfile.username;
+                djPhotoUrl = djProfile.photoUrl;
+              } else {
+                djUsername = djUsername || broadcastShow.profileUsername;
+              }
+            }
             if (!djUsername && show.dj) {
               const djProfile = djNameToProfile.get(normalizeForLookup(show.dj));
               if (djProfile) { djUsername = djProfile.username; djPhotoUrl = djProfile.photoUrl; }
@@ -945,11 +976,12 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Only send if user has preferences OR upcoming favorites
-      const hasPreferences = !!(irlCity || preferredGenres.length > 0);
+      // Always send if there's content (favorites, recs, or preference matches)
+      // When user has no favorites and no preferences, we already filled preferenceMatches
+      // with fallback online shows (Step 3 above) so they still get a useful digest
       const hasContent = favoriteShows.length > 0 || userCuratorRecs.length > 0 || preferenceMatches.length > 0;
 
-      if ((hasPreferences || favoriteShows.length > 0) && hasContent) {
+      if (hasContent) {
         const success = await sendWatchlistDigestEmail({
           to: userData.email as string,
           userTimezone: userData.timezone as string | undefined,
