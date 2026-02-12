@@ -1,17 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { Header } from '@/components/Header';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
+import { AuthModal } from '@/components/AuthModal';
 import { db } from '@/lib/firebase';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { useFavorites } from '@/hooks/useFavorites';
 import { Show, IRLShowData } from '@/types';
 import { Venue, Event, EventDJRef } from '@/types/events';
 import { matchesGenre } from '@/lib/genres';
 import { matchesCity } from '@/lib/city-detection';
-import { getStationById } from '@/lib/stations';
+import { getStationById, getStationLogoUrl } from '@/lib/stations';
 
 // ---------- Types ----------
 
@@ -30,17 +33,6 @@ interface SelectorProfile {
 function matchesAmbient(genres: string[] | undefined): boolean {
   if (!genres || genres.length === 0) return false;
   return genres.some(g => matchesGenre([g], 'Ambient'));
-}
-
-function formatShowDate(isoString: string): string {
-  const d = new Date(isoString);
-  return d.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
 }
 
 function formatEventDate(ms: number): string {
@@ -62,6 +54,51 @@ export function LAmbientClient() {
   const [irlShows, setIrlShows] = useState<IRLShowData[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Auth & favorites
+  const { isAuthenticated } = useAuthContext();
+  const { isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalMessage, setAuthModalMessage] = useState<string | undefined>();
+  const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
+  const [addingReminderShowId, setAddingReminderShowId] = useState<string | null>(null);
+
+  // Follow handler for online shows
+  const handleFollow = useCallback(async (show: Show) => {
+    if (!isAuthenticated) {
+      setAuthModalMessage(`Sign in to follow ${show.dj || show.name}`);
+      setShowAuthModal(true);
+      return;
+    }
+    if (!show.dj) return;
+    setAddingFollowDj(show.dj);
+    try {
+      if (isInWatchlist(show.dj)) {
+        await removeFromWatchlist(show.dj);
+      } else {
+        await followDJ(show.dj, show.djUserId, show.djEmail, show);
+      }
+    } finally {
+      setAddingFollowDj(null);
+    }
+  }, [isAuthenticated, isInWatchlist, removeFromWatchlist, followDJ]);
+
+  // Remind Me handler for online shows
+  const handleRemindMe = useCallback(async (show: Show) => {
+    if (!isAuthenticated) {
+      setAuthModalMessage(`Sign in to get notified when ${show.dj || show.name} goes live`);
+      setShowAuthModal(true);
+      return;
+    }
+    setAddingReminderShowId(show.id);
+    try {
+      if (!isShowFavorited(show)) {
+        await toggleFavorite(show);
+      }
+    } finally {
+      setAddingReminderShowId(null);
+    }
+  }, [isAuthenticated, isShowFavorited, toggleFavorite]);
 
   useEffect(() => {
     async function fetchAll() {
@@ -86,6 +123,17 @@ export function LAmbientClient() {
     fetchAll();
   }, []);
 
+  // Split online shows into upcoming vs past
+  const now = Date.now();
+  const upcomingShows = onlineShows.filter(s => new Date(s.endTime || s.startTime).getTime() >= now);
+  const pastShows = onlineShows.filter(s => new Date(s.endTime || s.startTime).getTime() < now);
+
+  // Build venue slug lookup from fetched venues
+  const venueSlugMap = new Map<string, string>();
+  for (const v of venues) {
+    if (v.id && v.slug) venueSlugMap.set(v.id, v.slug);
+  }
+
   return (
     <div className="min-h-screen text-white relative">
       <AnimatedBackground />
@@ -108,11 +156,37 @@ export function LAmbientClient() {
           <>
             <SelectorsSection selectors={selectors} />
             <VenuesSection venues={venues} />
-            <OnlineShowsSection shows={onlineShows} />
-            <UpcomingDatesSection irlShows={irlShows} events={events} />
+            <OnlineShowsSection
+              shows={upcomingShows}
+              isInWatchlist={isInWatchlist}
+              isShowFavorited={isShowFavorited}
+              addingFollowDj={addingFollowDj}
+              addingReminderShowId={addingReminderShowId}
+              onFollow={handleFollow}
+              onRemindMe={handleRemindMe}
+            />
+            <UpcomingDatesSection irlShows={irlShows} events={events} venueSlugMap={venueSlugMap} />
+            <PastShowsSection
+              shows={pastShows}
+              isInWatchlist={isInWatchlist}
+              isShowFavorited={isShowFavorited}
+              addingFollowDj={addingFollowDj}
+              addingReminderShowId={addingReminderShowId}
+              onFollow={handleFollow}
+              onRemindMe={handleRemindMe}
+            />
           </>
         )}
       </main>
+
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => {
+          setShowAuthModal(false);
+          setAuthModalMessage(undefined);
+        }}
+        message={authModalMessage}
+      />
     </div>
   );
 }
@@ -251,52 +325,166 @@ function VenueCard({ venue }: { venue: Venue }) {
 
 // ---------- Section 3: Online Radio Shows ----------
 
-function OnlineShowsSection({ shows }: { shows: Show[] }) {
-  if (shows.length === 0) return null;
+interface ShowsSectionProps {
+  shows: Show[];
+  isInWatchlist: (term: string) => boolean;
+  isShowFavorited: (show: Show) => boolean;
+  addingFollowDj: string | null;
+  addingReminderShowId: string | null;
+  onFollow: (show: Show) => void;
+  onRemindMe: (show: Show) => void;
+}
+
+function OnlineShowsSection(props: ShowsSectionProps) {
+  if (props.shows.length === 0) return null;
 
   return (
     <section className="mb-10">
       <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">
         Online Shows
       </h2>
-      <div className="space-y-3">
-        {shows.map((show) => {
-          const station = getStationById(show.stationId);
-          return (
-            <div
-              key={show.id}
-              className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-white font-medium truncate">{show.name}</p>
-                  <p className="text-zinc-500 text-xs uppercase tracking-wide mt-0.5">
-                    {show.dj}
-                    {station && station.id !== 'broadcast' && station.id !== 'dj-radio' && (
-                      <> &middot; {station.name}</>
-                    )}
-                  </p>
-                  <p className="text-[10px] font-mono text-zinc-500 mt-1">
-                    {formatShowDate(show.startTime)}
-                  </p>
-                </div>
-                {station && station.id !== 'broadcast' && station.id !== 'dj-radio' && (
-                  <span
-                    className="flex-shrink-0 text-[9px] font-mono uppercase px-2 py-1 rounded-full border"
-                    style={{
-                      borderColor: station.accentColor + '40',
-                      color: station.accentColor,
-                    }}
-                  >
-                    {station.name}
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {props.shows.map((show) => (
+          <ShowCard key={show.id} show={show} {...props} />
+        ))}
       </div>
     </section>
+  );
+}
+
+function ShowCard({
+  show,
+  isInWatchlist,
+  isShowFavorited,
+  addingFollowDj,
+  addingReminderShowId,
+  onFollow,
+  onRemindMe,
+}: { show: Show } & ShowsSectionProps) {
+  const [imageError, setImageError] = useState(false);
+  const station = getStationById(show.stationId);
+  const djName = show.dj || show.name;
+  const photoUrl = show.djPhotoUrl || show.imageUrl;
+  const hasPhoto = photoUrl && !imageError;
+  const stationLogo = station ? getStationLogoUrl(station.id) : undefined;
+  const following = show.dj ? isInWatchlist(show.dj) : false;
+  const favorited = isShowFavorited(show);
+  const addingFollow = show.dj ? addingFollowDj === show.dj : false;
+  const addingReminder = addingReminderShowId === show.id;
+
+  return (
+    <div className="flex flex-col">
+      {/* Image with overlays */}
+      <div className="relative">
+        {show.djUsername ? (
+          <Link href={`/dj/${show.djUsername}`} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
+            {hasPhoto ? (
+              <>
+                <Image src={photoUrl} alt={djName} fill className="object-cover" unoptimized onError={() => setImageError(true)} />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
+              </>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: station?.accentColor || '#6B21A8' }}>
+                <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-white text-center px-4">{djName}</h2>
+              </div>
+            )}
+            {/* Top row: Online badge + date */}
+            <div className="absolute top-2 left-2 right-2 flex items-center justify-between">
+              <span className="text-[10px] font-mono text-white uppercase tracking-tighter flex items-center gap-1 drop-shadow-lg">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z" />
+                </svg>
+                Online
+              </span>
+              <span className="text-[10px] font-mono text-white uppercase tracking-tighter drop-shadow-lg">
+                {new Date(show.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} &middot; {new Date(show.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+              </span>
+            </div>
+            {/* Bottom: DJ name */}
+            <div className="absolute bottom-2 left-2 right-12">
+              <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">{djName}</span>
+            </div>
+          </Link>
+        ) : (
+          <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10">
+            {hasPhoto ? (
+              <>
+                <Image src={photoUrl} alt={djName} fill className="object-cover" unoptimized onError={() => setImageError(true)} />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
+              </>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: station?.accentColor || '#6B21A8' }}>
+                <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-white text-center px-4">{djName}</h2>
+              </div>
+            )}
+            <div className="absolute top-2 left-2 right-2 flex items-center justify-between">
+              <span className="text-[10px] font-mono text-white uppercase tracking-tighter flex items-center gap-1 drop-shadow-lg">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z" />
+                </svg>
+                Online
+              </span>
+              <span className="text-[10px] font-mono text-white uppercase tracking-tighter drop-shadow-lg">
+                {new Date(show.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} &middot; {new Date(show.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+              </span>
+            </div>
+            <div className="absolute bottom-2 left-2 right-12">
+              <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">{djName}</span>
+            </div>
+          </div>
+        )}
+        {/* Station logo */}
+        {stationLogo && (
+          <div className="absolute -bottom-4 right-3 w-8 h-8 rounded border border-white/30 overflow-hidden bg-black z-10">
+            <Image src={stationLogo} alt={station?.name || ''} fill className="object-contain" />
+          </div>
+        )}
+      </div>
+
+      {/* Show info */}
+      <div className="flex flex-col justify-start py-2">
+        <h3 className="text-sm font-bold leading-tight truncate">
+          {show.djUsername ? (
+            <Link href={`/dj/${show.djUsername}`} className="hover:underline">{show.name}</Link>
+          ) : (
+            show.name
+          )}
+        </h3>
+        {station && station.id !== 'broadcast' && station.id !== 'dj-radio' && (
+          <p className="text-[10px] text-zinc-500 mt-0.5 uppercase">
+            Selected by {station.name}
+          </p>
+        )}
+      </div>
+
+      {/* Follow + Remind Me buttons */}
+      <div className="flex gap-2 mt-auto">
+        <button
+          onClick={() => onFollow(show)}
+          disabled={addingFollow}
+          className={`flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors ${
+            following ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-gray-100 text-gray-900'
+          } disabled:opacity-50`}
+        >
+          {addingFollow ? (
+            <div className={`w-4 h-4 border-2 ${following ? 'border-white' : 'border-gray-900'} border-t-transparent rounded-full animate-spin mx-auto`} />
+          ) : following ? 'Following' : '+ Follow'}
+        </button>
+        <button
+          onClick={() => onRemindMe(show)}
+          disabled={addingReminder || favorited}
+          className={`flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors ${
+            favorited ? 'bg-white/10 text-gray-400 cursor-default' : 'bg-white/10 hover:bg-white/20 text-white'
+          } disabled:opacity-50`}
+        >
+          {addingReminder ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+          ) : favorited ? 'Reminded' : 'Remind Me'}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -323,9 +511,11 @@ type UpcomingEntry = IRLItem | EventItem;
 function UpcomingDatesSection({
   irlShows,
   events,
+  venueSlugMap,
 }: {
   irlShows: IRLShowData[];
   events: Event[];
+  venueSlugMap: Map<string, string>;
 }) {
   // Merge and sort all upcoming items by date
   const items: UpcomingEntry[] = [];
@@ -366,7 +556,7 @@ function UpcomingDatesSection({
             item.type === 'irl' ? (
               <IRLDateCard key={item.key} show={item.data} />
             ) : (
-              <EventDateCard key={item.key} event={item.data} />
+              <EventDateCard key={item.key} event={item.data} venueSlugMap={venueSlugMap} />
             )
           )}
         </div>
@@ -416,7 +606,9 @@ function IRLDateCard({ show }: { show: IRLShowData }) {
   );
 }
 
-function EventDateCard({ event }: { event: Event }) {
+function EventDateCard({ event, venueSlugMap }: { event: Event; venueSlugMap: Map<string, string> }) {
+  const venueSlug = event.venueId ? venueSlugMap.get(event.venueId) : undefined;
+
   return (
     <div className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors">
       <div className="flex items-start gap-4">
@@ -434,7 +626,18 @@ function EventDateCard({ event }: { event: Event }) {
           <p className="text-white font-medium">{event.name}</p>
           <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">
             {formatEventDate(event.date)}
-            {event.location && <> &middot; {event.location}</>}
+            {event.venueName && venueSlug ? (
+              <>
+                {' '}&middot;{' '}
+                <Link href={`/venue/${venueSlug}`} className="hover:text-white transition-colors">
+                  {event.venueName}
+                </Link>
+              </>
+            ) : event.venueName ? (
+              <> &middot; {event.venueName}</>
+            ) : event.location ? (
+              <> &middot; {event.location}</>
+            ) : null}
           </p>
           {event.djs.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -473,6 +676,25 @@ function EventDateCard({ event }: { event: Event }) {
         )}
       </div>
     </div>
+  );
+}
+
+// ---------- Section 5: Past Shows ----------
+
+function PastShowsSection(props: ShowsSectionProps) {
+  if (props.shows.length === 0) return null;
+
+  return (
+    <section className="mb-10">
+      <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">
+        Past Shows
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {props.shows.map((show) => (
+          <ShowCard key={show.id} show={show} {...props} />
+        ))}
+      </div>
+    </section>
   );
 }
 
