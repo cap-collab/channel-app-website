@@ -54,7 +54,7 @@ export default function Home() {
               href="/studio/join"
               className="inline-block bg-transparent text-white border border-white px-10 py-4 rounded text-lg font-semibold hover:-translate-y-0.5 hover:bg-white hover:text-black transition-all"
             >
-              Create your curator profile
+              Claim your curator profile
             </Link>
           </div>
         </div>
