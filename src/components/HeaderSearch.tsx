@@ -110,7 +110,7 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
       // Search pending DJ profiles
       try {
         const pendingRef = collection(db, 'pending-dj-profiles');
-        const pendingQ = fbQuery(pendingRef, where('status', '==', 'pending'));
+        const pendingQ = fbQuery(pendingRef);
         const snapshot = await getDocs(pendingQ);
 
         const matchingPendingDjs: Array<{ name: string; photoUrl?: string; username: string; odId?: string; email?: string }> = [];
