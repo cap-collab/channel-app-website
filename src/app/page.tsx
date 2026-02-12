@@ -8,22 +8,22 @@ const faqItems = [
   {
     question: "What is Channel?",
     answer:
-      "Channel is a place for DJs to record or livestream sets and stay connected with the people who care about their music. For listeners, it's a way to follow the selectors who shape your taste, get notified when they play, discover what's happening in your local scene or niche, and support DJs directly. No ads, no algorithms.",
+      "Channel maps local underground scenes.\n\nIt brings together the selectors, venues, and shows shaping a city's specific niche in one structured place. Instead of relying on feeds or disappearing posts, updates are direct and persistent. No ads. No algorithms.",
   },
   {
     question: "Who is it for?",
     answer:
-      "For DJs: One profile that brings together your sets, your schedule, and your links. You can record or livestream from home or from a venue, and your listeners are automatically notified when you go live or share something new. You also have a \"My Recs\" section to highlight events, producers, or anything else you want your followers to see.\n\nFor listeners: Follow the DJs and radios you care about, and never miss them playing again. Discover selectors in your area or within your genre niche, see what they're recommending, join their chat rooms during sets, and support them through tips if you want to.",
+      "For DJs\nA single profile that reflects your role in your local ecosystem. Share sets, list upcoming dates, highlight events and releases, livestream with chat, and notify your followers directly by email when something new happens. No more depending on Instagram to reach your audience.\n\nFor listeners\nFollow the selectors and venues you care about and receive email notifications when they play or publish something new. Join chats during sets and stay in the loop without chasing stories or scrolling feeds.",
   },
   {
     question: "How is Channel different?",
     answer:
-      "Channel is focused on the relationships that make DJ culture special — between DJs and their listeners, between promoters and venues, between radios and the communities they serve. It's built for connection and intentional discovery, not for passive consumption or algorithmic recommendations.",
+      "Channel is built around real local ecosystems, not algorithms and feeds.\n\nIt maps people and places first, then the content around them. You follow who matters and get updates directly, without relying on social platforms to maybe surface them.",
   },
   {
     question: "How much does it cost?",
     answer:
-      "Channel is free to use. There are no ads. The platform operates on a revenue-share model, which means our incentives are aligned with the DJs and communities we serve, not with advertisers.",
+      "Channel is free to use. There are no ads.\n\nThe platform runs on a revenue share model, keeping incentives aligned with the selectors, venues, and communities using it.",
   },
 ];
 
