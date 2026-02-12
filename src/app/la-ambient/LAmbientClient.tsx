@@ -142,8 +142,8 @@ export function LAmbientClient() {
       <main className="max-w-5xl mx-auto px-6 py-4 pb-24">
         {/* Page Header */}
         <section className="mb-10">
-          <h1 className="text-5xl sm:text-7xl font-light uppercase tracking-tighter leading-none">
-            LA Deep Listening: Ambient x Techno
+          <h1 className="text-3xl sm:text-5xl md:text-7xl font-light uppercase tracking-tighter leading-none whitespace-nowrap">
+            LA Scene — Ambient x Techno
           </h1>
           <p className="text-zinc-400 text-base font-light max-w-xl mt-2">
             A map of the selectors and spaces shaping LA&apos;s ambient and techno scene.
