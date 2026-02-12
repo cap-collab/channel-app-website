@@ -100,6 +100,25 @@ export function LAmbientClient() {
     }
   }, [isAuthenticated, isShowFavorited, toggleFavorite]);
 
+  // Follow handler for selectors
+  const handleFollowSelector = useCallback(async (displayName: string) => {
+    if (!isAuthenticated) {
+      setAuthModalMessage(`Sign in to follow ${displayName}`);
+      setShowAuthModal(true);
+      return;
+    }
+    setAddingFollowDj(displayName);
+    try {
+      if (isInWatchlist(displayName)) {
+        await removeFromWatchlist(displayName);
+      } else {
+        await followDJ(displayName);
+      }
+    } finally {
+      setAddingFollowDj(null);
+    }
+  }, [isAuthenticated, isInWatchlist, removeFromWatchlist, followDJ]);
+
   useEffect(() => {
     async function fetchAll() {
       const results = await Promise.allSettled([
@@ -154,7 +173,12 @@ export function LAmbientClient() {
           <LoadingSkeleton />
         ) : (
           <>
-            <SelectorsSection selectors={selectors} />
+            <SelectorsSection
+              selectors={selectors}
+              isInWatchlist={isInWatchlist}
+              addingFollowDj={addingFollowDj}
+              onFollow={handleFollowSelector}
+            />
             <VenuesSection venues={venues} />
             <OnlineShowsSection
               shows={upcomingShows}
@@ -193,7 +217,14 @@ export function LAmbientClient() {
 
 // ---------- Section 1: Core Selectors ----------
 
-function SelectorsSection({ selectors }: { selectors: SelectorProfile[] }) {
+interface SelectorsSectionProps {
+  selectors: SelectorProfile[];
+  isInWatchlist: (term: string) => boolean;
+  addingFollowDj: string | null;
+  onFollow: (displayName: string) => void;
+}
+
+function SelectorsSection({ selectors, isInWatchlist, addingFollowDj, onFollow }: SelectorsSectionProps) {
   if (selectors.length === 0) return null;
 
   return (
@@ -201,60 +232,108 @@ function SelectorsSection({ selectors }: { selectors: SelectorProfile[] }) {
       <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">
         Core Selectors
       </h2>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {selectors.slice(0, 10).map((sel) => (
-          <SelectorCard key={sel.username} selector={sel} />
+          <SelectorCard
+            key={sel.username}
+            selector={sel}
+            isFollowing={isInWatchlist(sel.displayName)}
+            isAddingFollow={addingFollowDj === sel.displayName}
+            onFollow={() => onFollow(sel.displayName)}
+          />
         ))}
       </div>
     </section>
   );
 }
 
-function SelectorCard({ selector }: { selector: SelectorProfile }) {
+function SelectorCard({
+  selector,
+  isFollowing,
+  isAddingFollow,
+  onFollow,
+}: {
+  selector: SelectorProfile;
+  isFollowing: boolean;
+  isAddingFollow: boolean;
+  onFollow: () => void;
+}) {
   const [imageError, setImageError] = useState(false);
   const hasPhoto = selector.photoUrl && !imageError;
 
-  const content = (
-    <div className="group">
-      <div className="aspect-square overflow-hidden border border-white/10 relative">
-        {hasPhoto ? (
-          <Image
-            src={selector.photoUrl!}
-            alt={selector.displayName}
-            fill
-            className="object-cover"
-            unoptimized
-            onError={() => setImageError(true)}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900 to-pink-900">
-            <span className="text-2xl font-black uppercase tracking-tight text-white text-center px-4">
+  return (
+    <div className="flex flex-col">
+      {/* 16:9 image with overlays */}
+      <div className="relative">
+        <Link href={`/dj/${selector.username}`} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
+          {hasPhoto ? (
+            <>
+              <Image
+                src={selector.photoUrl!}
+                alt={selector.displayName}
+                fill
+                className="object-cover"
+                unoptimized
+                onError={() => setImageError(true)}
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
+            </>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900 to-pink-900">
+              <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-white text-center px-4">
+                {selector.displayName}
+              </h2>
+            </div>
+          )}
+          {/* Bottom: name + location */}
+          <div className="absolute bottom-2 left-2 right-2">
+            <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
               {selector.displayName}
             </span>
+            <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
+              Los Angeles
+            </span>
           </div>
-        )}
+        </Link>
       </div>
-      <div className="mt-2">
-        <p className="text-sm font-bold text-white truncate">{selector.displayName}</p>
-        <p className="text-[10px] text-zinc-500 uppercase tracking-wide">Based in Los Angeles</p>
+
+      {/* Info */}
+      <div className="flex flex-col justify-start py-2">
+        <h3 className="text-sm font-bold leading-tight truncate">
+          <Link href={`/dj/${selector.username}`} className="hover:underline">
+            {selector.displayName}
+          </Link>
+        </h3>
         {selector.genres && selector.genres.length > 0 && (
-          <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter mt-0.5">
+          <p className="text-[10px] font-mono text-zinc-500 mt-0.5 uppercase tracking-tighter">
             {selector.genres.join(' · ')}
           </p>
         )}
-        {selector.hasRadio && (
-          <span className="inline-block mt-1 bg-white/10 text-[9px] px-1.5 py-0.5 rounded-full font-mono uppercase text-zinc-400">
-            Radio
-          </span>
-        )}
+      </div>
+
+      {/* Follow + View Profile buttons */}
+      <div className="flex gap-2 mt-auto">
+        <button
+          onClick={onFollow}
+          disabled={isAddingFollow}
+          className={`flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors ${
+            isFollowing ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-gray-100 text-gray-900'
+          } disabled:opacity-50`}
+        >
+          {isAddingFollow ? (
+            <div className={`w-4 h-4 border-2 ${isFollowing ? 'border-white' : 'border-gray-900'} border-t-transparent rounded-full animate-spin mx-auto`} />
+          ) : isFollowing ? 'Following' : '+ Follow'}
+        </button>
+        <Link
+          href={`/dj/${selector.username}`}
+          className="flex-1 py-2 px-4 rounded text-sm font-semibold text-center transition-colors bg-white/10 hover:bg-white/20 text-white"
+        >
+          View Profile
+        </Link>
       </div>
     </div>
   );
-
-  if (selector.username) {
-    return <Link href={`/dj/${selector.username}`}>{content}</Link>;
-  }
-  return content;
 }
 
 // ---------- Section 2: Anchor Venues ----------
