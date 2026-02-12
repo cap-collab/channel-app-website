@@ -30,9 +30,9 @@ interface SelectorProfile {
 
 // ---------- Helpers ----------
 
-function matchesAmbient(genres: string[] | undefined): boolean {
+function matchesAmbientOrTechno(genres: string[] | undefined): boolean {
   if (!genres || genres.length === 0) return false;
-  return genres.some(g => matchesGenre([g], 'Ambient'));
+  return genres.some(g => matchesGenre([g], 'Ambient') || matchesGenre([g], 'Techno'));
 }
 
 function formatEventDate(ms: number): string {
@@ -142,11 +142,11 @@ export function LAmbientClient() {
       <main className="max-w-5xl mx-auto px-6 py-4 pb-24">
         {/* Page Header */}
         <section className="mb-10">
-          <h1 className="text-5xl sm:text-7xl font-black uppercase tracking-tighter leading-none">
-            LA – Ambient
+          <h1 className="text-5xl sm:text-7xl font-light uppercase tracking-tighter leading-none">
+            LA Deep Listening: Ambient x Techno
           </h1>
           <p className="text-zinc-400 text-base font-light max-w-xl mt-2">
-            A map of the selectors and spaces shaping LA&apos;s ambient electronic scene.
+            A map of the selectors and spaces shaping LA&apos;s ambient and techno scene.
           </p>
         </section>
 
@@ -748,7 +748,7 @@ async function fetchSelectors(): Promise<SelectorProfile[]> {
     if (!matchesCity(location, 'Los Angeles')) return;
 
     const genres: string[] = (djProfile.genres as string[]) || [];
-    if (!matchesAmbient(genres)) return;
+    if (!matchesAmbientOrTechno(genres)) return;
 
     const normalized = username.replace(/\s+/g, '').toLowerCase();
     if (seenUsernames.has(normalized)) return;
@@ -801,7 +801,7 @@ async function fetchVenues(): Promise<Venue[]> {
       if (!matchesCity(location, 'Los Angeles')) return;
 
       const genres: string[] = data.genres || [];
-      if (!matchesAmbient(genres)) return;
+      if (!matchesAmbientOrTechno(genres)) return;
 
       results.push({
         id: doc.id,
@@ -842,7 +842,7 @@ async function fetchEvents(): Promise<Event[]> {
       if (!matchesCity(location, 'Los Angeles')) return;
 
       const genres: string[] = data.genres || [];
-      if (!matchesAmbient(genres)) return;
+      if (!matchesAmbientOrTechno(genres)) return;
 
       results.push({
         id: doc.id,
@@ -886,14 +886,14 @@ async function fetchSchedule(): Promise<{
     const laOnlineShows = allShows.filter(
       (s) =>
         matchesCity(s.djLocation || '', 'Los Angeles') &&
-        matchesAmbient(s.djGenres)
+        matchesAmbientOrTechno(s.djGenres)
     );
 
     // Filter IRL shows: event in LA + ambient genres
     const laIrlShows = allIrl.filter(
       (s) =>
         matchesCity(s.location, 'Los Angeles') &&
-        matchesAmbient(s.djGenres)
+        matchesAmbientOrTechno(s.djGenres)
     );
 
     // Sort online shows by date ascending

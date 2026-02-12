@@ -3,18 +3,18 @@ import { Suspense } from "react";
 import { LAmbientClient } from "./LAmbientClient";
 
 export const metadata: Metadata = {
-  title: "LA – Ambient | Channel",
+  title: "LA Deep Listening: Ambient x Techno | Channel",
   description:
-    "A map of the selectors and spaces shaping LA's ambient electronic scene.",
+    "A map of the selectors and spaces shaping LA's ambient and techno scene.",
   openGraph: {
-    title: "LA – Ambient | Channel",
+    title: "LA Deep Listening: Ambient x Techno | Channel",
     description:
-      "A map of the selectors and spaces shaping LA's ambient electronic scene.",
+      "A map of the selectors and spaces shaping LA's ambient and techno scene.",
   },
   twitter: {
-    title: "LA – Ambient | Channel",
+    title: "LA Deep Listening: Ambient x Techno | Channel",
     description:
-      "A map of the selectors and spaces shaping LA's ambient electronic scene.",
+      "A map of the selectors and spaces shaping LA's ambient and techno scene.",
   },
 };
 
