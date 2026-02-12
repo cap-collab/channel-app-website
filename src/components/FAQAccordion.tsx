@@ -68,7 +68,22 @@ function renderAnswer(answer: string, hasLink?: boolean) {
 
     return <>{result}</>;
   }
-  return answer;
+  // Split by double newlines into paragraphs, then render single newlines as <br />
+  const paragraphs = answer.split("\n\n");
+  return (
+    <>
+      {paragraphs.map((paragraph, i) => (
+        <p key={i} className={i > 0 ? "mt-4" : ""}>
+          {paragraph.split("\n").map((line, j, arr) => (
+            <span key={j}>
+              {line}
+              {j < arr.length - 1 && <br />}
+            </span>
+          ))}
+        </p>
+      ))}
+    </>
+  );
 }
 
 export default function FAQAccordion({ items }: FAQAccordionProps) {

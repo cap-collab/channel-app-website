@@ -689,8 +689,8 @@ export function ChannelClient() {
         genresWithMatches={genresWithMatches}
       />
 
-      <main className="max-w-7xl mx-auto flex-1 min-h-0 w-full flex flex-col pt-3 md:pt-4">
-        <div className="flex flex-col overflow-y-auto">
+      <main className="max-w-7xl mx-auto flex-1 w-full flex flex-col pt-3 md:pt-4">
+        <div className="flex flex-col">
 
           {isLoading ? (
             <>
