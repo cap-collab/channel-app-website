@@ -31,6 +31,56 @@ interface OrphanedFavorite {
   showName?: string;
   stationId?: string;
   type: string;
+  reason: string;
+}
+
+interface DJProfileData {
+  chatUsername?: string;
+  irlShows?: Array<{ name: string; date: string; location: string; url: string }>;
+  radioShows?: Array<{ name: string; radioName: string; date: string; time: string; duration: string; url: string }>;
+}
+
+/**
+ * Fetch all users once and extract DJ profile data for validation.
+ */
+async function fetchDJProfiles(db: FirebaseFirestore.Firestore): Promise<{
+  validIRL: Set<string>;
+  validDJRadio: Set<string>;
+}> {
+  const validIRL = new Set<string>();
+  const validDJRadio = new Set<string>();
+
+  const usersSnapshot = await db.collection('users').get();
+  console.log(`[cleanup] Fetched ${usersSnapshot.size} users`);
+
+  for (const userDoc of usersSnapshot.docs) {
+    const data = userDoc.data();
+    const djProfile = data.djProfile as DJProfileData | undefined;
+    if (!djProfile?.chatUsername) continue;
+
+    // IRL shows: key = irl-{username}-{date}-{location}
+    if (djProfile.irlShows) {
+      for (const show of djProfile.irlShows) {
+        if (!show.name && !show.date && !show.location) continue;
+        const key = `irl-${djProfile.chatUsername}-${show.date}-${show.location}`.toLowerCase();
+        validIRL.add(key);
+      }
+    }
+
+    // Radio shows: key = {name}-{radioName}-{date}
+    if (djProfile.radioShows) {
+      for (const show of djProfile.radioShows) {
+        if (!show.name && !show.date && !show.radioName) continue;
+        const key = `${show.name}-${show.radioName}-${show.date}`.toLowerCase();
+        validDJRadio.add(key);
+      }
+    }
+  }
+
+  console.log(`[cleanup] Valid IRL shows from DJ profiles: ${validIRL.size}`);
+  console.log(`[cleanup] Valid DJ radio shows from DJ profiles: ${validDJRadio.size}`);
+
+  return { validIRL, validDJRadio };
 }
 
 /**
@@ -46,7 +96,6 @@ async function buildValidShowsSet(db: FirebaseFirestore.Firestore): Promise<Set<
     if (response.ok) {
       const metadata: MetadataResponse = await response.json();
 
-      // Map metadata station keys to station IDs (same as expandShow in metadata.ts)
       const { getStationByMetadataKey } = await import('@/lib/stations');
 
       for (const [stationKey, shows] of Object.entries(metadata.stations)) {
@@ -68,7 +117,7 @@ async function buildValidShowsSet(db: FirebaseFirestore.Firestore): Promise<Set<
   try {
     const now = new Date();
     const pastCutoff = new Date(now);
-    pastCutoff.setDate(pastCutoff.getDate() - 7); // Include recent past shows
+    pastCutoff.setDate(pastCutoff.getDate() - 7);
 
     const snapshot = await db.collection('broadcast-slots')
       .where('startTime', '>=', Timestamp.fromDate(pastCutoff))
@@ -91,29 +140,72 @@ async function buildValidShowsSet(db: FirebaseFirestore.Firestore): Promise<Set<
 }
 
 /**
- * Find all orphaned show-type favorites.
+ * Find all orphaned favorites across all types.
  */
-async function findOrphanedFavorites(
+async function findAllOrphaned(
   db: FirebaseFirestore.Firestore,
-  validShows: Set<string>
+  validShows: Set<string>,
+  validIRL: Set<string>,
+  validDJRadio: Set<string>,
 ): Promise<OrphanedFavorite[]> {
   const orphaned: OrphanedFavorite[] = [];
 
-  // Get ALL show-type favorites across all users
-  const snapshot = await db.collectionGroup('favorites')
+  // 1. Check show-type favorites
+  const showSnapshot = await db.collectionGroup('favorites')
     .where('type', '==', 'show')
     .get();
 
-  console.log(`[cleanup] Found ${snapshot.size} total show-type favorites`);
+  console.log(`[cleanup] Found ${showSnapshot.size} total show-type favorites`);
 
-  for (const doc of snapshot.docs) {
+  for (const doc of showSnapshot.docs) {
     const data = doc.data();
     const term = (data.term as string || '').toLowerCase();
     const stationId = (data.stationId as string) || '';
-    const key = `${term}-${stationId}`;
+    const metadataKey = `${term}-${stationId}`;
+    const pathParts = doc.ref.path.split('/');
+    const userId = pathParts[1];
 
-    if (!validShows.has(key)) {
-      // Extract userId from doc path: users/{userId}/favorites/{favId}
+    if (data.createdBy === 'system' && data.djUsername) {
+      // DJ-synced radio show — check against DJ profiles
+      if (term && !validDJRadio.has(term)) {
+        orphaned.push({
+          userId,
+          favoriteId: doc.id,
+          term,
+          showName: data.showName as string | undefined,
+          stationId,
+          type: 'show',
+          reason: `DJ-synced radio show no longer in DJ profile`,
+        });
+      }
+    } else {
+      // User-added or metadata-based show — check against metadata + broadcast slots
+      if (!validShows.has(metadataKey)) {
+        orphaned.push({
+          userId,
+          favoriteId: doc.id,
+          term,
+          showName: data.showName as string | undefined,
+          stationId,
+          type: 'show',
+          reason: `Show not found in metadata or broadcast slots`,
+        });
+      }
+    }
+  }
+
+  // 2. Check IRL favorites — against DJ profiles
+  const irlSnapshot = await db.collectionGroup('favorites')
+    .where('type', '==', 'irl')
+    .get();
+
+  console.log(`[cleanup] Found ${irlSnapshot.size} total IRL favorites`);
+
+  for (const doc of irlSnapshot.docs) {
+    const data = doc.data();
+    const term = (data.term as string || '').toLowerCase();
+
+    if (term && !validIRL.has(term)) {
       const pathParts = doc.ref.path.split('/');
       const userId = pathParts[1];
 
@@ -121,47 +213,10 @@ async function findOrphanedFavorites(
         userId,
         favoriteId: doc.id,
         term,
-        showName: data.showName as string | undefined,
-        stationId,
-        type: 'show',
-      });
-    }
-  }
-
-  return orphaned;
-}
-
-/**
- * Find orphaned IRL favorites (past events).
- */
-async function findOrphanedIRLFavorites(
-  db: FirebaseFirestore.Firestore
-): Promise<OrphanedFavorite[]> {
-  const orphaned: OrphanedFavorite[] = [];
-  const today = new Date().toISOString().split("T")[0];
-
-  const snapshot = await db.collectionGroup('favorites')
-    .where('type', '==', 'irl')
-    .get();
-
-  console.log(`[cleanup] Found ${snapshot.size} total IRL favorites`);
-
-  for (const doc of snapshot.docs) {
-    const data = doc.data();
-    const irlDate = data.irlDate as string | undefined;
-
-    // Only clean up IRL events that are in the past
-    if (irlDate && irlDate < today) {
-      const pathParts = doc.ref.path.split('/');
-      const userId = pathParts[1];
-
-      orphaned.push({
-        userId,
-        favoriteId: doc.id,
-        term: data.term as string || '',
         showName: data.irlEventName as string | undefined,
         stationId: undefined,
         type: 'irl',
+        reason: `IRL show no longer in DJ profile`,
       });
     }
   }
@@ -181,13 +236,21 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const validShows = await buildValidShowsSet(db);
-    const orphanedShows = await findOrphanedFavorites(db, validShows);
-    const orphanedIRL = await findOrphanedIRLFavorites(db);
+    const [validShows, djData] = await Promise.all([
+      buildValidShowsSet(db),
+      fetchDJProfiles(db),
+    ]);
+
+    const orphaned = await findAllOrphaned(db, validShows, djData.validIRL, djData.validDJRadio);
+
+    const orphanedShows = orphaned.filter(o => o.type === 'show');
+    const orphanedIRL = orphaned.filter(o => o.type === 'irl');
 
     return NextResponse.json({
       dryRun: true,
       validShowsCount: validShows.size,
+      validIRLCount: djData.validIRL.size,
+      validDJRadioCount: djData.validDJRadio.size,
       orphanedShows: {
         count: orphanedShows.length,
         items: orphanedShows,
@@ -196,6 +259,7 @@ export async function GET(request: NextRequest) {
         count: orphanedIRL.length,
         items: orphanedIRL,
       },
+      totalOrphaned: orphaned.length,
       message: "Use POST to delete these orphaned favorites",
     });
   } catch (error) {
@@ -216,11 +280,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const validShows = await buildValidShowsSet(db);
-    const orphanedShows = await findOrphanedFavorites(db, validShows);
-    const orphanedIRL = await findOrphanedIRLFavorites(db);
+    const [validShows, djData] = await Promise.all([
+      buildValidShowsSet(db),
+      fetchDJProfiles(db),
+    ]);
 
-    const allOrphaned = [...orphanedShows, ...orphanedIRL];
+    const allOrphaned = await findAllOrphaned(db, validShows, djData.validIRL, djData.validDJRadio);
 
     if (allOrphaned.length === 0) {
       return NextResponse.json({
@@ -249,13 +314,16 @@ export async function POST(request: NextRequest) {
       await batch.commit();
     }
 
-    console.log(`[cleanup] Deleted ${deleteCount} orphaned favorites (${orphanedShows.length} shows, ${orphanedIRL.length} IRL)`);
+    const showsDeleted = allOrphaned.filter(o => o.type === 'show').length;
+    const irlDeleted = allOrphaned.filter(o => o.type === 'irl').length;
+
+    console.log(`[cleanup] Deleted ${deleteCount} orphaned favorites (${showsDeleted} shows, ${irlDeleted} IRL)`);
 
     return NextResponse.json({
       success: true,
       deleted: deleteCount,
-      showsDeleted: orphanedShows.length,
-      irlDeleted: orphanedIRL.length,
+      showsDeleted,
+      irlDeleted,
       items: allOrphaned,
     });
   } catch (error) {
