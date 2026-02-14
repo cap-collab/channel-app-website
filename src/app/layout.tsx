@@ -4,18 +4,18 @@ import "./globals.css";
 import { Providers } from "./Providers";
 
 export const metadata: Metadata = {
-  title: "Mapping local underground scenes",
+  title: "channel",
   description: "Ditch the algorithms. Stay in the know with the curators who move your world forward.",
   metadataBase: new URL("https://channel-app.com"),
   openGraph: {
-    title: "Mapping local underground scenes",
+    title: "channel",
     description: "Ditch the algorithms. Stay in the know with the curators who move your world forward.",
     type: "website",
     url: "https://channel-app.com",
   },
   twitter: {
     card: "summary",
-    title: "Mapping local underground scenes",
+    title: "channel",
     description: "Ditch the algorithms. Stay in the know with the curators who move your world forward.",
   },
   icons: {
