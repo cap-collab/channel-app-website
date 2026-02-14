@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb, getAdminAuth } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { generateSlug } from '@/lib/slug';
+import { cleanupFavoritesForShowName } from '@/lib/favorites-cleanup';
 
 async function verifyAdminAccess(request: NextRequest): Promise<{ isAdmin: boolean; userId?: string }> {
   try {
@@ -185,7 +186,22 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'eventId is required' }, { status: 400 });
     }
 
+    // Read event data before deleting (for favorites cleanup)
+    const eventDoc = await db.collection('events').doc(eventId).get();
+    const eventData = eventDoc.data();
+
     await db.collection('events').doc(eventId).delete();
+
+    // Clean up favorites pointing to this event (fire and forget)
+    if (eventData?.name) {
+      cleanupFavoritesForShowName(eventData.name as string)
+        .then(count => {
+          if (count > 0) console.log(`[events DELETE] Cleaned up ${count} favorites for "${eventData.name}"`);
+        })
+        .catch(err => {
+          console.error('[events DELETE] Error cleaning up favorites:', err);
+        });
+    }
 
     return NextResponse.json({ success: true, eventId });
   } catch (error) {

@@ -3,6 +3,7 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { randomBytes } from 'crypto';
 import { BroadcastSlot, BroadcastSlotSerialized, DJSlot, STATION_ID } from '@/types/broadcast';
+import { cleanupFavoritesForShow } from '@/lib/favorites-cleanup';
 
 // Hardcoded owner UID for now - replace with proper auth later
 const OWNER_UID = process.env.BROADCAST_OWNER_UID || '';
@@ -288,7 +289,23 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Missing slotId' }, { status: 400 });
     }
 
+    // Read slot data before deleting (for favorites cleanup)
+    const slotDoc = await db.collection('broadcast-slots').doc(slotId).get();
+    const slotData = slotDoc.data();
+
     await db.collection('broadcast-slots').doc(slotId).delete();
+
+    // Clean up favorites pointing to this show (fire and forget)
+    if (slotData?.showName) {
+      cleanupFavoritesForShow(
+        (slotData.showName as string).toLowerCase(),
+        (slotData.stationId as string) || 'broadcast'
+      ).then(count => {
+        if (count > 0) console.log(`[slots DELETE] Cleaned up ${count} favorites for "${slotData.showName}"`);
+      }).catch(err => {
+        console.error('[slots DELETE] Error cleaning up favorites:', err);
+      });
+    }
 
     return NextResponse.json({ success: true, slotId });
   } catch (error) {

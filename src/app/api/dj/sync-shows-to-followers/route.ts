@@ -3,6 +3,8 @@ import {
   queryUsersWhere,
   getUserFavorites,
   addUserFavorite,
+  updateDocument,
+  deleteDocument,
   isRestApiConfigured,
 } from "@/lib/firebase-rest";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
@@ -30,6 +32,24 @@ interface SyncRequest {
   djPhotoUrl?: string;
   irlShows: IrlShow[];
   radioShows: RadioShow[];
+  previousIrlShows?: IrlShow[];
+  previousRadioShows?: RadioShow[];
+}
+
+function irlShowKey(djUsername: string, show: IrlShow): string {
+  return `irl-${djUsername}-${show.date}-${show.location}`.toLowerCase();
+}
+
+function radioShowKey(show: RadioShow): string {
+  return `${show.name}-${show.radioName}-${show.date}`.toLowerCase();
+}
+
+function isIrlShowEmpty(show: IrlShow): boolean {
+  return !show.name && !show.date && !show.location && !show.url;
+}
+
+function isRadioShowEmpty(show: RadioShow): boolean {
+  return !show.name && !show.date && !show.radioName && !show.url;
 }
 
 /**
@@ -37,6 +57,7 @@ interface SyncRequest {
  *
  * Called when a DJ saves IRL or radio shows on /studio.
  * Syncs the shows to all users who follow this DJ (have them in their watchlist).
+ * Handles adds, updates, and deletes by diffing previous vs current shows by position.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -46,7 +67,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body: SyncRequest = await request.json();
-    const { djUserId, djUsername, djName, djPhotoUrl, irlShows, radioShows } = body;
+    const {
+      djUserId, djUsername, djName, djPhotoUrl,
+      irlShows, radioShows,
+      previousIrlShows = [], previousRadioShows = [],
+    } = body;
 
     if (!djUserId || !djUsername) {
       return NextResponse.json(
@@ -56,18 +81,77 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`[sync-shows-to-followers] Syncing shows for DJ: ${djName} (${djUsername})`);
-    console.log(`[sync-shows-to-followers] IRL shows: ${irlShows.length}, Radio shows: ${radioShows.length}`);
+    console.log(`[sync-shows-to-followers] IRL: ${irlShows.length} current, ${previousIrlShows.length} previous`);
+    console.log(`[sync-shows-to-followers] Radio: ${radioShows.length} current, ${previousRadioShows.length} previous`);
 
     const today = new Date().toISOString().split("T")[0];
 
-    // Filter to only future shows
-    const futureIrlShows = irlShows.filter(show => show.date >= today);
-    const futureRadioShows = radioShows.filter(show => show.date >= today);
+    // Diff IRL shows by position
+    const irlDiffs: Array<{ action: 'add' | 'update' | 'delete'; current?: IrlShow; previous?: IrlShow }> = [];
+    const maxIrl = Math.max(irlShows.length, previousIrlShows.length);
+    for (let i = 0; i < maxIrl; i++) {
+      const prev = previousIrlShows[i];
+      const curr = irlShows[i];
+      const prevEmpty = !prev || isIrlShowEmpty(prev);
+      const currEmpty = !curr || isIrlShowEmpty(curr);
 
-    if (futureIrlShows.length === 0 && futureRadioShows.length === 0) {
-      console.log("[sync-shows-to-followers] No future shows to sync");
-      return NextResponse.json({ success: true, usersMatched: 0, showsAdded: 0 });
+      if (prevEmpty && currEmpty) continue;
+      if (prevEmpty && !currEmpty) {
+        // New show added
+        if (curr.date >= today) irlDiffs.push({ action: 'add', current: curr });
+      } else if (!prevEmpty && currEmpty) {
+        // Show deleted
+        irlDiffs.push({ action: 'delete', previous: prev });
+      } else {
+        // Show may have been updated
+        const prevKey = irlShowKey(djUsername, prev!);
+        const currKey = irlShowKey(djUsername, curr!);
+        if (prevKey !== currKey || prev!.name !== curr!.name || prev!.url !== curr!.url) {
+          if (curr!.date >= today) {
+            irlDiffs.push({ action: 'update', current: curr, previous: prev });
+          } else {
+            // Updated to a past date — treat as delete
+            irlDiffs.push({ action: 'delete', previous: prev });
+          }
+        }
+        // If nothing changed, skip
+      }
     }
+
+    // Diff radio shows by position
+    const radioDiffs: Array<{ action: 'add' | 'update' | 'delete'; current?: RadioShow; previous?: RadioShow }> = [];
+    const maxRadio = Math.max(radioShows.length, previousRadioShows.length);
+    for (let i = 0; i < maxRadio; i++) {
+      const prev = previousRadioShows[i];
+      const curr = radioShows[i];
+      const prevEmpty = !prev || isRadioShowEmpty(prev);
+      const currEmpty = !curr || isRadioShowEmpty(curr);
+
+      if (prevEmpty && currEmpty) continue;
+      if (prevEmpty && !currEmpty) {
+        if (curr.date >= today) radioDiffs.push({ action: 'add', current: curr });
+      } else if (!prevEmpty && currEmpty) {
+        radioDiffs.push({ action: 'delete', previous: prev });
+      } else {
+        const prevKey = radioShowKey(prev!);
+        const currKey = radioShowKey(curr!);
+        if (prevKey !== currKey || prev!.url !== curr!.url || prev!.time !== curr!.time || prev!.duration !== curr!.duration) {
+          if (curr!.date >= today) {
+            radioDiffs.push({ action: 'update', current: curr, previous: prev });
+          } else {
+            radioDiffs.push({ action: 'delete', previous: prev });
+          }
+        }
+      }
+    }
+
+    const hasChanges = irlDiffs.length > 0 || radioDiffs.length > 0;
+    if (!hasChanges) {
+      console.log("[sync-shows-to-followers] No changes detected");
+      return NextResponse.json({ success: true, usersMatched: 0, changes: 0 });
+    }
+
+    console.log(`[sync-shows-to-followers] Diffs: ${irlDiffs.length} IRL, ${radioDiffs.length} radio`);
 
     // Get all users
     const allUsers = await queryUsersWhere("createdAt", "GREATER_THAN", new Date(0));
@@ -75,7 +159,11 @@ export async function POST(request: NextRequest) {
 
     let usersMatched = 0;
     let irlShowsAdded = 0;
+    let irlShowsUpdated = 0;
+    let irlShowsDeleted = 0;
     let radioShowsAdded = 0;
+    let radioShowsUpdated = 0;
+    let radioShowsDeleted = 0;
 
     for (const user of allUsers) {
       // Skip the DJ themselves
@@ -99,83 +187,192 @@ export async function POST(request: NextRequest) {
       if (!followsDJ) continue;
 
       usersMatched++;
-      console.log(`[sync-shows-to-followers] User ${user.id} follows ${djName}`);
 
-      // Get existing favorites to avoid duplicates
+      // Get existing favorites for diffing
       const existingIrl = await getUserFavorites(user.id, "irl");
       const existingShows = await getUserFavorites(user.id, "show");
+      const favCollection = `users/${user.id}/favorites`;
 
-      // Sync IRL shows
-      for (const show of futureIrlShows) {
-        if (!show.name || !show.date) continue;
-
-        const irlKey = `irl-${djUsername}-${show.date}-${show.location}`.toLowerCase();
-        const alreadyExists = existingIrl.some(f => (f.data.term as string) === irlKey);
-
-        if (!alreadyExists) {
-          await addUserFavorite(user.id, {
-            term: irlKey,
-            type: "irl",
-            showName: show.name,
-            djName: djName,
-            stationId: null,
-            irlEventName: show.name,
-            irlLocation: show.location,
-            irlDate: show.date,
-            irlTicketUrl: show.url,
-            djUsername: djUsername,
-            djPhotoUrl: djPhotoUrl || null,
-            createdAt: new Date(),
-            createdBy: "system",
-          });
-          irlShowsAdded++;
-          console.log(`[sync-shows-to-followers] Added IRL show "${show.name}" to user ${user.id}`);
+      // Process IRL diffs
+      for (const diff of irlDiffs) {
+        if (diff.action === 'add' && diff.current) {
+          const key = irlShowKey(djUsername, diff.current);
+          const alreadyExists = existingIrl.some(f => (f.data.term as string) === key);
+          if (!alreadyExists) {
+            await addUserFavorite(user.id, {
+              term: key,
+              type: "irl",
+              showName: diff.current.name,
+              djName: djName,
+              stationId: null,
+              irlEventName: diff.current.name,
+              irlLocation: diff.current.location,
+              irlDate: diff.current.date,
+              irlTicketUrl: diff.current.url,
+              djUsername: djUsername,
+              djPhotoUrl: djPhotoUrl || null,
+              createdAt: new Date(),
+              createdBy: "system",
+            });
+            irlShowsAdded++;
+          }
+        } else if (diff.action === 'delete' && diff.previous) {
+          const oldKey = irlShowKey(djUsername, diff.previous);
+          const existing = existingIrl.find(f => (f.data.term as string) === oldKey);
+          if (existing) {
+            await deleteDocument(favCollection, existing.id);
+            irlShowsDeleted++;
+            console.log(`[sync-shows-to-followers] Deleted IRL favorite "${diff.previous.name}" for user ${user.id}`);
+          }
+        } else if (diff.action === 'update' && diff.previous && diff.current) {
+          const oldKey = irlShowKey(djUsername, diff.previous);
+          const newKey = irlShowKey(djUsername, diff.current);
+          const existing = existingIrl.find(f => (f.data.term as string) === oldKey);
+          if (existing) {
+            await updateDocument(favCollection, existing.id, {
+              term: newKey,
+              showName: diff.current.name,
+              irlEventName: diff.current.name,
+              irlLocation: diff.current.location,
+              irlDate: diff.current.date,
+              irlTicketUrl: diff.current.url,
+            });
+            irlShowsUpdated++;
+            console.log(`[sync-shows-to-followers] Updated IRL favorite "${diff.previous.name}" → "${diff.current.name}" for user ${user.id}`);
+          } else {
+            // Previous favorite not found — add as new
+            const alreadyExists = existingIrl.some(f => (f.data.term as string) === newKey);
+            if (!alreadyExists) {
+              await addUserFavorite(user.id, {
+                term: newKey,
+                type: "irl",
+                showName: diff.current.name,
+                djName: djName,
+                stationId: null,
+                irlEventName: diff.current.name,
+                irlLocation: diff.current.location,
+                irlDate: diff.current.date,
+                irlTicketUrl: diff.current.url,
+                djUsername: djUsername,
+                djPhotoUrl: djPhotoUrl || null,
+                createdAt: new Date(),
+                createdBy: "system",
+              });
+              irlShowsAdded++;
+            }
+          }
         }
       }
 
-      // Sync radio shows
-      for (const show of futureRadioShows) {
-        if (!show.name || !show.date || !show.radioName) continue;
-
-        const showKey = `${show.name}-${show.radioName}-${show.date}`.toLowerCase();
-        const alreadyExists = existingShows.some(f =>
-          (f.data.term as string) === showKey ||
-          (
-            ((f.data.showName as string) || "").toLowerCase() === show.name.toLowerCase() &&
-            ((f.data.stationId as string) || "") === show.radioName.toLowerCase() &&
-            (f.data.radioShowDate as string) === show.date
-          )
-        );
-
-        if (!alreadyExists) {
-          await addUserFavorite(user.id, {
-            term: showKey,
-            type: "show",
-            showName: show.name,
-            djName: djName,
-            stationId: show.radioName.toLowerCase(),
-            radioShowDate: show.date,
-            radioShowTime: show.time,
-            radioShowDuration: show.duration,
-            radioShowUrl: show.url,
-            djUsername: djUsername,
-            djPhotoUrl: djPhotoUrl || null,
-            createdAt: new Date(),
-            createdBy: "system",
-          });
-          radioShowsAdded++;
-          console.log(`[sync-shows-to-followers] Added radio show "${show.name}" to user ${user.id}`);
+      // Process radio diffs
+      for (const diff of radioDiffs) {
+        if (diff.action === 'add' && diff.current) {
+          if (!diff.current.name || !diff.current.date || !diff.current.radioName) continue;
+          const key = radioShowKey(diff.current);
+          const alreadyExists = existingShows.some(f =>
+            (f.data.term as string) === key ||
+            (
+              ((f.data.showName as string) || "").toLowerCase() === diff.current!.name.toLowerCase() &&
+              ((f.data.stationId as string) || "") === diff.current!.radioName.toLowerCase() &&
+              (f.data.radioShowDate as string) === diff.current!.date
+            )
+          );
+          if (!alreadyExists) {
+            await addUserFavorite(user.id, {
+              term: key,
+              type: "show",
+              showName: diff.current.name,
+              djName: djName,
+              stationId: diff.current.radioName.toLowerCase(),
+              radioShowDate: diff.current.date,
+              radioShowTime: diff.current.time,
+              radioShowDuration: diff.current.duration,
+              radioShowUrl: diff.current.url,
+              djUsername: djUsername,
+              djPhotoUrl: djPhotoUrl || null,
+              createdAt: new Date(),
+              createdBy: "system",
+            });
+            radioShowsAdded++;
+          }
+        } else if (diff.action === 'delete' && diff.previous) {
+          const oldKey = radioShowKey(diff.previous);
+          const existing = existingShows.find(f =>
+            (f.data.term as string) === oldKey ||
+            (
+              ((f.data.showName as string) || "").toLowerCase() === diff.previous!.name.toLowerCase() &&
+              ((f.data.stationId as string) || "") === diff.previous!.radioName.toLowerCase() &&
+              (f.data.radioShowDate as string) === diff.previous!.date
+            )
+          );
+          if (existing) {
+            await deleteDocument(favCollection, existing.id);
+            radioShowsDeleted++;
+            console.log(`[sync-shows-to-followers] Deleted radio favorite "${diff.previous.name}" for user ${user.id}`);
+          }
+        } else if (diff.action === 'update' && diff.previous && diff.current) {
+          if (!diff.current.name || !diff.current.date || !diff.current.radioName) continue;
+          const oldKey = radioShowKey(diff.previous);
+          const newKey = radioShowKey(diff.current);
+          const existing = existingShows.find(f =>
+            (f.data.term as string) === oldKey ||
+            (
+              ((f.data.showName as string) || "").toLowerCase() === diff.previous!.name.toLowerCase() &&
+              ((f.data.stationId as string) || "") === diff.previous!.radioName.toLowerCase() &&
+              (f.data.radioShowDate as string) === diff.previous!.date
+            )
+          );
+          if (existing) {
+            await updateDocument(favCollection, existing.id, {
+              term: newKey,
+              showName: diff.current.name,
+              stationId: diff.current.radioName.toLowerCase(),
+              radioShowDate: diff.current.date,
+              radioShowTime: diff.current.time,
+              radioShowDuration: diff.current.duration,
+              radioShowUrl: diff.current.url,
+            });
+            radioShowsUpdated++;
+            console.log(`[sync-shows-to-followers] Updated radio favorite "${diff.previous.name}" → "${diff.current.name}" for user ${user.id}`);
+          } else {
+            // Previous favorite not found — add as new
+            const alreadyExists = existingShows.some(f => (f.data.term as string) === newKey);
+            if (!alreadyExists) {
+              await addUserFavorite(user.id, {
+                term: newKey,
+                type: "show",
+                showName: diff.current.name,
+                djName: djName,
+                stationId: diff.current.radioName.toLowerCase(),
+                radioShowDate: diff.current.date,
+                radioShowTime: diff.current.time,
+                radioShowDuration: diff.current.duration,
+                radioShowUrl: diff.current.url,
+                djUsername: djUsername,
+                djPhotoUrl: djPhotoUrl || null,
+                createdAt: new Date(),
+                createdBy: "system",
+              });
+              radioShowsAdded++;
+            }
+          }
         }
       }
     }
 
-    console.log(`[sync-shows-to-followers] Done: ${usersMatched} users matched, ${irlShowsAdded} IRL + ${radioShowsAdded} radio shows added`);
+    console.log(`[sync-shows-to-followers] Done: ${usersMatched} users matched`);
+    console.log(`[sync-shows-to-followers] IRL: +${irlShowsAdded} added, ~${irlShowsUpdated} updated, -${irlShowsDeleted} deleted`);
+    console.log(`[sync-shows-to-followers] Radio: +${radioShowsAdded} added, ~${radioShowsUpdated} updated, -${radioShowsDeleted} deleted`);
 
     return NextResponse.json({
       success: true,
       usersMatched,
       irlShowsAdded,
+      irlShowsUpdated,
+      irlShowsDeleted,
       radioShowsAdded,
+      radioShowsUpdated,
+      radioShowsDeleted,
     });
   } catch (error) {
     console.error("[sync-shows-to-followers] Error:", error);
