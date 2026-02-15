@@ -22,6 +22,32 @@ interface IrlShow {
   date: string;
 }
 
+interface EventDJRef {
+  djName: string;
+  djUserId?: string;
+  djUsername?: string;
+  djPhotoUrl?: string;
+}
+
+interface VenueOption {
+  id: string;
+  name: string;
+  residentDJs: EventDJRef[];
+}
+
+interface CollectiveOption {
+  id: string;
+  name: string;
+  residentDJs: EventDJRef[];
+}
+
+interface EventOption {
+  id: string;
+  name: string;
+  date: number;
+  djs: EventDJRef[];
+}
+
 interface PendingProfile {
   id: string;
   email: string;
@@ -93,6 +119,17 @@ export function PendingDJsAdmin() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
 
+  // Entity linking state
+  const [venueOptions, setVenueOptions] = useState<VenueOption[]>([]);
+  const [collectiveOptions, setCollectiveOptions] = useState<CollectiveOption[]>([]);
+  const [eventOptions, setEventOptions] = useState<EventOption[]>([]);
+  const [linkedVenueIds, setLinkedVenueIds] = useState<string[]>([]);
+  const [linkedCollectiveIds, setLinkedCollectiveIds] = useState<string[]>([]);
+  const [linkedEventIds, setLinkedEventIds] = useState<string[]>([]);
+  const [originalLinkedVenueIds, setOriginalLinkedVenueIds] = useState<string[]>([]);
+  const [originalLinkedCollectiveIds, setOriginalLinkedCollectiveIds] = useState<string[]>([]);
+  const [originalLinkedEventIds, setOriginalLinkedEventIds] = useState<string[]>([]);
+
   // UI state
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -157,16 +194,83 @@ export function PendingDJsAdmin() {
     }
   }, []);
 
+  // Fetch venue options for linking
+  const fetchVenueOptions = useCallback(async () => {
+    if (!db) return;
+    try {
+      const snapshot = await getDocs(collection(db, 'venues'));
+      const list: VenueOption[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        list.push({
+          id: docSnap.id,
+          name: data.name,
+          residentDJs: data.residentDJs || [],
+        });
+      });
+      list.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+      setVenueOptions(list);
+    } catch (err) {
+      console.error('Error fetching venue options:', err);
+    }
+  }, []);
+
+  // Fetch collective options for linking
+  const fetchCollectiveOptions = useCallback(async () => {
+    if (!db) return;
+    try {
+      const snapshot = await getDocs(collection(db, 'collectives'));
+      const list: CollectiveOption[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        list.push({
+          id: docSnap.id,
+          name: data.name,
+          residentDJs: data.residentDJs || [],
+        });
+      });
+      list.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+      setCollectiveOptions(list);
+    } catch (err) {
+      console.error('Error fetching collective options:', err);
+    }
+  }, []);
+
+  // Fetch event options for linking
+  const fetchEventOptions = useCallback(async () => {
+    if (!db) return;
+    try {
+      const snapshot = await getDocs(collection(db, 'events'));
+      const list: EventOption[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        list.push({
+          id: docSnap.id,
+          name: data.name,
+          date: data.date,
+          djs: data.djs || [],
+        });
+      });
+      list.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+      setEventOptions(list);
+    } catch (err) {
+      console.error('Error fetching event options:', err);
+    }
+  }, []);
+
   useEffect(() => {
     console.log('[pending-djs] useEffect triggered - isAuthenticated:', isAuthenticated, 'hasBroadcasterAccess:', hasBroadcasterAccess);
     if (isAuthenticated && hasBroadcasterAccess) {
       console.log('[pending-djs] Conditions met, calling fetchPendingProfiles');
       fetchPendingProfiles();
+      fetchVenueOptions();
+      fetchCollectiveOptions();
+      fetchEventOptions();
     } else {
       console.log('[pending-djs] Conditions NOT met, not fetching');
       setLoadingProfiles(false);
     }
-  }, [isAuthenticated, hasBroadcasterAccess, fetchPendingProfiles]);
+  }, [isAuthenticated, hasBroadcasterAccess, fetchPendingProfiles, fetchVenueOptions, fetchCollectiveOptions, fetchEventOptions]);
 
   // Redirect to radio portal if not authenticated
   useEffect(() => {
@@ -198,6 +302,12 @@ export function PendingDJsAdmin() {
     setEventRecs(['']);
     setPhotoUrl(null);
     setPhotoError(null);
+    setLinkedVenueIds([]);
+    setLinkedCollectiveIds([]);
+    setLinkedEventIds([]);
+    setOriginalLinkedVenueIds([]);
+    setOriginalLinkedCollectiveIds([]);
+    setOriginalLinkedEventIds([]);
     setEditingProfile(null);
     setError(null);
     setSuccess(null);
@@ -238,6 +348,23 @@ export function PendingDJsAdmin() {
     setPhotoError(null);
     setError(null);
     setSuccess(null);
+
+    // Find existing entity links by checking which venues/collectives/events contain this DJ
+    const djUsername = profile.chatUsernameNormalized;
+    const matchesDJ = (djs: EventDJRef[]) =>
+      djs.some(d => d.djUsername === djUsername || d.djName === profile.chatUsername);
+
+    const venueIds = venueOptions.filter(v => matchesDJ(v.residentDJs)).map(v => v.id);
+    setLinkedVenueIds(venueIds);
+    setOriginalLinkedVenueIds(venueIds);
+
+    const collectiveIds = collectiveOptions.filter(c => matchesDJ(c.residentDJs)).map(c => c.id);
+    setLinkedCollectiveIds(collectiveIds);
+    setOriginalLinkedCollectiveIds(collectiveIds);
+
+    const eventIds = eventOptions.filter(e => matchesDJ(e.djs)).map(e => e.id);
+    setLinkedEventIds(eventIds);
+    setOriginalLinkedEventIds(eventIds);
 
     // Scroll to form
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -390,9 +517,92 @@ export function PendingDJsAdmin() {
           return;
         }
 
+        // Sync entity links (add/remove DJ from venues, collectives, events)
+        const djRef: EventDJRef = {
+          djName: editingProfile.chatUsername,
+          djUsername: editingProfile.chatUsernameNormalized,
+          djPhotoUrl: photoUrl || undefined,
+        };
+
+        const addedVenues = linkedVenueIds.filter(id => !originalLinkedVenueIds.includes(id));
+        const removedVenues = originalLinkedVenueIds.filter(id => !linkedVenueIds.includes(id));
+        const addedCollectives = linkedCollectiveIds.filter(id => !originalLinkedCollectiveIds.includes(id));
+        const removedCollectives = originalLinkedCollectiveIds.filter(id => !linkedCollectiveIds.includes(id));
+        const addedEvents = linkedEventIds.filter(id => !originalLinkedEventIds.includes(id));
+        const removedEvents = originalLinkedEventIds.filter(id => !linkedEventIds.includes(id));
+
+        // Update venues
+        for (const venueId of addedVenues) {
+          const venue = venueOptions.find(v => v.id === venueId);
+          if (!venue) continue;
+          const updatedDJs = [...venue.residentDJs, djRef];
+          await fetch('/api/admin/venues', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ venueId, residentDJs: updatedDJs }),
+          });
+        }
+        for (const venueId of removedVenues) {
+          const venue = venueOptions.find(v => v.id === venueId);
+          if (!venue) continue;
+          const updatedDJs = venue.residentDJs.filter(d => d.djUsername !== editingProfile.chatUsernameNormalized && d.djName !== editingProfile.chatUsername);
+          await fetch('/api/admin/venues', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ venueId, residentDJs: updatedDJs }),
+          });
+        }
+
+        // Update collectives
+        for (const collectiveId of addedCollectives) {
+          const coll = collectiveOptions.find(c => c.id === collectiveId);
+          if (!coll) continue;
+          const updatedDJs = [...coll.residentDJs, djRef];
+          await fetch('/api/admin/collectives', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ collectiveId, residentDJs: updatedDJs }),
+          });
+        }
+        for (const collectiveId of removedCollectives) {
+          const coll = collectiveOptions.find(c => c.id === collectiveId);
+          if (!coll) continue;
+          const updatedDJs = coll.residentDJs.filter(d => d.djUsername !== editingProfile.chatUsernameNormalized && d.djName !== editingProfile.chatUsername);
+          await fetch('/api/admin/collectives', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ collectiveId, residentDJs: updatedDJs }),
+          });
+        }
+
+        // Update events
+        for (const eventId of addedEvents) {
+          const evt = eventOptions.find(e => e.id === eventId);
+          if (!evt) continue;
+          const updatedDJs = [...evt.djs, djRef];
+          await fetch('/api/admin/events', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ eventId, djs: updatedDJs }),
+          });
+        }
+        for (const eventId of removedEvents) {
+          const evt = eventOptions.find(e => e.id === eventId);
+          if (!evt) continue;
+          const updatedDJs = evt.djs.filter(d => d.djUsername !== editingProfile.chatUsernameNormalized && d.djName !== editingProfile.chatUsername);
+          await fetch('/api/admin/events', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ eventId, djs: updatedDJs }),
+          });
+        }
+
         setSuccess(`Updated DJ profile for ${djName}`);
         resetForm();
         fetchPendingProfiles();
+        fetchVenueOptions();
+        fetchCollectiveOptions();
+        fetchEventOptions();
       } else {
         // Create new profile via API
         const response = await fetch('/api/admin/create-pending-dj-profile', {
@@ -1082,6 +1292,141 @@ See you on Channel!
                   </div>
                 </div>
               </div>
+
+              {/* Entity Linking (only when editing) */}
+              {editingProfile && (
+                <div className="border-t border-gray-700 pt-6">
+                  <label className="block text-sm font-medium text-gray-300 mb-4">
+                    Linked Entities
+                  </label>
+
+                  {/* Linked Venues */}
+                  <div className="mb-4">
+                    <label className="block text-xs text-gray-500 mb-2">Venues</label>
+                    {linkedVenueIds.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {linkedVenueIds.map(id => {
+                          const venue = venueOptions.find(v => v.id === id);
+                          return (
+                            <span key={id} className="inline-flex items-center gap-1 bg-[#252525] border border-gray-700 rounded-full px-3 py-1 text-sm text-white">
+                              {venue?.name || id}
+                              <button
+                                type="button"
+                                onClick={() => setLinkedVenueIds(linkedVenueIds.filter(v => v !== id))}
+                                className="text-gray-500 hover:text-red-400 ml-1"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value && !linkedVenueIds.includes(e.target.value)) {
+                          setLinkedVenueIds([...linkedVenueIds, e.target.value]);
+                        }
+                      }}
+                      className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-white transition-colors"
+                    >
+                      <option value="">Add venue...</option>
+                      {venueOptions
+                        .filter(v => !linkedVenueIds.includes(v.id))
+                        .map(v => (
+                          <option key={v.id} value={v.id}>{v.name}</option>
+                        ))}
+                    </select>
+                  </div>
+
+                  {/* Linked Collectives */}
+                  <div className="mb-4">
+                    <label className="block text-xs text-gray-500 mb-2">Collectives</label>
+                    {linkedCollectiveIds.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {linkedCollectiveIds.map(id => {
+                          const coll = collectiveOptions.find(c => c.id === id);
+                          return (
+                            <span key={id} className="inline-flex items-center gap-1 bg-[#252525] border border-gray-700 rounded-full px-3 py-1 text-sm text-white">
+                              {coll?.name || id}
+                              <button
+                                type="button"
+                                onClick={() => setLinkedCollectiveIds(linkedCollectiveIds.filter(c => c !== id))}
+                                className="text-gray-500 hover:text-red-400 ml-1"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value && !linkedCollectiveIds.includes(e.target.value)) {
+                          setLinkedCollectiveIds([...linkedCollectiveIds, e.target.value]);
+                        }
+                      }}
+                      className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-white transition-colors"
+                    >
+                      <option value="">Add collective...</option>
+                      {collectiveOptions
+                        .filter(c => !linkedCollectiveIds.includes(c.id))
+                        .map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                    </select>
+                  </div>
+
+                  {/* Linked Events */}
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-2">Events</label>
+                    {linkedEventIds.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {linkedEventIds.map(id => {
+                          const evt = eventOptions.find(e => e.id === id);
+                          return (
+                            <span key={id} className="inline-flex items-center gap-1 bg-[#252525] border border-gray-700 rounded-full px-3 py-1 text-sm text-white">
+                              {evt?.name || id}
+                              <button
+                                type="button"
+                                onClick={() => setLinkedEventIds(linkedEventIds.filter(e => e !== id))}
+                                className="text-gray-500 hover:text-red-400 ml-1"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value && !linkedEventIds.includes(e.target.value)) {
+                          setLinkedEventIds([...linkedEventIds, e.target.value]);
+                        }
+                      }}
+                      className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-white transition-colors"
+                    >
+                      <option value="">Add event...</option>
+                      {eventOptions
+                        .filter(e => !linkedEventIds.includes(e.id))
+                        .map(e => (
+                          <option key={e.id} value={e.id}>{e.name}</option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+              )}
 
               {/* Submit / Cancel / Delete */}
               <div className="pt-4 flex gap-3">

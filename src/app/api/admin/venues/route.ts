@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb, getAdminAuth } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { generateSlug } from '@/lib/slug';
+import {
+  syncVenueToCollectives,
+  cleanupDeletedVenue,
+} from '@/lib/bidirectional-sync';
 
 async function verifyAdminAccess(request: NextRequest): Promise<{ isAdmin: boolean; userId?: string }> {
   try {
@@ -82,6 +86,11 @@ export async function POST(request: NextRequest) {
 
     const docRef = await db.collection('venues').add(venueData);
 
+    // Bidirectional sync: add self to all linked collectives
+    const batch = db.batch();
+    await syncVenueToCollectives(batch, db, docRef.id, name.trim(), [], collectives || []);
+    await batch.commit();
+
     return NextResponse.json({
       success: true,
       venueId: docRef.id,
@@ -119,6 +128,8 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Venue not found' }, { status: 404 });
     }
 
+    const currentData = venueDoc.data()!;
+
     const updateData: Record<string, unknown> = {};
     if (name !== undefined) updateData.name = name;
     if (photo !== undefined) updateData.photo = photo;
@@ -129,7 +140,20 @@ export async function PATCH(request: NextRequest) {
     if (residentDJs !== undefined) updateData.residentDJs = residentDJs;
     if (collectives !== undefined) updateData.collectives = collectives;
 
-    await venueRef.update(updateData);
+    const batch = db.batch();
+    batch.update(venueRef, updateData);
+
+    // Bidirectional sync for collectives changes
+    if (collectives !== undefined) {
+      const selfName = (name !== undefined ? name : currentData.name) as string;
+      await syncVenueToCollectives(
+        batch, db, venueId, selfName,
+        currentData.collectives || [],
+        collectives
+      );
+    }
+
+    await batch.commit();
 
     return NextResponse.json({ success: true, venueId });
   } catch (error) {
@@ -158,7 +182,19 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'venueId is required' }, { status: 400 });
     }
 
-    await db.collection('venues').doc(venueId).delete();
+    const venueRef = db.collection('venues').doc(venueId);
+    const venueDoc = await venueRef.get();
+
+    const batch = db.batch();
+    batch.delete(venueRef);
+
+    // Clean up reverse links before deleting
+    if (venueDoc.exists) {
+      const data = venueDoc.data()!;
+      await cleanupDeletedVenue(batch, db, venueId, data.collectives || []);
+    }
+
+    await batch.commit();
 
     return NextResponse.json({ success: true, venueId });
   } catch (error) {

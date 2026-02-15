@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb, getAdminAuth } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { generateSlug } from '@/lib/slug';
+import {
+  syncCollectiveToCollectives,
+  syncCollectiveToVenues,
+  cleanupDeletedCollective,
+} from '@/lib/bidirectional-sync';
 
 async function verifyAdminAccess(request: NextRequest): Promise<{ isAdmin: boolean; userId?: string }> {
   try {
@@ -83,6 +88,12 @@ export async function POST(request: NextRequest) {
 
     const docRef = await db.collection('collectives').add(collectiveData);
 
+    // Bidirectional sync: add self to all linked collectives and venues
+    const batch = db.batch();
+    await syncCollectiveToCollectives(batch, db, docRef.id, name.trim(), slug, [], linkedCollectives || []);
+    await syncCollectiveToVenues(batch, db, docRef.id, name.trim(), slug, [], linkedVenues || []);
+    await batch.commit();
+
     return NextResponse.json({
       success: true,
       collectiveId: docRef.id,
@@ -120,6 +131,8 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Collective not found' }, { status: 404 });
     }
 
+    const currentData = collectiveDoc.data()!;
+
     const updateData: Record<string, unknown> = {};
     if (name !== undefined) updateData.name = name;
     if (photo !== undefined) updateData.photo = photo;
@@ -131,7 +144,31 @@ export async function PATCH(request: NextRequest) {
     if (linkedVenues !== undefined) updateData.linkedVenues = linkedVenues;
     if (linkedCollectives !== undefined) updateData.linkedCollectives = linkedCollectives;
 
-    await collectiveRef.update(updateData);
+    const batch = db.batch();
+    batch.update(collectiveRef, updateData);
+
+    // Bidirectional sync for linkedCollectives changes
+    const selfName = (name !== undefined ? name : currentData.name) as string;
+    const selfSlug = currentData.slug as string;
+
+    if (linkedCollectives !== undefined) {
+      await syncCollectiveToCollectives(
+        batch, db, collectiveId, selfName, selfSlug,
+        currentData.linkedCollectives || [],
+        linkedCollectives
+      );
+    }
+
+    // Bidirectional sync for linkedVenues changes
+    if (linkedVenues !== undefined) {
+      await syncCollectiveToVenues(
+        batch, db, collectiveId, selfName, selfSlug,
+        currentData.linkedVenues || [],
+        linkedVenues
+      );
+    }
+
+    await batch.commit();
 
     return NextResponse.json({ success: true, collectiveId });
   } catch (error) {
@@ -160,7 +197,23 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'collectiveId is required' }, { status: 400 });
     }
 
-    await db.collection('collectives').doc(collectiveId).delete();
+    const collectiveRef = db.collection('collectives').doc(collectiveId);
+    const collectiveDoc = await collectiveRef.get();
+
+    const batch = db.batch();
+    batch.delete(collectiveRef);
+
+    // Clean up reverse links before deleting
+    if (collectiveDoc.exists) {
+      const data = collectiveDoc.data()!;
+      await cleanupDeletedCollective(
+        batch, db, collectiveId,
+        data.linkedVenues || [],
+        data.linkedCollectives || []
+      );
+    }
+
+    await batch.commit();
 
     return NextResponse.json({ success: true, collectiveId });
   } catch (error) {
