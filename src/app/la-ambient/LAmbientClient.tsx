@@ -11,7 +11,7 @@ import { db } from '@/lib/firebase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { Show, IRLShowData } from '@/types';
-import { Venue, Event, EventDJRef } from '@/types/events';
+import { Venue, Event, EventDJRef, Collective } from '@/types/events';
 import { matchesGenre } from '@/lib/genres';
 import { matchesCity } from '@/lib/city-detection';
 import { getStationById, getStationLogoUrl } from '@/lib/stations';
@@ -50,9 +50,11 @@ function formatEventDate(ms: number): string {
 export function LAmbientClient() {
   const [selectors, setSelectors] = useState<SelectorProfile[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
+  const [collectives, setCollectives] = useState<Collective[]>([]);
   const [onlineShows, setOnlineShows] = useState<Show[]>([]);
   const [irlShows, setIrlShows] = useState<IRLShowData[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
+  const [pastEvents, setPastEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Auth & favorites
@@ -127,16 +129,21 @@ export function LAmbientClient() {
       const results = await Promise.allSettled([
         fetchSelectors(),
         fetchVenues(),
+        fetchCollectives(),
         fetchEvents(),
         fetchSchedule(),
       ]);
 
       if (results[0].status === 'fulfilled') setSelectors(results[0].value);
       if (results[1].status === 'fulfilled') setVenues(results[1].value);
-      if (results[2].status === 'fulfilled') setEvents(results[2].value);
+      if (results[2].status === 'fulfilled') setCollectives(results[2].value);
       if (results[3].status === 'fulfilled') {
-        setOnlineShows(results[3].value.shows);
-        setIrlShows(results[3].value.irlShows);
+        setEvents(results[3].value.upcoming);
+        setPastEvents(results[3].value.past);
+      }
+      if (results[4].status === 'fulfilled') {
+        setOnlineShows(results[4].value.shows);
+        setIrlShows(results[4].value.irlShows);
       }
 
       setLoading(false);
@@ -255,6 +262,7 @@ export function LAmbientClient() {
               onFollow={handleFollowSelector}
             />
             <VenuesSection venues={venues} />
+            <CollectivesSection collectives={collectives} />
             <OnlineShowsSection
               shows={upcomingShows}
               isInWatchlist={isInWatchlist}
@@ -267,12 +275,9 @@ export function LAmbientClient() {
             <UpcomingDatesSection irlShows={irlShows} events={events} venueSlugMap={venueSlugMap} venues={venues} />
             <PastShowsSection
               shows={pastShows}
-              isInWatchlist={isInWatchlist}
-              isShowFavorited={isShowFavorited}
-              addingFollowDj={addingFollowDj}
-              addingReminderShowId={addingReminderShowId}
-              onFollow={handleFollow}
-              onRemindMe={handleRemindMe}
+              pastEvents={pastEvents}
+              venueSlugMap={venueSlugMap}
+              venues={venues}
             />
           </>
         )}
@@ -397,7 +402,99 @@ function SelectorCard({
   );
 }
 
-// ---------- Section 2: Anchor Venues ----------
+// ---------- Section 2: Collectives ----------
+
+function CollectivesSection({ collectives }: { collectives: Collective[] }) {
+  if (collectives.length === 0) return null;
+
+  return (
+    <section className="mb-10">
+      <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">
+        Collectives
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {collectives.map((collective) => (
+          <CollectiveCard key={collective.id} collective={collective} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CollectiveCard({ collective }: { collective: Collective }) {
+  const [imageError, setImageError] = useState(false);
+  const hasPhoto = collective.photo && !imageError;
+
+  const thumbnail = hasPhoto ? (
+    <Image
+      src={collective.photo!}
+      alt={collective.name}
+      width={64}
+      height={64}
+      className="w-16 h-16 rounded-lg object-cover"
+      unoptimized
+      onError={() => setImageError(true)}
+    />
+  ) : (
+    <div className="w-16 h-16 rounded-lg bg-white flex items-center justify-center">
+      <span className="text-2xl font-black text-black">{collective.name.charAt(0).toUpperCase()}</span>
+    </div>
+  );
+
+  const content = (
+    <div className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors">
+      <div className="flex items-start gap-4">
+        <div className="flex-shrink-0">
+          {thumbnail}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-medium">{collective.name}</p>
+          {collective.location && (
+            <p className="text-zinc-500 text-xs uppercase tracking-wide mt-0.5">
+              {collective.location}
+            </p>
+          )}
+          {collective.genres && collective.genres.length > 0 && (
+            <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter mt-1">
+              {collective.genres.join(' · ')}
+            </p>
+          )}
+          {collective.residentDJs && collective.residentDJs.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              {collective.residentDJs
+                .filter((dj: EventDJRef) => dj.djName)
+                .map((dj: EventDJRef, i: number) =>
+                  dj.djUsername ? (
+                    <Link
+                      key={i}
+                      href={`/dj/${dj.djUsername}`}
+                      className="text-xs text-zinc-400 hover:text-white transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {dj.djName}
+                      {i < (collective.residentDJs?.length ?? 0) - 1 ? ',' : ''}
+                    </Link>
+                  ) : (
+                    <span key={i} className="text-xs text-zinc-400">
+                      {dj.djName}
+                      {i < (collective.residentDJs?.length ?? 0) - 1 ? ',' : ''}
+                    </span>
+                  )
+                )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  if (collective.slug) {
+    return <Link href={`/collective/${collective.slug}`}>{content}</Link>;
+  }
+  return content;
+}
+
+// ---------- Section 3: Anchor Venues ----------
 
 function VenuesSection({ venues }: { venues: Venue[] }) {
   if (venues.length === 0) return null;
@@ -841,9 +938,11 @@ function DJAvatar({ dj }: { dj: EventDJRef }) {
 function EventDateCard({ event, venueSlugMap, venuePhotoMap }: { event: Event; venueSlugMap: Map<string, string>; venuePhotoMap: Map<string, string> }) {
   const venueSlug = event.venueId ? venueSlugMap.get(event.venueId) : undefined;
   const venuePhoto = event.venueId ? venuePhotoMap.get(event.venueId) : undefined;
+  const firstDjPhoto = event.djs.find(dj => dj.djPhotoUrl)?.djPhotoUrl;
   const [venueImageError, setVenueImageError] = useState(false);
-  const hasVenuePhoto = (event.photo || venuePhoto) && !venueImageError;
-  const displayPhoto = event.photo || venuePhoto;
+  // Fallback chain: event image > venue image > DJ image > none
+  const displayPhoto = event.photo || venuePhoto || firstDjPhoto;
+  const hasVenuePhoto = displayPhoto && !venueImageError;
 
   const venueThumb = hasVenuePhoto ? (
     <Image
@@ -937,22 +1036,175 @@ function EventDateCard({ event, venueSlugMap, venuePhotoMap }: { event: Event; v
   );
 }
 
-// ---------- Section 5: Past Shows ----------
+// ---------- Section 5: Past Shows & Events ----------
 
-function PastShowsSection(props: ShowsSectionProps) {
-  if (props.shows.length === 0) return null;
+function PastShowsSection({
+  shows,
+  pastEvents,
+  venueSlugMap,
+  venues,
+}: {
+  shows: Show[];
+  pastEvents: Event[];
+  venueSlugMap: Map<string, string>;
+  venues: Venue[];
+}) {
+  if (shows.length === 0 && pastEvents.length === 0) return null;
+
+  // Build venue photo lookup
+  const venuePhotoMap = new Map<string, string>();
+  for (const v of venues) {
+    if (v.id && v.photo) venuePhotoMap.set(v.id, v.photo);
+  }
+
+  // Sort past events newest first
+  const sortedPastEvents = [...pastEvents].sort((a, b) => b.date - a.date);
 
   return (
     <section className="mb-10">
       <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">
-        Past Shows
+        Past Shows & Events
       </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {props.shows.map((show) => (
-          <ShowCard key={show.id} show={show} {...props} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {shows.map((show) => (
+          <PastShowCard key={show.id} show={show} />
+        ))}
+        {sortedPastEvents.map((event) => (
+          <PastEventCard key={event.id} event={event} venueSlugMap={venueSlugMap} venuePhotoMap={venuePhotoMap} />
         ))}
       </div>
     </section>
+  );
+}
+
+function PastShowCard({ show }: { show: Show }) {
+  const [imageError, setImageError] = useState(false);
+  const station = getStationById(show.stationId);
+  const djName = show.dj || show.name;
+  const photoUrl = show.djPhotoUrl || show.imageUrl;
+  const hasPhoto = photoUrl && !imageError;
+  const stationLogo = station ? getStationLogoUrl(station.id) : undefined;
+
+  const thumbnail = hasPhoto ? (
+    <Image
+      src={photoUrl}
+      alt={djName}
+      width={48}
+      height={48}
+      className="w-12 h-12 rounded-full object-cover"
+      unoptimized
+      onError={() => setImageError(true)}
+    />
+  ) : (
+    <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center">
+      <span className="text-lg font-black text-black">{djName.charAt(0).toUpperCase()}</span>
+    </div>
+  );
+
+  return (
+    <div className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors">
+      <div className="flex items-start gap-3">
+        <div className="flex-shrink-0 relative">
+          {show.djUsername ? (
+            <Link href={`/dj/${show.djUsername}`}>{thumbnail}</Link>
+          ) : thumbnail}
+          {stationLogo && (
+            <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded border border-white/30 overflow-hidden bg-black">
+              <Image src={stationLogo} alt={station?.name || ''} fill className="object-contain" />
+            </div>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-medium text-sm truncate">
+            {show.djUsername ? (
+              <Link href={`/dj/${show.djUsername}`} className="hover:underline">{show.name}</Link>
+            ) : show.name}
+          </p>
+          <p className="text-zinc-500 text-xs uppercase tracking-wide mt-0.5">
+            {new Date(show.startTime).toLocaleDateString('en-US', {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+            })}
+          </p>
+          {station && station.id !== 'broadcast' && station.id !== 'dj-radio' && (
+            <p className="text-[10px] text-zinc-500 mt-0.5 uppercase">
+              on {station.name}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PastEventCard({ event, venueSlugMap, venuePhotoMap }: { event: Event; venueSlugMap: Map<string, string>; venuePhotoMap: Map<string, string> }) {
+  const venueSlug = event.venueId ? venueSlugMap.get(event.venueId) : undefined;
+  const venuePhoto = event.venueId ? venuePhotoMap.get(event.venueId) : undefined;
+  const firstDjPhoto = event.djs.find(dj => dj.djPhotoUrl)?.djPhotoUrl;
+  const [imageError, setImageError] = useState(false);
+  // Fallback chain: event image > venue image > DJ image > none
+  const displayPhoto = event.photo || venuePhoto || firstDjPhoto;
+  const hasPhoto = displayPhoto && !imageError;
+
+  const thumbnail = hasPhoto ? (
+    <Image
+      src={displayPhoto!}
+      alt={event.name}
+      width={48}
+      height={48}
+      className="w-12 h-12 rounded-lg object-cover"
+      unoptimized
+      onError={() => setImageError(true)}
+    />
+  ) : (
+    <div className="w-12 h-12 rounded-lg bg-white flex items-center justify-center">
+      <span className="text-lg font-black text-black">{event.name.charAt(0).toUpperCase()}</span>
+    </div>
+  );
+
+  return (
+    <div className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors">
+      <div className="flex items-start gap-3">
+        <div className="flex-shrink-0">
+          {thumbnail}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-medium text-sm truncate">{event.name}</p>
+          <p className="text-zinc-500 text-xs uppercase tracking-wide mt-0.5">
+            {new Date(event.date).toLocaleDateString('en-US', {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+            })}
+            {event.venueName && venueSlug ? (
+              <> · <Link href={`/venue/${venueSlug}`} className="hover:text-white transition-colors">{event.venueName}</Link></>
+            ) : event.venueName ? (
+              <> · {event.venueName}</>
+            ) : null}
+          </p>
+          {event.djs.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {event.djs.map((dj: EventDJRef, i: number) =>
+                dj.djUsername ? (
+                  <Link
+                    key={i}
+                    href={`/dj/${dj.djUsername}`}
+                    className="text-[11px] text-zinc-400 hover:text-white transition-colors"
+                  >
+                    {dj.djName}{i < event.djs.length - 1 ? ',' : ''}
+                  </Link>
+                ) : (
+                  <span key={i} className="text-[11px] text-zinc-400">
+                    {dj.djName}{i < event.djs.length - 1 ? ',' : ''}
+                  </span>
+                )
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1083,19 +1335,71 @@ async function fetchVenues(): Promise<Venue[]> {
   }
 }
 
-async function fetchEvents(): Promise<Event[]> {
-  if (!db) return [];
+async function fetchEvents(): Promise<{ upcoming: Event[]; past: Event[] }> {
+  if (!db) return { upcoming: [], past: [] };
 
   try {
     const now = Date.now();
-    // Fetch all events, filter client-side for location + genre + future date
+    // Fetch all events, filter client-side for location + genre
     const snapshot = await getDocs(collection(db, 'events'));
 
-    const results: Event[] = [];
+    const upcoming: Event[] = [];
+    const past: Event[] = [];
     snapshot.forEach((doc) => {
       const data = doc.data();
-      if (!data.date || data.date < now) return;
+      if (!data.date) return;
 
+      const location = data.location || '';
+      if (!matchesCity(location, 'Los Angeles')) return;
+
+      const genres: string[] = data.genres || [];
+      if (!matchesAmbient(genres)) return;
+
+      const event: Event = {
+        id: doc.id,
+        name: data.name,
+        slug: data.slug,
+        date: data.date,
+        endDate: data.endDate || undefined,
+        photo: data.photo || null,
+        description: data.description || null,
+        venueId: data.venueId || null,
+        venueName: data.venueName || null,
+        collectiveId: data.collectiveId || null,
+        collectiveName: data.collectiveName || null,
+        djs: data.djs || [],
+        genres,
+        location: data.location || null,
+        ticketLink: data.ticketLink || null,
+        createdAt: data.createdAt?.toMillis?.() || Date.now(),
+        createdBy: data.createdBy,
+      };
+
+      if (data.date >= now) {
+        upcoming.push(event);
+      } else {
+        past.push(event);
+      }
+    });
+
+    upcoming.sort((a, b) => a.date - b.date);
+    past.sort((a, b) => b.date - a.date);
+    return { upcoming, past };
+  } catch (err) {
+    console.error('[la-ambient] Error fetching events:', err);
+    return { upcoming: [], past: [] };
+  }
+}
+
+async function fetchCollectives(): Promise<Collective[]> {
+  if (!db) return [];
+
+  try {
+    const snapshot = await getDocs(collection(db, 'collectives'));
+
+    const results: Collective[] = [];
+    snapshot.forEach((doc) => {
+      const data = doc.data();
       const location = data.location || '';
       if (!matchesCity(location, 'Los Angeles')) return;
 
@@ -1106,24 +1410,22 @@ async function fetchEvents(): Promise<Event[]> {
         id: doc.id,
         name: data.name,
         slug: data.slug,
-        date: data.date,
-        endDate: data.endDate || undefined,
         photo: data.photo || null,
-        description: data.description || null,
-        venueId: data.venueId || null,
-        venueName: data.venueName || null,
-        djs: data.djs || [],
-        genres,
         location: data.location || null,
-        ticketLink: data.ticketLink || null,
+        description: data.description || null,
+        genres,
+        socialLinks: data.socialLinks || {},
+        residentDJs: data.residentDJs || [],
+        linkedVenues: data.linkedVenues || [],
+        linkedCollectives: data.linkedCollectives || [],
         createdAt: data.createdAt?.toMillis?.() || Date.now(),
         createdBy: data.createdBy,
       });
     });
 
-    return results.sort((a, b) => a.date - b.date);
+    return results;
   } catch (err) {
-    console.error('[la-ambient] Error fetching events:', err);
+    console.error('[la-ambient] Error fetching collectives:', err);
     return [];
   }
 }
