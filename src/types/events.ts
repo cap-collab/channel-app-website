@@ -6,6 +6,18 @@ export interface EventDJRef {
   djPhotoUrl?: string;
 }
 
+// Reference to a venue from a collective (or vice versa)
+export interface CollectiveVenueRef {
+  venueId: string;
+  venueName: string;
+}
+
+// Reference to a collective from a venue
+export interface CollectiveRef {
+  collectiveId: string;
+  collectiveName: string;
+}
+
 // Venue document in Firestore
 export interface Venue {
   id: string;
@@ -22,6 +34,28 @@ export interface Venue {
     residentAdvisor?: string;
   };
   residentDJs?: EventDJRef[];
+  collectives?: CollectiveRef[];
+  createdAt: number;
+  createdBy: string;
+}
+
+// Collective document in Firestore
+export interface Collective {
+  id: string;
+  name: string;
+  slug: string;
+  photo?: string | null;
+  location?: string | null;
+  description?: string | null;
+  genres?: string[];
+  socialLinks?: {
+    instagram?: string;
+    soundcloud?: string;
+    website?: string;
+    residentAdvisor?: string;
+  };
+  residentDJs?: EventDJRef[];
+  linkedVenues?: CollectiveVenueRef[];
   createdAt: number;
   createdBy: string;
 }
@@ -37,6 +71,8 @@ export interface Event {
   description?: string | null;
   venueId?: string | null;
   venueName?: string | null;
+  collectiveId?: string | null;
+  collectiveName?: string | null;
   djs: EventDJRef[];
   genres?: string[];
   location?: string | null;

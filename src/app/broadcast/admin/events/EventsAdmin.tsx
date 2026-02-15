@@ -11,7 +11,7 @@ import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { normalizeUrl } from '@/lib/url';
 import { uploadEventPhoto, deleteEventPhoto, validatePhoto } from '@/lib/photo-upload';
-import { Event, EventDJRef, Venue } from '@/types/events';
+import { Event, EventDJRef, Venue, Collective } from '@/types/events';
 
 interface DJOption {
   label: string;
@@ -36,6 +36,7 @@ export function EventsAdmin() {
   const [endDate, setEndDate] = useState('');
   const [description, setDescription] = useState('');
   const [venueId, setVenueId] = useState('');
+  const [collectiveId, setCollectiveId] = useState('');
   const [location, setLocation] = useState('');
   const [genres, setGenres] = useState('');
   const [ticketLink, setTicketLink] = useState('');
@@ -55,6 +56,7 @@ export function EventsAdmin() {
   // Data
   const [events, setEvents] = useState<Event[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
+  const [collectives, setCollectives] = useState<Collective[]>([]);
   const [djOptions, setDjOptions] = useState<DJOption[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
 
@@ -82,6 +84,31 @@ export function EventsAdmin() {
       setVenues(venuesList);
     } catch (err) {
       console.error('Error fetching venues:', err);
+    }
+  }, []);
+
+  // Fetch collectives for the dropdown
+  const fetchCollectives = useCallback(async () => {
+    if (!db) return;
+    try {
+      const collectivesRef = collection(db, 'collectives');
+      const snapshot = await getDocs(collectivesRef);
+      const collectivesList: Collective[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        collectivesList.push({
+          id: docSnap.id,
+          name: data.name,
+          slug: data.slug,
+          location: data.location || null,
+          createdAt: data.createdAt?.toMillis?.() || Date.now(),
+          createdBy: data.createdBy,
+        });
+      });
+      collectivesList.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+      setCollectives(collectivesList);
+    } catch (err) {
+      console.error('Error fetching collectives:', err);
     }
   }, []);
 
@@ -175,12 +202,13 @@ export function EventsAdmin() {
   useEffect(() => {
     if (isAuthenticated && hasBroadcasterAccess) {
       fetchVenues();
+      fetchCollectives();
       fetchEvents();
       fetchDJOptions();
     } else {
       setLoadingEvents(false);
     }
-  }, [isAuthenticated, hasBroadcasterAccess, fetchVenues, fetchEvents, fetchDJOptions]);
+  }, [isAuthenticated, hasBroadcasterAccess, fetchVenues, fetchCollectives, fetchEvents, fetchDJOptions]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -207,6 +235,7 @@ export function EventsAdmin() {
     setEndDate('');
     setDescription('');
     setVenueId('');
+    setCollectiveId('');
     setLocation('');
     setGenres('');
     setTicketLink('');
@@ -225,6 +254,7 @@ export function EventsAdmin() {
     setEndDate(event.endDate ? msToDatetimeLocal(event.endDate) : '');
     setDescription(event.description || '');
     setVenueId(event.venueId || '');
+    setCollectiveId(event.collectiveId || '');
     setLocation(event.location || '');
     setGenres(event.genres?.join(', ') || '');
     setTicketLink(event.ticketLink || '');
@@ -342,6 +372,7 @@ export function EventsAdmin() {
         photo: photoUrl,
         description: description.trim() || null,
         venueId: venueId || null,
+        collectiveId: collectiveId || null,
         djs: filteredDJs,
         genres: genres.trim() ? genres.split(',').map(g => g.trim()).filter(Boolean) : [],
         location: location.trim() || null,
@@ -587,6 +618,23 @@ export function EventsAdmin() {
                 {venues.map((venue) => (
                   <option key={venue.id} value={venue.id}>
                     {venue.name}{venue.location ? ` (${venue.location})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Collective */}
+            <div className="mb-4">
+              <label className="block text-sm text-gray-400 mb-1">Collective</label>
+              <select
+                value={collectiveId}
+                onChange={(e) => setCollectiveId(e.target.value)}
+                className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white"
+              >
+                <option value="">None</option>
+                {collectives.map((collective) => (
+                  <option key={collective.id} value={collective.id}>
+                    {collective.name}{collective.location ? ` (${collective.location})` : ''}
                   </option>
                 ))}
               </select>

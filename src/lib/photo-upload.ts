@@ -284,6 +284,67 @@ export async function deleteVenuePhoto(venueId: string, photoUrl: string): Promi
 }
 
 /**
+ * Upload a collective photo to Firebase Storage
+ */
+export async function uploadCollectivePhoto(collectiveId: string, file: File): Promise<UploadPhotoResult> {
+  if (!storage) {
+    return { success: false, error: 'Storage not configured' };
+  }
+
+  const validation = validatePhoto(file);
+  if (!validation.valid) {
+    return { success: false, error: validation.error };
+  }
+
+  try {
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const filename = `photo.${ext}`;
+    const photoRef = ref(storage, `collective-photos/${collectiveId}/${filename}`);
+
+    await uploadBytes(photoRef, file, {
+      contentType: file.type,
+      customMetadata: {
+        uploadedAt: new Date().toISOString(),
+      },
+    });
+
+    const url = await getDownloadURL(photoRef);
+    return { success: true, url };
+  } catch (error) {
+    console.error('Collective photo upload failed:', error);
+    return { success: false, error: 'Failed to upload photo. Please try again.' };
+  }
+}
+
+/**
+ * Delete a collective photo from Firebase Storage
+ */
+export async function deleteCollectivePhoto(collectiveId: string, photoUrl: string): Promise<boolean> {
+  if (!storage) return false;
+
+  try {
+    const match = photoUrl.match(/collective-photos%2F[^%]+%2F([^?]+)/);
+    let filename = 'photo.jpg';
+
+    if (match) {
+      filename = decodeURIComponent(match[1]);
+    } else {
+      const altMatch = photoUrl.match(/collective-photos\/[^/]+\/([^?]+)/);
+      if (altMatch) {
+        filename = altMatch[1];
+      }
+    }
+
+    const photoRef = ref(storage, `collective-photos/${collectiveId}/${filename}`);
+    await deleteObject(photoRef);
+    return true;
+  } catch (error) {
+    console.error('Collective photo delete failed:', error);
+    return false;
+  }
+}
+
+/**
  * Upload an event photo to Firebase Storage
  */
 export async function uploadEventPhoto(eventId: string, file: File): Promise<UploadPhotoResult> {

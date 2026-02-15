@@ -113,6 +113,14 @@ service cloud.firestore {
       allow write: if isBroadcaster();
     }
 
+    // Collectives (admin-managed)
+    // - Anyone can read (needed for public collective pages)
+    // - Only broadcasters/admins can write
+    match /collectives/{collectiveId} {
+      allow read: if true;
+      allow write: if isBroadcaster();
+    }
+
     // Scheduled notifications (cron job)
     match /scheduledNotifications/{notificationId} {
       allow read, write: if request.auth != null && request.auth.token.email == 'cron@channel-app.com';

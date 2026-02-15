@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, date, endDate, photo, description, venueId, djs, genres, location, ticketLink } = body;
+    const { name, date, endDate, photo, description, venueId, collectiveId, djs, genres, location, ticketLink } = body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json({ error: 'Event name is required' }, { status: 400 });
@@ -79,6 +79,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Denormalize collective name if collectiveId is provided
+    let collectiveName: string | null = null;
+    if (collectiveId) {
+      const collectiveDoc = await db.collection('collectives').doc(collectiveId).get();
+      if (collectiveDoc.exists) {
+        collectiveName = collectiveDoc.data()?.name || null;
+      }
+    }
+
     const eventData: Record<string, unknown> = {
       name: name.trim(),
       slug,
@@ -88,6 +97,8 @@ export async function POST(request: NextRequest) {
       description: description || null,
       venueId: venueId || null,
       venueName,
+      collectiveId: collectiveId || null,
+      collectiveName,
       djs: djs || [],
       genres: genres || [],
       location: location || null,
@@ -123,7 +134,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { eventId, name, date, endDate, photo, description, venueId, djs, genres, location, ticketLink } = body;
+    const { eventId, name, date, endDate, photo, description, venueId, collectiveId, djs, genres, location, ticketLink } = body;
 
     if (!eventId) {
       return NextResponse.json({ error: 'eventId is required' }, { status: 400 });
@@ -154,6 +165,17 @@ export async function PATCH(request: NextRequest) {
         updateData.venueName = venueDoc.exists ? venueDoc.data()?.name || null : null;
       } else {
         updateData.venueName = null;
+      }
+    }
+
+    // Re-denormalize collective name if collectiveId changed
+    if (collectiveId !== undefined) {
+      updateData.collectiveId = collectiveId || null;
+      if (collectiveId) {
+        const collectiveDoc = await db.collection('collectives').doc(collectiveId).get();
+        updateData.collectiveName = collectiveDoc.exists ? collectiveDoc.data()?.name || null : null;
+      } else {
+        updateData.collectiveName = null;
       }
     }
 

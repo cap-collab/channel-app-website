@@ -29,7 +29,7 @@ async function verifyAdminAccess(request: NextRequest): Promise<{ isAdmin: boole
   }
 }
 
-// POST - Create a venue
+// POST - Create a collective
 export async function POST(request: NextRequest) {
   const { isAdmin, userId: adminUserId } = await verifyAdminAccess(request);
   if (!isAdmin) {
@@ -43,10 +43,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, photo, location, description, genres, socialLinks, residentDJs, collectives } = body;
+    const { name, photo, location, description, genres, socialLinks, residentDJs, linkedVenues } = body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return NextResponse.json({ error: 'Venue name is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Collective name is required' }, { status: 400 });
     }
 
     // Generate unique slug
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     let suffix = 2;
 
     // Check for slug collisions
-    const existingSnapshot = await db.collection('venues')
+    const existingSnapshot = await db.collection('collectives')
       .where('slug', '>=', baseSlug)
       .where('slug', '<=', baseSlug + '\uf8ff')
       .get();
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
       suffix++;
     }
 
-    const venueData: Record<string, unknown> = {
+    const collectiveData: Record<string, unknown> = {
       name: name.trim(),
       slug,
       photo: photo || null,
@@ -75,25 +75,25 @@ export async function POST(request: NextRequest) {
       genres: genres || [],
       socialLinks: socialLinks || {},
       residentDJs: residentDJs || [],
-      collectives: collectives || [],
+      linkedVenues: linkedVenues || [],
       createdAt: FieldValue.serverTimestamp(),
       createdBy: adminUserId,
     };
 
-    const docRef = await db.collection('venues').add(venueData);
+    const docRef = await db.collection('collectives').add(collectiveData);
 
     return NextResponse.json({
       success: true,
-      venueId: docRef.id,
+      collectiveId: docRef.id,
       slug,
     });
   } catch (error) {
-    console.error('Error creating venue:', error);
-    return NextResponse.json({ error: 'Failed to create venue' }, { status: 500 });
+    console.error('Error creating collective:', error);
+    return NextResponse.json({ error: 'Failed to create collective' }, { status: 500 });
   }
 }
 
-// PATCH - Update a venue
+// PATCH - Update a collective
 export async function PATCH(request: NextRequest) {
   const { isAdmin } = await verifyAdminAccess(request);
   if (!isAdmin) {
@@ -107,16 +107,16 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { venueId, name, photo, location, description, genres, socialLinks, residentDJs, collectives } = body;
+    const { collectiveId, name, photo, location, description, genres, socialLinks, residentDJs, linkedVenues } = body;
 
-    if (!venueId) {
-      return NextResponse.json({ error: 'venueId is required' }, { status: 400 });
+    if (!collectiveId) {
+      return NextResponse.json({ error: 'collectiveId is required' }, { status: 400 });
     }
 
-    const venueRef = db.collection('venues').doc(venueId);
-    const venueDoc = await venueRef.get();
-    if (!venueDoc.exists) {
-      return NextResponse.json({ error: 'Venue not found' }, { status: 404 });
+    const collectiveRef = db.collection('collectives').doc(collectiveId);
+    const collectiveDoc = await collectiveRef.get();
+    if (!collectiveDoc.exists) {
+      return NextResponse.json({ error: 'Collective not found' }, { status: 404 });
     }
 
     const updateData: Record<string, unknown> = {};
@@ -127,18 +127,18 @@ export async function PATCH(request: NextRequest) {
     if (genres !== undefined) updateData.genres = genres;
     if (socialLinks !== undefined) updateData.socialLinks = socialLinks;
     if (residentDJs !== undefined) updateData.residentDJs = residentDJs;
-    if (collectives !== undefined) updateData.collectives = collectives;
+    if (linkedVenues !== undefined) updateData.linkedVenues = linkedVenues;
 
-    await venueRef.update(updateData);
+    await collectiveRef.update(updateData);
 
-    return NextResponse.json({ success: true, venueId });
+    return NextResponse.json({ success: true, collectiveId });
   } catch (error) {
-    console.error('Error updating venue:', error);
-    return NextResponse.json({ error: 'Failed to update venue' }, { status: 500 });
+    console.error('Error updating collective:', error);
+    return NextResponse.json({ error: 'Failed to update collective' }, { status: 500 });
   }
 }
 
-// DELETE - Delete a venue
+// DELETE - Delete a collective
 export async function DELETE(request: NextRequest) {
   const { isAdmin } = await verifyAdminAccess(request);
   if (!isAdmin) {
@@ -152,17 +152,17 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const venueId = searchParams.get('venueId');
+    const collectiveId = searchParams.get('collectiveId');
 
-    if (!venueId) {
-      return NextResponse.json({ error: 'venueId is required' }, { status: 400 });
+    if (!collectiveId) {
+      return NextResponse.json({ error: 'collectiveId is required' }, { status: 400 });
     }
 
-    await db.collection('venues').doc(venueId).delete();
+    await db.collection('collectives').doc(collectiveId).delete();
 
-    return NextResponse.json({ success: true, venueId });
+    return NextResponse.json({ success: true, collectiveId });
   } catch (error) {
-    console.error('Error deleting venue:', error);
-    return NextResponse.json({ error: 'Failed to delete venue' }, { status: 500 });
+    console.error('Error deleting collective:', error);
+    return NextResponse.json({ error: 'Failed to delete collective' }, { status: 500 });
   }
 }

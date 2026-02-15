@@ -397,6 +397,12 @@ See you on air!
               Venues
             </Link>
             <Link
+              href="/broadcast/admin/collectives"
+              className="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-800 text-gray-300 hover:bg-gray-700"
+            >
+              Collectives
+            </Link>
+            <Link
               href="/broadcast/admin/events"
               className="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-800 text-gray-300 hover:bg-gray-700"
             >
