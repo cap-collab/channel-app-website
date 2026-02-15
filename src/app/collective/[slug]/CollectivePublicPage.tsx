@@ -7,7 +7,7 @@ import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
 import { Header } from "@/components/Header";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { db } from "@/lib/firebase";
-import { Collective, Event, EventDJRef, CollectiveVenueRef } from "@/types/events";
+import { Collective, CollectiveRef, Event, EventDJRef, CollectiveVenueRef } from "@/types/events";
 
 // Icon components
 const InstagramIcon = ({ size = 14 }: { size?: number }) => (
@@ -78,6 +78,7 @@ export function CollectivePublicPage({ slug }: Props) {
           socialLinks: data.socialLinks || {},
           residentDJs: data.residentDJs || [],
           linkedVenues: data.linkedVenues || [],
+          linkedCollectives: data.linkedCollectives || [],
           createdAt: data.createdAt?.toMillis?.() || Date.now(),
           createdBy: data.createdBy,
         };
@@ -170,7 +171,7 @@ export function CollectivePublicPage({ slug }: Props) {
   }
 
   const socialLinks = collective.socialLinks || {};
-  const hasSocialLinks = socialLinks.instagram || socialLinks.soundcloud || socialLinks.website || socialLinks.residentAdvisor;
+  const hasSocialLinks = socialLinks.instagram || socialLinks.soundcloud || socialLinks.bandcamp || socialLinks.website || socialLinks.residentAdvisor;
 
   return (
     <div className="min-h-screen text-white relative">
@@ -253,6 +254,16 @@ export function CollectivePublicPage({ slug }: Props) {
                   >
                     <SoundCloudIcon size={12} />
                     SoundCloud
+                  </a>
+                )}
+                {socialLinks.bandcamp && (
+                  <a
+                    href={socialLinks.bandcamp}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/50 border border-white/10 rounded-full text-zinc-400 hover:text-white hover:border-white/20 transition-colors text-xs"
+                  >
+                    Bandcamp
                   </a>
                 )}
                 {socialLinks.residentAdvisor && (
@@ -350,7 +361,32 @@ export function CollectivePublicPage({ slug }: Props) {
           </section>
         )}
 
-        {/* SECTION D: UPCOMING EVENTS */}
+        {/* SECTION D: LINKED COLLECTIVES */}
+        {collective.linkedCollectives && collective.linkedCollectives.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">
+              Collectives
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {collective.linkedCollectives.map((coll: CollectiveRef) => (
+                <Link
+                  key={coll.collectiveId}
+                  href={`/collective/${coll.collectiveSlug || coll.collectiveId}`}
+                  className="flex items-center gap-3 bg-zinc-900/50 border border-white/10 rounded-lg p-3 hover:bg-zinc-800/50 transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <span className="text-sm text-white font-medium truncate">{coll.collectiveName}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* SECTION E: UPCOMING EVENTS */}
         {upcomingEvents.length > 0 && (
           <section className="mb-8">
             <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">

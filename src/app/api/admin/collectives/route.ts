@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, photo, location, description, genres, socialLinks, residentDJs, linkedVenues } = body;
+    const { name, photo, location, description, genres, socialLinks, residentDJs, linkedVenues, linkedCollectives } = body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json({ error: 'Collective name is required' }, { status: 400 });
@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
       socialLinks: socialLinks || {},
       residentDJs: residentDJs || [],
       linkedVenues: linkedVenues || [],
+      linkedCollectives: linkedCollectives || [],
       createdAt: FieldValue.serverTimestamp(),
       createdBy: adminUserId,
     };
@@ -107,7 +108,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { collectiveId, name, photo, location, description, genres, socialLinks, residentDJs, linkedVenues } = body;
+    const { collectiveId, name, photo, location, description, genres, socialLinks, residentDJs, linkedVenues, linkedCollectives } = body;
 
     if (!collectiveId) {
       return NextResponse.json({ error: 'collectiveId is required' }, { status: 400 });
@@ -128,6 +129,7 @@ export async function PATCH(request: NextRequest) {
     if (socialLinks !== undefined) updateData.socialLinks = socialLinks;
     if (residentDJs !== undefined) updateData.residentDJs = residentDJs;
     if (linkedVenues !== undefined) updateData.linkedVenues = linkedVenues;
+    if (linkedCollectives !== undefined) updateData.linkedCollectives = linkedCollectives;
 
     await collectiveRef.update(updateData);
 

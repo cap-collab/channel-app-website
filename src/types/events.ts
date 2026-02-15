@@ -12,10 +12,11 @@ export interface CollectiveVenueRef {
   venueName: string;
 }
 
-// Reference to a collective from a venue
+// Reference to a collective from a venue or another collective
 export interface CollectiveRef {
   collectiveId: string;
   collectiveName: string;
+  collectiveSlug?: string;
 }
 
 // Venue document in Firestore
@@ -51,11 +52,13 @@ export interface Collective {
   socialLinks?: {
     instagram?: string;
     soundcloud?: string;
+    bandcamp?: string;
     website?: string;
     residentAdvisor?: string;
   };
   residentDJs?: EventDJRef[];
   linkedVenues?: CollectiveVenueRef[];
+  linkedCollectives?: CollectiveRef[];
   createdAt: number;
   createdBy: string;
 }

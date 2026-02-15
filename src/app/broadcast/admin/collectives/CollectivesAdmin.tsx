@@ -11,7 +11,7 @@ import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { normalizeUrl } from '@/lib/url';
 import { uploadCollectivePhoto, deleteCollectivePhoto, validatePhoto } from '@/lib/photo-upload';
-import { Collective, CollectiveVenueRef, EventDJRef, Venue } from '@/types/events';
+import { Collective, CollectiveRef, CollectiveVenueRef, EventDJRef, Venue } from '@/types/events';
 
 interface DJOption {
   label: string;
@@ -37,10 +37,12 @@ export function CollectivesAdmin() {
   const [genres, setGenres] = useState('');
   const [instagram, setInstagram] = useState('');
   const [soundcloud, setSoundcloud] = useState('');
+  const [bandcamp, setBandcamp] = useState('');
   const [website, setWebsite] = useState('');
   const [residentAdvisor, setResidentAdvisor] = useState('');
   const [residentDJs, setResidentDJs] = useState<EventDJRef[]>([{ djName: '' }]);
   const [linkedVenues, setLinkedVenues] = useState<CollectiveVenueRef[]>([]);
+  const [linkedCollectives, setLinkedCollectives] = useState<CollectiveRef[]>([]);
 
   // Photo state
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -162,6 +164,7 @@ export function CollectivesAdmin() {
           socialLinks: data.socialLinks || {},
           residentDJs: data.residentDJs || [],
           linkedVenues: data.linkedVenues || [],
+          linkedCollectives: data.linkedCollectives || [],
           createdAt: data.createdAt?.toMillis?.() || Date.now(),
           createdBy: data.createdBy,
         });
@@ -198,10 +201,12 @@ export function CollectivesAdmin() {
     setGenres('');
     setInstagram('');
     setSoundcloud('');
+    setBandcamp('');
     setWebsite('');
     setResidentAdvisor('');
     setResidentDJs([{ djName: '' }]);
     setLinkedVenues([]);
+    setLinkedCollectives([]);
     setPhotoUrl(null);
     setPhotoError(null);
     setEditingCollective(null);
@@ -217,6 +222,7 @@ export function CollectivesAdmin() {
     setGenres(collective.genres?.join(', ') || '');
     setInstagram(collective.socialLinks?.instagram || '');
     setSoundcloud(collective.socialLinks?.soundcloud || '');
+    setBandcamp(collective.socialLinks?.bandcamp || '');
     setWebsite(collective.socialLinks?.website || '');
     setResidentAdvisor(collective.socialLinks?.residentAdvisor || '');
     setResidentDJs(
@@ -225,6 +231,7 @@ export function CollectivesAdmin() {
         : [{ djName: '' }]
     );
     setLinkedVenues(collective.linkedVenues || []);
+    setLinkedCollectives(collective.linkedCollectives || []);
     setPhotoUrl(collective.photo || null);
     setPhotoError(null);
     setError(null);
@@ -306,6 +313,19 @@ export function CollectivesAdmin() {
     setLinkedVenues(linkedVenues.filter(v => v.venueId !== venueId));
   };
 
+  // Handle adding/removing linked collectives
+  const handleAddCollective = (collectiveId: string) => {
+    if (!collectiveId) return;
+    const coll = collectives.find(c => c.id === collectiveId);
+    if (!coll) return;
+    if (linkedCollectives.some(c => c.collectiveId === collectiveId)) return;
+    setLinkedCollectives([...linkedCollectives, { collectiveId: coll.id, collectiveName: coll.name, collectiveSlug: coll.slug }]);
+  };
+
+  const handleRemoveCollective = (collectiveId: string) => {
+    setLinkedCollectives(linkedCollectives.filter(c => c.collectiveId !== collectiveId));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -329,6 +349,7 @@ export function CollectivesAdmin() {
       const socialLinksData: Record<string, string> = {};
       if (instagram.trim()) socialLinksData.instagram = instagram.trim();
       if (soundcloud.trim()) socialLinksData.soundcloud = normalizeUrl(soundcloud.trim());
+      if (bandcamp.trim()) socialLinksData.bandcamp = normalizeUrl(bandcamp.trim());
       if (website.trim()) socialLinksData.website = normalizeUrl(website.trim());
       if (residentAdvisor.trim()) socialLinksData.residentAdvisor = normalizeUrl(residentAdvisor.trim());
 
@@ -344,6 +365,7 @@ export function CollectivesAdmin() {
         socialLinks: socialLinksData,
         residentDJs: filteredDJs,
         linkedVenues,
+        linkedCollectives,
       };
 
       const res = await fetch('/api/admin/collectives', {
@@ -597,6 +619,13 @@ export function CollectivesAdmin() {
                 />
                 <input
                   type="text"
+                  value={bandcamp}
+                  onChange={(e) => setBandcamp(e.target.value)}
+                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
+                  placeholder="Bandcamp URL"
+                />
+                <input
+                  type="text"
                   value={residentAdvisor}
                   onChange={(e) => setResidentAdvisor(e.target.value)}
                   className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
@@ -704,6 +733,47 @@ export function CollectivesAdmin() {
                   ))}
                 </select>
               )}
+            </div>
+
+            {/* Linked Collectives */}
+            <div className="mb-6">
+              <label className="block text-sm text-gray-400 mb-3">Linked Collectives</label>
+              {linkedCollectives.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {linkedCollectives.map((lc) => (
+                    <div key={lc.collectiveId} className="flex items-center gap-2 bg-[#252525] rounded-lg px-4 py-2">
+                      <span className="flex-1 text-white text-sm">{lc.collectiveName}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCollective(lc.collectiveId)}
+                        className="text-red-400 hover:text-red-300 text-sm"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {(() => {
+                const currentId = editingCollective?.id;
+                const availableCollectives = collectives.filter(
+                  c => c.id !== currentId && !linkedCollectives.some(lc => lc.collectiveId === c.id)
+                );
+                return availableCollectives.length > 0 ? (
+                  <select
+                    value=""
+                    onChange={(e) => handleAddCollective(e.target.value)}
+                    className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white"
+                  >
+                    <option value="">Add a collective...</option>
+                    {availableCollectives.map((coll) => (
+                      <option key={coll.id} value={coll.id}>
+                        {coll.name}{coll.location ? ` (${coll.location})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : null;
+              })()}
             </div>
 
             {/* Buttons */}
