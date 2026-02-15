@@ -882,9 +882,12 @@ export function DJPublicProfileClient({ username }: Props) {
           )),
         ]);
 
+        // Build venue photo lookup (all venues, for event fallback)
+        const venuePhotoMap: Record<string, string> = {};
         const matchedVenues: Venue[] = [];
         venuesSnapshot.forEach((doc) => {
           const data = doc.data();
+          if (data.photo) venuePhotoMap[doc.id] = data.photo;
           if (matchesDJ(data.residentDJs)) {
             matchedVenues.push({
               id: doc.id,
@@ -935,7 +938,7 @@ export function DJPublicProfileClient({ username }: Props) {
               slug: data.slug,
               date: data.date,
               endDate: data.endDate || undefined,
-              photo: data.photo || null,
+              photo: data.photo || (data.venueId && venuePhotoMap[data.venueId]) || null,
               description: data.description || null,
               venueId: data.venueId || null,
               venueName: data.venueName || null,
@@ -1546,7 +1549,7 @@ export function DJPublicProfileClient({ username }: Props) {
                   className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors"
                 >
                   <div className="flex items-start gap-4">
-                    {event.photo && (
+                    {event.photo ? (
                       <Image
                         src={event.photo}
                         alt={event.name}
@@ -1555,6 +1558,12 @@ export function DJPublicProfileClient({ username }: Props) {
                         className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
                         unoptimized
                       />
+                    ) : (
+                      <div className="w-16 h-16 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-6 h-6 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                      </div>
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-white font-medium mb-1">{event.name}</p>
