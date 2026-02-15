@@ -383,7 +383,7 @@ function SelectorCard({
         <button
           onClick={onFollow}
           disabled={isAddingFollow}
-          className={`flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors ${
+          className={`flex-1 py-2 px-4 text-sm font-semibold transition-colors ${
             isFollowing ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-gray-100 text-gray-900'
           } disabled:opacity-50`}
         >
@@ -393,7 +393,7 @@ function SelectorCard({
         </button>
         <Link
           href={`/dj/${selector.username}`}
-          className="flex-1 py-2 px-4 rounded text-sm font-semibold text-center transition-colors bg-white/10 hover:bg-white/20 text-white"
+          className="flex-1 py-2 px-4 text-sm font-semibold text-center transition-colors bg-white/10 hover:bg-white/20 text-white"
         >
           View Profile
         </Link>
@@ -431,18 +431,18 @@ function CollectiveCard({ collective }: { collective: Collective }) {
       alt={collective.name}
       width={64}
       height={64}
-      className="w-16 h-16 rounded-lg object-cover"
+      className="w-16 h-16 object-cover"
       unoptimized
       onError={() => setImageError(true)}
     />
   ) : (
-    <div className="w-16 h-16 rounded-lg bg-white flex items-center justify-center">
+    <div className="w-16 h-16 bg-white flex items-center justify-center">
       <span className="text-2xl font-black text-black">{collective.name.charAt(0).toUpperCase()}</span>
     </div>
   );
 
   const content = (
-    <div className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors">
+    <div className="bg-zinc-900/50 border border-white/10 p-4 hover:bg-zinc-800/50 transition-colors">
       <div className="flex items-start gap-4">
         <div className="flex-shrink-0">
           {thumbnail}
@@ -523,18 +523,18 @@ function VenueCard({ venue }: { venue: Venue }) {
       alt={venue.name}
       width={64}
       height={64}
-      className="w-16 h-16 rounded-lg object-cover"
+      className="w-16 h-16 object-cover"
       unoptimized
       onError={() => setImageError(true)}
     />
   ) : (
-    <div className="w-16 h-16 rounded-lg bg-white flex items-center justify-center">
+    <div className="w-16 h-16 bg-white flex items-center justify-center">
       <span className="text-2xl font-black text-black">{venue.name.charAt(0).toUpperCase()}</span>
     </div>
   );
 
   const content = (
-    <div className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors">
+    <div className="bg-zinc-900/50 border border-white/10 p-4 hover:bg-zinc-800/50 transition-colors">
       <div className="flex items-start gap-4">
         <div className="flex-shrink-0">
           {thumbnail}
@@ -700,7 +700,7 @@ function ShowCard({
         )}
         {/* Station logo */}
         {stationLogo && (
-          <div className="absolute -bottom-4 right-3 w-8 h-8 rounded border border-white/30 overflow-hidden bg-black z-10">
+          <div className="absolute -bottom-4 right-3 w-8 h-8 border border-white/30 overflow-hidden bg-black z-10">
             <Image src={stationLogo} alt={station?.name || ''} fill className="object-contain" />
           </div>
         )}
@@ -727,7 +727,7 @@ function ShowCard({
         <button
           onClick={() => onFollow(show)}
           disabled={addingFollow}
-          className={`flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors ${
+          className={`flex-1 py-2 px-4 text-sm font-semibold transition-colors ${
             following ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-gray-100 text-gray-900'
           } disabled:opacity-50`}
         >
@@ -738,7 +738,7 @@ function ShowCard({
         <button
           onClick={() => onRemindMe(show)}
           disabled={addingReminder || favorited}
-          className={`flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors ${
+          className={`flex-1 py-2 px-4 text-sm font-semibold transition-colors ${
             favorited ? 'bg-white/10 text-gray-400 cursor-default' : 'bg-white/10 hover:bg-white/20 text-white'
           } disabled:opacity-50`}
         >
@@ -846,12 +846,12 @@ function IRLDateCard({ show }: { show: IRLShowData }) {
       alt={show.djName}
       width={48}
       height={48}
-      className="w-12 h-12 rounded-full object-cover"
+      className="w-12 h-12 object-cover"
       unoptimized
       onError={() => setImageError(true)}
     />
   ) : (
-    <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center">
+    <div className="w-12 h-12 bg-white flex items-center justify-center">
       <span className="text-lg font-black text-black">{show.djName.charAt(0).toUpperCase()}</span>
     </div>
   );
@@ -866,7 +866,7 @@ function IRLDateCard({ show }: { show: IRLShowData }) {
           day: 'numeric',
         })}
       </p>
-      <div className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors">
+      <div className="bg-zinc-900/50 border border-white/10 p-4 hover:bg-zinc-800/50 transition-colors">
         <div className="flex items-start gap-4">
           <div className="flex-shrink-0">
             {show.djUsername ? (
@@ -896,7 +896,7 @@ function IRLDateCard({ show }: { show: IRLShowData }) {
             href={show.ticketUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full mt-3 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white"
+            className="flex items-center justify-center gap-2 w-full mt-3 py-2 px-4 text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white"
           >
             Tickets
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -919,12 +919,12 @@ function DJAvatar({ dj }: { dj: EventDJRef }) {
       alt={dj.djName}
       width={28}
       height={28}
-      className="w-7 h-7 rounded-full object-cover border-2 border-zinc-900"
+      className="w-7 h-7 object-cover border-2 border-zinc-900"
       unoptimized
       onError={() => setImageError(true)}
     />
   ) : (
-    <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center border-2 border-zinc-900">
+    <div className="w-7 h-7 bg-white flex items-center justify-center border-2 border-zinc-900">
       <span className="text-[10px] font-black text-black">{dj.djName.charAt(0).toUpperCase()}</span>
     </div>
   );
@@ -950,12 +950,12 @@ function EventDateCard({ event, venueSlugMap, venuePhotoMap }: { event: Event; v
       alt={event.venueName || event.name}
       width={48}
       height={48}
-      className="w-12 h-12 rounded-lg object-cover"
+      className="w-12 h-12 object-cover"
       unoptimized
       onError={() => setVenueImageError(true)}
     />
   ) : (
-    <div className="w-12 h-12 rounded-lg bg-white flex items-center justify-center">
+    <div className="w-12 h-12 bg-white flex items-center justify-center">
       <span className="text-lg font-black text-black">{(event.venueName || event.name).charAt(0).toUpperCase()}</span>
     </div>
   );
@@ -966,20 +966,12 @@ function EventDateCard({ event, venueSlugMap, venuePhotoMap }: { event: Event; v
       <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter mb-1">
         {formatEventDate(event.date)}
       </p>
-      <div className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors">
+      <div className="bg-zinc-900/50 border border-white/10 p-4 hover:bg-zinc-800/50 transition-colors">
         <div className="flex items-start gap-4">
-          {/* Venue + DJ images */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex-shrink-0">
             {venueSlug ? (
               <Link href={`/venue/${venueSlug}`}>{venueThumb}</Link>
             ) : venueThumb}
-            {event.djs.length > 0 && (
-              <div className="flex -space-x-2">
-                {event.djs.slice(0, 3).map((dj: EventDJRef, i: number) => (
-                  <DJAvatar key={i} dj={dj} />
-                ))}
-              </div>
-            )}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-white font-medium">{event.name}</p>
@@ -1023,7 +1015,7 @@ function EventDateCard({ event, venueSlugMap, venuePhotoMap }: { event: Event; v
             href={event.ticketLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full mt-3 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white"
+            className="flex items-center justify-center gap-2 w-full mt-3 py-2 px-4 text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white"
           >
             Tickets
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1091,25 +1083,25 @@ function PastShowCard({ show }: { show: Show }) {
       alt={djName}
       width={48}
       height={48}
-      className="w-12 h-12 rounded-full object-cover"
+      className="w-12 h-12 object-cover"
       unoptimized
       onError={() => setImageError(true)}
     />
   ) : (
-    <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center">
+    <div className="w-12 h-12 bg-white flex items-center justify-center">
       <span className="text-lg font-black text-black">{djName.charAt(0).toUpperCase()}</span>
     </div>
   );
 
   return (
-    <div className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors">
+    <div className="bg-zinc-900/50 border border-white/10 p-4 hover:bg-zinc-800/50 transition-colors">
       <div className="flex items-start gap-3">
         <div className="flex-shrink-0 relative">
           {show.djUsername ? (
             <Link href={`/dj/${show.djUsername}`}>{thumbnail}</Link>
           ) : thumbnail}
           {stationLogo && (
-            <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded border border-white/30 overflow-hidden bg-black">
+            <div className="absolute -bottom-1 -right-1 w-5 h-5 border border-white/30 overflow-hidden bg-black">
               <Image src={stationLogo} alt={station?.name || ''} fill className="object-contain" />
             </div>
           )}
@@ -1153,18 +1145,18 @@ function PastEventCard({ event, venueSlugMap, venuePhotoMap }: { event: Event; v
       alt={event.name}
       width={48}
       height={48}
-      className="w-12 h-12 rounded-lg object-cover"
+      className="w-12 h-12 object-cover"
       unoptimized
       onError={() => setImageError(true)}
     />
   ) : (
-    <div className="w-12 h-12 rounded-lg bg-white flex items-center justify-center">
+    <div className="w-12 h-12 bg-white flex items-center justify-center">
       <span className="text-lg font-black text-black">{event.name.charAt(0).toUpperCase()}</span>
     </div>
   );
 
   return (
-    <div className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors">
+    <div className="bg-zinc-900/50 border border-white/10 p-4 hover:bg-zinc-800/50 transition-colors">
       <div className="flex items-start gap-3">
         <div className="flex-shrink-0">
           {thumbnail}
@@ -1215,14 +1207,14 @@ function LoadingSkeleton() {
     <div className="space-y-10">
       {/* Selectors skeleton */}
       <div>
-        <div className="h-3 w-28 bg-zinc-800 rounded mb-4 animate-pulse" />
+        <div className="h-3 w-28 bg-zinc-800 mb-4 animate-pulse" />
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i}>
               <div className="aspect-square bg-zinc-800 animate-pulse border border-white/10" />
               <div className="mt-2 space-y-1">
-                <div className="h-4 w-24 bg-zinc-800 rounded animate-pulse" />
-                <div className="h-2.5 w-20 bg-zinc-800 rounded animate-pulse" />
+                <div className="h-4 w-24 bg-zinc-800 animate-pulse" />
+                <div className="h-2.5 w-20 bg-zinc-800 animate-pulse" />
               </div>
             </div>
           ))}
@@ -1230,10 +1222,10 @@ function LoadingSkeleton() {
       </div>
       {/* Venues skeleton */}
       <div>
-        <div className="h-3 w-24 bg-zinc-800 rounded mb-4 animate-pulse" />
+        <div className="h-3 w-24 bg-zinc-800 mb-4 animate-pulse" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-20 bg-zinc-800 rounded-lg animate-pulse border border-white/10" />
+            <div key={i} className="h-20 bg-zinc-800 animate-pulse border border-white/10" />
           ))}
         </div>
       </div>
