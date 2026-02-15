@@ -17,6 +17,7 @@ import { Show } from "@/types";
 import { Archive } from "@/types/broadcast";
 import { getStationById } from "@/lib/stations";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
+import { Venue, Collective, Event as ChannelEvent, EventDJRef } from "@/types/events";
 // Icon components (inline SVGs to avoid external dependencies)
 const ShareIcon = ({ size = 14 }: { size?: number }) => (
   <svg width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -393,6 +394,11 @@ export function DJPublicProfileClient({ username }: Props) {
   // Auto-profile state
   const [isAutoProfile, setIsAutoProfile] = useState(false);
   const [autoSources, setAutoSources] = useState<{ stationId: string; showName: string }[]>([]);
+
+  // Linked entities state
+  const [djVenues, setDjVenues] = useState<Venue[]>([]);
+  const [djCollectives, setDjCollectives] = useState<Collective[]>([]);
+  const [djUpcomingEvents, setDjUpcomingEvents] = useState<ChannelEvent[]>([]);
 
   // Tab state for claimed profiles (with email)
   const [activeTab, setActiveTab] = useState<'timeline' | 'chat'>('timeline');
@@ -849,6 +855,110 @@ export function DJPublicProfileClient({ username }: Props) {
     fetchPastExternalShows();
   }, [djProfile]);
 
+  // Fetch linked venues, collectives, and upcoming events
+  useEffect(() => {
+    async function fetchLinkedEntities() {
+      if (!djProfile || !db) return;
+
+      const normalizedUsername = djProfile.chatUsername.replace(/[\s-]+/g, "").toLowerCase();
+      const djUserId = djProfile.uid.startsWith("pending-") ? undefined : djProfile.uid;
+
+      const matchesDJ = (refs: EventDJRef[] | undefined): boolean => {
+        if (!refs || refs.length === 0) return false;
+        return refs.some(ref =>
+          (ref.djUsername && ref.djUsername === normalizedUsername) ||
+          (djUserId && ref.djUserId && ref.djUserId === djUserId)
+        );
+      };
+
+      try {
+        const [venuesSnapshot, collectivesSnapshot, eventsSnapshot] = await Promise.all([
+          getDocs(collection(db, "venues")),
+          getDocs(collection(db, "collectives")),
+          getDocs(query(
+            collection(db, "events"),
+            where("date", ">=", Date.now()),
+            orderBy("date", "asc")
+          )),
+        ]);
+
+        const matchedVenues: Venue[] = [];
+        venuesSnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (matchesDJ(data.residentDJs)) {
+            matchedVenues.push({
+              id: doc.id,
+              name: data.name,
+              slug: data.slug,
+              photo: data.photo || null,
+              location: data.location || null,
+              description: data.description || null,
+              genres: data.genres || [],
+              socialLinks: data.socialLinks || {},
+              residentDJs: data.residentDJs || [],
+              createdAt: data.createdAt?.toMillis?.() || Date.now(),
+              createdBy: data.createdBy,
+            });
+          }
+        });
+        setDjVenues(matchedVenues);
+
+        const matchedCollectives: Collective[] = [];
+        collectivesSnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (matchesDJ(data.residentDJs)) {
+            matchedCollectives.push({
+              id: doc.id,
+              name: data.name,
+              slug: data.slug,
+              photo: data.photo || null,
+              location: data.location || null,
+              description: data.description || null,
+              genres: data.genres || [],
+              socialLinks: data.socialLinks || {},
+              residentDJs: data.residentDJs || [],
+              linkedVenues: data.linkedVenues || [],
+              createdAt: data.createdAt?.toMillis?.() || Date.now(),
+              createdBy: data.createdBy,
+            });
+          }
+        });
+        setDjCollectives(matchedCollectives);
+
+        const matchedEvents: ChannelEvent[] = [];
+        eventsSnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (matchesDJ(data.djs)) {
+            matchedEvents.push({
+              id: doc.id,
+              name: data.name,
+              slug: data.slug,
+              date: data.date,
+              endDate: data.endDate || undefined,
+              photo: data.photo || null,
+              description: data.description || null,
+              venueId: data.venueId || null,
+              venueName: data.venueName || null,
+              collectiveId: data.collectiveId || null,
+              collectiveName: data.collectiveName || null,
+              djs: data.djs || [],
+              genres: data.genres || [],
+              location: data.location || null,
+              ticketLink: data.ticketLink || null,
+              createdAt: data.createdAt?.toMillis?.() || Date.now(),
+              createdBy: data.createdBy,
+            });
+          }
+        });
+        setDjUpcomingEvents(matchedEvents);
+      } catch (error) {
+        console.error("Error fetching linked entities:", error);
+      }
+    }
+
+    fetchLinkedEntities();
+  }, [djProfile]);
+
   // Subscribe/Unsubscribe handlers
   const isSubscribed = useMemo(() => {
     if (!djProfile) return false;
@@ -1245,6 +1355,36 @@ export function DJPublicProfileClient({ username }: Props) {
                 <TruncatedBio bio={profile.djProfile.bio} />
               )}
             </div>
+
+            {/* Venues & Collectives */}
+            {(djVenues.length > 0 || djCollectives.length > 0) && (
+              <div className="flex flex-wrap gap-2 mt-4">
+                {djVenues.map((venue) => (
+                  <Link
+                    key={`venue-${venue.id}`}
+                    href={`/venue/${venue.slug}`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/50 border border-white/10 rounded-full text-zinc-400 hover:text-white hover:border-white/20 transition-colors text-xs"
+                  >
+                    <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    {venue.name}
+                  </Link>
+                ))}
+                {djCollectives.map((col) => (
+                  <Link
+                    key={`collective-${col.id}`}
+                    href={`/collective/${col.slug}`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/50 border border-white/10 rounded-full text-zinc-400 hover:text-white hover:border-white/20 transition-colors text-xs"
+                  >
+                    <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    {col.name}
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
@@ -1389,6 +1529,82 @@ export function DJPublicProfileClient({ username }: Props) {
                   </div>
                 ) : null}
               </div>
+            </div>
+          </section>
+        )}
+
+        {/* SECTION: UPCOMING EVENTS (from venues/collectives/events) */}
+        {djUpcomingEvents.length > 0 && (
+          <section className="mb-6">
+            <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2">
+              Upcoming Events
+            </h2>
+            <div className="space-y-3">
+              {djUpcomingEvents.map((event) => (
+                <div
+                  key={event.id}
+                  className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors"
+                >
+                  <div className="flex items-start gap-4">
+                    {event.photo && (
+                      <Image
+                        src={event.photo}
+                        alt={event.name}
+                        width={64}
+                        height={64}
+                        className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                        unoptimized
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-medium mb-1">{event.name}</p>
+                      <p className="text-zinc-500 text-xs uppercase tracking-wide mb-2">
+                        {new Date(event.date).toLocaleDateString("en-US", {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                        {event.location && <> &middot; {event.location}</>}
+                        {event.venueName && <> &middot; {event.venueName}</>}
+                      </p>
+                      {event.djs.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {event.djs.map((dj: EventDJRef, i: number) => (
+                            dj.djUsername ? (
+                              <Link
+                                key={i}
+                                href={`/dj/${dj.djUsername}`}
+                                className="text-xs text-zinc-400 hover:text-white transition-colors"
+                              >
+                                {dj.djName}
+                                {i < event.djs.length - 1 ? "," : ""}
+                              </Link>
+                            ) : (
+                              <span key={i} className="text-xs text-zinc-400">
+                                {dj.djName}
+                                {i < event.djs.length - 1 ? "," : ""}
+                              </span>
+                            )
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {event.ticketLink && (
+                      <a
+                        href={event.ticketLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black text-xs font-medium rounded-full hover:bg-zinc-200 transition-colors flex-shrink-0"
+                      >
+                        Tickets
+                        <ExternalLinkIcon size={10} />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
         )}
