@@ -909,32 +909,6 @@ function IRLDateCard({ show }: { show: IRLShowData }) {
   );
 }
 
-function DJAvatar({ dj }: { dj: EventDJRef }) {
-  const [imageError, setImageError] = useState(false);
-  const hasPhoto = dj.djPhotoUrl && !imageError;
-
-  const avatar = hasPhoto ? (
-    <Image
-      src={dj.djPhotoUrl!}
-      alt={dj.djName}
-      width={28}
-      height={28}
-      className="w-7 h-7 object-cover border-2 border-zinc-900"
-      unoptimized
-      onError={() => setImageError(true)}
-    />
-  ) : (
-    <div className="w-7 h-7 bg-white flex items-center justify-center border-2 border-zinc-900">
-      <span className="text-[10px] font-black text-black">{dj.djName.charAt(0).toUpperCase()}</span>
-    </div>
-  );
-
-  if (dj.djUsername) {
-    return <Link href={`/dj/${dj.djUsername}`}>{avatar}</Link>;
-  }
-  return avatar;
-}
-
 function EventDateCard({ event, venueSlugMap, venuePhotoMap }: { event: Event; venueSlugMap: Map<string, string>; venuePhotoMap: Map<string, string> }) {
   const venueSlug = event.venueId ? venueSlugMap.get(event.venueId) : undefined;
   const venuePhoto = event.venueId ? venuePhotoMap.get(event.venueId) : undefined;
