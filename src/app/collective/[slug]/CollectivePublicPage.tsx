@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy, doc as firestoreDoc, getDoc } from "firebase/firestore";
 import { Header } from "@/components/Header";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { db } from "@/lib/firebase";
@@ -85,6 +85,24 @@ export function CollectivePublicPage({ slug }: Props) {
 
         setCollective(collectiveData);
         setLoading(false);
+
+        // Enrich linked collectives with their photos
+        const linked = collectiveData.linkedCollectives;
+        if (linked && linked.length > 0) {
+          try {
+            const enriched = await Promise.all(
+              linked.map(async (coll) => {
+                if (coll.collectivePhoto) return coll;
+                const collDoc = await getDoc(firestoreDoc(db!, "collectives", coll.collectiveId));
+                if (!collDoc.exists()) return coll;
+                return { ...coll, collectivePhoto: collDoc.data().photo || null };
+              })
+            );
+            setCollective(prev => prev ? { ...prev, linkedCollectives: enriched } : prev);
+          } catch (e) {
+            console.error("Error enriching linked collectives:", e);
+          }
+        }
 
         // Fetch upcoming events for this collective
         try {
