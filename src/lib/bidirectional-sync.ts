@@ -4,6 +4,7 @@ interface CollectiveRef {
   collectiveId: string;
   collectiveName: string;
   collectiveSlug?: string;
+  collectivePhoto?: string | null;
 }
 
 interface CollectiveVenueRef {
@@ -39,11 +40,12 @@ export async function syncCollectiveToCollectives(
   selfName: string,
   selfSlug: string,
   oldLinked: CollectiveRef[],
-  newLinked: CollectiveRef[]
+  newLinked: CollectiveRef[],
+  selfPhoto?: string | null
 ): Promise<void> {
   const { added, removed } = diffByKey(oldLinked, newLinked, c => c.collectiveId);
 
-  const selfRef: CollectiveRef = { collectiveId: selfId, collectiveName: selfName, collectiveSlug: selfSlug };
+  const selfRef: CollectiveRef = { collectiveId: selfId, collectiveName: selfName, collectiveSlug: selfSlug, collectivePhoto: selfPhoto || null };
 
   for (const target of added) {
     const snap = await db.collection('collectives').doc(target.collectiveId).get();
@@ -76,11 +78,12 @@ export async function syncCollectiveToVenues(
   selfName: string,
   selfSlug: string,
   oldLinkedVenues: CollectiveVenueRef[],
-  newLinkedVenues: CollectiveVenueRef[]
+  newLinkedVenues: CollectiveVenueRef[],
+  selfPhoto?: string | null
 ): Promise<void> {
   const { added, removed } = diffByKey(oldLinkedVenues, newLinkedVenues, v => v.venueId);
 
-  const selfRef: CollectiveRef = { collectiveId: selfId, collectiveName: selfName, collectiveSlug: selfSlug };
+  const selfRef: CollectiveRef = { collectiveId: selfId, collectiveName: selfName, collectiveSlug: selfSlug, collectivePhoto: selfPhoto || null };
 
   for (const target of added) {
     const snap = await db.collection('venues').doc(target.venueId).get();

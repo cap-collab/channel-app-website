@@ -682,7 +682,7 @@ export function VenuesAdmin() {
                     const coll = collectiveOptions.find(c => c.id === cId);
                     if (!coll) return;
                     if (venueCollectives.some(vc => vc.collectiveId === cId)) return;
-                    setVenueCollectives([...venueCollectives, { collectiveId: coll.id, collectiveName: coll.name }]);
+                    setVenueCollectives([...venueCollectives, { collectiveId: coll.id, collectiveName: coll.name, collectiveSlug: coll.slug, collectivePhoto: coll.photo || null }]);
                   }}
                   className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white"
                 >

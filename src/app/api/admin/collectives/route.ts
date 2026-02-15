@@ -90,8 +90,8 @@ export async function POST(request: NextRequest) {
 
     // Bidirectional sync: add self to all linked collectives and venues
     const batch = db.batch();
-    await syncCollectiveToCollectives(batch, db, docRef.id, name.trim(), slug, [], linkedCollectives || []);
-    await syncCollectiveToVenues(batch, db, docRef.id, name.trim(), slug, [], linkedVenues || []);
+    await syncCollectiveToCollectives(batch, db, docRef.id, name.trim(), slug, [], linkedCollectives || [], photo || null);
+    await syncCollectiveToVenues(batch, db, docRef.id, name.trim(), slug, [], linkedVenues || [], photo || null);
     await batch.commit();
 
     return NextResponse.json({
@@ -150,12 +150,14 @@ export async function PATCH(request: NextRequest) {
     // Bidirectional sync for linkedCollectives changes
     const selfName = (name !== undefined ? name : currentData.name) as string;
     const selfSlug = currentData.slug as string;
+    const selfPhoto = (photo !== undefined ? photo : currentData.photo) as string | null;
 
     if (linkedCollectives !== undefined) {
       await syncCollectiveToCollectives(
         batch, db, collectiveId, selfName, selfSlug,
         currentData.linkedCollectives || [],
-        linkedCollectives
+        linkedCollectives,
+        selfPhoto
       );
     }
 
@@ -164,7 +166,8 @@ export async function PATCH(request: NextRequest) {
       await syncCollectiveToVenues(
         batch, db, collectiveId, selfName, selfSlug,
         currentData.linkedVenues || [],
-        linkedVenues
+        linkedVenues,
+        selfPhoto
       );
     }
 

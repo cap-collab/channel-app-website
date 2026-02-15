@@ -319,7 +319,7 @@ export function CollectivesAdmin() {
     const coll = collectives.find(c => c.id === collectiveId);
     if (!coll) return;
     if (linkedCollectives.some(c => c.collectiveId === collectiveId)) return;
-    setLinkedCollectives([...linkedCollectives, { collectiveId: coll.id, collectiveName: coll.name, collectiveSlug: coll.slug }]);
+    setLinkedCollectives([...linkedCollectives, { collectiveId: coll.id, collectiveName: coll.name, collectiveSlug: coll.slug, collectivePhoto: coll.photo || null }]);
   };
 
   const handleRemoveCollective = (collectiveId: string) => {

@@ -17,6 +17,7 @@ export interface CollectiveRef {
   collectiveId: string;
   collectiveName: string;
   collectiveSlug?: string;
+  collectivePhoto?: string | null;
 }
 
 // Venue document in Firestore
