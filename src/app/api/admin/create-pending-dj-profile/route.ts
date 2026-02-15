@@ -96,20 +96,17 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { email, username, djProfile } = body as {
-      email: string;
+      email?: string;
       username: string;
       djProfile?: DJProfileData;
     };
 
     // Validate required fields
-    if (!email || typeof email !== 'string') {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
-    }
     if (!username || typeof username !== 'string') {
       return NextResponse.json({ error: 'Username is required' }, { status: 400 });
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedEmail = email ? email.toLowerCase().trim() : null;
     const trimmedUsername = username.trim();
 
     // Validate username format
@@ -121,16 +118,31 @@ export async function POST(request: NextRequest) {
 
     const normalizedUsername = trimmedUsername.replace(/\s+/g, '').toLowerCase();
 
-    // Check if email already has a user account
-    const existingUserSnapshot = await db.collection('users')
-      .where('email', '==', normalizedEmail)
-      .limit(1)
-      .get();
+    // Check email uniqueness (only if email is provided)
+    if (normalizedEmail) {
+      const existingUserSnapshot = await db.collection('users')
+        .where('email', '==', normalizedEmail)
+        .limit(1)
+        .get();
 
-    if (!existingUserSnapshot.empty) {
-      return NextResponse.json({
-        error: 'A user with this email already exists. They can set up their own DJ profile.'
-      }, { status: 409 });
+      if (!existingUserSnapshot.empty) {
+        return NextResponse.json({
+          error: 'A user with this email already exists. They can set up their own DJ profile.'
+        }, { status: 409 });
+      }
+
+      // Check if there's already a pending profile for this email
+      const existingPendingSnapshot = await db.collection('pending-dj-profiles')
+        .where('email', '==', normalizedEmail)
+        .where('status', '==', 'pending')
+        .limit(1)
+        .get();
+
+      if (!existingPendingSnapshot.empty) {
+        return NextResponse.json({
+          error: 'A pending DJ profile already exists for this email.'
+        }, { status: 409 });
+      }
     }
 
     // Check if username is already taken
@@ -138,24 +150,11 @@ export async function POST(request: NextRequest) {
     if (usernameDoc.exists) {
       const existingData = usernameDoc.data();
       // Only allow if it's already a pending reservation for the same email
-      if (!existingData?.isPending || existingData?.reservedForEmail?.toLowerCase() !== normalizedEmail) {
+      if (!existingData?.isPending || !normalizedEmail || existingData?.reservedForEmail?.toLowerCase() !== normalizedEmail) {
         return NextResponse.json({
           error: 'Username is already taken. Try another one.'
         }, { status: 409 });
       }
-    }
-
-    // Check if there's already a pending profile for this email
-    const existingPendingSnapshot = await db.collection('pending-dj-profiles')
-      .where('email', '==', normalizedEmail)
-      .where('status', '==', 'pending')
-      .limit(1)
-      .get();
-
-    if (!existingPendingSnapshot.empty) {
-      return NextResponse.json({
-        error: 'A pending DJ profile already exists for this email.'
-      }, { status: 409 });
     }
 
     // Create the pending DJ profile and reserve the username in a transaction
@@ -166,7 +165,7 @@ export async function POST(request: NextRequest) {
     await db.runTransaction(async (transaction) => {
       // Create pending DJ profile
       transaction.set(pendingProfileRef, {
-        email: normalizedEmail,
+        ...(normalizedEmail ? { email: normalizedEmail } : {}),
         chatUsername: trimmedUsername,
         chatUsernameNormalized: normalizedUsername,
         djProfile: {
@@ -189,21 +188,23 @@ export async function POST(request: NextRequest) {
       transaction.set(usernameRef, {
         displayName: trimmedUsername,
         usernameHandle: normalizedUsername,
-        uid: `pending:${normalizedEmail}`,
-        reservedForEmail: normalizedEmail,
+        uid: normalizedEmail ? `pending:${normalizedEmail}` : `pending:${pendingProfileRef.id}`,
+        ...(normalizedEmail ? { reservedForEmail: normalizedEmail } : {}),
         isPending: true,
         claimedAt: FieldValue.serverTimestamp(),
       });
 
-      // Also create a pending DJ role entry so they get DJ role on signup
-      transaction.set(pendingDJRoleRef, {
-        email: normalizedEmail,
-        createdAt: FieldValue.serverTimestamp(),
-        source: 'admin-pre-register',
-      });
+      // Create a pending DJ role entry so they get DJ role on signup (only if email provided)
+      if (normalizedEmail) {
+        transaction.set(pendingDJRoleRef, {
+          email: normalizedEmail,
+          createdAt: FieldValue.serverTimestamp(),
+          source: 'admin-pre-register',
+        });
+      }
     });
 
-    console.log(`[create-pending-dj-profile] Created pending profile for ${normalizedEmail} with username ${trimmedUsername}`);
+    console.log(`[create-pending-dj-profile] Created pending profile${normalizedEmail ? ` for ${normalizedEmail}` : ''} with username ${trimmedUsername}`);
 
     // Update all watchlist entries that match this DJ's username
     // This ensures existing watchlist items get linked to the new DJ profile

@@ -300,11 +300,6 @@ export function PendingDJsAdmin() {
     setError(null);
     setSuccess(null);
 
-    if (!email.trim()) {
-      setError('Email is required');
-      return;
-    }
-
     if (!djName.trim()) {
       setError('DJ Name is required');
       return;
@@ -407,7 +402,7 @@ export function PendingDJsAdmin() {
             'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
-            email: email.trim().toLowerCase(),
+            ...(email.trim() ? { email: email.trim().toLowerCase() } : {}),
             username: djName.trim(),
             djProfile: {
               bio: bio.trim() || null,
@@ -620,7 +615,7 @@ See you on Channel!
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Email {!editingProfile && <span className="text-red-400">*</span>}
+                    Email
                   </label>
                   <input
                     type="email"
@@ -629,14 +624,14 @@ See you on Channel!
                     placeholder="dj@example.com"
                     disabled={!!editingProfile && !!editingProfile.email}
                     className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    required={!editingProfile}
+                    required={false}
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     {editingProfile
                       ? (editingProfile.email
                           ? 'Email cannot be changed'
                           : 'Add email to enable profile claiming')
-                      : 'Used to link profile when they sign up'}
+                      : 'Optional - used to link profile when they sign up'}
                   </p>
                 </div>
 
