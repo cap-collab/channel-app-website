@@ -38,28 +38,42 @@ export function wordBoundaryMatch(text: string, searchTerm: string): boolean {
 }
 
 /**
+ * Extracted name with matching strategy.
+ * exact=true: require full normalized name match (for structured patterns like "w/", "Presents")
+ * exact=false: use word boundary match (for ambiguous patterns like " - ")
+ */
+type ExtractedName = { name: string; exact: boolean };
+
+/**
  * Extract potential DJ names from a show name string.
  * Handles common formats like:
- * - "Show Name w/ DJ Name"
- * - "DJ Name - Show Name"
- * - "Show Name - DJ Name"
- * - "Show Name with DJ Name"
+ * - "Host w/ Guest" or "Host with Guest" (both host and guest, exact match)
+ * - "DJ Presents: Show Name" (presenter, exact match)
+ * - "DJ Name - Show Name" (both sides, word boundary match)
  */
-export function extractDJNamesFromShowName(showName: string): string[] {
-  const candidates: string[] = [];
+export function extractDJNamesFromShowName(showName: string): ExtractedName[] {
+  const candidates: ExtractedName[] = [];
 
-  // Format: "Show Name w/ DJ Name" or "Show Name with DJ Name"
-  const wMatch = showName.match(/\bw(?:ith)?\/?\s+(.+)$/i);
+  // Format: "Host w/ Guest" or "Host with Guest"
+  // Extract BOTH host (before w/) and guest (after w/) as exact-match candidates
+  const wMatch = showName.match(/^(.+?)\s+w(?:ith)?\/?\s+(.+)$/i);
   if (wMatch) {
-    candidates.push(wMatch[1].trim());
+    candidates.push({ name: wMatch[1].trim(), exact: true }); // host
+    candidates.push({ name: wMatch[2].trim(), exact: true }); // guest
+  }
+
+  // Format: "DJ Presents: Show Name" or "DJ Presents Show Name"
+  const presentsMatch = showName.match(/^(.+?)\s+presents?:?\s+.+$/i);
+  if (presentsMatch) {
+    candidates.push({ name: presentsMatch[1].trim(), exact: true });
   }
 
   // Format: "Something - Something" (could be either order)
-  if (showName.includes(" - ")) {
+  if (!wMatch && !presentsMatch && showName.includes(" - ")) {
     const parts = showName.split(" - ");
     if (parts.length === 2) {
-      candidates.push(parts[0].trim());
-      candidates.push(parts[1].trim());
+      candidates.push({ name: parts[0].trim(), exact: false });
+      candidates.push({ name: parts[1].trim(), exact: false });
     }
   }
 
@@ -84,15 +98,25 @@ export function showMatchesDJ(
     return true;
   }
 
-  // 3. Check show name directly (word boundary match)
-  if (wordBoundaryMatch(show.name, searchTerm)) {
-    return true;
-  }
-
-  // 4. Check extracted DJ names from show name patterns
+  // 3. Check extracted DJ names from show name patterns
   const extractedNames = extractDJNamesFromShowName(show.name);
-  for (const extracted of extractedNames) {
-    if (wordBoundaryMatch(extracted, searchTerm)) {
+  if (extractedNames.length > 0) {
+    for (const { name: extracted, exact } of extractedNames) {
+      if (exact) {
+        // For structured patterns (w/, presents), require exact name match
+        if (normalizeName(extracted) === normalizeName(searchTerm)) {
+          return true;
+        }
+      } else {
+        // For ambiguous patterns (dash), keep word boundary match
+        if (wordBoundaryMatch(extracted, searchTerm)) {
+          return true;
+        }
+      }
+    }
+  } else {
+    // No structured pattern found — fall back to raw show name match
+    if (wordBoundaryMatch(show.name, searchTerm)) {
       return true;
     }
   }
