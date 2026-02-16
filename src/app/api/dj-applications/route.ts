@@ -42,7 +42,6 @@ export async function POST(request: NextRequest) {
           to: 'cap@channel-app.com',
           subject: `New Curator Profile Claim: ${data.djName}`,
           html: `<div style="font-family: sans-serif; line-height: 1.6;">${fields.join('<br/>')}</div>`,
-          tracking: { opens: true, clicks: true },
         });
       }
     } catch (emailError) {
