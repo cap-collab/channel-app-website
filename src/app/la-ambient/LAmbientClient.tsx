@@ -1004,6 +1004,10 @@ function EventDateCard({ event, venueSlugMap, venuePhotoMap }: { event: Event; v
 
 // ---------- Section 5: Past Shows & Events ----------
 
+type PastEntry =
+  | { type: 'show'; date: number; key: string; data: Show }
+  | { type: 'event'; date: number; key: string; data: Event };
+
 function PastShowsSection({
   shows,
   pastEvents,
@@ -1023,8 +1027,25 @@ function PastShowsSection({
     if (v.id && v.photo) venuePhotoMap.set(v.id, v.photo);
   }
 
-  // Sort past events newest first
-  const sortedPastEvents = [...pastEvents].sort((a, b) => b.date - a.date);
+  // Merge shows and events into a single list sorted by date descending (most recent first)
+  const items: PastEntry[] = [];
+  for (const show of shows) {
+    items.push({
+      type: 'show',
+      date: new Date(show.startTime).getTime(),
+      key: `show-${show.id}`,
+      data: show,
+    });
+  }
+  for (const event of pastEvents) {
+    items.push({
+      type: 'event',
+      date: event.date,
+      key: `event-${event.id}`,
+      data: event,
+    });
+  }
+  items.sort((a, b) => b.date - a.date);
 
   return (
     <section className="mb-10">
@@ -1032,12 +1053,13 @@ function PastShowsSection({
         Past Shows & Events
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {shows.map((show) => (
-          <PastShowCard key={show.id} show={show} />
-        ))}
-        {sortedPastEvents.map((event) => (
-          <PastEventCard key={event.id} event={event} venueSlugMap={venueSlugMap} venuePhotoMap={venuePhotoMap} />
-        ))}
+        {items.map((item) =>
+          item.type === 'show' ? (
+            <PastShowCard key={item.key} show={item.data} />
+          ) : (
+            <PastEventCard key={item.key} event={item.data} venueSlugMap={venueSlugMap} venuePhotoMap={venuePhotoMap} />
+          )
+        )}
       </div>
     </section>
   );
@@ -1081,11 +1103,17 @@ function PastShowCard({ show }: { show: Show }) {
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-white font-medium text-sm truncate">
-            {show.djUsername ? (
-              <Link href={`/dj/${show.djUsername}`} className="hover:underline">{show.name}</Link>
-            ) : show.name}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-white font-medium text-sm truncate min-w-0">
+              {show.djUsername ? (
+                <Link href={`/dj/${show.djUsername}`} className="hover:underline">{show.name}</Link>
+              ) : show.name}
+            </p>
+            <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter flex items-center gap-1 flex-shrink-0">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z" /></svg>
+              Online
+            </span>
+          </div>
           <p className="text-zinc-500 text-xs uppercase tracking-wide mt-0.5">
             {new Date(show.startTime).toLocaleDateString('en-US', {
               weekday: 'short',
@@ -1136,7 +1164,13 @@ function PastEventCard({ event, venueSlugMap, venuePhotoMap }: { event: Event; v
           {thumbnail}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-white font-medium text-sm truncate">{event.name}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-white font-medium text-sm truncate min-w-0">{event.name}</p>
+            <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter flex items-center gap-1 flex-shrink-0">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" /></svg>
+              IRL
+            </span>
+          </div>
           <p className="text-zinc-500 text-xs uppercase tracking-wide mt-0.5">
             {new Date(event.date).toLocaleDateString('en-US', {
               weekday: 'short',
