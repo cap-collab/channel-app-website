@@ -11,7 +11,7 @@ import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { normalizeUrl } from '@/lib/url';
 import { uploadEventPhoto, deleteEventPhoto, validatePhoto } from '@/lib/photo-upload';
-import { Event, EventDJRef, Venue, Collective } from '@/types/events';
+import { Event, EventDJRef, Venue, Collective, CustomLink } from '@/types/events';
 
 interface DJOption {
   label: string;
@@ -40,6 +40,15 @@ export function EventsAdmin() {
   const [location, setLocation] = useState('');
   const [genres, setGenres] = useState('');
   const [ticketLink, setTicketLink] = useState('');
+  const [instagram, setInstagram] = useState('');
+  const [soundcloud, setSoundcloud] = useState('');
+  const [bandcamp, setBandcamp] = useState('');
+  const [youtube, setYoutube] = useState('');
+  const [mixcloud, setMixcloud] = useState('');
+  const [emailLink, setEmailLink] = useState('');
+  const [website, setWebsite] = useState('');
+  const [residentAdvisor, setResidentAdvisor] = useState('');
+  const [customLinks, setCustomLinks] = useState<CustomLink[]>([]);
   const [djs, setDjs] = useState<EventDJRef[]>([{ djName: '' }]);
 
   // Photo state
@@ -185,6 +194,7 @@ export function EventsAdmin() {
           genres: data.genres || [],
           location: data.location || null,
           ticketLink: data.ticketLink || null,
+          socialLinks: data.socialLinks || {},
           createdAt: data.createdAt?.toMillis?.() || Date.now(),
           createdBy: data.createdBy,
         });
@@ -239,6 +249,15 @@ export function EventsAdmin() {
     setLocation('');
     setGenres('');
     setTicketLink('');
+    setInstagram('');
+    setSoundcloud('');
+    setBandcamp('');
+    setYoutube('');
+    setMixcloud('');
+    setEmailLink('');
+    setWebsite('');
+    setResidentAdvisor('');
+    setCustomLinks([]);
     setDjs([{ djName: '' }]);
     setPhotoUrl(null);
     setPhotoError(null);
@@ -258,6 +277,15 @@ export function EventsAdmin() {
     setLocation(event.location || '');
     setGenres(event.genres?.join(', ') || '');
     setTicketLink(event.ticketLink || '');
+    setInstagram(event.socialLinks?.instagram || '');
+    setSoundcloud(event.socialLinks?.soundcloud || '');
+    setBandcamp(event.socialLinks?.bandcamp || '');
+    setYoutube(event.socialLinks?.youtube || '');
+    setMixcloud(event.socialLinks?.mixcloud || '');
+    setEmailLink(event.socialLinks?.email || '');
+    setWebsite(event.socialLinks?.website || '');
+    setResidentAdvisor(event.socialLinks?.residentAdvisor || '');
+    setCustomLinks(event.socialLinks?.customLinks || []);
     setDjs(event.djs.length > 0 ? event.djs : [{ djName: '' }]);
     setPhotoUrl(event.photo || null);
     setPhotoError(null);
@@ -364,6 +392,18 @@ export function EventsAdmin() {
 
       const filteredDJs = djs.filter(dj => dj.djName.trim());
 
+      const socialLinksData: Record<string, unknown> = {};
+      if (instagram.trim()) socialLinksData.instagram = instagram.trim();
+      if (soundcloud.trim()) socialLinksData.soundcloud = normalizeUrl(soundcloud.trim());
+      if (bandcamp.trim()) socialLinksData.bandcamp = normalizeUrl(bandcamp.trim());
+      if (youtube.trim()) socialLinksData.youtube = normalizeUrl(youtube.trim());
+      if (mixcloud.trim()) socialLinksData.mixcloud = normalizeUrl(mixcloud.trim());
+      if (emailLink.trim()) socialLinksData.email = emailLink.trim();
+      if (website.trim()) socialLinksData.website = normalizeUrl(website.trim());
+      if (residentAdvisor.trim()) socialLinksData.residentAdvisor = normalizeUrl(residentAdvisor.trim());
+      const filteredCustomLinks = customLinks.filter(l => l.label.trim() && l.url.trim());
+      if (filteredCustomLinks.length > 0) socialLinksData.customLinks = filteredCustomLinks.map(l => ({ label: l.label.trim(), url: normalizeUrl(l.url.trim()) }));
+
       const payload = {
         ...(editingEvent ? { eventId: editingEvent.id } : {}),
         name: name.trim(),
@@ -377,6 +417,7 @@ export function EventsAdmin() {
         genres: genres.trim() ? genres.split(',').map(g => g.trim()).filter(Boolean) : [],
         location: location.trim() || null,
         ticketLink: ticketLink.trim() ? normalizeUrl(ticketLink.trim()) : null,
+        socialLinks: socialLinksData,
       };
 
       const res = await fetch('/api/admin/events', {
@@ -686,6 +727,115 @@ export function EventsAdmin() {
                 className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
                 placeholder="https://ra.co/events/..."
               />
+            </div>
+
+            {/* Social Links */}
+            <div className="mb-4">
+              <label className="block text-sm text-gray-400 mb-3">Social Links</label>
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  value={instagram}
+                  onChange={(e) => setInstagram(e.target.value)}
+                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
+                  placeholder="Instagram @username"
+                />
+                <input
+                  type="text"
+                  value={soundcloud}
+                  onChange={(e) => setSoundcloud(e.target.value)}
+                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
+                  placeholder="SoundCloud URL"
+                />
+                <input
+                  type="text"
+                  value={bandcamp}
+                  onChange={(e) => setBandcamp(e.target.value)}
+                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
+                  placeholder="Bandcamp URL"
+                />
+                <input
+                  type="text"
+                  value={youtube}
+                  onChange={(e) => setYoutube(e.target.value)}
+                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
+                  placeholder="YouTube URL"
+                />
+                <input
+                  type="text"
+                  value={mixcloud}
+                  onChange={(e) => setMixcloud(e.target.value)}
+                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
+                  placeholder="Mixcloud URL"
+                />
+                <input
+                  type="text"
+                  value={emailLink}
+                  onChange={(e) => setEmailLink(e.target.value)}
+                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
+                  placeholder="Contact Email"
+                />
+                <input
+                  type="text"
+                  value={residentAdvisor}
+                  onChange={(e) => setResidentAdvisor(e.target.value)}
+                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
+                  placeholder="Resident Advisor URL"
+                />
+                <input
+                  type="text"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
+                  placeholder="Website URL"
+                />
+              </div>
+              {/* Custom Links */}
+              <div className="mt-4 pt-4 border-t border-gray-700">
+                <label className="block text-xs text-gray-500 mb-2">Other Links</label>
+                <div className="space-y-2">
+                  {customLinks.map((link, index) => (
+                    <div key={index} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={link.label}
+                        onChange={(e) => {
+                          const updated = [...customLinks];
+                          updated[index] = { ...updated[index], label: e.target.value };
+                          setCustomLinks(updated);
+                        }}
+                        placeholder="Label"
+                        className="w-1/3 bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white text-sm"
+                      />
+                      <input
+                        type="text"
+                        value={link.url}
+                        onChange={(e) => {
+                          const updated = [...customLinks];
+                          updated[index] = { ...updated[index], url: e.target.value };
+                          setCustomLinks(updated);
+                        }}
+                        placeholder="URL"
+                        className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setCustomLinks(customLinks.filter((_, i) => i !== index))}
+                        className="text-red-400 hover:text-red-300 px-2"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setCustomLinks([...customLinks, { label: '', url: '' }])}
+                    className="text-sm text-gray-400 hover:text-white mt-1"
+                  >
+                    + Add Link
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* DJs */}

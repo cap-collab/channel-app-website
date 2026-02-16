@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, date, endDate, photo, description, venueId, collectiveId, djs, genres, location, ticketLink } = body;
+    const { name, date, endDate, photo, description, venueId, collectiveId, djs, genres, location, ticketLink, socialLinks } = body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json({ error: 'Event name is required' }, { status: 400 });
@@ -103,6 +103,7 @@ export async function POST(request: NextRequest) {
       genres: genres || [],
       location: location || null,
       ticketLink: ticketLink || null,
+      socialLinks: socialLinks || {},
       createdAt: FieldValue.serverTimestamp(),
       createdBy: adminUserId,
     };
@@ -134,7 +135,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { eventId, name, date, endDate, photo, description, venueId, collectiveId, djs, genres, location, ticketLink } = body;
+    const { eventId, name, date, endDate, photo, description, venueId, collectiveId, djs, genres, location, ticketLink, socialLinks } = body;
 
     if (!eventId) {
       return NextResponse.json({ error: 'eventId is required' }, { status: 400 });
@@ -156,6 +157,7 @@ export async function PATCH(request: NextRequest) {
     if (genres !== undefined) updateData.genres = genres;
     if (location !== undefined) updateData.location = location;
     if (ticketLink !== undefined) updateData.ticketLink = ticketLink;
+    if (socialLinks !== undefined) updateData.socialLinks = socialLinks;
 
     // Re-denormalize venue name if venueId changed
     if (venueId !== undefined) {

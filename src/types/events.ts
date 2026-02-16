@@ -20,6 +20,12 @@ export interface CollectiveRef {
   collectivePhoto?: string | null;
 }
 
+// Custom link (label + URL pair) for admin-added links
+export interface CustomLink {
+  label: string;
+  url: string;
+}
+
 // Venue document in Firestore
 export interface Venue {
   id: string;
@@ -32,8 +38,13 @@ export interface Venue {
   socialLinks?: {
     instagram?: string;
     soundcloud?: string;
+    bandcamp?: string;
+    youtube?: string;
+    mixcloud?: string;
+    email?: string;
     website?: string;
     residentAdvisor?: string;
+    customLinks?: CustomLink[];
   };
   residentDJs?: EventDJRef[];
   collectives?: CollectiveRef[];
@@ -54,8 +65,12 @@ export interface Collective {
     instagram?: string;
     soundcloud?: string;
     bandcamp?: string;
+    youtube?: string;
+    mixcloud?: string;
+    email?: string;
     website?: string;
     residentAdvisor?: string;
+    customLinks?: CustomLink[];
   };
   residentDJs?: EventDJRef[];
   linkedVenues?: CollectiveVenueRef[];
@@ -81,6 +96,17 @@ export interface Event {
   genres?: string[];
   location?: string | null;
   ticketLink?: string | null;
+  socialLinks?: {
+    instagram?: string;
+    soundcloud?: string;
+    bandcamp?: string;
+    youtube?: string;
+    mixcloud?: string;
+    email?: string;
+    website?: string;
+    residentAdvisor?: string;
+    customLinks?: CustomLink[];
+  };
   createdAt: number;
   createdBy: string;
 }
