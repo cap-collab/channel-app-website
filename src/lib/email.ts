@@ -215,6 +215,7 @@ export async function sendShowStartingEmail({
       to,
       subject: `${displayName} is live on ${stationName}`,
       html: wrapEmailContent(content, "You're receiving this because you saved this show."),
+      tracking: { opens: true, clicks: true },
     });
 
     if (error) {
@@ -278,6 +279,7 @@ export async function sendPopularityAlertEmail({
       to,
       subject: `${showName} is getting a lot of love on ${stationName}`,
       html: wrapEmailContent(content, "You're receiving this because you enabled popularity alerts."),
+      tracking: { opens: true, clicks: true },
     });
 
     if (error) {
@@ -354,6 +356,7 @@ export async function sendTipReminderEmail({
       to,
       subject,
       html: wrapEmailContent(content, "You're receiving this because you have pending tips on Channel."),
+      tracking: { opens: true, clicks: true },
     });
 
     if (error) {
@@ -800,6 +803,7 @@ export async function sendWatchlistDigestEmail({
       to,
       subject,
       html: wrapEmailContent(content, "Based on your preferences and favorites."),
+      tracking: { opens: true, clicks: true },
     });
 
     if (error) {
@@ -850,6 +854,7 @@ export async function sendDjOnlineEmail({
       to,
       subject: `${djUsername} is chatting on Channel`,
       html: wrapEmailContent(content, `You're receiving this because you follow ${djUsername}.`),
+      tracking: { opens: true, clicks: true },
     });
 
     if (error) {

@@ -35,6 +35,7 @@ export async function POST(request: Request) {
         <hr />
         <p style="color: #666; font-size: 12px;">This application was submitted via channel-app.com</p>
       `,
+      tracking: { opens: true, clicks: true },
     });
 
     if (error) {
