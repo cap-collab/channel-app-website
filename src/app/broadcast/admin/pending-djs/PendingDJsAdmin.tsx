@@ -316,7 +316,7 @@ export function PendingDJsAdmin() {
   // Load profile into form for editing
   const startEditing = (profile: PendingProfile) => {
     setEditingProfile(profile);
-    setEmail(profile.email);
+    setEmail(profile.email || '');
     setDjName(profile.chatUsername);
     setBio(profile.djProfile.bio || '');
     setLocation(profile.djProfile.location || '');
