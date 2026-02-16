@@ -444,10 +444,10 @@ export function PendingDJsAdmin() {
 
       // Build social links object
       const validCustomLinks = customLinks.filter(
-        (link) => link.label.trim() && link.url.trim()
+        (link) => (link.label || '').trim() && (link.url || '').trim()
       ).map((link) => ({
-        label: link.label.trim(),
-        url: normalizeUrl(link.url.trim()),
+        label: (link.label || '').trim(),
+        url: normalizeUrl((link.url || '').trim()),
       }));
 
       const socialLinksData = {
@@ -464,15 +464,15 @@ export function PendingDJsAdmin() {
 
       // Build IRL shows data
       const validIrlShows = irlShows.filter(
-        (show) => show.url.trim() || show.date.trim()
+        (show) => (show.url || '').trim() || (show.date || '').trim()
       ).map((show) => ({
-        url: show.url.trim() ? normalizeUrl(show.url.trim()) : '',
-        date: show.date.trim(),
+        url: (show.url || '').trim() ? normalizeUrl((show.url || '').trim()) : '',
+        date: (show.date || '').trim(),
       }));
 
       // Build my recs data
-      const validBandcampRecs = bandcampRecs.filter((url) => url.trim()).map((url) => normalizeUrl(url.trim()));
-      const validEventRecs = eventRecs.filter((url) => url.trim()).map((url) => normalizeUrl(url.trim()));
+      const validBandcampRecs = bandcampRecs.filter((url) => (url || '').trim()).map((url) => normalizeUrl((url || '').trim()));
+      const validEventRecs = eventRecs.filter((url) => (url || '').trim()).map((url) => normalizeUrl((url || '').trim()));
 
       if (editingProfile) {
         // Build request body
