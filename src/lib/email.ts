@@ -716,7 +716,7 @@ export async function sendWatchlistDigestEmail({
   dayKeys.forEach((key) => {
     totalItems += (buckets.get(key) || []).length;
   });
-  if (totalItems < 4) return false;
+  if (totalItems === 0) return false;
 
   // Build HTML for each day
   let timelineHtml = "";
