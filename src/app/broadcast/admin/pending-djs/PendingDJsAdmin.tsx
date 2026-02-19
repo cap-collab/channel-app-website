@@ -383,8 +383,9 @@ export function PendingDJsAdmin() {
       return;
     }
 
-    // For new profiles, we need a profile ID first - use a temp ID based on email
-    const profileId = editingProfile?.id || `temp-${email.trim().toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+    // For new profiles, we need a profile ID first - use a temp ID based on email or DJ name
+    const tempKey = email.trim() || djName.trim();
+    const profileId = editingProfile?.id || `temp-${tempKey.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
 
     setUploadingPhoto(true);
     try {
@@ -406,7 +407,8 @@ export function PendingDJsAdmin() {
   const handleRemovePhoto = async () => {
     if (!photoUrl) return;
 
-    const profileId = editingProfile?.id || `temp-${email.trim().toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+    const tempKey = email.trim() || djName.trim();
+    const profileId = editingProfile?.id || `temp-${tempKey.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
 
     setUploadingPhoto(true);
     setPhotoError(null);
