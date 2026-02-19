@@ -477,15 +477,6 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      // Check if it's 8 AM in the user's local timezone (Mon or Thu) — skip in test mode
-      if (!testEmail) {
-        const userTimezone = (userData.timezone as string) || "America/New_York";
-        const userLocalHour = new Date().toLocaleString("en-US", { timeZone: userTimezone, hour: "numeric", hour12: false });
-        if (parseInt(userLocalHour, 10) !== 8) {
-          usersProcessed++;
-          continue;
-        }
-      }
 
       // Check if we already processed this user today (for email) — skip in test mode
       const lastEmailAt = userData.lastWatchlistEmailAt as Date | string | undefined;
