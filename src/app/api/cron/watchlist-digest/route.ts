@@ -461,6 +461,10 @@ export async function GET(request: NextRequest) {
 
     let emailsSent = 0;
     let usersProcessed = 0;
+    let skippedNoWantsEmail = 0;
+    let skippedAlreadySent = 0;
+    let skippedNoContent = 0;
+    let emailFailed = 0;
 
     let showsAddedToFavorites = 0;
 
@@ -650,7 +654,13 @@ export async function GET(request: NextRequest) {
       const irlCity = userData.irlCity as string | undefined;
       const preferredGenres = (userData.preferredGenres as string[]) || [];
 
-      if ((!user.wantsEmail && !testEmail) || alreadySentEmailToday) {
+      if (!user.wantsEmail && !testEmail) {
+        skippedNoWantsEmail++;
+        usersProcessed++;
+        continue;
+      }
+      if (alreadySentEmailToday) {
+        skippedAlreadySent++;
         usersProcessed++;
         continue;
       }
@@ -983,6 +993,10 @@ export async function GET(request: NextRequest) {
       // with fallback online shows (Step 3 above) so they still get a useful digest
       const hasContent = favoriteShows.length > 0 || userCuratorRecs.length > 0 || preferenceMatches.length > 0;
 
+      if (!hasContent) {
+        skippedNoContent++;
+      }
+
       if (hasContent) {
         const success = await sendWatchlistDigestEmail({
           to: userData.email as string,
@@ -992,6 +1006,10 @@ export async function GET(request: NextRequest) {
           preferenceShows: preferenceMatches,
           preferredGenres,
         });
+
+        if (!success) {
+          emailFailed++;
+        }
 
         if (success) {
           const updatedDigestShows = { ...lastWatchlistDigestShows };
@@ -1029,6 +1047,7 @@ export async function GET(request: NextRequest) {
       usersProcessed,
       emailsSent,
       showsAddedToFavorites,
+      debug: { skippedNoWantsEmail, skippedAlreadySent, skippedNoContent, emailFailed },
     });
   } catch (error) {
     console.error("Error in watchlist-digest cron:", error);
