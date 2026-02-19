@@ -650,7 +650,7 @@ export async function GET(request: NextRequest) {
       const irlCity = userData.irlCity as string | undefined;
       const preferredGenres = (userData.preferredGenres as string[]) || [];
 
-      if (!user.wantsEmail || alreadySentEmailToday) {
+      if ((!user.wantsEmail && !testEmail) || alreadySentEmailToday) {
         usersProcessed++;
         continue;
       }
