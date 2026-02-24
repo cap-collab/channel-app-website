@@ -1,20 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/cron/watchlist-digest",
-      "schedule": "0 14 * * 1,4"
-    },
-    {
       "path": "/api/cron/refresh-tokens",
       "schedule": "*/30 * * * *"
-    },
-    {
-      "path": "/api/cron/popularity-emails",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/dj-online-emails",
-      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/complete-expired-slots",
@@ -29,20 +17,12 @@
       "schedule": "0 7 * * *"
     },
     {
-      "path": "/api/cron/send-tip-reminders",
-      "schedule": "0 8 * * *"
-    },
-    {
       "path": "/api/cron/sync-auto-dj-profiles",
       "schedule": "0 3 * * *"
     },
     {
       "path": "/api/cron/sync-rinse-profiles",
       "schedule": "0 4 * * *"
-    },
-    {
-      "path": "/api/cron/show-starting-emails",
-      "schedule": "0 * * * *"
     }
   ]
 }
