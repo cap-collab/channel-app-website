@@ -68,13 +68,12 @@ export function ChannelClient() {
     if (!notifyEmail.trim()) return;
     try {
       setNotifyStatus('submitting');
-      const { db } = await import('@/lib/firebase');
-      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
-      if (!db) throw new Error('Firebase not configured');
-      await addDoc(collection(db, 'radio-notify-waitlist'), {
-        email: notifyEmail.trim(),
-        submittedAt: serverTimestamp(),
+      const res = await fetch('/api/radio-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: notifyEmail.trim() }),
       });
+      if (!res.ok) throw new Error('Failed to submit');
       setNotifyStatus('success');
       setNotifyEmail('');
     } catch {
