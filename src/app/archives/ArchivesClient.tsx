@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Header } from '@/components/Header';
-import { HeaderSearch } from '@/components/HeaderSearch';
+// import { HeaderSearch } from '@/components/HeaderSearch';
 import { AuthModal } from '@/components/AuthModal';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { ArchiveSerialized } from '@/types/broadcast';

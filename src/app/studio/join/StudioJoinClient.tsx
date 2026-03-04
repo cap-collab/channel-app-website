@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
-import { HeaderSearch } from '@/components/HeaderSearch';
+// import { HeaderSearch } from '@/components/HeaderSearch';
 import { DJApplicationFormData } from '@/types/dj-application';
 import { AuthModal } from '@/components/AuthModal';
 import { useAuthContext } from '@/contexts/AuthContext';
