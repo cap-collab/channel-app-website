@@ -707,18 +707,12 @@ export function ChannelClient() {
       {/* Hero Section — Launching Soon */}
       <section className="px-4 md:px-8 py-16 md:py-24 text-center relative z-10">
         <div className="max-w-2xl mx-auto">
-          <h1 className="text-3xl md:text-5xl font-bold mb-4">Radio Channel</h1>
+          <h1 className="text-3xl md:text-5xl font-bold mb-4">Channel Radio</h1>
           <p className="text-lg md:text-xl text-gray-300 mb-3">Launching soon.</p>
           <p className="text-gray-400 leading-relaxed mb-10 max-w-lg mx-auto">
             We are currently inviting DJs, labels, venues, and collectives from the LA scene to host the first shows.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Link
-              href="/studio/join"
-              className="bg-white text-black px-8 py-3 rounded font-semibold hover:bg-gray-200 transition-colors"
-            >
-              Host a show
-            </Link>
             <div className="w-full sm:w-auto">
               {notifyStatus === 'success' ? (
                 <p className="text-green-400 text-sm py-3">You&apos;re on the list!</p>
@@ -745,6 +739,12 @@ export function ChannelClient() {
                 <p className="text-red-400 text-xs mt-1">Something went wrong. Try again.</p>
               )}
             </div>
+            <Link
+              href="/studio/join"
+              className="bg-white text-black px-8 py-3 rounded font-semibold hover:bg-gray-200 transition-colors"
+            >
+              Host a show
+            </Link>
           </div>
         </div>
       </section>
