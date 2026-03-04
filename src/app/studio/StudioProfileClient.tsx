@@ -1149,33 +1149,9 @@ export function StudioProfileClient() {
             {/* Hero Section */}
             <div className="mb-12">
               <h1 className="text-3xl font-bold mb-4">Studio</h1>
-              <p className="text-xl text-gray-300 mb-6">Bring your curator profile to Channel</p>
+              <p className="text-xl text-gray-300 mb-8">Host a show on Channel</p>
 
-              <p className="text-gray-400 leading-relaxed mb-4">
-                Channel is a home for curators to publish their recommendations, their sets, notify fans, and stay connected across radios, events, and venues.
-              </p>
-
-              <p className="text-gray-400 leading-relaxed mb-8">
-                Think SoundCloud + Linktree + Instagram, built for curators, DJs, and their communities.
-              </p>
-
-              <h2 className="text-lg font-semibold mb-4">What you get</h2>
               <div className="space-y-4">
-                <div className="flex gap-4">
-                  <div className="w-6 h-6 flex-shrink-0 mt-0.5">
-                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-white font-medium">A public curator profile</p>
-                    <p className="text-gray-400 text-sm">
-                      One page with ALL your links, events, radio shows, recommendations, and recordings (example →{' '}
-                      <Link href="/dj/beyondalgorithms" className="text-white underline hover:text-gray-300">channel-app.com/dj/beyondalgorithms</Link>)
-                    </p>
-                  </div>
-                </div>
-
                 <div className="flex gap-4">
                   <div className="w-6 h-6 flex-shrink-0 mt-0.5">
                     <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1183,8 +1159,32 @@ export function StudioProfileClient() {
                     </svg>
                   </div>
                   <div>
-                    <p className="text-white font-medium">Record or livestream sets</p>
-                    <p className="text-gray-400 text-sm">Record or livestream from home or a venue, then publish under your profile</p>
+                    <p className="text-white font-medium">A show on Channel</p>
+                    <p className="text-gray-400 text-sm">Host regular shows or occasional listening sessions.</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="w-6 h-6 flex-shrink-0 mt-0.5">
+                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-white font-medium">A profile on the radio</p>
+                    <p className="text-gray-400 text-sm">Your page gathers your shows on Channel, on other radios and in real life, your recordings, and your recommendations.</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="w-6 h-6 flex-shrink-0 mt-0.5">
+                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-white font-medium">Direct support from listeners</p>
+                    <p className="text-gray-400 text-sm">People can tune in live, join the chat, and support you through tips.</p>
                   </div>
                 </div>
 
@@ -1195,20 +1195,8 @@ export function StudioProfileClient() {
                     </svg>
                   </div>
                   <div>
-                    <p className="text-white font-medium">Automatic fan notifications</p>
-                    <p className="text-gray-400 text-sm">Fans get notified when you play on radio or announce an event</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="w-6 h-6 flex-shrink-0 mt-0.5">
-                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-white font-medium">Chat & tips</p>
-                    <p className="text-gray-400 text-sm">Chat with listeners, receive tips, and reward your community</p>
+                    <p className="text-white font-medium">Full audience ownership</p>
+                    <p className="text-gray-400 text-sm">Your followers receive notifications every time you go live or publish something new.</p>
                   </div>
                 </div>
               </div>
@@ -1216,7 +1204,7 @@ export function StudioProfileClient() {
 
             {/* Sign Up Section */}
             <div className="border-t border-gray-800 pt-12">
-              <h2 className="text-2xl font-semibold mb-6">Sign up</h2>
+              <h2 className="text-2xl font-semibold mb-6">Apply to host a show</h2>
               <div className="max-w-sm">
                 <AuthModal
                   isOpen={true}
@@ -1224,6 +1212,7 @@ export function StudioProfileClient() {
                   message="Create your curator profile"
                   inline
                   includeDjTerms
+                  redirectTo="/studio/join"
                 />
               </div>
             </div>

@@ -126,6 +126,14 @@ export function useAuth() {
             window.localStorage.removeItem(NOTIFICATIONS_PREF_KEY);
             window.localStorage.removeItem('djTermsAccepted');
 
+            // Redirect if a target was stored, otherwise clean up URL
+            const authRedirectTo = window.localStorage.getItem('authRedirectTo');
+            window.localStorage.removeItem('authRedirectTo');
+            if (authRedirectTo) {
+              window.location.href = authRedirectTo;
+              return;
+            }
+
             // Clean up URL
             window.history.replaceState(null, "", window.location.pathname);
 

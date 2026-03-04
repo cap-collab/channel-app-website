@@ -12,6 +12,8 @@ interface AuthModalProps {
   inline?: boolean;
   /** Include DJ Terms in the agreement footer */
   includeDjTerms?: boolean;
+  /** Redirect to this URL after successful auth (instead of reloading) */
+  redirectTo?: string;
 }
 
 type ModalView = "main" | "emailInput" | "methodChoice" | "password" | "forgotPassword";
@@ -125,6 +127,7 @@ export function AuthModal({
   message = "Sign in to save favorites and get alerts",
   inline = false,
   includeDjTerms = false,
+  redirectTo,
 }: AuthModalProps) {
   const {
     sendEmailLink,
@@ -172,8 +175,8 @@ export function AuthModal({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: user.email }),
           });
-          // Reload page to reflect new DJ role
-          window.location.reload();
+          // Redirect or reload to reflect new DJ role
+          window.location.href = redirectTo || window.location.href;
           return;
         } catch (err) {
           console.error('Failed to assign DJ role:', err);
@@ -194,8 +197,8 @@ export function AuthModal({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: user.email }),
           });
-          // Reload page to reflect new DJ role
-          window.location.reload();
+          // Redirect or reload to reflect new DJ role
+          window.location.href = redirectTo || window.location.href;
           return;
         } catch (err) {
           console.error('Failed to assign DJ role:', err);
@@ -218,6 +221,9 @@ export function AuthModal({
     // Store DJ terms acceptance for when magic link is clicked
     if (includeDjTerms) {
       window.localStorage.setItem('djTermsAccepted', 'true');
+    }
+    if (redirectTo) {
+      window.localStorage.setItem('authRedirectTo', redirectTo);
     }
     await sendEmailLink(email.trim(), enableNotifications);
   };
