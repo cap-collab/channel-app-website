@@ -18,7 +18,6 @@ export function StudioJoinClient() {
   const { role, loading: roleLoading } = useUserRole(user);
   const userIsDJ = isDJ(role);
 
-
   const [formData, setFormData] = useState<DJApplicationFormData>({
     djName: '',
     email: '',
@@ -428,12 +427,16 @@ export function StudioJoinClient() {
             </div>
           )}
 
-          {/* Claim Your Curator Profile Section - Only show for DJs */}
+          {/* Livestream Request Section - Show for DJs */}
           {userIsDJ && (
             <div className="border-t border-gray-800 pt-12">
-              <h2 className="text-2xl font-semibold mb-4">Claim your curator profile</h2>
+              <h2 className="text-2xl font-semibold mb-4">Request a live stream slot</h2>
               <p className="text-gray-400 mb-4">
-                Tell us a bit about yourself so we can set up your profile. If you have questions, reach out at{' '}
+                Apply to schedule a live set on our radio. If you&apos;re unsure about your setup, check the{' '}
+                <Link href="/streaming-guide" className="text-white underline hover:text-gray-300 transition-colors">
+                  streaming guide
+                </Link>{' '}
+                or reach out at{' '}
                 <a href="mailto:info@channel-app.com" className="text-white underline hover:text-gray-300 transition-colors">
                   info@channel-app.com
                 </a>.
@@ -522,25 +525,6 @@ export function StudioJoinClient() {
                 </p>
               </div>
 
-              {/* Online Radio Show */}
-              <div>
-                <label
-                  htmlFor="onlineRadioShow"
-                  className="block text-sm font-medium text-gray-300 mb-2"
-                >
-                  Online Radio Show
-                </label>
-                <input
-                  type="text"
-                  id="onlineRadioShow"
-                  name="onlineRadioShow"
-                  value={formData.onlineRadioShow}
-                  onChange={handleInputChange}
-                  placeholder="Name of your radio show (if any)"
-                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
-                />
-              </div>
-
               {/* Social Links */}
               <div className="space-y-4 pt-4">
                 <p className="text-sm text-gray-500">Social links (optional)</p>
@@ -616,7 +600,7 @@ export function StudioJoinClient() {
                   name="comments"
                   value={formData.comments}
                   onChange={handleInputChange}
-                  placeholder="Anything else you'd like us to know?"
+                  placeholder="Anything else you'd like us to know about your set, style, or availability?"
                   rows={4}
                   className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors resize-none"
                 />
@@ -625,7 +609,7 @@ export function StudioJoinClient() {
               {/* Help text */}
               <div className="pt-6 border-t border-gray-800">
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  If you have questions, reach out at{' '}
+                  If you have questions or aren&apos;t sure whether your setup works, reach out at{' '}
                   <a
                     href="mailto:info@channel-app.com"
                     className="text-white hover:underline"
@@ -654,7 +638,7 @@ export function StudioJoinClient() {
                     Submitting...
                   </>
                 ) : (
-                  'Submit'
+                  'Apply'
                 )}
               </button>
             </form>
