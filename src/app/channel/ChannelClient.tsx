@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Header } from '@/components/Header';
+import { HeaderSearch } from '@/components/HeaderSearch';
 import { Tuner } from '@/components/channel/Tuner';
 import { SwipeableCardCarousel } from '@/components/channel/SwipeableCardCarousel';
 import { TicketCard } from '@/components/channel/TicketCard';
@@ -56,6 +58,29 @@ export function ChannelClient() {
   // Genre alert prompt state (for logged-out users)
   const [showGenreAlertPrompt, setShowGenreAlertPrompt] = useState(false);
   const genreAlertShownRef = useRef(false);
+
+  // Notify email form state
+  const [notifyEmail, setNotifyEmail] = useState('');
+  const [notifyStatus, setNotifyStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+
+  const handleNotifySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!notifyEmail.trim()) return;
+    try {
+      setNotifyStatus('submitting');
+      const { db } = await import('@/lib/firebase');
+      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
+      if (!db) throw new Error('Firebase not configured');
+      await addDoc(collection(db, 'radio-notify-waitlist'), {
+        email: notifyEmail.trim(),
+        submittedAt: serverTimestamp(),
+      });
+      setNotifyStatus('success');
+      setNotifyEmail('');
+    } catch {
+      setNotifyStatus('error');
+    }
+  };
 
   // Follow/remind state
   const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
@@ -677,21 +702,78 @@ export function ChannelClient() {
       <AnimatedBackground />
       <div className="sticky top-0 z-[100]">
         <Header currentPage="channel" position="sticky" />
-
-        <Tuner
-          selectedCity={selectedCity}
-          onCityChange={handleCityChange}
-          selectedGenres={selectedGenres}
-          onGenresChange={handleGenresChange}
-          cityResultCount={cityResultCount}
-          genreResultCount={genreResultCount}
-          onGenreDropdownClose={handleGenreDropdownClose}
-          citiesWithMatches={citiesWithMatches}
-          genresWithMatches={genresWithMatches}
-        />
       </div>
 
-      <main className="max-w-7xl mx-auto flex-1 w-full flex flex-col pt-3 md:pt-4">
+      {/* Hero Section — Launching Soon */}
+      <section className="px-4 md:px-8 py-16 md:py-24 text-center relative z-10">
+        <div className="max-w-2xl mx-auto">
+          <h1 className="text-3xl md:text-5xl font-bold mb-4">Radio Channel</h1>
+          <p className="text-lg md:text-xl text-gray-300 mb-3">Launching soon.</p>
+          <p className="text-gray-400 leading-relaxed mb-10 max-w-lg mx-auto">
+            We are currently inviting DJs, labels, venues, and collectives from the LA scene to host the first shows.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Link
+              href="/studio/join"
+              className="bg-white text-black px-8 py-3 rounded font-semibold hover:bg-gray-200 transition-colors"
+            >
+              Host a show
+            </Link>
+            <div className="w-full sm:w-auto">
+              {notifyStatus === 'success' ? (
+                <p className="text-green-400 text-sm py-3">You&apos;re on the list!</p>
+              ) : (
+                <form onSubmit={handleNotifySubmit} className="flex">
+                  <input
+                    type="email"
+                    placeholder="Get notified when we go live"
+                    value={notifyEmail}
+                    onChange={(e) => setNotifyEmail(e.target.value)}
+                    required
+                    className="bg-white/10 border border-white/20 rounded-l px-4 py-3 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-white/40 w-full sm:w-64"
+                  />
+                  <button
+                    type="submit"
+                    disabled={notifyStatus === 'submitting'}
+                    className="bg-white/20 border border-white/20 border-l-0 rounded-r px-4 py-3 text-white text-sm font-medium hover:bg-white/30 transition-colors disabled:opacity-50"
+                  >
+                    {notifyStatus === 'submitting' ? '...' : 'Submit'}
+                  </button>
+                </form>
+              )}
+              {notifyStatus === 'error' && (
+                <p className="text-red-400 text-xs mt-1">Something went wrong. Try again.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Meanwhile in the Scene */}
+      <section className="px-4 md:px-8 pb-4 relative z-10">
+        <div className="max-w-7xl mx-auto">
+          <h2 className="text-2xl md:text-3xl font-bold mb-2">Meanwhile in the scene</h2>
+          <p className="text-gray-400 mb-6">Selectors from the community and their upcoming shows</p>
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            <div className="flex-1 max-w-md">
+              <HeaderSearch onAuthRequired={() => setShowAuthModal(true)} />
+            </div>
+            <Tuner
+              selectedCity={selectedCity}
+              onCityChange={handleCityChange}
+              selectedGenres={selectedGenres}
+              onGenresChange={handleGenresChange}
+              cityResultCount={cityResultCount}
+              genreResultCount={genreResultCount}
+              onGenreDropdownClose={handleGenreDropdownClose}
+              citiesWithMatches={citiesWithMatches}
+              genresWithMatches={genresWithMatches}
+            />
+          </div>
+        </div>
+      </section>
+
+      <main className="max-w-7xl mx-auto flex-1 w-full flex flex-col">
         <div className="flex flex-col">
 
           {isLoading ? (

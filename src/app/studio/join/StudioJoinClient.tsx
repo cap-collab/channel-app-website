@@ -295,10 +295,10 @@ export function StudioJoinClient() {
 
       <main className="p-4 md:p-8">
         <div className="max-w-2xl mx-auto">
-          {/* Search bar - mobile only */}
-          <div className="md:hidden mb-6">
+          {/* Search bar - mobile only (hidden, will be relocated) */}
+          {/* <div className="md:hidden mb-6">
             <HeaderSearch onAuthRequired={() => setShowAuthModal(true)} />
-          </div>
+          </div> */}
 
           {/* Hero Section - Only show for non-DJs */}
           {!userIsDJ && (
@@ -306,6 +306,7 @@ export function StudioJoinClient() {
               <h1 className="text-3xl font-bold mb-4">Studio</h1>
               <p className="text-xl text-gray-300 mb-8">Host a show on Channel</p>
 
+              <h2 className="text-lg font-semibold mb-4">What you get</h2>
               <div className="space-y-4">
                 <div className="flex gap-4">
                   <div className="w-6 h-6 flex-shrink-0 mt-0.5">

@@ -120,10 +120,10 @@ export function ArchivesClient() {
       <Header currentPage="archives" position="sticky" />
 
       <main className="max-w-4xl mx-auto flex-1 w-full px-4 py-6">
-        {/* Search bar - mobile only */}
-        <div className="md:hidden mb-4">
+        {/* Search bar - mobile only (hidden, will be relocated) */}
+        {/* <div className="md:hidden mb-4">
           <HeaderSearch onAuthRequired={() => setShowAuthModal(true)} />
-        </div>
+        </div> */}
 
         <h1 className="text-2xl font-bold mb-6">Archives</h1>
 

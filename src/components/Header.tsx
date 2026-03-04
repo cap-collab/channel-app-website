@@ -16,7 +16,7 @@ interface HeaderProps {
   showSearch?: boolean;
 }
 
-export function Header({ currentPage = "home", position = "fixed", showSearch = true }: HeaderProps) {
+export function Header({ currentPage = "home", position = "fixed", showSearch = false }: HeaderProps) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { isAuthenticated } = useAuthContext();
   const { isLive } = useBroadcastLiveStatus();

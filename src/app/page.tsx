@@ -48,7 +48,7 @@ export default function Home() {
               href="/channel"
               className="inline-block bg-white text-black px-10 py-4 rounded text-lg font-semibold hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(255,255,255,0.15)] transition-all"
             >
-              Discover Channel
+              Open Channel Radio
             </Link>
             <Link
               href="/studio/join"
