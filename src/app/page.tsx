@@ -8,22 +8,22 @@ const faqItems = [
   {
     question: "What is Channel?",
     answer:
-      "Channel maps local underground scenes.\n\nIt brings together the selectors, venues, and shows shaping a city's specific niche in one structured place. Instead of relying on feeds or disappearing posts, updates are direct and persistent. No ads. No algorithms.",
+      "Channel is an online radio for the electronic music community, curated in LA.\n\nDJs, labels, venues, and collectives host shows and listening sessions. People tune in, listen together, and connect with their community.\n\nNo ads. No algorithms.",
   },
   {
     question: "Who is it for?",
     answer:
-      "For DJs\nA single profile that reflects your role in your local ecosystem. Share sets, list upcoming dates, highlight events and releases, livestream with chat, and notify your followers directly by email when something new happens. No more depending on Instagram to reach your audience.\n\nFor listeners\nFollow the selectors and venues you care about and receive email notifications when they play or publish something new. Join chats during sets and stay in the loop without chasing stories or scrolling feeds.",
+      "For DJs and show hosts\nHost shows, share music, connect directly with the people who care about your craft, and notify your followers when something new happens.\n\nNo more depending on Instagram to reach your audience.\n\nFor listeners\nFollow the DJs and curators you care about. Get notified when something new happens. Tune in when they host shows and connect with them and their community, live.\n\nNo more chasing stories to catch what's next.",
   },
   {
     question: "How is Channel different?",
     answer:
-      "Channel is built around real local ecosystems, not algorithms and feeds.\n\nIt maps people and places first, then the content around them. You follow who matters and get updates directly, without relying on social platforms to maybe surface them.",
+      "Channel is built around people and niche communities.\n\nCurators host shows.\nListeners gather.\nMusic and community spread through trust and taste.\n\nRadio becomes a shared space again.",
   },
   {
     question: "How much does it cost?",
     answer:
-      "Channel is free to use. There are no ads.\n\nThe platform runs on a revenue share model, keeping incentives aligned with the selectors, venues, and communities using it.",
+      "Channel is free to use. No ads.\n\nThe radio runs on a revenue share model that supports the people hosting the shows.",
   },
 ];
 
@@ -36,7 +36,7 @@ export default function Home() {
       <section className="min-h-screen flex flex-col justify-center items-center px-6 pt-24 pb-20 relative bg-[#1a1a1a]">
         <div className="max-w-3xl text-center">
           <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
-            Mapping local underground scenes.
+            Radio for the electronic music community.
           </h1>
 
           <p className="text-lg md:text-xl text-gray-400 mb-12 max-w-xl mx-auto leading-relaxed">
@@ -54,7 +54,7 @@ export default function Home() {
               href="/studio/join"
               className="inline-block bg-transparent text-white border border-white px-10 py-4 rounded text-lg font-semibold hover:-translate-y-0.5 hover:bg-white hover:text-black transition-all"
             >
-              Claim your curator profile
+              Host a show
             </Link>
           </div>
         </div>
@@ -88,10 +88,10 @@ export default function Home() {
                   Curated
                 </h2>
                 <p className="text-gray-400 leading-relaxed text-center text-sm mb-8">
-                  Channel is built around selectors, radios, producers, and
-                  curators chosen by their communities, not surfaced by an
-                  algorithm. Discovery here is intentional and rooted in trust,
-                  taste, and local ecosystems.
+                  Channel is built around collectives and people most active in
+                  their communities, not surfaced by an algorithm. Discovery
+                  here is intentional, rooted in trust, taste, and local
+                  scenes.
                 </p>
                 <div className="hidden md:block transform scale-[0.55] origin-top -mb-[45%]">
                   <Image
@@ -110,10 +110,10 @@ export default function Home() {
                   Independent
                 </h2>
                 <p className="text-gray-400 leading-relaxed text-center text-sm mb-8">
-                  When someone you follow goes live or announces something new
-                  in your scene, you hear about it directly. You can support
-                  them through tips. Updates go to your inbox. No ads. No feed
-                  shaping what you see.
+                  When someone you follow hosts a show or goes live, you hear
+                  about it directly. You can support them through tips and
+                  connect with others in the room through chat. No ads. No
+                  feed. No algorithm deciding what you should hear.
                 </p>
                 <div className="hidden md:block transform scale-[0.55] origin-top -mb-[45%]">
                   <Image
@@ -129,14 +129,13 @@ export default function Home() {
               {/* Collaborative */}
               <div className="flex-1 py-8 md:py-0 md:px-8 first:md:pl-0 last:md:pr-0 border-b md:border-b-0 border-gray-800 last:border-b-0 flex flex-col items-center">
                 <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 text-center">
-                  Collaborative
+                  Collective
                 </h2>
                 <p className="text-gray-400 leading-relaxed text-center text-sm mb-8">
-                  Underground culture is collective. DJs, producers, venues,
-                  promoters, radios, curators, and dancers all shape it
-                  together. Channel reflects that. Selectors highlight the
-                  events, spaces, and people they support, and scenes are mapped
-                  as ecosystems.
+                  Culture is collective. DJs, producers, venues, promoters,
+                  listeners, and dancers shape it together. Channel reflects
+                  that. Curators host shows, share the music they care about,
+                  and bring their communities together.
                 </p>
                 <div className="hidden md:block transform scale-[0.55] origin-top -mb-[45%]">
                   <Image
