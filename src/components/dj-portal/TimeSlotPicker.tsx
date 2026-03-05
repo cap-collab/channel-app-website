@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { TimeSlot } from '@/types/dj-application';
 
 interface TimeSlotPickerProps {
@@ -14,15 +14,30 @@ interface BlockedSlot {
   end: number;
 }
 
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const HOUR_HEIGHT = 40; // pixels per hour
+const PT_TIMEZONE = 'America/Los_Angeles';
 
-// Format hour for display
+// All 24 hours available, default view scrolled to 9am–6pm PT
+const ALL_HOURS = Array.from({ length: 24 }, (_, i) => i);
+const HOUR_HEIGHT = 40; // pixels per hour
+const DEFAULT_VIEW_START = 9; // Scroll to 9am on mount
+const VISIBLE_HOUR_COUNT = 9; // Show 9 hours at a time
+const VISIBLE_HEIGHT = VISIBLE_HOUR_COUNT * HOUR_HEIGHT;
+
+// Format hour for display in PT
 function formatHour(hour: number): string {
   if (hour === 0) return '12a';
   if (hour < 12) return `${hour}a`;
   if (hour === 12) return '12p';
   return `${hour - 12}p`;
+}
+
+// Get the Sunday of the current week for a given date
+function getSunday(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  const day = d.getDay(); // 0 = Sunday
+  d.setDate(d.getDate() - day);
+  return d;
 }
 
 // Format date for day header
@@ -41,23 +56,47 @@ function formatDayHeader(date: Date): string {
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
+// Create a UTC timestamp for a given calendar date and hour in PT
+function getTimestampInPT(baseDate: Date, hour: number): number {
+  const year = baseDate.getFullYear();
+  const month = String(baseDate.getMonth() + 1).padStart(2, '0');
+  const day = String(baseDate.getDate()).padStart(2, '0');
+  const hourStr = String(hour).padStart(2, '0');
+  // Construct the target datetime as if it were UTC
+  const asUTC = new Date(`${year}-${month}-${day}T${hourStr}:00:00Z`);
+  // Find what PT shows for this UTC time, then compute offset
+  const ptParts = new Intl.DateTimeFormat('en-US', {
+    timeZone: PT_TIMEZONE,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', hour12: false,
+  }).formatToParts(asUTC);
+  const ptHour = parseInt(ptParts.find(p => p.type === 'hour')?.value || '0');
+  const ptDay = parseInt(ptParts.find(p => p.type === 'day')?.value || '0');
+  // offset = how many hours ahead UTC is from PT
+  let offsetHours = asUTC.getUTCHours() - ptHour;
+  if (ptDay !== asUTC.getUTCDate()) {
+    offsetHours += (asUTC.getUTCDate() > ptDay) ? -24 : 24;
+  }
+  // The real UTC time for "hour in PT" = asUTC + offset
+  return asUTC.getTime() + offsetHours * 60 * 60 * 1000;
+}
+
 export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlotPickerProps) {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
-    // Start from today, not Sunday
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return today;
+    // Start from Sunday of the current week
+    return getSunday(new Date());
   });
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Hover preview state
   const [hoverSlot, setHoverSlot] = useState<{ dayIndex: number; startHour: number } | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   // Duration in milliseconds
   const durationMs = setDuration * 60 * 60 * 1000;
 
-  // Get days to show (7 days starting from current week start)
+  // Get days to show (Sunday to Saturday)
   const days = useMemo(() => {
     const result = [];
     for (let i = 0; i < 7; i++) {
@@ -87,22 +126,27 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
     fetchBlockedSlots();
   }, []);
 
+  // Scroll to 9am on mount once loading is done
+  useEffect(() => {
+    if (!isLoading && scrollRef.current) {
+      scrollRef.current.scrollTop = DEFAULT_VIEW_START * HOUR_HEIGHT;
+    }
+  }, [isLoading]);
+
   // Check if a time is blocked
   const isTimeBlocked = (timestamp: number): boolean => {
     return blockedSlots.some((slot) => timestamp >= slot.start && timestamp < slot.end);
   };
 
-  // Check if time is in the past or within 48 hours
+  // Check if time is in the past or within 36 hours
   const isTimeUnavailable = (timestamp: number): boolean => {
-    const minTime = Date.now() + 48 * 60 * 60 * 1000; // 48 hours from now
+    const minTime = Date.now() + 36 * 60 * 60 * 1000; // 36 hours from now
     return timestamp < minTime;
   };
 
-  // Get timestamp from day index and hour
+  // Get timestamp from day index and hour (in PT)
   const getTimestamp = (dayIndex: number, hour: number): number => {
-    const date = new Date(days[dayIndex]);
-    date.setHours(hour, 0, 0, 0);
-    return date.getTime();
+    return getTimestampInPT(days[dayIndex], hour);
   };
 
   // Check if a slot from startTimestamp for the set duration is completely valid
@@ -110,13 +154,9 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
     const startTime = getTimestamp(dayIndex, startHour);
     const endTime = startTime + durationMs;
 
-    // Check if slot extends past midnight
-    const startDate = new Date(startTime);
-    const endDate = new Date(endTime);
-    const crossesMidnight = startDate.getDate() !== endDate.getDate();
-
-    // Disallow slots that cross midnight
-    if (crossesMidnight) {
+    // Disallow slots that cross midnight (end hour > 24)
+    const endHour = startHour + setDuration;
+    if (endHour > 24) {
       return false;
     }
 
@@ -213,12 +253,7 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
   const goToPrevWeek = () => {
     const newStart = new Date(currentWeekStart);
     newStart.setDate(newStart.getDate() - 7);
-    // Don't go before today
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (newStart >= today) {
-      setCurrentWeekStart(newStart);
-    }
+    setCurrentWeekStart(newStart);
   };
 
   const goToNextWeek = () => {
@@ -227,11 +262,10 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
     setCurrentWeekStart(newStart);
   };
 
-  // Check if we can go back
+  // Check if we can go back (don't go before the current week's Sunday)
   const canGoPrev = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return currentWeekStart > today;
+    const thisSunday = getSunday(new Date());
+    return currentWeekStart > thisSunday;
   }, [currentWeekStart]);
 
   return (
@@ -266,7 +300,7 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
       {/* Selected slots summary */}
       {selectedSlots.length > 0 && (
         <div className="px-4 py-3 bg-[#1a1a1a] border-b border-gray-800">
-          <p className="text-xs text-gray-500 mb-2">Selected time slots:</p>
+          <p className="text-xs text-gray-500 mb-2">Selected time slots (PT):</p>
           <div className="flex flex-wrap gap-2">
             {selectedSlots.map((slot, i) => {
               const start = new Date(slot.start);
@@ -277,9 +311,9 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
                   className="flex items-center gap-2 px-3 py-1.5 bg-green-900/30 border border-green-800 rounded-lg text-sm"
                 >
                   <span className="text-green-400">
-                    {start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}{' '}
-                    {start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} -{' '}
-                    {end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                    {start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: PT_TIMEZONE })}{' '}
+                    {start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: PT_TIMEZONE })} -{' '}
+                    {end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: PT_TIMEZONE })}
                   </span>
                   <button
                     type="button"
@@ -297,86 +331,77 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
         </div>
       )}
 
-      {/* Calendar grid */}
-      <div className="flex">
-        {/* Sticky time column - stays fixed while days scroll */}
-        <div className="flex-shrink-0 w-[50px] bg-[#0a0a0a] z-10">
-          {/* Empty header cell */}
-          <div className="h-[33px] border-b border-gray-800"></div>
-          {/* Hour labels */}
-          {!isLoading && HOURS.map((hour) => (
-            <div
-              key={hour}
-              className="flex items-start justify-end pr-2 pt-1 border-b border-gray-800/50"
-              style={{ height: HOUR_HEIGHT }}
-            >
-              <span className="text-xs text-gray-600">{formatHour(hour)}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Scrollable days container */}
-        <div className="flex-1 overflow-x-auto">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-          </div>
-        ) : (
-          <div className="min-w-[600px]">
-            {/* Day headers */}
-            <div className="grid grid-cols-7 border-b border-gray-800">
-              {days.map((day, i) => (
-                <div
-                  key={i}
-                  className="p-2 text-center text-xs font-medium text-gray-400 border-l border-gray-800"
-                >
-                  {formatDayHeader(day)}
-                </div>
-              ))}
-            </div>
-
-            {/* Time grid */}
-            <div className="relative select-none">
-              {HOURS.map((hour) => (
-                <div
-                  key={hour}
-                  className="grid grid-cols-7 border-b border-gray-800/50"
-                  style={{ height: HOUR_HEIGHT }}
-                >
-                  {/* Day cells */}
-                  {days.map((_, dayIndex) => {
-                    const timestamp = getTimestamp(dayIndex, hour);
-                    const blocked = isTimeBlocked(timestamp);
-                    const unavailable = isTimeUnavailable(timestamp);
-                    const selected = isInSelectedSlot(dayIndex, hour);
-                    const inPreview = isInHoverPreview(dayIndex, hour);
-                    const canSelect = !blocked && !unavailable && isSlotValid(dayIndex, hour);
-
-                    return (
-                      <div
-                        key={dayIndex}
-                        className={`
-                          border-l border-gray-800/50 transition-colors
-                          ${blocked ? 'bg-gray-800/50 cursor-not-allowed' : ''}
-                          ${unavailable && !blocked ? 'bg-red-950/40 cursor-not-allowed' : ''}
-                          ${selected ? 'bg-green-900/40 cursor-pointer' : ''}
-                          ${inPreview && !selected ? 'bg-green-900/30 cursor-pointer' : ''}
-                          ${!blocked && !unavailable && !selected && !inPreview && canSelect ? 'hover:bg-gray-800/30 cursor-pointer' : ''}
-                          ${!blocked && !unavailable && !canSelect && !selected ? 'cursor-not-allowed' : ''}
-                        `}
-                        onClick={() => handleCellClick(dayIndex, hour)}
-                        onMouseEnter={() => handleCellMouseEnter(dayIndex, hour)}
-                        onMouseLeave={handleCellMouseLeave}
-                      />
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        </div>
+      {/* Timezone label */}
+      <div className="px-4 py-2 bg-[#1a1a1a] border-b border-gray-800">
+        <p className="text-xs text-gray-500">All times in Pacific Time (PT)</p>
       </div>
+
+      {/* Calendar grid */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <div className="min-w-[650px]">
+            {/* Day headers */}
+            <div className="flex border-b border-gray-800">
+              <div className="flex-shrink-0 w-[50px] bg-[#0a0a0a]" />
+              <div className="flex-1 grid grid-cols-7">
+                {days.map((day, i) => (
+                  <div
+                    key={i}
+                    className="p-2 text-center text-xs font-medium text-gray-400 border-l border-gray-800"
+                  >
+                    {formatDayHeader(day)}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Scrollable time grid with time labels */}
+            <div ref={scrollRef} className="overflow-y-auto select-none" style={{ maxHeight: VISIBLE_HEIGHT }}>
+              {ALL_HOURS.map((hour) => (
+                <div key={hour} className="flex border-b border-gray-800/50" style={{ height: HOUR_HEIGHT }}>
+                  {/* Time label */}
+                  <div className="flex-shrink-0 w-[50px] flex items-start justify-end pr-2 pt-1 bg-[#0a0a0a]">
+                    <span className="text-xs text-gray-600">{formatHour(hour)}</span>
+                  </div>
+                  {/* Day cells */}
+                  <div className="flex-1 grid grid-cols-7">
+                    {days.map((_, dayIndex) => {
+                      const timestamp = getTimestamp(dayIndex, hour);
+                      const blocked = isTimeBlocked(timestamp);
+                      const unavailable = isTimeUnavailable(timestamp);
+                      const selected = isInSelectedSlot(dayIndex, hour);
+                      const inPreview = isInHoverPreview(dayIndex, hour);
+                      const canSelect = !blocked && !unavailable && isSlotValid(dayIndex, hour);
+
+                      return (
+                        <div
+                          key={dayIndex}
+                          className={`
+                            border-l border-gray-800/50 transition-colors
+                            ${blocked ? 'bg-gray-800/50 cursor-not-allowed' : ''}
+                            ${unavailable && !blocked ? 'bg-red-950/40 cursor-not-allowed' : ''}
+                            ${selected ? 'bg-green-900/40 cursor-pointer' : ''}
+                            ${inPreview && !selected ? 'bg-green-900/30 cursor-pointer' : ''}
+                            ${!blocked && !unavailable && !selected && !inPreview && canSelect ? 'hover:bg-gray-800/30 cursor-pointer' : ''}
+                            ${!blocked && !unavailable && !canSelect && !selected ? 'cursor-not-allowed' : ''}
+                          `}
+                          onClick={() => handleCellClick(dayIndex, hour)}
+                          onMouseEnter={() => handleCellMouseEnter(dayIndex, hour)}
+                          onMouseLeave={handleCellMouseLeave}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Legend */}
       <div className="px-4 py-3 bg-[#1a1a1a] border-t border-gray-800">

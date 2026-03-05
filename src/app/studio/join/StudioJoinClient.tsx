@@ -163,7 +163,7 @@ export function StudioJoinClient() {
 
   const validateForm = (): boolean => {
     if (!formData.djName.trim()) {
-      setErrorMessage('Curator name is required');
+      setErrorMessage('Your name is required');
       return false;
     }
     if (!formData.email.trim()) {
@@ -175,20 +175,8 @@ export function StudioJoinClient() {
       setErrorMessage('Please enter a valid email address');
       return false;
     }
-    if (!formData.city?.trim()) {
-      setErrorMessage('City is required');
-      return false;
-    }
-    if (!formData.genre?.trim()) {
-      setErrorMessage('Genre is required');
-      return false;
-    }
     // Livestream-specific validation for DJ users
     if (userIsDJ) {
-      if (!formData.showName?.trim()) {
-        setErrorMessage('Show name is required');
-        return false;
-      }
       if (!formData.setDuration || formData.setDuration < 0.5 || formData.setDuration > 24) {
         setErrorMessage('Set duration must be between 0.5 and 24 hours');
         return false;
@@ -496,13 +484,13 @@ export function StudioJoinClient() {
 
               {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-6 mt-8">
-              {/* Curator Name */}
+              {/* Your Name */}
               <div>
                 <label
                   htmlFor="djName"
                   className="block text-sm font-medium text-gray-300 mb-2"
                 >
-                  Curator Name *
+                  Your name *
                 </label>
                 <input
                   type="text"
@@ -510,7 +498,7 @@ export function StudioJoinClient() {
                   name="djName"
                   value={formData.djName}
                   onChange={handleInputChange}
-                  placeholder="Your curator name"
+                  placeholder="Your name"
                   disabled={profileFields.djName}
                   className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 />
@@ -533,66 +521,6 @@ export function StudioJoinClient() {
                   placeholder="you@example.com"
                   disabled={isAuthenticated}
                   className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60"
-                />
-              </div>
-
-              {/* City */}
-              <div>
-                <label
-                  htmlFor="city"
-                  className="block text-sm font-medium text-gray-300 mb-2"
-                >
-                  City *
-                </label>
-                <input
-                  type="text"
-                  id="city"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleInputChange}
-                  placeholder="e.g., Los Angeles"
-                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
-                />
-              </div>
-
-              {/* Genre */}
-              <div>
-                <label
-                  htmlFor="genre"
-                  className="block text-sm font-medium text-gray-300 mb-2"
-                >
-                  Genre *
-                </label>
-                <input
-                  type="text"
-                  id="genre"
-                  name="genre"
-                  value={formData.genre}
-                  onChange={handleInputChange}
-                  placeholder="e.g., House, Techno, Ambient"
-                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
-                />
-                <p className="text-sm text-gray-600 mt-1">
-                  Separate genres with commas
-                </p>
-              </div>
-
-              {/* Show Name */}
-              <div>
-                <label
-                  htmlFor="showName"
-                  className="block text-sm font-medium text-gray-300 mb-2"
-                >
-                  Show Name *
-                </label>
-                <input
-                  type="text"
-                  id="showName"
-                  name="showName"
-                  value={formData.showName}
-                  onChange={handleInputChange}
-                  placeholder="Name of your show or set"
-                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
                 />
               </div>
 
@@ -707,6 +635,66 @@ export function StudioJoinClient() {
                   onChange={handleSlotsChange}
                   setDuration={formData.setDuration || 2}
                 />
+              </div>
+
+              {/* Show Name (optional) */}
+              <div className="pt-6 border-t border-gray-800">
+                <label
+                  htmlFor="showName"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
+                  Show Name
+                </label>
+                <input
+                  type="text"
+                  id="showName"
+                  name="showName"
+                  value={formData.showName}
+                  onChange={handleInputChange}
+                  placeholder="Name of your show or set"
+                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
+                />
+              </div>
+
+              {/* City */}
+              <div>
+                <label
+                  htmlFor="city"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
+                  City
+                </label>
+                <input
+                  type="text"
+                  id="city"
+                  name="city"
+                  value={formData.city}
+                  onChange={handleInputChange}
+                  placeholder="e.g., Los Angeles"
+                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
+                />
+              </div>
+
+              {/* Genre */}
+              <div>
+                <label
+                  htmlFor="genre"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
+                  Genre
+                </label>
+                <input
+                  type="text"
+                  id="genre"
+                  name="genre"
+                  value={formData.genre}
+                  onChange={handleInputChange}
+                  placeholder="e.g., House, Techno, Ambient"
+                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
+                />
+                <p className="text-sm text-gray-600 mt-1">
+                  Separate genres with commas
+                </p>
               </div>
 
               {/* Social Links */}
