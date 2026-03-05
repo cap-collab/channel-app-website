@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 // import { HeaderSearch } from '@/components/HeaderSearch';
-import { DJApplicationFormData } from '@/types/dj-application';
+import { DJApplicationFormData, TimeSlot, LocationType } from '@/types/dj-application';
+import { TimeSlotPicker } from '@/components/dj-portal/TimeSlotPicker';
 import { AuthModal } from '@/components/AuthModal';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isDJ } from '@/hooks/useUserRole';
@@ -28,6 +29,13 @@ export function StudioJoinClient() {
     instagram: '',
     youtube: '',
     comments: '',
+    showName: '',
+    setDuration: 2,
+    locationType: 'home',
+    venueName: '',
+    preferredSlots: [],
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    needsSetupSupport: false,
   });
   const [agreedToDJTerms, setAgreedToDJTerms] = useState(false);
   const [status, setStatus] = useState<FormStatus>('idle');
@@ -132,6 +140,27 @@ export function StudioJoinClient() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleLocationChange = (locationType: LocationType) => {
+    setFormData((prev) => ({ ...prev, locationType, venueName: '' }));
+  };
+
+  const handleSlotsChange = (slots: TimeSlot[]) => {
+    setFormData((prev) => ({ ...prev, preferredSlots: slots }));
+  };
+
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: checked }));
+  };
+
+  const handleDurationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = parseFloat(e.target.value);
+    if (isNaN(rawValue)) return;
+    const roundedValue = Math.round(rawValue * 2) / 2;
+    const clampedValue = Math.max(0.5, Math.min(24, roundedValue));
+    setFormData((prev) => ({ ...prev, setDuration: clampedValue }));
+  };
+
   const validateForm = (): boolean => {
     if (!formData.djName.trim()) {
       setErrorMessage('Curator name is required');
@@ -153,6 +182,29 @@ export function StudioJoinClient() {
     if (!formData.genre?.trim()) {
       setErrorMessage('Genre is required');
       return false;
+    }
+    // Livestream-specific validation for DJ users
+    if (userIsDJ) {
+      if (!formData.showName?.trim()) {
+        setErrorMessage('Show name is required');
+        return false;
+      }
+      if (!formData.setDuration || formData.setDuration < 0.5 || formData.setDuration > 24) {
+        setErrorMessage('Set duration must be between 0.5 and 24 hours');
+        return false;
+      }
+      if ((formData.setDuration * 2) % 1 !== 0) {
+        setErrorMessage('Set duration must be in 0.5 hour increments');
+        return false;
+      }
+      if (formData.locationType === 'venue' && !formData.venueName?.trim()) {
+        setErrorMessage('Please enter the venue name');
+        return false;
+      }
+      if (!formData.preferredSlots || formData.preferredSlots.length === 0) {
+        setErrorMessage('Please select at least one preferred time slot');
+        return false;
+      }
     }
     return true;
   };
@@ -523,6 +575,138 @@ export function StudioJoinClient() {
                 <p className="text-sm text-gray-600 mt-1">
                   Separate genres with commas
                 </p>
+              </div>
+
+              {/* Show Name */}
+              <div>
+                <label
+                  htmlFor="showName"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
+                  Show Name *
+                </label>
+                <input
+                  type="text"
+                  id="showName"
+                  name="showName"
+                  value={formData.showName}
+                  onChange={handleInputChange}
+                  placeholder="Name of your show or set"
+                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
+                />
+              </div>
+
+              {/* Set Duration */}
+              <div>
+                <label
+                  htmlFor="setDuration"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
+                  Set Duration (hours) *
+                </label>
+                <p className="text-sm text-gray-500 mb-3">
+                  How long will your set be? All your preferred time slots will use this duration.
+                </p>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="number"
+                    id="setDuration"
+                    name="setDuration"
+                    value={formData.setDuration}
+                    onChange={handleDurationChange}
+                    min={0.5}
+                    max={24}
+                    step={0.5}
+                    className="w-32 px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors text-center"
+                  />
+                  <span className="text-gray-400">hours</span>
+                </div>
+              </div>
+
+              {/* Location Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-3">
+                  Where will you be streaming from? *
+                </label>
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    onClick={() => handleLocationChange('home')}
+                    className={`flex-1 py-3 px-4 rounded border transition-colors ${
+                      formData.locationType === 'home'
+                        ? 'bg-white text-black border-white'
+                        : 'bg-[#1a1a1a] text-gray-300 border-gray-800 hover:border-gray-600'
+                    }`}
+                  >
+                    Home
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLocationChange('venue')}
+                    className={`flex-1 py-3 px-4 rounded border transition-colors ${
+                      formData.locationType === 'venue'
+                        ? 'bg-white text-black border-white'
+                        : 'bg-[#1a1a1a] text-gray-300 border-gray-800 hover:border-gray-600'
+                    }`}
+                  >
+                    Venue
+                  </button>
+                </div>
+              </div>
+
+              {/* Venue Name (conditional) */}
+              {formData.locationType === 'venue' && (
+                <div>
+                  <label
+                    htmlFor="venueName"
+                    className="block text-sm font-medium text-gray-300 mb-2"
+                  >
+                    Venue Name *
+                  </label>
+                  <input
+                    type="text"
+                    id="venueName"
+                    name="venueName"
+                    value={formData.venueName}
+                    onChange={handleInputChange}
+                    placeholder="Name of the venue"
+                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
+                  />
+                </div>
+              )}
+
+              {/* Setup Support Checkbox */}
+              <div className="pt-4">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="needsSetupSupport"
+                    checked={formData.needsSetupSupport}
+                    onChange={handleCheckboxChange}
+                    className="mt-1 w-5 h-5 rounded border-gray-700 bg-[#1a1a1a] text-white focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                  />
+                  <span className="text-sm text-gray-300">
+                    I need help setting up my livestream
+                    <span className="block text-gray-500 mt-1">
+                      We&apos;ll reach out to walk you through the setup process before your scheduled time.
+                    </span>
+                  </span>
+                </label>
+              </div>
+
+              {/* Time Slot Picker */}
+              <div className="pt-6">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Preferred Set Times *
+                </label>
+                <p className="text-sm text-gray-500 mb-4">
+                  Click a start time to add a {formData.setDuration}-hour slot. Click again to remove it.
+                </p>
+                <TimeSlotPicker
+                  selectedSlots={formData.preferredSlots || []}
+                  onChange={handleSlotsChange}
+                  setDuration={formData.setDuration || 2}
+                />
               </div>
 
               {/* Social Links */}
