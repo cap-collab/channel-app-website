@@ -3,6 +3,9 @@ import { getAllShows } from "@/lib/metadata";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { Show, IRLShowData, CuratorRec } from "@/types";
 
+// Must be dynamic since it uses Firebase Admin SDK at runtime
+export const dynamic = "force-dynamic";
+
 // ---------------------------------------------------------------------------
 // Caching: schedule data updates at the top of every hour, so we cache until
 // the next hour boundary. DJ profile lookups are cached for 10 minutes.
@@ -69,14 +72,14 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
   const toFetch: string[] = [];
 
   // Check cache first
-  for (const normalized of djUsernames) {
+  Array.from(djUsernames).forEach((normalized) => {
     const cached = djProfileCache.get(`username:${normalized}`);
     if (cached && now < cached.expiry && cached.data) {
       profiles[normalized] = cached.data as typeof profiles[string];
     } else {
       toFetch.push(normalized);
     }
-  }
+  });
 
   if (toFetch.length > 0) {
     console.log(`[API /schedule] Looking up ${toFetch.length} DJ profiles (${djUsernames.size - toFetch.length} cached)`);
@@ -174,14 +177,14 @@ async function enrichBroadcastShows(shows: Show[]): Promise<Show[]> {
 
   const toFetch: string[] = [];
 
-  for (const userId of djUserIds) {
+  Array.from(djUserIds).forEach((userId) => {
     const cached = djProfileCache.get(`uid:${userId}`);
     if (cached && now < cached.expiry && cached.data) {
       djProfiles[userId] = cached.data as typeof djProfiles[string];
     } else {
       toFetch.push(userId);
     }
-  }
+  });
 
   if (toFetch.length > 0) {
     const promises = toFetch.map(async (userId) => {
