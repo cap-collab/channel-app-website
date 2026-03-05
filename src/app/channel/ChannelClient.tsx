@@ -709,7 +709,7 @@ export function ChannelClient() {
                 <form onSubmit={handleNotifySubmit} className="flex">
                   <input
                     type="email"
-                    placeholder="Stay in the loop when Channel Radio goes live"
+                    placeholder="receive an email when channel radio goes live"
                     value={notifyEmail}
                     onChange={(e) => setNotifyEmail(e.target.value)}
                     required
