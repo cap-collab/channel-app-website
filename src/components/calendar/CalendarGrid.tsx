@@ -8,6 +8,7 @@ import { StationColumn } from "./StationColumn";
 import { SearchResultCard } from "./SearchResultCard";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useSchedule } from "@/contexts/ScheduleContext";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { AuthModal } from "@/components/AuthModal";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
@@ -23,9 +24,8 @@ interface CalendarGridProps {
 }
 
 export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarSticky = false }: CalendarGridProps) {
-  const [shows, setShows] = useState<Show[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { shows, loading } = useSchedule();
+  const [error] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
@@ -67,28 +67,6 @@ export function CalendarGrid({ searchQuery = "", onClearSearch, isSearchBarStick
     requestAnimationFrame(() => {
       isScrollSyncing.current = false;
     });
-  }, []);
-
-  useEffect(() => {
-    async function loadShows() {
-      try {
-        setLoading(true);
-        // Fetch from API to get enriched data (DJ profiles via Admin SDK)
-        const response = await fetch("/api/schedule");
-        const data = await response.json();
-        if (data.shows) {
-          setShows(data.shows);
-        }
-        setError(null);
-      } catch (err) {
-        console.error("Failed to load shows:", err);
-        setError("Failed to load schedule. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadShows();
   }, []);
 
   // Auto-scroll to 2 hours before current time on initial load

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useFavorites, Favorite, isRecurringFavorite } from "@/hooks/useFavorites";
+import { useSchedule } from "@/contexts/ScheduleContext";
 import { AuthModal } from "@/components/AuthModal";
 import { Header } from "@/components/Header";
 import { MyShowsCard } from "@/components/my-shows/MyShowsCard";
@@ -12,7 +13,7 @@ import { WatchlistDJCard } from "@/components/my-shows/WatchlistDJCard";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { getStationById, getStationByMetadataKey } from "@/lib/stations";
 import { showMatchesDJ, wordBoundaryMatch } from "@/lib/dj-matching";
-import { Show, IRLShowData } from "@/types";
+import { Show } from "@/types";
 
 // Cache for DJ profile lookups (populated from /api/schedule data)
 interface DJProfileCache {
@@ -85,24 +86,10 @@ export function MyShowsClient() {
     loading: favoritesLoading,
     removeFavorite,
   } = useFavorites();
+  const { shows: allShows, irlShows: allIRLShows, loading: showsLoading } = useSchedule();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
-  const [allShows, setAllShows] = useState<Show[]>([]);
-  const [allIRLShows, setAllIRLShows] = useState<IRLShowData[]>([]);
-  const [showsLoading, setShowsLoading] = useState(true);
   const [djProfiles, setDJProfiles] = useState<Map<string, DJProfileCache>>(new Map());
-
-  // Fetch all shows on mount (use API to get enriched DJ profile data)
-  useEffect(() => {
-    fetch('/api/schedule')
-      .then(res => res.json())
-      .then(data => {
-        setAllShows(data.shows || []);
-        setAllIRLShows(data.irlShows || []);
-      })
-      .catch(console.error)
-      .finally(() => setShowsLoading(false));
-  }, []);
 
   // Separate favorites by type
   const stationShows = favorites.filter(

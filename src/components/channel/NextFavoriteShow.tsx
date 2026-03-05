@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useFavorites, Favorite, isRecurringFavorite } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useSchedule } from '@/contexts/ScheduleContext';
 import { searchShows } from '@/lib/metadata';
 import { Show } from '@/types';
 import { getStationById, getStationByMetadataKey } from '@/lib/stations';
@@ -83,10 +84,9 @@ interface NextFavoriteShowProps {
 export function NextFavoriteShow({ onAuthRequired, currentShow, currentDJ }: NextFavoriteShowProps) {
   const { isAuthenticated } = useAuthContext();
   const { favorites, loading: favoritesLoading, toggleFavorite, isShowFavorited, addToWatchlist, isInWatchlist } = useFavorites();
+  const { shows: allShows, loading: showsLoading } = useSchedule();
   const [addingShowToFavorites, setAddingShowToFavorites] = useState(false);
   const [addingDJToWatchlist, setAddingDJToWatchlist] = useState(false);
-  const [allShows, setAllShows] = useState<Show[]>([]);
-  const [showsLoading, setShowsLoading] = useState(true);
 
   // Search state
   const [query, setQuery] = useState('');
@@ -97,15 +97,6 @@ export function NextFavoriteShow({ onAuthRequired, currentShow, currentDJ }: Nex
   const [addingWatchlist, setAddingWatchlist] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Fetch all shows on mount via API route (avoids CORS issues with Newtown scraping)
-  useEffect(() => {
-    fetch('/api/schedule')
-      .then((res) => res.json())
-      .then((data) => setAllShows(data.shows || []))
-      .catch(console.error)
-      .finally(() => setShowsLoading(false));
-  }, []);
 
   // Debounced search
   useEffect(() => {

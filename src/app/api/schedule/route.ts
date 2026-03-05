@@ -3,25 +3,51 @@ import { getAllShows } from "@/lib/metadata";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { Show, IRLShowData, CuratorRec } from "@/types";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+// ---------------------------------------------------------------------------
+// Caching: schedule data updates at the top of every hour, so we cache until
+// the next hour boundary. DJ profile lookups are cached for 10 minutes.
+// ---------------------------------------------------------------------------
 
-/**
- * Enrich shows with DJ profiles from Firebase using the pre-matched `p` field (djUsername)
- *
- * The metadata build does the expensive regex matching and adds `p` field to shows.
- * At runtime, we just do direct Firestore lookups by normalized username - O(unique profiles).
- *
- * This is much faster than the old approach which did O(shows × candidate names) lookups.
- */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type FirestoreDoc = { id: string; data: () => any };
+
+let scheduleCache: { shows: Show[]; irlShows: IRLShowData[]; curatorRecs: CuratorRec[] } | null = null;
+let scheduleCacheExpiry = 0;
+
+function getNextHourMs(): number {
+  const now = new Date();
+  const next = new Date(now);
+  next.setMinutes(0, 0, 0);
+  next.setHours(next.getHours() + 1);
+  return next.getTime();
+}
+
+// DJ profile cache (keyed by normalized username or userId)
+const djProfileCache = new Map<string, { data: Record<string, unknown> | null; expiry: number }>();
+const DJ_PROFILE_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+// ---------------------------------------------------------------------------
+// Shared query: fetch all DJ/broadcaster/admin users once, reuse everywhere
+// ---------------------------------------------------------------------------
+
+async function fetchDJUserDocs(): Promise<FirestoreDoc[]> {
+  const adminDb = getAdminDb();
+  if (!adminDb) return [];
+  const snapshot = await adminDb
+    .collection("users")
+    .where("role", "in", ["dj", "broadcaster", "admin"])
+    .get();
+  return snapshot.docs as unknown as FirestoreDoc[];
+}
+
+// ---------------------------------------------------------------------------
+// Enrich shows with DJ profiles (with per-profile caching)
+// ---------------------------------------------------------------------------
+
 async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
   const adminDb = getAdminDb();
-  if (!adminDb) {
-    console.log("[API /schedule] Admin SDK not available, skipping DJ profile enrichment");
-    return shows;
-  }
+  if (!adminDb) return shows;
 
-  // Collect unique djUsernames from shows (pre-matched in metadata build)
   const djUsernames = new Set<string>();
   shows.forEach((show) => {
     if (show.djUsername && show.stationId !== "broadcast") {
@@ -29,13 +55,9 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
     }
   });
 
-  if (djUsernames.size === 0) {
-    return shows;
-  }
+  if (djUsernames.size === 0) return shows;
 
-  console.log(`[API /schedule] Looking up ${djUsernames.size} DJ profiles from Firebase`);
-
-  // Fetch profiles from Firebase (users collection first, then pending-dj-profiles)
+  const now = Date.now();
   const profiles: Record<string, {
     displayName?: string;
     bio?: string;
@@ -44,56 +66,74 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
     genres?: string[];
   }> = {};
 
-  const promises = Array.from(djUsernames).map(async (normalized) => {
-    try {
-      // Try users collection first (claimed profiles have priority)
-      const usersSnapshot = await adminDb
-        .collection("users")
-        .where("chatUsernameNormalized", "==", normalized)
-        .limit(1)
-        .get();
+  const toFetch: string[] = [];
 
-      if (!usersSnapshot.empty) {
-        const userData = usersSnapshot.docs[0].data();
-        const djProfile = userData?.djProfile;
-        profiles[normalized] = {
-          displayName: userData?.chatUsername,
-          bio: djProfile?.bio || undefined,
-          photoUrl: djProfile?.photoUrl || undefined,
-          location: djProfile?.location || undefined,
-          genres: djProfile?.genres || undefined,
-        };
-        return;
-      }
-
-      // Fall back to pending-dj-profiles (query by chatUsernameNormalized field)
-      const pendingSnapshot = await adminDb
-        .collection("pending-dj-profiles")
-        .where("chatUsernameNormalized", "==", normalized)
-        .limit(1)
-        .get();
-
-      if (!pendingSnapshot.empty) {
-        const data = pendingSnapshot.docs[0].data();
-        const djProfile = data?.djProfile;
-        profiles[normalized] = {
-          displayName: data?.chatUsername || data?.djName,
-          bio: djProfile?.bio || undefined,
-          photoUrl: djProfile?.photoUrl || undefined,
-          location: djProfile?.location || undefined,
-          genres: djProfile?.genres || undefined,
-        };
-      }
-    } catch {
-      // Silently ignore individual lookup errors
+  // Check cache first
+  for (const normalized of djUsernames) {
+    const cached = djProfileCache.get(`username:${normalized}`);
+    if (cached && now < cached.expiry && cached.data) {
+      profiles[normalized] = cached.data as typeof profiles[string];
+    } else {
+      toFetch.push(normalized);
     }
-  });
+  }
 
-  await Promise.all(promises);
+  if (toFetch.length > 0) {
+    console.log(`[API /schedule] Looking up ${toFetch.length} DJ profiles (${djUsernames.size - toFetch.length} cached)`);
 
-  console.log(`[API /schedule] Found ${Object.keys(profiles).length} profiles`);
+    const promises = toFetch.map(async (normalized) => {
+      try {
+        const usersSnapshot = await adminDb
+          .collection("users")
+          .where("chatUsernameNormalized", "==", normalized)
+          .limit(1)
+          .get();
 
-  // Enrich shows with profile data
+        if (!usersSnapshot.empty) {
+          const userData = usersSnapshot.docs[0].data();
+          const djProfile = userData?.djProfile;
+          const profile = {
+            displayName: userData?.chatUsername,
+            bio: djProfile?.bio || undefined,
+            photoUrl: djProfile?.photoUrl || undefined,
+            location: djProfile?.location || undefined,
+            genres: djProfile?.genres || undefined,
+          };
+          profiles[normalized] = profile;
+          djProfileCache.set(`username:${normalized}`, { data: profile, expiry: now + DJ_PROFILE_CACHE_TTL });
+          return;
+        }
+
+        const pendingSnapshot = await adminDb
+          .collection("pending-dj-profiles")
+          .where("chatUsernameNormalized", "==", normalized)
+          .limit(1)
+          .get();
+
+        if (!pendingSnapshot.empty) {
+          const data = pendingSnapshot.docs[0].data();
+          const djProfile = data?.djProfile;
+          const profile = {
+            displayName: data?.chatUsername || data?.djName,
+            bio: djProfile?.bio || undefined,
+            photoUrl: djProfile?.photoUrl || undefined,
+            location: djProfile?.location || undefined,
+            genres: djProfile?.genres || undefined,
+          };
+          profiles[normalized] = profile;
+          djProfileCache.set(`username:${normalized}`, { data: profile, expiry: now + DJ_PROFILE_CACHE_TTL });
+        } else {
+          // Cache the miss too so we don't re-query
+          djProfileCache.set(`username:${normalized}`, { data: null, expiry: now + DJ_PROFILE_CACHE_TTL });
+        }
+      } catch {
+        // Silently ignore individual lookup errors
+      }
+    });
+
+    await Promise.all(promises);
+  }
+
   return shows.map((show) => {
     if (show.djUsername && show.stationId !== "broadcast") {
       const profile = profiles[show.djUsername];
@@ -112,17 +152,14 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
   });
 }
 
-/**
- * Enrich broadcast shows with live profile data from Firestore
- * Broadcast shows need real-time data (promo text, payment info)
- */
+// ---------------------------------------------------------------------------
+// Enrich broadcast shows with live profile data (with per-profile caching)
+// ---------------------------------------------------------------------------
+
 async function enrichBroadcastShows(shows: Show[]): Promise<Show[]> {
   const adminDb = getAdminDb();
-  if (!adminDb) {
-    return shows;
-  }
+  if (!adminDb) return shows;
 
-  // Collect all unique DJ user IDs from broadcast shows
   const djUserIds = new Set<string>();
   shows.forEach((show) => {
     if (show.stationId === "broadcast" && show.djUserId) {
@@ -130,37 +167,49 @@ async function enrichBroadcastShows(shows: Show[]): Promise<Show[]> {
     }
   });
 
-  if (djUserIds.size === 0) {
-    return shows;
-  }
+  if (djUserIds.size === 0) return shows;
 
-  // Fetch broadcast DJ profiles from users collection
+  const now = Date.now();
   const djProfiles: Record<string, { bio?: string; photoUrl?: string; promoText?: string; promoHyperlink?: string; location?: string }> = {};
 
-  const promises = Array.from(djUserIds).map(async (userId) => {
-    try {
-      const userDoc = await adminDb.collection("users").doc(userId).get();
-      if (userDoc.exists) {
-        const userData = userDoc.data();
-        const djProfile = userData?.djProfile as { bio?: string; photoUrl?: string; promoText?: string; promoHyperlink?: string; location?: string } | undefined;
-        if (djProfile) {
-          djProfiles[userId] = {
-            bio: djProfile.bio || undefined,
-            photoUrl: djProfile.photoUrl || undefined,
-            promoText: djProfile.promoText || undefined,
-            promoHyperlink: djProfile.promoHyperlink || undefined,
-            location: djProfile.location || undefined,
-          };
-        }
-      }
-    } catch (err) {
-      console.error(`[API /schedule] Failed to fetch broadcast DJ profile for ${userId}:`, err);
+  const toFetch: string[] = [];
+
+  for (const userId of djUserIds) {
+    const cached = djProfileCache.get(`uid:${userId}`);
+    if (cached && now < cached.expiry && cached.data) {
+      djProfiles[userId] = cached.data as typeof djProfiles[string];
+    } else {
+      toFetch.push(userId);
     }
-  });
+  }
 
-  await Promise.all(promises);
+  if (toFetch.length > 0) {
+    const promises = toFetch.map(async (userId) => {
+      try {
+        const userDoc = await adminDb.collection("users").doc(userId).get();
+        if (userDoc.exists) {
+          const userData = userDoc.data();
+          const djProfile = userData?.djProfile as { bio?: string; photoUrl?: string; promoText?: string; promoHyperlink?: string; location?: string } | undefined;
+          if (djProfile) {
+            const profile = {
+              bio: djProfile.bio || undefined,
+              photoUrl: djProfile.photoUrl || undefined,
+              promoText: djProfile.promoText || undefined,
+              promoHyperlink: djProfile.promoHyperlink || undefined,
+              location: djProfile.location || undefined,
+            };
+            djProfiles[userId] = profile;
+            djProfileCache.set(`uid:${userId}`, { data: profile, expiry: now + DJ_PROFILE_CACHE_TTL });
+          }
+        }
+      } catch (err) {
+        console.error(`[API /schedule] Failed to fetch broadcast DJ profile for ${userId}:`, err);
+      }
+    });
 
-  // Enrich broadcast shows only
+    await Promise.all(promises);
+  }
+
   return shows.map((show) => {
     if (show.stationId === "broadcast" && show.djUserId) {
       const profile = djProfiles[show.djUserId];
@@ -179,190 +228,127 @@ async function enrichBroadcastShows(shows: Show[]): Promise<Show[]> {
   });
 }
 
-// Fetch IRL shows from DJ profiles
-async function fetchIRLShows(): Promise<IRLShowData[]> {
-  const adminDb = getAdminDb();
-  if (!adminDb) {
-    console.log("[API /schedule] Admin SDK not available, skipping IRL shows");
-    return [];
-  }
+// ---------------------------------------------------------------------------
+// Extract IRL shows from pre-fetched DJ user docs (no extra Firestore query)
+// ---------------------------------------------------------------------------
 
-  try {
-    // Query all users with DJ role who might have IRL shows
-    const usersSnapshot = await adminDb
-      .collection("users")
-      .where("role", "in", ["dj", "broadcaster", "admin"])
-      .get();
+function extractIRLShows(djUserDocs: FirestoreDoc[]): IRLShowData[] {
+  const irlShows: IRLShowData[] = [];
+  const today = new Date().toISOString().split("T")[0];
 
-    const irlShows: IRLShowData[] = [];
-    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+  for (const doc of djUserDocs) {
+    const userData = doc.data();
+    const djProfile = userData?.djProfile;
+    const chatUsername = userData?.chatUsername;
 
-    usersSnapshot.forEach((doc) => {
-      const userData = doc.data();
-      const djProfile = userData?.djProfile;
-      const chatUsername = userData?.chatUsername;
+    if (!djProfile?.irlShows || !Array.isArray(djProfile.irlShows)) continue;
+    if (!chatUsername || !djProfile.photoUrl) continue;
 
-      if (!djProfile?.irlShows || !Array.isArray(djProfile.irlShows)) {
-        return;
-      }
+    for (const show of djProfile.irlShows) {
+      if (!show.date) continue;
+      if (show.date < today) continue;
 
-      // Skip system/admin accounts without proper DJ profiles for IRL shows
-      // These accounts shouldn't have their IRL shows displayed publicly
-      if (!chatUsername || !djProfile.photoUrl) {
-        return;
-      }
-
-      // Filter to upcoming shows only
-      for (const show of djProfile.irlShows) {
-        // Skip if no date (URL is optional - some events don't have ticket links)
-        if (!show.date) continue;
-
-        // Skip past shows (compare ISO date strings)
-        if (show.date < today) continue;
-
-        irlShows.push({
-          djUsername: chatUsername?.replace(/\s+/g, "").toLowerCase() || "",
-          djName: chatUsername || "Unknown DJ",
-          djPhotoUrl: djProfile.photoUrl || undefined,
-          djLocation: djProfile.location || undefined,
-          djGenres: djProfile.genres || undefined,
-          eventName: show.name || "Event",
-          location: show.location || "",
-          ticketUrl: show.url,
-          date: show.date,
-        });
-      }
-    });
-
-    // Sort by date ascending
-    irlShows.sort((a, b) => a.date.localeCompare(b.date));
-
-    // Deduplicate: keep only one IRL show per DJ per location (the soonest one)
-    // This prevents the same DJ from appearing multiple times in the same city
-    const deduped: IRLShowData[] = [];
-    const seen = new Set<string>();
-    for (const show of irlShows) {
-      const key = `${show.djUsername}-${show.location.toLowerCase()}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        deduped.push(show);
-      }
+      irlShows.push({
+        djUsername: chatUsername?.replace(/\s+/g, "").toLowerCase() || "",
+        djName: chatUsername || "Unknown DJ",
+        djPhotoUrl: djProfile.photoUrl || undefined,
+        djLocation: djProfile.location || undefined,
+        djGenres: djProfile.genres || undefined,
+        eventName: show.name || "Event",
+        location: show.location || "",
+        ticketUrl: show.url,
+        date: show.date,
+      });
     }
-
-    return deduped;
-  } catch (error) {
-    console.error("[API /schedule] Error fetching IRL shows:", error);
-    return [];
   }
+
+  irlShows.sort((a, b) => a.date.localeCompare(b.date));
+
+  // Deduplicate: keep only one IRL show per DJ per location (the soonest one)
+  const deduped: IRLShowData[] = [];
+  const seen = new Set<string>();
+  for (const show of irlShows) {
+    const key = `${show.djUsername}-${show.location.toLowerCase()}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      deduped.push(show);
+    }
+  }
+
+  return deduped;
 }
 
-// Fetch radio shows from DJ profiles (DJ-added upcoming radio appearances)
-async function fetchDJRadioShows(): Promise<Show[]> {
-  const adminDb = getAdminDb();
-  if (!adminDb) {
-    console.log("[API /schedule] Admin SDK not available, skipping DJ radio shows");
-    return [];
+// ---------------------------------------------------------------------------
+// Extract DJ radio shows from pre-fetched DJ user docs (no extra query)
+// ---------------------------------------------------------------------------
+
+function extractDJRadioShows(djUserDocs: FirestoreDoc[]): Show[] {
+  const radioShows: Show[] = [];
+  const today = new Date().toISOString().split("T")[0];
+
+  for (const doc of djUserDocs) {
+    const userData = doc.data();
+    const djProfile = userData?.djProfile;
+    const chatUsername = userData?.chatUsername;
+    const userEmail = userData?.email;
+
+    if (!djProfile?.radioShows || !Array.isArray(djProfile.radioShows)) continue;
+
+    for (const show of djProfile.radioShows) {
+      if (!show.date) continue;
+      if (show.date < today) continue;
+
+      const showNameSlug = (show.name || "").replace(/\s+/g, "-").toLowerCase().slice(0, 20);
+      const radioNameSlug = (show.radioName || "radio").replace(/\s+/g, "-").toLowerCase();
+      const showId = `dj-radio-${chatUsername?.replace(/\s+/g, "").toLowerCase()}-${show.date}-${radioNameSlug}-${showNameSlug}`;
+
+      const timezone = show.timezone || "America/Los_Angeles";
+      const timeStr = show.time || "12:00";
+      const [hours, minutes] = timeStr.split(":").map(Number);
+
+      const localDateTime = `${show.date}T${String(hours || 0).padStart(2, '0')}:${String(minutes || 0).padStart(2, '0')}:00`;
+      const testDate = new Date(localDateTime + "Z");
+      const localStr = testDate.toLocaleString("en-US", { timeZone: timezone, hour12: false });
+      const localMatch = localStr.match(/(\d+):(\d+):(\d+)/);
+      const localHour = localMatch ? parseInt(localMatch[1]) : hours || 0;
+
+      let offsetHours = (hours || 0) - localHour;
+      if (offsetHours > 12) offsetHours -= 24;
+      if (offsetHours < -12) offsetHours += 24;
+
+      const startTimeMs = testDate.getTime() + (offsetHours * 60 * 60 * 1000);
+      const startTime = new Date(startTimeMs).toISOString();
+      const durationHours = parseFloat(show.duration) || 1;
+      const endTime = new Date(startTimeMs + durationHours * 60 * 60 * 1000).toISOString();
+
+      const showName = show.name || (show.radioName ? `${chatUsername} on ${show.radioName}` : `${chatUsername} Radio Show`);
+
+      radioShows.push({
+        id: showId,
+        name: showName,
+        dj: chatUsername || "Unknown DJ",
+        startTime,
+        endTime,
+        stationId: "dj-radio",
+        djUsername: chatUsername?.replace(/\s+/g, "").toLowerCase(),
+        djPhotoUrl: djProfile.photoUrl || undefined,
+        djLocation: djProfile.location || undefined,
+        djGenres: djProfile.genres || undefined,
+        djEmail: userEmail || undefined,
+        description: show.url ? `Listen at: ${show.url}` : undefined,
+        imageUrl: djProfile.photoUrl || undefined,
+      });
+    }
   }
 
-  try {
-    // Query all users with DJ role who might have radio shows
-    const usersSnapshot = await adminDb
-      .collection("users")
-      .where("role", "in", ["dj", "broadcaster", "admin"])
-      .get();
-
-    const radioShows: Show[] = [];
-    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-
-    usersSnapshot.forEach((doc) => {
-      const userData = doc.data();
-      const djProfile = userData?.djProfile;
-      const chatUsername = userData?.chatUsername;
-      const userEmail = userData?.email;
-
-      if (!djProfile?.radioShows || !Array.isArray(djProfile.radioShows)) {
-        return;
-      }
-
-      // Filter to upcoming shows only
-      for (const show of djProfile.radioShows) {
-        // Skip if no date (radio name and other fields are optional)
-        if (!show.date) continue;
-
-        // Skip past shows (compare ISO date strings)
-        if (show.date < today) continue;
-
-        // Create a unique ID that won't collide with other shows
-        // Include the show name to differentiate from external shows with same DJ
-        const showNameSlug = (show.name || "").replace(/\s+/g, "-").toLowerCase().slice(0, 20);
-        const radioNameSlug = (show.radioName || "radio").replace(/\s+/g, "-").toLowerCase();
-        const showId = `dj-radio-${chatUsername?.replace(/\s+/g, "").toLowerCase()}-${show.date}-${radioNameSlug}-${showNameSlug}`;
-
-        // Parse date and time to create start/end times
-        // Use the DJ's timezone if available, otherwise default to America/Los_Angeles
-        const timezone = show.timezone || "America/Los_Angeles";
-        const timeStr = show.time || "12:00"; // Default to noon if no time
-        const [hours, minutes] = timeStr.split(":").map(Number);
-
-        // Create ISO string with the time, then adjust for timezone
-        // We need to find what UTC time corresponds to this local time
-        const localDateTime = `${show.date}T${String(hours || 0).padStart(2, '0')}:${String(minutes || 0).padStart(2, '0')}:00`;
-
-        // Get timezone offset for this specific date/time
-        // Create a date assuming UTC, then see what local time that produces in the target timezone
-        const testDate = new Date(localDateTime + "Z");
-        const localStr = testDate.toLocaleString("en-US", { timeZone: timezone, hour12: false });
-        const localMatch = localStr.match(/(\d+):(\d+):(\d+)/);
-        const localHour = localMatch ? parseInt(localMatch[1]) : hours || 0;
-
-        // Calculate offset: if UTC 09:00 shows as 01:00 local, offset is -8 hours
-        // So to get 09:00 local, we need 17:00 UTC (add 8 hours)
-        let offsetHours = (hours || 0) - localHour;
-        // Handle day wraparound
-        if (offsetHours > 12) offsetHours -= 24;
-        if (offsetHours < -12) offsetHours += 24;
-
-        const startTimeMs = testDate.getTime() + (offsetHours * 60 * 60 * 1000);
-        const startTime = new Date(startTimeMs).toISOString();
-
-        // Use duration from show, default to 1 hour
-        const durationHours = parseFloat(show.duration) || 1;
-        const endTime = new Date(startTimeMs + durationHours * 60 * 60 * 1000).toISOString();
-
-        // Build show name - use provided name, or construct from DJ and radio
-        const showName = show.name || (show.radioName ? `${chatUsername} on ${show.radioName}` : `${chatUsername} Radio Show`);
-
-        radioShows.push({
-          id: showId,
-          name: showName,
-          dj: chatUsername || "Unknown DJ",
-          startTime,
-          endTime,
-          stationId: "dj-radio", // Special station ID for DJ-added radio shows
-          djUsername: chatUsername?.replace(/\s+/g, "").toLowerCase(),
-          djPhotoUrl: djProfile.photoUrl || undefined,
-          djLocation: djProfile.location || undefined,
-          djGenres: djProfile.genres || undefined,
-          djEmail: userEmail || undefined, // Include email for prioritization
-          // Store additional info for display
-          description: show.url ? `Listen at: ${show.url}` : undefined,
-          // Custom fields for DJ radio shows
-          imageUrl: djProfile.photoUrl || undefined,
-        });
-      }
-    });
-
-    // Sort by date ascending
-    radioShows.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-
-    return radioShows;
-  } catch (error) {
-    console.error("[API /schedule] Error fetching DJ radio shows:", error);
-    return [];
-  }
+  radioShows.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  return radioShows;
 }
 
+// ---------------------------------------------------------------------------
 // Fetch Open Graph metadata from a URL (title, image, description)
+// ---------------------------------------------------------------------------
+
 async function fetchOgMetadata(url: string): Promise<{ ogTitle?: string; ogImage?: string; ogDescription?: string }> {
   try {
     const controller = new AbortController();
@@ -395,104 +381,115 @@ async function fetchOgMetadata(url: string): Promise<{ ogTitle?: string; ogImage
   }
 }
 
-// Fetch curator recommendations (myRecs) from DJ profiles
-async function fetchCuratorRecs(): Promise<CuratorRec[]> {
-  const adminDb = getAdminDb();
-  if (!adminDb) {
-    return [];
-  }
+// ---------------------------------------------------------------------------
+// Extract curator recommendations from pre-fetched DJ user docs
+// ---------------------------------------------------------------------------
 
-  try {
-    const usersSnapshot = await adminDb
-      .collection("users")
-      .where("role", "in", ["dj", "broadcaster", "admin"])
-      .get();
+async function extractCuratorRecs(djUserDocs: FirestoreDoc[]): Promise<CuratorRec[]> {
+  const recs: CuratorRec[] = [];
 
-    const recs: CuratorRec[] = [];
+  for (const doc of djUserDocs) {
+    const userData = doc.data();
+    const djProfile = userData?.djProfile;
+    const chatUsername = userData?.chatUsername;
 
-    usersSnapshot.forEach((doc) => {
-      const userData = doc.data();
-      const djProfile = userData?.djProfile;
-      const chatUsername = userData?.chatUsername;
+    if (!chatUsername || !djProfile?.myRecs) continue;
 
-      if (!chatUsername || !djProfile?.myRecs) return;
+    const djUsername = chatUsername.replace(/\s+/g, "").toLowerCase();
+    const djName = chatUsername;
+    const djPhotoUrl = djProfile.photoUrl || undefined;
 
-      const djUsername = chatUsername.replace(/\s+/g, "").toLowerCase();
-      const djName = chatUsername;
-      const djPhotoUrl = djProfile.photoUrl || undefined;
-
-      const myRecs = djProfile.myRecs;
-      if (Array.isArray(myRecs)) {
-        // New format: array of { type, title, url, imageUrl? }
-        for (const item of myRecs) {
-          if (item?.url || item?.title) {
-            recs.push({
-              djUsername,
-              djName,
-              djPhotoUrl,
-              url: item.url || "",
-              type: item.type || "music",
-              title: item.title || undefined,
-              imageUrl: item.imageUrl || undefined,
-            });
-          }
-        }
-      } else {
-        // Legacy format: { bandcampLinks, eventLinks }
-        if (myRecs.bandcampLinks) {
-          for (const url of myRecs.bandcampLinks) {
-            if (url) recs.push({ djUsername, djName, djPhotoUrl, url, type: "music" });
-          }
-        }
-        if (myRecs.eventLinks) {
-          for (const url of myRecs.eventLinks) {
-            if (url) recs.push({ djUsername, djName, djPhotoUrl, url, type: "irl" });
-          }
+    const myRecs = djProfile.myRecs;
+    if (Array.isArray(myRecs)) {
+      for (const item of myRecs) {
+        if (item?.url || item?.title) {
+          recs.push({
+            djUsername,
+            djName,
+            djPhotoUrl,
+            url: item.url || "",
+            type: item.type || "music",
+            title: item.title || undefined,
+            imageUrl: item.imageUrl || undefined,
+          });
         }
       }
-    });
-
-    // Fetch OG metadata for recs that need it (no DJ-provided title/image and have a URL)
-    const enriched = await Promise.allSettled(
-      recs.map(async (rec) => {
-        if (rec.url && (!rec.title || !rec.imageUrl)) {
-          const og = await fetchOgMetadata(rec.url);
-          return { ...rec, ...og };
+    } else {
+      if (myRecs.bandcampLinks) {
+        for (const url of myRecs.bandcampLinks) {
+          if (url) recs.push({ djUsername, djName, djPhotoUrl, url, type: "music" });
         }
-        return rec;
-      })
-    );
-
-    return enriched.map((result, i) =>
-      result.status === "fulfilled" ? result.value : recs[i]
-    );
-  } catch (error) {
-    console.error("[API /schedule] Error fetching curator recs:", error);
-    return [];
+      }
+      if (myRecs.eventLinks) {
+        for (const url of myRecs.eventLinks) {
+          if (url) recs.push({ djUsername, djName, djPhotoUrl, url, type: "irl" });
+        }
+      }
+    }
   }
+
+  // Fetch OG metadata for recs that need it
+  const enriched = await Promise.allSettled(
+    recs.map(async (rec) => {
+      if (rec.url && (!rec.title || !rec.imageUrl)) {
+        const og = await fetchOgMetadata(rec.url);
+        return { ...rec, ...og };
+      }
+      return rec;
+    })
+  );
+
+  return enriched.map((result, i) =>
+    result.status === "fulfilled" ? result.value : recs[i]
+  );
 }
+
+// ---------------------------------------------------------------------------
+// GET handler with full response caching (until next hour boundary)
+// ---------------------------------------------------------------------------
 
 export async function GET() {
   try {
-    // Fetch shows, IRL shows, DJ radio shows, and curator recs in parallel
-    const [shows, irlShows, djRadioShows, curatorRecs] = await Promise.all([
+    const now = Date.now();
+
+    // Return cached response if still valid
+    if (scheduleCache && now < scheduleCacheExpiry) {
+      console.log(`[API /schedule] Serving from cache (expires in ${Math.round((scheduleCacheExpiry - now) / 1000)}s)`);
+      return NextResponse.json(scheduleCache, {
+        headers: { "Cache-Control": "public, max-age=60, stale-while-revalidate=120" },
+      });
+    }
+
+    // Fetch metadata shows and DJ user docs in parallel (1 Firestore query instead of 3)
+    const [shows, djUserDocs] = await Promise.all([
       getAllShows(),
-      fetchIRLShows(),
-      fetchDJRadioShows(),
-      fetchCuratorRecs(),
+      fetchDJUserDocs(),
+    ]);
+
+    // Extract IRL shows, DJ radio shows, and curator recs from the same docs (no extra queries)
+    const [irlShows, djRadioShows, curatorRecs] = await Promise.all([
+      Promise.resolve(extractIRLShows(djUserDocs)),
+      Promise.resolve(extractDJRadioShows(djUserDocs)),
+      extractCuratorRecs(djUserDocs),
     ]);
 
     // Merge DJ radio shows into the main shows array
     const allShows = [...shows, ...djRadioShows];
 
-    // Enrich shows with DJ profiles from Firebase using pre-matched `p` field
-    // This does O(unique djUsernames) lookups instead of O(shows × candidate names)
+    // Enrich shows with DJ profiles (with per-profile caching)
     const showsWithProfiles = await enrichShowsWithDJProfiles(allShows);
-
-    // Enrich broadcast shows with live data from Firestore (for promo text, payment info)
     const enrichedShows = await enrichBroadcastShows(showsWithProfiles);
 
-    return NextResponse.json({ shows: enrichedShows, irlShows, curatorRecs });
+    // Cache until next hour boundary
+    const result = { shows: enrichedShows, irlShows, curatorRecs };
+    scheduleCache = result;
+    scheduleCacheExpiry = getNextHourMs();
+
+    console.log(`[API /schedule] Cached until ${new Date(scheduleCacheExpiry).toISOString()}`);
+
+    return NextResponse.json(result, {
+      headers: { "Cache-Control": "public, max-age=60, stale-while-revalidate=120" },
+    });
   } catch (error) {
     console.error("[API /schedule] Error fetching shows:", error);
     return NextResponse.json({ shows: [], irlShows: [], curatorRecs: [], error: "Failed to fetch shows" }, { status: 500 });

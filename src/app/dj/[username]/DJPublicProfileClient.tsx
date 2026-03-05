@@ -8,6 +8,7 @@ import { Header } from "@/components/Header";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useSchedule } from "@/contexts/ScheduleContext";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { AuthModal } from "@/components/AuthModal";
@@ -365,7 +366,7 @@ export function DJPublicProfileClient({ username }: Props) {
   // Live status
   const [liveOnChannel, setLiveOnChannel] = useState(false);
   const [liveElsewhere, setLiveElsewhere] = useState<{ stationName: string; stationUrl: string; stationAccentColor?: string } | null>(null);
-  const [allShows, setAllShows] = useState<Show[]>([]);
+  const { shows: allShows } = useSchedule();
 
   // Upcoming broadcasts
   const [upcomingBroadcasts, setUpcomingBroadcasts] = useState<UpcomingShow[]>([]);
@@ -504,22 +505,6 @@ export function DJPublicProfileClient({ username }: Props) {
     fetchDJProfile();
   }, [username]);
 
-  // Fetch schedule to check live status
-  useEffect(() => {
-    async function fetchSchedule() {
-      try {
-        const res = await fetch("/api/schedule");
-        if (res.ok) {
-          const data = await res.json();
-          setAllShows(data.shows || []);
-        }
-      } catch (error) {
-        console.error("Error fetching schedule:", error);
-      }
-    }
-
-    fetchSchedule();
-  }, []);
 
   // Live show state (for the dedicated live card)
   const [currentLiveShow, setCurrentLiveShow] = useState<Show | null>(null);

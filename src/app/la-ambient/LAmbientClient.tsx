@@ -10,6 +10,7 @@ import { AuthModal } from '@/components/AuthModal';
 import { db } from '@/lib/firebase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useFavorites } from '@/hooks/useFavorites';
+import { useSchedule } from '@/contexts/ScheduleContext';
 import { Show, IRLShowData } from '@/types';
 import { Venue, Event, EventDJRef, Collective } from '@/types/events';
 import { matchesGenre } from '@/lib/genres';
@@ -48,14 +49,26 @@ function formatEventDate(ms: number): string {
 // ---------- Component ----------
 
 export function LAmbientClient() {
+  const { shows: allScheduleShows, irlShows: allScheduleIrlShows } = useSchedule();
   const [selectors, setSelectors] = useState<SelectorProfile[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [collectives, setCollectives] = useState<Collective[]>([]);
-  const [onlineShows, setOnlineShows] = useState<Show[]>([]);
-  const [irlShows, setIrlShows] = useState<IRLShowData[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [pastEvents, setPastEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Derive LA ambient shows from shared schedule context
+  const onlineShows = useMemo(() => {
+    return allScheduleShows
+      .filter((s) => matchesCity(s.djLocation || '', 'Los Angeles') && matchesAmbient(s.djGenres))
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  }, [allScheduleShows]);
+
+  const irlShows = useMemo(() => {
+    return allScheduleIrlShows.filter(
+      (s) => matchesCity(s.location, 'Los Angeles') && matchesAmbient(s.djGenres)
+    );
+  }, [allScheduleIrlShows]);
 
   // Auth & favorites
   const { isAuthenticated } = useAuthContext();
@@ -131,7 +144,6 @@ export function LAmbientClient() {
         fetchVenues(),
         fetchCollectives(),
         fetchEvents(),
-        fetchSchedule(),
       ]);
 
       if (results[0].status === 'fulfilled') setSelectors(results[0].value);
@@ -140,10 +152,6 @@ export function LAmbientClient() {
       if (results[3].status === 'fulfilled') {
         setEvents(results[3].value.upcoming);
         setPastEvents(results[3].value.past);
-      }
-      if (results[4].status === 'fulfilled') {
-        setOnlineShows(results[4].value.shows);
-        setIrlShows(results[4].value.irlShows);
       }
 
       setLoading(false);
@@ -1430,40 +1438,3 @@ async function fetchCollectives(): Promise<Collective[]> {
   }
 }
 
-async function fetchSchedule(): Promise<{
-  shows: Show[];
-  irlShows: IRLShowData[];
-}> {
-  try {
-    const res = await fetch('/api/schedule');
-    if (!res.ok) return { shows: [], irlShows: [] };
-
-    const data = await res.json();
-    const allShows: Show[] = data.shows || [];
-    const allIrl: IRLShowData[] = data.irlShows || [];
-
-    // Filter online shows: DJ in LA + ambient genres
-    const laOnlineShows = allShows.filter(
-      (s) =>
-        matchesCity(s.djLocation || '', 'Los Angeles') &&
-        matchesAmbient(s.djGenres)
-    );
-
-    // Filter IRL shows: event in LA + ambient genres
-    const laIrlShows = allIrl.filter(
-      (s) =>
-        matchesCity(s.location, 'Los Angeles') &&
-        matchesAmbient(s.djGenres)
-    );
-
-    // Sort online shows by date ascending
-    laOnlineShows.sort(
-      (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-    );
-
-    return { shows: laOnlineShows, irlShows: laIrlShows };
-  } catch (err) {
-    console.error('[la-ambient] Error fetching schedule:', err);
-    return { shows: [], irlShows: [] };
-  }
-}

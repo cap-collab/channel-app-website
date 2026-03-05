@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useBPM } from '@/contexts/BPMContext';
+import { useSchedule } from '@/contexts/ScheduleContext';
 import { Show, Station } from '@/types';
 import { STATIONS, getMetadataKeyByStationId } from '@/lib/stations';
 import { getContrastTextColor } from '@/lib/colorUtils';
@@ -53,20 +54,10 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
   const { isAuthenticated } = useAuthContext();
   const { isInWatchlist, followDJ, removeFromWatchlist } = useFavorites();
   const { stationBPM } = useBPM();
+  const { shows: allShows, loading } = useSchedule();
 
-  const [allShows, setAllShows] = useState<Show[]>([]);
-  const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [togglingFollowId, setTogglingFollowId] = useState<string | null>(null);
-
-  // Fetch all shows on mount
-  useEffect(() => {
-    fetch('/api/schedule')
-      .then((res) => res.json())
-      .then((data) => setAllShows(data.shows || []))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
 
   // Update current time every minute
   useEffect(() => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { doc, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Show } from "@/types";
@@ -68,7 +68,7 @@ export function useCalendarSync() {
     }
   }, [user]);
 
-  // Listen for calendar connection status
+  // Check calendar connection status (one-time read)
   useEffect(() => {
     if (!user || !db) {
       setState({ isConnected: false, loading: false, error: null });
@@ -76,20 +76,16 @@ export function useCalendarSync() {
     }
 
     const userRef = doc(db, "users", user.uid);
-    const unsubscribe = onSnapshot(
-      userRef,
-      (snapshot) => {
+    getDoc(userRef)
+      .then((snapshot) => {
         const data = snapshot.data();
         const isConnected = !!data?.googleCalendar?.calendarId;
         setState({ isConnected, loading: false, error: null });
-      },
-      (error) => {
+      })
+      .catch((error) => {
         console.error("Error checking calendar status:", error);
         setState({ isConnected: false, loading: false, error: error.message });
-      }
-    );
-
-    return () => unsubscribe();
+      });
   }, [user]);
 
   // Connect Google Calendar

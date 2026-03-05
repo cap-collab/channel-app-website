@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useSchedule } from '@/contexts/ScheduleContext';
 import { Header } from '@/components/Header';
 import { HeaderSearch } from '@/components/HeaderSearch';
 import { Tuner } from '@/components/channel/Tuner';
@@ -22,7 +23,7 @@ import { STATIONS } from '@/lib/stations';
 import { useFavorites } from '@/hooks/useFavorites';
 import { getDefaultCity, matchesCity, SUPPORTED_CITIES } from '@/lib/city-detection';
 import { GENRE_ALIASES, SUPPORTED_GENRES, matchesGenre as matchesGenreLib } from '@/lib/genres';
-import { doc, updateDoc, onSnapshot, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 type MatchedItem =
@@ -32,24 +33,23 @@ type MatchedItem =
 export function ChannelClient() {
   const { user, isAuthenticated } = useAuthContext();
   const { favorites, isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
+  const { shows: scheduleShows, irlShows: scheduleIrlShows, curatorRecs: scheduleCuratorRecs, loading: scheduleLoading } = useSchedule();
   const router = useRouter();
 
   // Auth modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
 
-  // Loading state
-  const [isLoading, setIsLoading] = useState(true);
-
   // Track whether user has seen curator recs before (move to bottom after first view)
   const [hasSeenCuratorRecs, setHasSeenCuratorRecs] = useState(() => {
     try { return localStorage.getItem('channel-seen-curator-recs') === '1'; } catch { return false; }
   });
 
-  // All shows data
-  const [allShows, setAllShows] = useState<Show[]>([]);
-  const [irlShows, setIrlShows] = useState<IRLShowData[]>([]);
-  const [curatorRecs, setCuratorRecs] = useState<CuratorRec[]>([]);
+  // All shows data (from shared ScheduleContext)
+  const allShows = scheduleShows;
+  const irlShows = scheduleIrlShows;
+  const curatorRecs = scheduleCuratorRecs;
+  const isLoading = scheduleLoading;
 
   // Selected city and genres
   const [selectedCity, setSelectedCity] = useState<string>(getDefaultCity());
@@ -85,11 +85,11 @@ export function ChannelClient() {
   const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
   const [addingReminderShowId, setAddingReminderShowId] = useState<string | null>(null);
 
-  // Load city/genre preferences: Firebase (real-time) for auth users, localStorage for unauth
+  // Load city/genre preferences: Firebase (one-time read) for auth users, localStorage for unauth
   useEffect(() => {
     if (user?.uid && db) {
       const userRef = doc(db, 'users', user.uid);
-      const unsubscribe = onSnapshot(userRef, (snapshot) => {
+      getDoc(userRef).then((snapshot) => {
         const data = snapshot.data();
         setSelectedCity(data?.irlCity || getDefaultCity());
         // Support both old string and new array format
@@ -102,7 +102,7 @@ export function ChannelClient() {
           setSelectedGenres(['House']);
         }
       });
-      return () => unsubscribe();
+      return;
     }
 
     try {
@@ -210,19 +210,6 @@ export function ChannelClient() {
       map.set(station.id, station);
     }
     return map;
-  }, []);
-
-  // Fetch all shows on mount
-  useEffect(() => {
-    fetch('/api/schedule')
-      .then((res) => res.json())
-      .then((data) => {
-        setAllShows(data.shows || []);
-        setIrlShows(data.irlShows || []);
-        setCuratorRecs(data.curatorRecs || []);
-      })
-      .catch(console.error)
-      .finally(() => setIsLoading(false));
   }, []);
 
   // Helper: check if a show matches a single genre (with aliases)

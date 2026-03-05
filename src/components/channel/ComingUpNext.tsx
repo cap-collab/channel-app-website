@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import { useFavorites, Favorite } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { useSchedule } from '@/contexts/ScheduleContext';
 import { Show } from '@/types';
 import { getStationById, getStationByMetadataKey } from '@/lib/stations';
 import { ExpandedShowCard } from './ExpandedShowCard';
@@ -80,20 +81,10 @@ export function ComingUpNext({ onAuthRequired }: ComingUpNextProps) {
   const { isAuthenticated, user } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
   const { favorites, loading: favoritesLoading, addToWatchlist, isInWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
-  const [allShows, setAllShows] = useState<Show[]>([]);
-  const [showsLoading, setShowsLoading] = useState(true);
+  const { shows: allShows, loading: showsLoading } = useSchedule();
   const [addingToWatchlist, setAddingToWatchlist] = useState<string | null>(null);
   const [togglingFavoriteId, setTogglingFavoriteId] = useState<string | null>(null);
   const [expandedShowId, setExpandedShowId] = useState<string | null>(null);
-
-  // Fetch all shows on mount
-  useEffect(() => {
-    fetch('/api/schedule')
-      .then((res) => res.json())
-      .then((data) => setAllShows(data.shows || []))
-      .catch(console.error)
-      .finally(() => setShowsLoading(false));
-  }, []);
 
   const handleAddToWatchlist = useCallback(async (djName: string, djUserId?: string, djEmail?: string) => {
     if (!isAuthenticated) {

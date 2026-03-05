@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { doc, onSnapshot, updateDoc, collection, query, where, orderBy, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useSchedule } from "@/contexts/ScheduleContext";
 import { useUserRole, isDJ } from "@/hooks/useUserRole";
 import { AuthModal } from "@/components/AuthModal";
 import { Header } from "@/components/Header";
@@ -14,7 +15,6 @@ import { usePendingPayout } from "@/hooks/usePendingPayout";
 import { normalizeUrl } from "@/lib/url";
 import { uploadDJPhoto, deleteDJPhoto, validatePhoto, uploadRecImage } from "@/lib/photo-upload";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
-import { Show } from "@/types";
 import { getStationById } from "@/lib/stations";
 
 // Word boundary matching for DJ/show names
@@ -193,7 +193,7 @@ export function StudioProfileClient() {
   // Upcoming shows (broadcasts + external radio shows)
   const [upcomingShows, setUpcomingShows] = useState<UpcomingShow[]>([]);
   const [loadingBroadcasts, setLoadingBroadcasts] = useState(true);
-  const [allShows, setAllShows] = useState<Show[]>([]);
+  const { shows: allShows } = useSchedule();
 
   // My recordings state
   interface Recording {
@@ -303,22 +303,6 @@ export function StudioProfileClient() {
     return () => unsubscribe();
   }, [user]);
 
-  // Fetch schedule to get shows from all stations
-  useEffect(() => {
-    async function fetchSchedule() {
-      try {
-        const res = await fetch("/api/schedule");
-        if (res.ok) {
-          const data = await res.json();
-          setAllShows(data.shows || []);
-        }
-      } catch (error) {
-        console.error("Error fetching schedule:", error);
-      }
-    }
-
-    fetchSchedule();
-  }, []);
 
   // Load upcoming shows for this DJ (broadcast slots + external radio shows)
   useEffect(() => {
