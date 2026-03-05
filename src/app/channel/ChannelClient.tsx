@@ -71,7 +71,10 @@ export function ChannelClient() {
       const res = await fetch('/api/radio-notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: notifyEmail.trim() }),
+        body: JSON.stringify({
+          email: notifyEmail.trim(),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }),
       });
       if (!res.ok) throw new Error('Failed to submit');
       setNotifyStatus('success');

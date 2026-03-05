@@ -12,7 +12,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { email } = await request.json();
+    const { email, timezone } = await request.json();
 
     if (!email || typeof email !== 'string') {
       return NextResponse.json(
@@ -21,8 +21,13 @@ export async function POST(request: Request) {
       );
     }
 
+    // City from Vercel IP geolocation (most granular available)
+    const geoCity = request.headers.get('x-vercel-ip-city');
+
     await db.collection('radio-notify-waitlist').add({
       email: email.trim().toLowerCase(),
+      ...(geoCity && { city: decodeURIComponent(geoCity) }),
+      ...(timezone && { timezone }),
       submittedAt: FieldValue.serverTimestamp(),
     });
 
