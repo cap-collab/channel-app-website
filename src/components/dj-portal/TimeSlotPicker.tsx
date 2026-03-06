@@ -93,6 +93,8 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
   const [hoverSlot, setHoverSlot] = useState<{ dayIndex: number; startHour: number } | null>(null);
   const timeColumnRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  const horizontalScrollRef = useRef<HTMLDivElement>(null);
+  const hasAutoScrolled = useRef(false);
 
   // Duration in milliseconds
   const durationMs = setDuration * 60 * 60 * 1000;
@@ -135,6 +137,48 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
       if (timeColumnRef.current) timeColumnRef.current.scrollTop = scrollPos;
     }
   }, [isLoading]);
+
+  // Auto-scroll horizontally to the first day with available slots (on initial load only)
+  useEffect(() => {
+    if (isLoading || hasAutoScrolled.current) return;
+
+    const minTime = Date.now() + 36 * 60 * 60 * 1000;
+
+    // Find the first day index that has at least one available hour
+    let firstAvailableDay = -1;
+    for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+      for (let hour = 0; hour < 24; hour++) {
+        const timestamp = getTimestampInPT(days[dayIndex], hour);
+        if (timestamp >= minTime && !blockedSlots.some(s => timestamp >= s.start && timestamp < s.end)) {
+          firstAvailableDay = dayIndex;
+          break;
+        }
+      }
+      if (firstAvailableDay !== -1) break;
+    }
+
+    if (firstAvailableDay === -1) {
+      // No available slots this week — advance to next week (limit: 4 weeks ahead)
+      const maxWeeksAhead = getSunday(new Date());
+      maxWeeksAhead.setDate(maxWeeksAhead.getDate() + 28);
+      if (currentWeekStart < maxWeeksAhead) {
+        goToNextWeek();
+        return;
+      }
+      // Beyond 4 weeks, just stop
+      hasAutoScrolled.current = true;
+      return;
+    }
+
+    hasAutoScrolled.current = true;
+
+    // Scroll horizontally to show the first available day
+    if (horizontalScrollRef.current && firstAvailableDay > 0) {
+      const container = horizontalScrollRef.current;
+      const columnWidth = container.scrollWidth / 7;
+      container.scrollLeft = firstAvailableDay * columnWidth;
+    }
+  }, [isLoading, currentWeekStart]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Check if a time is blocked
   const isTimeBlocked = (timestamp: number): boolean => {
@@ -367,7 +411,7 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
           </div>
 
           {/* Horizontally scrollable grid area */}
-          <div className="flex-1 overflow-x-auto">
+          <div ref={horizontalScrollRef} className="flex-1 overflow-x-auto">
             <div className="min-w-[600px]">
               {/* Day headers */}
               <div className="grid grid-cols-7 border-b border-gray-800">
