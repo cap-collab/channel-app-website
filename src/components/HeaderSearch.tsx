@@ -288,7 +288,7 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
 
 
   return (
-    <div ref={containerRef} className="relative flex-1 max-w-md">
+    <div ref={containerRef} className={`relative flex-1 max-w-md ${showDropdown ? 'z-50' : ''}`}>
       {/* Search Input */}
       <div className="relative">
         <svg
