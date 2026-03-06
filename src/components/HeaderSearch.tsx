@@ -68,6 +68,8 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const showDropdown = isOpen && query.trim().length > 0;
 
   // Debounced search
   useEffect(() => {
@@ -185,6 +187,28 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Position dropdown portal relative to the search container
+  useEffect(() => {
+    if (!showDropdown || !containerRef.current) return;
+    const updatePosition = () => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      setDropdownStyle({
+        position: 'fixed',
+        top: rect.bottom + 8,
+        left: rect.left,
+        width: rect.width,
+      });
+    };
+    updatePosition();
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [showDropdown]);
+
   const handleToggleFavorite = useCallback(async (show: Show, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isAuthenticated) {
@@ -281,7 +305,6 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
     setIsOpen(false);
   };
 
-  const showDropdown = isOpen && query.trim().length > 0;
   // Use exact match for search query to avoid false positives
   // e.g. "skee" should not show as in watchlist just because "skee mask" is
   const queryInWatchlist = isExactlyInWatchlist(query.trim());
@@ -328,17 +351,17 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
         )}
       </div>
 
-      {/* Dropdown Results */}
-      {showDropdown && (
+      {/* Dropdown Results - rendered via portal to escape stacking context */}
+      {showDropdown && typeof document !== 'undefined' && createPortal(
         <>
           {/* Backdrop - starts below header to not block header clicks */}
           <div
-            className="fixed inset-0 top-[60px] z-40"
+            className="fixed inset-0 top-[60px] z-[9998]"
             onClick={() => setIsOpen(false)}
           />
 
-          {/* Results Panel - positioned below search bar */}
-          <div className="absolute left-0 right-0 top-full mt-2 bg-surface-elevated rounded-xl border border-gray-800 shadow-2xl z-50 max-h-[60vh] overflow-y-auto">
+          {/* Results Panel - fixed positioned below search bar */}
+          <div style={dropdownStyle} className="z-[9999] bg-surface-elevated rounded-xl border border-gray-800 shadow-2xl max-h-[60vh] overflow-y-auto">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
@@ -561,7 +584,8 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
               </>
             )}
           </div>
-        </>
+        </>,
+        document.body
       )}
 
       {/* Expanded Show Card */}
