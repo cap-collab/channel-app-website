@@ -713,7 +713,7 @@ export function ChannelClient() {
                     value={notifyEmail}
                     onChange={(e) => setNotifyEmail(e.target.value)}
                     required
-                    className="bg-white/10 border border-white/20 rounded-l px-4 py-3 text-white placeholder-gray-300 text-sm focus:outline-none focus:border-white/40 min-w-0 flex-1 sm:w-64"
+                    className="bg-white/10 border border-white/20 rounded-l px-4 py-3 text-white placeholder-gray-300 text-sm focus:outline-none focus:border-white/40 min-w-0 flex-1 sm:w-80"
                   />
                   <button
                     type="submit"
