@@ -14,16 +14,13 @@ interface BlockedSlot {
   end: number;
 }
 
-const PT_TIMEZONE = 'America/Los_Angeles';
-
-// All 24 hours available, default view scrolled to 9am–6pm PT
+// All 24 hours, default view 9am–6pm
 const ALL_HOURS = Array.from({ length: 24 }, (_, i) => i);
-const HOUR_HEIGHT = 40; // pixels per hour
-const DEFAULT_VIEW_START = 9; // Scroll to 9am on mount
-const VISIBLE_HOUR_COUNT = 9; // Show 9 hours at a time
+const HOUR_HEIGHT = 40;
+const DEFAULT_VIEW_START = 9;
+const VISIBLE_HOUR_COUNT = 9;
 const VISIBLE_HEIGHT = VISIBLE_HOUR_COUNT * HOUR_HEIGHT;
 
-// Format hour for display in PT
 function formatHour(hour: number): string {
   if (hour === 0) return '12a';
   if (hour < 12) return `${hour}a`;
@@ -31,75 +28,44 @@ function formatHour(hour: number): string {
   return `${hour - 12}p`;
 }
 
-// Get the Sunday of the current week for a given date
 function getSunday(date: Date): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
-  const day = d.getDay(); // 0 = Sunday
+  const day = d.getDay();
   d.setDate(d.getDate() - day);
   return d;
 }
 
-// Format date for day header
 function formatDayHeader(date: Date): string {
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  if (date.toDateString() === today.toDateString()) {
-    return 'Today';
-  }
-  if (date.toDateString() === tomorrow.toDateString()) {
-    return 'Tomorrow';
-  }
+  if (date.toDateString() === today.toDateString()) return 'Today';
+  if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
 
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-// Create a UTC timestamp for a given calendar date and hour in PT
-function getTimestampInPT(baseDate: Date, hour: number): number {
-  const year = baseDate.getFullYear();
-  const month = String(baseDate.getMonth() + 1).padStart(2, '0');
-  const day = String(baseDate.getDate()).padStart(2, '0');
-  const hourStr = String(hour).padStart(2, '0');
-  // Construct the target datetime as if it were UTC
-  const asUTC = new Date(`${year}-${month}-${day}T${hourStr}:00:00Z`);
-  // Find what PT shows for this UTC time, then compute offset
-  const ptParts = new Intl.DateTimeFormat('en-US', {
-    timeZone: PT_TIMEZONE,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', hour12: false,
-  }).formatToParts(asUTC);
-  const ptHour = parseInt(ptParts.find(p => p.type === 'hour')?.value || '0');
-  const ptDay = parseInt(ptParts.find(p => p.type === 'day')?.value || '0');
-  // offset = how many hours ahead UTC is from PT
-  let offsetHours = asUTC.getUTCHours() - ptHour;
-  if (ptDay !== asUTC.getUTCDate()) {
-    offsetHours += (asUTC.getUTCDate() > ptDay) ? -24 : 24;
-  }
-  // The real UTC time for "hour in PT" = asUTC + offset
-  return asUTC.getTime() + offsetHours * 60 * 60 * 1000;
+// Get a UTC timestamp for a given calendar date and hour in local time
+function getTimestamp(baseDate: Date, hour: number): number {
+  const d = new Date(baseDate);
+  d.setHours(hour, 0, 0, 0);
+  return d.getTime();
 }
 
 export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlotPickerProps) {
-  const [currentWeekStart, setCurrentWeekStart] = useState(() => {
-    // Start from Sunday of the current week
-    return getSunday(new Date());
-  });
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => getSunday(new Date()));
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Hover preview state
   const [hoverSlot, setHoverSlot] = useState<{ dayIndex: number; startHour: number } | null>(null);
   const timeColumnRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const horizontalScrollRef = useRef<HTMLDivElement>(null);
   const hasAutoScrolled = useRef(false);
 
-  // Duration in milliseconds
   const durationMs = setDuration * 60 * 60 * 1000;
 
-  // Get days to show (Sunday to Saturday)
   const days = useMemo(() => {
     const result = [];
     for (let i = 0; i < 7; i++) {
@@ -110,7 +76,7 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
     return result;
   }, [currentWeekStart]);
 
-  // Fetch blocked slots (existing broadcasts)
+  // Fetch blocked slots
   useEffect(() => {
     async function fetchBlockedSlots() {
       setIsLoading(true);
@@ -129,26 +95,27 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
     fetchBlockedSlots();
   }, []);
 
-  // Scroll to 9am on mount once loading is done
+  // Scroll to 9am on mount
   useEffect(() => {
     if (!isLoading) {
-      const scrollPos = DEFAULT_VIEW_START * HOUR_HEIGHT;
-      if (gridRef.current) gridRef.current.scrollTop = scrollPos;
-      if (timeColumnRef.current) timeColumnRef.current.scrollTop = scrollPos;
+      requestAnimationFrame(() => {
+        const scrollPos = DEFAULT_VIEW_START * HOUR_HEIGHT;
+        if (gridRef.current) gridRef.current.scrollTop = scrollPos;
+        if (timeColumnRef.current) timeColumnRef.current.scrollTop = scrollPos;
+      });
     }
   }, [isLoading]);
 
-  // Auto-scroll horizontally to the first day with available slots (on initial load only)
+  // Auto-scroll horizontally to the first day with available slots
   useEffect(() => {
     if (isLoading || hasAutoScrolled.current) return;
 
     const minTime = Date.now() + 36 * 60 * 60 * 1000;
 
-    // Find the first day index that has at least one available hour
     let firstAvailableDay = -1;
     for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-      for (let hour = 0; hour < 24; hour++) {
-        const timestamp = getTimestampInPT(days[dayIndex], hour);
+      for (const hour of ALL_HOURS) {
+        const timestamp = getTimestamp(days[dayIndex], hour);
         if (timestamp >= minTime && !blockedSlots.some(s => timestamp >= s.start && timestamp < s.end)) {
           firstAvailableDay = dayIndex;
           break;
@@ -158,90 +125,67 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
     }
 
     if (firstAvailableDay === -1) {
-      // No available slots this week — advance to next week (limit: 4 weeks ahead)
       const maxWeeksAhead = getSunday(new Date());
       maxWeeksAhead.setDate(maxWeeksAhead.getDate() + 28);
       if (currentWeekStart < maxWeeksAhead) {
         goToNextWeek();
         return;
       }
-      // Beyond 4 weeks, just stop
       hasAutoScrolled.current = true;
       return;
     }
 
     hasAutoScrolled.current = true;
 
-    // Scroll horizontally to show the first available day
     if (horizontalScrollRef.current && firstAvailableDay > 0) {
-      const container = horizontalScrollRef.current;
-      const columnWidth = container.scrollWidth / 7;
-      container.scrollLeft = firstAvailableDay * columnWidth;
+      requestAnimationFrame(() => {
+        if (horizontalScrollRef.current) {
+          const columnWidth = horizontalScrollRef.current.scrollWidth / 7;
+          horizontalScrollRef.current.scrollLeft = firstAvailableDay * columnWidth;
+        }
+      });
     }
   }, [isLoading, currentWeekStart]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Check if a time is blocked
   const isTimeBlocked = (timestamp: number): boolean => {
     return blockedSlots.some((slot) => timestamp >= slot.start && timestamp < slot.end);
   };
 
-  // Check if time is in the past or within 36 hours
   const isTimeUnavailable = (timestamp: number): boolean => {
-    const minTime = Date.now() + 36 * 60 * 60 * 1000; // 36 hours from now
+    const minTime = Date.now() + 36 * 60 * 60 * 1000;
     return timestamp < minTime;
   };
 
-  // Get timestamp from day index and hour (in PT)
-  const getTimestamp = (dayIndex: number, hour: number): number => {
-    return getTimestampInPT(days[dayIndex], hour);
-  };
-
-  // Check if a slot from startTimestamp for the set duration is completely valid
   const isSlotValid = (dayIndex: number, startHour: number): boolean => {
-    const startTime = getTimestamp(dayIndex, startHour);
+    const startTime = getTimestamp(days[dayIndex], startHour);
     const endTime = startTime + durationMs;
-
-    // Disallow slots that cross midnight (end hour > 24)
     const endHour = startHour + setDuration;
-    if (endHour > 24) {
-      return false;
-    }
+    if (endHour > 24) return false;
 
-    // Check every 30-minute segment for blocked/unavailable time
-    const segmentDuration = 30 * 60 * 1000; // 30 minutes
+    const segmentDuration = 30 * 60 * 1000;
     for (let t = startTime; t < endTime; t += segmentDuration) {
-      if (isTimeBlocked(t) || isTimeUnavailable(t)) {
-        return false;
-      }
+      if (isTimeBlocked(t) || isTimeUnavailable(t)) return false;
     }
-
     return true;
   };
 
-  // Handle click on a time cell - creates slot of setDuration
   const handleCellClick = (dayIndex: number, hour: number) => {
-    const startTime = getTimestamp(dayIndex, hour);
+    const startTime = getTimestamp(days[dayIndex], hour);
 
-    // Check if clicking on an already-selected slot (to deselect)
     const existingSlotIndex = selectedSlots.findIndex(
       (slot) => startTime >= slot.start && startTime < slot.end
     );
 
     if (existingSlotIndex !== -1) {
-      // Remove the clicked slot
       onChange(selectedSlots.filter((_, i) => i !== existingSlotIndex));
       return;
     }
 
-    // Validate the new slot
-    if (!isSlotValid(dayIndex, hour)) {
-      return;
-    }
+    if (!isSlotValid(dayIndex, hour)) return;
 
     const endTime = startTime + durationMs;
     const newSlot: TimeSlot = { start: startTime, end: endTime };
 
-    // Remove any overlapping slots and add the new one
     const nonOverlapping = selectedSlots.filter(
       (slot) => slot.end <= newSlot.start || slot.start >= newSlot.end
     );
@@ -249,20 +193,12 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
     onChange([...nonOverlapping, newSlot].sort((a, b) => a.start - b.start));
   };
 
-  // Handle mouse enter for hover preview
   const handleCellMouseEnter = (dayIndex: number, hour: number) => {
-    const startTime = getTimestamp(dayIndex, hour);
-
-    // Don't show preview if already selected
+    const startTime = getTimestamp(days[dayIndex], hour);
     const isSelected = selectedSlots.some(
       (slot) => startTime >= slot.start && startTime < slot.end
     );
-    if (isSelected) {
-      setHoverSlot(null);
-      return;
-    }
-
-    // Show preview if valid
+    if (isSelected) { setHoverSlot(null); return; }
     if (isSlotValid(dayIndex, hour)) {
       setHoverSlot({ dayIndex, startHour: hour });
     } else {
@@ -270,33 +206,25 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
     }
   };
 
-  const handleCellMouseLeave = () => {
-    setHoverSlot(null);
-  };
+  const handleCellMouseLeave = () => setHoverSlot(null);
 
-  // Check if a cell is within the hover preview slot
   const isInHoverPreview = (dayIndex: number, hour: number): boolean => {
     if (!hoverSlot || hoverSlot.dayIndex !== dayIndex) return false;
-
-    const cellTime = getTimestamp(dayIndex, hour);
-    const previewStart = getTimestamp(hoverSlot.dayIndex, hoverSlot.startHour);
+    const cellTime = getTimestamp(days[dayIndex], hour);
+    const previewStart = getTimestamp(days[hoverSlot.dayIndex], hoverSlot.startHour);
     const previewEnd = previewStart + durationMs;
-
     return cellTime >= previewStart && cellTime < previewEnd;
   };
 
-  // Check if a cell is in a selected slot
   const isInSelectedSlot = (dayIndex: number, hour: number): boolean => {
-    const timestamp = getTimestamp(dayIndex, hour);
+    const timestamp = getTimestamp(days[dayIndex], hour);
     return selectedSlots.some((slot) => timestamp >= slot.start && timestamp < slot.end);
   };
 
-  // Remove a selected slot
   const removeSlot = (slotToRemove: TimeSlot) => {
     onChange(selectedSlots.filter((slot) => slot.start !== slotToRemove.start));
   };
 
-  // Navigate weeks
   const goToPrevWeek = () => {
     const newStart = new Date(currentWeekStart);
     newStart.setDate(newStart.getDate() - 7);
@@ -309,7 +237,6 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
     setCurrentWeekStart(newStart);
   };
 
-  // Check if we can go back (don't go before the current week's Sunday)
   const canGoPrev = useMemo(() => {
     const thisSunday = getSunday(new Date());
     return currentWeekStart > thisSunday;
@@ -347,7 +274,7 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
       {/* Selected slots summary */}
       {selectedSlots.length > 0 && (
         <div className="px-4 py-3 bg-[#1a1a1a] border-b border-gray-800">
-          <p className="text-xs text-gray-500 mb-2">Selected time slots (PT):</p>
+          <p className="text-xs text-gray-500 mb-2">Selected time slots:</p>
           <div className="flex flex-wrap gap-2">
             {selectedSlots.map((slot, i) => {
               const start = new Date(slot.start);
@@ -358,9 +285,9 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
                   className="flex items-center gap-2 px-3 py-1.5 bg-green-900/30 border border-green-800 rounded-lg text-sm"
                 >
                   <span className="text-green-400">
-                    {start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: PT_TIMEZONE })}{' '}
-                    {start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: PT_TIMEZONE })} -{' '}
-                    {end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: PT_TIMEZONE })}
+                    {start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}{' '}
+                    {start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} -{' '}
+                    {end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                   </span>
                   <button
                     type="button"
@@ -378,11 +305,6 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
         </div>
       )}
 
-      {/* Timezone label */}
-      <div className="px-4 py-2 bg-[#1a1a1a] border-b border-gray-800">
-        <p className="text-xs text-gray-500">All times in Pacific Time (PT)</p>
-      </div>
-
       {/* Calendar grid */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
@@ -390,13 +312,17 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
         </div>
       ) : (
         <div className="flex">
-          {/* Fixed time column - never scrolls horizontally */}
+          {/* Fixed time column */}
           <div className="flex-shrink-0 w-[50px] bg-[#0a0a0a] z-10">
-            {/* Empty header cell to align with day headers */}
-            <div className="h-[33px] border-b border-gray-800" />
-            {/* Hour labels - scrolls vertically with grid */}
-            <div className="overflow-hidden" style={{ maxHeight: VISIBLE_HEIGHT }}>
-              <div ref={timeColumnRef}>
+            <div className="p-2 border-b border-gray-800">
+              <span className="text-xs">&nbsp;</span>
+            </div>
+            <div
+              ref={timeColumnRef}
+              className="overflow-hidden"
+              style={{ maxHeight: VISIBLE_HEIGHT }}
+            >
+              <div>
                 {ALL_HOURS.map((hour) => (
                   <div
                     key={hour}
@@ -431,7 +357,6 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
                 className="overflow-y-auto select-none"
                 style={{ maxHeight: VISIBLE_HEIGHT }}
                 onScroll={(e) => {
-                  // Sync time column scroll with grid scroll
                   if (timeColumnRef.current) {
                     timeColumnRef.current.scrollTop = e.currentTarget.scrollTop;
                   }
@@ -444,7 +369,7 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
                     style={{ height: HOUR_HEIGHT }}
                   >
                     {days.map((_, dayIndex) => {
-                      const timestamp = getTimestamp(dayIndex, hour);
+                      const timestamp = getTimestamp(days[dayIndex], hour);
                       const blocked = isTimeBlocked(timestamp);
                       const unavailable = isTimeUnavailable(timestamp);
                       const selected = isInSelectedSlot(dayIndex, hour);
