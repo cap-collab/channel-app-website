@@ -91,7 +91,8 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
 
   // Hover preview state
   const [hoverSlot, setHoverSlot] = useState<{ dayIndex: number; startHour: number } | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const timeColumnRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   // Duration in milliseconds
   const durationMs = setDuration * 60 * 60 * 1000;
@@ -128,8 +129,10 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
 
   // Scroll to 9am on mount once loading is done
   useEffect(() => {
-    if (!isLoading && scrollRef.current) {
-      scrollRef.current.scrollTop = DEFAULT_VIEW_START * HOUR_HEIGHT;
+    if (!isLoading) {
+      const scrollPos = DEFAULT_VIEW_START * HOUR_HEIGHT;
+      if (gridRef.current) gridRef.current.scrollTop = scrollPos;
+      if (timeColumnRef.current) timeColumnRef.current.scrollTop = scrollPos;
     }
   }, [isLoading]);
 
@@ -342,12 +345,32 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <div className="min-w-[650px]">
-            {/* Day headers */}
-            <div className="flex border-b border-gray-800">
-              <div className="flex-shrink-0 w-[50px] bg-[#0a0a0a]" />
-              <div className="flex-1 grid grid-cols-7">
+        <div className="flex">
+          {/* Fixed time column - never scrolls horizontally */}
+          <div className="flex-shrink-0 w-[50px] bg-[#0a0a0a] z-10">
+            {/* Empty header cell to align with day headers */}
+            <div className="h-[33px] border-b border-gray-800" />
+            {/* Hour labels - scrolls vertically with grid */}
+            <div className="overflow-hidden" style={{ maxHeight: VISIBLE_HEIGHT }}>
+              <div ref={timeColumnRef}>
+                {ALL_HOURS.map((hour) => (
+                  <div
+                    key={hour}
+                    className="flex items-start justify-end pr-2 pt-1 border-b border-gray-800/50"
+                    style={{ height: HOUR_HEIGHT }}
+                  >
+                    <span className="text-xs text-gray-600">{formatHour(hour)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Horizontally scrollable grid area */}
+          <div className="flex-1 overflow-x-auto">
+            <div className="min-w-[600px]">
+              {/* Day headers */}
+              <div className="grid grid-cols-7 border-b border-gray-800">
                 {days.map((day, i) => (
                   <div
                     key={i}
@@ -357,18 +380,25 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
                   </div>
                 ))}
               </div>
-            </div>
 
-            {/* Scrollable time grid with time labels */}
-            <div ref={scrollRef} className="overflow-y-auto select-none" style={{ maxHeight: VISIBLE_HEIGHT }}>
-              {ALL_HOURS.map((hour) => (
-                <div key={hour} className="flex border-b border-gray-800/50" style={{ height: HOUR_HEIGHT }}>
-                  {/* Time label */}
-                  <div className="flex-shrink-0 w-[50px] flex items-start justify-end pr-2 pt-1 bg-[#0a0a0a]">
-                    <span className="text-xs text-gray-600">{formatHour(hour)}</span>
-                  </div>
-                  {/* Day cells */}
-                  <div className="flex-1 grid grid-cols-7">
+              {/* Vertically scrollable time grid */}
+              <div
+                ref={gridRef}
+                className="overflow-y-auto select-none"
+                style={{ maxHeight: VISIBLE_HEIGHT }}
+                onScroll={(e) => {
+                  // Sync time column scroll with grid scroll
+                  if (timeColumnRef.current) {
+                    timeColumnRef.current.scrollTop = e.currentTarget.scrollTop;
+                  }
+                }}
+              >
+                {ALL_HOURS.map((hour) => (
+                  <div
+                    key={hour}
+                    className="grid grid-cols-7 border-b border-gray-800/50"
+                    style={{ height: HOUR_HEIGHT }}
+                  >
                     {days.map((_, dayIndex) => {
                       const timestamp = getTimestamp(dayIndex, hour);
                       const blocked = isTimeBlocked(timestamp);
@@ -396,8 +426,8 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
                       );
                     })}
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>
