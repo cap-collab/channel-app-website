@@ -36,16 +36,23 @@ function getSunday(date: Date): Date {
   return d;
 }
 
-function formatDayHeader(date: Date): string {
+function formatDayHeader(date: Date): { line1: string; line2: string } {
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  if (date.toDateString() === today.toDateString()) return 'Today';
-  if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+  const monthDay = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  if (date.toDateString() === today.toDateString()) return { line1: 'Today', line2: monthDay };
+  if (date.toDateString() === tomorrow.toDateString()) return { line1: 'Tomorrow', line2: monthDay };
+
+  return {
+    line1: date.toLocaleDateString('en-US', { weekday: 'short' }),
+    line2: monthDay,
+  };
 }
+
+const DAY_HEADER_HEIGHT = 48;
 
 // Get a UTC timestamp for a given calendar date and hour in local time
 function getTimestamp(baseDate: Date, hour: number): number {
@@ -314,9 +321,7 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
         <div className="flex">
           {/* Fixed time column */}
           <div className="flex-shrink-0 w-[50px] bg-[#0a0a0a] z-10">
-            <div className="p-2 border-b border-gray-800">
-              <span className="text-xs">&nbsp;</span>
-            </div>
+            <div className="border-b border-gray-800" style={{ height: DAY_HEADER_HEIGHT }} />
             <div
               ref={timeColumnRef}
               className="overflow-hidden"
@@ -340,15 +345,19 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
           <div ref={horizontalScrollRef} className="flex-1 overflow-x-auto">
             <div className="min-w-[600px]">
               {/* Day headers */}
-              <div className="grid grid-cols-7 border-b border-gray-800">
-                {days.map((day, i) => (
-                  <div
-                    key={i}
-                    className="p-2 text-center text-xs font-medium text-gray-400 border-l border-gray-800"
-                  >
-                    {formatDayHeader(day)}
-                  </div>
-                ))}
+              <div className="grid grid-cols-7 border-b border-gray-800" style={{ height: DAY_HEADER_HEIGHT }}>
+                {days.map((day, i) => {
+                  const header = formatDayHeader(day);
+                  return (
+                    <div
+                      key={i}
+                      className="flex flex-col items-center justify-center text-xs font-medium text-gray-400 border-l border-gray-800"
+                    >
+                      <span>{header.line1}</span>
+                      <span>{header.line2}</span>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Vertically scrollable time grid */}
