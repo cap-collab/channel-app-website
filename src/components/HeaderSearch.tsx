@@ -337,8 +337,8 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
             onClick={() => setIsOpen(false)}
           />
 
-          {/* Results Panel - fixed full-width on mobile, absolute on desktop */}
-          <div className="fixed md:absolute inset-x-4 md:inset-x-auto md:left-0 md:right-0 top-[60px] md:top-full mt-0 md:mt-2 bg-surface-elevated rounded-xl border border-gray-800 shadow-2xl z-50 max-h-[70vh] overflow-y-auto">
+          {/* Results Panel - positioned below search bar */}
+          <div className="absolute left-0 right-0 top-full mt-2 bg-surface-elevated rounded-xl border border-gray-800 shadow-2xl z-50 max-h-[60vh] overflow-y-auto">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
