@@ -713,12 +713,12 @@ export function ChannelClient() {
                     value={notifyEmail}
                     onChange={(e) => setNotifyEmail(e.target.value)}
                     required
-                    className="bg-white/10 border border-white/20 rounded-l px-4 py-3 text-white placeholder-gray-300 text-sm focus:outline-none focus:border-white/40 w-full sm:w-auto min-w-[22rem]"
+                    className="bg-white/10 border border-white/20 rounded-l px-4 py-3 text-white placeholder-gray-300 text-sm focus:outline-none focus:border-white/40 min-w-0 flex-1 sm:w-64"
                   />
                   <button
                     type="submit"
                     disabled={notifyStatus === 'submitting'}
-                    className="bg-white/20 border border-white/20 border-l-0 rounded-r px-4 py-3 text-white text-sm font-medium hover:bg-white/30 transition-colors disabled:opacity-50"
+                    className="bg-white/20 border border-white/20 border-l-0 rounded-r px-4 py-3 text-white text-sm font-medium hover:bg-white/30 transition-colors disabled:opacity-50 shrink-0"
                   >
                     {notifyStatus === 'submitting' ? '...' : 'Submit'}
                   </button>
