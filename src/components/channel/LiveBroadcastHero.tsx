@@ -104,7 +104,7 @@ export function LiveBroadcastHero() {
 
   const { shows: scheduleShows, loading: scheduleLoading, selectedDate, setSelectedDate } = useBroadcastSchedule();
 
-  const [activeTab, setActiveTab] = useState<'chat' | 'programming'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'schedule'>('chat');
   const [heartTrigger, setHeartTrigger] = useState(0);
   const [chatInput, setChatInput] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -364,13 +364,13 @@ export function LiveBroadcastHero() {
             )}
           </button>
           <button
-            onClick={() => setActiveTab('programming')}
+            onClick={() => setActiveTab('schedule')}
             className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${
-              activeTab === 'programming' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+              activeTab === 'schedule' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
-            Programming
-            {activeTab === 'programming' && (
+            Schedule
+            {activeTab === 'schedule' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />
             )}
           </button>
@@ -378,7 +378,7 @@ export function LiveBroadcastHero() {
 
         {/* Tab Content */}
         {activeTab === 'chat' ? (
-          <div className="flex flex-col" style={{ minHeight: '400px' }}>
+          <div className="flex flex-col" style={{ maxHeight: '45vh' }}>
             {/* Promo bar */}
             {promoToShow && promoToShow.username && (() => {
               const hasHyperlink = !!promoToShow.hyperlink;
@@ -462,7 +462,7 @@ export function LiveBroadcastHero() {
             ) : (
               <>
                 {/* Messages */}
-                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto" style={{ maxHeight: '50vh' }}>
+                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto">
                   {messages.length === 0 ? (
                     <div className="flex items-center justify-center py-12 text-zinc-500">
                       <p>No messages yet. Start the conversation!</p>
@@ -511,7 +511,7 @@ export function LiveBroadcastHero() {
             )}
           </div>
         ) : (
-          <div className="py-4" style={{ minHeight: '400px' }}>
+          <div className="py-4 overflow-y-auto" style={{ maxHeight: '45vh' }}>
             <BroadcastSchedule
               shows={scheduleShows}
               selectedDate={selectedDate}
