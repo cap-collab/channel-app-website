@@ -264,71 +264,72 @@ export function LiveBroadcastHero() {
           )}
         </div>
 
-        {/* Show Info + Play button — below image, same layout as LiveShowCard */}
-        <div className="flex items-center gap-3 py-3">
-          {/* Play/Pause */}
-          <button
-            onClick={toggle}
-            disabled={!isLive}
-            className="w-10 h-10 flex items-center justify-center bg-white disabled:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
-          >
-            {isLoading ? (
-              <svg className="w-5 h-5 animate-spin text-black" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-            ) : isPlaying ? (
-              <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            )}
-          </button>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-bold leading-tight truncate text-white">{showName}</h3>
-            <p className="text-[10px] text-zinc-500 uppercase mt-0.5">
-              on Channel Broadcast
-            </p>
-          </div>
-        </div>
-        {streamError && (
-          <p className="text-red-400 text-xs mb-2">{streamError}</p>
-        )}
-
-        {/* Action Bar — LOVE + TIP */}
-        <div className="flex items-center gap-2 pb-3">
-          {/* Love Button */}
-          <div className="relative flex-1">
+        {/* Sticky bar: Play + Show Info + Love + Tip — all on one line */}
+        <div className="sticky top-[52px] z-50 bg-black border-b border-white/10">
+          <div className="flex items-center gap-3 py-2">
+            {/* Play/Pause */}
             <button
-              onClick={() => {
-                if (!isAuthenticated) { setShowAuthModal(true); return; }
-                if (!chatUsername) return;
-                handleSendLove();
-              }}
-              className="w-full flex items-center justify-center py-2 bg-white/10 hover:bg-white/20 transition-colors text-accent"
+              onClick={toggle}
+              disabled={!isLive}
+              className="w-10 h-10 flex items-center justify-center bg-white disabled:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
             >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-              </svg>
+              {isLoading ? (
+                <svg className="w-5 h-5 animate-spin text-black" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              ) : isPlaying ? (
+                <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              )}
             </button>
-            <FloatingHearts trigger={heartTrigger} />
-          </div>
 
-          {/* Tip Button */}
-          {currentDJ && (currentDJUserId || currentDJEmail) && currentShow && (
-            <TipButton
-              tipperUserId={user?.uid}
-              tipperUsername={chatUsername || undefined}
-              djUserId={currentDJUserId || undefined}
-              djEmail={currentDJEmail || undefined}
-              djUsername={currentDJ}
-              broadcastSlotId={currentShow.id}
-              showName={showName}
-              className="flex-1 flex items-center justify-center gap-2 py-2 bg-white/10 hover:bg-white/20 transition-colors text-green-400"
-            />
+            {/* Show info */}
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-bold leading-tight truncate text-white">{showName}</h3>
+              <p className="text-[10px] text-zinc-500 uppercase mt-0.5">
+                {djName ? `${djName} — Channel Broadcast` : 'on Channel Broadcast'}
+              </p>
+            </div>
+
+            {/* Love Button */}
+            <div className="relative flex-shrink-0">
+              <button
+                onClick={() => {
+                  if (!isAuthenticated) { setShowAuthModal(true); return; }
+                  if (!chatUsername) return;
+                  handleSendLove();
+                }}
+                className="w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors text-accent"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                </svg>
+              </button>
+              <FloatingHearts trigger={heartTrigger} />
+            </div>
+
+            {/* Tip Button */}
+            {currentDJ && (currentDJUserId || currentDJEmail) && currentShow && (
+              <TipButton
+                tipperUserId={user?.uid}
+                tipperUsername={chatUsername || undefined}
+                djUserId={currentDJUserId || undefined}
+                djEmail={currentDJEmail || undefined}
+                djUsername={currentDJ}
+                broadcastSlotId={currentShow.id}
+                showName={showName}
+                className="w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors text-green-400 flex-shrink-0"
+              />
+            )}
+          </div>
+          {streamError && (
+            <p className="text-red-400 text-xs pb-2">{streamError}</p>
           )}
         </div>
 
