@@ -342,8 +342,7 @@ export function StudioJoinClient() {
           {/* Hero Section - Only show for non-DJs */}
           {!userIsDJ && (
             <div className="mb-12">
-              <h1 className="text-3xl font-bold mb-4">Studio</h1>
-              <p className="text-xl text-gray-300 mb-8">Host a show on Channel</p>
+              <h1 className="text-3xl font-bold mb-4">Host a show on Channel</h1>
 
               <h2 className="text-lg font-semibold mb-4">What you get</h2>
               <div className="space-y-4">

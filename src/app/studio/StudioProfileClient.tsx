@@ -1343,7 +1343,7 @@ export function StudioProfileClient() {
                 href="/studio/livestream"
                 className="flex-1 block bg-gray-800 text-white text-center py-3 rounded font-medium hover:bg-gray-700 transition-colors border border-gray-700"
               >
-                Request a live stream slot
+                Host a show
               </Link>
             </div>
           </section>
