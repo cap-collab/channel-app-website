@@ -18,8 +18,10 @@ import { SkeletonCard } from '@/components/channel/SkeletonCard';
 import { AuthModal } from '@/components/AuthModal';
 import { GenreAlertPrompt } from '@/components/channel/GenreAlertPrompt';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
+import { LiveBroadcastHero } from '@/components/channel/LiveBroadcastHero';
 import { Show, Station, IRLShowData, CuratorRec } from '@/types';
 import { STATIONS } from '@/lib/stations';
+import { useBroadcastLiveStatus } from '@/hooks/useBroadcastLiveStatus';
 import { useFavorites } from '@/hooks/useFavorites';
 import { getDefaultCity, matchesCity, SUPPORTED_CITIES } from '@/lib/city-detection';
 import { GENRE_ALIASES, SUPPORTED_GENRES, matchesGenre as matchesGenreLib } from '@/lib/genres';
@@ -32,6 +34,7 @@ type MatchedItem =
 
 export function ChannelClient() {
   const { user, isAuthenticated } = useAuthContext();
+  const { isLive: isBroadcastLive } = useBroadcastLiveStatus();
   const { favorites, isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
   const { shows: scheduleShows, irlShows: scheduleIrlShows, curatorRecs: scheduleCuratorRecs, loading: scheduleLoading } = useSchedule();
   const router = useRouter();
@@ -693,50 +696,54 @@ export function ChannelClient() {
         <Header currentPage="channel" position="sticky" />
       </div>
 
-      {/* Hero Section — Launching Soon */}
-      <section className="px-4 md:px-8 py-16 md:py-24 text-center relative z-10">
-        <div className="max-w-2xl mx-auto">
-          <h1 className="text-3xl md:text-5xl font-bold mb-4">Channel Radio</h1>
-          <p className="text-lg md:text-xl text-gray-300 mb-3">Launching soon.</p>
-          <p className="text-gray-400 leading-relaxed mb-10 max-w-lg mx-auto">
-            We are currently inviting DJs, labels, venues, and collectives from the LA scene to host the first shows.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <div className="w-full sm:w-auto">
-              {notifyStatus === 'success' ? (
-                <p className="text-green-400 text-sm py-3">You&apos;re on the list!</p>
-              ) : (
-                <form onSubmit={handleNotifySubmit} className="flex">
-                  <input
-                    type="email"
-                    placeholder="get an email when Channel goes live"
-                    value={notifyEmail}
-                    onChange={(e) => setNotifyEmail(e.target.value)}
-                    required
-                    className="bg-white/10 border border-white/20 rounded-l px-4 py-3 text-white placeholder-gray-300 text-sm focus:outline-none focus:border-white/40 min-w-0 flex-1 sm:w-80"
-                  />
-                  <button
-                    type="submit"
-                    disabled={notifyStatus === 'submitting'}
-                    className="bg-white/20 border border-white/20 border-l-0 rounded-r px-4 py-3 text-white text-sm font-medium hover:bg-white/30 transition-colors disabled:opacity-50 shrink-0"
-                  >
-                    {notifyStatus === 'submitting' ? '...' : 'Submit'}
-                  </button>
-                </form>
-              )}
-              {notifyStatus === 'error' && (
-                <p className="text-red-400 text-xs mt-1">Something went wrong. Try again.</p>
-              )}
+      {/* Hero Section — Live Broadcast or Launching Soon */}
+      {isBroadcastLive ? (
+        <LiveBroadcastHero />
+      ) : (
+        <section className="px-4 md:px-8 py-16 md:py-24 text-center relative z-10">
+          <div className="max-w-2xl mx-auto">
+            <h1 className="text-3xl md:text-5xl font-bold mb-4">Channel Radio</h1>
+            <p className="text-lg md:text-xl text-gray-300 mb-3">Launching soon.</p>
+            <p className="text-gray-400 leading-relaxed mb-10 max-w-lg mx-auto">
+              We are currently inviting DJs, labels, venues, and collectives from the LA scene to host the first shows.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <div className="w-full sm:w-auto">
+                {notifyStatus === 'success' ? (
+                  <p className="text-green-400 text-sm py-3">You&apos;re on the list!</p>
+                ) : (
+                  <form onSubmit={handleNotifySubmit} className="flex">
+                    <input
+                      type="email"
+                      placeholder="get an email when Channel goes live"
+                      value={notifyEmail}
+                      onChange={(e) => setNotifyEmail(e.target.value)}
+                      required
+                      className="bg-white/10 border border-white/20 rounded-l px-4 py-3 text-white placeholder-gray-300 text-sm focus:outline-none focus:border-white/40 min-w-0 flex-1 sm:w-80"
+                    />
+                    <button
+                      type="submit"
+                      disabled={notifyStatus === 'submitting'}
+                      className="bg-white/20 border border-white/20 border-l-0 rounded-r px-4 py-3 text-white text-sm font-medium hover:bg-white/30 transition-colors disabled:opacity-50 shrink-0"
+                    >
+                      {notifyStatus === 'submitting' ? '...' : 'Submit'}
+                    </button>
+                  </form>
+                )}
+                {notifyStatus === 'error' && (
+                  <p className="text-red-400 text-xs mt-1">Something went wrong. Try again.</p>
+                )}
+              </div>
+              <Link
+                href="/studio/join"
+                className="bg-white text-black px-8 py-3 rounded font-semibold hover:bg-gray-200 transition-colors"
+              >
+                Host a show
+              </Link>
             </div>
-            <Link
-              href="/studio/join"
-              className="bg-white text-black px-8 py-3 rounded font-semibold hover:bg-gray-200 transition-colors"
-            >
-              Host a show
-            </Link>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Meanwhile in the Scene */}
       <section className="px-4 md:px-8 pb-4 relative z-10">
