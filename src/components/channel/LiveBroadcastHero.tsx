@@ -14,7 +14,6 @@ import { AuthModal } from '@/components/AuthModal';
 import { ChatMessageSerialized } from '@/types/broadcast';
 import { normalizeUrl } from '@/lib/url';
 
-// Reserved usernames that cannot be registered (case-insensitive)
 const RESERVED_USERNAMES = ['channel', 'admin', 'system', 'moderator', 'mod'];
 
 function isValidUsername(username: string): boolean {
@@ -35,7 +34,7 @@ function formatTimeAgo(timestamp: number): string {
   return `${Math.floor(diff / 86400000)}d`;
 }
 
-function ChatMessage({
+function HeroChatMessage({
   message,
   isOwnMessage,
   currentLiveDjUsername,
@@ -70,7 +69,7 @@ function ChatMessage({
   }
 
   return (
-    <div className={`py-2 px-4 ${isOwnMessage ? 'bg-black/30' : ''}`}>
+    <div className={`py-2 px-4 ${isOwnMessage ? 'bg-white/5' : ''}`}>
       <div className="flex items-start gap-2">
         <div className="flex-1">
           <div className="flex items-center gap-2">
@@ -110,6 +109,7 @@ export function LiveBroadcastHero() {
   const [chatInput, setChatInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // Username setup state
@@ -129,6 +129,7 @@ export function LiveBroadcastHero() {
   const djPhotoUrl = currentShow?.liveDjPhotoUrl || currentShow?.showImageUrl || null;
   const showName = currentShow?.showName || 'Live Now';
   const djName = currentDJ || currentShow?.djName || null;
+  const hasPhoto = djPhotoUrl && !imageError;
 
   // Get DJ identity for tips
   const currentDJUserId = (() => {
@@ -154,7 +155,6 @@ export function LiveBroadcastHero() {
   // Promo display
   const promoToShow = (() => {
     if (currentShow?.broadcastType === 'venue') {
-      // For venue: check current DJ slot promo
       if (currentShow.djSlots && currentShow.djSlots.length > 0) {
         const now = Date.now();
         const slot = currentShow.djSlots.find(s => s.startTime <= now && s.endTime > now);
@@ -166,13 +166,11 @@ export function LiveBroadcastHero() {
           };
         }
       }
-      // Fall back to show-level promo
       if (currentShow.showPromoText) {
         return { text: currentShow.showPromoText, hyperlink: currentShow.showPromoHyperlink, username: currentDJ };
       }
       return null;
     }
-    // Remote: use chat promo
     if (currentPromo?.promoText) {
       return { text: currentPromo.promoText, hyperlink: currentPromo.promoHyperlink, username: currentPromo.username };
     }
@@ -221,31 +219,12 @@ export function LiveBroadcastHero() {
   if (!isLive || !currentShow) return null;
 
   return (
-    <section className="relative z-10">
-      {/* Hero Header */}
-      <div className="px-4 pt-8 pb-4 text-center">
-        {/* DJ Profile Image */}
-        <div className="relative inline-block mb-4">
-          <div className="w-40 h-40 rounded-full overflow-hidden border-2 border-white/20 mx-auto bg-surface-card">
-            {djPhotoUrl ? (
-              <Image
-                src={djPhotoUrl}
-                alt={djName || 'DJ'}
-                width={160}
-                height={160}
-                className="object-cover w-full h-full"
-                unoptimized
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-accent/20">
-                <span className="text-4xl font-black text-white uppercase">
-                  {(djName || showName || '?').charAt(0)}
-                </span>
-              </div>
-            )}
-          </div>
-          {/* LIVE badge */}
-          <div className="absolute bottom-1 right-1 flex items-center gap-1.5 bg-black/80 rounded-full px-2.5 py-1">
+    <section className="relative z-10 px-4 pt-6 pb-2">
+      <div className="max-w-2xl mx-auto">
+
+        {/* Live indicator — same style as LiveShowCard */}
+        <div className="flex items-center justify-end mb-1 h-4 px-0.5">
+          <div className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
@@ -254,57 +233,87 @@ export function LiveBroadcastHero() {
           </div>
         </div>
 
-        {/* Play/Pause + Show Info */}
-        <div className="flex items-center justify-center gap-3 mb-2">
+        {/* DJ Image — 16:9 with overlays, same as LiveShowCard */}
+        <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10">
+          {hasPhoto ? (
+            <>
+              <Image
+                src={djPhotoUrl}
+                alt={djName || 'DJ'}
+                fill
+                className="object-cover"
+                unoptimized
+                onError={() => setImageError(true)}
+              />
+              {/* Gradient scrims */}
+              <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
+              {/* DJ Name overlay — bottom left */}
+              <div className="absolute bottom-2 left-2 right-2">
+                <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+                  {djName}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-white/5">
+              <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-center px-4 text-white">
+                {djName || showName}
+              </h2>
+            </div>
+          )}
+        </div>
+
+        {/* Show Info + Play button — below image, same layout as LiveShowCard */}
+        <div className="flex items-center gap-3 py-3">
+          {/* Play/Pause */}
           <button
             onClick={toggle}
             disabled={!isLive}
-            className="w-12 h-12 flex items-center justify-center rounded-full bg-accent disabled:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+            className="w-10 h-10 flex items-center justify-center bg-white disabled:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
           >
             {isLoading ? (
-              <svg className="w-6 h-6 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 animate-spin text-black" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
             ) : isPlaying ? (
-              <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
               </svg>
             ) : (
-              <svg className="w-6 h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>
             )}
           </button>
-          <div className="text-left">
-            <h2 className="text-white font-bold text-lg leading-tight">{showName}</h2>
-            <p className="text-gray-400 text-sm">
-              {djName && <span>{djName}</span>}
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-bold leading-tight truncate text-white">{showName}</h3>
+            <p className="text-[10px] text-zinc-500 uppercase mt-0.5">
+              on Channel Broadcast
             </p>
           </div>
         </div>
         {streamError && (
-          <p className="text-red-400 text-xs mt-1">{streamError}</p>
+          <p className="text-red-400 text-xs mb-2">{streamError}</p>
         )}
-      </div>
 
-      {/* Action Bar — LOVE + TIP */}
-      <div className="sticky top-[52px] z-50 bg-black/90 backdrop-blur-sm border-y border-white/10">
-        <div className="flex items-center justify-center gap-4 px-4 py-3">
+        {/* Action Bar — LOVE + TIP */}
+        <div className="flex items-center gap-2 pb-3">
           {/* Love Button */}
-          <div className="relative">
+          <div className="relative flex-1">
             <button
               onClick={() => {
                 if (!isAuthenticated) { setShowAuthModal(true); return; }
                 if (!chatUsername) return;
                 handleSendLove();
               }}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-accent"
+              className="w-full flex items-center justify-center gap-2 py-2 bg-white/10 hover:bg-white/20 transition-colors text-white"
             >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
               </svg>
-              <span className="text-sm font-semibold text-white">Love</span>
+              <span className="text-sm font-semibold">Love</span>
             </button>
             <FloatingHearts trigger={heartTrigger} />
           </div>
@@ -319,203 +328,204 @@ export function LiveBroadcastHero() {
               djUsername={currentDJ}
               broadcastSlotId={currentShow.id}
               showName={showName}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-green-400"
+              className="flex-1 flex items-center justify-center gap-2 py-2 bg-white/10 hover:bg-white/20 transition-colors text-green-400"
             />
           )}
         </div>
-      </div>
 
-      {/* Tab Bar */}
-      <div className="flex border-b border-white/10 bg-black">
-        <button
-          onClick={() => setActiveTab('chat')}
-          className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${
-            activeTab === 'chat' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
-          }`}
-        >
-          <div className="flex items-center justify-center gap-2">
-            <span>Chat</span>
-            {listenerCount > 0 && (
-              <span className="flex items-center gap-1 text-gray-400 text-xs">
-                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 3a9 9 0 00-9 9v7c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2H5v-1a7 7 0 1114 0v1h-2c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-7a9 9 0 00-9-9z" />
-                </svg>
-                {listenerCount}
-              </span>
+        {/* Tab Bar */}
+        <div className="flex border-b border-white/10">
+          <button
+            onClick={() => setActiveTab('chat')}
+            className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${
+              activeTab === 'chat' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <span>Chat</span>
+              {listenerCount > 0 && (
+                <span className="flex items-center gap-1 text-zinc-500 text-xs">
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 3a9 9 0 00-9 9v7c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2H5v-1a7 7 0 1114 0v1h-2c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-7a9 9 0 00-9-9z" />
+                  </svg>
+                  {listenerCount}
+                </span>
+              )}
+              {loveCount > 0 && (
+                <span className="flex items-center gap-1 text-zinc-500 text-xs">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                  </svg>
+                  {loveCount}
+                </span>
+              )}
+            </div>
+            {activeTab === 'chat' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />
             )}
-            {loveCount > 0 && (
-              <span className="flex items-center gap-1 text-gray-400 text-xs">
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                </svg>
-                {loveCount}
-              </span>
+          </button>
+          <button
+            onClick={() => setActiveTab('programming')}
+            className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${
+              activeTab === 'programming' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            Programming
+            {activeTab === 'programming' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />
             )}
-          </div>
-          {activeTab === 'chat' && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />
-          )}
-        </button>
-        <button
-          onClick={() => setActiveTab('programming')}
-          className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${
-            activeTab === 'programming' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
-          }`}
-        >
-          Programming
-          {activeTab === 'programming' && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />
-          )}
-        </button>
-      </div>
+          </button>
+        </div>
 
-      {/* Tab Content */}
-      {activeTab === 'chat' ? (
-        <div className="flex flex-col" style={{ minHeight: '400px' }}>
-          {/* Promo bar */}
-          {promoToShow && promoToShow.username && (() => {
-            const hasHyperlink = !!promoToShow.hyperlink;
-            const content = (
-              <div className={`px-4 py-3 bg-accent/10 border-b border-gray-800 ${hasHyperlink ? 'hover:bg-accent/20 cursor-pointer' : ''}`}>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-white font-semibold text-sm">{promoToShow.username}</span>
-                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title="Live DJ" />
-                  {hasHyperlink && (
-                    <svg className="w-4 h-4 text-accent flex-shrink-0 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
+        {/* Tab Content */}
+        {activeTab === 'chat' ? (
+          <div className="flex flex-col" style={{ minHeight: '400px' }}>
+            {/* Promo bar */}
+            {promoToShow && promoToShow.username && (() => {
+              const hasHyperlink = !!promoToShow.hyperlink;
+              const content = (
+                <div className={`px-4 py-3 bg-white/5 border-b border-white/10 ${hasHyperlink ? 'hover:bg-white/10 cursor-pointer' : ''}`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-white font-semibold text-sm">{promoToShow.username}</span>
+                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title="Live DJ" />
+                    {hasHyperlink && (
+                      <svg className="w-4 h-4 text-zinc-400 flex-shrink-0 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    )}
+                  </div>
+                  <p className={`text-sm ${hasHyperlink ? 'text-white underline' : 'text-white'}`}>
+                    {promoToShow.text}
+                  </p>
+                </div>
+              );
+              if (hasHyperlink) {
+                return (
+                  <a href={normalizeUrl(promoToShow.hyperlink!)} target="_blank" rel="noopener noreferrer" className="block transition-colors">
+                    {content}
+                  </a>
+                );
+              }
+              return content;
+            })()}
+
+            {/* Auth states */}
+            {!isAuthenticated ? (
+              <div className="flex-1 flex items-center justify-center p-6">
+                <div className="text-center">
+                  <p className="text-zinc-400 mb-4">Sign in to join the chat</p>
+                  <button
+                    onClick={() => setShowAuthModal(true)}
+                    className="px-6 py-2 bg-white text-black font-medium text-sm hover:bg-gray-200 transition-colors"
+                  >
+                    Sign In
+                  </button>
+                </div>
+              </div>
+            ) : profileLoading ? (
+              <div className="flex-1 flex items-center justify-center p-6">
+                <svg className="animate-spin h-8 w-8 text-zinc-500" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              </div>
+            ) : !chatUsername ? (
+              <div className="flex-1 flex items-center justify-center p-6">
+                <div className="text-center max-w-sm w-full">
+                  <h3 className="text-white font-bold text-xl mb-2">Choose a Username</h3>
+                  <p className="text-zinc-400 text-sm mb-6">This will be displayed in the chat</p>
+                  <div className="text-left mb-4">
+                    <input
+                      type="text"
+                      value={usernameInput}
+                      onChange={(e) => { setUsernameInput(e.target.value); if (usernameError) setUsernameError(''); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && usernameInput.trim() && !isCheckingUsername) { e.preventDefault(); handleSetUsername(); } }}
+                      placeholder="Username"
+                      className="w-full px-4 py-3 bg-black border border-white/20 text-white placeholder-zinc-500 focus:outline-none focus:border-white/40"
+                      maxLength={20}
+                      autoComplete="off"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      disabled={isCheckingUsername}
+                    />
+                    <p className="text-zinc-500 text-xs mt-2">2-20 characters, letters, numbers, and spaces</p>
+                    {usernameError && <p className="text-red-400 text-xs mt-2">{usernameError}</p>}
+                  </div>
+                  <button
+                    onClick={handleSetUsername}
+                    disabled={!usernameInput.trim() || isCheckingUsername}
+                    className="w-full bg-white hover:bg-gray-200 disabled:bg-zinc-700 disabled:cursor-not-allowed text-black disabled:text-zinc-400 font-medium py-3 transition-colors"
+                  >
+                    {isCheckingUsername ? 'Checking...' : 'Join Chat'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Messages */}
+                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto" style={{ maxHeight: '50vh' }}>
+                  {messages.length === 0 ? (
+                    <div className="flex items-center justify-center py-12 text-zinc-500">
+                      <p>No messages yet. Start the conversation!</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-white/5">
+                      {messages.map((msg) => (
+                        <HeroChatMessage
+                          key={msg.id}
+                          message={msg}
+                          isOwnMessage={msg.username === chatUsername}
+                          currentLiveDjUsername={currentDJ || undefined}
+                        />
+                      ))}
+                    </div>
                   )}
                 </div>
-                <p className={`text-sm ${hasHyperlink ? 'text-accent' : 'text-white'}`}>
-                  {promoToShow.text}
-                </p>
-              </div>
-            );
-            if (hasHyperlink) {
-              return (
-                <a href={normalizeUrl(promoToShow.hyperlink!)} target="_blank" rel="noopener noreferrer" className="block transition-colors">
-                  {content}
-                </a>
-              );
-            }
-            return content;
-          })()}
 
-          {/* Auth states */}
-          {!isAuthenticated ? (
-            <div className="flex-1 flex items-center justify-center p-6">
-              <div className="text-center">
-                <p className="text-gray-400 mb-4">Sign in to join the chat</p>
-                <button
-                  onClick={() => setShowAuthModal(true)}
-                  className="px-6 py-2 bg-white text-black rounded-lg font-medium text-sm hover:bg-white/90 transition-colors"
-                >
-                  Sign In
-                </button>
-              </div>
-            </div>
-          ) : profileLoading ? (
-            <div className="flex-1 flex items-center justify-center p-6">
-              <svg className="animate-spin h-8 w-8 text-gray-400" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-            </div>
-          ) : !chatUsername ? (
-            <div className="flex-1 flex items-center justify-center p-6">
-              <div className="text-center max-w-sm w-full">
-                <h3 className="text-white font-bold text-xl mb-2">Choose a Username</h3>
-                <p className="text-gray-400 text-sm mb-6">This will be displayed in the chat</p>
-                <div className="text-left mb-4">
-                  <input
-                    type="text"
-                    value={usernameInput}
-                    onChange={(e) => { setUsernameInput(e.target.value); if (usernameError) setUsernameError(''); }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && usernameInput.trim() && !isCheckingUsername) { e.preventDefault(); handleSetUsername(); } }}
-                    placeholder="Username"
-                    className="w-full px-4 py-3 bg-black border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-gray-500"
-                    maxLength={20}
-                    autoComplete="off"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    disabled={isCheckingUsername}
-                  />
-                  <p className="text-gray-500 text-xs mt-2">2-20 characters, letters, numbers, and spaces</p>
-                  {usernameError && <p className="text-red-400 text-xs mt-2">{usernameError}</p>}
+                {/* Chat input */}
+                <div className="border-t border-white/10 p-3">
+                  <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      placeholder="Message..."
+                      className="flex-1 min-w-0 bg-black text-white text-sm border border-white/20 px-3 py-2 focus:outline-none focus:border-white/40 disabled:text-zinc-500 disabled:cursor-not-allowed"
+                      maxLength={280}
+                      disabled={isSending}
+                    />
+                    <button
+                      type="submit"
+                      disabled={!chatInput.trim() || isSending}
+                      className="flex-shrink-0 bg-white hover:bg-gray-200 disabled:bg-zinc-700 disabled:cursor-not-allowed text-black disabled:text-zinc-400 p-2 transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                    </button>
+                  </form>
+                  <p className="text-zinc-500 text-xs mt-2">
+                    Chatting as <span className="text-white">{chatUsername}</span>
+                  </p>
                 </div>
-                <button
-                  onClick={handleSetUsername}
-                  disabled={!usernameInput.trim() || isCheckingUsername}
-                  className="w-full bg-white hover:bg-gray-100 disabled:bg-gray-600 disabled:cursor-not-allowed text-gray-900 disabled:text-gray-400 font-medium py-3 rounded-lg transition-colors"
-                >
-                  {isCheckingUsername ? 'Checking...' : 'Join Chat'}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Messages */}
-              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto" style={{ maxHeight: '50vh' }}>
-                {messages.length === 0 ? (
-                  <div className="flex items-center justify-center py-12 text-gray-500">
-                    <p>No messages yet. Start the conversation!</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-gray-800/50">
-                    {messages.map((msg) => (
-                      <ChatMessage
-                        key={msg.id}
-                        message={msg}
-                        isOwnMessage={msg.username === chatUsername}
-                        currentLiveDjUsername={currentDJ || undefined}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="py-4" style={{ minHeight: '400px' }}>
+            <BroadcastSchedule
+              shows={scheduleShows}
+              selectedDate={selectedDate}
+              onDateChange={setSelectedDate}
+              loading={scheduleLoading}
+              isAuthenticated={isAuthenticated}
+              userId={user?.uid}
+              username={chatUsername || undefined}
+            />
+          </div>
+        )}
 
-              {/* Chat input */}
-              <div className="border-t border-gray-800 p-3">
-                <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    placeholder="Message..."
-                    className="flex-1 min-w-0 bg-black text-white text-sm border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500 disabled:text-gray-500 disabled:cursor-not-allowed"
-                    maxLength={280}
-                    disabled={isSending}
-                  />
-                  <button
-                    type="submit"
-                    disabled={!chatInput.trim() || isSending}
-                    className="flex-shrink-0 bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white p-2 rounded-lg transition-colors"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                    </svg>
-                  </button>
-                </form>
-                <p className="text-gray-500 text-xs mt-2">
-                  Chatting as <span className="text-white">{chatUsername}</span>
-                </p>
-              </div>
-            </>
-          )}
-        </div>
-      ) : (
-        <div className="px-4 py-4" style={{ minHeight: '400px' }}>
-          <BroadcastSchedule
-            shows={scheduleShows}
-            selectedDate={selectedDate}
-            onDateChange={setSelectedDate}
-            loading={scheduleLoading}
-            isAuthenticated={isAuthenticated}
-            userId={user?.uid}
-            username={chatUsername || undefined}
-          />
-        </div>
-      )}
+      </div>
 
       <AuthModal
         isOpen={showAuthModal}
