@@ -3,10 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
-// import { HeaderSearch } from '@/components/HeaderSearch';
 import { DJApplicationFormData, TimeSlot, LocationType } from '@/types/dj-application';
 import { TimeSlotPicker } from '@/components/dj-portal/TimeSlotPicker';
-import { AuthModal } from '@/components/AuthModal';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isDJ } from '@/hooks/useUserRole';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
@@ -16,7 +14,7 @@ type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
 
 export function StudioJoinClient() {
   const { user, isAuthenticated } = useAuthContext();
-  const { role, loading: roleLoading } = useUserRole(user);
+  const { role } = useUserRole(user);
   const userIsDJ = isDJ(role);
 
   const [formData, setFormData] = useState<DJApplicationFormData>({
@@ -37,12 +35,8 @@ export function StudioJoinClient() {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     needsSetupSupport: false,
   });
-  const [agreedToDJTerms, setAgreedToDJTerms] = useState(false);
   const [status, setStatus] = useState<FormStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [upgradingToDJ, setUpgradingToDJ] = useState(false);
-  const [upgradeError, setUpgradeError] = useState('');
   // Track which fields came from DJ profile (to disable them)
   const [profileFields, setProfileFields] = useState<{
     djName: boolean;
@@ -100,39 +94,6 @@ export function StudioJoinClient() {
     fetchDJProfile();
   }, [user, userIsDJ]);
 
-  // Handle upgrade to DJ for logged-in non-DJ users
-  const handleUpgradeToDJ = async () => {
-    if (!user || !agreedToDJTerms) {
-      setUpgradeError('Please accept the DJ Terms to continue');
-      return;
-    }
-
-    setUpgradingToDJ(true);
-    setUpgradeError('');
-
-    try {
-      // Use the API endpoint which handles claiming pending DJ profiles
-      const response = await fetch('/api/users/assign-dj-role', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to upgrade to DJ');
-      }
-
-      // Force page reload to get updated role
-      window.location.reload();
-    } catch (error) {
-      console.error('Failed to upgrade to DJ:', error);
-      setUpgradeError('Failed to upgrade. Please try again.');
-    } finally {
-      setUpgradingToDJ(false);
-    }
-  };
-
-
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -175,24 +136,21 @@ export function StudioJoinClient() {
       setErrorMessage('Please enter a valid email address');
       return false;
     }
-    // Livestream-specific validation for DJ users
-    if (userIsDJ) {
-      if (!formData.setDuration || formData.setDuration < 0.5 || formData.setDuration > 24) {
-        setErrorMessage('Set duration must be between 0.5 and 24 hours');
-        return false;
-      }
-      if ((formData.setDuration * 2) % 1 !== 0) {
-        setErrorMessage('Set duration must be in 0.5 hour increments');
-        return false;
-      }
-      if (formData.locationType === 'venue' && !formData.venueName?.trim()) {
-        setErrorMessage('Please enter the venue name');
-        return false;
-      }
-      if (!formData.preferredSlots || formData.preferredSlots.length === 0) {
-        setErrorMessage('Please select at least one preferred time slot');
-        return false;
-      }
+    if (!formData.setDuration || formData.setDuration < 0.5 || formData.setDuration > 24) {
+      setErrorMessage('Set duration must be between 0.5 and 24 hours');
+      return false;
+    }
+    if ((formData.setDuration * 2) % 1 !== 0) {
+      setErrorMessage('Set duration must be in 0.5 hour increments');
+      return false;
+    }
+    if (formData.locationType === 'venue' && !formData.venueName?.trim()) {
+      setErrorMessage('Please enter the venue name');
+      return false;
+    }
+    if (!formData.preferredSlots || formData.preferredSlots.length === 0) {
+      setErrorMessage('Please select at least one preferred time slot');
+      return false;
     }
     return true;
   };
@@ -313,176 +271,26 @@ export function StudioJoinClient() {
     );
   }
 
-  // Show loading state while checking user role (only if authenticated)
-  // This prevents flickering between upgrade view and DJ form
-  if (isAuthenticated && roleLoading) {
-    return (
-      <div className="min-h-screen bg-black">
-        <Header currentPage="studio" position="sticky" />
-        <div className="p-4 md:p-8">
-          <div className="max-w-2xl mx-auto flex items-center justify-center py-20">
-            <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-black">
       <Header currentPage="studio" position="sticky" />
 
       <main className="p-4 md:p-8">
         <div className="max-w-2xl mx-auto">
-          {/* Search bar - mobile only (hidden, will be relocated) */}
-          {/* <div className="md:hidden mb-6">
-            <HeaderSearch onAuthRequired={() => setShowAuthModal(true)} />
-          </div> */}
+          <h2 className="text-2xl font-semibold mb-4">Apply to host a show</h2>
+          <p className="text-gray-400 mb-4">
+            Apply to schedule a live set on our radio. If you&apos;re unsure about your setup, check the{' '}
+            <Link href="/streaming-guide" className="text-white underline hover:text-gray-300 transition-colors">
+              streaming guide
+            </Link>{' '}
+            or reach out at{' '}
+            <a href="mailto:info@channel-app.com" className="text-white underline hover:text-gray-300 transition-colors">
+              info@channel-app.com
+            </a>.
+          </p>
 
-          {/* Hero Section - Only show for non-DJs */}
-          {!userIsDJ && (
-            <div className="mb-12">
-              <h1 className="text-3xl font-bold mb-4">Host a show on Channel</h1>
-
-              <h2 className="text-lg font-semibold mb-4">What you get</h2>
-              <div className="space-y-4">
-                <div className="flex gap-4">
-                  <div className="w-6 h-6 flex-shrink-0 mt-0.5">
-                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-white font-medium">A show on Channel</p>
-                    <p className="text-gray-400 text-sm">Host regular shows or occasional listening sessions.</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="w-6 h-6 flex-shrink-0 mt-0.5">
-                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-white font-medium">A profile on the radio</p>
-                    <p className="text-gray-400 text-sm">Your page gathers your shows on Channel, on other radios and in real life, your recordings, and your recommendations.</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="w-6 h-6 flex-shrink-0 mt-0.5">
-                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-white font-medium">Direct support from listeners</p>
-                    <p className="text-gray-400 text-sm">People can tune in live, join the chat, and support you through tips.</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="w-6 h-6 flex-shrink-0 mt-0.5">
-                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-white font-medium">Full audience ownership</p>
-                    <p className="text-gray-400 text-sm">Your followers receive notifications every time you go live or publish something new.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Sign Up / Upgrade Section - Only show if not already a DJ */}
-          {!userIsDJ && (
-            <div className="border-t border-gray-800 pt-12 mb-12">
-              {isAuthenticated ? (
-                // State B: Logged in, NOT a DJ - show upgrade section
-                <>
-                  <h2 className="text-2xl font-semibold mb-4">Upgrade to DJ Profile</h2>
-                  <p className="text-gray-400 mb-6">
-                    You&apos;re logged in as {user?.email}. Accept the DJ Terms to unlock your DJ profile.
-                  </p>
-
-                  <div className="bg-gray-900 border border-gray-800 rounded p-6">
-                    <label className="flex items-start gap-3 cursor-pointer mb-4">
-                      <input
-                        type="checkbox"
-                        checked={agreedToDJTerms}
-                        onChange={(e) => setAgreedToDJTerms(e.target.checked)}
-                        className="mt-1 w-5 h-5 rounded border-gray-600 bg-gray-800 text-white focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                      />
-                      <span className="text-sm text-gray-300">
-                        I have read and agree to the{' '}
-                        <Link
-                          href="/dj-terms"
-                          target="_blank"
-                          className="text-white underline hover:text-gray-300"
-                        >
-                          DJ Terms
-                        </Link>
-                      </span>
-                    </label>
-
-                    {upgradeError && (
-                      <p className="text-red-400 text-sm mb-4">{upgradeError}</p>
-                    )}
-
-                    <button
-                      onClick={handleUpgradeToDJ}
-                      disabled={!agreedToDJTerms || upgradingToDJ}
-                      className="bg-white text-black px-8 py-3 rounded font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                    >
-                      {upgradingToDJ ? (
-                        <>
-                          <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                          Upgrading...
-                        </>
-                      ) : (
-                        'Upgrade to DJ'
-                      )}
-                    </button>
-                  </div>
-                </>
-              ) : (
-                // State A: Not logged in - show inline sign up form
-                <>
-                  <h2 className="text-2xl font-semibold mb-6">Apply to host a show</h2>
-                  <div className="max-w-sm">
-                    <AuthModal
-                      isOpen={true}
-                      onClose={() => {}}
-                      message="Create your curator profile"
-                      inline
-                      includeDjTerms
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Livestream Request Section - Show for DJs */}
-          {userIsDJ && (
-            <div className="border-t border-gray-800 pt-12">
-              <h2 className="text-2xl font-semibold mb-4">Request a live stream slot</h2>
-              <p className="text-gray-400 mb-4">
-                Apply to schedule a live set on our radio. If you&apos;re unsure about your setup, check the{' '}
-                <Link href="/streaming-guide" className="text-white underline hover:text-gray-300 transition-colors">
-                  streaming guide
-                </Link>{' '}
-                or reach out at{' '}
-                <a href="mailto:info@channel-app.com" className="text-white underline hover:text-gray-300 transition-colors">
-                  info@channel-app.com
-                </a>.
-              </p>
-
-              {/* Form */}
-              <form onSubmit={handleSubmit} className="space-y-6 mt-8">
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-6 mt-8">
               {/* Your Name */}
               <div>
                 <label
@@ -813,18 +621,8 @@ export function StudioJoinClient() {
                 )}
               </button>
             </form>
-          </div>
-          )}
         </div>
       </main>
-
-      {/* Auth Modal */}
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        message="Sign in to create your DJ profile"
-        includeDjTerms
-      />
     </div>
   );
 }
