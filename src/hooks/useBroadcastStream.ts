@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Room, RoomEvent, Track, RemoteTrack, RemoteTrackPublication, RemoteParticipant } from 'livekit-client';
-import { getFirestore, collection, query, where, orderBy, limit, onSnapshot, Timestamp } from 'firebase/firestore';
+import { getFirestore, collection, query, where, limit, onSnapshot, Timestamp } from 'firebase/firestore';
 import { getDatabase, ref, set, remove, onValue, onDisconnect } from 'firebase/database';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getApps, initializeApp } from 'firebase/app';
@@ -115,9 +115,7 @@ interface UseBroadcastStreamReturn {
   play: () => void;
   pause: () => void;
   toggle: () => void;
-  loveCount: number;
   listenerCount: number;
-  messageCount: number;
   audioStream: MediaStream | null;
 }
 
@@ -128,9 +126,7 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
   const [currentShow, setCurrentShow] = useState<BroadcastSlotSerialized | null>(null);
   const [currentDJ, setCurrentDJ] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loveCount, setLoveCount] = useState(0);
   const [listenerCount, setListenerCount] = useState(0);
-  const [messageCount, setMessageCount] = useState(0);
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
 
   const roomRef = useRef<Room | null>(null);
@@ -541,42 +537,6 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
     }
   }, [isPlaying, play, pause]);
 
-  // Subscribe to activity counts - filter by show start time so counts reset per show
-  useEffect(() => {
-    const app = getFirebaseApp();
-    const db = getFirestore(app);
-
-    // Subscribe to chat messages for message count
-    const messagesRef = collection(db, 'chats', 'broadcast', 'messages');
-    // Use show start time if available, otherwise fall back to 24 hours ago
-    const showStartTime = currentShow?.startTime || (Date.now() - 24 * 60 * 60 * 1000);
-
-    // Count messages since the show started
-    const messagesQuery = query(
-      messagesRef,
-      where('timestamp', '>', new Date(showStartTime)),
-      orderBy('timestamp', 'desc'),
-      limit(100)
-    );
-
-    const unsubMessages = onSnapshot(messagesQuery, (snapshot) => {
-      let loves = 0;
-      let msgs = 0;
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.messageType === 'love' || data.message?.includes(' is ❤️')) {
-          loves += data.heartCount || 1;
-        } else {
-          msgs += 1;
-        }
-      });
-      setLoveCount(loves);
-      setMessageCount(msgs);
-    });
-
-    return () => unsubMessages();
-  }, [currentShow?.startTime]);
-
   // Subscribe to listener count from Firebase Realtime Database (matches iOS ListenerCountService)
   useEffect(() => {
     const app = getFirebaseApp();
@@ -602,9 +562,7 @@ export function useBroadcastStream(): UseBroadcastStreamReturn {
     play,
     pause,
     toggle,
-    loveCount,
     listenerCount,
-    messageCount,
     audioStream,
   };
 }

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { FloatingHearts } from './FloatingHearts';
-import { useListenerChat } from '@/hooks/useListenerChat';
+import { useDJProfileChat } from '@/hooks/useDJProfileChat';
 
 interface LoveButtonProps {
   isAuthenticated: boolean;
@@ -24,7 +24,13 @@ export function LoveButton({
   const [trigger, setTrigger] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
 
-  const { sendLove } = useListenerChat({ username });
+  // Note: This component is currently unused but kept for potential future use
+  const { sendLove } = useDJProfileChat({
+    chatUsernameNormalized: '',
+    djUsername: showName || '',
+    username,
+    enabled: false,
+  });
 
   const handleClick = useCallback(async () => {
     if (disabled) return;
@@ -40,14 +46,14 @@ export function LoveButton({
 
     // Send love reaction
     try {
-      await sendLove(showName);
+      await sendLove();
     } catch (err) {
       console.error('Failed to send love:', err);
     }
 
     // Reset animation
     setTimeout(() => setIsAnimating(false), 300);
-  }, [disabled, isAuthenticated, onRequireAuth, sendLove, showName]);
+  }, [disabled, isAuthenticated, onRequireAuth, sendLove]);
 
   const buttonSize = compact ? 'w-10 h-10' : 'w-12 h-12';
   const iconSize = compact ? 'w-5 h-5' : 'w-6 h-6';

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
-import { DJChatPanel } from './DJChatPanel';
+import { DJProfileChatPanel } from '@/components/dj-profile/DJProfileChatPanel';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { getFirestore, collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { getDatabase, ref, onValue } from 'firebase/database';
@@ -116,7 +116,6 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
   const [duration, setDuration] = useState(0);
   const [isEnding, setIsEnding] = useState(false);
   const [now, setNow] = useState(Date.now());
-  const [isChatCollapsed, setIsChatCollapsed] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState('');
@@ -543,15 +542,19 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
       {/* Right Column - Chat (on desktop, takes fixed width and full height) */}
       {broadcastToken && djUsername && slot && (
         <div className="lg:w-96 lg:flex-shrink-0 lg:h-full flex flex-col">
-          <DJChatPanel
-            broadcastToken={broadcastToken}
-            slotId={slot.id}
+          <DJProfileChatPanel
+            chatUsernameNormalized={djUsername.replace(/[\s-]+/g, '').toLowerCase()}
+            djUserId={user?.uid || ''}
             djUsername={djUsername}
+            djEmail=""
+            isAuthenticated={!!user?.uid}
+            username={djUsername}
             userId={user?.uid}
-            isCollapsed={isChatCollapsed}
-            onToggleCollapse={() => setIsChatCollapsed(!isChatCollapsed)}
-            initialPromoSubmitted={initialPromoSubmitted}
+            isOwner={true}
+            broadcastToken={broadcastToken}
+            broadcastSlotId={slot.id}
             isVenue={isVenue}
+            initialPromoSubmitted={initialPromoSubmitted}
             onChangeUsername={onChangeUsername}
           />
         </div>

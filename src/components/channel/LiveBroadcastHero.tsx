@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
-import { useListenerChat } from '@/hooks/useListenerChat';
+import { useDJProfileChat } from '@/hooks/useDJProfileChat';
 import { useBroadcastSchedule } from '@/hooks/useBroadcastSchedule';
 import { useBroadcastStream } from '@/hooks/useBroadcastStream';
 import { BroadcastSchedule } from './BroadcastSchedule';
@@ -94,11 +94,45 @@ export function LiveBroadcastHero() {
 
   const {
     isPlaying, isLoading, isLive, currentShow, currentDJ,
-    loveCount, listenerCount, toggle, error: streamError,
+    listenerCount, toggle, error: streamError,
   } = useBroadcastStream();
 
-  const { messages, sendMessage, sendLove, currentPromo } = useListenerChat({
+  // Determine the current DJ's chat room from live broadcast data
+  const computeDJChatRoom = useCallback(() => {
+    if (!currentShow) return '';
+    const normalize = (u: string) => u.replace(/[\s-]+/g, '').toLowerCase();
+    if (currentShow.djSlots && currentShow.djSlots.length > 0) {
+      const now = Date.now();
+      const slot = currentShow.djSlots.find(s => s.startTime <= now && s.endTime > now);
+      const username = slot?.liveDjUsername || slot?.djUsername || slot?.djName;
+      if (username) return normalize(username);
+    }
+    const username = currentShow.liveDjUsername || currentShow.djUsername || currentShow.djName;
+    return username ? normalize(username) : '';
+  }, [currentShow]);
+
+  const [currentDJChatRoom, setCurrentDJChatRoom] = useState(() => computeDJChatRoom());
+
+  // Re-evaluate chat room when show data changes, and on a timer for venue DJ transitions
+  useEffect(() => {
+    setCurrentDJChatRoom(computeDJChatRoom());
+
+    // For venue broadcasts with multiple DJs, poll every 30s to detect DJ transitions
+    const isVenue = currentShow?.djSlots && currentShow.djSlots.length > 1;
+    if (!isVenue) return;
+
+    const interval = setInterval(() => {
+      setCurrentDJChatRoom(computeDJChatRoom());
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [computeDJChatRoom, currentShow?.djSlots]);
+
+  const { messages, sendMessage, sendLove, currentPromo, loveCount } = useDJProfileChat({
+    chatUsernameNormalized: currentDJChatRoom,
+    djUsername: currentDJ || currentShow?.djName || '',
     username: chatUsername || undefined,
+    enabled: !!currentDJChatRoom,
     currentShowStartTime: currentShow?.startTime,
   });
 
@@ -181,11 +215,11 @@ export function LiveBroadcastHero() {
     if (!chatUsername) return;
     setHeartTrigger((prev) => prev + 1);
     try {
-      await sendLove(showName);
+      await sendLove();
     } catch (err) {
       console.error('Failed to send love:', err);
     }
-  }, [chatUsername, sendLove, showName]);
+  }, [chatUsername, sendLove]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();

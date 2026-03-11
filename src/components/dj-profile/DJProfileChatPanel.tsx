@@ -6,6 +6,7 @@ import { ChatMessageSerialized } from '@/types/broadcast';
 import { AuthModal } from '@/components/AuthModal';
 import { FloatingHearts } from '@/components/channel/FloatingHearts';
 import { TipButton } from '@/components/channel/TipButton';
+import { normalizeUrl } from '@/lib/url';
 
 interface DJProfileChatPanelProps {
   chatUsernameNormalized: string;
@@ -18,6 +19,14 @@ interface DJProfileChatPanelProps {
   profileLoading?: boolean;
   onSetUsername?: (username: string) => Promise<{ success: boolean; error?: string }>;
   isOwner?: boolean;
+  // Broadcast-specific props (when DJ is broadcasting):
+  broadcastToken?: string;
+  broadcastSlotId?: string;
+  isVenue?: boolean;
+  initialPromoSubmitted?: boolean;
+  onChangeUsername?: (newUsername: string) => void;
+  activePromoText?: string;
+  activePromoHyperlink?: string;
 }
 
 // Reserved usernames that cannot be registered (case-insensitive)
@@ -279,19 +288,38 @@ export function DJProfileChatPanel({
   profileLoading = false,
   onSetUsername,
   isOwner = false,
+  broadcastToken,
+  broadcastSlotId,
+  isVenue = false,
+  initialPromoSubmitted = false,
+  onChangeUsername,
+  activePromoText,
+  activePromoHyperlink,
 }: DJProfileChatPanelProps) {
-  const { messages, error, sendMessage, sendLove } = useDJProfileChat({
+  const isBroadcasting = !!broadcastToken;
+
+  const { messages, error, sendMessage, sendLove, sendPromo, currentPromo, promoUsed } = useDJProfileChat({
     chatUsernameNormalized,
     djUsername,
     username,
     enabled: isAuthenticated,
     isOwner,
+    broadcastToken,
+    broadcastSlotId,
   });
 
   const [inputValue, setInputValue] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [heartTrigger, setHeartTrigger] = useState(0);
+  const [showPromoModal, setShowPromoModal] = useState(false);
+  const [promoTextInput, setPromoTextInput] = useState('');
+  const [promoHyperlinkInput, setPromoHyperlinkInput] = useState('');
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [showUsernameModal, setShowUsernameModal] = useState(false);
+  const [newUsernameInput, setNewUsernameInput] = useState(djUsername);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  const hasPostedPromo = promoUsed || initialPromoSubmitted;
 
   // Auto-scroll to bottom within chat container only
   useEffect(() => {
@@ -329,6 +357,38 @@ export function DJProfileChatPanel({
     }
   };
 
+  const handleSendPromo = async () => {
+    if (!promoTextInput.trim()) return;
+
+    setIsSending(true);
+    setLocalError(null);
+
+    try {
+      const normalizedHyperlink = promoHyperlinkInput.trim() ? normalizeUrl(promoHyperlinkInput.trim()) : undefined;
+      await sendPromo(promoTextInput.trim(), normalizedHyperlink);
+      setShowPromoModal(false);
+      setPromoTextInput('');
+      setPromoHyperlinkInput('');
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message : 'Failed to post promo');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  // Determine promo to display in pinned bar
+  const promoToDisplay = (() => {
+    if (!isBroadcasting) return null;
+    if (isVenue) {
+      // Venue: use pre-configured promo from current DJ slot only
+      if (activePromoText) return { text: activePromoText, hyperlink: activePromoHyperlink };
+      return null;
+    }
+    // Remote: use latest promo from chat messages
+    if (currentPromo?.promoText) return { text: currentPromo.promoText, hyperlink: currentPromo.promoHyperlink };
+    return null;
+  })();
+
   // Show login prompt if not authenticated
   if (!isAuthenticated) {
     return (
@@ -359,11 +419,40 @@ export function DJProfileChatPanel({
   return (
     <div className="flex flex-col h-full min-h-[400px] bg-surface-card">
       {/* Error display */}
-      {error && (
+      {(error || localError) && (
         <div className="bg-red-900/50 text-red-200 px-4 py-2 text-sm flex-shrink-0">
-          {error}
+          {error || localError}
         </div>
       )}
+
+      {/* Pinned Promo Bar (broadcast only) */}
+      {promoToDisplay && (() => {
+        const hasHyperlink = !!promoToDisplay.hyperlink;
+        const content = (
+          <div className={`px-3 pt-3 pb-2.5 bg-accent/10 border-b border-gray-800 flex-shrink-0 ${hasHyperlink ? 'hover:bg-accent/20 cursor-pointer' : ''}`}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-white font-semibold text-sm">{djUsername}</span>
+              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0" title="Live DJ" />
+              {hasHyperlink && (
+                <svg className="w-4 h-4 text-accent flex-shrink-0 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              )}
+            </div>
+            <p className={`text-sm ${hasHyperlink ? 'text-accent' : 'text-white'}`}>
+              {promoToDisplay.text}
+            </p>
+          </div>
+        );
+        if (hasHyperlink) {
+          return (
+            <a href={normalizeUrl(promoToDisplay.hyperlink!)} target="_blank" rel="noopener noreferrer" className="block transition-colors">
+              {content}
+            </a>
+          );
+        }
+        return content;
+      })()}
 
       {/* Messages */}
       <div ref={messagesContainerRef} className="flex-1 overflow-y-auto">
@@ -445,12 +534,125 @@ export function DJProfileChatPanel({
           </button>
         </form>
 
-        {/* Chatting as */}
-        <p className="text-gray-500 text-xs mt-2">
-          Chatting as <span className="text-white">{username}</span>
-          {isOwner && <span className="text-accent ml-1">(DJ)</span>}
-        </p>
+        {/* Chatting as + venue edit */}
+        <div className="mt-2 flex items-center justify-between">
+          <p className="text-gray-500 text-xs">
+            Chatting as <span className="text-white">{username}</span>
+            {isOwner && <span className="text-accent ml-1">(DJ)</span>}
+          </p>
+          {isBroadcasting && isVenue && onChangeUsername && (
+            <button
+              onClick={() => {
+                setNewUsernameInput(djUsername);
+                setShowUsernameModal(true);
+              }}
+              className="text-accent hover:text-accent-hover text-xs"
+            >
+              Edit
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Promo Modal (broadcast only) */}
+      {showPromoModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#252525] rounded-xl p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold text-white mb-4">Share a promo</h3>
+            <p className="text-gray-400 text-sm mb-4">
+              This will be pinned at the top of the chat for all listeners.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-gray-400 text-sm mb-1">Promo Text</label>
+                <input
+                  type="text"
+                  value={promoTextInput}
+                  onChange={(e) => setPromoTextInput(e.target.value)}
+                  placeholder="New album out now!"
+                  className="w-full bg-black text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500"
+                  maxLength={200}
+                />
+                <p className="text-gray-600 text-xs mt-1">{promoTextInput.length}/200</p>
+              </div>
+              <div>
+                <label className="block text-gray-400 text-sm mb-1">Hyperlink (optional)</label>
+                <input
+                  type="text"
+                  value={promoHyperlinkInput}
+                  onChange={(e) => setPromoHyperlinkInput(e.target.value)}
+                  placeholder="bandcamp.com/your-album"
+                  className="w-full bg-black text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500"
+                />
+                <p className="text-gray-600 text-xs mt-1">Clicking the promo text will open this link</p>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowPromoModal(false)}
+                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSendPromo}
+                  disabled={!promoTextInput.trim() || isSending}
+                  className="flex-1 bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white py-3 rounded-lg transition-colors"
+                >
+                  {isSending ? 'Posting...' : hasPostedPromo ? 'Update' : 'Post'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Username Edit Modal (venue broadcasts only) */}
+      {showUsernameModal && onChangeUsername && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#252525] rounded-xl p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold text-white mb-4">Change DJ Name</h3>
+            <p className="text-gray-400 text-sm mb-4">
+              This will update your name in the chat.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-gray-400 text-sm mb-1">DJ Name</label>
+                <input
+                  type="text"
+                  value={newUsernameInput}
+                  onChange={(e) => setNewUsernameInput(e.target.value)}
+                  placeholder="YourDJName"
+                  className="w-full bg-black text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500"
+                  maxLength={20}
+                />
+                <p className="text-gray-500 text-xs mt-1">2-20 characters, letters and numbers only</p>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowUsernameModal(false)}
+                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    const trimmed = newUsernameInput.trim();
+                    const handle = trimmed.replace(/\s+/g, '');
+                    if (trimmed.length >= 2 && trimmed.length <= 20 && handle.length >= 2 && /^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(trimmed)) {
+                      onChangeUsername(trimmed);
+                      setShowUsernameModal(false);
+                    }
+                  }}
+                  disabled={!newUsernameInput.trim() || newUsernameInput.trim().length < 2 || newUsernameInput.trim().replace(/\s+/g, '').length < 2 || !/^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(newUsernameInput.trim())}
+                  className="flex-1 bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white py-3 rounded-lg transition-colors"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

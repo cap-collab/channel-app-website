@@ -99,10 +99,14 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Also post as a chat message
+    // Determine the DJ's chat room (normalized username)
+    const djUsername = username || slot.liveDjUsername || 'DJ';
+    const chatUsernameNormalized = djUsername.replace(/[\s-]+/g, '').toLowerCase();
+
+    // Post promo as a chat message to the DJ's profile chat room
     const chatMessage = {
-      stationId: 'broadcast',
-      username: username || slot.liveDjUsername || 'DJ',
+      stationId: chatUsernameNormalized,
+      username: djUsername,
       message: promoText,
       timestamp: FieldValue.serverTimestamp(),
       isDJ: true,
@@ -112,7 +116,26 @@ export async function POST(request: NextRequest) {
       promoHyperlink: normalizedHyperlink,
     };
 
-    const chatRef = await db.collection('chats').doc('broadcast').collection('messages').add(chatMessage);
+    const chatRef = await db.collection('chats').doc(chatUsernameNormalized).collection('messages').add(chatMessage);
+
+    // Sync promo back to DJ profile so profile and broadcast stay in sync
+    if (slot.liveDjUserId || slot.djUserId) {
+      const djUserId = slot.liveDjUserId || slot.djUserId;
+      try {
+        const updateData: Record<string, string | FieldValue> = {
+          'djProfile.promoText': promoText,
+        };
+        if (normalizedHyperlink) {
+          updateData['djProfile.promoHyperlink'] = normalizedHyperlink;
+        } else {
+          updateData['djProfile.promoHyperlink'] = FieldValue.delete();
+        }
+        await db.collection('users').doc(djUserId!).update(updateData);
+      } catch (err) {
+        // Non-critical — don't fail the promo post if profile sync fails
+        console.error('Failed to sync promo to DJ profile:', err);
+      }
+    }
 
     return NextResponse.json({
       success: true,

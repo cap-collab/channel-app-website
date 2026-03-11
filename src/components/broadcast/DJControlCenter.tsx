@@ -5,7 +5,6 @@ import { BroadcastSlotSerialized, AudioInputMethod } from '@/types/broadcast';
 import { LiveControlBar } from './LiveControlBar';
 import { AudioStatusPanel } from './AudioStatusPanel';
 import { BroadcastSettingsPanel } from './BroadcastSettingsPanel';
-import { DJChatPanel } from './DJChatPanel';
 import { DJProfileChatPanel } from '@/components/dj-profile/DJProfileChatPanel';
 
 // Channel app deep link for the broadcast station
@@ -74,7 +73,6 @@ export function DJControlCenter({
 }: DJControlCenterProps) {
   const [copied, setCopied] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
-  const [isChatCollapsed, setIsChatCollapsed] = useState(false);
 
   // For recording mode, use DJ profile URL instead of broadcast URL
   const chatUsernameNormalized = useMemo(() => {
@@ -191,32 +189,23 @@ export function DJControlCenter({
             {/* Right Column - Chat */}
             {slot && (
               <div className="lg:w-96 lg:flex-shrink-0 lg:h-full lg:min-h-0 flex flex-col overflow-hidden">
-                {isRecordingMode ? (
-                  <DJProfileChatPanel
-                    chatUsernameNormalized={chatUsernameNormalized}
-                    djUserId={userId || ''}
-                    djUsername={djUsername}
-                    djEmail={djEmail || ''}
-                    isAuthenticated={!!userId}
-                    username={djUsername}
-                    userId={userId}
-                    isOwner={true}
-                  />
-                ) : (
-                  <DJChatPanel
-                    broadcastToken={broadcastToken}
-                    slotId={slot.id}
-                    djUsername={djUsername}
-                    userId={userId}
-                    isCollapsed={isChatCollapsed}
-                    onToggleCollapse={() => setIsChatCollapsed(!isChatCollapsed)}
-                    initialPromoSubmitted={initialPromoSubmitted}
-                    isVenue={isVenue}
-                    onChangeUsername={onChangeUsername}
-                    activePromoText={promoText}
-                    activePromoHyperlink={promoHyperlink}
-                  />
-                )}
+                <DJProfileChatPanel
+                  chatUsernameNormalized={chatUsernameNormalized}
+                  djUserId={userId || ''}
+                  djUsername={djUsername}
+                  djEmail={djEmail || ''}
+                  isAuthenticated={!!userId}
+                  username={djUsername}
+                  userId={userId}
+                  isOwner={true}
+                  broadcastToken={isRecordingMode ? undefined : broadcastToken}
+                  broadcastSlotId={slot.id}
+                  isVenue={isVenue}
+                  initialPromoSubmitted={initialPromoSubmitted}
+                  onChangeUsername={onChangeUsername}
+                  activePromoText={promoText}
+                  activePromoHyperlink={promoHyperlink}
+                />
               </div>
             )}
           </div>
