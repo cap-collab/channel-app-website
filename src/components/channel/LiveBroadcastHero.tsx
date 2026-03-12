@@ -7,7 +7,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useDJProfileChat } from '@/hooks/useDJProfileChat';
 import { useBroadcastSchedule } from '@/hooks/useBroadcastSchedule';
-import { useBroadcastStream } from '@/hooks/useBroadcastStream';
+import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { BroadcastSchedule } from './BroadcastSchedule';
 import { FloatingHearts } from './FloatingHearts';
 import { TipButton } from './TipButton';
@@ -96,7 +96,7 @@ export function LiveBroadcastHero() {
   const {
     isPlaying, isLoading, isLive, currentShow, currentDJ,
     listenerCount, toggle, error: streamError,
-  } = useBroadcastStream();
+  } = useBroadcastStreamContext();
 
   // Determine the current DJ's chat room from live broadcast data
   const computeDJChatRoom = useCallback(() => {

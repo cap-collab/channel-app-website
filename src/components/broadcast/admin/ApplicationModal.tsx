@@ -142,6 +142,54 @@ See you on air,
     }
   };
 
+  // Handle approve profile claim
+  const handleApproveProfile = async () => {
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      await onStatusChange(application.id, 'approved');
+
+      // Open mailto with profile claim approval email
+      openMailto(
+        'Welcome to Channel — Your DJ Profile is Approved',
+        `Hi ${application.djName},
+
+Great news — your DJ profile claim on Channel has been approved!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+COMPLETE YOUR DJ PROFILE
+
+Your DJ profile is what listeners see on our calendar, in your show details, and while you're live. A complete profile helps people connect with you and support your work.
+
+Please take a few minutes to set up your DJ profile. IMPORTANT: Sign up using THIS email address (${application.email}) so we can link your profile.
+→ https://channel-app.com/studio
+
+• Connect Stripe so you can receive listener support during your set. If Stripe isn't connected, listeners can still send support — but payouts will be delayed until you finish setup.
+  See our setup guide: https://channel-app.com/stripe-setup
+
+• Add a profile photo
+• Write a short bio (who you are / what you play)
+• Add a promo text
+• Add anything you want to show on your personal DJ page
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Need help? Contact support@channel-app.com
+
+See you on Channel,
+– The Channel Team`
+      );
+
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to approve application');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   // Handle request more info
   const handleRequestInfo = async () => {
     setIsProcessing(true);
@@ -453,6 +501,13 @@ Thanks for understanding.
               ) : (
                 <>
                   <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={handleApproveProfile}
+                      disabled={isProcessing}
+                      className="flex-1 min-w-[140px] py-3 px-4 bg-green-600 text-white rounded-xl font-medium hover:bg-green-500 transition-colors disabled:opacity-50"
+                    >
+                      {isProcessing ? 'Processing...' : 'Approve'}
+                    </button>
                     <button
                       onClick={handleRequestInfo}
                       disabled={isProcessing}

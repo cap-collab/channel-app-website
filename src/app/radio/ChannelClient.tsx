@@ -21,7 +21,7 @@ import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { LiveBroadcastHero } from '@/components/channel/LiveBroadcastHero';
 import { Show, Station, IRLShowData, CuratorRec } from '@/types';
 import { STATIONS } from '@/lib/stations';
-import { useBroadcastLiveStatus } from '@/hooks/useBroadcastLiveStatus';
+import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { getDefaultCity, matchesCity, SUPPORTED_CITIES } from '@/lib/city-detection';
 import { GENRE_ALIASES, SUPPORTED_GENRES, matchesGenre as matchesGenreLib } from '@/lib/genres';
@@ -34,7 +34,7 @@ type MatchedItem =
 
 export function ChannelClient() {
   const { user, isAuthenticated } = useAuthContext();
-  const { isLive: isBroadcastLive } = useBroadcastLiveStatus();
+  const { isLive: isBroadcastLive } = useBroadcastStreamContext();
   const { favorites, isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
   const { shows: scheduleShows, irlShows: scheduleIrlShows, curatorRecs: scheduleCuratorRecs, loading: scheduleLoading } = useSchedule();
   const router = useRouter();

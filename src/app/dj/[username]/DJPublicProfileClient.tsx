@@ -14,6 +14,8 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { AuthModal } from "@/components/AuthModal";
 import { TipButton } from "@/components/channel/TipButton";
 import { DJProfileChatPanel } from "@/components/dj-profile/DJProfileChatPanel";
+import { useBroadcastStreamContext } from "@/contexts/BroadcastStreamContext";
+import { useDJProfileChat } from "@/hooks/useDJProfileChat";
 import { Show } from "@/types";
 import { Archive } from "@/types/broadcast";
 import { getStationById } from "@/lib/stations";
@@ -401,8 +403,27 @@ export function DJPublicProfileClient({ username }: Props) {
   const [djCollectives, setDjCollectives] = useState<Collective[]>([]);
   const [djUpcomingEvents, setDjUpcomingEvents] = useState<ChannelEvent[]>([]);
 
+  // Broadcast stream context for synced play/pause
+  const { isPlaying, isLoading: streamLoading, toggle: toggleStream } = useBroadcastStreamContext();
+
   // Tab state for claimed profiles (with email)
   const [activeTab, setActiveTab] = useState<'timeline' | 'chat'>('timeline');
+  const [hasSetDefaultTab, setHasSetDefaultTab] = useState(false);
+
+  // Check if chat has messages to set default tab
+  const chatNormalized = djProfile ? normalizeUsername(djProfile.chatUsername) : '';
+  const { messages: chatMessages } = useDJProfileChat({
+    chatUsernameNormalized: chatNormalized || 'noop',
+    djUsername: djProfile?.chatUsername || '',
+    enabled: !!djProfile?.email,
+  });
+
+  useEffect(() => {
+    if (!hasSetDefaultTab && djProfile?.email && chatMessages.length > 0) {
+      setActiveTab('chat');
+      setHasSetDefaultTab(true);
+    }
+  }, [hasSetDefaultTab, djProfile?.email, chatMessages.length]);
 
   // Fetch DJ profile by username
   useEffect(() => {
@@ -1376,29 +1397,138 @@ export function DJPublicProfileClient({ username }: Props) {
           </div>
         </section>
 
+        {/* LIVE SHOW CARD - Above tabs when DJ is live */}
+        {currentLiveShow && (
+          <section className="mb-4">
+            <div className="bg-surface-card overflow-hidden">
+              {/* Header: LIVE badge and radio name */}
+              <div className="flex items-center justify-between px-4 py-3 bg-black/40">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                  <span className="text-red-500 text-xs font-bold uppercase tracking-wide">
+                    Live
+                  </span>
+                </div>
+                <span className="text-zinc-400 text-xs">
+                  {liveOnChannel ? "Channel" : liveElsewhere ? liveElsewhere.stationName : ""}
+                </span>
+              </div>
+
+              {/* Show Info */}
+              <div className="p-4 space-y-4">
+                <div>
+                  <h3 className="text-white text-xl font-bold">{currentLiveShow.name}</h3>
+                </div>
+
+                {/* Progress Bar - uses station accent color */}
+                <div className="space-y-1">
+                  <div className="h-1 bg-zinc-800 overflow-hidden">
+                    <div
+                      className="h-full transition-all duration-1000 ease-linear"
+                      style={{
+                        width: `${liveShowProgress}%`,
+                        backgroundColor: liveElsewhere?.stationAccentColor || 'var(--color-accent)'
+                      }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-zinc-500">
+                    <span>{new Date(currentLiveShow.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
+                    <span>{new Date(currentLiveShow.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
+                  </div>
+                </div>
+
+                {/* Action Button */}
+                {liveOnChannel ? (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={toggleStream}
+                      disabled={streamLoading}
+                      className="flex-1 min-w-0 py-3 px-2 sm:px-4 text-sm font-semibold bg-white hover:bg-white/90 text-black transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap disabled:opacity-50"
+                    >
+                      {streamLoading ? (
+                        <svg className="w-4 h-4 shrink-0 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      ) : isPlaying ? (
+                        <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      )}
+                      {isPlaying ? 'Pause' : 'Play'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (!isAuthenticated) { setShowAuthModal(true); return; }
+                        if (currentLiveShow) toggleFavorite(currentLiveShow);
+                      }}
+                      className="flex-1 min-w-0 py-3 px-2 sm:px-4 text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
+                    >
+                      <svg className="w-4 h-4 shrink-0" fill={currentLiveShow && isShowFavorited(currentLiveShow) ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                      </svg>
+                      {currentLiveShow && isShowFavorited(currentLiveShow) ? "Reminded" : "Remind Me"}
+                    </button>
+                  </div>
+                ) : liveElsewhere ? (
+                  <div className="flex gap-2">
+                    <a
+                      href={liveElsewhere.stationUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 min-w-0 py-3 px-2 sm:px-4 text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
+                    >
+                      Join Stream
+                      <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                    <button
+                      onClick={() => {
+                        if (!isAuthenticated) { setShowAuthModal(true); return; }
+                        if (currentLiveShow) toggleFavorite(currentLiveShow);
+                      }}
+                      className="flex-1 min-w-0 py-3 px-2 sm:px-4 text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
+                    >
+                      <svg className="w-4 h-4 shrink-0" fill={currentLiveShow && isShowFavorited(currentLiveShow) ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                      </svg>
+                      {currentLiveShow && isShowFavorited(currentLiveShow) ? "Reminded" : "Remind Me"}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* STICKY TAB BAR - only if DJ has email (claimed profile) */}
         {profile.email && (
           <div className="sticky top-[48px] z-30 bg-black -mx-6 px-6 mb-4">
-            <div className="flex max-w-5xl mx-auto bg-zinc-900/50 rounded-full border border-white/10 p-1">
-              <button
-                onClick={() => setActiveTab('timeline')}
-                className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest transition-colors rounded-full ${
-                  activeTab === 'timeline'
-                    ? 'text-white bg-white/10'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                Timeline
-              </button>
+            <div className="flex max-w-5xl mx-auto bg-zinc-900/50 border border-white/10 p-1">
               <button
                 onClick={() => setActiveTab('chat')}
-                className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest transition-colors rounded-full ${
+                className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest transition-colors ${
                   activeTab === 'chat'
                     ? 'text-white bg-white/10'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
                 Chat
+              </button>
+              <button
+                onClick={() => setActiveTab('timeline')}
+                className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest transition-colors ${
+                  activeTab === 'timeline'
+                    ? 'text-white bg-white/10'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                Timeline
               </button>
             </div>
           </div>
@@ -1424,102 +1554,6 @@ export function DJPublicProfileClient({ username }: Props) {
         ) : (
           /* TIMELINE TAB (default, or when no email) */
           <>
-        {/* LIVE SHOW CARD - Shown outside timeline when DJ is live */}
-        {currentLiveShow && (
-          <section className="mb-6">
-            <div className="bg-surface-card rounded overflow-hidden">
-              {/* Header: LIVE badge and radio name */}
-              <div className="flex items-center justify-between px-4 py-3 bg-black/40">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                  <span className="text-red-500 text-xs font-bold uppercase tracking-wide">
-                    Live
-                  </span>
-                </div>
-                <span className="text-zinc-400 text-xs">
-                  {liveOnChannel ? "Channel" : liveElsewhere ? liveElsewhere.stationName : ""}
-                </span>
-              </div>
-
-              {/* Show Info */}
-              <div className="p-4 space-y-4">
-                <div>
-                  <h3 className="text-white text-xl font-bold">{currentLiveShow.name}</h3>
-                </div>
-
-                {/* Progress Bar - uses station accent color */}
-                <div className="space-y-1">
-                  <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full transition-all duration-1000 ease-linear"
-                      style={{
-                        width: `${liveShowProgress}%`,
-                        backgroundColor: liveElsewhere?.stationAccentColor || 'var(--color-accent)'
-                      }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-[10px] text-zinc-500">
-                    <span>{new Date(currentLiveShow.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
-                    <span>{new Date(currentLiveShow.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
-                  </div>
-                </div>
-
-                {/* Action Button */}
-                {liveOnChannel ? (
-                  <div className="flex gap-2">
-                    <Link
-                      href="/radio"
-                      className="flex-1 min-w-0 py-3 px-2 sm:px-4 rounded text-sm font-semibold bg-accent hover:bg-accent/80 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
-                    >
-                      <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                      Play
-                    </Link>
-                    <button
-                      onClick={() => {
-                        if (!isAuthenticated) { setShowAuthModal(true); return; }
-                        if (currentLiveShow) toggleFavorite(currentLiveShow);
-                      }}
-                      className="flex-1 min-w-0 py-3 px-2 sm:px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
-                    >
-                      <svg className="w-4 h-4 shrink-0" fill={currentLiveShow && isShowFavorited(currentLiveShow) ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                      </svg>
-                      {currentLiveShow && isShowFavorited(currentLiveShow) ? "Reminded" : "Remind Me"}
-                    </button>
-                  </div>
-                ) : liveElsewhere ? (
-                  <div className="flex gap-2">
-                    <a
-                      href={liveElsewhere.stationUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 min-w-0 py-3 px-2 sm:px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
-                    >
-                      Join Stream
-                      <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    </a>
-                    <button
-                      onClick={() => {
-                        if (!isAuthenticated) { setShowAuthModal(true); return; }
-                        if (currentLiveShow) toggleFavorite(currentLiveShow);
-                      }}
-                      className="flex-1 min-w-0 py-3 px-2 sm:px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
-                    >
-                      <svg className="w-4 h-4 shrink-0" fill={currentLiveShow && isShowFavorited(currentLiveShow) ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                      </svg>
-                      {currentLiveShow && isShowFavorited(currentLiveShow) ? "Reminded" : "Remind Me"}
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </section>
-        )}
 
         {/* SECTION: UPCOMING EVENTS (from venues/collectives/events) */}
         {djUpcomingEvents.length > 0 && (
@@ -2227,19 +2261,19 @@ export function DJPublicProfileClient({ username }: Props) {
 
       {/* Fixed Action Bar at Bottom - hide when chat tab is active */}
       {activeTab !== 'chat' && (
-      <div className="fixed bottom-0 left-0 w-full z-50 p-4 bg-black/80 backdrop-blur-lg border-t border-white/10">
-        <div className="flex gap-2 max-w-md mx-auto">
+      <div className="fixed bottom-0 left-0 w-full z-50 p-3 bg-black/80 backdrop-blur-lg border-t border-white/10">
+        <div className="flex gap-1.5 max-w-md mx-auto">
           <button
             onClick={handleShare}
-            className="flex-1 bg-zinc-900 py-3 text-[10px] font-black uppercase tracking-widest border border-white/10 rounded-full hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2"
+            className="flex-1 min-w-0 bg-zinc-900 py-2.5 text-[9px] font-black uppercase tracking-wider border border-white/10 rounded-full hover:bg-zinc-800 transition-colors flex items-center justify-center gap-1.5"
           >
-            <ShareIcon size={12} />
+            <ShareIcon size={10} />
             Share
           </button>
           <button
             onClick={handleSubscribe}
             disabled={subscribing || favoritesLoading}
-            className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-full transition-colors disabled:opacity-50 ${
+            className={`flex-1 min-w-0 py-2.5 text-[9px] font-black uppercase tracking-wider rounded-full transition-colors disabled:opacity-50 ${
               isSubscribed
                 ? "bg-zinc-900 text-white border border-white/10 hover:bg-zinc-800"
                 : "bg-white text-black hover:bg-gray-100"
@@ -2248,9 +2282,9 @@ export function DJPublicProfileClient({ username }: Props) {
             {subscribing ? "..." : isSubscribed ? "Following" : "Follow"}
           </button>
           {profile.email && (
-            <div className="flex-1 relative">
-              <button className="w-full bg-accent py-3 text-[10px] font-black uppercase tracking-widest rounded-full flex items-center justify-center gap-1 hover:bg-accent/80 transition-colors">
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+            <div className="flex-1 min-w-0 relative">
+              <button className="w-full bg-accent py-2.5 text-[9px] font-black uppercase tracking-wider rounded-full flex items-center justify-center gap-1 hover:bg-accent/80 transition-colors">
+                <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
                 </svg>
                 Support
