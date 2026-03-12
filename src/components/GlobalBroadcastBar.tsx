@@ -20,12 +20,12 @@ export function GlobalBroadcastBar() {
   if (!isLive || pathname === '/radio') return null;
 
   return (
-    <div className="fixed top-[52px] left-0 right-0 z-[99] bg-black border-b border-white/10">
-      <div className="flex items-center gap-3 py-2 px-4">
+    <div className="fixed top-[52px] left-0 right-0 z-[99] bg-black border-b border-white/10 overflow-hidden">
+      <div className="flex items-center gap-2 py-2 px-3">
         {/* Play/Pause — synced with broadcast stream */}
         <button
           onClick={toggle}
-          className="w-10 h-10 flex items-center justify-center bg-white transition-colors flex-shrink-0"
+          className="w-9 h-9 flex items-center justify-center bg-white transition-colors flex-shrink-0"
         >
           {isLoading ? (
             <svg className="w-5 h-5 animate-spin text-black" fill="none" viewBox="0 0 24 24">

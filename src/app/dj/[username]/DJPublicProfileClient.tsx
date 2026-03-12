@@ -1268,7 +1268,7 @@ export function DJPublicProfileClient({ username }: Props) {
   const socialLinks = profile.djProfile.socialLinks;
 
   return (
-    <div className="min-h-screen text-white relative">
+    <div className="min-h-screen text-white relative overflow-x-hidden">
       <AnimatedBackground />
       {/* Site-wide Header */}
       <Header position="sticky" />
@@ -1299,7 +1299,7 @@ export function DJPublicProfileClient({ username }: Props) {
 
           <div className="md:col-span-8 flex flex-col">
             {/* Large: DJ Name */}
-            <h1 className="text-5xl sm:text-7xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-4">
+            <h1 className="text-4xl sm:text-7xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-4 break-all">
               {profile.chatUsername}
             </h1>
 
@@ -2242,8 +2242,8 @@ export function DJPublicProfileClient({ username }: Props) {
       </main>
 
       {/* Fixed Action Bar at Bottom - always visible */}
-      <div className="fixed bottom-0 left-0 w-full z-50 px-4 py-3 bg-black/80 backdrop-blur-lg border-t border-white/10">
-        <div className="flex gap-2 max-w-md mx-auto">
+      <div className="fixed bottom-0 left-0 right-0 z-50 px-4 py-3 bg-black/80 backdrop-blur-lg border-t border-white/10 overflow-hidden">
+        <div className="flex gap-2 mx-auto" style={{ maxWidth: 'calc(100vw - 2rem)' }}>
           <button
             onClick={handleSubscribe}
             disabled={subscribing || favoritesLoading}
