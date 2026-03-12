@@ -417,7 +417,7 @@ export function DJProfileChatPanel({
   }
 
   return (
-    <div className="flex flex-col h-full min-h-[400px] bg-surface-card">
+    <div className="flex flex-col h-full max-h-[60vh] bg-surface-card">
       {/* Error display */}
       {(error || localError) && (
         <div className="bg-red-900/50 text-red-200 px-4 py-2 text-sm flex-shrink-0">
@@ -425,9 +425,12 @@ export function DJProfileChatPanel({
         </div>
       )}
 
-      {/* Pinned Promo Bar (broadcast only) */}
-      {promoToDisplay && (() => {
-        const hasHyperlink = !!promoToDisplay.hyperlink;
+      {/* Pinned Promo Bar — show latest promo for everyone (not just broadcaster) */}
+      {(() => {
+        // Use promoToDisplay for broadcasters, or currentPromo for listeners
+        const promo = promoToDisplay || (currentPromo?.promoText ? { text: currentPromo.promoText, hyperlink: currentPromo.promoHyperlink } : null);
+        if (!promo) return null;
+        const hasHyperlink = !!promo.hyperlink;
         const content = (
           <div className={`px-3 pt-3 pb-2.5 bg-accent/10 border-b border-gray-800 flex-shrink-0 ${hasHyperlink ? 'hover:bg-accent/20 cursor-pointer' : ''}`}>
             <div className="flex items-center gap-2 mb-1">
@@ -440,13 +443,13 @@ export function DJProfileChatPanel({
               )}
             </div>
             <p className={`text-sm ${hasHyperlink ? 'text-accent' : 'text-white'}`}>
-              {promoToDisplay.text}
+              {promo.text}
             </p>
           </div>
         );
         if (hasHyperlink) {
           return (
-            <a href={normalizeUrl(promoToDisplay.hyperlink!)} target="_blank" rel="noopener noreferrer" className="block transition-colors">
+            <a href={normalizeUrl(promo.hyperlink!)} target="_blank" rel="noopener noreferrer" className="block transition-colors">
               {content}
             </a>
           );
@@ -454,29 +457,35 @@ export function DJProfileChatPanel({
         return content;
       })()}
 
-      {/* Messages */}
+      {/* Messages — filter out promo messages (they're shown in the pinned bar) */}
       <div ref={messagesContainerRef} className="flex-1 overflow-y-auto">
-        {messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-gray-500">
-            <div className="text-center p-6">
-              <svg className="w-12 h-12 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-              <p>No messages yet. Start the conversation!</p>
+        {(() => {
+          const chatMessages = messages.filter((msg) => msg.messageType !== 'promo');
+          if (chatMessages.length === 0) {
+            return (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                <div className="text-center p-6">
+                  <svg className="w-12 h-12 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  <p>No messages yet. Start the conversation!</p>
+                </div>
+              </div>
+            );
+          }
+          return (
+            <div className="divide-y divide-gray-800/50">
+              {chatMessages.map((msg) => (
+                <ChatMessage
+                  key={msg.id}
+                  message={msg}
+                  isOwnMessage={msg.username === username}
+                  djUsername={djUsername}
+                />
+              ))}
             </div>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-800/50">
-            {messages.map((msg) => (
-              <ChatMessage
-                key={msg.id}
-                message={msg}
-                isOwnMessage={msg.username === username}
-                djUsername={djUsername}
-              />
-            ))}
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* Input bar */}
