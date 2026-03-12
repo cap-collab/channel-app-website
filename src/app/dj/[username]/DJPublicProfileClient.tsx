@@ -1427,7 +1427,7 @@ export function DJPublicProfileClient({ username }: Props) {
                       className="h-full transition-all duration-1000 ease-linear"
                       style={{
                         width: `${liveShowProgress}%`,
-                        backgroundColor: liveElsewhere?.stationAccentColor || 'var(--color-accent)'
+                        backgroundColor: liveElsewhere?.stationAccentColor || '#D94099'
                       }}
                     />
                   </div>
@@ -1691,7 +1691,7 @@ export function DJPublicProfileClient({ username }: Props) {
                             <div
                               className="h-full w-0"
                               style={{
-                                backgroundColor: stationAccentColor || 'var(--color-accent)'
+                                backgroundColor: stationAccentColor || '#D94099'
                               }}
                             />
                           </div>
@@ -1847,7 +1847,7 @@ export function DJPublicProfileClient({ username }: Props) {
                                   className="h-full"
                                   style={{
                                     width: isLive ? `${Math.min(100, Math.max(0, (nowMs - showStart.getTime()) / (showEnd.getTime() - showStart.getTime()) * 100))}%` : '0%',
-                                    backgroundColor: 'var(--color-accent)'
+                                    backgroundColor: '#D94099'
                                   }}
                                 />
                               </div>
