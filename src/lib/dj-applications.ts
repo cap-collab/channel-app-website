@@ -81,6 +81,7 @@ export async function createApplication(data: DJApplicationFormData): Promise<DJ
     city: data.city?.trim() || null,
     genre: data.genre?.trim() || null,
     onlineRadioShow: data.onlineRadioShow?.trim() || null,
+    djTermsAcceptedAt: data.djTermsAccepted ? Timestamp.now() : null,
     status: 'pending' as DJApplicationStatus,
     submittedAt: Timestamp.now(),
   });

@@ -36,7 +36,7 @@ function getStationWebsiteUrl(metadataStationId: string): string {
     dublab: "https://www.dublab.com/",
     subtle: "https://www.subtleradio.com/",
     newtown: "https://newtownradio.com",
-    broadcast: "https://channel-app.com/channel",
+    broadcast: "https://channel-app.com/radio",
   };
   return websiteUrls[metadataStationId] || getStationDeepLink(metadataStationId);
 }

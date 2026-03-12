@@ -75,4 +75,5 @@ export interface DJApplicationFormData {
   city?: string;
   genre?: string;
   onlineRadioShow?: string;
+  djTermsAccepted?: boolean;
 }

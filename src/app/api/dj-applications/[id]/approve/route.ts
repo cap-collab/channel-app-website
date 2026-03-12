@@ -109,6 +109,24 @@ export async function POST(
         }
       }
     } else {
+      // User doesn't exist yet — create pending-dj-roles entry
+      // so they auto-get DJ role when they sign up
+      const email = application.email.toLowerCase();
+      const existingPending = await db.collection('pending-dj-roles')
+        .where('email', '==', email)
+        .limit(1)
+        .get();
+
+      if (existingPending.empty) {
+        await db.collection('pending-dj-roles').add({
+          email,
+          djName: application.djName,
+          djTermsAcceptedAt: Timestamp.now(),
+          createdAt: Timestamp.now(),
+          applicationId: id,
+        });
+        console.log(`[approve] Created pending-dj-role for ${email}`);
+      }
       console.log(`[approve] No user found for ${application.email} - djUserId will be reconciled when user signs up`);
     }
 

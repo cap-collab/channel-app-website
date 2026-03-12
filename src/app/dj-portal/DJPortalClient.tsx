@@ -112,7 +112,7 @@ export function DJPortalClient() {
       const response = await fetch('/api/dj-applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, djTermsAccepted: agreedToTerms }),
       });
 
       if (!response.ok) {

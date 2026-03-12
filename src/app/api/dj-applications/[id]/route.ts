@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApplication, updateApplicationStatus } from '@/lib/dj-applications';
+import { getAdminDb } from '@/lib/firebase-admin';
+import { Timestamp } from 'firebase-admin/firestore';
 import { DJApplicationStatus } from '@/types/dj-application';
 
 // GET: Get single application
@@ -51,6 +53,52 @@ export async function PATCH(
     }
 
     await updateApplicationStatus(id, status, adminNotes ? { adminNotes } : undefined);
+
+    // When approving, ensure DJ role is pre-assigned or pending
+    if (status === 'approved') {
+      const db = getAdminDb();
+      if (db) {
+        const email = application.email.toLowerCase();
+
+        // Check if user already exists
+        const usersSnapshot = await db.collection('users')
+          .where('email', '==', application.email)
+          .limit(1)
+          .get();
+
+        if (!usersSnapshot.empty) {
+          // User exists — assign DJ role directly (if not higher)
+          const userDoc = usersSnapshot.docs[0];
+          const userData = userDoc.data();
+          const currentRole = userData.role;
+          if (!currentRole || currentRole === 'user') {
+            await userDoc.ref.update({
+              role: 'dj',
+              djTermsAcceptedAt: Timestamp.now(),
+            });
+            console.log(`[approve-patch] Assigned DJ role to existing user ${userDoc.id}`);
+          }
+        } else {
+          // User doesn't exist yet — create pending-dj-roles entry
+          // so they auto-get DJ role when they sign up
+          const existingPending = await db.collection('pending-dj-roles')
+            .where('email', '==', email)
+            .limit(1)
+            .get();
+
+          if (existingPending.empty) {
+            await db.collection('pending-dj-roles').add({
+              email,
+              djName: application.djName,
+              djTermsAcceptedAt: Timestamp.now(),
+              createdAt: Timestamp.now(),
+              applicationId: id,
+            });
+            console.log(`[approve-patch] Created pending-dj-role for ${email}`);
+          }
+        }
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

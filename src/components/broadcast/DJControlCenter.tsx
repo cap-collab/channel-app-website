@@ -8,7 +8,7 @@ import { BroadcastSettingsPanel } from './BroadcastSettingsPanel';
 import { DJProfileChatPanel } from '@/components/dj-profile/DJProfileChatPanel';
 
 // Channel app deep link for the broadcast station
-const CHANNEL_BROADCAST_URL = 'https://channel-app.com/channel';
+const CHANNEL_BROADCAST_URL = 'https://channel-app.com/radio';
 
 interface DJControlCenterProps {
   slot: BroadcastSlotSerialized | null;
