@@ -469,65 +469,42 @@ Thanks for understanding.
           {/* Actions */}
           {isActionable && (
             <div className="pt-4 border-t border-gray-800">
-              {appType === 'livestream' ? (
-                <>
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      onClick={handleApprove}
-                      disabled={isProcessing || selectedSlotIndex === null}
-                      className="flex-1 min-w-[140px] py-3 px-4 bg-green-600 text-white rounded-xl font-medium hover:bg-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isProcessing ? 'Processing...' : 'Approve & Schedule'}
-                    </button>
-                    <button
-                      onClick={handleRequestInfo}
-                      disabled={isProcessing}
-                      className="flex-1 min-w-[140px] py-3 px-4 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-500 transition-colors disabled:opacity-50"
-                    >
-                      Request Info
-                    </button>
-                    <button
-                      onClick={handleDeny}
-                      disabled={isProcessing}
-                      className="flex-1 min-w-[140px] py-3 px-4 bg-gray-700 text-white rounded-xl font-medium hover:bg-gray-600 transition-colors disabled:opacity-50"
-                    >
-                      Deny
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-3 text-center">
-                    Each action will open your email app with a pre-filled message to edit and send.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      onClick={handleApproveProfile}
-                      disabled={isProcessing}
-                      className="flex-1 min-w-[140px] py-3 px-4 bg-green-600 text-white rounded-xl font-medium hover:bg-green-500 transition-colors disabled:opacity-50"
-                    >
-                      {isProcessing ? 'Processing...' : 'Approve'}
-                    </button>
-                    <button
-                      onClick={handleRequestInfo}
-                      disabled={isProcessing}
-                      className="flex-1 min-w-[140px] py-3 px-4 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-500 transition-colors disabled:opacity-50"
-                    >
-                      Request Info
-                    </button>
-                    <button
-                      onClick={handleDeny}
-                      disabled={isProcessing}
-                      className="flex-1 min-w-[140px] py-3 px-4 bg-gray-700 text-white rounded-xl font-medium hover:bg-gray-600 transition-colors disabled:opacity-50"
-                    >
-                      Deny
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-3 text-center">
-                    Each action will open your email app with a pre-filled message to edit and send.
-                  </p>
-                </>
-              )}
+              <div className="flex flex-wrap gap-3">
+                {preferredSlots.length > 0 ? (
+                  <button
+                    onClick={handleApprove}
+                    disabled={isProcessing || selectedSlotIndex === null}
+                    className="flex-1 min-w-[140px] py-3 px-4 bg-green-600 text-white rounded-xl font-medium hover:bg-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isProcessing ? 'Processing...' : 'Approve & Schedule'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleApproveProfile}
+                    disabled={isProcessing}
+                    className="flex-1 min-w-[140px] py-3 px-4 bg-green-600 text-white rounded-xl font-medium hover:bg-green-500 transition-colors disabled:opacity-50"
+                  >
+                    {isProcessing ? 'Processing...' : 'Approve'}
+                  </button>
+                )}
+                <button
+                  onClick={handleRequestInfo}
+                  disabled={isProcessing}
+                  className="flex-1 min-w-[140px] py-3 px-4 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-500 transition-colors disabled:opacity-50"
+                >
+                  Request Info
+                </button>
+                <button
+                  onClick={handleDeny}
+                  disabled={isProcessing}
+                  className="flex-1 min-w-[140px] py-3 px-4 bg-gray-700 text-white rounded-xl font-medium hover:bg-gray-600 transition-colors disabled:opacity-50"
+                >
+                  Deny
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-3 text-center">
+                Each action will open your email app with a pre-filled message to edit and send.
+              </p>
             </div>
           )}
 
