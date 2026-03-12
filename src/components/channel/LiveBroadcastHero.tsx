@@ -340,9 +340,9 @@ export function LiveBroadcastHero() {
           </div>
         )}
 
-        {/* Sticky bar: Play + Show Info + Love + Tip — all on one line */}
-        <div className="sticky top-[52px] z-50 bg-black border-b border-white/10">
-          <div className="flex items-center gap-3 py-2">
+        {/* Fixed bar: Play + Show Info + Live + Love + Tip — persists across the whole page */}
+        <div className="fixed top-[52px] left-0 right-0 z-[99] bg-black border-b border-white/10">
+          <div className="flex items-center gap-3 py-2 px-4 max-w-2xl mx-auto">
             {/* Play/Pause */}
             <button
               onClick={toggle}
@@ -365,9 +365,16 @@ export function LiveBroadcastHero() {
               )}
             </button>
 
-            {/* Show info */}
+            {/* Show info + Live indicator */}
             <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-bold leading-tight truncate text-white">{showName}</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold leading-tight truncate text-white">{showName}</h3>
+                <span className="relative flex h-2 w-2 flex-shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                </span>
+                <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold flex-shrink-0">Live</span>
+              </div>
               {djName && (
                 <p className="text-[10px] text-zinc-500 uppercase mt-0.5">{djName}</p>
               )}
@@ -405,9 +412,11 @@ export function LiveBroadcastHero() {
             )}
           </div>
           {streamError && (
-            <p className="text-red-400 text-xs pb-2">{streamError}</p>
+            <p className="text-red-400 text-xs pb-2 px-4">{streamError}</p>
           )}
         </div>
+        {/* Spacer to prevent content from being hidden behind the fixed bar */}
+        <div className="h-14" />
 
         {/* Tab Bar */}
         <div className="flex border-b border-white/10">
