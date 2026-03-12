@@ -96,6 +96,7 @@ export function LiveBroadcastHero() {
   const {
     isPlaying, isLoading, isLive, currentShow, currentDJ,
     listenerCount, toggle, error: streamError,
+    setHeroBarVisible,
   } = useBroadcastStreamContext();
 
   // Determine the current DJ's chat room from live broadcast data
@@ -146,6 +147,7 @@ export function LiveBroadcastHero() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [imageError, setImageError] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const stickyBarRef = useRef<HTMLDivElement>(null);
 
   // Username setup state
   const [usernameInput, setUsernameInput] = useState('');
@@ -159,6 +161,22 @@ export function LiveBroadcastHero() {
       container.scrollTop = container.scrollHeight;
     }
   }, [messages]);
+
+  // Track sticky bar visibility so GlobalBroadcastBar can take over when scrolled past
+  useEffect(() => {
+    const el = stickyBarRef.current;
+    if (!el) return;
+    setHeroBarVisible(true);
+    const observer = new IntersectionObserver(
+      ([entry]) => setHeroBarVisible(entry.isIntersecting),
+      { threshold: 0.1 },
+    );
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      setHeroBarVisible(false);
+    };
+  }, [setHeroBarVisible]);
 
   // DJ info from current show
   const djPhotoUrl = currentShow?.liveDjPhotoUrl || currentShow?.showImageUrl || null;
@@ -341,7 +359,7 @@ export function LiveBroadcastHero() {
         )}
 
         {/* Sticky bar: Play + Show Info + Live + Love + Tip — sticks when scrolled past */}
-        <div className="sticky top-[52px] z-[99] bg-black border-b border-white/10">
+        <div ref={stickyBarRef} className="sticky top-[52px] z-[99] bg-black border-b border-white/10">
           <div className="flex items-center gap-3 py-2">
             {/* Play/Pause */}
             <button

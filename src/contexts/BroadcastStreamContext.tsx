@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { useBroadcastStream } from '@/hooks/useBroadcastStream';
 import { useBroadcastLiveStatus } from '@/hooks/useBroadcastLiveStatus';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
@@ -20,6 +20,9 @@ interface BroadcastStreamContextValue {
   // From lightweight status hook (always available)
   showName: string | null;
   djName: string | null;
+  // Whether the hero sticky bar on /radio is currently visible
+  heroBarVisible: boolean;
+  setHeroBarVisible: (visible: boolean) => void;
 }
 
 const BroadcastStreamContext = createContext<BroadcastStreamContextValue | null>(null);
@@ -30,9 +33,11 @@ const BroadcastStreamContext = createContext<BroadcastStreamContextValue | null>
  */
 export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
   const { isLive: statusIsLive, showName, djName } = useBroadcastLiveStatus();
+  const [heroBarVisible, setHeroBarVisible] = useState(false);
+  const setHeroBarVisibleCb = useCallback((v: boolean) => setHeroBarVisible(v), []);
 
   return statusIsLive ? (
-    <BroadcastStreamInner showName={showName} djName={djName}>
+    <BroadcastStreamInner showName={showName} djName={djName} heroBarVisible={heroBarVisible} setHeroBarVisible={setHeroBarVisibleCb}>
       {children}
     </BroadcastStreamInner>
   ) : (
@@ -42,6 +47,7 @@ export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
       play: () => {}, pause: () => {}, toggle: () => {},
       listenerCount: 0, audioStream: null,
       showName: null, djName: null,
+      heroBarVisible: false, setHeroBarVisible: setHeroBarVisibleCb,
     }}>
       {children}
     </BroadcastStreamContext.Provider>
@@ -50,14 +56,15 @@ export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
 
 /** Inner component that only mounts useBroadcastStream when live */
 function BroadcastStreamInner({
-  children, showName, djName,
+  children, showName, djName, heroBarVisible, setHeroBarVisible,
 }: {
   children: ReactNode; showName: string | null; djName: string | null;
+  heroBarVisible: boolean; setHeroBarVisible: (v: boolean) => void;
 }) {
   const stream = useBroadcastStream();
 
   return (
-    <BroadcastStreamContext.Provider value={{ ...stream, showName, djName }}>
+    <BroadcastStreamContext.Provider value={{ ...stream, showName, djName, heroBarVisible, setHeroBarVisible }}>
       {children}
     </BroadcastStreamContext.Provider>
   );

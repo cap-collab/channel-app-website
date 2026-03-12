@@ -12,12 +12,12 @@ import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 export function GlobalBroadcastBar() {
   const {
     isLive, isPlaying, isLoading, toggle,
-    showName, djName,
+    showName, djName, heroBarVisible,
   } = useBroadcastStreamContext();
   const pathname = usePathname();
 
-  // Don't show on /radio — the hero has its own bar
-  if (!isLive || pathname === '/radio') return null;
+  // Don't show when not live, or when on /radio and the hero bar is still visible
+  if (!isLive || (pathname === '/radio' && heroBarVisible)) return null;
 
   return (
     <div className="fixed top-[52px] left-0 right-0 z-[99] bg-black border-b border-white/10 overflow-hidden">
