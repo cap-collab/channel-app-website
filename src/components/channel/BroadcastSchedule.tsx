@@ -122,7 +122,7 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
 
   return (
     <div
-      className={`absolute left-1 right-1 rounded-lg overflow-hidden transition-all bg-black border border-accent ${
+      className={`absolute left-1 right-1 overflow-hidden transition-all bg-black border border-accent ${
         isPast ? 'opacity-60' : ''
       } ${expanded ? 'z-20' : ''}`}
       style={{
@@ -142,7 +142,7 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
                 alt={slot.djName || 'DJ'}
                 fill
                 sizes="36px"
-                className="rounded-full object-cover"
+                className="object-cover"
               />
             </div>
           )}
@@ -192,7 +192,7 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="text-accent hover:text-white p-1.5 bg-accent/10 rounded transition-colors"
+                className="text-accent hover:text-white p-1.5 bg-accent/10 transition-colors"
                 title="Open promo link"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

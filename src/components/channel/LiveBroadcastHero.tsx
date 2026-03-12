@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useDJProfileChat } from '@/hooks/useDJProfileChat';
@@ -165,6 +166,17 @@ export function LiveBroadcastHero() {
   const djName = currentDJ || currentShow?.djName || null;
   const hasPhoto = djPhotoUrl && !imageError;
 
+  // DJ profile username for linking
+  const djProfileUsername = (() => {
+    if (!currentShow) return null;
+    if (currentShow.djSlots && currentShow.djSlots.length > 0) {
+      const now = Date.now();
+      const slot = currentShow.djSlots.find(s => s.startTime <= now && s.endTime > now);
+      if (slot) return slot.liveDjUsername || slot.djUsername || null;
+    }
+    return currentShow.liveDjUsername || currentShow.djUsername || null;
+  })();
+
   // Get DJ identity for tips
   const currentDJUserId = (() => {
     if (!currentShow) return null;
@@ -253,7 +265,7 @@ export function LiveBroadcastHero() {
   if (!isLive || !currentShow) return null;
 
   return (
-    <section className="relative z-10 px-4 pt-6 pb-2">
+    <section id="live" className="relative z-10 px-4 pt-6 pb-2">
       <div className="max-w-2xl mx-auto">
 
         {/* Live indicator — same style as LiveShowCard */}
@@ -268,35 +280,65 @@ export function LiveBroadcastHero() {
         </div>
 
         {/* DJ Image — 16:9 with overlays, same as LiveShowCard */}
-        <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10">
-          {hasPhoto ? (
-            <>
-              <Image
-                src={djPhotoUrl}
-                alt={djName || 'DJ'}
-                fill
-                className="object-cover"
-                unoptimized
-                onError={() => setImageError(true)}
-              />
-              {/* Gradient scrims */}
-              <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
-              {/* DJ Name overlay — bottom left */}
-              <div className="absolute bottom-2 left-2 right-2">
-                <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
-                  {djName}
-                </span>
+        {djProfileUsername ? (
+          <Link href={`/dj/${djProfileUsername}`} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
+            {hasPhoto ? (
+              <>
+                <Image
+                  src={djPhotoUrl}
+                  alt={djName || 'DJ'}
+                  fill
+                  className="object-cover"
+                  unoptimized
+                  onError={() => setImageError(true)}
+                />
+                {/* Gradient scrims */}
+                <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
+                {/* DJ Name overlay — bottom left */}
+                <div className="absolute bottom-2 left-2 right-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+                    {djName}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-white/5">
+                <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-center px-4 text-white">
+                  {djName || showName}
+                </h2>
               </div>
-            </>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-white/5">
-              <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-center px-4 text-white">
-                {djName || showName}
-              </h2>
-            </div>
-          )}
-        </div>
+            )}
+          </Link>
+        ) : (
+          <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10">
+            {hasPhoto ? (
+              <>
+                <Image
+                  src={djPhotoUrl}
+                  alt={djName || 'DJ'}
+                  fill
+                  className="object-cover"
+                  unoptimized
+                  onError={() => setImageError(true)}
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
+                <div className="absolute bottom-2 left-2 right-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+                    {djName}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-white/5">
+                <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-center px-4 text-white">
+                  {djName || showName}
+                </h2>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Sticky bar: Play + Show Info + Love + Tip — all on one line */}
         <div className="sticky top-[52px] z-50 bg-black border-b border-white/10">
