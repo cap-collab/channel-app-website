@@ -20,7 +20,7 @@ function renderAnswer(answer: string, hasLink?: boolean) {
       { text: "TestFlight", href: "https://testflight.apple.com/join/HcKTJ1nH", external: true },
       { text: "Sign up and apply here", href: "/studio/join" },
       { text: "streaming guide", href: "/streaming-guide" },
-      { text: "tune in", href: "/channel" },
+      { text: "tune in", href: "/radio" },
     ];
 
     // Split and rebuild with links

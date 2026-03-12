@@ -35,8 +35,8 @@ export function BroadcastHeader({ stationName = "Channel Broadcast", openInNewWi
           <div className="flex items-center gap-3">
             {openInNewWindow ? (
               <a
-                href="/channel"
-                onClick={(e) => handleLinkClick(e, '/channel')}
+                href="/radio"
+                onClick={(e) => handleLinkClick(e, '/radio')}
                 className="cursor-pointer"
               >
                 <Image
@@ -49,7 +49,7 @@ export function BroadcastHeader({ stationName = "Channel Broadcast", openInNewWi
                 />
               </a>
             ) : (
-              <Link href="/channel">
+              <Link href="/radio">
                 <Image
                   src="/logo-white.svg"
                   alt="CHANNEL"

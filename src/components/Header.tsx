@@ -27,9 +27,9 @@ export function Header({ currentPage = "home", position = "fixed", showSearch = 
 
     // Home/Live Now - always first
     if (isLive) {
-      items.push({ label: "🔴 Live Now", href: "/channel", active: currentPage === "channel" });
+      items.push({ label: "🔴 Live Now", href: "/radio", active: currentPage === "channel" });
     } else {
-      items.push({ label: "Home", href: "/channel", active: currentPage === "channel" });
+      items.push({ label: "Home", href: "/radio", active: currentPage === "channel" });
     }
 
     // DJ Studio link - only show when not signed in (signed-in users have it in the auth section)
@@ -56,7 +56,7 @@ export function Header({ currentPage = "home", position = "fixed", showSearch = 
             <button
               onClick={() => {
                 console.log('[Header] Logo clicked!');
-                window.location.href = "/channel";
+                window.location.href = "/radio";
               }}
               className="flex-shrink-0 cursor-pointer relative z-[1000]"
               style={{ pointerEvents: 'auto' }}

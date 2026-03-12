@@ -1,11 +1,11 @@
 import { Metadata } from 'next';
-import { StudioLivestreamClient } from './StudioLivestreamClient';
+import { StudioJoinClient } from '../join/StudioJoinClient';
 
 export const metadata: Metadata = {
-  title: 'Request a Livestream Slot on Channel',
-  description: 'Apply to schedule a live set on Channel Broadcast.',
+  title: 'Host a Show on Channel',
+  description: 'Create your curator profile on Channel. Share your sets, notify fans, receive tips, and connect with your community.',
 };
 
 export default function StudioLivestreamPage() {
-  return <StudioLivestreamClient />;
+  return <StudioJoinClient />;
 }

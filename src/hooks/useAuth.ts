@@ -376,7 +376,7 @@ export function useAuth() {
     }
 
     const actionCodeSettings = {
-      url: window.location.origin + "/channel",
+      url: window.location.origin + "/radio",
       handleCodeInApp: true,
     };
 

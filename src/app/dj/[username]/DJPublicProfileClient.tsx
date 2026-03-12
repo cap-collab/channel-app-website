@@ -1468,7 +1468,7 @@ export function DJPublicProfileClient({ username }: Props) {
                 {liveOnChannel ? (
                   <div className="flex gap-2">
                     <Link
-                      href="/channel"
+                      href="/radio"
                       className="flex-1 min-w-0 py-3 px-2 sm:px-4 rounded text-sm font-semibold bg-accent hover:bg-accent/80 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
                     >
                       <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24">

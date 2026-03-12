@@ -326,9 +326,9 @@ export function LiveBroadcastHero() {
             {/* Show info */}
             <div className="flex-1 min-w-0">
               <h3 className="text-sm font-bold leading-tight truncate text-white">{showName}</h3>
-              <p className="text-[10px] text-zinc-500 uppercase mt-0.5">
-                {djName ? `${djName} — Channel Broadcast` : 'on Channel Broadcast'}
-              </p>
+              {djName && (
+                <p className="text-[10px] text-zinc-500 uppercase mt-0.5">{djName}</p>
+              )}
             </div>
 
             {/* Love Button */}
@@ -413,7 +413,7 @@ export function LiveBroadcastHero() {
 
         {/* Tab Content */}
         {activeTab === 'chat' ? (
-          <div className="flex flex-col" style={{ maxHeight: '45vh' }}>
+          <div className="flex flex-col" style={{ height: '45vh' }}>
             {/* Promo bar */}
             {promoToShow && promoToShow.username && (() => {
               const hasHyperlink = !!promoToShow.hyperlink;
@@ -546,7 +546,7 @@ export function LiveBroadcastHero() {
             )}
           </div>
         ) : (
-          <div className="py-4 overflow-y-auto" style={{ maxHeight: '45vh' }}>
+          <div className="py-4 overflow-y-auto" style={{ height: '45vh' }}>
             <BroadcastSchedule
               shows={scheduleShows}
               selectedDate={selectedDate}

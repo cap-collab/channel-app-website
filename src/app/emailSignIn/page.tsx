@@ -75,7 +75,7 @@ export default function EmailSignInPage() {
 
       // Redirect to channel after short delay
       setTimeout(() => {
-        window.location.href = "/channel";
+        window.location.href = "/radio";
       }, 1500);
     } catch (error) {
       console.error("Email link sign-in error:", error);
@@ -194,7 +194,7 @@ export default function EmailSignInPage() {
             {/* Go to Channel button hidden */}
             {false && (
               <a
-                href="/channel"
+                href="/radio"
                 className="inline-block mt-4 w-full py-3 rounded-xl bg-white text-black font-medium hover:bg-white/90 transition-all"
               >
                 Go to Channel
