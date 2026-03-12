@@ -997,24 +997,6 @@ export function DJPublicProfileClient({ username }: Props) {
     }
   };
 
-  // Share handler
-  const handleShare = async () => {
-    const url = window.location.href;
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `${djProfile?.chatUsername} on Channel`,
-          url,
-        });
-      } catch {
-        // User cancelled or share failed, fallback to clipboard
-        await navigator.clipboard.writeText(url);
-      }
-    } else {
-      await navigator.clipboard.writeText(url);
-    }
-  };
-
   // Format date for activity feed
   const formatFeedDate = (timestamp: number | string) => {
     const date = new Date(timestamp);
@@ -2259,21 +2241,13 @@ export function DJPublicProfileClient({ username }: Props) {
         )}
       </main>
 
-      {/* Fixed Action Bar at Bottom - hide when chat tab is active */}
-      {activeTab !== 'chat' && (
+      {/* Fixed Action Bar at Bottom - always visible */}
       <div className="fixed bottom-0 left-0 w-full z-50 p-3 bg-black/80 backdrop-blur-lg border-t border-white/10">
         <div className="flex gap-1.5 max-w-md mx-auto">
           <button
-            onClick={handleShare}
-            className="flex-1 min-w-0 bg-zinc-900 py-2.5 text-[9px] font-black uppercase tracking-wider border border-white/10 rounded-full hover:bg-zinc-800 transition-colors flex items-center justify-center gap-1.5"
-          >
-            <ShareIcon size={10} />
-            Share
-          </button>
-          <button
             onClick={handleSubscribe}
             disabled={subscribing || favoritesLoading}
-            className={`flex-1 min-w-0 py-2.5 text-[9px] font-black uppercase tracking-wider rounded-full transition-colors disabled:opacity-50 ${
+            className={`flex-1 min-w-0 py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-50 ${
               isSubscribed
                 ? "bg-zinc-900 text-white border border-white/10 hover:bg-zinc-800"
                 : "bg-white text-black hover:bg-gray-100"
@@ -2283,8 +2257,8 @@ export function DJPublicProfileClient({ username }: Props) {
           </button>
           {profile.email && (
             <div className="flex-1 min-w-0 relative">
-              <button className="w-full bg-accent py-2.5 text-[9px] font-black uppercase tracking-wider rounded-full flex items-center justify-center gap-1 hover:bg-accent/80 transition-colors">
-                <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+              <button className="w-full bg-accent py-2.5 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 hover:bg-accent/80 transition-colors">
+                <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
                 </svg>
                 Support
@@ -2297,13 +2271,12 @@ export function DJPublicProfileClient({ username }: Props) {
                 showName={`Support ${profile.chatUsername}`}
                 tipperUserId={user?.uid}
                 tipperUsername={chatUsername || undefined}
-                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer rounded-full"
+                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
               />
             </div>
           )}
         </div>
       </div>
-      )}
 
       <AuthModal
         isOpen={showAuthModal}
