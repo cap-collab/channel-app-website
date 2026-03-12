@@ -340,9 +340,9 @@ export function LiveBroadcastHero() {
           </div>
         )}
 
-        {/* Fixed bar: Play + Show Info + Live + Love + Tip — persists across the whole page */}
-        <div className="fixed top-[52px] left-0 right-0 z-[99] bg-black border-b border-white/10">
-          <div className="flex items-center gap-3 py-2 px-4 max-w-2xl mx-auto">
+        {/* Sticky bar: Play + Show Info + Live + Love + Tip — sticks when scrolled past */}
+        <div className="sticky top-[52px] z-[99] bg-black border-b border-white/10">
+          <div className="flex items-center gap-3 py-2">
             {/* Play/Pause */}
             <button
               onClick={toggle}
@@ -412,11 +412,9 @@ export function LiveBroadcastHero() {
             )}
           </div>
           {streamError && (
-            <p className="text-red-400 text-xs pb-2 px-4">{streamError}</p>
+            <p className="text-red-400 text-xs pb-2">{streamError}</p>
           )}
         </div>
-        {/* Spacer to prevent content from being hidden behind the fixed bar */}
-        <div className="h-14" />
 
         {/* Tab Bar */}
         <div className="flex border-b border-white/10">
