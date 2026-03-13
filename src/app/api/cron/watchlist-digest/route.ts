@@ -298,7 +298,6 @@ export async function GET(request: NextRequest) {
     for (const djUser of djUsers) {
       const djProfile = djUser.data.djProfile as Record<string, unknown> | undefined;
       const chatUsername = djUser.data.chatUsername as string | undefined;
-      const displayName = djUser.data.displayName as string | undefined;
       if (!djProfile || !chatUsername) continue;
 
       const djUsername = chatUsername.replace(/\s+/g, "").toLowerCase();
