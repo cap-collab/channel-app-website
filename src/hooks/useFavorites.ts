@@ -142,14 +142,16 @@ export function useFavorites() {
   // Check if a show is favorited (exact match on show name + same station)
   const isShowFavorited = useCallback(
     (show: Show): boolean => {
+      const showNameLower = show.name.toLowerCase();
       return favorites.some(
         (fav) =>
           // Only match station-scoped favorites (not watchlist)
           fav.stationId &&
-          // Exact match on show name only
-          fav.term.toLowerCase() === show.name.toLowerCase() &&
           // Same station
-          fav.stationId === show.stationId
+          fav.stationId === show.stationId &&
+          // Match by term OR showName (radio shows from sync use composite term keys)
+          (fav.term.toLowerCase() === showNameLower ||
+           (fav.showName && fav.showName.toLowerCase() === showNameLower))
       );
     },
     [favorites]
@@ -167,15 +169,23 @@ export function useFavorites() {
       try {
         const favoritesRef = collection(db, "users", user.uid, "favorites");
 
-        // Check if already exists - query by term only, then filter by stationId in memory
-        // (Firestore requires composite index for multiple where clauses on different fields)
+        // Check if already exists - query by term and showName, filter by stationId in memory
         const q = query(
           favoritesRef,
           where("term", "==", show.name.toLowerCase())
         );
         const existing = await getDocs(q);
-        const alreadyFavorited = existing.docs.some(
-          (doc) => doc.data().stationId === show.stationId
+        // Also check by showName for radio shows (sync uses composite term keys)
+        const showNameQ = query(
+          favoritesRef,
+          where("showName", "==", show.name)
+        );
+        const existingByName = await getDocs(showNameQ);
+        const allExisting = new Map<string, typeof existing.docs[0]>();
+        for (const d of existing.docs) allExisting.set(d.id, d);
+        for (const d of existingByName.docs) allExisting.set(d.id, d);
+        const alreadyFavorited = Array.from(allExisting.values()).some(
+          (d) => d.data().stationId === show.stationId
         );
         if (alreadyFavorited) {
           console.log(`[addFavorite] Show already favorited, skipping`);
@@ -255,16 +265,27 @@ export function useFavorites() {
 
       try {
         const favoritesRef = collection(db, "users", user.uid, "favorites");
-        // Query by term only, then filter by stationId in memory
-        // (Firestore requires composite index for multiple where clauses on different fields)
+        // Query by term, then filter by stationId in memory
         const q = query(
           favoritesRef,
           where("term", "==", show.name.toLowerCase())
         );
         const snapshot = await getDocs(q);
 
+        // Also query by showName for radio shows (sync uses composite term keys)
+        const showNameQuery = query(
+          favoritesRef,
+          where("showName", "==", show.name)
+        );
+        const showNameSnapshot = await getDocs(showNameQuery);
+
+        // Combine and deduplicate docs
+        const allDocs = new Map<string, typeof snapshot.docs[0]>();
+        for (const d of snapshot.docs) allDocs.set(d.id, d);
+        for (const d of showNameSnapshot.docs) allDocs.set(d.id, d);
+
         let wasAutoFavorited = false;
-        for (const d of snapshot.docs) {
+        for (const d of Array.from(allDocs.values())) {
           const docStationId = d.data().stationId;
           // Match stationId - treat null, undefined, and "" as equivalent (no station)
           const showStationId = show.stationId || null;

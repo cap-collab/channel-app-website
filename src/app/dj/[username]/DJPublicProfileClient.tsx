@@ -1024,7 +1024,8 @@ export function DJPublicProfileClient({ username }: Props) {
       endTime = new Date(startTime.getTime() + durationHours * 60 * 60 * 1000);
     }
 
-    const syntheticStationId = show.radioName ? `dj-radio:${show.radioName.toLowerCase().replace(/\s+/g, "-")}` : "dj-radio:unknown";
+    // Use radioName as stationId to match how sync-shows-to-followers stores favorites
+    const stationId = show.radioName ? show.radioName.toLowerCase() : "dj-radio";
 
     return {
       id: show.id,
@@ -1032,7 +1033,7 @@ export function DJPublicProfileClient({ username }: Props) {
       dj: djProfile?.chatUsername || "",
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
-      stationId: syntheticStationId,
+      stationId,
     };
   };
 
