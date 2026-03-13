@@ -1196,7 +1196,7 @@ export function StudioProfileClient() {
                   message="Create your curator profile"
                   inline
                   includeDjTerms
-                  redirectTo="/studio/join"
+                  redirectTo="/studio"
                 />
               </div>
             </div>
