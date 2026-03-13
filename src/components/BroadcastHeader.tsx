@@ -13,7 +13,7 @@ interface BroadcastHeaderProps {
   openInNewWindow?: boolean;
 }
 
-export function BroadcastHeader({ stationName = "Channel Broadcast", openInNewWindow = false }: BroadcastHeaderProps) {
+export function BroadcastHeader({ stationName = "Channel Radio", openInNewWindow = false }: BroadcastHeaderProps) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { user, isAuthenticated, signOut, loading } = useAuthContext();

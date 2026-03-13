@@ -113,7 +113,7 @@ export function ComingUpNext({ onAuthRequired }: ComingUpNextProps) {
     const results: Array<{ show: Show; source: 'broadcast' | 'favorite' }> = [];
     const seenShowIds = new Set<string>();
 
-    // 1. Get upcoming broadcast shows (Channel Broadcast station)
+    // 1. Get upcoming broadcast shows (Channel Radio station)
     const broadcastShows = allShows
       .filter((show) => {
         const station = getStation(show.stationId);

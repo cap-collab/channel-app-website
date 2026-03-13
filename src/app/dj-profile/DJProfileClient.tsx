@@ -904,7 +904,7 @@ export function DJProfileClient() {
               </div>
             </div>
             <p className="text-gray-600 text-xs mt-2 px-1">
-              This appears in chat when you&apos;re live on Channel Broadcast.
+              This appears in chat when you&apos;re live on Channel Radio.
             </p>
           </section>
 

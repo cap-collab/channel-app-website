@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Also check Channel Broadcast shows that are live
+    // Also check Channel Radio shows that are live
     const broadcastSlots = await queryCollection(
       "broadcast-slots",
       [{ field: "status", op: "EQUAL", value: "live" }],
@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
         dj: data.djName as string | undefined,
         profileUsername: undefined,
         stationId: "broadcast",
-        stationName: "Channel Broadcast",
+        stationName: "Channel Radio",
         showId: `broadcast-${slot.id}`,
         djUsername: data.djUsername as string | undefined,
       });

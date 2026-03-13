@@ -12,7 +12,7 @@ const STATION_NAMES: Record<string, string> = {
   rinsefr: "Rinse FR",
   dublab: "dublab",
   subtle: "Subtle Radio",
-  broadcast: "Channel Broadcast",
+  broadcast: "Channel Radio",
 };
 
 interface MetadataShow {
@@ -139,7 +139,7 @@ async function sendTestEmail(to: string, section?: string) {
         dj: data.djName as string | undefined,
         startTime: (data.startTime as Date)?.toISOString() || now.toISOString(),
         stationId: "broadcast",
-        stationName: "Channel Broadcast",
+        stationName: "Channel Radio",
       });
     }
   } catch (error) {

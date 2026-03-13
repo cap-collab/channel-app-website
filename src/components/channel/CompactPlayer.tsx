@@ -52,7 +52,7 @@ export function CompactPlayer({
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
   const { stationBPM } = useBPM();
   const broadcastBPM = stationBPM['broadcast']?.bpm || null;
-  const stationName = 'Channel Broadcast';
+  const stationName = 'Channel Radio';
   const showName = currentShow?.showName || (isLive ? 'Live Now' : 'Offline');
   // Use djName (scheduled DJ name) to match what's shown in the schedule/calendar
   const djName = currentDJ || currentShow?.djName;

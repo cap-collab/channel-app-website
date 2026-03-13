@@ -217,7 +217,7 @@ export async function GET(request: NextRequest) {
     >();
 
     for (const show of allShows) {
-      // Skip Channel Broadcast shows (they have their own profiles)
+      // Skip Channel Radio shows (they have their own profiles)
       if (show.stationId === "broadcast") continue;
 
       // Skip Newtown Radio - no auto profiles

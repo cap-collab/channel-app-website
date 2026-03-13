@@ -413,7 +413,7 @@ export async function getAllShows(): Promise<Show[]> {
     }
   }
 
-  // Fetch Channel Broadcast shows from Firebase
+  // Fetch Channel Radio shows from Firebase
   try {
     const broadcastShows = await fetchBroadcastShows();
     shows.push(...broadcastShows);
@@ -428,7 +428,7 @@ export async function getAllShows(): Promise<Show[]> {
 
 // Get shows for a specific station
 export async function getShowsForStation(stationMetadataKey: string): Promise<Show[]> {
-  // Handle Channel Broadcast separately (stored in Firebase, not metadata repo)
+  // Handle Channel Radio separately (stored in Firebase, not metadata repo)
   if (stationMetadataKey === "broadcast") {
     return fetchBroadcastShows();
   }

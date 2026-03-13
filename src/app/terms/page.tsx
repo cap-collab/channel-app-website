@@ -22,7 +22,7 @@ export default function TermsPage() {
 
       <h2>1. Acceptance of Terms</h2>
       <p>
-        By accessing or using Channel — including the mobile app, web app, Channel Broadcast, DJ
+        By accessing or using Channel — including the mobile app, web app, Channel Radio, DJ
         Studio, public DJ pages, and DJ profile chats — you agree to these Terms of Use.
       </p>
       <p>If you do not agree, do not use Channel.</p>
@@ -34,7 +34,7 @@ export default function TermsPage() {
       <p>Channel is a platform that enables users to:</p>
       <ul>
         <li>Listen to live audio streams from third-party radio stations</li>
-        <li>Listen to live DJ broadcasts through Channel Broadcast</li>
+        <li>Listen to live DJ broadcasts through Channel Radio</li>
         <li>View public DJ profiles and pages (e.g. /dj/[username])</li>
         <li>Interact with public chat rooms</li>
         <li>Discover show schedules, metadata, and listener indicators</li>
@@ -87,7 +87,7 @@ export default function TermsPage() {
         If a DJ later signs up with a matching email, the profile may be claimed and updated.
       </p>
 
-      <h2>6. Channel Broadcast (Listening Experience)</h2>
+      <h2>6. Channel Radio (Listening Experience)</h2>
       <p>Channel may display live DJ broadcasts that:</p>
       <ul>
         <li>Appear dynamically when a DJ is live</li>

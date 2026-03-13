@@ -16,11 +16,11 @@ import { matchesCity } from '@/lib/city-detection';
 
 interface WhoIsOnNowProps {
   onAuthRequired?: () => void;
-  // Streaming control props (for Channel broadcast)
+  // Streaming control props (for Channel Radio)
   onTogglePlay?: () => void;
   isPlaying?: boolean;
   isStreamLoading?: boolean;
-  // Whether the Channel broadcast is actually live (streaming)
+  // Whether the Channel Radio is actually live (streaming)
   isBroadcastLive?: boolean;
   // Optional chat element to render directly below the broadcast DJ card
   chatSlot?: React.ReactNode;
@@ -78,7 +78,7 @@ export function WhoIsOnNow({ onAuthRequired, onTogglePlay, isPlaying, isStreamLo
 
   // Helper to check if show has a DJ profile (profile-or-nothing filter)
   const hasClaimedProfile = (show: Show): boolean => {
-    // Channel broadcasts always show (they have DJ info from the slot)
+    // Channel Radio broadcasts always show (they have DJ info from the slot)
     if (show.stationId === 'broadcast') return true;
     // External shows: only show if DJ has a profile
     return !!(show.djUsername || show.djUserId);

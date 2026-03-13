@@ -368,7 +368,7 @@ export function DJPublicProfileClient({ username }: Props) {
   // Past external shows (from other stations like NTS, Subtle, etc.)
   const [pastExternalShows, setPastExternalShows] = useState<PastShow[]>([]);
 
-  // Past Channel Broadcast shows (without recordings)
+  // Past Channel Radio shows (without recordings)
   const [pastBroadcastShows, setPastBroadcastShows] = useState<PastShow[]>([]);
 
   // Audio player state for recordings
@@ -530,7 +530,7 @@ export function DJPublicProfileClient({ username }: Props) {
     // Normalize profile username for matching
     const normalizedProfileUsername = djName.replace(/[\s-]+/g, "").toLowerCase();
 
-    // Check if live on Channel Broadcast
+    // Check if live on Channel Radio
     const matchesProfile = (show: Show) =>
       show.djUsername === normalizedProfileUsername ||
       show.additionalDjUsernames?.includes(normalizedProfileUsername);
@@ -605,7 +605,7 @@ export function DJPublicProfileClient({ username }: Props) {
       const upcomingShows: UpcomingShow[] = [];
       const seenIds = new Set<string>();
 
-      // 1. Fetch broadcast slots from Firebase (Channel Broadcast)
+      // 1. Fetch broadcast slots from Firebase (Channel Radio)
       if (db) {
         try {
           const slotsRef = collection(db, "broadcast-slots");
@@ -638,7 +638,7 @@ export function DJPublicProfileClient({ username }: Props) {
                 endTime: (data.endTime as Timestamp).toMillis(),
                 status: data.status,
                 stationId: "broadcast",
-                stationName: "Channel Broadcast",
+                stationName: "Channel Radio",
                 isExternal: false,
                 showImageUrl: data.showImageUrl,
               });
@@ -804,7 +804,7 @@ export function DJPublicProfileClient({ username }: Props) {
                 endTime: slot.endTime,
                 showImageUrl: slot.showImageUrl,
                 stationId: "broadcast",
-                stationName: "Channel Broadcast",
+                stationName: "Channel Radio",
               });
             }
           });
@@ -1174,7 +1174,7 @@ export function DJPublicProfileClient({ username }: Props) {
       });
     });
 
-    // Add past Channel Broadcast shows (without recordings)
+    // Add past Channel Radio shows (without recordings)
     pastBroadcastShows.forEach((show) => {
       past.push({
         ...show,

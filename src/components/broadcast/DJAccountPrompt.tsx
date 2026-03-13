@@ -43,7 +43,7 @@ export function DJAccountPrompt({ onComplete, onSkip }: DJAccountPromptProps) {
   return (
     <div className="bg-[#252525] rounded-xl p-8 max-w-md mx-auto">
       <h2 className="text-2xl font-bold text-white mb-2">
-        Welcome to Channel Broadcast!
+        Welcome to Channel Radio!
       </h2>
       <p className="text-gray-400 mb-8">
         Log in to chat with listeners on the Channel app during your set.

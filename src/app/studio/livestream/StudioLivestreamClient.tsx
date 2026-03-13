@@ -428,7 +428,7 @@ export function StudioLivestreamClient() {
                     target="_blank"
                     className="text-white underline hover:text-gray-300"
                   >
-                    Channel Broadcast Terms for DJs &amp; Broadcasters
+                    Channel Radio Terms for DJs &amp; Broadcasters
                   </Link>
                   , including responsibilities for content rights, licensing, and venue authorization. *
                 </span>

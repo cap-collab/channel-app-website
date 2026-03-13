@@ -344,7 +344,7 @@ export function StudioProfileClient() {
             shows.push({
               id,
               stationId: data.stationId || "broadcast",
-              stationName: "Channel Broadcast",
+              stationName: "Channel Radio",
               showName: data.showName || "Broadcast",
               djName: data.djName,
               startTime: (data.startTime as Timestamp).toMillis(),
@@ -1455,7 +1455,7 @@ export function StudioProfileClient() {
               Promo
             </h2>
             <p className="text-gray-600 text-xs mb-3 px-1">
-              This appears in chat when you&apos;re live on Channel Broadcast.
+              This appears in chat when you&apos;re live on Channel Radio.
             </p>
             <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
               <div>

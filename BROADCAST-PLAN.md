@@ -1,4 +1,4 @@
-# Channel Broadcast - MVP Plan
+# Channel Radio - MVP Plan
 
 **Repo:** `cap-collab/channel-app-website` (add to existing channel-app.com website)
 **URL:** `channel-app.com/broadcast` (radio portal for station owners & DJs)

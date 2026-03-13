@@ -255,7 +255,7 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
             />
             {/* Station and show info */}
             <div className="flex-1 min-w-0">
-              <h2 className="text-white font-semibold text-base">Channel Broadcast</h2>
+              <h2 className="text-white font-semibold text-base">Channel Radio</h2>
               {slot && (
                 <p className="text-gray-400 text-sm truncate">{slot.showName || 'Live'}</p>
               )}

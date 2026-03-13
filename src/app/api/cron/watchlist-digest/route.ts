@@ -53,7 +53,7 @@ const STATION_NAMES: Record<string, string> = {
   rinsefr: "Rinse FR",
   dublab: "dublab",
   subtle: "Subtle Radio",
-  broadcast: "Channel Broadcast",
+  broadcast: "Channel Radio",
 };
 
 // Extended show type that includes user linking info for broadcast shows
@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Also fetch Channel Broadcast shows from Firebase
+    // Also fetch Channel Radio shows from Firebase
     const now = new Date();
     const broadcastSlots = await queryCollection(
       "broadcast-slots",
@@ -156,7 +156,7 @@ export async function GET(request: NextRequest) {
         dj: djName,
         startTime: startTime?.toISOString() || now.toISOString(),
         stationId: "broadcast",
-        stationName: "Channel Broadcast",
+        stationName: "Channel Radio",
         djUserId,
         djEmail,
       });

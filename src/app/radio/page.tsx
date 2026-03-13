@@ -4,7 +4,7 @@ import { ChannelClient } from './ChannelClient';
 
 export const metadata: Metadata = {
   title: 'channel',
-  description: 'Listen to Channel Broadcast live. Real-time chat, schedule, and more.',
+  description: 'Listen to Channel Radio live. Real-time chat, schedule, and more.',
 };
 
 export default function ChannelPage() {

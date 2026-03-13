@@ -3,7 +3,7 @@ import { Station } from "@/types";
 export const STATIONS: Station[] = [
   {
     id: "broadcast",
-    name: "Channel Broadcast",
+    name: "Channel Radio",
     metadataKey: "broadcast",
     streamUrl: "",
     websiteUrl: "https://channel-app.com/radio",
