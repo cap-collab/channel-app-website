@@ -25,6 +25,7 @@ export function StudioLivestreamClient() {
     youtube: '',
     comments: '',
   });
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [status, setStatus] = useState<FormStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -105,6 +106,10 @@ export function StudioLivestreamClient() {
       setErrorMessage('Please enter a valid email address');
       return false;
     }
+    if (!agreedToTerms) {
+      setErrorMessage('You must agree to the Broadcast Terms to apply');
+      return false;
+    }
     return true;
   };
 
@@ -120,7 +125,7 @@ export function StudioLivestreamClient() {
       const response = await fetch('/api/dj-applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, djTermsAccepted: agreedToTerms }),
       });
 
       if (!response.ok) {
@@ -407,9 +412,28 @@ export function StudioLivestreamClient() {
               />
             </div>
 
-            {/* Help text */}
+            {/* Terms Agreement */}
             <div className="pt-6 border-t border-gray-800">
-              <p className="text-sm text-gray-500 leading-relaxed">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  className="mt-1 w-5 h-5 rounded border-gray-700 bg-[#1a1a1a] text-white focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                />
+                <span className="text-sm text-gray-300">
+                  I have read and agree to the{' '}
+                  <Link
+                    href="/dj-terms"
+                    target="_blank"
+                    className="text-white underline hover:text-gray-300"
+                  >
+                    Channel Broadcast Terms for DJs &amp; Broadcasters
+                  </Link>
+                  , including responsibilities for content rights, licensing, and venue authorization. *
+                </span>
+              </label>
+              <p className="text-sm text-gray-500 leading-relaxed mt-4">
                 If you have questions or aren&apos;t sure whether your setup works, reach out at{' '}
                 <a
                   href="mailto:info@channel-app.com"

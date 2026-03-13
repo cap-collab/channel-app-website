@@ -1223,7 +1223,7 @@ export function StudioProfileClient() {
               href="/studio/join"
               className="bg-white text-black px-6 py-3 rounded font-medium hover:bg-gray-100 transition-colors inline-block"
             >
-              Claim your curator profile
+              Host a show
             </Link>
           </div>
         </main>
