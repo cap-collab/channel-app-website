@@ -1226,19 +1226,31 @@ export function DJPublicProfileClient({ username }: Props) {
   // Create Artist Selects (recommendations)
   const artistSelects = useMemo(() => {
     const selects: { label: string; url: string }[] = [];
+    const myRecs = djProfile?.djProfile.myRecs;
+    if (!myRecs) return selects;
 
-    if (djProfile?.djProfile.myRecs?.bandcampLinks) {
-      djProfile.djProfile.myRecs.bandcampLinks.forEach((url) => {
-        const label = url.replace(/^https?:\/\//, "").replace(/\/$/, "");
-        selects.push({ label, url });
+    // New format: array of RecItem objects (saved from /studio)
+    if (Array.isArray(myRecs)) {
+      myRecs.forEach((rec: { type?: string; title?: string; url?: string }) => {
+        if (rec.url) {
+          const label = rec.title || rec.url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+          selects.push({ label, url: rec.url });
+        }
       });
-    }
-
-    if (djProfile?.djProfile.myRecs?.eventLinks) {
-      djProfile.djProfile.myRecs.eventLinks.forEach((url) => {
-        const label = url.replace(/^https?:\/\//, "").replace(/\/$/, "");
-        selects.push({ label, url });
-      });
+    } else {
+      // Legacy format: { bandcampLinks?: string[], eventLinks?: string[] }
+      if (myRecs.bandcampLinks) {
+        myRecs.bandcampLinks.forEach((url: string) => {
+          const label = url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+          selects.push({ label, url });
+        });
+      }
+      if (myRecs.eventLinks) {
+        myRecs.eventLinks.forEach((url: string) => {
+          const label = url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+          selects.push({ label, url });
+        });
+      }
     }
 
     return selects;
