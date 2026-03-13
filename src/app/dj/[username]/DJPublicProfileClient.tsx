@@ -1214,16 +1214,16 @@ export function DJPublicProfileClient({ username }: Props) {
 
   // Create Artist Selects (recommendations)
   const artistSelects = useMemo(() => {
-    const selects: { label: string; url: string }[] = [];
+    const selects: { label: string; url: string; imageUrl?: string }[] = [];
     const myRecs = djProfile?.djProfile.myRecs;
     if (!myRecs) return selects;
 
     // New format: array of RecItem objects (saved from /studio)
     if (Array.isArray(myRecs)) {
-      myRecs.forEach((rec: { type?: string; title?: string; url?: string }) => {
+      myRecs.forEach((rec: { type?: string; title?: string; url?: string; imageUrl?: string }) => {
         if (rec.url) {
           const label = rec.title || rec.url.replace(/^https?:\/\//, "").replace(/\/$/, "");
-          selects.push({ label, url: rec.url });
+          selects.push({ label, url: rec.url, imageUrl: rec.imageUrl });
         }
       });
     } else {
@@ -2127,7 +2127,18 @@ export function DJPublicProfileClient({ username }: Props) {
                   rel="noopener noreferrer"
                   className="flex items-center justify-between group border-b border-white/5 pb-2"
                 >
-                  <span className="text-base font-light group-hover:pl-2 transition-all">{rec.label}</span>
+                  <div className="flex items-center gap-3">
+                    {rec.imageUrl && (
+                      <Image
+                        src={rec.imageUrl}
+                        alt={rec.label}
+                        width={40}
+                        height={40}
+                        className="rounded object-cover w-10 h-10 flex-shrink-0"
+                      />
+                    )}
+                    <span className="text-base font-light group-hover:pl-2 transition-all">{rec.label}</span>
+                  </div>
                   <span className="opacity-0 group-hover:opacity-100 transition-opacity"><ExternalLinkIcon size={14} /></span>
                 </a>
               ))}
