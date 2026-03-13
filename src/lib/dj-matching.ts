@@ -72,8 +72,22 @@ export function extractDJNamesFromShowName(showName: string): ExtractedName[] {
   if (!wMatch && !presentsMatch && showName.includes(" - ")) {
     const parts = showName.split(" - ");
     if (parts.length === 2) {
-      candidates.push({ name: parts[0].trim(), exact: false });
-      candidates.push({ name: parts[1].trim(), exact: false });
+      const left = parts[0].trim();
+      const right = parts[1].trim();
+
+      // Check if left side has multiple DJs separated by "and" or "&"
+      // e.g. "Daddy Differently and Dirty Dave" → exact-match each individually
+      const andPattern = /\s+(?:and|&)\s+/i;
+      if (andPattern.test(left)) {
+        left.split(andPattern).forEach((name) => {
+          const trimmed = name.trim();
+          if (trimmed) candidates.push({ name: trimmed, exact: true });
+        });
+      } else {
+        candidates.push({ name: left, exact: false });
+      }
+
+      candidates.push({ name: right, exact: false });
     }
   }
 

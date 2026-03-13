@@ -19,7 +19,7 @@ import { useDJProfileChat } from "@/hooks/useDJProfileChat";
 import { Show } from "@/types";
 import { Archive } from "@/types/broadcast";
 import { getStationById } from "@/lib/stations";
-import { wordBoundaryMatch } from "@/lib/dj-matching";
+import { wordBoundaryMatch, showMatchesDJ } from "@/lib/dj-matching";
 import { Venue, Collective, Event as ChannelEvent, EventDJRef } from "@/types/events";
 // Icon components (inline SVGs to avoid external dependencies)
 const ShareIcon = ({ size = 14 }: { size?: number }) => (
@@ -671,9 +671,14 @@ export function DJPublicProfileClient({ username }: Props) {
         const endTime = new Date(show.endTime).getTime();
         if (endTime <= now) return;
 
-        // Simple match: djUsername === normalized profile username
-        // The `p` field (djUsername) was pre-matched during metadata build
-        if (show.djUsername === normalizedProfileUsername) {
+        // Primary: djUsername === normalized profile username (pre-matched in metadata build)
+        // Secondary: show name extraction matches profile (for multi-DJ shows like "A and B - Show")
+        const primaryMatch = show.djUsername === normalizedProfileUsername;
+        const secondaryMatch = !primaryMatch && showMatchesDJ(
+          { name: show.name, dj: show.dj, djUsername: show.djUsername },
+          djProfile.chatUsername
+        );
+        if (primaryMatch || secondaryMatch) {
           const id = `external-${show.id}`;
           if (seenIds.has(id)) return;
           seenIds.add(id);
