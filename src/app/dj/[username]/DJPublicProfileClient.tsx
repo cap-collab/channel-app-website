@@ -328,17 +328,6 @@ function containsMatch(text: string, term: string): boolean {
   return wordBoundaryMatch(text, term);
 }
 
-// Get short timezone abbreviation (e.g., "EST", "PST")
-function getTimezoneAbbr(timezone: string, date: Date = new Date()): string {
-  try {
-    const formatter = new Intl.DateTimeFormat("en-US", { timeZone: timezone, timeZoneName: "short" });
-    const parts = formatter.formatToParts(date);
-    return parts.find((p) => p.type === "timeZoneName")?.value || timezone;
-  } catch {
-    return timezone;
-  }
-}
-
 // Calculate show progress percentage (0-100)
 function calculateShowProgress(startTime: string, endTime: string): number {
   const now = Date.now();
