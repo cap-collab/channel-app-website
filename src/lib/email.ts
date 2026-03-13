@@ -76,19 +76,16 @@ function wrapEmailContent(content: string, footerText: string): string {
         <tr>
           <td align="center" style="padding: 40px 20px;" bgcolor="#0a0a0a">
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 420px;">
-              <!-- Logo Header -->
               <tr>
                 <td align="center" style="padding-bottom: 32px;" bgcolor="#0a0a0a">
                   <img src="${LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" />
                 </td>
               </tr>
-              <!-- Content -->
               <tr>
                 <td bgcolor="#0a0a0a">
                   ${content}
                 </td>
               </tr>
-              <!-- Footer -->
               <tr>
                 <td align="center" style="padding-top: 32px; border-top: 1px solid #333;" bgcolor="#0a0a0a">
                   <p style="margin: 0 0 12px; font-size: 13px; color: #71717a;">
@@ -194,7 +191,6 @@ export async function sendShowStartingEmail({
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 0; border: 1px solid #333;">
       <tr>
         <td align="center" style="padding: 32px;">
-          <!-- DJ Photo -->
           <div style="margin-bottom: 16px;">
             ${photoHtml}
           </div>
@@ -431,11 +427,9 @@ function buildShowCardHtml(
       </table>`;
 
   return `
-    <!-- Show Card -->
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px; background: #1a1a1a; border: 1px solid #333;">
       <tr>
         <td style="padding: 16px;">
-          <!-- Tag -->
           <div style="margin-bottom: 8px;">
             <span style="font-size: 10px; font-family: monospace; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px;">${tag}</span>
           </div>
@@ -512,7 +506,6 @@ function buildCuratorRecCardHtml(rec: {
       </table>`;
 
   return `
-    <!-- Curator Rec Card -->
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px; background: #1a1a1a; border: 1px solid #333;">
       <tr>
         <td style="padding: 16px;">
@@ -556,7 +549,6 @@ function buildCuratorRecCardHtml(rec: {
 // Build a day header HTML block
 function buildDayHeaderHtml(dayLabel: string): string {
   return `
-    <!-- Day Header -->
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px; margin-top: 8px;">
       <tr>
         <td style="padding: 8px 0;">
@@ -900,20 +892,15 @@ export async function sendWatchlistDigestEmail({
   ` : "";
 
   const content = `
-    <!-- Title -->
     <h1 style="margin: 0 0 4px; font-size: 22px; font-weight: 700; color: #fff; line-height: 1.3; text-align: center;">
       ${titleText}
     </h1>
     ${!hasUpdates ? `
     <p style="margin: 0 0 24px; font-size: 12px; color: #71717a; line-height: 1.4; text-align: center;">
       ${genreBannerText}
-    </p>` : `
-    <p style="margin: 0 0 24px; font-size: 12px; color: #71717a; line-height: 1.4; text-align: center;">&nbsp;</p>`}
-    <!-- Updates from favorites -->
+    </p>` : `<div style="margin: 0 0 24px;"></div>`}
     ${updatesHtml}
-    <!-- Upcoming for you -->
     ${upcomingHeader}
-    <!-- Timeline -->
     ${timelineHtml}
   `;
 
