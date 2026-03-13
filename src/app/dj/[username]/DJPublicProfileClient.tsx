@@ -19,7 +19,7 @@ import { useDJProfileChat } from "@/hooks/useDJProfileChat";
 import { Show } from "@/types";
 import { Archive } from "@/types/broadcast";
 import { getStationById } from "@/lib/stations";
-import { wordBoundaryMatch, showMatchesDJ } from "@/lib/dj-matching";
+import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { Venue, Collective, Event as ChannelEvent, EventDJRef } from "@/types/events";
 // Icon components (inline SVGs to avoid external dependencies)
 const ShareIcon = ({ size = 14 }: { size?: number }) => (
@@ -542,12 +542,16 @@ export function DJPublicProfileClient({ username }: Props) {
     const normalizedProfileUsername = djName.replace(/[\s-]+/g, "").toLowerCase();
 
     // Check if live on Channel Broadcast
+    const matchesProfile = (show: Show) =>
+      show.djUsername === normalizedProfileUsername ||
+      show.additionalDjUsernames?.includes(normalizedProfileUsername);
+
     const channelShow = allShows.find(
       (show) =>
         show.stationId === "broadcast" &&
         new Date(show.startTime).getTime() <= now &&
         new Date(show.endTime).getTime() > now &&
-        show.djUsername === normalizedProfileUsername
+        matchesProfile(show)
     );
 
     if (channelShow) {
@@ -563,7 +567,7 @@ export function DJPublicProfileClient({ username }: Props) {
         show.stationId !== "broadcast" &&
         new Date(show.startTime).getTime() <= now &&
         new Date(show.endTime).getTime() > now &&
-        show.djUsername === normalizedProfileUsername
+        matchesProfile(show)
     );
 
     if (externalShow) {
@@ -671,14 +675,9 @@ export function DJPublicProfileClient({ username }: Props) {
         const endTime = new Date(show.endTime).getTime();
         if (endTime <= now) return;
 
-        // Primary: djUsername === normalized profile username (pre-matched in metadata build)
-        // Secondary: show name extraction matches profile (for multi-DJ shows like "A and B - Show")
-        const primaryMatch = show.djUsername === normalizedProfileUsername;
-        const secondaryMatch = !primaryMatch && showMatchesDJ(
-          { name: show.name, dj: show.dj, djUsername: show.djUsername },
-          djProfile.chatUsername
-        );
-        if (primaryMatch || secondaryMatch) {
+        // Match by primary djUsername or additional profiles (for multi-DJ shows)
+        if (show.djUsername === normalizedProfileUsername ||
+            show.additionalDjUsernames?.includes(normalizedProfileUsername)) {
           const id = `external-${show.id}`;
           if (seenIds.has(id)) return;
           seenIds.add(id);

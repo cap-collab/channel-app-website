@@ -372,6 +372,7 @@ function expandShow(show: ShowV2, stationMetadataKey: string): Show {
     description: show.d || undefined,
     dj: show.j || undefined,
     djUsername: show.p || undefined,
+    additionalDjUsernames: show.ap && show.ap.length > 0 ? show.ap : undefined,
     imageUrl: show.u || undefined,
     stationId,
     type: show.t || undefined,

@@ -73,7 +73,12 @@ export async function GET(request: NextRequest) {
       const stationName = station?.name || metadataKey;
 
       for (const show of stationShows) {
-        if (!show.p || !djUsernames.has(show.p.toLowerCase())) continue;
+        // Match by primary profile (p) or additional profiles (ap)
+        const primaryMatch = show.p && djUsernames.has(show.p.toLowerCase());
+        const additionalMatch = !primaryMatch && show.ap?.some(
+          (slug: string) => djUsernames.has(slug.toLowerCase())
+        );
+        if (!primaryMatch && !additionalMatch) continue;
 
         shows.push({
           id: `${stationId}-${show.s}`,

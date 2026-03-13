@@ -8,6 +8,7 @@ export interface ShowV2 {
   u?: string | null; // image url
   t?: string | null; // type (weekly, monthly, restream, playlist)
   p?: string | null; // profile username (for DJ profile link)
+  ap?: string[]; // additional profile usernames (for multi-DJ shows)
 }
 
 // Expanded show with station info
@@ -21,6 +22,7 @@ export interface Show {
   djBio?: string;
   djPhotoUrl?: string;
   djUsername?: string; // For DJ profile URL
+  additionalDjUsernames?: string[]; // Additional DJ profile slugs (for multi-DJ shows)
   djLocation?: string; // DJ's city/location from profile
   imageUrl?: string;
   stationId: string;
