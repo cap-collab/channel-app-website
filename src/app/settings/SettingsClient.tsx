@@ -477,8 +477,8 @@ export function SettingsClient() {
                     }`}
                   >
                     <div
-                      className={`w-6 h-6 rounded-full bg-black transition-transform ${
-                        notifications.showStarting ? "translate-x-6" : ""
+                      className={`w-6 h-6 rounded-full transition-transform ${
+                        notifications.showStarting ? "bg-black translate-x-6" : "bg-gray-400"
                       }`}
                     />
                   </button>
@@ -498,8 +498,8 @@ export function SettingsClient() {
                     }`}
                   >
                     <div
-                      className={`w-6 h-6 rounded-full bg-black transition-transform ${
-                        notifications.watchlistMatch ? "translate-x-6" : ""
+                      className={`w-6 h-6 rounded-full transition-transform ${
+                        notifications.watchlistMatch ? "bg-black translate-x-6" : "bg-gray-400"
                       }`}
                     />
                   </button>
@@ -519,8 +519,8 @@ export function SettingsClient() {
                     }`}
                   >
                     <div
-                      className={`w-6 h-6 rounded-full bg-black transition-transform ${
-                        notifications.popularity ? "translate-x-6" : ""
+                      className={`w-6 h-6 rounded-full transition-transform ${
+                        notifications.popularity ? "bg-black translate-x-6" : "bg-gray-400"
                       }`}
                     />
                   </button>
@@ -540,8 +540,8 @@ export function SettingsClient() {
                     }`}
                   >
                     <div
-                      className={`w-6 h-6 rounded-full bg-black transition-transform ${
-                        notifications.djOnline ? "translate-x-6" : ""
+                      className={`w-6 h-6 rounded-full transition-transform ${
+                        notifications.djOnline ? "bg-black translate-x-6" : "bg-gray-400"
                       }`}
                     />
                   </button>
@@ -573,8 +573,8 @@ export function SettingsClient() {
                     }`}
                   >
                     <div
-                      className={`w-6 h-6 rounded-full bg-black transition-transform ${
-                        activityMessages.showLoveMessages ? "translate-x-6" : ""
+                      className={`w-6 h-6 rounded-full transition-transform ${
+                        activityMessages.showLoveMessages ? "bg-black translate-x-6" : "bg-gray-400"
                       }`}
                     />
                   </button>
@@ -594,8 +594,8 @@ export function SettingsClient() {
                     }`}
                   >
                     <div
-                      className={`w-6 h-6 rounded-full bg-black transition-transform ${
-                        activityMessages.showLockedInMessages ? "translate-x-6" : ""
+                      className={`w-6 h-6 rounded-full transition-transform ${
+                        activityMessages.showLockedInMessages ? "bg-black translate-x-6" : "bg-gray-400"
                       }`}
                     />
                   </button>
@@ -615,8 +615,8 @@ export function SettingsClient() {
                     }`}
                   >
                     <div
-                      className={`w-6 h-6 rounded-full bg-black transition-transform ${
-                        activityMessages.showFavoriteMessages ? "translate-x-6" : ""
+                      className={`w-6 h-6 rounded-full transition-transform ${
+                        activityMessages.showFavoriteMessages ? "bg-black translate-x-6" : "bg-gray-400"
                       }`}
                     />
                   </button>
