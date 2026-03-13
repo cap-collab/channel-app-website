@@ -1418,8 +1418,8 @@ export function DJPublicProfileClient({ username }: Props) {
                     />
                   </div>
                   <div className="flex justify-between text-[10px] text-zinc-500">
-                    <span>{new Date(currentLiveShow.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
-                    <span>{new Date(currentLiveShow.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
+                    <span>{new Date(currentLiveShow.startTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
+                    <span>{new Date(currentLiveShow.endTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
                   </div>
                 </div>
 
@@ -1577,7 +1577,7 @@ export function DJPublicProfileClient({ username }: Props) {
                           weekday: "short",
                           month: "short",
                           day: "numeric",
-                          hour: "numeric",
+                          hour: "2-digit",
                           minute: "2-digit",
                         })}
                         {event.location && <> &middot; {event.location}</>}
@@ -1642,7 +1642,7 @@ export function DJPublicProfileClient({ username }: Props) {
                   // Format date and time for header
                   const showDate = new Date(broadcast.startTime);
                   const dateStr = showDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                  const timeStr = showDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+                  const timeStr = showDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 
                   return (
                     <div
@@ -1650,17 +1650,17 @@ export function DJPublicProfileClient({ username }: Props) {
                       className="bg-surface-card rounded overflow-hidden"
                     >
                       {/* Header: Date + Time, Show Type, and Station name */}
-                      <div className="flex items-center justify-between px-4 py-3 bg-black/40">
+                      <div className="grid grid-cols-3 items-center px-4 py-3 bg-black/40">
                         <span className="text-zinc-400 text-xs">
                           {dateStr} · {timeStr}
                         </span>
-                        <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center gap-1">
+                        <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center justify-center gap-1">
                           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
                           </svg>
                           Online
                         </span>
-                        <span className="text-zinc-400 text-xs">
+                        <span className="text-zinc-400 text-xs text-right">
                           {broadcast.stationName}
                         </span>
                       </div>
@@ -1682,8 +1682,8 @@ export function DJPublicProfileClient({ username }: Props) {
                             />
                           </div>
                           <div className="flex justify-between text-[10px] text-zinc-500">
-                            <span>{new Date(broadcast.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
-                            <span>{new Date(broadcast.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
+                            <span>{new Date(broadcast.startTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
+                            <span>{new Date(broadcast.endTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
                           </div>
                         </div>
 
@@ -1720,17 +1720,17 @@ export function DJPublicProfileClient({ username }: Props) {
                       className="bg-surface-card rounded overflow-hidden"
                     >
                       {/* Header: Date, Show Type, and Location */}
-                      <div className="flex items-center justify-between px-4 py-3 bg-black/40">
+                      <div className="grid grid-cols-3 items-center px-4 py-3 bg-black/40">
                         <span className="text-zinc-400 text-xs">
                           {dateStr}
                         </span>
-                        <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center gap-1">
+                        <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center justify-center gap-1">
                           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
                           </svg>
                           IRL
                         </span>
-                        <span className="text-zinc-400 text-xs">
+                        <span className="text-zinc-400 text-xs text-right">
                           {irlShow.location || "IRL Event"}
                         </span>
                       </div>
@@ -1769,9 +1769,14 @@ export function DJPublicProfileClient({ username }: Props) {
                   const radioShow = item as RadioShow & { feedType: "dj-radio"; feedStatus: "upcoming"; id: string };
                   const radioDate = radioShow.date ? new Date(radioShow.date) : null;
                   const dateStr = radioDate ? radioDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "TBA";
-                  const timeStr = radioShow.time || "";
-                  // Get timezone abbreviation if timezone is stored
-                  const tzAbbr = radioShow.timezone ? getTimezoneAbbr(radioShow.timezone, radioDate || new Date()) : "";
+                  // Convert radio show time to local device time
+                  let timeStr = "";
+                  if (radioShow.time && radioDate) {
+                    const [hours, minutes] = radioShow.time.split(":").map(Number);
+                    const showDateTime = new Date(radioDate);
+                    showDateTime.setHours(hours || 0, minutes || 0, 0, 0);
+                    timeStr = showDateTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+                  }
 
                   // Check if show is currently live (within 2 hours of start time)
                   const nowMs = Date.now();
@@ -1796,17 +1801,17 @@ export function DJPublicProfileClient({ username }: Props) {
                       className="bg-surface-card rounded overflow-hidden"
                     >
                       {/* Header: Date + Time, Show Type, and Radio name */}
-                      <div className="flex items-center justify-between px-4 py-3 bg-black/40">
+                      <div className="grid grid-cols-3 items-center px-4 py-3 bg-black/40">
                         <span className="text-zinc-400 text-xs">
-                          {dateStr}{timeStr ? ` · ${timeStr}${tzAbbr ? ` ${tzAbbr}` : ""}` : ""}
+                          {dateStr}{timeStr ? ` · ${timeStr}` : ""}
                         </span>
-                        <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center gap-1">
+                        <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center justify-center gap-1">
                           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
                           </svg>
                           Online
                         </span>
-                        <span className="text-zinc-400 text-xs">
+                        <span className="text-zinc-400 text-xs text-right">
                           {radioShow.radioName || "Radio"}
                         </span>
                       </div>
@@ -1838,8 +1843,8 @@ export function DJPublicProfileClient({ username }: Props) {
                                 />
                               </div>
                               <div className="flex justify-between text-[10px] text-zinc-500">
-                                <span>{showStart.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
-                                <span>{showEnd.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
+                                <span>{showStart.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
+                                <span>{showEnd.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
                               </div>
                             </div>
                           );
@@ -2047,7 +2052,7 @@ export function DJPublicProfileClient({ username }: Props) {
                   // Format date and time for header
                   const showDate = new Date(pastShow.startTime);
                   const dateStr = showDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                  const timeStr = showDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+                  const timeStr = showDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 
                   return (
                     <div
