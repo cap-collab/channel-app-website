@@ -283,7 +283,7 @@ export async function GET(request: NextRequest) {
             name: radioShow.name,
             dj: displayName,
             startTime,
-            stationId: radioShow.radioName.toLowerCase().replace(/\s+/g, "-"),
+            stationId: "dj-radio",
             stationName: radioShow.radioName,
             djUserId: djUser.id,
             djUsername: chatUsername,

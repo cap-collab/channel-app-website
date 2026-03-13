@@ -1024,8 +1024,8 @@ export function DJPublicProfileClient({ username }: Props) {
       endTime = new Date(startTime.getTime() + durationHours * 60 * 60 * 1000);
     }
 
-    // Use radioName as stationId to match how sync-shows-to-followers stores favorites
-    const stationId = show.radioName ? show.radioName.toLowerCase() : "dj-radio";
+    // Use "dj-radio" as stationId to match how /api/schedule returns these shows
+    const stationId = "dj-radio";
 
     return {
       id: show.id,
