@@ -3,6 +3,7 @@ import {
   queryUsersWhere,
   getUserFavorites,
   addUserFavorite,
+  getUser,
   isRestApiConfigured,
 } from "@/lib/firebase-rest";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
@@ -105,6 +106,14 @@ export async function POST(request: NextRequest) {
 
       if (matched) {
         usersMatched++;
+
+        // Check if user previously dismissed this auto-favorite
+        const userData = await getUser(userId);
+        const dismissedAutoFavorites = (userData?.dismissedAutoFavorites as Record<string, string>) || {};
+        const dismissKey = `${stationId}-${showName.toLowerCase()}`;
+        if (dismissedAutoFavorites[dismissKey]) {
+          continue;
+        }
 
         // Check if show already favorited
         const existingFavorites = await getUserFavorites(userId, "show");

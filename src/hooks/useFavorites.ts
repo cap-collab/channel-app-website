@@ -8,6 +8,8 @@ import {
   addDoc,
   deleteDoc,
   doc,
+  getDoc,
+  setDoc,
   serverTimestamp,
   where,
   getDocs,
@@ -261,14 +263,28 @@ export function useFavorites() {
         );
         const snapshot = await getDocs(q);
 
+        let wasAutoFavorited = false;
         for (const d of snapshot.docs) {
           const docStationId = d.data().stationId;
           // Match stationId - treat null, undefined, and "" as equivalent (no station)
           const showStationId = show.stationId || null;
           const docStationIdNormalized = docStationId || null;
           if (docStationIdNormalized === showStationId) {
+            if (d.data().matchedFromWatchlist || d.data().createdBy === "system") {
+              wasAutoFavorited = true;
+            }
             await deleteDoc(doc(db, "users", user.uid, "favorites", d.id));
           }
+        }
+
+        // Track dismissed auto-favorites so crons don't re-add them
+        if (wasAutoFavorited) {
+          const dismissKey = `${show.stationId || "broadcast"}-${show.name.toLowerCase()}`;
+          const userDocRef = doc(db, "users", user.uid);
+          const userSnap = await getDoc(userDocRef);
+          const existing = (userSnap.data()?.dismissedAutoFavorites as Record<string, string>) || {};
+          existing[dismissKey] = new Date().toISOString();
+          await setDoc(userDocRef, { dismissedAutoFavorites: existing }, { merge: true });
         }
 
         console.log(`[removeFavorite] Removed show "${show.name}" (${show.stationId}) from favorites`);

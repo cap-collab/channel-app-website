@@ -28,6 +28,7 @@ interface MetadataShow {
   e: string;
   j?: string | null;
   p?: string | null; // profile username (for DJ profile link)
+  t?: string | null; // type (weekly, monthly, restream, playlist)
 }
 
 interface Metadata {
@@ -118,6 +119,8 @@ export async function GET(request: NextRequest) {
     for (const [stationKey, shows] of Object.entries(metadata.stations)) {
       if (Array.isArray(shows)) {
         for (const show of shows) {
+          // Skip playlist and restream shows — don't auto-favorite automated content
+          if (show.t === "playlist" || show.t === "restream") continue;
           allShows.push({
             name: show.n,
             dj: show.j || undefined,
@@ -491,6 +494,7 @@ export async function GET(request: NextRequest) {
       const lastWatchlistDigestShows = (userData.lastWatchlistDigestShows as Record<string, string>) || {};
       const lastSentCuratorRecs = (userData.lastSentCuratorRecs as string[]) || [];
       const sentRecUrls = new Set(lastSentCuratorRecs);
+      const dismissedAutoFavorites = (userData.dismissedAutoFavorites as Record<string, string>) || {};
 
       // Get user's watchlist (search type favorites)
       const favorites = await getUserFavorites(user.id, "search");
@@ -633,7 +637,11 @@ export async function GET(request: NextRequest) {
               (f.data.stationId as string) === match.stationId
           );
 
-          if (!alreadyFavorited) {
+          // Skip if user previously dismissed this auto-favorite
+          const dismissKey = `${match.stationId}-${match.showName.toLowerCase()}`;
+          const wasDismissed = !!dismissedAutoFavorites[dismissKey];
+
+          if (!alreadyFavorited && !wasDismissed) {
             await addUserFavorite(user.id, {
               term: match.showName.toLowerCase(),
               type: "show",
