@@ -280,7 +280,7 @@ export function MyShowsClient() {
           if (!pendingSnapshot.empty) {
             const data = pendingSnapshot.docs[0].data();
             newProfiles.set(normalized, {
-              username: data.chatUsernameNormalized || normalized,
+              username: data.chatUsername || data.djName || normalized,
               photoUrl: data.djProfile?.photoUrl || undefined,
               location: data.djProfile?.location || undefined,
               genres: data.djProfile?.genres || undefined,
@@ -299,7 +299,7 @@ export function MyShowsClient() {
           if (!usersSnapshot.empty) {
             const data = usersSnapshot.docs[0].data();
             newProfiles.set(normalized, {
-              username: data.chatUsernameNormalized || normalized,
+              username: data.chatUsername || data.displayName || normalized,
               photoUrl: data.djProfile?.photoUrl || undefined,
               location: data.djProfile?.location || undefined,
               genres: data.djProfile?.genres || undefined,
@@ -557,9 +557,9 @@ export function MyShowsClient() {
                   {watchlist.map((favorite) => {
                     const djProfile = djProfiles.get(normalizeForLookup(favorite.term));
                     const displayName = djProfile?.username || favorite.term.charAt(0).toUpperCase() + favorite.term.slice(1);
-                    // Always provide a djUsername for navigation - use normalized term as fallback
+                    // For navigation: use normalized term (matches chatUsernameNormalized / DJ profile URL)
                     const normalizedTerm = favorite.term.replace(/[\s-]+/g, "").toLowerCase();
-                    const djUsername = djProfile?.username || normalizedTerm;
+                    const djUsername = normalizedTerm;
 
                     return (
                       <WatchlistDJCard
