@@ -442,7 +442,7 @@ export function SettingsClient() {
                     <div>
                       <p className="text-white font-medium">Upgrade to DJ</p>
                       <p className="text-gray-500 text-sm">
-                        Start broadcasting your own shows on Channel
+                        Build your DJ profile and host your show on Channel
                       </p>
                     </div>
                     <Link
