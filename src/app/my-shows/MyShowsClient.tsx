@@ -227,7 +227,7 @@ export function MyShowsClient() {
         const key = show.djUsername; // Already normalized from metadata
         if (!newProfiles.has(key)) {
           newProfiles.set(key, {
-            username: show.djUsername,
+            username: show.dj || show.djUsername, // Display name from enriched show data
             photoUrl: show.djPhotoUrl,
             location: show.djLocation,
             genres: show.djGenres,
