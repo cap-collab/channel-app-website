@@ -331,11 +331,11 @@ export async function GET(request: NextRequest) {
       const djName = (djProfile.djName as string) || chatUsername;
       const updates: DjUpdate[] = [];
 
-      // IRL shows with addedAt
+      // IRL shows with addedAt (in test mode, include all items even without addedAt)
       const irlShows = djProfile.irlShows as Array<{ name: string; location: string; url: string; date: string; addedAt?: string }> | undefined;
       if (irlShows && Array.isArray(irlShows)) {
         for (const show of irlShows) {
-          if (show.addedAt && show.date >= todayStr) {
+          if ((testEmail || show.addedAt) && show.date >= todayStr) {
             updates.push({
               djName, djUsername, djPhotoUrl,
               updateType: 'irl',
@@ -343,17 +343,17 @@ export async function GET(request: NextRequest) {
               irlLocation: show.location,
               irlDate: show.date,
               irlTicketUrl: show.url,
-              addedAt: show.addedAt,
+              addedAt: show.addedAt || new Date().toISOString(),
             });
           }
         }
       }
 
-      // Radio shows with addedAt
+      // Radio shows with addedAt (in test mode, include all items even without addedAt)
       const radioShows = djProfile.radioShows as Array<{ name: string; radioName: string; url: string; date: string; time: string; duration: string; timezone?: string; addedAt?: string }> | undefined;
       if (radioShows && Array.isArray(radioShows)) {
         for (const show of radioShows) {
-          if (show.addedAt && show.date >= todayStr) {
+          if ((testEmail || show.addedAt) && show.date >= todayStr) {
             updates.push({
               djName, djUsername, djPhotoUrl,
               updateType: 'radio',
@@ -363,17 +363,17 @@ export async function GET(request: NextRequest) {
               radioTime: show.time,
               radioUrl: show.url,
               radioTimezone: show.timezone,
-              addedAt: show.addedAt,
+              addedAt: show.addedAt || new Date().toISOString(),
             });
           }
         }
       }
 
-      // Recs with addedAt
+      // Recs with addedAt (in test mode, include all items even without addedAt)
       const rawRecs = djProfile.myRecs;
       if (rawRecs && Array.isArray(rawRecs)) {
         for (const rec of rawRecs as Array<{ type?: string; title?: string; url?: string; imageUrl?: string; addedAt?: string }>) {
-          if (rec.addedAt) {
+          if (testEmail || rec.addedAt) {
             updates.push({
               djName, djUsername, djPhotoUrl,
               updateType: 'rec',
@@ -381,7 +381,7 @@ export async function GET(request: NextRequest) {
               recTitle: rec.title,
               recUrl: rec.url,
               recImageUrl: rec.imageUrl,
-              addedAt: rec.addedAt,
+              addedAt: rec.addedAt || new Date().toISOString(),
             });
           }
         }
@@ -1136,14 +1136,14 @@ export async function GET(request: NextRequest) {
 
       // Collect DJ updates for this user (from followed DJs, since last email)
       const userDjUpdates: DjUpdate[] = [];
-      if (lastEmailAt) {
-        const lastEmailDate = new Date(lastEmailAt);
+      if (testEmail || lastEmailAt) {
+        const lastEmailDate = lastEmailAt ? new Date(lastEmailAt) : new Date(0);
         for (const watchlistDoc of watchlistDocs) {
           const term = watchlistDoc.term.toLowerCase();
           for (const [djKey, updates] of Array.from(djUpdatesMap)) {
             if (containsMatch(djKey, term) || updates.some((u: DjUpdate) => containsMatch(u.djName, term))) {
               for (const update of updates) {
-                if (new Date(update.addedAt) > lastEmailDate) {
+                if (testEmail || new Date(update.addedAt) > lastEmailDate) {
                   userDjUpdates.push(update);
                 }
               }
