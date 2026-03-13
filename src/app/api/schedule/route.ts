@@ -29,6 +29,45 @@ function getNextHourMs(): number {
 const djProfileCache = new Map<string, { data: Record<string, unknown> | null; expiry: number }>();
 const DJ_PROFILE_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
+// Blocked profile matches cache: prevents enriching external shows with wrong DJ profiles
+// Each entry is "djUsername:stationId" (or "djUsername:*" for all stations)
+let blockedMatchesCache: Set<string> | null = null;
+let blockedMatchesCacheExpiry = 0;
+const BLOCKED_MATCHES_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+async function fetchBlockedMatches(): Promise<Set<string>> {
+  const now = Date.now();
+  if (blockedMatchesCache && now < blockedMatchesCacheExpiry) {
+    return blockedMatchesCache;
+  }
+
+  const adminDb = getAdminDb();
+  if (!adminDb) return new Set();
+
+  const snapshot = await adminDb.collection("blocked-profile-matches").get();
+  const blocked = new Set<string>();
+  for (const doc of snapshot.docs) {
+    const data = doc.data();
+    const username = data.djUsername as string;
+    const stationId = data.stationId as string;
+    if (username && stationId) {
+      blocked.add(`${username.toLowerCase()}:${stationId.toLowerCase()}`);
+    }
+  }
+
+  blockedMatchesCache = blocked;
+  blockedMatchesCacheExpiry = now + BLOCKED_MATCHES_CACHE_TTL;
+  console.log(`[API /schedule] Loaded ${blocked.size} blocked profile matches`);
+  return blocked;
+}
+
+function isProfileMatchBlocked(blocked: Set<string>, djUsername: string, stationId: string): boolean {
+  const normalizedUsername = djUsername.toLowerCase();
+  const normalizedStation = stationId.toLowerCase();
+  return blocked.has(`${normalizedUsername}:${normalizedStation}`) ||
+         blocked.has(`${normalizedUsername}:*`);
+}
+
 // ---------------------------------------------------------------------------
 // Shared query: fetch all DJ/broadcaster/admin users once, reuse everywhere
 // ---------------------------------------------------------------------------
@@ -51,10 +90,15 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
   const adminDb = getAdminDb();
   if (!adminDb) return shows;
 
+  const blocked = await fetchBlockedMatches();
+
   const djUsernames = new Set<string>();
   shows.forEach((show) => {
     if (show.djUsername && show.stationId !== "broadcast") {
-      djUsernames.add(show.djUsername);
+      // Skip blocked username+station combos
+      if (!isProfileMatchBlocked(blocked, show.djUsername, show.stationId)) {
+        djUsernames.add(show.djUsername);
+      }
     }
   });
 
@@ -138,7 +182,8 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
   }
 
   return shows.map((show) => {
-    if (show.djUsername && show.stationId !== "broadcast") {
+    if (show.djUsername && show.stationId !== "broadcast" &&
+        !isProfileMatchBlocked(blocked, show.djUsername, show.stationId)) {
       const profile = profiles[show.djUsername];
       if (profile) {
         return {
@@ -253,7 +298,7 @@ function extractIRLShows(djUserDocs: FirestoreDoc[]): IRLShowData[] {
 
       irlShows.push({
         djUsername: chatUsername?.replace(/\s+/g, "").toLowerCase() || "",
-        djName: chatUsername || "Unknown DJ",
+        djName: djProfile.djName || chatUsername || "Unknown DJ",
         djPhotoUrl: djProfile.photoUrl || undefined,
         djLocation: djProfile.location || undefined,
         djGenres: djProfile.genres || undefined,
@@ -399,7 +444,7 @@ async function extractCuratorRecs(djUserDocs: FirestoreDoc[]): Promise<CuratorRe
     if (!chatUsername || !djProfile?.myRecs) continue;
 
     const djUsername = chatUsername.replace(/\s+/g, "").toLowerCase();
-    const djName = chatUsername;
+    const djName = djProfile.djName || chatUsername;
     const djPhotoUrl = djProfile.photoUrl || undefined;
 
     const myRecs = djProfile.myRecs;

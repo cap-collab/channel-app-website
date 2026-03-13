@@ -75,6 +75,14 @@ function containsMatch(text: string, term: string): boolean {
   return wordBoundaryMatch(text, term);
 }
 
+// Blocked profile matches: prevents enriching external shows with wrong DJ profiles
+function isProfileMatchBlocked(blocked: Set<string>, djUsername: string, stationId: string): boolean {
+  const normalizedUsername = djUsername.toLowerCase();
+  const normalizedStation = stationId.toLowerCase();
+  return blocked.has(`${normalizedUsername}:${normalizedStation}`) ||
+         blocked.has(`${normalizedUsername}:*`);
+}
+
 // Generate a unique ID for a show to track deduplication
 // Format: "stationId-showName-startDate" (normalized)
 function generateShowId(stationId: string, showName: string, startTime: Date): string {
@@ -113,6 +121,24 @@ export async function GET(request: NextRequest) {
     }
 
     const metadata: Metadata = await metadataResponse.json();
+
+    // Fetch blocked profile matches (to prevent wrong DJ profile enrichment)
+    const blockedProfileMatches = new Set<string>();
+    try {
+      const blockedDocs = await queryCollection("blocked-profile-matches", [], 500);
+      for (const doc of blockedDocs) {
+        const username = doc.data.djUsername as string;
+        const stationId = doc.data.stationId as string;
+        if (username && stationId) {
+          blockedProfileMatches.add(`${username.toLowerCase()}:${stationId.toLowerCase()}`);
+        }
+      }
+      if (blockedProfileMatches.size > 0) {
+        console.log(`[watchlist-digest] Loaded ${blockedProfileMatches.size} blocked profile matches`);
+      }
+    } catch {
+      console.log("[watchlist-digest] Could not fetch blocked profile matches, continuing without");
+    }
 
     // Get all shows from all stations (external metadata)
     const allShows: BroadcastShow[] = [];
@@ -302,7 +328,7 @@ export async function GET(request: NextRequest) {
 
       const djUsername = chatUsername.replace(/\s+/g, "").toLowerCase();
       const djPhotoUrl = (djProfile.photoUrl as string) || undefined;
-      const djName = chatUsername;
+      const djName = (djProfile.djName as string) || chatUsername;
       const updates: DjUpdate[] = [];
 
       // IRL shows with addedAt
@@ -476,20 +502,21 @@ export async function GET(request: NextRequest) {
 
       const djUsername = chatUsername.replace(/\s+/g, "").toLowerCase();
       const djPhotoUrl = (djProfile.photoUrl as string) || undefined;
+      const recDjName = (djProfile.djName as string) || chatUsername;
 
       if (Array.isArray(rawRecs)) {
         for (const item of rawRecs as Array<{ type?: string; title?: string; url?: string; imageUrl?: string }>) {
           if (item?.url || item?.title) {
-            allCuratorRecs.push({ djUsername, djName: chatUsername, djPhotoUrl, url: item.url || "", type: (item.type as "music" | "irl" | "online") || "music", title: item.title, imageUrl: item.imageUrl });
+            allCuratorRecs.push({ djUsername, djName: recDjName, djPhotoUrl, url: item.url || "", type: (item.type as "music" | "irl" | "online") || "music", title: item.title, imageUrl: item.imageUrl });
           }
         }
       } else {
         const myRecs = rawRecs as { bandcampLinks?: string[]; eventLinks?: string[] };
         for (const url of myRecs.bandcampLinks || []) {
-          if (url) allCuratorRecs.push({ djUsername, djName: chatUsername, djPhotoUrl, url, type: "music" });
+          if (url) allCuratorRecs.push({ djUsername, djName: recDjName, djPhotoUrl, url, type: "music" });
         }
         for (const url of myRecs.eventLinks || []) {
-          if (url) allCuratorRecs.push({ djUsername, djName: chatUsername, djPhotoUrl, url, type: "irl" });
+          if (url) allCuratorRecs.push({ djUsername, djName: recDjName, djPhotoUrl, url, type: "irl" });
         }
       }
     }
@@ -664,8 +691,12 @@ export async function GET(request: NextRequest) {
           let djUsername = broadcastShow.djUsername;
           let djPhotoUrl = broadcastShow.djPhotoUrl;
 
-          // Use metadata `p` field as primary lookup key
-          if (broadcastShow.profileUsername) {
+          // Use metadata `p` field as primary lookup key (skip if blocked)
+          const isBlocked = broadcastShow.profileUsername
+            ? isProfileMatchBlocked(blockedProfileMatches, broadcastShow.profileUsername, show.stationId)
+            : false;
+
+          if (broadcastShow.profileUsername && !isBlocked) {
             const lookupKey = normalizeForLookup(broadcastShow.profileUsername);
             const djProfile = djNameToProfile.get(lookupKey);
             if (djProfile) {
@@ -681,8 +712,8 @@ export async function GET(request: NextRequest) {
             }
           }
 
-          // Fallback: fuzzy match on search term or DJ name
-          if (!djUsername) {
+          // Fallback: fuzzy match on search term or DJ name (skip if blocked)
+          if (!djUsername && !isBlocked) {
             let djProfile = matchedTerm ? djNameToProfile.get(normalizeForLookup(matchedTerm)) : undefined;
             if (!djProfile && show.dj) {
               djProfile = djNameToProfile.get(normalizeForLookup(show.dj));
@@ -808,8 +839,11 @@ export async function GET(request: NextRequest) {
             const broadcastShow = show as BroadcastShow;
             let djUsername = broadcastShow.djUsername;
             let djPhotoUrl = broadcastShow.djPhotoUrl;
-            // Use metadata `p` field as primary lookup key (same as watchlist section)
-            if (broadcastShow.profileUsername) {
+            // Use metadata `p` field as primary lookup key (same as watchlist section, skip if blocked)
+            const isFavBlocked = broadcastShow.profileUsername
+              ? isProfileMatchBlocked(blockedProfileMatches, broadcastShow.profileUsername, show.stationId)
+              : false;
+            if (broadcastShow.profileUsername && !isFavBlocked) {
               const lookupKey = normalizeForLookup(broadcastShow.profileUsername);
               const djProfile = djNameToProfile.get(lookupKey);
               if (djProfile) {
@@ -819,8 +853,8 @@ export async function GET(request: NextRequest) {
                 djUsername = djUsername || broadcastShow.profileUsername;
               }
             }
-            // Fallback: fuzzy match on DJ name
-            if (!djUsername && show.dj) {
+            // Fallback: fuzzy match on DJ name (skip if blocked)
+            if (!djUsername && !isFavBlocked && show.dj) {
               const djProfile = djNameToProfile.get(normalizeForLookup(show.dj));
               if (djProfile) { djUsername = djProfile.username; djPhotoUrl = djProfile.photoUrl; }
             }
@@ -855,8 +889,11 @@ export async function GET(request: NextRequest) {
             const broadcastShow = show as BroadcastShow;
             let djUsername = broadcastShow.djUsername;
             let djPhotoUrl = broadcastShow.djPhotoUrl;
-            // Use metadata `p` field as primary lookup key
-            if (broadcastShow.profileUsername) {
+            // Use metadata `p` field as primary lookup key (skip if blocked)
+            const isTermBlocked = broadcastShow.profileUsername
+              ? isProfileMatchBlocked(blockedProfileMatches, broadcastShow.profileUsername, show.stationId)
+              : false;
+            if (broadcastShow.profileUsername && !isTermBlocked) {
               const lookupKey = normalizeForLookup(broadcastShow.profileUsername);
               const djProfile = djNameToProfile.get(lookupKey);
               if (djProfile) {
@@ -866,7 +903,7 @@ export async function GET(request: NextRequest) {
                 djUsername = djUsername || broadcastShow.profileUsername;
               }
             }
-            if (!djUsername && show.dj) {
+            if (!djUsername && !isTermBlocked && show.dj) {
               const djProfile = djNameToProfile.get(normalizeForLookup(show.dj));
               if (djProfile) { djUsername = djProfile.username; djPhotoUrl = djProfile.photoUrl; }
             }
