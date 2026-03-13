@@ -46,6 +46,7 @@ interface IrlShow {
   location: string;
   url: string;
   date: string;
+  addedAt?: string;
 }
 
 interface RadioShow {
@@ -56,6 +57,7 @@ interface RadioShow {
   time: string;
   duration: string; // in hours, e.g. "1", "1.5", "2"
   timezone?: string; // IANA timezone the time was entered in
+  addedAt?: string;
 }
 
 interface DJProfile {
@@ -87,6 +89,7 @@ interface RecItem {
   title: string;
   url: string;
   imageUrl?: string;
+  addedAt?: string;
 }
 
 export function StudioProfileClient() {
@@ -674,14 +677,25 @@ export function StudioProfileClient() {
     try {
       const userRef = doc(db, "users", user.uid);
       // Filter out empty shows but always save the array structure
+      const previousShows = (djProfile.irlShows || []) as IrlShow[];
       const validShows = shows.filter(
         (show) => (show.url || "").trim() || (show.date || "").trim() || (show.name || "").trim() || (show.location || "").trim()
-      ).map((show) => ({
-        name: (show.name || "").trim(),
-        location: (show.location || "").trim(),
-        url: (show.url || "").trim() ? normalizeUrl((show.url || "").trim()) : "",
-        date: (show.date || "").trim(),
-      }));
+      ).map((show) => {
+        const name = (show.name || "").trim();
+        const location = (show.location || "").trim();
+        const date = (show.date || "").trim();
+        // Preserve addedAt if this item existed before, otherwise set new timestamp
+        const existingMatch = previousShows.find(
+          (prev) => prev.name === name && prev.date === date && prev.location === location
+        );
+        return {
+          name,
+          location,
+          url: (show.url || "").trim() ? normalizeUrl((show.url || "").trim()) : "",
+          date,
+          addedAt: existingMatch?.addedAt || show.addedAt || new Date().toISOString(),
+        };
+      });
 
       await updateDoc(userRef, {
         "djProfile.irlShows": validShows,
@@ -727,17 +741,28 @@ export function StudioProfileClient() {
     try {
       const userRef = doc(db, "users", user.uid);
       // Filter out empty shows but always save the array structure
+      const previousShows = (djProfile.radioShows || []) as RadioShow[];
       const validShows = shows.filter(
         (show) => (show.url || "").trim() || (show.date || "").trim() || (show.name || "").trim() || (show.radioName || "").trim()
-      ).map((show) => ({
-        name: (show.name || "").trim(),
-        radioName: (show.radioName || "").trim(),
-        url: (show.url || "").trim() ? normalizeUrl((show.url || "").trim()) : "",
-        date: (show.date || "").trim(),
-        time: (show.time || "").trim(),
-        duration: (show.duration || "1").trim(),
-        timezone: userTimezone, // Store the timezone the time was entered in
-      }));
+      ).map((show) => {
+        const name = (show.name || "").trim();
+        const radioName = (show.radioName || "").trim();
+        const date = (show.date || "").trim();
+        // Preserve addedAt if this item existed before, otherwise set new timestamp
+        const existingMatch = previousShows.find(
+          (prev) => prev.name === name && prev.radioName === radioName && prev.date === date
+        );
+        return {
+          name,
+          radioName,
+          url: (show.url || "").trim() ? normalizeUrl((show.url || "").trim()) : "",
+          date,
+          time: (show.time || "").trim(),
+          duration: (show.duration || "1").trim(),
+          timezone: userTimezone, // Store the timezone the time was entered in
+          addedAt: existingMatch?.addedAt || show.addedAt || new Date().toISOString(),
+        };
+      });
 
       await updateDoc(userRef, {
         "djProfile.radioShows": validShows,
@@ -780,14 +805,23 @@ export function StudioProfileClient() {
     try {
       const userRef = doc(db, "users", user.uid);
       // Filter out recs with no title and no URL, normalize URLs
+      const previousRecs = (djProfile.myRecs || []) as RecItem[];
       const validRecs = recs
         .filter((rec) => rec.title.trim() || rec.url.trim())
-        .map((rec) => ({
-          type: rec.type,
-          title: rec.title.trim(),
-          url: rec.url.trim() ? normalizeUrl(rec.url.trim()) : "",
-          ...(rec.imageUrl ? { imageUrl: rec.imageUrl } : {}),
-        }));
+        .map((rec) => {
+          const url = rec.url.trim() ? normalizeUrl(rec.url.trim()) : "";
+          // Preserve addedAt if this rec existed before, otherwise set new timestamp
+          const existingMatch = Array.isArray(previousRecs)
+            ? previousRecs.find((prev) => prev.url === url)
+            : undefined;
+          return {
+            type: rec.type,
+            title: rec.title.trim(),
+            url,
+            ...(rec.imageUrl ? { imageUrl: rec.imageUrl } : {}),
+            addedAt: existingMatch?.addedAt || rec.addedAt || new Date().toISOString(),
+          };
+        });
 
       await updateDoc(userRef, {
         "djProfile.myRecs": validRecs.length > 0 ? validRecs : null,
@@ -799,7 +833,7 @@ export function StudioProfileClient() {
     } finally {
       setSavingMyRecs(false);
     }
-  }, [user]);
+  }, [user, djProfile.myRecs]);
 
   const saveThankYou = useCallback(async (message: string) => {
     if (!user || !db) return;

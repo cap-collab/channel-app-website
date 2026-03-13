@@ -227,6 +227,104 @@ async function sendTestEmail(to: string, section?: string) {
     console.error("[test-email] Failed to fetch pending profiles:", error);
   }
 
+  // Collect DJ profile updates with addedAt timestamps
+  interface DjUpdate {
+    djName: string;
+    djUsername: string;
+    djPhotoUrl?: string;
+    updateType: 'irl' | 'radio' | 'rec';
+    irlShowName?: string;
+    irlLocation?: string;
+    irlDate?: string;
+    irlTicketUrl?: string;
+    radioShowName?: string;
+    radioName?: string;
+    radioDate?: string;
+    radioTime?: string;
+    radioUrl?: string;
+    radioTimezone?: string;
+    recType?: 'music' | 'irl' | 'online';
+    recTitle?: string;
+    recUrl?: string;
+    recImageUrl?: string;
+    recOgTitle?: string;
+    recOgImage?: string;
+    addedAt: string;
+  }
+  const djUpdatesMap = new Map<string, DjUpdate[]>();
+
+  for (const djUser of djUsers) {
+    const djProfile = djUser.data.djProfile as Record<string, unknown> | undefined;
+    const chatUsername = djUser.data.chatUsername as string | undefined;
+    if (!djProfile || !chatUsername) continue;
+
+    const djUsername = chatUsername.replace(/\s+/g, "").toLowerCase();
+    const djPhotoUrl = (djProfile.photoUrl as string) || undefined;
+    const djName = chatUsername;
+    const updates: DjUpdate[] = [];
+
+    // IRL shows with addedAt
+    const irlShowsWithTs = djProfile.irlShows as Array<{ name: string; location: string; url: string; date: string; addedAt?: string }> | undefined;
+    if (irlShowsWithTs && Array.isArray(irlShowsWithTs)) {
+      for (const show of irlShowsWithTs) {
+        if (show.addedAt && show.date >= todayStr) {
+          updates.push({
+            djName, djUsername, djPhotoUrl,
+            updateType: 'irl',
+            irlShowName: show.name,
+            irlLocation: show.location,
+            irlDate: show.date,
+            irlTicketUrl: show.url,
+            addedAt: show.addedAt,
+          });
+        }
+      }
+    }
+
+    // Radio shows with addedAt
+    const radioShowsWithTs = djProfile.radioShows as Array<{ name: string; radioName: string; url: string; date: string; time: string; addedAt?: string }> | undefined;
+    if (radioShowsWithTs && Array.isArray(radioShowsWithTs)) {
+      for (const show of radioShowsWithTs) {
+        if (show.addedAt && show.date >= todayStr) {
+          updates.push({
+            djName, djUsername, djPhotoUrl,
+            updateType: 'radio',
+            radioShowName: show.name,
+            radioName: show.radioName,
+            radioDate: show.date,
+            radioTime: show.time,
+            radioUrl: show.url,
+            addedAt: show.addedAt,
+          });
+        }
+      }
+    }
+
+    // Recs with addedAt
+    const rawRecs = djProfile.myRecs;
+    if (rawRecs && Array.isArray(rawRecs)) {
+      for (const rec of rawRecs as Array<{ type?: string; title?: string; url?: string; imageUrl?: string; addedAt?: string }>) {
+        if (rec.addedAt) {
+          updates.push({
+            djName, djUsername, djPhotoUrl,
+            updateType: 'rec',
+            recType: (rec.type as 'music' | 'irl' | 'online') || 'music',
+            recTitle: rec.title,
+            recUrl: rec.url,
+            recImageUrl: rec.imageUrl,
+            addedAt: rec.addedAt,
+          });
+        }
+      }
+    }
+
+    if (updates.length > 0) {
+      djUpdatesMap.set(djUsername, updates);
+    }
+  }
+
+  console.log(`[test-email] Collected updates from ${djUpdatesMap.size} DJs with addedAt timestamps`);
+
   // Resolve DJ photos for all shows
   const futureShows = allShows.filter((s) => new Date(s.startTime) > now);
   futureShows.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
@@ -598,10 +696,46 @@ async function sendTestEmail(to: string, section?: string) {
 
   console.log(`[test-email] Found ${preferenceShows.length} preference shows (incl. fallbacks)`);
 
+  // Collect DJ updates for this user (from followed DJs, since last email)
+  const lastEmailAt = userData.lastWatchlistEmailAt as Date | string | undefined;
+  const userDjUpdates: DjUpdate[] = [];
+  if (lastEmailAt) {
+    const lastEmailDate = new Date(lastEmailAt);
+    const followedTerms = watchlistFavorites.map((w) => (w.data.term as string)?.toLowerCase()).filter(Boolean);
+    for (const term of followedTerms) {
+      for (const [djKey, updates] of djUpdatesMap) {
+        if (djKey.includes(term) || updates.some((u) => u.djName.toLowerCase().includes(term))) {
+          for (const update of updates) {
+            if (new Date(update.addedAt) > lastEmailDate) {
+              userDjUpdates.push(update);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Fetch OG metadata for rec updates
+  const recUpdates = userDjUpdates.filter((u) => u.updateType === 'rec' && u.recUrl);
+  if (recUpdates.length > 0) {
+    const ogResults = await Promise.allSettled(
+      recUpdates.map((rec) => fetchOgMetadata(rec.recUrl!))
+    );
+    ogResults.forEach((result, i) => {
+      if (result.status === "fulfilled") {
+        if (result.value.ogTitle) recUpdates[i].recOgTitle = result.value.ogTitle;
+        if (result.value.ogImage) recUpdates[i].recOgImage = result.value.ogImage;
+      }
+    });
+  }
+
+  console.log(`[test-email] Found ${userDjUpdates.length} DJ updates for user`);
+
   // Filter by section if specified
   const finalFavorites = section === "2" || section === "3" ? [] : favoriteShows;
   const finalRecs = section === "1" || section === "3" ? [] : curatorRecs;
   const finalPrefs = section === "1" || section === "2" ? [] : preferenceShows;
+  const finalDjUpdates = section ? [] : userDjUpdates; // Only show updates in "all" mode
 
   try {
     const success = await sendWatchlistDigestEmail({
@@ -611,6 +745,7 @@ async function sendTestEmail(to: string, section?: string) {
       curatorRecs: finalRecs,
       preferenceShows: finalPrefs,
       preferredGenres,
+      djUpdates: finalDjUpdates,
     });
 
     if (success) {
