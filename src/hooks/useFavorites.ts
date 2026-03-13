@@ -199,7 +199,7 @@ export function useFavorites() {
 
             if (!pendingSnapshot.empty) {
               const data = pendingSnapshot.docs[0].data();
-              djUsername = djUsername || data.chatUsername || null;
+              djUsername = djUsername || data.chatUsernameNormalized || data.chatUsername || null;
               djPhotoUrl = djPhotoUrl || data.djProfile?.photoUrl || null;
               console.log(`[addFavorite] Found DJ in pending-dj-profiles: ${djUsername}, photo: ${djPhotoUrl ? 'yes' : 'no'}`);
             } else {
@@ -214,7 +214,7 @@ export function useFavorites() {
 
               if (!usersSnapshot.empty) {
                 const data = usersSnapshot.docs[0].data();
-                djUsername = djUsername || data.chatUsername || null;
+                djUsername = djUsername || data.chatUsernameNormalized || data.chatUsername || null;
                 djPhotoUrl = djPhotoUrl || data.djProfile?.photoUrl || null;
                 console.log(`[addFavorite] Found DJ in users: ${djUsername}, photo: ${djPhotoUrl ? 'yes' : 'no'}`);
               }

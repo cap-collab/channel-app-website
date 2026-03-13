@@ -28,6 +28,37 @@ function normalizeForLookup(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+// Find DJ profile in cache for a favorite — tries multiple lookup strategies
+// to handle cases where favorite fields may be missing or use different naming
+function findDJProfile(favorite: Favorite, profiles: Map<string, DJProfileCache>): DJProfileCache | undefined {
+  const n = (s: string) => s.replace(/[\s-]+/g, "").toLowerCase();
+
+  // 1. Try djUsername (most reliable — matches chatUsernameNormalized)
+  if (favorite.djUsername) {
+    const profile = profiles.get(n(favorite.djUsername));
+    if (profile) return profile;
+  }
+
+  // 2. Try djName
+  if (favorite.djName) {
+    const profile = profiles.get(n(favorite.djName));
+    if (profile) return profile;
+  }
+
+  // 3. Try term directly (works for watchlist-style favorites where term = DJ name)
+  const profile = profiles.get(n(favorite.term));
+  if (profile) return profile;
+
+  // 4. Try extracting DJ name from show name format "DJ - Show Name"
+  const parts = favorite.term.split(/\s[-–]\s/);
+  if (parts.length > 1) {
+    const firstPart = profiles.get(n(parts[0]));
+    if (firstPart) return firstPart;
+  }
+
+  return undefined;
+}
+
 // Helper to find station by id OR metadataKey
 function getStation(stationId: string | undefined) {
   if (!stationId) return undefined;
@@ -217,11 +248,10 @@ export function MyShowsClient() {
     }
 
     // Returning soon and one-time favorites (past shows not in current schedule)
-    // Use djUsername for lookup — same normalization as /dj/[username] page and register-username
+    // Use djUsername for Firebase lookup (matches chatUsernameNormalized)
     for (const item of [...categorizedShows.returningSoon, ...categorizedShows.oneTime]) {
-      const lookupName = item.djUsername || item.djName || item.term;
-      // Match chatUsernameNormalized format: strip spaces/hyphens, lowercase
-      const normalized = lookupName.replace(/[\s-]+/g, "").toLowerCase();
+      const name = item.djUsername || item.djName || item.term;
+      const normalized = name.replace(/[\s-]+/g, "").toLowerCase();
       if (!newProfiles.has(normalized)) {
         itemsToLookup.push(normalized);
       }
@@ -568,10 +598,9 @@ export function MyShowsClient() {
                       {categorizedShows.returningSoon.map((favorite) => {
                         const station = getStation(favorite.stationId);
                         const accentColor = station?.accentColor || "#fff";
-                        // Look up DJ profile from cache — use chatUsernameNormalized format
+                        // Look up DJ profile from cache
                         const djName = favorite.djName || favorite.term;
-                        const lookupName = favorite.djUsername || djName;
-                        const djProfile = djProfiles.get(lookupName.replace(/[\s-]+/g, "").toLowerCase());
+                        const djProfile = findDJProfile(favorite, djProfiles);
 
                         return (
                           <MyShowsCard
@@ -603,10 +632,9 @@ export function MyShowsClient() {
                       {categorizedShows.oneTime.map((favorite) => {
                         const station = getStation(favorite.stationId);
                         const accentColor = station?.accentColor || "#fff";
-                        // Look up DJ profile from cache — use chatUsernameNormalized format
+                        // Look up DJ profile from cache
                         const djName = favorite.djName || favorite.term;
-                        const lookupName = favorite.djUsername || djName;
-                        const djProfile = djProfiles.get(lookupName.replace(/[\s-]+/g, "").toLowerCase());
+                        const djProfile = findDJProfile(favorite, djProfiles);
 
                         return (
                           <MyShowsCard
