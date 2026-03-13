@@ -217,16 +217,18 @@ export function MyShowsClient() {
     }
 
     // Returning soon and one-time favorites (past shows not in current schedule)
+    // Use djUsername for lookup — same normalization as /dj/[username] page and register-username
     for (const item of [...categorizedShows.returningSoon, ...categorizedShows.oneTime]) {
-      // Try djUsername first (matches cache keys from Step 1), then djName, then term
       const lookupName = item.djUsername || item.djName || item.term;
-      const normalized = normalizeForLookup(lookupName);
+      // Match chatUsernameNormalized format: strip spaces/hyphens, lowercase
+      const normalized = lookupName.replace(/[\s-]+/g, "").toLowerCase();
       if (!newProfiles.has(normalized)) {
         itemsToLookup.push(normalized);
       }
     }
 
     // Step 3: Fetch missing profiles from Firebase
+    // Same lookup pattern as /dj/[username] page
     async function fetchMissingProfiles() {
       if (!db || itemsToLookup.length === 0) {
         if (newProfiles.size > 0) {
@@ -566,10 +568,10 @@ export function MyShowsClient() {
                       {categorizedShows.returningSoon.map((favorite) => {
                         const station = getStation(favorite.stationId);
                         const accentColor = station?.accentColor || "#fff";
-                        // Look up DJ profile from cache — same pattern as upcoming shows
+                        // Look up DJ profile from cache — use chatUsernameNormalized format
                         const djName = favorite.djName || favorite.term;
                         const lookupName = favorite.djUsername || djName;
-                        const djProfile = djProfiles.get(normalizeForLookup(lookupName));
+                        const djProfile = djProfiles.get(lookupName.replace(/[\s-]+/g, "").toLowerCase());
 
                         return (
                           <MyShowsCard
@@ -601,10 +603,10 @@ export function MyShowsClient() {
                       {categorizedShows.oneTime.map((favorite) => {
                         const station = getStation(favorite.stationId);
                         const accentColor = station?.accentColor || "#fff";
-                        // Look up DJ profile from cache — same pattern as upcoming shows
+                        // Look up DJ profile from cache — use chatUsernameNormalized format
                         const djName = favorite.djName || favorite.term;
                         const lookupName = favorite.djUsername || djName;
-                        const djProfile = djProfiles.get(normalizeForLookup(lookupName));
+                        const djProfile = djProfiles.get(lookupName.replace(/[\s-]+/g, "").toLowerCase());
 
                         return (
                           <MyShowsCard
