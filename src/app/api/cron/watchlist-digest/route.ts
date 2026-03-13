@@ -331,7 +331,7 @@ export async function GET(request: NextRequest) {
       const djName = (djProfile.djName as string) || chatUsername;
       const updates: DjUpdate[] = [];
 
-      // IRL shows with addedAt (in test mode, include all items even without addedAt)
+      // IRL shows with addedAt (test mode includes all items even without addedAt)
       const irlShows = djProfile.irlShows as Array<{ name: string; location: string; url: string; date: string; addedAt?: string }> | undefined;
       if (irlShows && Array.isArray(irlShows)) {
         for (const show of irlShows) {
@@ -349,7 +349,7 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Radio shows with addedAt (in test mode, include all items even without addedAt)
+      // Radio shows with addedAt (test mode includes all items even without addedAt)
       const radioShows = djProfile.radioShows as Array<{ name: string; radioName: string; url: string; date: string; time: string; duration: string; timezone?: string; addedAt?: string }> | undefined;
       if (radioShows && Array.isArray(radioShows)) {
         for (const show of radioShows) {
@@ -369,7 +369,7 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Recs with addedAt (in test mode, include all items even without addedAt)
+      // Recs with addedAt (test mode includes all items even without addedAt)
       const rawRecs = djProfile.myRecs;
       if (rawRecs && Array.isArray(rawRecs)) {
         for (const rec of rawRecs as Array<{ type?: string; title?: string; url?: string; imageUrl?: string; addedAt?: string }>) {
