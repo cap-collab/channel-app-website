@@ -472,13 +472,13 @@ export function SettingsClient() {
                   <button
                     onClick={() => handleToggle("showStarting")}
                     disabled={saving}
-                    className={`w-12 h-7 rounded-full transition-colors ${
+                    className={`w-14 h-8 rounded-full transition-colors flex items-center px-1 ${
                       notifications.showStarting ? "bg-white" : "bg-gray-700"
                     }`}
                   >
                     <div
-                      className={`w-5 h-5 rounded-full bg-black transition-transform mx-1 ${
-                        notifications.showStarting ? "translate-x-5" : ""
+                      className={`w-6 h-6 rounded-full bg-black transition-transform ${
+                        notifications.showStarting ? "translate-x-6" : ""
                       }`}
                     />
                   </button>
@@ -493,13 +493,13 @@ export function SettingsClient() {
                   <button
                     onClick={() => handleToggle("watchlistMatch")}
                     disabled={saving}
-                    className={`w-12 h-7 rounded-full transition-colors ${
+                    className={`w-14 h-8 rounded-full transition-colors flex items-center px-1 ${
                       notifications.watchlistMatch ? "bg-white" : "bg-gray-700"
                     }`}
                   >
                     <div
-                      className={`w-5 h-5 rounded-full bg-black transition-transform mx-1 ${
-                        notifications.watchlistMatch ? "translate-x-5" : ""
+                      className={`w-6 h-6 rounded-full bg-black transition-transform ${
+                        notifications.watchlistMatch ? "translate-x-6" : ""
                       }`}
                     />
                   </button>
@@ -514,13 +514,13 @@ export function SettingsClient() {
                   <button
                     onClick={() => handleToggle("popularity")}
                     disabled={saving}
-                    className={`w-12 h-7 rounded-full transition-colors ${
+                    className={`w-14 h-8 rounded-full transition-colors flex items-center px-1 ${
                       notifications.popularity ? "bg-white" : "bg-gray-700"
                     }`}
                   >
                     <div
-                      className={`w-5 h-5 rounded-full bg-black transition-transform mx-1 ${
-                        notifications.popularity ? "translate-x-5" : ""
+                      className={`w-6 h-6 rounded-full bg-black transition-transform ${
+                        notifications.popularity ? "translate-x-6" : ""
                       }`}
                     />
                   </button>
@@ -535,13 +535,13 @@ export function SettingsClient() {
                   <button
                     onClick={() => handleToggle("djOnline")}
                     disabled={saving}
-                    className={`w-12 h-7 rounded-full transition-colors ${
+                    className={`w-14 h-8 rounded-full transition-colors flex items-center px-1 ${
                       notifications.djOnline ? "bg-white" : "bg-gray-700"
                     }`}
                   >
                     <div
-                      className={`w-5 h-5 rounded-full bg-black transition-transform mx-1 ${
-                        notifications.djOnline ? "translate-x-5" : ""
+                      className={`w-6 h-6 rounded-full bg-black transition-transform ${
+                        notifications.djOnline ? "translate-x-6" : ""
                       }`}
                     />
                   </button>
@@ -568,13 +568,13 @@ export function SettingsClient() {
                   <button
                     onClick={() => handleActivityToggle("showLoveMessages")}
                     disabled={saving}
-                    className={`w-12 h-7 rounded-full transition-colors ${
+                    className={`w-14 h-8 rounded-full transition-colors flex items-center px-1 ${
                       activityMessages.showLoveMessages ? "bg-white" : "bg-gray-700"
                     }`}
                   >
                     <div
-                      className={`w-5 h-5 rounded-full bg-black transition-transform mx-1 ${
-                        activityMessages.showLoveMessages ? "translate-x-5" : ""
+                      className={`w-6 h-6 rounded-full bg-black transition-transform ${
+                        activityMessages.showLoveMessages ? "translate-x-6" : ""
                       }`}
                     />
                   </button>
@@ -589,13 +589,13 @@ export function SettingsClient() {
                   <button
                     onClick={() => handleActivityToggle("showLockedInMessages")}
                     disabled={saving}
-                    className={`w-12 h-7 rounded-full transition-colors ${
+                    className={`w-14 h-8 rounded-full transition-colors flex items-center px-1 ${
                       activityMessages.showLockedInMessages ? "bg-white" : "bg-gray-700"
                     }`}
                   >
                     <div
-                      className={`w-5 h-5 rounded-full bg-black transition-transform mx-1 ${
-                        activityMessages.showLockedInMessages ? "translate-x-5" : ""
+                      className={`w-6 h-6 rounded-full bg-black transition-transform ${
+                        activityMessages.showLockedInMessages ? "translate-x-6" : ""
                       }`}
                     />
                   </button>
@@ -610,13 +610,13 @@ export function SettingsClient() {
                   <button
                     onClick={() => handleActivityToggle("showFavoriteMessages")}
                     disabled={saving}
-                    className={`w-12 h-7 rounded-full transition-colors ${
+                    className={`w-14 h-8 rounded-full transition-colors flex items-center px-1 ${
                       activityMessages.showFavoriteMessages ? "bg-white" : "bg-gray-700"
                     }`}
                   >
                     <div
-                      className={`w-5 h-5 rounded-full bg-black transition-transform mx-1 ${
-                        activityMessages.showFavoriteMessages ? "translate-x-5" : ""
+                      className={`w-6 h-6 rounded-full bg-black transition-transform ${
+                        activityMessages.showFavoriteMessages ? "translate-x-6" : ""
                       }`}
                     />
                   </button>
