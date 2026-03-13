@@ -245,7 +245,7 @@ function extractIRLShows(djUserDocs: FirestoreDoc[]): IRLShowData[] {
     const chatUsername = userData?.chatUsername;
 
     if (!djProfile?.irlShows || !Array.isArray(djProfile.irlShows)) continue;
-    if (!chatUsername || !djProfile.photoUrl) continue;
+    if (!chatUsername) continue;
 
     for (const show of djProfile.irlShows) {
       if (!show.date) continue;

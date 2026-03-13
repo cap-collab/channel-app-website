@@ -19,7 +19,7 @@ import {
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Show, IRLShowData } from "@/types";
-import { wordBoundaryMatch } from "@/lib/dj-matching";
+import { wordBoundaryMatch, showMatchesDJ, irlShowMatchesDJ } from "@/lib/dj-matching";
 
 // Helper to fetch enriched shows and IRL shows from API
 async function fetchEnrichedShowsAndIRL(): Promise<{ shows: Show[]; irlShows: IRLShowData[] }> {
@@ -403,23 +403,10 @@ export function useFavorites() {
         console.log(`[addToWatchlist] Searching for shows matching "${term}"${resolvedDjUserId ? `, userId: ${resolvedDjUserId}` : ""}${resolvedDjEmail ? `, email: ${resolvedDjEmail}` : ""}`);
         const { shows: allShows, irlShows: allIRLShows } = await fetchEnrichedShowsAndIRL();
 
-        // Find shows where DJ name matches the term (word boundary match)
-        // Also check show name for dublab format "DJ Name - Show Name"
+        // Find shows where DJ name matches the term
+        // Uses showMatchesDJ which checks dj, djUsername, and show name patterns
         const matchingShows = allShows.filter((show) => {
-          // Match enriched DJ name
-          if (show.dj && containsMatch(show.dj, term)) return true;
-          // Also match dublab format "DJ Name - Show Name" in show name
-          if (show.name.includes(' - ')) {
-            const djPart = show.name.split(' - ')[0].trim();
-            if (containsMatch(djPart, term)) return true;
-          }
-          // Also match NTS format "HOST w/ GUEST" in show name
-          const wMatch = show.name.match(/^(.+?)\s+w\/\s+/i);
-          if (wMatch) {
-            const hostPart = wMatch[1].trim();
-            if (hostPart.split(/\s+/).length <= 2 && containsMatch(hostPart, term)) return true;
-          }
-          return false;
+          return showMatchesDJ(show, term);
         });
         console.log(`[addToWatchlist] Found ${matchingShows.length} shows matching DJ "${term}"`);
 
@@ -589,14 +576,9 @@ export function useFavorites() {
         console.log(`[addToWatchlist] Auto-added ${addedCount} shows to favorites`);
 
         // Also find and add matching IRL events to favorites
-        // Match by DJ name or djUsername
-        const normalizedTerm = term.replace(/[\s-]+/g, "").toLowerCase();
+        // Uses irlShowMatchesDJ which checks djName and djUsername
         const matchingIRLShows = allIRLShows.filter((irlShow) => {
-          // Match by djName (contains match)
-          if (irlShow.djName && containsMatch(irlShow.djName, term)) return true;
-          // Match by djUsername (normalized exact match)
-          if (irlShow.djUsername && irlShow.djUsername.toLowerCase() === normalizedTerm) return true;
-          return false;
+          return irlShowMatchesDJ(irlShow, term);
         });
         console.log(`[addToWatchlist] Found ${matchingIRLShows.length} IRL events matching DJ "${term}"`);
 
@@ -770,22 +752,9 @@ export function useFavorites() {
       }
 
       // Filter shows that match the DJ name
-      // Also check show name for dublab format "DJ Name - Show Name"
+      // Uses showMatchesDJ which checks dj, djUsername, and show name patterns
       const matchingShowsByName = allShows.filter((show) => {
-        // Match enriched DJ name
-        if (show.dj && containsMatch(show.dj, djName)) return true;
-        // Also match dublab format "DJ Name - Show Name" in show name
-        if (show.name.includes(' - ')) {
-          const djPart = show.name.split(' - ')[0].trim();
-          if (containsMatch(djPart, djName)) return true;
-        }
-        // Also match NTS format "HOST w/ GUEST" in show name
-        const wMatch = show.name.match(/^(.+?)\s+w\/\s+/i);
-        if (wMatch) {
-          const hostPart = wMatch[1].trim();
-          if (hostPart.split(/\s+/).length <= 2 && containsMatch(hostPart, djName)) return true;
-        }
-        return false;
+        return showMatchesDJ(show, djName);
       });
       console.log(`[addDJShowsToFavorites] Found ${matchingShowsByName.length} shows matching DJ name "${djName}"`);
 

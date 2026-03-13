@@ -145,7 +145,7 @@ export async function sendShowStartingEmail({
   djName,
   djUsername,
   djPhotoUrl,
-  djHasEmail: _djHasEmail,
+  // djHasEmail no longer used — button logic now checks stationId instead
   stationName,
   stationId,
 }: ShowStartingEmailParams) {
@@ -610,6 +610,31 @@ interface WatchlistDigestEmailParams {
     matchLabel?: string;
   }>;
   preferredGenres?: string[];
+  djUpdates?: Array<{
+    djName: string;
+    djUsername: string;
+    djPhotoUrl?: string;
+    updateType: 'irl' | 'radio' | 'rec';
+    // IRL fields
+    irlShowName?: string;
+    irlLocation?: string;
+    irlDate?: string;
+    irlTicketUrl?: string;
+    // Radio fields
+    radioShowName?: string;
+    radioName?: string;
+    radioDate?: string;
+    radioTime?: string;
+    radioUrl?: string;
+    radioTimezone?: string;
+    // Rec fields
+    recType?: 'music' | 'irl' | 'online';
+    recTitle?: string;
+    recUrl?: string;
+    recImageUrl?: string;
+    recOgTitle?: string;
+    recOgImage?: string;
+  }>;
 }
 
 export async function sendWatchlistDigestEmail({
@@ -619,6 +644,7 @@ export async function sendWatchlistDigestEmail({
   curatorRecs,
   preferenceShows,
   preferredGenres,
+  djUpdates,
 }: WatchlistDigestEmailParams) {
   if (!resend) {
     console.warn("Email service not configured - skipping email");
@@ -715,7 +741,7 @@ export async function sendWatchlistDigestEmail({
   dayKeys.forEach((key) => {
     totalItems += (buckets.get(key) || []).length;
   });
-  if (totalItems === 0) return false;
+  if (totalItems === 0 && (!djUpdates || djUpdates.length === 0)) return false;
 
   // Build HTML for each day
   let timelineHtml = "";
@@ -755,19 +781,106 @@ export async function sendWatchlistDigestEmail({
     }
   }
 
-  // Build highlight name for title: priority is favorite DJ > favorite show > preference DJ
-  let highlightName = "";
-  const firstFavWithDJ = favoriteShows.find((s) => s.djName);
-  if (firstFavWithDJ?.djName) {
-    highlightName = firstFavWithDJ.djName;
-  } else if (favoriteShows.length > 0) {
-    highlightName = favoriteShows[0].showName;
-  } else if (preferenceShows.length > 0) {
-    const firstPrefWithDJ = preferenceShows.find((s) => s.djName);
-    highlightName = firstPrefWithDJ?.djName || preferenceShows[0].showName;
+  // Build "Updates from your favorites" section
+  let updatesHtml = "";
+  const hasUpdates = djUpdates && djUpdates.length > 0;
+
+  if (hasUpdates) {
+    // Group updates by DJ
+    const updatesByDj = new Map<string, typeof djUpdates>();
+    for (const update of djUpdates) {
+      const key = update.djUsername.toLowerCase();
+      if (!updatesByDj.has(key)) updatesByDj.set(key, []);
+      updatesByDj.get(key)!.push(update);
+    }
+
+    // Cap: if >2 DJs, show only 1 update per DJ (most recent)
+    const djCount = updatesByDj.size;
+
+    for (const [, updates] of Array.from(updatesByDj)) {
+      const djName = updates[0].djName;
+      updatesHtml += buildDayHeaderHtml(`New from ${djName}`);
+
+      const itemsToShow = djCount > 2 ? updates.slice(0, 1) : updates;
+      for (const update of itemsToShow) {
+        if (update.updateType === 'rec') {
+          updatesHtml += buildCuratorRecCardHtml({
+            djName: update.djName,
+            djUsername: update.djUsername,
+            djPhotoUrl: update.djPhotoUrl,
+            url: update.recUrl || "",
+            type: update.recType || "music",
+            title: update.recTitle,
+            imageUrl: update.recImageUrl,
+            ogTitle: update.recOgTitle,
+            ogImage: update.recOgImage,
+          });
+        } else if (update.updateType === 'irl') {
+          updatesHtml += buildShowCardHtml({
+            showName: update.irlShowName || "",
+            djName: update.djName,
+            djUsername: update.djUsername,
+            djPhotoUrl: update.djPhotoUrl,
+            stationName: "IRL Event",
+            stationId: "irl",
+            startTime: update.irlDate ? new Date(`${update.irlDate}T20:00:00.000Z`) : new Date(),
+            isIRL: true,
+            irlLocation: update.irlLocation,
+            irlTicketUrl: update.irlTicketUrl,
+          }, "NEW", timezone);
+        } else if (update.updateType === 'radio') {
+          updatesHtml += buildShowCardHtml({
+            showName: update.radioShowName || "",
+            djName: update.djName,
+            djUsername: update.djUsername,
+            djPhotoUrl: update.djPhotoUrl,
+            stationName: update.radioName || "",
+            stationId: (update.radioName || "").toLowerCase().replace(/\s+/g, "-"),
+            startTime: update.radioDate ? new Date(`${update.radioDate}T12:00:00.000Z`) : new Date(),
+          }, "NEW", timezone);
+        }
+      }
+    }
+
+    // Add divider before "Upcoming for you" section
+    if (timelineHtml) {
+      updatesHtml += `
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+          <tr><td style="border-top: 1px solid #333;"></td></tr>
+        </table>
+      `;
+    }
   }
 
-  const titleText = highlightName ? `Upcoming for you: ${highlightName} & more` : "Upcoming for you";
+  // Build subject line and title
+  let subject: string;
+  let titleText: string;
+
+  if (hasUpdates) {
+    // Get unique DJ names from updates
+    const updateDjNames = [...new Set(djUpdates.map((u) => u.djName))];
+    if (updateDjNames.length === 1) {
+      subject = `Updates from ${updateDjNames[0]}`;
+    } else if (updateDjNames.length === 2) {
+      subject = `Updates from ${updateDjNames[0]} and ${updateDjNames[1]}`;
+    } else {
+      subject = `Updates from ${updateDjNames[0]}, ${updateDjNames[1]}, and more`;
+    }
+    titleText = "Updates from your favorites";
+  } else if (favoriteShows.length > 0) {
+    // Prioritize show name over DJ name for favorites
+    const highlightName = favoriteShows[0].showName;
+    subject = `Upcoming for you: ${highlightName} & more`;
+    titleText = `Upcoming for you: ${highlightName} & more`;
+  } else {
+    let highlightName = "";
+    if (preferenceShows.length > 0) {
+      const firstPrefWithDJ = preferenceShows.find((s) => s.djName);
+      highlightName = firstPrefWithDJ?.djName || preferenceShows[0].showName;
+    }
+    subject = highlightName ? `Upcoming for you: ${highlightName} & more` : "Upcoming for you";
+    titleText = subject;
+  }
 
   let genreBannerText: string;
   if (preferredGenres && preferredGenres.length > 0) {
@@ -779,19 +892,33 @@ export async function sendWatchlistDigestEmail({
     genreBannerText = `<a href="https://channel-app.com/settings" style="color: #a1a1aa; text-decoration: underline;">Set your email preferences</a> to receive alerts that match your tastes`;
   }
 
+  // Build "Upcoming for you" sub-header when updates section exists
+  const upcomingHeader = hasUpdates && timelineHtml ? `
+    <h2 style="margin: 0 0 4px; font-size: 18px; font-weight: 700; color: #fff; line-height: 1.3; text-align: center;">
+      Upcoming for you
+    </h2>
+    <p style="margin: 0 0 16px; font-size: 12px; color: #71717a; line-height: 1.4; text-align: center;">
+      ${genreBannerText}
+    </p>
+  ` : "";
+
   const content = `
     <!-- Title -->
     <h1 style="margin: 0 0 4px; font-size: 22px; font-weight: 700; color: #fff; line-height: 1.3; text-align: center;">
       ${titleText}
     </h1>
+    ${!hasUpdates ? `
     <p style="margin: 0 0 24px; font-size: 12px; color: #71717a; line-height: 1.4; text-align: center;">
       ${genreBannerText}
-    </p>
+    </p>` : `
+    <p style="margin: 0 0 24px; font-size: 12px; color: #71717a; line-height: 1.4; text-align: center;">&nbsp;</p>`}
+    <!-- Updates from favorites -->
+    ${updatesHtml}
+    <!-- Upcoming for you -->
+    ${upcomingHeader}
     <!-- Timeline -->
     ${timelineHtml}
   `;
-
-  const subject = highlightName ? `Upcoming for you: ${highlightName} & more` : "Upcoming for you";
 
   try {
     const { error } = await resend.emails.send({
