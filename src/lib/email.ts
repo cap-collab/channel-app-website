@@ -399,9 +399,6 @@ function buildShowCardHtml(
 ): string {
   const djDisplayName = show.djName || show.showName;
   const timeStr = new Date(show.startTime).toLocaleTimeString("en-US", { timeZone: timezone, hour: "numeric", minute: "2-digit" });
-  const formatter = new Intl.DateTimeFormat("en-US", { timeZone: timezone, timeZoneName: "short" });
-  const parts = formatter.formatToParts(new Date(show.startTime));
-  const tzAbbr = parts.find((p) => p.type === "timeZoneName")?.value || timezone;
 
   const djProfileUrl = show.djUsername
     ? `https://channel-app.com/dj/${normalizeDjUsername(show.djUsername)}`
@@ -419,7 +416,7 @@ function buildShowCardHtml(
 
   const locationInfo = show.isIRL
     ? `${show.irlLocation || "TBA"}`
-    : `${show.stationName} · ${timeStr} ${tzAbbr}`;
+    : `${show.stationName} · ${timeStr}`;
 
   const fallbackColor = show.isIRL ? "#22c55e" : (STATION_ACCENT_COLORS[show.stationId] || "#D94099");
   const emailPhotoUrl = getEmailPhotoUrl(show.djUsername, show.djPhotoUrl);
@@ -858,7 +855,7 @@ export async function sendWatchlistDigestEmail({
 
   if (hasUpdates) {
     // Get unique DJ names from updates
-    const updateDjNames = [...new Set(djUpdates.map((u) => u.djName))];
+    const updateDjNames = Array.from(new Set(djUpdates.map((u) => u.djName)));
     if (updateDjNames.length === 1) {
       subject = `Updates from ${updateDjNames[0]}`;
     } else if (updateDjNames.length === 2) {

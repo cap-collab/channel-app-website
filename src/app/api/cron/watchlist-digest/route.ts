@@ -800,7 +800,9 @@ export async function GET(request: NextRequest) {
         for (const show of allShows) {
           const showStart = new Date(show.startTime);
           if (showStart < now) continue;
-          const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
+          // Include start date in key so the same show on different days both appear
+          const dateStr = showStart.toISOString().split("T")[0];
+          const showKey = `${show.name.toLowerCase()}-${show.stationId}-${dateStr}`;
           if (favoriteShowNames.has(showKey)) continue;
 
           if (show.name.toLowerCase() === favTerm && (!favStation || show.stationId === favStation)) {
@@ -836,7 +838,6 @@ export async function GET(request: NextRequest) {
               irlTicketUrl: broadcastShow.irlTicketUrl,
             });
             favoriteShowNames.add(showKey);
-            break;
           }
         }
       }
@@ -847,7 +848,8 @@ export async function GET(request: NextRequest) {
         for (const show of allShows) {
           const showStart = new Date(show.startTime);
           if (showStart < now) continue;
-          const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
+          const dateStr = showStart.toISOString().split("T")[0];
+          const showKey = `${show.name.toLowerCase()}-${show.stationId}-${dateStr}`;
           if (favoriteShowNames.has(showKey)) continue;
 
           if (containsMatch(show.name, term) || (show.dj && containsMatch(show.dj, term))) {
@@ -896,7 +898,8 @@ export async function GET(request: NextRequest) {
           if (!broadcastShow.isIRL) continue;
           const showStart = new Date(show.startTime);
           if (showStart < now) continue;
-          const showKey = `${show.name.toLowerCase()}-irl`;
+          const dateStr = showStart.toISOString().split("T")[0];
+          const showKey = `${show.name.toLowerCase()}-irl-${dateStr}`;
           if (favoriteShowNames.has(showKey)) continue;
 
           if (show.dj && containsMatch(show.dj, favDjName.toLowerCase())) {
@@ -913,7 +916,6 @@ export async function GET(request: NextRequest) {
               irlTicketUrl: broadcastShow.irlTicketUrl,
             });
             favoriteShowNames.add(showKey);
-            break;
           }
         }
       }
@@ -1102,8 +1104,8 @@ export async function GET(request: NextRequest) {
         const lastEmailDate = new Date(lastEmailAt);
         for (const watchlistDoc of watchlistDocs) {
           const term = watchlistDoc.term.toLowerCase();
-          for (const [djKey, updates] of djUpdatesMap) {
-            if (containsMatch(djKey, term) || updates.some((u) => containsMatch(u.djName, term))) {
+          for (const [djKey, updates] of Array.from(djUpdatesMap)) {
+            if (containsMatch(djKey, term) || updates.some((u: DjUpdate) => containsMatch(u.djName, term))) {
               for (const update of updates) {
                 if (new Date(update.addedAt) > lastEmailDate) {
                   userDjUpdates.push(update);

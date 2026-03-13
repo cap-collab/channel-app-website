@@ -379,7 +379,8 @@ async function sendTestEmail(to: string, section?: string) {
     if (!favTerm) continue;
 
     for (const show of futureShows) {
-      const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
+      const dateStr = new Date(show.startTime).toISOString().split("T")[0];
+      const showKey = `${show.name.toLowerCase()}-${show.stationId}-${dateStr}`;
       if (favoriteShowKeys.has(showKey)) continue;
 
       if (show.name.toLowerCase() === favTerm && (!favStation || show.stationId === favStation)) {
@@ -402,7 +403,6 @@ async function sendTestEmail(to: string, section?: string) {
           irlTicketUrl: show.irlTicketUrl,
         });
         favoriteShowKeys.add(showKey);
-        break;
       }
     }
   }
@@ -413,7 +413,8 @@ async function sendTestEmail(to: string, section?: string) {
     if (!term) continue;
 
     for (const show of futureShows) {
-      const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
+      const dateStr = new Date(show.startTime).toISOString().split("T")[0];
+      const showKey = `${show.name.toLowerCase()}-${show.stationId}-${dateStr}`;
       if (favoriteShowKeys.has(showKey)) continue;
 
       const nameMatch = wordBoundaryMatch(show.name, term);
@@ -450,7 +451,8 @@ async function sendTestEmail(to: string, section?: string) {
 
     for (const show of futureShows) {
       if (!show.isIRL) continue;
-      const showKey = `${show.name.toLowerCase()}-irl`;
+      const dateStr = new Date(show.startTime).toISOString().split("T")[0];
+      const showKey = `${show.name.toLowerCase()}-irl-${dateStr}`;
       if (favoriteShowKeys.has(showKey)) continue;
 
       if (show.dj && wordBoundaryMatch(show.dj, favDjName)) {
@@ -467,7 +469,6 @@ async function sendTestEmail(to: string, section?: string) {
           irlTicketUrl: show.irlTicketUrl,
         });
         favoriteShowKeys.add(showKey);
-        break;
       }
     }
   }
@@ -703,8 +704,8 @@ async function sendTestEmail(to: string, section?: string) {
     const lastEmailDate = new Date(lastEmailAt);
     const followedTerms = watchlistFavorites.map((w) => (w.data.term as string)?.toLowerCase()).filter(Boolean);
     for (const term of followedTerms) {
-      for (const [djKey, updates] of djUpdatesMap) {
-        if (djKey.includes(term) || updates.some((u) => u.djName.toLowerCase().includes(term))) {
+      for (const [djKey, updates] of Array.from(djUpdatesMap)) {
+        if (djKey.includes(term) || updates.some((u: DjUpdate) => u.djName.toLowerCase().includes(term))) {
           for (const update of updates) {
             if (new Date(update.addedAt) > lastEmailDate) {
               userDjUpdates.push(update);
