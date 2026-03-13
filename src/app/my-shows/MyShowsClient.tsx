@@ -218,9 +218,9 @@ export function MyShowsClient() {
 
     // Returning soon and one-time favorites (past shows not in current schedule)
     for (const item of [...categorizedShows.returningSoon, ...categorizedShows.oneTime]) {
-      const normalized = item.djUsername
-        ? normalizeForLookup(item.djUsername)
-        : normalizeForLookup(item.djName || item.term);
+      // Try djUsername first (matches cache keys from Step 1), then djName, then term
+      const lookupName = item.djUsername || item.djName || item.term;
+      const normalized = normalizeForLookup(lookupName);
       if (!newProfiles.has(normalized)) {
         itemsToLookup.push(normalized);
       }
@@ -566,11 +566,10 @@ export function MyShowsClient() {
                       {categorizedShows.returningSoon.map((favorite) => {
                         const station = getStation(favorite.stationId);
                         const accentColor = station?.accentColor || "#fff";
-                        // Look up DJ profile from cache (prefer djUsername, matching schedule API strategy)
+                        // Look up DJ profile from cache — same pattern as upcoming shows
                         const djName = favorite.djName || favorite.term;
-                        const djProfile = favorite.djUsername
-                          ? djProfiles.get(normalizeForLookup(favorite.djUsername))
-                          : djProfiles.get(normalizeForLookup(djName));
+                        const lookupName = favorite.djUsername || djName;
+                        const djProfile = djProfiles.get(normalizeForLookup(lookupName));
 
                         return (
                           <MyShowsCard
@@ -602,11 +601,10 @@ export function MyShowsClient() {
                       {categorizedShows.oneTime.map((favorite) => {
                         const station = getStation(favorite.stationId);
                         const accentColor = station?.accentColor || "#fff";
-                        // Look up DJ profile from cache (prefer djUsername, matching schedule API strategy)
+                        // Look up DJ profile from cache — same pattern as upcoming shows
                         const djName = favorite.djName || favorite.term;
-                        const djProfile = favorite.djUsername
-                          ? djProfiles.get(normalizeForLookup(favorite.djUsername))
-                          : djProfiles.get(normalizeForLookup(djName));
+                        const lookupName = favorite.djUsername || djName;
+                        const djProfile = djProfiles.get(normalizeForLookup(lookupName));
 
                         return (
                           <MyShowsCard
