@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { collection, query as fbQuery, where, getDocs } from 'firebase/firestore';
@@ -51,6 +52,7 @@ interface HeaderSearchProps {
 }
 
 export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
+  const router = useRouter();
   const { isAuthenticated } = useAuthContext();
   const { toggleFavorite, isShowFavorited, addToWatchlist, isInWatchlist, isExactlyInWatchlist, followDJ } = useFavorites();
 
@@ -67,6 +69,7 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
   const [togglingExpandedFavorite, setTogglingExpandedFavorite] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const showDropdown = isOpen && query.trim().length > 0;
@@ -175,10 +178,14 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside (check both container and portal dropdown)
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        containerRef.current && !containerRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
         setIsOpen(false);
       }
     }
@@ -361,7 +368,7 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
           />
 
           {/* Results Panel - fixed positioned below search bar */}
-          <div style={dropdownStyle} className="z-[9999] bg-surface-elevated rounded-xl border border-gray-800 shadow-2xl max-h-[60vh] overflow-y-auto">
+          <div ref={dropdownRef} style={dropdownStyle} className="z-[9999] bg-surface-elevated rounded-xl border border-gray-800 shadow-2xl max-h-[60vh] overflow-y-auto">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
@@ -515,7 +522,20 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
                           <div
                             key={show.id}
                             className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                            onClick={() => handleShowClick(show)}
+                            onClick={async () => {
+                              if (show.djUsername) {
+                                setIsOpen(false);
+                                router.push(`/dj/${show.djUsername}`);
+                              } else {
+                                if (!isAuthenticated) {
+                                  onAuthRequired?.();
+                                  return;
+                                }
+                                setTogglingId(show.id);
+                                await toggleFavorite(show);
+                                setTogglingId(null);
+                              }
+                            }}
                           >
                             {/* Station accent bar */}
                             <div
