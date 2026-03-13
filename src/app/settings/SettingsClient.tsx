@@ -472,12 +472,12 @@ export function SettingsClient() {
                   <button
                     onClick={() => handleToggle("showStarting")}
                     disabled={saving}
-                    className={`w-14 h-8 rounded-full transition-colors flex items-center px-1 ${
+                    className={`w-14 h-8 min-w-[3.5rem] min-h-[2rem] shrink-0 rounded-full transition-colors flex items-center px-1 ${
                       notifications.showStarting ? "bg-white" : "bg-gray-700"
                     }`}
                   >
                     <div
-                      className={`w-6 h-6 rounded-full transition-transform ${
+                      className={`w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] rounded-full transition-transform ${
                         notifications.showStarting ? "bg-black translate-x-6" : "bg-gray-400"
                       }`}
                     />
@@ -493,12 +493,12 @@ export function SettingsClient() {
                   <button
                     onClick={() => handleToggle("watchlistMatch")}
                     disabled={saving}
-                    className={`w-14 h-8 rounded-full transition-colors flex items-center px-1 ${
+                    className={`w-14 h-8 min-w-[3.5rem] min-h-[2rem] shrink-0 rounded-full transition-colors flex items-center px-1 ${
                       notifications.watchlistMatch ? "bg-white" : "bg-gray-700"
                     }`}
                   >
                     <div
-                      className={`w-6 h-6 rounded-full transition-transform ${
+                      className={`w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] rounded-full transition-transform ${
                         notifications.watchlistMatch ? "bg-black translate-x-6" : "bg-gray-400"
                       }`}
                     />
@@ -514,12 +514,12 @@ export function SettingsClient() {
                   <button
                     onClick={() => handleToggle("popularity")}
                     disabled={saving}
-                    className={`w-14 h-8 rounded-full transition-colors flex items-center px-1 ${
+                    className={`w-14 h-8 min-w-[3.5rem] min-h-[2rem] shrink-0 rounded-full transition-colors flex items-center px-1 ${
                       notifications.popularity ? "bg-white" : "bg-gray-700"
                     }`}
                   >
                     <div
-                      className={`w-6 h-6 rounded-full transition-transform ${
+                      className={`w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] rounded-full transition-transform ${
                         notifications.popularity ? "bg-black translate-x-6" : "bg-gray-400"
                       }`}
                     />
@@ -535,12 +535,12 @@ export function SettingsClient() {
                   <button
                     onClick={() => handleToggle("djOnline")}
                     disabled={saving}
-                    className={`w-14 h-8 rounded-full transition-colors flex items-center px-1 ${
+                    className={`w-14 h-8 min-w-[3.5rem] min-h-[2rem] shrink-0 rounded-full transition-colors flex items-center px-1 ${
                       notifications.djOnline ? "bg-white" : "bg-gray-700"
                     }`}
                   >
                     <div
-                      className={`w-6 h-6 rounded-full transition-transform ${
+                      className={`w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] rounded-full transition-transform ${
                         notifications.djOnline ? "bg-black translate-x-6" : "bg-gray-400"
                       }`}
                     />
@@ -568,12 +568,12 @@ export function SettingsClient() {
                   <button
                     onClick={() => handleActivityToggle("showLoveMessages")}
                     disabled={saving}
-                    className={`w-14 h-8 rounded-full transition-colors flex items-center px-1 ${
+                    className={`w-14 h-8 min-w-[3.5rem] min-h-[2rem] shrink-0 rounded-full transition-colors flex items-center px-1 ${
                       activityMessages.showLoveMessages ? "bg-white" : "bg-gray-700"
                     }`}
                   >
                     <div
-                      className={`w-6 h-6 rounded-full transition-transform ${
+                      className={`w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] rounded-full transition-transform ${
                         activityMessages.showLoveMessages ? "bg-black translate-x-6" : "bg-gray-400"
                       }`}
                     />
@@ -589,12 +589,12 @@ export function SettingsClient() {
                   <button
                     onClick={() => handleActivityToggle("showLockedInMessages")}
                     disabled={saving}
-                    className={`w-14 h-8 rounded-full transition-colors flex items-center px-1 ${
+                    className={`w-14 h-8 min-w-[3.5rem] min-h-[2rem] shrink-0 rounded-full transition-colors flex items-center px-1 ${
                       activityMessages.showLockedInMessages ? "bg-white" : "bg-gray-700"
                     }`}
                   >
                     <div
-                      className={`w-6 h-6 rounded-full transition-transform ${
+                      className={`w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] rounded-full transition-transform ${
                         activityMessages.showLockedInMessages ? "bg-black translate-x-6" : "bg-gray-400"
                       }`}
                     />
@@ -610,12 +610,12 @@ export function SettingsClient() {
                   <button
                     onClick={() => handleActivityToggle("showFavoriteMessages")}
                     disabled={saving}
-                    className={`w-14 h-8 rounded-full transition-colors flex items-center px-1 ${
+                    className={`w-14 h-8 min-w-[3.5rem] min-h-[2rem] shrink-0 rounded-full transition-colors flex items-center px-1 ${
                       activityMessages.showFavoriteMessages ? "bg-white" : "bg-gray-700"
                     }`}
                   >
                     <div
-                      className={`w-6 h-6 rounded-full transition-transform ${
+                      className={`w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] rounded-full transition-transform ${
                         activityMessages.showFavoriteMessages ? "bg-black translate-x-6" : "bg-gray-400"
                       }`}
                     />
