@@ -958,6 +958,12 @@ export async function GET(request: NextRequest) {
 
       favoriteShows.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
+      // Build a dateless version of favoriteShowNames for preference dedup
+      // (favorites use "name-station-date" keys, but preferences use "name-station" keys)
+      const favoriteShowKeys = new Set(
+        [...favoriteShowNames].map((k) => k.replace(/-\d{4}-\d{2}-\d{2}$/, ""))
+      );
+
       // Build Section 2: curator recs from followed DJs (exclude already-sent ones)
       const followedDJNames = watchlistDocs.map((w) => w.term.toLowerCase());
       const userCuratorRecs = allCuratorRecs.filter((rec) =>
@@ -991,7 +997,7 @@ export async function GET(request: NextRequest) {
           const showStart = new Date(show.startTime);
           if (showStart < now) continue;
           const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
-          if (favoriteShowNames.has(showKey)) continue;
+          if (favoriteShowKeys.has(showKey)) continue;
           if (prefKeys.has(showKey)) continue;
           if (preferenceMatches.length >= 6) break;
 
@@ -1055,7 +1061,7 @@ export async function GET(request: NextRequest) {
           const showStart = new Date(show.startTime);
           if (showStart < now) continue;
           const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
-          if (favoriteShowNames.has(showKey)) continue;
+          if (favoriteShowKeys.has(showKey)) continue;
           if (prefKeys.has(showKey)) continue;
           if (preferenceMatches.length >= 6) break;
 
@@ -1106,7 +1112,7 @@ export async function GET(request: NextRequest) {
           if (showStart < now) continue;
           if (!show.dj) continue;
           const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
-          if (favoriteShowNames.has(showKey)) continue;
+          if (favoriteShowKeys.has(showKey)) continue;
           if (prefKeys.has(showKey)) continue;
 
           const broadcastShow = show as BroadcastShow;

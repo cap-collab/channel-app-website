@@ -30,7 +30,11 @@
     },
     {
       "path": "/api/cron/show-starting-emails",
-      "schedule": "*/10 * * * *"
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/send-tip-reminders",
+      "schedule": "0 14 * * *"
     }
   ]
 }

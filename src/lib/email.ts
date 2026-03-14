@@ -72,6 +72,7 @@ function wrapEmailContent(content: string, footerText: string): string {
       </style>
     </head>
     <body class="body-bg" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0a0a0a; color: #fff; margin: 0; padding: 0;">
+      <div style="background-color: #0a0a0a;">
       <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0a0a0a" style="background-color: #0a0a0a;">
         <tr>
           <td align="center" style="padding: 40px 20px;" bgcolor="#0a0a0a">
@@ -101,13 +102,14 @@ function wrapEmailContent(content: string, footerText: string): string {
           </td>
         </tr>
       </table>
+      </div>
     </body>
     </html>
   `);
 }
 
 // Standard button style (subtle grey)
-const BUTTON_STYLE = "display: inline-block; background: rgba(255,255,255,0.1); color: #fff !important; padding: 14px 28px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 14px;";
+const BUTTON_STYLE = "display: inline-block; background-color: #2a2a2a; color: #fff !important; padding: 14px 28px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 14px;";
 
 // Normalize a DJ username for use in URLs (e.g. "COPYPASTE w/ KLS.RDR" → "copypastewklsrdr")
 function normalizeDjUsername(djUsername: string): string {
@@ -461,7 +463,7 @@ function buildShowCardHtml(
                 </table>
               </td>
               <td class="card-btn" valign="middle" style="text-align: right; padding-left: 12px; white-space: nowrap;">
-                <a href="${ctaUrl}" style="display: inline-block; background: rgba(255,255,255,0.1); color: #fff !important; padding: 10px 24px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+                <a href="${ctaUrl}" style="display: inline-block; background-color: #2a2a2a; color: #fff !important; padding: 10px 24px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
                   ${ctaText}
                 </a>
               </td>
@@ -534,7 +536,7 @@ function buildCuratorRecCardHtml(rec: {
                 </table>
               </td>
               <td class="card-btn" valign="middle" style="text-align: right; padding-left: 12px; white-space: nowrap;">
-                <a href="${djProfileUrl}" style="display: inline-block; background: rgba(255,255,255,0.1); color: #fff !important; padding: 10px 24px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+                <a href="${djProfileUrl}" style="display: inline-block; background-color: #2a2a2a; color: #fff !important; padding: 10px 24px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
                   See ${rec.djName} Profile
                 </a>
               </td>
@@ -709,21 +711,7 @@ export async function sendWatchlistDigestEmail({
     }
   }
 
-  // Second pass: fill remaining empty days with preference shows from any day
-  for (const key of dayKeys) {
-    const bucket = buckets.get(key)!;
-    if (bucket.length > 0) continue;
-
-    const allPrefEntries = Array.from(prefsByDay.values());
-    for (const prefs of allPrefEntries) {
-      if (prefs.length > 0) {
-        const pref = prefs.shift()!;
-        const tag = pref.matchLabel ? `PICKED FOR YOU · ${pref.matchLabel}` : "PICKED FOR YOU";
-        bucket.push({ kind: "preference", tag, show: pref });
-        break;
-      }
-    }
-  }
+  // Note: no second pass — preference shows only appear under their actual date
 
   // Count total items and check if we have enough to send (minimum 4)
   let totalItems = 0;
