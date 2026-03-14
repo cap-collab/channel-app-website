@@ -23,64 +23,112 @@ export async function POST(request: NextRequest) {
 
   try {
     const pendingProfilesRef = db.collection("pending-dj-profiles");
+    const usernamesRef = db.collection("usernames");
+
+    // Single read: get all pending profiles
     const snapshot = await pendingProfilesRef.get();
+
+    // Build in-memory set of all doc IDs (avoids per-doc reads)
+    const allDocIds = new Set<string>();
+    for (const doc of snapshot.docs) {
+      allDocIds.add(doc.id);
+    }
+
+    // Filter to only hyphenated IDs
+    const hyphenatedDocs = snapshot.docs.filter((doc) => doc.id.includes("-"));
 
     let deleted = 0;
     let migrated = 0;
-    let skipped = 0;
+    let usernamesCleaned = 0;
     const errors: string[] = [];
 
-    for (const doc of snapshot.docs) {
+    const BATCH_SIZE = 500;
+    let batch = db.batch();
+    let batchCount = 0;
+
+    for (const doc of hyphenatedDocs) {
       const docId = doc.id;
       const data = doc.data();
+      const correctId = normalizeId(data.chatUsername || docId);
 
-      // Check if document ID contains a hyphen (improperly normalized)
-      if (docId.includes("-")) {
-        // Calculate what the correct ID should be
-        const correctId = normalizeId(data.chatUsername || docId);
+      if (correctId === docId) {
+        // Not actually a normalization issue (e.g. no hyphens after normalize)
+        continue;
+      }
 
-        // Check if a document with the correct ID already exists
-        const correctDocRef = pendingProfilesRef.doc(correctId);
-        const correctDoc = await correctDocRef.get();
-
-        if (correctDoc.exists) {
-          // Correct document already exists, just delete the hyphenated one
-          await doc.ref.delete();
-          deleted++;
-          console.log(`[migrate] Deleted duplicate: ${docId} (correct: ${correctId} exists)`);
-        } else {
-          // Migrate: create new document with correct ID, then delete old one
-          const newData = {
-            ...data,
-            chatUsernameNormalized: correctId,
-          };
-          await correctDocRef.set(newData);
-          await doc.ref.delete();
-          migrated++;
-          console.log(`[migrate] Migrated: ${docId} → ${correctId}`);
-        }
+      if (allDocIds.has(correctId)) {
+        // Correct doc already exists — just delete the hyphenated duplicate
+        batch.delete(doc.ref);
+        deleted++;
+        console.log(
+          `[migrate] Delete duplicate: ${docId} (correct: ${correctId} exists)`
+        );
       } else {
-        // Document ID is already correct, just update chatUsernameNormalized if needed
-        const correctNormalized = normalizeId(data.chatUsername || docId);
-        if (data.chatUsernameNormalized !== correctNormalized) {
-          await doc.ref.update({ chatUsernameNormalized: correctNormalized });
-          migrated++;
-          console.log(`[migrate] Updated chatUsernameNormalized: ${docId}`);
-        } else {
-          skipped++;
+        // Migrate: create correct doc, delete old one
+        batch.set(pendingProfilesRef.doc(correctId), {
+          ...data,
+          chatUsernameNormalized: correctId,
+        });
+        batch.delete(doc.ref);
+        allDocIds.add(correctId); // Track so subsequent dupes see it
+        migrated++;
+        console.log(`[migrate] Migrate: ${docId} → ${correctId}`);
+      }
+
+      batchCount += 2; // delete + possible set
+
+      if (batchCount >= BATCH_SIZE) {
+        await batch.commit();
+        batch = db.batch();
+        batchCount = 0;
+      }
+    }
+
+    // Commit remaining profile changes
+    if (batchCount > 0) {
+      await batch.commit();
+      batch = db.batch();
+      batchCount = 0;
+    }
+
+    // Clean up stale username reservations for hyphenated IDs
+    // Only read username docs for the hyphenated IDs we processed
+    for (const doc of hyphenatedDocs) {
+      const docId = doc.id;
+      const correctId = normalizeId(doc.data().chatUsername || docId);
+      if (correctId === docId) continue;
+
+      const usernameDoc = await usernamesRef.doc(docId).get();
+      if (usernameDoc.exists && usernameDoc.data()?.isPending === true) {
+        batch.delete(usernameDoc.ref);
+        usernamesCleaned++;
+        batchCount++;
+
+        if (batchCount >= BATCH_SIZE) {
+          await batch.commit();
+          batch = db.batch();
+          batchCount = 0;
         }
       }
     }
 
-    console.log(`[migrate] Complete: ${migrated} migrated, ${deleted} deleted, ${skipped} skipped`);
+    // Commit remaining username cleanups
+    if (batchCount > 0) {
+      await batch.commit();
+    }
+
+    console.log(
+      `[migrate] Complete: ${migrated} migrated, ${deleted} deleted, ${usernamesCleaned} usernames cleaned`
+    );
 
     return NextResponse.json({
       success: true,
       stats: {
         total: snapshot.size,
+        hyphenated: hyphenatedDocs.length,
         migrated,
         deleted,
-        skipped,
+        usernamesCleaned,
         errors: errors.length,
       },
       errors: errors.length > 0 ? errors : undefined,
