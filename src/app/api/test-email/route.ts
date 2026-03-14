@@ -574,9 +574,13 @@ async function sendTestEmail(to: string, section?: string) {
 
   const prefShowKeys = new Set<string>();
 
+  // Only pick preference shows within the 4-day window (today + next 3 days)
+  const windowEnd = new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000);
+  const windowShows = futureShows.filter((s) => new Date(s.startTime) < windowEnd);
+
   // Step 1: Genre-matched shows
   if (preferredGenres.length > 0) {
-    for (const show of futureShows) {
+    for (const show of windowShows) {
       const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
       if (favoriteShowKeysDateless.has(showKey)) continue;
       if (prefShowKeys.has(showKey)) continue;
@@ -635,7 +639,7 @@ async function sendTestEmail(to: string, section?: string) {
 
   // Step 2: City-matched shows (if still not enough and user has city)
   if (preferenceShows.length < 4 && irlCity) {
-    for (const show of futureShows) {
+    for (const show of windowShows) {
       const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
       if (favoriteShowKeysDateless.has(showKey)) continue;
       if (prefShowKeys.has(showKey)) continue;
@@ -680,7 +684,7 @@ async function sendTestEmail(to: string, section?: string) {
 
   // Step 3: Any online show with profile+photo (no IRL)
   if (preferenceShows.length < 4) {
-    for (const show of futureShows) {
+    for (const show of windowShows) {
       if (preferenceShows.length >= 6) break;
       if (!show.dj) continue;
       if (show.isIRL) continue; // No IRL in random fallback

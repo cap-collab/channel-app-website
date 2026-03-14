@@ -991,11 +991,14 @@ export async function GET(request: NextRequest) {
 
       const prefKeys = new Set<string>();
 
+      // Only pick preference shows within the 4-day window (today + next 3 days)
+      const windowEnd = new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000);
+
       // Step 1: Genre-matched shows (if user has preferred genres)
       if (preferredGenres.length > 0) {
         for (const show of allShows) {
           const showStart = new Date(show.startTime);
-          if (showStart < now) continue;
+          if (showStart < now || showStart > windowEnd) continue;
           const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
           if (favoriteShowKeys.has(showKey)) continue;
           if (prefKeys.has(showKey)) continue;
@@ -1059,7 +1062,7 @@ export async function GET(request: NextRequest) {
       if (preferenceMatches.length < 4 && irlCity) {
         for (const show of allShows) {
           const showStart = new Date(show.startTime);
-          if (showStart < now) continue;
+          if (showStart < now || showStart > windowEnd) continue;
           const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
           if (favoriteShowKeys.has(showKey)) continue;
           if (prefKeys.has(showKey)) continue;
@@ -1109,7 +1112,7 @@ export async function GET(request: NextRequest) {
         for (const show of allShows) {
           if (preferenceMatches.length >= 6) break;
           const showStart = new Date(show.startTime);
-          if (showStart < now) continue;
+          if (showStart < now || showStart > windowEnd) continue;
           if (!show.dj) continue;
           const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
           if (favoriteShowKeys.has(showKey)) continue;
