@@ -7,9 +7,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { collection, query as fbQuery, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { searchShows } from '@/lib/metadata';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useSchedule } from '@/contexts/ScheduleContext';
 import { Show } from '@/types';
 import { getStationById, getStationByMetadataKey, STATIONS } from '@/lib/stations';
 import { ExpandedShowCard } from './channel/ExpandedShowCard';
@@ -47,6 +47,15 @@ function formatShowTime(startTime: string): string {
   }
 }
 
+// Module-level cache for DJ profiles to avoid re-fetching Firestore on every search
+type DjEntry = { name: string; photoUrl?: string; username: string; odId?: string; email?: string };
+let djCache: {
+  pending: DjEntry[];
+  registered: DjEntry[];
+  timestamp: number;
+} | null = null;
+const DJ_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 interface HeaderSearchProps {
   onAuthRequired?: () => void;
 }
@@ -54,17 +63,17 @@ interface HeaderSearchProps {
 export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
   const router = useRouter();
   const { isAuthenticated } = useAuthContext();
+  const { shows: contextShows } = useSchedule();
   const { toggleFavorite, isShowFavorited, addToWatchlist, isInWatchlist, isExactlyInWatchlist, followDJ } = useFavorites();
 
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Show[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [addingWatchlistForQuery, setAddingWatchlistForQuery] = useState(false);
   const [addingDjToWatchlist, setAddingDjToWatchlist] = useState<string | null>(null);
-  const [pendingDjs, setPendingDjs] = useState<Array<{ name: string; photoUrl?: string; username: string; odId?: string; email?: string }>>([]);
-  const [registeredDjs, setRegisteredDjs] = useState<Array<{ name: string; photoUrl?: string; username: string; odId?: string; email?: string }>>([]);
+  const [pendingDjs, setPendingDjs] = useState<DjEntry[]>([]);
+  const [registeredDjs, setRegisteredDjs] = useState<DjEntry[]>([]);
+  const [isDjLoading, setIsDjLoading] = useState(false);
   const [expandedShow, setExpandedShow] = useState<Show | null>(null);
   const [togglingExpandedFavorite, setTogglingExpandedFavorite] = useState(false);
 
@@ -74,33 +83,22 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const showDropdown = isOpen && query.trim().length > 0;
 
-  // Debounced search
-  useEffect(() => {
-    if (!query.trim()) {
-      setResults([]);
-      return;
-    }
+  // Instant show search using already-loaded schedule data
+  const results = useMemo(() => {
+    if (!query.trim()) return [];
+    const lowerQuery = query.toLowerCase();
+    const now = new Date();
+    return contextShows
+      .filter((show) => {
+        if (new Date(show.endTime) <= now) return false;
+        const nameMatch = show.name.toLowerCase().includes(lowerQuery);
+        const djMatch = show.dj?.toLowerCase().includes(lowerQuery);
+        return nameMatch || djMatch;
+      })
+      .slice(0, 15);
+  }, [query, contextShows]);
 
-    const timer = setTimeout(async () => {
-      setIsLoading(true);
-      try {
-        const searchResults = await searchShows(query);
-        const now = new Date();
-        // Filter to only upcoming shows
-        const filtered = searchResults.filter((show) => new Date(show.endTime) > now);
-        setResults(filtered.slice(0, 15));
-      } catch (error) {
-        console.error('Search error:', error);
-        setResults([]);
-      } finally {
-        setIsLoading(false);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [query]);
-
-  // Search pending DJ profiles and registered DJ profiles
+  // Search DJ profiles with module-level cache
   useEffect(() => {
     if (!query.trim() || !db) {
       setPendingDjs([]);
@@ -112,68 +110,62 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
       if (!db) return;
       const queryLower = query.toLowerCase();
 
-      // Search pending DJ profiles
-      try {
-        const pendingRef = collection(db, 'pending-dj-profiles');
-        const pendingQ = fbQuery(pendingRef);
-        const snapshot = await getDocs(pendingQ);
+      // Populate cache if stale or missing
+      if (!djCache || Date.now() - djCache.timestamp > DJ_CACHE_TTL) {
+        setIsDjLoading(true);
+        try {
+          const allPending: DjEntry[] = [];
+          const pendingSnapshot = await getDocs(fbQuery(collection(db, 'pending-dj-profiles')));
+          pendingSnapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            const username = data.chatUsername || '';
+            if (username) {
+              allPending.push({
+                name: username,
+                photoUrl: data.djProfile?.photoUrl || undefined,
+                username: data.chatUsernameNormalized || username.toLowerCase(),
+                odId: docSnap.id,
+                email: data.email || undefined,
+              });
+            }
+          });
 
-        const matchingPendingDjs: Array<{ name: string; photoUrl?: string; username: string; odId?: string; email?: string }> = [];
+          const allRegistered: DjEntry[] = [];
+          const seenUsernames = new Set<string>();
+          const djRoleSnapshot = await getDocs(fbQuery(collection(db, 'users'), where('role', '==', 'dj')));
+          djRoleSnapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            const username = data.chatUsername || data.displayName || '';
+            const normalizedUsername = data.chatUsernameNormalized || username.replace(/[\s-]+/g, '').toLowerCase();
+            if (username && !seenUsernames.has(normalizedUsername)) {
+              seenUsernames.add(normalizedUsername);
+              allRegistered.push({
+                name: username,
+                photoUrl: data.djProfile?.photoUrl || undefined,
+                username: normalizedUsername,
+                odId: docSnap.id,
+                email: data.email || undefined,
+              });
+            }
+          });
 
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          const username = data.chatUsername || '';
-          if (username.toLowerCase().includes(queryLower)) {
-            matchingPendingDjs.push({
-              name: username,
-              photoUrl: data.djProfile?.photoUrl || undefined,
-              username: data.chatUsernameNormalized || username.toLowerCase(),
-              odId: docSnap.id,
-              email: data.email || undefined,
-            });
-          }
-        });
-
-        setPendingDjs(matchingPendingDjs.slice(0, 5));
-      } catch (error) {
-        console.error('Error searching pending DJs:', error);
-        setPendingDjs([]);
+          djCache = { pending: allPending, registered: allRegistered, timestamp: Date.now() };
+        } catch (error) {
+          console.error('Error fetching DJ profiles:', error);
+          setIsDjLoading(false);
+          return;
+        }
+        setIsDjLoading(false);
       }
 
-      // Search registered DJ profiles (users with DJ role or djProfile)
-      try {
-        const usersRef = collection(db, 'users');
-        // Search users who have role 'dj' or djProfile
-        const djRoleQ = fbQuery(usersRef, where('role', '==', 'dj'));
-        const djRoleSnapshot = await getDocs(djRoleQ);
-
-        const matchingRegisteredDjs: Array<{ name: string; photoUrl?: string; username: string; odId?: string; email?: string }> = [];
-        const seenUsernames = new Set<string>();
-
-        djRoleSnapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          const username = data.chatUsername || data.displayName || '';
-          const normalizedUsername = data.chatUsernameNormalized || username.replace(/[\s-]+/g, '').toLowerCase();
-
-          // Check if username matches query
-          if (username.toLowerCase().includes(queryLower) && !seenUsernames.has(normalizedUsername)) {
-            seenUsernames.add(normalizedUsername);
-            matchingRegisteredDjs.push({
-              name: username,
-              photoUrl: data.djProfile?.photoUrl || undefined,
-              username: normalizedUsername,
-              odId: docSnap.id,
-              email: data.email || undefined,
-            });
-          }
-        });
-
-        setRegisteredDjs(matchingRegisteredDjs.slice(0, 10));
-      } catch (error) {
-        console.error('Error searching registered DJs:', error);
-        setRegisteredDjs([]);
-      }
-    }, 300);
+      // Filter cached data
+      setPendingDjs(
+        djCache.pending.filter((dj) => dj.name.toLowerCase().includes(queryLower)).slice(0, 5)
+      );
+      setRegisteredDjs(
+        djCache.registered.filter((dj) => dj.name.toLowerCase().includes(queryLower)).slice(0, 10)
+      );
+    }, 150);
 
     return () => clearTimeout(timer);
   }, [query]);
@@ -308,7 +300,6 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
 
   const clearSearch = () => {
     setQuery('');
-    setResults([]);
     setIsOpen(false);
   };
 
@@ -369,11 +360,6 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
 
           {/* Results Panel - fixed positioned below search bar */}
           <div ref={dropdownRef} style={dropdownStyle} className="z-[9999] bg-surface-elevated rounded-xl border border-gray-800 shadow-2xl max-h-[60vh] overflow-y-auto">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
-              </div>
-            ) : (
               <>
                 {/* Add to Watchlist Section - hide if query exactly matches a DJ profile */}
                 {!queryMatchesDjProfile && (
@@ -415,10 +401,11 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
                 )}
 
                 {/* DJs Section - combines DJ profiles and DJs with upcoming shows */}
-                {combinedDjs.length > 0 && (
+                {(combinedDjs.length > 0 || isDjLoading) && (
                   <div className="p-3 border-b border-gray-800">
-                    <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-2 px-1">
-                      DJs ({combinedDjs.length})
+                    <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-2 px-1 flex items-center gap-2">
+                      DJs {combinedDjs.length > 0 && `(${combinedDjs.length})`}
+                      {isDjLoading && <div className="w-3 h-3 border-2 border-gray-700 border-t-white rounded-full animate-spin" />}
                     </h3>
                     <div className="space-y-1">
                       {combinedDjs.map((dj) => {
@@ -595,14 +582,13 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
                   </div>
                 )}
 
-                {/* No results message for shows */}
-                {results.length === 0 && !isLoading && (
+                {/* No results message */}
+                {results.length === 0 && combinedDjs.length === 0 && !isDjLoading && (
                   <div className="p-4 text-center text-gray-500 text-sm">
                     No upcoming shows found for &quot;{query}&quot;
                   </div>
                 )}
               </>
-            )}
           </div>
         </>,
         document.body

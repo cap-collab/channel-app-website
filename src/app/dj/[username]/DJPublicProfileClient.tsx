@@ -1257,7 +1257,7 @@ export function DJPublicProfileClient({ username }: Props) {
   if (notFound) {
     return (
       <div className="min-h-screen bg-black">
-        <Header position="sticky" />
+        <Header position="sticky" showSearch />
         <main className="max-w-5xl mx-auto px-6 py-16">
           <div className="text-center py-12">
             <p className="text-zinc-500 mb-4">DJ not found</p>
@@ -1277,7 +1277,7 @@ export function DJPublicProfileClient({ username }: Props) {
     <div className="min-h-screen text-white relative overflow-x-hidden">
       <AnimatedBackground />
       {/* Site-wide Header */}
-      <Header position="sticky" />
+      <Header position="sticky" showSearch />
 
       <main className="max-w-5xl mx-auto px-6 py-4 pb-24">
         {/* SECTION A: IDENTITY */}
