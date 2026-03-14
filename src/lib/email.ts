@@ -678,39 +678,22 @@ export async function sendWatchlistDigestEmail({
     buckets.set(key, []);
   }
 
-  // Place all favorite shows into buckets
+  // Place favorite shows into buckets (only within the 4-day window)
   for (const show of favoriteShows) {
     const key = getDateKey(new Date(show.startTime));
     const bucket = buckets.get(key);
     if (bucket) {
       bucket.push({ kind: "show", tag: "FAVORITE", show });
     }
-    // Shows outside the 4-day window are still included if they fall on a bucket day
   }
 
-  // Place preference shows into their day buckets (used for gap-filling later)
-  const prefsByDay = new Map<string, WatchlistDigestEmailParams["preferenceShows"][0][]>();
+  // Place preference shows into buckets (only within the 4-day window)
   for (const show of preferenceShows) {
     const key = getDateKey(new Date(show.startTime));
-    if (!prefsByDay.has(key)) prefsByDay.set(key, []);
-    prefsByDay.get(key)!.push(show);
-  }
-
-  // Add preference shows to their day buckets (create new day buckets if needed)
-  for (const [key, dayPrefs] of Array.from(prefsByDay)) {
-    if (!buckets.has(key)) {
-      // This day is outside the initial 4-day window — add it
-      buckets.set(key, []);
-      dayKeys.push(key);
-      // Generate label for this day
-      const d = new Date(key + "T12:00:00");
-      const label = d.toLocaleDateString("en-US", { timeZone: timezone, weekday: "long", month: "short", day: "numeric" }).toUpperCase();
-      dayLabels.set(key, label);
-    }
-    const bucket = buckets.get(key)!;
-    for (const pref of dayPrefs) {
-      const tag = pref.matchLabel ? `PICKED FOR YOU · ${pref.matchLabel}` : "PICKED FOR YOU";
-      bucket.push({ kind: "preference", tag, show: pref });
+    const bucket = buckets.get(key);
+    if (bucket) {
+      const tag = show.matchLabel ? `PICKED FOR YOU · ${show.matchLabel}` : "PICKED FOR YOU";
+      bucket.push({ kind: "preference", tag, show });
     }
   }
 
