@@ -95,7 +95,7 @@ function wrapEmailContent(content: string, footerText: string): string {
                   <a href="${SETTINGS_DEEP_LINK}" style="font-size: 12px; color: #71717a; text-decoration: underline;">
                     Unsubscribe
                   </a>
-                  <div style="display:none;font-size:0;line-height:0;max-height:0;overflow:hidden;">${Date.now()}</div>
+                  <!--${Date.now()}-->
                 </td>
               </tr>
             </table>
@@ -829,11 +829,12 @@ export async function sendWatchlistDigestEmail({
     }
     titleText = "Updates from your favorites";
   } else if (favoriteShows.length > 0) {
-    // Prioritize show name over DJ name for favorites
-    const highlightName = favoriteShows[0].showName;
-    subject = `Upcoming for you: ${highlightName} & more`;
-    titleText = `Upcoming for you: ${highlightName} & more`;
+    // Use DJ name from first favorite
+    const firstDj = favoriteShows[0].djName || favoriteShows[0].showName;
+    subject = `${firstDj} & more upcoming`;
+    titleText = `${firstDj} & more upcoming`;
   } else {
+    // No favorites — use DJ name from first picked-for-you show
     let highlightName = "";
     if (preferenceShows.length > 0) {
       const firstPrefWithDJ = preferenceShows.find((s) => s.djName);
@@ -870,7 +871,7 @@ export async function sendWatchlistDigestEmail({
     ${!hasUpdates ? `
     <p style="margin: 0 0 24px; font-size: 12px; color: #71717a; line-height: 1.4; text-align: center;">
       ${genreBannerText}
-    </p>` : `<div style="margin: 0 0 24px;"></div>`}
+    </p>` : `<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="height: 24px; font-size: 0; line-height: 0;" bgcolor="#0a0a0a">&nbsp;</td></tr></table>`}
     ${updatesHtml}
     ${upcomingHeader}
     ${timelineHtml}
