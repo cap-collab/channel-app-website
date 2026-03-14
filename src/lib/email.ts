@@ -73,7 +73,6 @@ function wrapEmailContent(content: string, footerText: string): string {
       </style>
     </head>
     <body class="body-bg" bgcolor="#0a0a0a" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0a0a0a; color: #fff; margin: 0; padding: 0;">
-      <div style="max-height:0;overflow:hidden;color:#0a0a0a;font-size:0;line-height:0;">${new Date().toISOString()}</div>
       <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0a0a0a" style="background-color: #0a0a0a;">
         <tr>
           <td align="center" style="padding: 40px 20px;" bgcolor="#0a0a0a">
@@ -718,14 +717,16 @@ export async function sendWatchlistDigestEmail({
   }
 
   // Build subject line and title
+  // Include date in subject to prevent Gmail from threading/collapsing repeat digests
+  const subjectDate = now.toLocaleDateString("en-US", { timeZone: timezone, month: "short", day: "numeric" });
   let subject: string;
   let titleText: string;
 
   if (favoriteShows.length > 0) {
     // Use DJ name from first favorite
     const firstDj = favoriteShows[0].djName || favoriteShows[0].showName;
-    subject = `${firstDj} & more upcoming`;
     titleText = `${firstDj} & more upcoming`;
+    subject = `${firstDj} & more upcoming · ${subjectDate}`;
   } else {
     // No favorites — use DJ name from first picked-for-you show
     let highlightName = "";
@@ -733,8 +734,8 @@ export async function sendWatchlistDigestEmail({
       const firstPrefWithDJ = preferenceShows.find((s) => s.djName);
       highlightName = firstPrefWithDJ?.djName || preferenceShows[0].showName;
     }
-    subject = highlightName ? `Upcoming for you: ${highlightName} & more` : "Upcoming for you";
-    titleText = subject;
+    titleText = highlightName ? `Upcoming for you: ${highlightName} & more` : "Upcoming for you";
+    subject = `${titleText} · ${subjectDate}`;
   }
 
   let genreBannerText: string;
