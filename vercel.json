@@ -26,7 +26,7 @@
     },
     {
       "path": "/api/cron/watchlist-digest",
-      "schedule": "0 10 * * *"
+      "schedule": "0 14 * * 1,4"
     },
     {
       "path": "/api/cron/show-starting-emails",
