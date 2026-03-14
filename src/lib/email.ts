@@ -73,6 +73,8 @@ function wrapEmailContent(content: string, footerText: string): string {
       </style>
     </head>
     <body class="body-bg" bgcolor="#0a0a0a" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0a0a0a; color: #fff; margin: 0; padding: 0;">
+      <!--[if mso]><table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0a0a0a"><tr><td><![endif]-->
+      <div style="background-color: #0a0a0a; min-height: 100%; width: 100%;">
       <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0a0a0a" style="background-color: #0a0a0a;">
         <tr>
           <td align="center" style="padding: 40px 20px;" bgcolor="#0a0a0a">
@@ -102,6 +104,8 @@ function wrapEmailContent(content: string, footerText: string): string {
           </td>
         </tr>
       </table>
+      </div>
+      <!--[if mso]></td></tr></table><![endif]-->
     </body>
     </html>
   `);
