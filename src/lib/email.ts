@@ -55,7 +55,7 @@ function minifyHtml(html: string): string {
 function wrapEmailContent(content: string, footerText: string): string {
   return minifyHtml(`
     <!DOCTYPE html>
-    <html>
+    <html style="background-color: #0a0a0a;" bgcolor="#0a0a0a">
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -64,6 +64,7 @@ function wrapEmailContent(content: string, footerText: string): string {
       <style>
         :root { color-scheme: dark; }
         body, .body-bg { background-color: #0a0a0a !important; }
+        u + .body-bg { background-color: #0a0a0a !important; }
         @media only screen and (max-width: 480px) {
           .card-row { display: block !important; }
           .card-content { display: block !important; width: 100% !important; }
@@ -71,8 +72,7 @@ function wrapEmailContent(content: string, footerText: string): string {
         }
       </style>
     </head>
-    <body class="body-bg" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0a0a0a; color: #fff; margin: 0; padding: 0;">
-      <div style="background-color: #0a0a0a;">
+    <body class="body-bg" bgcolor="#0a0a0a" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0a0a0a; color: #fff; margin: 0; padding: 0;">
       <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0a0a0a" style="background-color: #0a0a0a;">
         <tr>
           <td align="center" style="padding: 40px 20px;" bgcolor="#0a0a0a">
@@ -102,7 +102,6 @@ function wrapEmailContent(content: string, footerText: string): string {
           </td>
         </tr>
       </table>
-      </div>
     </body>
     </html>
   `);

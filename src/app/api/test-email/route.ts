@@ -474,6 +474,12 @@ async function sendTestEmail(to: string, section?: string) {
   }
 
   favoriteShows.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+
+  // Build dateless version for preference dedup (favorites use "name-station-date", prefs use "name-station")
+  const favoriteShowKeysDateless = new Set(
+    [...favoriteShowKeys].map((k) => k.replace(/-\d{4}-\d{2}-\d{2}$/, ""))
+  );
+
   console.log(`[test-email] Matched ${favoriteShows.length} favorite shows: ${favoriteShows.map((s) => s.showName).join(", ")}`);
 
   // ── Section 2: Curator recs from followed DJs ────────────────────
@@ -572,7 +578,7 @@ async function sendTestEmail(to: string, section?: string) {
   if (preferredGenres.length > 0) {
     for (const show of futureShows) {
       const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
-      if (favoriteShowKeys.has(showKey)) continue;
+      if (favoriteShowKeysDateless.has(showKey)) continue;
       if (prefShowKeys.has(showKey)) continue;
       if (preferenceShows.length >= 6) break;
 
@@ -631,7 +637,7 @@ async function sendTestEmail(to: string, section?: string) {
   if (preferenceShows.length < 4 && irlCity) {
     for (const show of futureShows) {
       const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
-      if (favoriteShowKeys.has(showKey)) continue;
+      if (favoriteShowKeysDateless.has(showKey)) continue;
       if (prefShowKeys.has(showKey)) continue;
       if (preferenceShows.length >= 6) break;
 
@@ -679,7 +685,7 @@ async function sendTestEmail(to: string, section?: string) {
       if (!show.dj) continue;
       if (show.isIRL) continue; // No IRL in random fallback
       const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
-      if (favoriteShowKeys.has(showKey)) continue;
+      if (favoriteShowKeysDateless.has(showKey)) continue;
       if (prefShowKeys.has(showKey)) continue;
       if (!show.djUsername || !show.djPhotoUrl) continue;
 
