@@ -556,8 +556,8 @@ async function sendTestEmail(to: string, section?: string) {
   console.log(`[test-email] Found ${curatorRecs.length} curator recs from followed DJs`);
 
   // ── Section 3: Picked-for-you shows ─────────────────────────────
+  // For each day in the 4-day window that has no favorites, pick exactly 1 show.
   // Priority: 1) genre match, 2) city match, 3) any online show with profile+photo
-  // No IRL events unless user has location set
   const preferenceShows: Array<{
     showName: string;
     djName?: string;
@@ -572,137 +572,164 @@ async function sendTestEmail(to: string, section?: string) {
     matchLabel?: string;
   }> = [];
 
-  const prefShowKeys = new Set<string>();
-
-  // Only pick preference shows within the 4-day window (today + next 3 days)
+  // Build 4-day window and determine which days need a preference pick
   const windowEnd = new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000);
-  const windowShows = futureShows.filter((s) => new Date(s.startTime) < windowEnd);
+  const getDateKeyForPref = (d: Date): string => {
+    const tz = (matchingUsers[0]?.data?.timezone as string) || "America/New_York";
+    return d.toLocaleDateString("en-CA", { timeZone: tz });
+  };
 
-  // Step 1: Genre-matched shows
-  if (preferredGenres.length > 0) {
-    for (const show of windowShows) {
-      const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
-      if (favoriteShowKeysDateless.has(showKey)) continue;
-      if (prefShowKeys.has(showKey)) continue;
-      if (preferenceShows.length >= 6) break;
+  // Find which days already have favorites
+  const favDays = new Set<string>();
+  for (const fav of favoriteShows) {
+    favDays.add(getDateKeyForPref(fav.startTime));
+  }
 
-      // Skip IRL events if user has no location set
-      if (show.isIRL && !irlCity) continue;
+  // Build the 4 day keys
+  const prefDayKeys: string[] = [];
+  for (let i = 0; i < 4; i++) {
+    const d = new Date(now.getTime() + i * 24 * 60 * 60 * 1000);
+    prefDayKeys.push(getDateKeyForPref(d));
+  }
 
-      let djGenres: string[] | undefined;
-      let djLocation: string | undefined;
-      let djUsername = show.djUsername;
-      let djPhotoUrl = show.djPhotoUrl;
+  // Days that need a preference show (no favorites on that day)
+  const emptyDays = prefDayKeys.filter((dk) => !favDays.has(dk));
 
-      if (show.dj) {
-        const profile = djProfileMap.get(normalizeForLookup(show.dj));
-        if (profile) {
-          djGenres = profile.genres;
-          djLocation = profile.location;
-          if (!djUsername) djUsername = profile.username;
-          if (!djPhotoUrl) djPhotoUrl = profile.photoUrl;
+  // Group window shows by day
+  const windowShowsByDay = new Map<string, typeof futureShows>();
+  for (const show of futureShows) {
+    const showDate = new Date(show.startTime);
+    if (showDate > windowEnd) continue;
+    const dk = getDateKeyForPref(showDate);
+    if (!windowShowsByDay.has(dk)) windowShowsByDay.set(dk, []);
+    windowShowsByDay.get(dk)!.push(show);
+  }
+
+  // For each empty day, pick the best show
+  for (const dayKey of emptyDays) {
+    const dayShows = windowShowsByDay.get(dayKey) || [];
+    let picked = false;
+
+    // Step 1: Genre match
+    if (!picked && preferredGenres.length > 0) {
+      for (const show of dayShows) {
+        const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
+        if (favoriteShowKeysDateless.has(showKey)) continue;
+        if (show.isIRL && !irlCity) continue;
+
+        let djGenres: string[] | undefined;
+        let djLocation: string | undefined;
+        let djUsername = show.djUsername;
+        let djPhotoUrl = show.djPhotoUrl;
+
+        if (show.dj) {
+          const profile = djProfileMap.get(normalizeForLookup(show.dj));
+          if (profile) {
+            djGenres = profile.genres;
+            djLocation = profile.location;
+            if (!djUsername) djUsername = profile.username;
+            if (!djPhotoUrl) djPhotoUrl = profile.photoUrl;
+          }
+        }
+
+        if (!djUsername || !djPhotoUrl) continue;
+
+        const genreMatch = djGenres
+          ? preferredGenres.some((g) => matchesGenre(djGenres!, g))
+          : false;
+
+        if (genreMatch) {
+          const showLocation = show.isIRL ? show.irlLocation : djLocation;
+          const cityMatch = irlCity && showLocation ? matchesCity(showLocation, irlCity) : false;
+          const matchParts: string[] = [];
+          if (cityMatch && irlCity) matchParts.push(irlCity.toUpperCase());
+          const matchingGenres = preferredGenres.filter((g) => djGenres && matchesGenre(djGenres, g));
+          matchParts.push(matchingGenres.map((g) => g.toUpperCase()).join(" + "));
+
+          preferenceShows.push({
+            showName: show.name,
+            djName: show.dj,
+            djUsername,
+            djPhotoUrl,
+            stationName: show.stationName,
+            stationId: show.stationId,
+            startTime: new Date(show.startTime),
+            isIRL: show.isIRL,
+            irlLocation: show.irlLocation,
+            irlTicketUrl: show.irlTicketUrl,
+            matchLabel: matchParts.join(" + "),
+          });
+          picked = true;
+          break;
         }
       }
+    }
 
-      if (!djUsername || !djPhotoUrl) continue;
+    // Step 2: City match
+    if (!picked && irlCity) {
+      for (const show of dayShows) {
+        const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
+        if (favoriteShowKeysDateless.has(showKey)) continue;
 
-      const genreMatch = djGenres
-        ? preferredGenres.some((g) => matchesGenre(djGenres!, g))
-        : false;
+        let djLocation: string | undefined;
+        let djUsername = show.djUsername;
+        let djPhotoUrl = show.djPhotoUrl;
 
-      const showLocation = show.isIRL ? show.irlLocation : djLocation;
-      const cityMatch = irlCity && showLocation ? matchesCity(showLocation, irlCity) : false;
+        if (show.dj) {
+          const profile = djProfileMap.get(normalizeForLookup(show.dj));
+          if (profile) {
+            djLocation = profile.location;
+            if (!djUsername) djUsername = profile.username;
+            if (!djPhotoUrl) djPhotoUrl = profile.photoUrl;
+          }
+        }
 
-      if (genreMatch) {
-        const matchParts: string[] = [];
-        if (cityMatch && irlCity) matchParts.push(irlCity.toUpperCase());
-        const matchingGenres = preferredGenres.filter((g) => djGenres && matchesGenre(djGenres, g));
-        matchParts.push(matchingGenres.map((g) => g.toUpperCase()).join(" + "));
+        if (!djUsername || !djPhotoUrl) continue;
+
+        const showLocation = show.isIRL ? show.irlLocation : djLocation;
+        const cityMatch = showLocation ? matchesCity(showLocation, irlCity) : false;
+
+        if (cityMatch) {
+          preferenceShows.push({
+            showName: show.name,
+            djName: show.dj,
+            djUsername,
+            djPhotoUrl,
+            stationName: show.stationName,
+            stationId: show.stationId,
+            startTime: new Date(show.startTime),
+            isIRL: show.isIRL,
+            irlLocation: show.irlLocation,
+            irlTicketUrl: show.irlTicketUrl,
+            matchLabel: irlCity.toUpperCase(),
+          });
+          picked = true;
+          break;
+        }
+      }
+    }
+
+    // Step 3: Any online show with profile+photo
+    if (!picked) {
+      for (const show of dayShows) {
+        if (!show.dj) continue;
+        if (show.isIRL) continue;
+        const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
+        if (favoriteShowKeysDateless.has(showKey)) continue;
+        if (!show.djUsername || !show.djPhotoUrl) continue;
 
         preferenceShows.push({
           showName: show.name,
           djName: show.dj,
-          djUsername,
-          djPhotoUrl,
+          djUsername: show.djUsername,
+          djPhotoUrl: show.djPhotoUrl,
           stationName: show.stationName,
           stationId: show.stationId,
           startTime: new Date(show.startTime),
-          isIRL: show.isIRL,
-          irlLocation: show.irlLocation,
-          irlTicketUrl: show.irlTicketUrl,
-          matchLabel: matchParts.join(" + "),
         });
-        prefShowKeys.add(showKey);
+        picked = true;
+        break;
       }
-    }
-  }
-
-  // Step 2: City-matched shows (if still not enough and user has city)
-  if (preferenceShows.length < 4 && irlCity) {
-    for (const show of windowShows) {
-      const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
-      if (favoriteShowKeysDateless.has(showKey)) continue;
-      if (prefShowKeys.has(showKey)) continue;
-      if (preferenceShows.length >= 6) break;
-
-      let djLocation: string | undefined;
-      let djUsername = show.djUsername;
-      let djPhotoUrl = show.djPhotoUrl;
-
-      if (show.dj) {
-        const profile = djProfileMap.get(normalizeForLookup(show.dj));
-        if (profile) {
-          djLocation = profile.location;
-          if (!djUsername) djUsername = profile.username;
-          if (!djPhotoUrl) djPhotoUrl = profile.photoUrl;
-        }
-      }
-
-      if (!djUsername || !djPhotoUrl) continue;
-
-      const showLocation = show.isIRL ? show.irlLocation : djLocation;
-      const cityMatch = showLocation ? matchesCity(showLocation, irlCity) : false;
-
-      if (cityMatch) {
-        preferenceShows.push({
-          showName: show.name,
-          djName: show.dj,
-          djUsername,
-          djPhotoUrl,
-          stationName: show.stationName,
-          stationId: show.stationId,
-          startTime: new Date(show.startTime),
-          isIRL: show.isIRL,
-          irlLocation: show.irlLocation,
-          irlTicketUrl: show.irlTicketUrl,
-          matchLabel: irlCity.toUpperCase(),
-        });
-        prefShowKeys.add(showKey);
-      }
-    }
-  }
-
-  // Step 3: Any online show with profile+photo (no IRL)
-  if (preferenceShows.length < 4) {
-    for (const show of windowShows) {
-      if (preferenceShows.length >= 6) break;
-      if (!show.dj) continue;
-      if (show.isIRL) continue; // No IRL in random fallback
-      const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
-      if (favoriteShowKeysDateless.has(showKey)) continue;
-      if (prefShowKeys.has(showKey)) continue;
-      if (!show.djUsername || !show.djPhotoUrl) continue;
-
-      preferenceShows.push({
-        showName: show.name,
-        djName: show.dj,
-        djUsername: show.djUsername,
-        djPhotoUrl: show.djPhotoUrl,
-        stationName: show.stationName,
-        stationId: show.stationId,
-        startTime: new Date(show.startTime),
-      });
-      prefShowKeys.add(showKey);
     }
   }
 
