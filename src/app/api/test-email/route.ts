@@ -707,8 +707,8 @@ async function sendTestEmail(to: string, section?: string) {
   // Collect DJ updates for this user (from followed DJs, since last email)
   const lastEmailAt = userData.lastWatchlistEmailAt as Date | string | undefined;
   const userDjUpdates: DjUpdate[] = [];
-  if (lastEmailAt) {
-    const lastEmailDate = new Date(lastEmailAt);
+  {
+    const lastEmailDate = lastEmailAt ? new Date(lastEmailAt) : new Date(0);
     const followedTerms = watchlistFavorites.map((w) => (w.data.term as string)?.toLowerCase()).filter(Boolean);
     for (const term of followedTerms) {
       for (const [djKey, updates] of Array.from(djUpdatesMap)) {
