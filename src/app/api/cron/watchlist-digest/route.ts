@@ -295,105 +295,6 @@ export async function GET(request: NextRequest) {
     console.log(`[watchlist-digest] Added ${irlEventsAdded} IRL events from DJ profiles`);
     console.log(`[watchlist-digest] Total shows to check: ${allShows.length}`);
 
-    // Collect DJ profile updates with addedAt timestamps (for "Updates from your favorites" section)
-    interface DjUpdate {
-      djName: string;
-      djUsername: string;
-      djPhotoUrl?: string;
-      updateType: 'irl' | 'radio' | 'rec';
-      irlShowName?: string;
-      irlLocation?: string;
-      irlDate?: string;
-      irlTicketUrl?: string;
-      radioShowName?: string;
-      radioName?: string;
-      radioDate?: string;
-      radioTime?: string;
-      radioUrl?: string;
-      radioTimezone?: string;
-      recType?: 'music' | 'irl' | 'online';
-      recTitle?: string;
-      recUrl?: string;
-      recImageUrl?: string;
-      recOgTitle?: string;
-      recOgImage?: string;
-      addedAt: string;
-    }
-    const djUpdatesMap = new Map<string, DjUpdate[]>();
-
-    for (const djUser of djUsers) {
-      const djProfile = djUser.data.djProfile as Record<string, unknown> | undefined;
-      const chatUsername = djUser.data.chatUsername as string | undefined;
-      if (!djProfile || !chatUsername) continue;
-
-      const djUsername = chatUsername.replace(/\s+/g, "").toLowerCase();
-      const djPhotoUrl = (djProfile.photoUrl as string) || undefined;
-      const djName = (djProfile.djName as string) || chatUsername;
-      const updates: DjUpdate[] = [];
-
-      // IRL shows with addedAt (test mode includes all items even without addedAt)
-      const irlShows = djProfile.irlShows as Array<{ name: string; location: string; url: string; date: string; addedAt?: string }> | undefined;
-      if (irlShows && Array.isArray(irlShows)) {
-        for (const show of irlShows) {
-          if ((testEmail || show.addedAt) && show.date >= todayStr) {
-            updates.push({
-              djName, djUsername, djPhotoUrl,
-              updateType: 'irl',
-              irlShowName: show.name,
-              irlLocation: show.location,
-              irlDate: show.date,
-              irlTicketUrl: show.url,
-              addedAt: show.addedAt || new Date().toISOString(),
-            });
-          }
-        }
-      }
-
-      // Radio shows with addedAt (test mode includes all items even without addedAt)
-      const radioShows = djProfile.radioShows as Array<{ name: string; radioName: string; url: string; date: string; time: string; duration: string; timezone?: string; addedAt?: string }> | undefined;
-      if (radioShows && Array.isArray(radioShows)) {
-        for (const show of radioShows) {
-          if ((testEmail || show.addedAt) && show.date >= todayStr) {
-            updates.push({
-              djName, djUsername, djPhotoUrl,
-              updateType: 'radio',
-              radioShowName: show.name,
-              radioName: show.radioName,
-              radioDate: show.date,
-              radioTime: show.time,
-              radioUrl: show.url,
-              radioTimezone: show.timezone,
-              addedAt: show.addedAt || new Date().toISOString(),
-            });
-          }
-        }
-      }
-
-      // Recs with addedAt (test mode includes all items even without addedAt)
-      const rawRecs = djProfile.myRecs;
-      if (rawRecs && Array.isArray(rawRecs)) {
-        for (const rec of rawRecs as Array<{ type?: string; title?: string; url?: string; imageUrl?: string; addedAt?: string }>) {
-          if (testEmail || rec.addedAt) {
-            updates.push({
-              djName, djUsername, djPhotoUrl,
-              updateType: 'rec',
-              recType: (rec.type as 'music' | 'irl' | 'online') || 'music',
-              recTitle: rec.title,
-              recUrl: rec.url,
-              recImageUrl: rec.imageUrl,
-              addedAt: rec.addedAt || new Date().toISOString(),
-            });
-          }
-        }
-      }
-
-      if (updates.length > 0) {
-        djUpdatesMap.set(djUsername, updates);
-      }
-    }
-
-    console.log(`[watchlist-digest] Collected updates from ${djUpdatesMap.size} DJs with addedAt timestamps`);
-
     // Build a lookup map from chatUsernameNormalized to profile info
     // Key: chatUsernameNormalized from DB (authoritative)
     // Value: { username (for URL), photoUrl (for picture) }
@@ -1143,60 +1044,8 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Collect DJ updates for this user (from followed DJs, since last email)
-      const userDjUpdates: DjUpdate[] = [];
-      if (testEmail || lastEmailAt) {
-        const lastEmailDate = lastEmailAt ? new Date(lastEmailAt) : new Date(0);
-        for (const watchlistDoc of watchlistDocs) {
-          const term = watchlistDoc.term.toLowerCase();
-          for (const [djKey, updates] of Array.from(djUpdatesMap)) {
-            if (containsMatch(djKey, term) || updates.some((u: DjUpdate) => containsMatch(u.djName, term))) {
-              for (const update of updates) {
-                if (testEmail || new Date(update.addedAt) > lastEmailDate) {
-                  userDjUpdates.push(update);
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // Fetch OG metadata for rec updates
-      const recUpdates = userDjUpdates.filter((u) => u.updateType === 'rec' && u.recUrl);
-      if (recUpdates.length > 0) {
-        const ogResults = await Promise.allSettled(
-          recUpdates.map(async (rec) => {
-            try {
-              const controller = new AbortController();
-              const timeout = setTimeout(() => controller.abort(), 3000);
-              const res = await fetch(rec.recUrl!, {
-                signal: controller.signal,
-                headers: { "User-Agent": "Mozilla/5.0 (compatible; ChannelBot/1.0)" },
-              });
-              clearTimeout(timeout);
-              if (!res.ok) return {};
-              const html = await res.text();
-              const ogTitle = html.match(/<meta\s+(?:property|name)="og:title"\s+content="([^"]+)"/i)?.[1]
-                || html.match(/<meta\s+content="([^"]+)"\s+(?:property|name)="og:title"/i)?.[1]
-                || html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1];
-              const ogImage = html.match(/<meta\s+(?:property|name)="og:image"\s+content="([^"]+)"/i)?.[1]
-                || html.match(/<meta\s+content="([^"]+)"\s+(?:property|name)="og:image"/i)?.[1];
-              return { ogTitle: ogTitle?.trim(), ogImage: ogImage?.trim() };
-            } catch {
-              return {};
-            }
-          })
-        );
-        ogResults.forEach((result, i) => {
-          if (result.status === "fulfilled" && result.value) {
-            if (result.value.ogTitle) recUpdates[i].recOgTitle = result.value.ogTitle;
-            if (result.value.ogImage) recUpdates[i].recOgImage = result.value.ogImage;
-          }
-        });
-      }
-
-      // Always send if there's content (favorites, recs, preference matches, or DJ updates)
-      const hasContent = favoriteShows.length > 0 || userCuratorRecs.length > 0 || preferenceMatches.length > 0 || userDjUpdates.length > 0;
+      // Always send if there's content (favorites, recs, or preference matches)
+      const hasContent = favoriteShows.length > 0 || userCuratorRecs.length > 0 || preferenceMatches.length > 0;
 
       if (!hasContent) {
         skippedNoContent++;
@@ -1210,7 +1059,6 @@ export async function GET(request: NextRequest) {
           curatorRecs: userCuratorRecs,
           preferenceShows: preferenceMatches,
           preferredGenres,
-          djUpdates: userDjUpdates,
         });
 
         if (!success) {
