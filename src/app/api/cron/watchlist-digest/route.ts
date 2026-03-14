@@ -961,7 +961,7 @@ export async function GET(request: NextRequest) {
       // Build a dateless version of favoriteShowNames for preference dedup
       // (favorites use "name-station-date" keys, but preferences use "name-station" keys)
       const favoriteShowKeys = new Set(
-        [...favoriteShowNames].map((k) => k.replace(/-\d{4}-\d{2}-\d{2}$/, ""))
+        Array.from(favoriteShowNames).map((k) => k.replace(/-\d{4}-\d{2}-\d{2}$/, ""))
       );
 
       // Build Section 2: curator recs from followed DJs (exclude already-sent ones)

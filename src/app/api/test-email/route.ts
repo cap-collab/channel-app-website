@@ -477,7 +477,7 @@ async function sendTestEmail(to: string, section?: string) {
 
   // Build dateless version for preference dedup (favorites use "name-station-date", prefs use "name-station")
   const favoriteShowKeysDateless = new Set(
-    [...favoriteShowKeys].map((k) => k.replace(/-\d{4}-\d{2}-\d{2}$/, ""))
+    Array.from(favoriteShowKeys).map((k) => k.replace(/-\d{4}-\d{2}-\d{2}$/, ""))
   );
 
   console.log(`[test-email] Matched ${favoriteShows.length} favorite shows: ${favoriteShows.map((s) => s.showName).join(", ")}`);
