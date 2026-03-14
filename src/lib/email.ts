@@ -73,6 +73,7 @@ function wrapEmailContent(content: string, footerText: string): string {
       </style>
     </head>
     <body class="body-bg" bgcolor="#0a0a0a" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0a0a0a; color: #fff; margin: 0; padding: 0;">
+      <div style="max-height:0;overflow:hidden;color:#0a0a0a;font-size:0;line-height:0;">${new Date().toISOString()}</div>
       <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0a0a0a" style="background-color: #0a0a0a;">
         <tr>
           <td align="center" style="padding: 40px 20px;" bgcolor="#0a0a0a">
