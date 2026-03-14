@@ -687,13 +687,24 @@ export async function sendWatchlistDigestEmail({
     }
   }
 
-  // Place preference shows into buckets (only within the 4-day window)
+  // Group preference shows by day
+  const prefsByDay = new Map<string, WatchlistDigestEmailParams["preferenceShows"][0][]>();
   for (const show of preferenceShows) {
     const key = getDateKey(new Date(show.startTime));
-    const bucket = buckets.get(key);
-    if (bucket) {
-      const tag = show.matchLabel ? `PICKED FOR YOU · ${show.matchLabel}` : "PICKED FOR YOU";
-      bucket.push({ kind: "preference", tag, show });
+    if (!buckets.has(key)) continue; // outside 4-day window
+    if (!prefsByDay.has(key)) prefsByDay.set(key, []);
+    prefsByDay.get(key)!.push(show);
+  }
+
+  // Fill empty days: if a day has no favorites, add exactly 1 preference show
+  for (const key of dayKeys) {
+    const bucket = buckets.get(key)!;
+    if (bucket.length > 0) continue; // day already has favorites
+    const dayPrefs = prefsByDay.get(key);
+    if (dayPrefs && dayPrefs.length > 0) {
+      const pref = dayPrefs[0];
+      const tag = pref.matchLabel ? `PICKED FOR YOU · ${pref.matchLabel}` : "PICKED FOR YOU";
+      bucket.push({ kind: "preference", tag, show: pref });
     }
   }
 
