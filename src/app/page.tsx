@@ -40,7 +40,7 @@ export default function Home() {
           </h1>
 
           <p className="text-lg md:text-xl text-gray-400 mb-12 max-w-xl mx-auto leading-relaxed">
-            Driven by people and taste, not algorithms.
+            Bringing DJs, producers, and dancers closer together.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
