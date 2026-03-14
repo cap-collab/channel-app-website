@@ -696,15 +696,21 @@ export async function sendWatchlistDigestEmail({
     prefsByDay.get(key)!.push(show);
   }
 
-  // Add preference shows to their actual day buckets
-  for (const key of dayKeys) {
+  // Add preference shows to their day buckets (create new day buckets if needed)
+  for (const [key, dayPrefs] of Array.from(prefsByDay)) {
+    if (!buckets.has(key)) {
+      // This day is outside the initial 4-day window — add it
+      buckets.set(key, []);
+      dayKeys.push(key);
+      // Generate label for this day
+      const d = new Date(key + "T12:00:00");
+      const label = d.toLocaleDateString("en-US", { timeZone: timezone, weekday: "long", month: "short", day: "numeric" }).toUpperCase();
+      dayLabels.set(key, label);
+    }
     const bucket = buckets.get(key)!;
-    const dayPrefs = prefsByDay.get(key);
-    if (dayPrefs && dayPrefs.length > 0) {
-      for (const pref of dayPrefs) {
-        const tag = pref.matchLabel ? `PICKED FOR YOU · ${pref.matchLabel}` : "PICKED FOR YOU";
-        bucket.push({ kind: "preference", tag, show: pref });
-      }
+    for (const pref of dayPrefs) {
+      const tag = pref.matchLabel ? `PICKED FOR YOU · ${pref.matchLabel}` : "PICKED FOR YOU";
+      bucket.push({ kind: "preference", tag, show: pref });
     }
   }
 
