@@ -59,10 +59,10 @@ function wrapEmailContent(content: string, footerText: string): string {
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="color-scheme" content="dark">
-      <meta name="supported-color-schemes" content="dark">
+      <meta name="color-scheme" content="dark only">
+      <meta name="supported-color-schemes" content="dark only">
       <style>
-        :root { color-scheme: dark; }
+        :root { color-scheme: dark only; }
         body, .body-bg { background-color: #0a0a0a !important; }
         u + .body-bg { background-color: #0a0a0a !important; }
         @media only screen and (max-width: 480px) {
@@ -73,8 +73,6 @@ function wrapEmailContent(content: string, footerText: string): string {
       </style>
     </head>
     <body class="body-bg" bgcolor="#0a0a0a" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0a0a0a; color: #fff; margin: 0; padding: 0;">
-      <!--[if mso]><table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0a0a0a"><tr><td><![endif]-->
-      <div style="background-color: #0a0a0a; min-height: 100%; width: 100%;">
       <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0a0a0a" style="background-color: #0a0a0a;">
         <tr>
           <td align="center" style="padding: 40px 20px;" bgcolor="#0a0a0a">
@@ -104,8 +102,6 @@ function wrapEmailContent(content: string, footerText: string): string {
           </td>
         </tr>
       </table>
-      </div>
-      <!--[if mso]></td></tr></table><![endif]-->
     </body>
     </html>
   `);
@@ -700,21 +696,17 @@ export async function sendWatchlistDigestEmail({
     prefsByDay.get(key)!.push(show);
   }
 
-  // Gap-fill: ensure each day has at least 1 show (minimum 4 total across 4 days)
-  // First pass: fill empty days with preference shows from that day
+  // Add preference shows to their actual day buckets
   for (const key of dayKeys) {
     const bucket = buckets.get(key)!;
-    if (bucket.length > 0) continue;
-
     const dayPrefs = prefsByDay.get(key);
     if (dayPrefs && dayPrefs.length > 0) {
-      const pref = dayPrefs.shift()!;
-      const tag = pref.matchLabel ? `PICKED FOR YOU · ${pref.matchLabel}` : "PICKED FOR YOU";
-      bucket.push({ kind: "preference", tag, show: pref });
+      for (const pref of dayPrefs) {
+        const tag = pref.matchLabel ? `PICKED FOR YOU · ${pref.matchLabel}` : "PICKED FOR YOU";
+        bucket.push({ kind: "preference", tag, show: pref });
+      }
     }
   }
-
-  // Note: no second pass — preference shows only appear under their actual date
 
   // Count total items and check if we have enough to send (minimum 4)
   let totalItems = 0;
