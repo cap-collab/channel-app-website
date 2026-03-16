@@ -724,7 +724,7 @@ export async function sendWatchlistDigestEmail({
 
   if (favoriteShows.length > 0) {
     // Use DJ name from first favorite
-    const firstDj = favoriteShows[0].djName || favoriteShows[0].showName;
+    const firstDj = favoriteShows[0].djUsername || favoriteShows[0].djName || favoriteShows[0].showName;
     titleText = `${firstDj} & more upcoming`;
     subject = `${firstDj} & more upcoming · ${subjectDate}`;
   } else {
@@ -732,7 +732,7 @@ export async function sendWatchlistDigestEmail({
     let highlightName = "";
     if (preferenceShows.length > 0) {
       const firstPrefWithDJ = preferenceShows.find((s) => s.djName);
-      highlightName = firstPrefWithDJ?.djName || preferenceShows[0].showName;
+      highlightName = firstPrefWithDJ?.djUsername || firstPrefWithDJ?.djName || preferenceShows[0].showName;
     }
     titleText = highlightName ? `Upcoming for you: ${highlightName} & more` : "Upcoming for you";
     subject = `${titleText} · ${subjectDate}`;
