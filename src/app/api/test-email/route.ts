@@ -3,7 +3,7 @@ import { sendWatchlistDigestEmail } from "@/lib/email";
 import { queryUsersWhere, queryCollection, getUserFavorites } from "@/lib/firebase-rest";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { matchesGenre } from "@/lib/genres";
-import { matchesCity } from "@/lib/city-detection";
+import { matchesCity, getCityFromTimezone } from "@/lib/city-detection";
 
 const STATION_NAMES: Record<string, string> = {
   nts1: "NTS 1",
@@ -89,7 +89,8 @@ async function sendTestEmail(to: string, section?: string) {
   const userId = user.id;
   const userData = user.data;
   const userTimezone = (userData.timezone as string) || "America/Los_Angeles";
-  const irlCity = userData.irlCity as string | undefined;
+  const irlCity = (userData.irlCity as string | undefined)
+    || getCityFromTimezone(userTimezone);
   const preferredGenres = (userData.preferredGenres as string[]) || [];
 
   console.log(`[test-email] Found user ${userId}, timezone: ${userTimezone}, city: ${irlCity}, genres: ${preferredGenres.join(", ")}`);

@@ -134,6 +134,14 @@ export function getDefaultCity(): string {
   }
 }
 
+/**
+ * Get a city from a timezone string (server-safe version of getDefaultCity).
+ * Returns undefined if the timezone is not in the mapping.
+ */
+export function getCityFromTimezone(timezone: string): string | undefined {
+  return TIMEZONE_TO_CITY[timezone];
+}
+
 // City aliases for flexible matching
 const CITY_ALIASES: Record<string, string[]> = {
   'new york': ['ny', 'nyc', 'new york city', 'brooklyn', 'manhattan', 'queens', 'bronx'],
