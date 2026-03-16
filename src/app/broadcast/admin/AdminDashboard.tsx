@@ -207,61 +207,61 @@ export function AdminDashboard() {
         minute: '2-digit',
       });
 
-      const broadcastUrl = `${window.location.origin}/broadcast/live?token=${slot.broadcastToken}`;
-      const djProfileUrl = `${window.location.origin}/dj-profile`;
-      const signInUrl = `${window.location.origin}/radio-portal`;
+      const broadcastUrl = `https://channel-app.com/broadcast/live?token=${slot.broadcastToken}`;
+      const signInUrl = `https://channel-app.com/radio-portal`;
 
-      let subject: string;
-      let body: string;
+      const subject = userExists
+        ? `Your DJ slot on Channel: ${data.showName}`
+        : `You're invited to DJ on Channel: ${data.showName}`;
 
-      if (userExists) {
-        // User has an account
-        subject = `Your DJ slot on Channel: ${data.showName}`;
-        body = `Hi${data.djName ? ` ${data.djName}` : ''},
+      const signUpBlock = userExists
+        ? ''
+        : `First, create your account. IMPORTANT: sign up using ${djEmail}
+→ ${signInUrl}
 
-You've been scheduled to DJ on Channel!
+`;
 
+      const body = `Hi${data.djName ? ` ${data.djName}` : ''},
+
+You're scheduled to livestream on Channel!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+YOUR SHOW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Show: ${data.showName}
 Date: ${dateStr}
-Time: ${startTimeStr} - ${endTimeStr}
+Time: ${startTimeStr} – ${endTimeStr}
 
-Your broadcast link (keep this private):
-${broadcastUrl}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GET READY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-You can set up your DJ profile now to add your bio, photo, and promo link:
-${djProfileUrl}
+${signUpBlock}Complete your DJ profile (photo, bio, promo link):
+→ https://channel-app.com/studio
 
-See you on air!
-- Channel Team`;
-      } else {
-        // User doesn't have an account yet
-        subject = `You're invited to DJ on Channel: ${data.showName}`;
-        body = `Hi${data.djName ? ` ${data.djName}` : ''},
+Connect Stripe to receive listener support during your set:
+→ https://channel-app.com/stripe-setup
 
-You've been invited to DJ on Channel!
+Your broadcast link (do not share):
+→ ${broadcastUrl}
 
-Show: ${data.showName}
-Date: ${dateStr}
-Time: ${startTimeStr} - ${endTimeStr}
+Test your stream before going live — open the link above and check your audio/connection.
+Full streaming guide: https://channel-app.com/streaming-guide
 
-To get started:
-1. Create your account: ${signInUrl}
-2. Once signed in, set up your DJ profile: ${djProfileUrl}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DAY OF THE SHOW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Join a few minutes early
+• Once live, listeners can tune in, chat, and support you
+• Share your live stream: https://channel-app.com/radio
 
-Your broadcast link (keep this private - you'll use this to go live):
-${broadcastUrl}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Creating an account lets you:
-- Receive tips from listeners
-- Chat with your audience on mobile
-- Save your DJ profile with bio, photo, and promo link
-
-See you on air!
-- Channel Team`;
-      }
+See you on air,
+– The Channel Team`;
 
       // Open Gmail compose in new tab
-      const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(djEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      const gmailUrl = `https://mail.google.com/mail/?authuser=cap@channel-app.com&view=cm&fs=1&to=${encodeURIComponent(djEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
       window.open(gmailUrl, '_blank');
     } catch (error) {
       console.error('Failed to send DJ notification:', error);
