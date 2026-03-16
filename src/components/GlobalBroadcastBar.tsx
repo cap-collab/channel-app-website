@@ -1,8 +1,11 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
+
+const HEADER_HEIGHT = 52;
 
 /**
  * A fixed bar shown across all pages when a broadcast is live.
@@ -15,12 +18,22 @@ export function GlobalBroadcastBar() {
     showName, djName, heroBarVisible,
   } = useBroadcastStreamContext();
   const pathname = usePathname();
+  const [scrolledPastHeader, setScrolledPastHeader] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => {
+      setScrolledPastHeader(window.scrollY >= HEADER_HEIGHT);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   // Don't show when not live, or when on /radio and the hero bar is still visible
   if (!isLive || (pathname === '/radio' && heroBarVisible)) return null;
 
   return (
-    <div className="fixed top-[52px] left-0 right-0 z-[99] bg-black border-b border-white/10 overflow-hidden">
+    <div className={`fixed left-0 right-0 z-[99] bg-black border-b border-white/10 overflow-hidden transition-[top] duration-200`} style={{ top: scrolledPastHeader ? 0 : HEADER_HEIGHT }}>
       <div className="flex items-center gap-2 py-2 px-3">
         {/* Play/Pause — synced with broadcast stream */}
         <button
