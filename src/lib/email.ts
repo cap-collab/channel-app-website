@@ -209,7 +209,7 @@ export async function sendShowStartingEmail({
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to,
-      subject: `${displayName} is live on ${stationName}`,
+      subject: `${djName ? djDisplayName : displayName} is live on ${stationName}`,
       html: wrapEmailContent(content, "You're receiving this because you saved this show."),
     });
 
