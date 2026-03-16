@@ -55,7 +55,7 @@ function HeroChatMessage({
     const displayMessage = message.message.replace(' is ❤️', ` is ${hearts}`);
     return (
       <div className="py-2 px-4 flex items-center justify-between">
-        <span className="text-white text-sm">{displayMessage}</span>
+        <span className="text-white">{displayMessage}</span>
         <span className="text-gray-600 text-xs">{timeAgo}</span>
       </div>
     );
@@ -63,7 +63,7 @@ function HeroChatMessage({
 
   if (message.messageType === 'tip') {
     return (
-      <div className="py-2 px-4 text-green-400 text-sm font-medium">
+      <div className="py-2 px-4 text-green-400 font-medium">
         {message.message}
       </div>
     );
