@@ -211,7 +211,7 @@ export function AdminDashboard() {
       const signInUrl = `https://channel-app.com/radio-portal`;
 
       const subject = userExists
-        ? `Your DJ slot on Channel: ${data.showName}`
+        ? `Your show on Channel: ${data.showName}`
         : `You're invited to DJ on Channel: ${data.showName}`;
 
       const signUpBlock = userExists
