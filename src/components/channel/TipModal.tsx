@@ -52,7 +52,7 @@ interface TipModalProps {
   tipperUsername?: string;  // Optional - undefined for guest tippers
 }
 
-const PRESET_AMOUNTS = [100, 300, 500, 1000]; // cents
+const PRESET_AMOUNTS = [500, 1000, 2000]; // cents
 
 export function TipModal({
   isOpen,
@@ -65,7 +65,7 @@ export function TipModal({
   tipperUserId,
   tipperUsername,
 }: TipModalProps) {
-  const [selectedAmount, setSelectedAmount] = useState(300); // $3 default
+  const [selectedAmount, setSelectedAmount] = useState(500); // $5 default
   const [isCustom, setIsCustom] = useState(false);
   const [customAmount, setCustomAmount] = useState('');
   const [isLoading, setIsLoading] = useState(false);
