@@ -58,6 +58,9 @@ export function useBroadcast(
   const roomNameRef = useRef(roomName);
   roomNameRef.current = roomName;
 
+  const isLiveRef = useRef(state.isLive);
+  isLiveRef.current = state.isLive;
+
   // Update state.roomName when prop changes (for consumers to check readiness)
   useEffect(() => {
     setState(prev => {
@@ -133,7 +136,7 @@ export function useBroadcast(
 
         // If we were live and got disconnected unexpectedly, mark as paused
         // (not if DJ explicitly ended the broadcast)
-        const wasLive = state.isLive;
+        const wasLive = isLiveRef.current;
         const isUnexpectedDisconnect = reason !== DisconnectReason.CLIENT_INITIATED;
         const currentSlotId = slotIdRef.current;
 
