@@ -268,18 +268,12 @@ export function StudioProfileClient() {
             setMixcloudInput(data.djProfile.socialLinks?.mixcloud || "");
             setResidentAdvisorInput(data.djProfile.socialLinks?.residentAdvisor || "");
             setCustomLinksInput(data.djProfile.socialLinks?.customLinks || []);
-            // IRL Shows - ensure we always have 2 fields with all properties
-            const irlShows = data.djProfile.irlShows || [];
-            setIrlShowsInput([
-              { name: "", location: "", url: "", date: "", ...irlShows[0] },
-              { name: "", location: "", url: "", date: "", ...irlShows[1] },
-            ]);
-            // Radio Shows - ensure we always have 2 fields with all properties
-            const radioShows = data.djProfile.radioShows || [];
-            setRadioShowsInput([
-              { name: "", radioName: "", url: "", date: "", time: "", duration: "1", ...radioShows[0] },
-              { name: "", radioName: "", url: "", date: "", time: "", duration: "1", ...radioShows[1] },
-            ]);
+            // IRL Shows - load all saved shows plus one empty slot
+            const irlShows = (data.djProfile.irlShows || []).map((s: Partial<IrlShow>) => ({ name: "", location: "", url: "", date: "", ...s }));
+            setIrlShowsInput([...irlShows, { name: "", location: "", url: "", date: "" }]);
+            // Radio Shows - load all saved shows plus one empty slot
+            const radioShows = (data.djProfile.radioShows || []).map((s: Partial<RadioShow>) => ({ name: "", radioName: "", url: "", date: "", time: "", duration: "1", ...s }));
+            setRadioShowsInput([...radioShows, { name: "", radioName: "", url: "", date: "", time: "", duration: "1" }]);
             // My Recs - migrate old format or load new format
             const rawRecs = data.djProfile.myRecs;
             if (Array.isArray(rawRecs) && rawRecs.length > 0) {
@@ -1899,9 +1893,26 @@ export function StudioProfileClient() {
             <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
               {irlShowsInput.map((show, index) => (
                 <div key={index} className="space-y-2">
-                  <label className="block text-gray-400 text-sm">
-                    Show {index + 1}
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-gray-400 text-sm">
+                      Show {index + 1}
+                    </label>
+                    {(show.name || show.location || show.url || show.date) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = irlShowsInput.filter((_, i) => i !== index);
+                          if (updated.length === 0 || (updated[updated.length - 1].name || updated[updated.length - 1].location || updated[updated.length - 1].url || updated[updated.length - 1].date)) {
+                            updated.push({ name: "", location: "", url: "", date: "" });
+                          }
+                          setIrlShowsInput(updated);
+                        }}
+                        className="text-gray-600 hover:text-red-400 text-xs transition-colors"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
                   <div className="flex gap-2">
                     <input
                       type="text"
@@ -1951,6 +1962,13 @@ export function StudioProfileClient() {
                   </div>
                 </div>
               ))}
+              <button
+                type="button"
+                onClick={() => setIrlShowsInput([...irlShowsInput, { name: "", location: "", url: "", date: "" }])}
+                className="text-gray-500 hover:text-white text-xs transition-colors"
+              >
+                + Add another show
+              </button>
               <p className="text-gray-600 text-xs">
                 {savingIrlShows ? "Saving..." : saveIrlShowsSuccess ? "Saved" : ""}
               </p>
@@ -2011,9 +2029,26 @@ export function StudioProfileClient() {
             <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
               {radioShowsInput.map((show, index) => (
                 <div key={index} className="space-y-2">
-                  <label className="block text-gray-400 text-sm">
-                    Show {index + 1}
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-gray-400 text-sm">
+                      Show {index + 1}
+                    </label>
+                    {(show.name || show.radioName || show.url || show.date) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = radioShowsInput.filter((_, i) => i !== index);
+                          if (updated.length === 0 || (updated[updated.length - 1].name || updated[updated.length - 1].radioName || updated[updated.length - 1].url || updated[updated.length - 1].date)) {
+                            updated.push({ name: "", radioName: "", url: "", date: "", time: "", duration: "1" });
+                          }
+                          setRadioShowsInput(updated);
+                        }}
+                        className="text-gray-600 hover:text-red-400 text-xs transition-colors"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
                   <div className="flex gap-2">
                     <input
                       type="text"
@@ -2108,6 +2143,13 @@ export function StudioProfileClient() {
                   Times are in your local timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone})
                 </span>
               </div>
+              <button
+                type="button"
+                onClick={() => setRadioShowsInput([...radioShowsInput, { name: "", radioName: "", url: "", date: "", time: "", duration: "1" }])}
+                className="text-gray-500 hover:text-white text-xs transition-colors"
+              >
+                + Add another show
+              </button>
               <p className="text-gray-600 text-xs">
                 {savingRadioShows ? "Saving..." : saveRadioShowsSuccess ? "Saved" : ""}
               </p>
