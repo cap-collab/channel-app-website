@@ -17,7 +17,7 @@ export default function PrivacyPage() {
       <p className="last-updated">
         Channel Media, Inc.
         <br />
-        Last updated: January 2026
+        Last updated: March 2026
       </p>
 
       <h2>1. Introduction</h2>
@@ -71,21 +71,27 @@ export default function PrivacyPage() {
       <p>
         <strong>A. Chat Messages (Mobile &amp; Web)</strong>
       </p>
+      <p>Public messages posted in chat rooms.</p>
+      <p>Messages may appear in:</p>
       <ul>
-        <li>Public messages posted in chat rooms</li>
-        <li>Visible to anyone tuned into a station or live broadcast</li>
-        <li>Stored in Firebase Firestore</li>
-        <li>You may request deletion of your chat messages</li>
+        <li>radio station chat rooms</li>
+        <li>DJ profile chat rooms</li>
       </ul>
+      <p>
+        Messages are visible to anyone tuned into a station or viewing a DJ profile and are stored in
+        Firebase Firestore.
+      </p>
+      <p>You may request deletion of your chat messages.</p>
 
       <p>
         <strong>B. Username</strong>
       </p>
+      <p>Usernames are:</p>
       <ul>
-        <li>Optional on mobile</li>
-        <li>Automatically created on web from your authentication provider</li>
-        <li>Displayed publicly in chat, public DJ pages, and automated system messages</li>
+        <li>optional on mobile</li>
+        <li>automatically created on web from your authentication provider</li>
       </ul>
+      <p>Usernames may appear publicly in chat, DJ profiles, and automated system messages.</p>
 
       <p>
         <strong>C. Email &amp; Notification Preferences (Web)</strong>
@@ -101,30 +107,50 @@ export default function PrivacyPage() {
         <li>Calendar sync settings</li>
       </ul>
 
+      <p>
+        <strong>D. Personalization Preferences</strong>
+      </p>
+      <p>Users may optionally provide:</p>
+      <ul>
+        <li>preferred cities</li>
+        <li>preferred music genres</li>
+      </ul>
+      <p>
+        These preferences are stored in Firestore and used to improve discovery features, including
+        personalized show recommendations.
+      </p>
+
       <h3>4.2 Authentication Methods</h3>
 
       <p>
         <strong>Google OAuth</strong>
       </p>
+      <p>We receive:</p>
       <ul>
-        <li>Email address, display name, profile photo, timezone</li>
+        <li>email address</li>
+        <li>display name</li>
+        <li>profile photo</li>
+        <li>timezone</li>
       </ul>
 
       <p>
         <strong>Apple Sign-In</strong>
       </p>
+      <p>We receive:</p>
       <ul>
-        <li>Email address, full name (when shared), Apple user identifier</li>
-        <li>Apple may mask your email via &quot;Hide My Email&quot;</li>
+        <li>email address</li>
+        <li>full name (when shared)</li>
+        <li>Apple user identifier</li>
       </ul>
+      <p>Apple may mask your email via &quot;Hide My Email&quot;.</p>
 
       <p>
         <strong>Email Magic Link</strong>
       </p>
-      <ul>
-        <li>Email temporarily stored in localStorage during login</li>
-        <li>Cleared once authentication completes or expires</li>
-      </ul>
+      <p>
+        Email addresses may be temporarily stored in browser localStorage during the login flow and
+        are removed once authentication completes or expires.
+      </p>
 
       <h3>4.3 Information Collected Automatically</h3>
       <p>
@@ -134,19 +160,19 @@ export default function PrivacyPage() {
       <p>We collect:</p>
       <ul>
         <li>Firebase User ID (anonymous on mobile, authenticated on web)</li>
-        <li>Temporary IP address logs at the infrastructure level (security and delivery)</li>
-        <li>Temporary session identifiers for listener presence</li>
-        <li>Device or app metadata only when you manually report an issue</li>
+        <li>temporary IP address logs at the infrastructure level (security and delivery)</li>
+        <li>temporary session identifiers for listener presence</li>
+        <li>device or app metadata only when you manually report an issue</li>
       </ul>
       <p>We do not collect background logs or screenshots automatically.</p>
 
       <h3>4.4 Listener Presence &amp; Stream Metadata</h3>
       <p>To operate live streams, Channel generates and processes:</p>
       <ul>
-        <li>Anonymous listener session identifiers</li>
-        <li>Join and leave timestamps</li>
-        <li>Listener counts per live stream</li>
-        <li>Stream identifiers linked to DJs and shows</li>
+        <li>anonymous listener session identifiers</li>
+        <li>join and leave timestamps</li>
+        <li>listener counts per live stream</li>
+        <li>stream identifiers linked to DJs and shows</li>
       </ul>
       <p>Session identifiers are short-lived and regenerated per session.</p>
 
@@ -164,24 +190,24 @@ export default function PrivacyPage() {
       </ul>
       <p>Recordings may include:</p>
       <ul>
-        <li>Audio content</li>
-        <li>Timestamps</li>
-        <li>Stream identifiers</li>
+        <li>audio content</li>
+        <li>timestamps</li>
+        <li>stream identifiers</li>
         <li>DJ identifiers</li>
       </ul>
       <p>Chat messages are not included in audio recordings or replays.</p>
       <p>Channel staff may access live or recorded audio solely for:</p>
       <ul>
-        <li>Debugging and technical troubleshooting</li>
-        <li>Safety and moderation review</li>
-        <li>Compliance and internal operations</li>
+        <li>debugging and technical troubleshooting</li>
+        <li>safety and moderation review</li>
+        <li>compliance and internal operations</li>
       </ul>
       <p>Channel does not enable third-party analytics or telemetry on live audio streams.</p>
 
       <h3>4.6 Storage of Recordings</h3>
       <p>Recorded broadcasts are stored in Cloudflare R2 object storage.</p>
       <p>
-        Cloudflare may process limited technical data (e.g., IP addresses, network metadata) to
+        Cloudflare may process limited technical data (such as IP addresses or network metadata) to
         provide storage and delivery services.
       </p>
       <p>Channel controls access to all stored recordings.</p>
@@ -193,12 +219,12 @@ export default function PrivacyPage() {
       <h3>4.8 Local Device Storage</h3>
       <p>Your device may store:</p>
       <ul>
-        <li>Favorites (local copies)</li>
-        <li>Notification settings</li>
-        <li>Feature discovery flags</li>
-        <li>Recently viewed shows</li>
-        <li>Temporary session identifiers</li>
-        <li>Temporary Magic Link email</li>
+        <li>favorites (local copies)</li>
+        <li>notification settings</li>
+        <li>feature discovery flags</li>
+        <li>recently viewed shows</li>
+        <li>temporary session identifiers</li>
+        <li>temporary Magic Link email</li>
       </ul>
       <p>Local data is removed when you uninstall the app or clear browser storage.</p>
 
@@ -207,7 +233,6 @@ export default function PrivacyPage() {
       <ul>
         <li>Love reactions</li>
         <li>Locked-in messages</li>
-        <li>Favorite actions</li>
         <li>Tip acknowledgments</li>
       </ul>
       <p>These messages are optional, rate-limited, and configurable.</p>
@@ -227,11 +252,11 @@ export default function PrivacyPage() {
       </p>
       <p>Channel may store limited transaction information, including:</p>
       <ul>
-        <li>Payment amount and currency</li>
-        <li>Transaction identifiers</li>
-        <li>Timestamp</li>
-        <li>Payment status</li>
-        <li>Associated DJ or show</li>
+        <li>payment amount and currency</li>
+        <li>transaction identifiers</li>
+        <li>timestamp</li>
+        <li>payment status</li>
+        <li>associated DJ or show</li>
       </ul>
       <p>Tips may be sent with or without creating an account.</p>
       <ul>
@@ -247,8 +272,7 @@ export default function PrivacyPage() {
       <p>
         If a DJ does not complete payout setup within a defined period, transaction records related
         to unclaimed tips may be associated with Channel&apos;s DJ Support Pool for internal
-        accounting and operational purposes. No additional personal data is collected as part of
-        this reallocation.
+        accounting purposes.
       </p>
       <p>Creators receiving payouts must complete identity verification directly with Stripe.</p>
 
@@ -256,11 +280,11 @@ export default function PrivacyPage() {
       <p>If you apply to become a DJ or broadcaster, we may collect:</p>
       <ul>
         <li>DJ or project name</li>
-        <li>Email address</li>
-        <li>Show name</li>
-        <li>Preferred broadcast times</li>
-        <li>Venue information (if applicable)</li>
-        <li>Optional social media links</li>
+        <li>email address</li>
+        <li>show name</li>
+        <li>preferred broadcast times</li>
+        <li>venue information (if applicable)</li>
+        <li>optional social media links</li>
       </ul>
       <p>
         This information is used to evaluate applications, schedule broadcasts, and communicate
@@ -269,7 +293,7 @@ export default function PrivacyPage() {
 
       <h3>4.13 DJ Broadcast History</h3>
       <p>
-        For DJs, Channel retains a history of broadcasts (show identifiers and dates) for
+        For DJs, Channel retains a history of broadcasts including show identifiers and dates for
         operational, archival, and scheduling purposes.
       </p>
       <p>If a DJ account is removed, associated broadcast history and recordings are removed.</p>
@@ -281,10 +305,10 @@ export default function PrivacyPage() {
       </p>
       <ul>
         <li>DJ name</li>
-        <li>Bio</li>
-        <li>Photos</li>
-        <li>Social links</li>
-        <li>Shows and recommendations</li>
+        <li>bio</li>
+        <li>photos</li>
+        <li>social links</li>
+        <li>shows and recommendations</li>
       </ul>
       <p>These pages are publicly accessible and may be viewed without an account.</p>
       <p>
@@ -292,36 +316,53 @@ export default function PrivacyPage() {
         choose to make public.
       </p>
 
+      <h3>4.15 Collectives, Venues &amp; Events</h3>
+      <p>Channel may display public pages for collectives, venues, and events.</p>
+      <p>These pages may include:</p>
+      <ul>
+        <li>names and descriptions</li>
+        <li>social media links</li>
+        <li>associated DJs or shows</li>
+        <li>location or event information</li>
+      </ul>
+      <p>Information may originate from:</p>
+      <ul>
+        <li>DJs or organizers</li>
+        <li>Channel administrators</li>
+        <li>publicly available sources</li>
+      </ul>
+
       <h2>5. Legal Bases for Processing (GDPR / UK GDPR)</h2>
 
       <p>
         <strong>Contract (Article 6(1)(b))</strong>
       </p>
       <ul>
-        <li>Accounts and authentication</li>
-        <li>Live streaming and recording</li>
-        <li>Chat and community features</li>
+        <li>accounts and authentication</li>
+        <li>live streaming and recording</li>
+        <li>chat and community features</li>
         <li>DJ Studio and profile functionality</li>
-        <li>Notifications and reminders</li>
+        <li>notifications and reminders</li>
       </ul>
 
       <p>
         <strong>Consent (Article 6(1)(a))</strong>
       </p>
       <ul>
-        <li>Email communications</li>
-        <li>Push notifications</li>
-        <li>Calendar sync</li>
-        <li>Automated activity messages</li>
+        <li>email communications</li>
+        <li>push notifications</li>
+        <li>calendar sync</li>
+        <li>automated activity messages</li>
       </ul>
 
       <p>
         <strong>Legitimate Interest (Article 6(1)(f))</strong>
       </p>
       <ul>
-        <li>Security and abuse prevention</li>
-        <li>Fraud detection</li>
-        <li>Service reliability</li>
+        <li>security and abuse prevention</li>
+        <li>fraud detection</li>
+        <li>service reliability</li>
+        <li>improving discovery and recommendation features</li>
       </ul>
 
       <p>No data is used for advertising or profiling.</p>
@@ -329,15 +370,15 @@ export default function PrivacyPage() {
       <h2>6. How We Use Information</h2>
       <p>We use personal data to:</p>
       <ul>
-        <li>Operate live streams and recordings</li>
-        <li>Display public DJ profiles and show information</li>
-        <li>Provide chat and community features</li>
-        <li>Enable following DJs and favoriting shows</li>
-        <li>Auto-favorite related content</li>
-        <li>Deliver notifications</li>
-        <li>Facilitate voluntary tips and DJ payouts</li>
-        <li>Prevent fraud and abuse</li>
-        <li>Improve platform reliability</li>
+        <li>operate live streams and recordings</li>
+        <li>display public DJ profiles and show information</li>
+        <li>provide chat and community features</li>
+        <li>enable following DJs and favoriting shows</li>
+        <li>generate personalized recommendations based on preferences or estimated location</li>
+        <li>deliver notifications and digest emails</li>
+        <li>facilitate voluntary tips and DJ payouts</li>
+        <li>prevent fraud and abuse</li>
+        <li>improve platform reliability</li>
       </ul>
       <p>We do not sell personal data or share it with advertisers.</p>
 
@@ -358,7 +399,7 @@ export default function PrivacyPage() {
       <p>Transfers are protected by:</p>
       <ul>
         <li>Standard Contractual Clauses (SCCs)</li>
-        <li>Additional security measures</li>
+        <li>additional security measures</li>
       </ul>
 
       <h2>9. Data Retention</h2>
@@ -375,16 +416,20 @@ export default function PrivacyPage() {
         <li>DJ application data: retained while relevant</li>
         <li>Moderation logs: retained as necessary for safety</li>
       </ul>
+      <p>
+        Favorites may be automatically removed if the associated show or event is deleted from the
+        platform.
+      </p>
 
       <h2>10. Your Rights (GDPR / UK GDPR)</h2>
       <p>You may:</p>
       <ul>
-        <li>Access your data</li>
-        <li>Correct inaccuracies</li>
-        <li>Request deletion</li>
-        <li>Export your data</li>
-        <li>Withdraw consent</li>
-        <li>Object to processing</li>
+        <li>access your data</li>
+        <li>correct inaccuracies</li>
+        <li>request deletion</li>
+        <li>export your data</li>
+        <li>withdraw consent</li>
+        <li>object to processing</li>
       </ul>
       <p>
         Contact: <a href="mailto:support@channel-app.com">support@channel-app.com</a>

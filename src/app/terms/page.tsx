@@ -17,7 +17,7 @@ export default function TermsPage() {
       <p className="last-updated">
         Channel Media, Inc.
         <br />
-        Last updated: January 2026
+        Last updated: March 2026
       </p>
 
       <h2>1. Acceptance of Terms</h2>
@@ -34,14 +34,20 @@ export default function TermsPage() {
       <p>Channel is a platform that enables users to:</p>
       <ul>
         <li>Listen to live audio streams from third-party radio stations</li>
-        <li>Listen to live DJ broadcasts through Channel Radio</li>
-        <li>View public DJ profiles and pages (e.g. /dj/[username])</li>
-        <li>Interact with public chat rooms</li>
+        <li>Listen to live DJ broadcasts through Channel Radio (Channel-hosted DJ broadcasts)</li>
+        <li>View public pages for DJs, collectives, venues, and events (e.g. /dj/[username])</li>
+        <li>Interact with public chat rooms associated with DJs or radio stations</li>
         <li>Discover show schedules, metadata, and listener indicators</li>
         <li>Send voluntary tips to support DJs</li>
         <li>Receive optional notifications and emails</li>
         <li>Save favorites, watchlists, and searches</li>
       </ul>
+      <p>Channel may also provide personalized recommendations based on:</p>
+      <ul>
+        <li>user preferences (such as selected cities or genres), or</li>
+        <li>estimated location derived from the device or browser when available</li>
+      </ul>
+      <p>Users may adjust their preferences in settings.</p>
       <p>Channel does not own or control the content streamed by third-party radios or DJs.</p>
 
       <h2>4. Accounts &amp; Authentication</h2>
@@ -88,11 +94,12 @@ export default function TermsPage() {
       </p>
 
       <h2>6. Channel Radio (Listening Experience)</h2>
-      <p>Channel may display live DJ broadcasts that:</p>
+      <p>Channel Radio displays live DJ broadcasts hosted on Channel.</p>
+      <p>Broadcasts may:</p>
       <ul>
         <li>Appear dynamically when a DJ is live</li>
-        <li>May be interrupted, delayed, or unavailable</li>
-        <li>May include live chat, reactions, or recordings</li>
+        <li>Include chat, reactions, or recordings</li>
+        <li>Be interrupted, delayed, or unavailable</li>
       </ul>
       <p>Channel does not guarantee broadcast availability, quality, or continuity.</p>
 
@@ -135,17 +142,18 @@ export default function TermsPage() {
 
       <h2>9. User-Generated Content &amp; Chats</h2>
 
-      <h3>9.1 DJ-Specific Chats</h3>
-      <p>
-        Chat messages are posted to DJ-specific chat rooms associated with individual DJ profiles.
-      </p>
-      <p>Chats:</p>
+      <h3>9.1 Chat Rooms</h3>
+      <p>Chat rooms on Channel may be associated with either:</p>
+      <ul>
+        <li>radio stations (for third-party radio streams), or</li>
+        <li>DJ profiles (for Channel Radio DJs)</li>
+      </ul>
+      <p>Chat messages:</p>
       <ul>
         <li>Are public</li>
         <li>Are visible to other users</li>
-        <li>Persist beyond a single broadcast session</li>
+        <li>May persist beyond a single broadcast session depending on the chat type</li>
       </ul>
-      <p>Messages are not ephemeral unless explicitly stated.</p>
 
       <h3>9.2 Responsibility for Messages</h3>
       <p>You are responsible for any content you post.</p>
@@ -155,14 +163,17 @@ export default function TermsPage() {
       </p>
 
       <h2>10. Automated Activity Messages</h2>
-      <p>Channel may display system-generated messages related to user activity, such as:</p>
+      <p>Channel may display system-generated messages related to user activity, including:</p>
       <ul>
         <li>Love reactions</li>
         <li>Locked-in listening indicators</li>
-        <li>Favorite acknowledgments</li>
         <li>Tip acknowledgments</li>
       </ul>
       <p>These messages may appear publicly and can be disabled in settings.</p>
+      <p>
+        Channel may also automatically add new shows from favorited DJs to a user&apos;s favorites
+        list in order to keep users informed about upcoming broadcasts.
+      </p>
 
       <h2>11. Notifications</h2>
 
@@ -179,7 +190,7 @@ export default function TermsPage() {
       <ul>
         <li>Show reminders</li>
         <li>Watchlist updates</li>
-        <li>Digest emails</li>
+        <li>Digest emails including personalized show recommendations</li>
       </ul>
       <p>You may disable notifications at any time.</p>
 
