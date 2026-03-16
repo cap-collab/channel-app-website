@@ -914,7 +914,7 @@ export async function GET(request: NextRequest) {
 
       // Helper: enrich a show with DJ profile info and return a preference match (or null)
       type PrefMatch = typeof preferenceMatches[number];
-      const enrichShow = (show: BroadcastShow, showStart: Date): { djUsername?: string; djPhotoUrl?: string; djGenres?: string[]; djLocation?: string } | null => {
+      const enrichShow = (show: BroadcastShow): { djUsername?: string; djPhotoUrl?: string; djGenres?: string[]; djLocation?: string } | null => {
         let djGenres: string[] | undefined;
         let djLocation: string | undefined;
         let djUsername = show.djUsername;
@@ -949,7 +949,7 @@ export async function GET(request: NextRequest) {
             const broadcastShow = show as BroadcastShow;
             if (broadcastShow.isIRL && !irlCity) continue;
 
-            const enriched = enrichShow(broadcastShow, new Date(show.startTime));
+            const enriched = enrichShow(broadcastShow);
             if (!enriched) continue;
 
             const genreMatch = enriched.djGenres
@@ -989,7 +989,7 @@ export async function GET(request: NextRequest) {
             if (favoriteShowKeys.has(showKey) || prefKeys.has(showKey)) continue;
             const broadcastShow = show as BroadcastShow;
 
-            const enriched = enrichShow(broadcastShow, new Date(show.startTime));
+            const enriched = enrichShow(broadcastShow);
             if (!enriched) continue;
 
             const showLocation = broadcastShow.isIRL ? broadcastShow.irlLocation : enriched.djLocation;
@@ -1022,7 +1022,7 @@ export async function GET(request: NextRequest) {
           const broadcastShow = show as BroadcastShow;
           if (broadcastShow.isIRL) continue;
 
-          const enriched = enrichShow(broadcastShow, new Date(show.startTime));
+          const enriched = enrichShow(broadcastShow);
           if (!enriched) continue;
 
           prefKeys.add(showKey);
@@ -1063,7 +1063,7 @@ export async function GET(request: NextRequest) {
           const broadcastShow = show as BroadcastShow;
           if (broadcastShow.isIRL && !irlCity) continue;
 
-          const enriched = enrichShow(broadcastShow, showStart);
+          const enriched = enrichShow(broadcastShow);
           if (!enriched) continue;
 
           // Prefer genre or city matches in the bonus pass too
