@@ -30,7 +30,6 @@ interface NotificationSettings {
 interface ActivityMessageSettings {
   showLoveMessages: boolean;
   showLockedInMessages: boolean;
-  showFavoriteMessages: boolean;
 }
 
 export function SettingsClient() {
@@ -46,7 +45,6 @@ export function SettingsClient() {
   const [activityMessages, setActivityMessages] = useState<ActivityMessageSettings>({
     showLoveMessages: true,
     showLockedInMessages: true,
-    showFavoriteMessages: true,
   });
   const [saving, setSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -80,7 +78,6 @@ export function SettingsClient() {
         setActivityMessages({
           showLoveMessages: data.activityMessages.showLoveMessages ?? true,
           showLockedInMessages: data.activityMessages.showLockedInMessages ?? true,
-          showFavoriteMessages: data.activityMessages.showFavoriteMessages ?? true,
         });
       }
       // Channel preferences - default to device timezone city if not set
@@ -596,27 +593,6 @@ export function SettingsClient() {
                     <div
                       className={`w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] rounded-full transition-transform ${
                         activityMessages.showLockedInMessages ? "bg-black translate-x-6" : "bg-gray-400"
-                      }`}
-                    />
-                  </button>
-                </div>
-                <div className="p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-white font-medium">Favorites</p>
-                    <p className="text-gray-500 text-sm">
-                      Post a message when you favorite a show or DJ
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => handleActivityToggle("showFavoriteMessages")}
-                    disabled={saving}
-                    className={`w-14 h-8 min-w-[3.5rem] min-h-[2rem] shrink-0 rounded-full transition-colors flex items-center px-1 ${
-                      activityMessages.showFavoriteMessages ? "bg-white" : "bg-gray-700"
-                    }`}
-                  >
-                    <div
-                      className={`w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] rounded-full transition-transform ${
-                        activityMessages.showFavoriteMessages ? "bg-black translate-x-6" : "bg-gray-400"
                       }`}
                     />
                   </button>
