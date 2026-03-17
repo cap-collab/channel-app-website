@@ -77,6 +77,17 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Mobile mockup preview */}
+      <div className="md:hidden flex justify-center bg-black pt-12 pb-4 px-6">
+        <Image
+          src="/curated.png"
+          alt="Channel app preview"
+          width={250}
+          height={500}
+          className="rounded-2xl"
+        />
+      </div>
+
       {/* Values Section - 3 columns with mockups below */}
       <section className="py-24 px-6 bg-black">
         <ScrollReveal>
@@ -95,7 +106,7 @@ export default function Home() {
                 </p>
                 <div className="hidden md:block transform scale-[0.55] origin-top -mb-[45%]">
                   <Image
-                    src="/radio-portal/Curated.png"
+                    src="/curated.png"
                     alt="Curated"
                     width={300}
                     height={200}
@@ -117,7 +128,7 @@ export default function Home() {
                 </p>
                 <div className="hidden md:block transform scale-[0.55] origin-top -mb-[45%]">
                   <Image
-                    src="/radio-portal/independent.png"
+                    src="/independent.png"
                     alt="Independent"
                     width={300}
                     height={200}
@@ -139,7 +150,7 @@ export default function Home() {
                 </p>
                 <div className="hidden md:block transform scale-[0.55] origin-top -mb-[45%]">
                   <Image
-                    src="/radio-portal/Collaborative.png"
+                    src="/collaborative.png"
                     alt="Collaborative"
                     width={300}
                     height={200}
