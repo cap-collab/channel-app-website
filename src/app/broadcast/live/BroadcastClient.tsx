@@ -287,37 +287,39 @@ export function BroadcastClient() {
     if (!audioStream) return;
 
     setIsGoingLive(true);
-    const success = await broadcast.goLive(audioStream);
+    try {
+      const success = await broadcast.goLive(audioStream);
 
-    // If we have an initial promo from onboarding, submit it now
-    if (success && initialPromoText && token) {
-      try {
-        const promoRes = await fetch('/api/broadcast/dj-promo', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            broadcastToken: token,
-            promoText: initialPromoText,
-            promoHyperlink: initialPromoHyperlink ? normalizeUrl(initialPromoHyperlink) : undefined,
-            username: djUsername,
-          }),
-        });
+      // If we have an initial promo from onboarding, submit it now
+      if (success && initialPromoText && token) {
+        try {
+          const promoRes = await fetch('/api/broadcast/dj-promo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              broadcastToken: token,
+              promoText: initialPromoText,
+              promoHyperlink: initialPromoHyperlink ? normalizeUrl(initialPromoHyperlink) : undefined,
+              username: djUsername,
+            }),
+          });
 
-        if (promoRes.ok) {
-          setInitialPromoSubmitted(true);
-        } else {
-          const errorData = await promoRes.json();
-          console.error('Failed to submit initial promo:', errorData.error);
+          if (promoRes.ok) {
+            setInitialPromoSubmitted(true);
+          } else {
+            const errorData = await promoRes.json();
+            console.error('Failed to submit initial promo:', errorData.error);
+          }
+        } catch (err) {
+          console.error('Failed to submit initial promo:', err);
         }
-      } catch (err) {
-        console.error('Failed to submit initial promo:', err);
       }
-    }
 
-    setIsGoingLive(false);
-
-    if (!success) {
-      console.error('Failed to go live:', broadcast.error);
+      if (!success) {
+        console.error('Failed to go live:', broadcast.error);
+      }
+    } finally {
+      setIsGoingLive(false);
     }
   }, [audioStream, broadcast, initialPromoText, initialPromoHyperlink, token, djUsername]);
 
@@ -352,6 +354,30 @@ export function BroadcastClient() {
     await broadcast.endBroadcast();
     broadcast.setInputMethod(null);
   }, [audioStream, broadcast]);
+
+  // Detect when audio track ends (e.g. user clicks browser's "stop sharing" button)
+  useEffect(() => {
+    if (!audioStream) return;
+
+    const track = audioStream.getAudioTracks()[0];
+    if (!track) return;
+
+    const onTrackEnded = () => {
+      console.log('Audio track ended (user stopped sharing or device disconnected)');
+      if (broadcast.isLive) {
+        // End the broadcast and update Firebase
+        handleEndBroadcast();
+      } else {
+        // Not live yet - clear stream so UI returns to audio capture selector
+        audioStream.getTracks().forEach(t => t.stop());
+        setAudioStream(null);
+        setAudioSourceLabel(null);
+      }
+    };
+
+    track.addEventListener('ended', onTrackEnded);
+    return () => track.removeEventListener('ended', onTrackEnded);
+  }, [audioStream, broadcast.isLive, handleEndBroadcast]);
 
   // DJ onboarding handler
   const handleProfileComplete = useCallback((username: string, promoText?: string, promoHyperlink?: string, thankYouMessage?: string) => {
@@ -494,6 +520,40 @@ export function BroadcastClient() {
           );
         })()}
       </>
+    );
+  }
+
+  // Going live transition - lock UI on pre-live control center while async goLive runs
+  // This prevents the render tree from falling through to schedule/profile pages
+  if (isGoingLive && audioStream) {
+    return (
+      <DJControlCenter
+        slot={slot}
+        audioStream={audioStream}
+        inputMethod={broadcast.inputMethod}
+        isLive={false}
+        isPublishing={broadcast.isPublishing}
+        canGoLive={false}
+        onGoLive={handleGoLive}
+        isGoingLive={true}
+        onEndBroadcast={handleEndBroadcast}
+        broadcastToken={token || ''}
+        djUsername={djUsername}
+        userId={user?.uid}
+        tipTotalCents={tipTotalCents}
+        tipCount={tipCount}
+        promoText={initialPromoText}
+        promoHyperlink={initialPromoHyperlink}
+        thankYouMessage={initialThankYouMessage}
+        onPromoChange={(text, hyperlink) => {
+          setInitialPromoText(text);
+          setInitialPromoHyperlink(hyperlink);
+        }}
+        onThankYouChange={setInitialThankYouMessage}
+        isVenue={slot?.broadcastType === 'venue'}
+        initialPromoSubmitted={initialPromoSubmitted}
+        audioSourceLabel={audioSourceLabel}
+      />
     );
   }
 

@@ -176,7 +176,8 @@ export function useBroadcast(
       setState(prev => ({ ...prev, error: message }));
       return false;
     }
-  }, [participantIdentity, checkRoomStatus, state.isLive, recordingOnly]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- state.isLive intentionally omitted; disconnect handler uses isLiveRef instead
+  }, [participantIdentity, checkRoomStatus, recordingOnly]);
 
   // Publish audio to the room
   const publishAudio = useCallback(async (stream: MediaStream) => {
