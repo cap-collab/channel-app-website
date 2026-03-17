@@ -26,6 +26,7 @@ export function GlobalBroadcastBar() {
 
   const hasFixedHeader = FIXED_HEADER_PATHS.includes(pathname);
   const isRadio = pathname === '/radio';
+  const isBroadcastPage = pathname.startsWith('/broadcast') || pathname.startsWith('/studio');
 
   // Track whether the header has scrolled away (for sticky-header pages)
   useEffect(() => {
@@ -41,21 +42,32 @@ export function GlobalBroadcastBar() {
   // On /radio, check if the inline hero player bar is still visible.
   // Look for it by data attribute — self-contained, no cross-component state needed.
   useEffect(() => {
-    if (!isRadio) return;
+    if (!isRadio) {
+      setHeroBarOnScreen(false);
+      return;
+    }
     const onScroll = () => {
       const heroBar = document.querySelector('[data-hero-player-bar]');
       if (!heroBar) {
+        console.log('[GlobalBroadcastBar] heroBar element NOT found in DOM');
         setHeroBarOnScreen(false);
         return;
       }
       const rect = heroBar.getBoundingClientRect();
-      setHeroBarOnScreen(rect.bottom > 0);
+      const visible = rect.bottom > 0;
+      console.log('[GlobalBroadcastBar] heroBar rect.bottom:', rect.bottom, 'visible:', visible);
+      setHeroBarOnScreen(visible);
     };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, [isRadio]);
 
+  // Debug: log why the bar is or isn't rendering
+  console.log('[GlobalBroadcastBar]', { isLive, isRadio, heroBarOnScreen, isBroadcastPage, pathname });
+
+  // Never show on broadcast/studio pages (go-live journey)
+  if (isBroadcastPage) return null;
   if (!isLive) return null;
   if (isRadio && heroBarOnScreen) return null;
 
