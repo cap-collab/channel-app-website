@@ -1,14 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 
 const HEADER_HEIGHT = 52;
-
-/** Pages where the Header uses position="fixed" instead of "sticky" */
-const FIXED_HEADER_PATHS = ['/', '/page'];
 
 /**
  * A fixed bar shown across all pages when a broadcast is live.
@@ -20,26 +16,14 @@ export function GlobalBroadcastBar() {
     showName, djName,
   } = useBroadcastStreamContext();
   const pathname = usePathname();
-  const [scrolledPastHeader, setScrolledPastHeader] = useState(false);
-
-  const hasFixedHeader = FIXED_HEADER_PATHS.includes(pathname);
-
-  // Track whether the header has scrolled away (for sticky-header pages)
-  useEffect(() => {
-    if (hasFixedHeader) return;
-    const onScroll = () => {
-      setScrolledPastHeader(window.scrollY >= HEADER_HEIGHT);
-    };
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [hasFixedHeader]);
 
   // Never show on the go-live broadcast page
   if (pathname === '/broadcast/live') return null;
   if (!isLive) return null;
 
-  const top = hasFixedHeader ? HEADER_HEIGHT : (scrolledPastHeader ? 0 : HEADER_HEIGHT);
+  // Always position below the header — both fixed and sticky headers
+  // stay visible on all pages, so the bar should never overlap them.
+  const top = HEADER_HEIGHT;
 
   return (
     <>
