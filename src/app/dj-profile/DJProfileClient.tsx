@@ -481,6 +481,13 @@ export function DJProfileClient() {
 
       // Sync to broadcast slots
       await syncProfileToSlots(undefined, result.url);
+
+      // Sync photo to collectives/venues
+      fetch('/api/dj-profile/sync-photo-refs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.uid, photoUrl: result.url }),
+      }).catch(e => console.error("Error syncing photo refs:", e));
     } catch (error) {
       console.error("Error uploading photo:", error);
       setPhotoError('Failed to upload photo');
@@ -507,6 +514,13 @@ export function DJProfileClient() {
 
       // Sync to broadcast slots
       await syncProfileToSlots(undefined, null);
+
+      // Sync photo removal to collectives/venues
+      fetch('/api/dj-profile/sync-photo-refs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.uid, photoUrl: null }),
+      }).catch(e => console.error("Error syncing photo refs:", e));
     } catch (error) {
       console.error("Error removing photo:", error);
       setPhotoError('Failed to remove photo');
