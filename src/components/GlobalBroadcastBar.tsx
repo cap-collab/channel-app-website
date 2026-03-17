@@ -54,8 +54,10 @@ export function GlobalBroadcastBar() {
         return;
       }
       const rect = heroBar.getBoundingClientRect();
-      const visible = rect.bottom > 0;
-      console.log('[GlobalBroadcastBar] heroBar rect.bottom:', rect.bottom, 'visible:', visible);
+      // Show the global bar once the inline bar's top edge scrolls above
+      // where the global bar would sit (below the header).
+      const visible = rect.top >= HEADER_HEIGHT;
+      console.log('[GlobalBroadcastBar] heroBar rect.top:', rect.top, 'visible:', visible);
       setHeroBarOnScreen(visible);
     };
     onScroll();
