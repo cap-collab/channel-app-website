@@ -104,6 +104,41 @@ export function CollectivePublicPage({ slug }: Props) {
           }
         }
 
+        // Enrich resident DJs with their current photos
+        const djs = collectiveData.residentDJs;
+        if (djs && djs.length > 0) {
+          try {
+            const enriched = await Promise.all(
+              djs.map(async (dj) => {
+                // Try pending-dj-profiles first (same logic as DJ public page)
+                if (dj.djUsername) {
+                  const normalized = dj.djUsername.replace(/[\s-]+/g, "").toLowerCase();
+                  const pendingRef = collection(db, "pending-dj-profiles");
+                  const pendingQ = query(pendingRef, where("chatUsernameNormalized", "==", normalized));
+                  const pendingSnapshot = await getDocs(pendingQ);
+                  const pendingDoc = pendingSnapshot.docs[0];
+                  if (pendingDoc) {
+                    const photoUrl = pendingDoc.data().djProfile?.photoUrl;
+                    if (photoUrl) return { ...dj, djPhotoUrl: photoUrl };
+                  }
+                }
+                // Fallback to users collection by userId
+                if (dj.djUserId) {
+                  const userDoc = await getDoc(firestoreDoc(db!, "users", dj.djUserId));
+                  if (userDoc.exists()) {
+                    const photoUrl = userDoc.data().djProfile?.photoUrl;
+                    if (photoUrl) return { ...dj, djPhotoUrl: photoUrl };
+                  }
+                }
+                return dj;
+              })
+            );
+            setCollective(prev => prev ? { ...prev, residentDJs: enriched } : prev);
+          } catch (e) {
+            console.error("Error enriching DJ photos:", e);
+          }
+        }
+
         // Fetch upcoming events for this collective
         try {
           const now = Date.now();
