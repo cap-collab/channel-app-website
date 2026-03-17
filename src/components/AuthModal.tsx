@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useAuthContext } from "@/contexts/AuthContext";
 
@@ -298,7 +299,7 @@ export function AuthModal({
     if (inline) {
       return <div className="w-full">{children}</div>;
     }
-    return (
+    return createPortal(
       <div
         className="fixed inset-0 z-[9000] flex items-center justify-center p-4 bg-black/95 backdrop-blur-sm"
         onClick={onClose}
@@ -309,7 +310,8 @@ export function AuthModal({
         >
           {children}
         </div>
-      </div>
+      </div>,
+      document.body
     );
   };
 
