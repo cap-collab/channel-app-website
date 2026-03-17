@@ -390,22 +390,17 @@ export function BroadcastClient() {
     setOnboardingStep('audio');
   }, []);
 
-  // Debug: trace which render branch is taken
-  console.log('[BroadcastClient render]', {
-    tokenLoading,
-    tokenError,
-    hasSlot: !!slot,
-    slotStatus: slot?.status,
-    isLive: broadcast.isLive,
-    isGoingLive,
-    hasAudioStream: !!audioStream,
-    scheduleStatus,
-    dismissedWarning,
-    onboardingStep,
-    isConnected: broadcast.isConnected,
-    isPublishing: broadcast.isPublishing,
-    error: broadcast.error,
-  });
+  // Debug: trace which render branch is taken (use string so values show in collapsed console)
+  const renderBranch = tokenLoading ? 'LOADING' :
+    (tokenError || !slot) ? 'ERROR/NO_SLOT' :
+    (slot.status === 'paused' && !dismissedWarning) ? 'PAUSED_WARNING' :
+    broadcast.isLive ? 'LIVE' :
+    (isGoingLive && audioStream) ? 'GOING_LIVE' :
+    ((scheduleStatus === 'early' || scheduleStatus === 'late') && !dismissedWarning && slot.status !== 'live') ? 'SCHEDULE_INFO' :
+    onboardingStep === 'profile' ? 'PROFILE_SETUP' :
+    audioStream ? 'PRE_LIVE' :
+    'AUDIO_SETUP';
+  console.log(`[render] branch=${renderBranch} isLive=${broadcast.isLive} isGoingLive=${isGoingLive} audio=${!!audioStream} slot=${!!slot} onboarding=${onboardingStep} connected=${broadcast.isConnected} publishing=${broadcast.isPublishing}`);
 
   // Loading state
   if (tokenLoading) {
