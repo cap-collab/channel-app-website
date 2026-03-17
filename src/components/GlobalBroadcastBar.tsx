@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
@@ -13,7 +13,6 @@ const FIXED_HEADER_PATHS = ['/', '/page'];
 /**
  * A fixed bar shown across all pages when a broadcast is live.
  * Uses shared BroadcastStreamContext for synced play/pause.
- * On /radio, hidden while the inline hero player bar is still on screen.
  */
 export function GlobalBroadcastBar() {
   const {
@@ -22,31 +21,8 @@ export function GlobalBroadcastBar() {
   } = useBroadcastStreamContext();
   const pathname = usePathname();
   const [scrolledPastHeader, setScrolledPastHeader] = useState(false);
-  // On /radio: should we hide because the inline hero bar is still visible?
-  // Default true so we don't flash the global bar before the hero renders.
-  const [hideForHeroBar, setHideForHeroBar] = useState(true);
 
   const hasFixedHeader = FIXED_HEADER_PATHS.includes(pathname);
-  const isRadio = pathname === '/radio';
-  const isBroadcastLivePage = pathname === '/broadcast/live';
-
-  // Check inline hero bar position. Called on scroll and on a polling interval
-  // to handle the case where the hero bar renders after this component mounts.
-  const checkHeroBar = useCallback(() => {
-    if (!isRadio) {
-      setHideForHeroBar(false);
-      return;
-    }
-    const heroBar = document.querySelector('[data-hero-player-bar]');
-    if (!heroBar) {
-      // Hero hasn't rendered yet — keep hiding to avoid flash
-      setHideForHeroBar(true);
-      return;
-    }
-    const rect = heroBar.getBoundingClientRect();
-    // Hide the global bar while the inline bar's top is still below the header
-    setHideForHeroBar(rect.top >= HEADER_HEIGHT);
-  }, [isRadio]);
 
   // Track whether the header has scrolled away (for sticky-header pages)
   useEffect(() => {
@@ -59,30 +35,9 @@ export function GlobalBroadcastBar() {
     return () => window.removeEventListener('scroll', onScroll);
   }, [hasFixedHeader]);
 
-  // On /radio, track the inline hero bar position via scroll + polling.
-  useEffect(() => {
-    checkHeroBar();
-
-    if (!isRadio) return;
-
-    // Scroll listener for real-time tracking
-    const onScroll = () => checkHeroBar();
-    window.addEventListener('scroll', onScroll, { passive: true });
-
-    // Poll every 500ms to catch the hero bar appearing in the DOM after
-    // this component mounts (e.g. after isLive becomes true).
-    const interval = setInterval(checkHeroBar, 500);
-
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      clearInterval(interval);
-    };
-  }, [isRadio, checkHeroBar]);
-
   // Never show on the go-live broadcast page
-  if (isBroadcastLivePage) return null;
+  if (pathname === '/broadcast/live') return null;
   if (!isLive) return null;
-  if (isRadio && hideForHeroBar) return null;
 
   const top = hasFixedHeader ? HEADER_HEIGHT : (scrolledPastHeader ? 0 : HEADER_HEIGHT);
 

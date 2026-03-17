@@ -9,8 +9,6 @@ import { useDJProfileChat } from '@/hooks/useDJProfileChat';
 import { useBroadcastSchedule } from '@/hooks/useBroadcastSchedule';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { BroadcastSchedule } from './BroadcastSchedule';
-import { FloatingHearts } from './FloatingHearts';
-import { TipButton } from './TipButton';
 import { AuthModal } from '@/components/AuthModal';
 import { ChatMessageSerialized } from '@/types/broadcast';
 import { normalizeUrl } from '@/lib/url';
@@ -94,8 +92,8 @@ export function LiveBroadcastHero() {
   const { chatUsername, loading: profileLoading, setChatUsername } = useUserProfile(user?.uid);
 
   const {
-    isPlaying, isLoading, isLive, currentShow, currentDJ,
-    listenerCount, toggle, error: streamError,
+    isLive, currentShow, currentDJ,
+    listenerCount, error: streamError,
   } = useBroadcastStreamContext();
 
   // Determine the current DJ's chat room from live broadcast data
@@ -129,7 +127,7 @@ export function LiveBroadcastHero() {
     return () => clearInterval(interval);
   }, [computeDJChatRoom, currentShow?.djSlots]);
 
-  const { messages, sendMessage, sendLove, currentPromo, loveCount } = useDJProfileChat({
+  const { messages, sendMessage, currentPromo, loveCount } = useDJProfileChat({
     chatUsernameNormalized: currentDJChatRoom,
     djUsername: currentDJ || currentShow?.djName || '',
     username: chatUsername || undefined,
@@ -140,7 +138,6 @@ export function LiveBroadcastHero() {
   const { shows: scheduleShows, loading: scheduleLoading, selectedDate, setSelectedDate } = useBroadcastSchedule();
 
   const [activeTab, setActiveTab] = useState<'chat' | 'schedule'>('chat');
-  const [heartTrigger, setHeartTrigger] = useState(0);
   const [chatInput, setChatInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -177,27 +174,6 @@ export function LiveBroadcastHero() {
     return currentShow.liveDjUsername || currentShow.djUsername || null;
   })();
 
-  // Get DJ identity for tips
-  const currentDJUserId = (() => {
-    if (!currentShow) return null;
-    if (currentShow.djSlots && currentShow.djSlots.length > 0) {
-      const now = Date.now();
-      const slot = currentShow.djSlots.find(s => s.startTime <= now && s.endTime > now);
-      if (slot) return slot.liveDjUserId || slot.djUserId || null;
-    }
-    return currentShow.liveDjUserId || currentShow.djUserId || null;
-  })();
-
-  const currentDJEmail = (() => {
-    if (!currentShow) return null;
-    if (currentShow.djSlots && currentShow.djSlots.length > 0) {
-      const now = Date.now();
-      const slot = currentShow.djSlots.find(s => s.startTime <= now && s.endTime > now);
-      if (slot) return slot.djEmail || null;
-    }
-    return currentShow.djEmail || null;
-  })();
-
   // Promo display
   const promoToShow = (() => {
     if (currentShow?.broadcastType === 'venue') {
@@ -223,15 +199,6 @@ export function LiveBroadcastHero() {
     return null;
   })();
 
-  const handleSendLove = useCallback(async () => {
-    if (!chatUsername) return;
-    setHeartTrigger((prev) => prev + 1);
-    try {
-      await sendLove();
-    } catch (err) {
-      console.error('Failed to send love:', err);
-    }
-  }, [chatUsername, sendLove]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -339,81 +306,9 @@ export function LiveBroadcastHero() {
             )}
           </div>
         )}
-        {/* Player bar — inline only; GlobalBroadcastBar (fixed) handles stickiness */}
-        <div data-hero-player-bar className="bg-black border-b border-white/10">
-          <div className="flex items-center gap-3 py-2">
-            {/* Play/Pause */}
-            <button
-              onClick={toggle}
-              disabled={!isLive}
-              className="w-10 h-10 flex items-center justify-center bg-white disabled:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
-            >
-              {isLoading ? (
-                <svg className="w-5 h-5 animate-spin text-black" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-              ) : isPlaying ? (
-                <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              )}
-            </button>
-
-            {/* Show info + Live indicator */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold leading-tight truncate text-white">{showName}</h3>
-                <span className="relative flex h-2 w-2 flex-shrink-0">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
-                </span>
-                <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold flex-shrink-0">Live</span>
-              </div>
-              {djName && (
-                <p className="text-[10px] text-zinc-500 uppercase mt-0.5">{djName}</p>
-              )}
-            </div>
-
-            {/* Love Button */}
-            <div className="relative flex-shrink-0">
-              <button
-                onClick={() => {
-                  if (!isAuthenticated) { setShowAuthModal(true); return; }
-                  if (!chatUsername) return;
-                  handleSendLove();
-                }}
-                className="w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors text-accent"
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                </svg>
-              </button>
-              <FloatingHearts trigger={heartTrigger} />
-            </div>
-
-            {/* Tip Button */}
-            {currentDJ && (currentDJUserId || currentDJEmail) && currentShow && (
-              <TipButton
-                tipperUserId={user?.uid}
-                tipperUsername={chatUsername || undefined}
-                djUserId={currentDJUserId || undefined}
-                djEmail={currentDJEmail || undefined}
-                djUsername={currentDJ}
-                broadcastSlotId={currentShow.id}
-                showName={showName}
-                className="w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors text-green-400 flex-shrink-0"
-              />
-            )}
-          </div>
-          {streamError && (
-            <p className="text-red-400 text-xs pb-2">{streamError}</p>
-          )}
-        </div>
+        {streamError && (
+          <p className="text-red-400 text-xs px-1 py-2">{streamError}</p>
+        )}
 
         {/* Tab Bar */}
         <div className="flex border-b border-white/10">
