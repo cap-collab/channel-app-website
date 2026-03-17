@@ -429,53 +429,7 @@ export function BroadcastClient() {
     );
   }
 
-  // Schedule info screen (early or late)
-  if ((scheduleStatus === 'early' || scheduleStatus === 'late') && !dismissedWarning) {
-    const isEarly = scheduleStatus === 'early';
-    return (
-      <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center p-8">
-        <div className="bg-[#252525] rounded-xl p-8 max-w-md">
-          {isEarly ? (
-            // Info icon (blue) for early - informational, not alarming
-            <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          ) : (
-            // Warning icon (yellow) for late - show has started
-            <div className="w-16 h-16 bg-yellow-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-          )}
-          <h1 className="text-xl font-bold text-white mb-2 text-center">
-            {isEarly ? "Your Show Time" : "Your Show Has Started"}
-          </h1>
-          <p className="text-gray-400 text-center mb-2">
-            {message}
-          </p>
-          <div className="text-center mb-6">
-            <p className="text-white font-medium">{slot.showName || slot.djName}</p>
-            <p className="text-gray-500 text-sm">
-              {new Date(slot.startTime).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })} · {new Date(slot.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} – {new Date(slot.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-            </p>
-          </div>
-          <div className="space-y-3">
-            <button
-              onClick={() => setDismissedWarning(true)}
-              className={`w-full ${isEarly ? 'bg-accent hover:bg-accent-hover' : 'bg-yellow-600 hover:bg-yellow-700'} text-white font-bold py-3 px-6 rounded-lg transition-colors`}
-            >
-              {isEarly ? "Set Up Audio" : "Continue to Setup"}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Live state - use DJControlCenter
+  // Live state - use DJControlCenter (checked before schedule status so a live broadcast is never hidden by the late/early modal)
   if (broadcast.isLive) {
     // For venue broadcasts, DJ info is pre-configured - no profile overlay needed
     // Only show profile overlay for remote broadcasts if username is missing
@@ -538,6 +492,52 @@ export function BroadcastClient() {
           );
         })()}
       </>
+    );
+  }
+
+  // Schedule info screen (early or late) - skip if slot is already live in Firestore
+  if ((scheduleStatus === 'early' || scheduleStatus === 'late') && !dismissedWarning && slot.status !== 'live') {
+    const isEarly = scheduleStatus === 'early';
+    return (
+      <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center p-8">
+        <div className="bg-[#252525] rounded-xl p-8 max-w-md">
+          {isEarly ? (
+            // Info icon (blue) for early - informational, not alarming
+            <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          ) : (
+            // Warning icon (yellow) for late - show has started
+            <div className="w-16 h-16 bg-yellow-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+          )}
+          <h1 className="text-xl font-bold text-white mb-2 text-center">
+            {isEarly ? "Your Show Time" : "Your Show Has Started"}
+          </h1>
+          <p className="text-gray-400 text-center mb-2">
+            {message}
+          </p>
+          <div className="text-center mb-6">
+            <p className="text-white font-medium">{slot.showName || slot.djName}</p>
+            <p className="text-gray-500 text-sm">
+              {new Date(slot.startTime).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })} · {new Date(slot.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} – {new Date(slot.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+            </p>
+          </div>
+          <div className="space-y-3">
+            <button
+              onClick={() => setDismissedWarning(true)}
+              className={`w-full ${isEarly ? 'bg-accent hover:bg-accent-hover' : 'bg-yellow-600 hover:bg-yellow-700'} text-white font-bold py-3 px-6 rounded-lg transition-colors`}
+            >
+              {isEarly ? "Set Up Audio" : "Continue to Setup"}
+            </button>
+          </div>
+        </div>
+      </div>
     );
   }
 
