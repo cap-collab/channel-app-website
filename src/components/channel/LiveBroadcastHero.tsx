@@ -149,6 +149,7 @@ export function LiveBroadcastHero() {
   const [scrolledPastHeader, setScrolledPastHeader] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const stickyBarRef = useRef<HTMLDivElement>(null);
+  const heroImageRef = useRef<HTMLDivElement>(null);
 
   // Username setup state
   const [usernameInput, setUsernameInput] = useState('');
@@ -174,9 +175,11 @@ export function LiveBroadcastHero() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Track sticky bar visibility so GlobalBroadcastBar can take over when scrolled past
+  // Track hero image visibility — when the image scrolls out of view the
+  // GlobalBroadcastBar (position:fixed) takes over so the player stays on
+  // screen across all page sections, not just within this component.
   useEffect(() => {
-    const el = stickyBarRef.current;
+    const el = heroImageRef.current;
     if (!el) return;
     setHeroBarVisible(true);
     const observer = new IntersectionObserver(
@@ -310,6 +313,7 @@ export function LiveBroadcastHero() {
         </div>
 
         {/* DJ Image — 16:9 with overlays, same as LiveShowCard */}
+        <div ref={heroImageRef}>
         {djProfileUsername ? (
           <Link href={`/dj/${djProfileUsername}`} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
             {hasPhoto ? (
@@ -369,6 +373,7 @@ export function LiveBroadcastHero() {
             )}
           </div>
         )}
+        </div>
 
         {/* Sticky bar: Play + Show Info + Live + Love + Tip — sticks when scrolled past */}
         <div ref={stickyBarRef} className="sticky z-[99] bg-black border-b border-white/10 transition-[top] duration-200" style={{ top: scrolledPastHeader ? 0 : 52 }}>
