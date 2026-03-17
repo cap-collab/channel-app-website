@@ -119,7 +119,8 @@ interface UseBroadcastStreamReturn {
   audioStream: MediaStream | null;
 }
 
-export function useBroadcastStream(): UseBroadcastStreamReturn {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamReturn {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLive, setIsLive] = useState(false);
