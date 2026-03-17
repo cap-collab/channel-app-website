@@ -286,9 +286,12 @@ export function BroadcastClient() {
   const handleGoLive = useCallback(async () => {
     if (!audioStream) return;
 
+    console.log('[handleGoLive] Starting go-live flow');
     setIsGoingLive(true);
     try {
+      console.log('[handleGoLive] Calling broadcast.goLive...');
       const success = await broadcast.goLive(audioStream);
+      console.log('[handleGoLive] broadcast.goLive returned:', success);
 
       // If we have an initial promo from onboarding, submit it now
       if (success && initialPromoText && token) {
@@ -387,6 +390,23 @@ export function BroadcastClient() {
     setInitialThankYouMessage(thankYouMessage);
     setOnboardingStep('audio');
   }, []);
+
+  // Debug: trace which render branch is taken
+  console.log('[BroadcastClient render]', {
+    tokenLoading,
+    tokenError,
+    hasSlot: !!slot,
+    slotStatus: slot?.status,
+    isLive: broadcast.isLive,
+    isGoingLive,
+    hasAudioStream: !!audioStream,
+    scheduleStatus,
+    dismissedWarning,
+    onboardingStep,
+    isConnected: broadcast.isConnected,
+    isPublishing: broadcast.isPublishing,
+    error: broadcast.error,
+  });
 
   // Loading state
   if (tokenLoading) {
