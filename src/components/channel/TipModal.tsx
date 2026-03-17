@@ -183,7 +183,7 @@ export function TipModal({
         </div>
 
         {/* Preset amounts */}
-        <div className="grid grid-cols-4 gap-2 mb-4">
+        <div className="grid grid-cols-3 gap-2 mb-4">
           {PRESET_AMOUNTS.map((amount) => (
             <button
               key={amount}
