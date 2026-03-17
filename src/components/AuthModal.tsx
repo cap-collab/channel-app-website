@@ -304,7 +304,7 @@ export function AuthModal({
         onClick={onClose}
       >
         <div
-          className="bg-white/[0.08] backdrop-blur-xl rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-white/[0.1]"
+          className="bg-zinc-900 rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-white/[0.1]"
           onClick={(e) => e.stopPropagation()}
         >
           {children}
