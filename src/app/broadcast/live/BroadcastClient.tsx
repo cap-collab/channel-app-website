@@ -190,8 +190,10 @@ export function BroadcastClient() {
   }, [slot]);
 
   // Auto-complete slot when end time passes
+  // Skip if the broadcast is currently live (we're actively broadcasting - don't auto-complete)
   useEffect(() => {
     if (!slot) return;
+    if (broadcast.isLive) return;
 
     const checkSlotCompletion = async () => {
       const now = Date.now();
@@ -214,7 +216,7 @@ export function BroadcastClient() {
     checkSlotCompletion();
     const interval = setInterval(checkSlotCompletion, 10000);
     return () => clearInterval(interval);
-  }, [slot]);
+  }, [slot, broadcast.isLive]);
 
   // Update liveDjUserId on the broadcast slot when user logs in while already live
   // This enables the iOS app to recognize them as the DJ for chat

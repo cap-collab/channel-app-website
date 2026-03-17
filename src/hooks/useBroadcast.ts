@@ -101,11 +101,16 @@ export function useBroadcast(
         // Check if someone is already live (only for shared channel-radio room)
         const roomStatus = await checkRoomStatus();
         if (roomStatus.isLive) {
-          setState(prev => ({
-            ...prev,
-            error: `Another DJ (${roomStatus.currentDJ}) is currently live`,
-          }));
-          return false;
+          // Allow the same DJ to reconnect (e.g. after pause/disconnect)
+          // Only block if a *different* DJ is broadcasting
+          if (roomStatus.currentDJ !== participantIdentity) {
+            setState(prev => ({
+              ...prev,
+              error: `Another DJ (${roomStatus.currentDJ}) is currently live`,
+            }));
+            return false;
+          }
+          console.log('📡 Same DJ reconnecting, allowing connection');
         }
       }
 

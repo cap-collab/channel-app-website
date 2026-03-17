@@ -71,6 +71,26 @@ export async function POST(request: NextRequest) {
 
     // Standard live broadcast mode: HLS + MP4
 
+    // Stop any stale egresses from a previous session (e.g. after pause/disconnect)
+    // This prevents "egress already exists" errors when resuming
+    try {
+      const existingEgresses = await egressClient.listEgress({ roomName: room });
+      for (const egress of existingEgresses) {
+        // Only stop active egresses (status 0=STARTING, 1=ACTIVE)
+        if (egress.status === 0 || egress.status === 1) {
+          try {
+            await egressClient.stopEgress(egress.egressId);
+            console.log('Stopped stale egress before new session:', egress.egressId);
+          } catch (stopErr) {
+            console.warn('Failed to stop stale egress (may already be stopping):', egress.egressId, stopErr);
+          }
+        }
+      }
+    } catch (listErr) {
+      // Non-fatal - proceed with starting new egress
+      console.warn('Failed to list existing egresses:', listErr);
+    }
+
     // Create S3Upload for R2
     const s3Upload = new S3Upload({
       accessKey: r2AccessKey,
