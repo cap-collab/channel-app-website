@@ -7,6 +7,7 @@ import { AuthModal } from "@/components/AuthModal";
 import { MobileMenu, MobileMenuItem } from "@/components/MobileMenu";
 import { HeaderSearch } from "@/components/HeaderSearch";
 import { useBroadcastLiveStatus } from "@/hooks/useBroadcastLiveStatus";
+import { GlobalBroadcastBar } from "@/components/GlobalBroadcastBar";
 
 type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal" | "radio-portal" | "my-shows" | "streaming-guide" | "stripe-setup" | "studio" | "archives";
 
@@ -87,6 +88,7 @@ export function Header({ currentPage = "home", position = "fixed", showSearch = 
             />
           </div>
         </div>
+        <GlobalBroadcastBar />
       </header>
 
       {/* Auth Modal */}

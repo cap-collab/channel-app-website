@@ -5,7 +5,6 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { BPMProvider } from "@/contexts/BPMContext";
 import { ScheduleProvider } from "@/contexts/ScheduleContext";
 import { BroadcastStreamProvider } from "@/contexts/BroadcastStreamContext";
-import { GlobalBroadcastBar } from "@/components/GlobalBroadcastBar";
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
@@ -13,7 +12,6 @@ export function Providers({ children }: { children: ReactNode }) {
       <BPMProvider>
         <ScheduleProvider>
           <BroadcastStreamProvider>
-            <GlobalBroadcastBar />
             {children}
           </BroadcastStreamProvider>
         </ScheduleProvider>

@@ -4,32 +4,26 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 
-const HEADER_HEIGHT = 52;
-
 /**
- * A fixed bar shown across all pages when a broadcast is live.
+ * A bar shown below the header on all pages when a broadcast is live.
+ * Rendered inside the Header component so it's part of the sticky header block.
  * Uses shared BroadcastStreamContext for synced play/pause.
  */
 export function GlobalBroadcastBar() {
   const {
     isLive, isPlaying, isLoading, toggle,
-    showName, djName,
+    showName, djName, heroBarVisible,
   } = useBroadcastStreamContext();
   const pathname = usePathname();
 
   // Never show on the go-live broadcast page
   if (pathname === '/broadcast/live') return null;
   if (!isLive) return null;
-
-  // Always position below the header — both fixed and sticky headers
-  // stay visible on all pages, so the bar should never overlap them.
-  const top = HEADER_HEIGHT;
+  // Hide when the LiveBroadcastHero's inline bar is visible (on /radio)
+  if (heroBarVisible) return null;
 
   return (
-    <>
-    {/* Spacer pushes page content down so the fixed bar doesn't overlap */}
-    <div className="h-[52px] w-full" />
-    <div className={`fixed left-0 right-0 z-[99] bg-black border-b border-white/10 overflow-hidden transition-[top] duration-200`} style={{ top }}>
+    <div className="z-[99] bg-black border-b border-white/10 overflow-hidden">
       <div className="flex items-center gap-2 py-2 px-3">
         {/* Play/Pause — synced with broadcast stream */}
         <button
@@ -82,6 +76,5 @@ export function GlobalBroadcastBar() {
         </Link>
       </div>
     </div>
-    </>
   );
 }

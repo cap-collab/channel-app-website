@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
 import { useBroadcastStream } from '@/hooks/useBroadcastStream';
 import { useBroadcastLiveStatus } from '@/hooks/useBroadcastLiveStatus';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
@@ -27,44 +27,41 @@ interface BroadcastStreamContextValue {
 
 const BroadcastStreamContext = createContext<BroadcastStreamContextValue | null>(null);
 
+const noopFn = () => {};
+
 /**
  * Provider that initializes useBroadcastStream only when a broadcast is live.
  * This shares a single stream instance across the GlobalBroadcastBar + LiveBroadcastHero.
+ *
+ * IMPORTANT: We always render a single BroadcastStreamContext.Provider (never switch
+ * between two different wrapper components) to avoid remounting the entire children tree
+ * when isLive toggles. The useBroadcastStream hook is conditionally active inside.
  */
 export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
   const { isLive: statusIsLive, showName, djName } = useBroadcastLiveStatus();
   const [heroBarVisible, setHeroBarVisible] = useState(false);
   const setHeroBarVisibleCb = useCallback((v: boolean) => setHeroBarVisible(v), []);
 
-  return statusIsLive ? (
-    <BroadcastStreamInner showName={showName} djName={djName} heroBarVisible={heroBarVisible} setHeroBarVisible={setHeroBarVisibleCb}>
-      {children}
-    </BroadcastStreamInner>
-  ) : (
-    <BroadcastStreamContext.Provider value={{
+  // useBroadcastStream is always called (hooks can't be conditional),
+  // but it should be a no-op internally when not live
+  const stream = useBroadcastStream(statusIsLive);
+
+  const value = useMemo<BroadcastStreamContextValue>(() => {
+    if (statusIsLive) {
+      return { ...stream, showName, djName, heroBarVisible, setHeroBarVisible: setHeroBarVisibleCb };
+    }
+    return {
       isPlaying: false, isLoading: false, isLive: false,
       currentShow: null, currentDJ: null, error: null,
-      play: () => {}, pause: () => {}, toggle: () => {},
+      play: noopFn, pause: noopFn, toggle: noopFn,
       listenerCount: 0, audioStream: null,
       showName: null, djName: null,
       heroBarVisible: false, setHeroBarVisible: setHeroBarVisibleCb,
-    }}>
-      {children}
-    </BroadcastStreamContext.Provider>
-  );
-}
-
-/** Inner component that only mounts useBroadcastStream when live */
-function BroadcastStreamInner({
-  children, showName, djName, heroBarVisible, setHeroBarVisible,
-}: {
-  children: ReactNode; showName: string | null; djName: string | null;
-  heroBarVisible: boolean; setHeroBarVisible: (v: boolean) => void;
-}) {
-  const stream = useBroadcastStream();
+    };
+  }, [statusIsLive, stream, showName, djName, heroBarVisible, setHeroBarVisibleCb]);
 
   return (
-    <BroadcastStreamContext.Provider value={{ ...stream, showName, djName, heroBarVisible, setHeroBarVisible }}>
+    <BroadcastStreamContext.Provider value={value}>
       {children}
     </BroadcastStreamContext.Provider>
   );
