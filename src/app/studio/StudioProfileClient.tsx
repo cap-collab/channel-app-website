@@ -1999,10 +1999,20 @@ export function StudioProfileClient() {
                       </p>
                       <p className="text-gray-500 text-xs mt-1">{show.stationName}</p>
                       {show.status === "live" ? (
-                        <span className="inline-flex items-center gap-1 mt-2 text-red-400 text-xs">
-                          <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                          Live Now
-                        </span>
+                        <div className="flex items-center gap-3 mt-2">
+                          <span className="inline-flex items-center gap-1 text-red-400 text-xs">
+                            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                            Live Now
+                          </span>
+                          {!show.isExternal && show.broadcastToken && (
+                            <Link
+                              href={`/broadcast/live?token=${show.broadcastToken}`}
+                              className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 text-sm transition-colors"
+                            >
+                              Go to Studio &rarr;
+                            </Link>
+                          )}
+                        </div>
                       ) : !show.isExternal && show.broadcastToken && (
                         <Link
                           href={`/broadcast/live?token=${show.broadcastToken}`}
