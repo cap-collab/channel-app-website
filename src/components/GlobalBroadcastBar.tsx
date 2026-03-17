@@ -13,21 +13,21 @@ const FIXED_HEADER_PATHS = ['/', '/page'];
 /**
  * A fixed bar shown across all pages when a broadcast is live.
  * Uses shared BroadcastStreamContext for synced play/pause.
- * Hidden on /radio where the hero has its own bar using the same context.
+ * On /radio, hidden while the inline hero player bar is still on screen.
  */
 export function GlobalBroadcastBar() {
   const {
     isLive, isPlaying, isLoading, toggle,
-    showName, djName, heroBarVisible,
+    showName, djName,
   } = useBroadcastStreamContext();
   const pathname = usePathname();
   const [scrolledPastHeader, setScrolledPastHeader] = useState(false);
+  const [heroBarOnScreen, setHeroBarOnScreen] = useState(true);
 
-  // On pages with a fixed header, the header never scrolls away so the bar
-  // should always sit below it. On pages with a sticky header, slide to top
-  // once the user scrolls past the header.
   const hasFixedHeader = FIXED_HEADER_PATHS.includes(pathname);
+  const isRadio = pathname === '/radio';
 
+  // Track whether the header has scrolled away (for sticky-header pages)
   useEffect(() => {
     if (hasFixedHeader) return;
     const onScroll = () => {
@@ -38,9 +38,26 @@ export function GlobalBroadcastBar() {
     return () => window.removeEventListener('scroll', onScroll);
   }, [hasFixedHeader]);
 
-  // On /radio, hide while the inline hero bar is still visible
-  // (heroBarVisible is set by LiveBroadcastHero via scroll position tracking)
-  if (!isLive || (pathname === '/radio' && heroBarVisible)) return null;
+  // On /radio, check if the inline hero player bar is still visible.
+  // Look for it by data attribute — self-contained, no cross-component state needed.
+  useEffect(() => {
+    if (!isRadio) return;
+    const onScroll = () => {
+      const heroBar = document.querySelector('[data-hero-player-bar]');
+      if (!heroBar) {
+        setHeroBarOnScreen(false);
+        return;
+      }
+      const rect = heroBar.getBoundingClientRect();
+      setHeroBarOnScreen(rect.bottom > 0);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [isRadio]);
+
+  if (!isLive) return null;
+  if (isRadio && heroBarOnScreen) return null;
 
   const top = hasFixedHeader ? HEADER_HEIGHT : (scrolledPastHeader ? 0 : HEADER_HEIGHT);
 

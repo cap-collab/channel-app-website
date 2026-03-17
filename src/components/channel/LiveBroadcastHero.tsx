@@ -96,7 +96,6 @@ export function LiveBroadcastHero() {
   const {
     isPlaying, isLoading, isLive, currentShow, currentDJ,
     listenerCount, toggle, error: streamError,
-    setHeroBarVisible,
   } = useBroadcastStreamContext();
 
   // Determine the current DJ's chat room from live broadcast data
@@ -147,7 +146,6 @@ export function LiveBroadcastHero() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [imageError, setImageError] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const playerBarRef = useRef<HTMLDivElement>(null);
 
   // Username setup state
   const [usernameInput, setUsernameInput] = useState('');
@@ -161,25 +159,6 @@ export function LiveBroadcastHero() {
       container.scrollTop = container.scrollHeight;
     }
   }, [messages]);
-
-  // Tell GlobalBroadcastBar whether the inline player bar is on-screen.
-  // Uses getBoundingClientRect on scroll — simple and reliable.
-  useEffect(() => {
-    setHeroBarVisible(true);
-    const onScroll = () => {
-      const el = playerBarRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      // Bar is "visible" if its bottom edge is below the top of the viewport
-      setHeroBarVisible(rect.bottom > 0);
-    };
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      setHeroBarVisible(false);
-    };
-  }, [setHeroBarVisible]);
 
   // DJ info from current show
   const djPhotoUrl = currentShow?.liveDjPhotoUrl || currentShow?.showImageUrl || null;
@@ -361,7 +340,7 @@ export function LiveBroadcastHero() {
           </div>
         )}
         {/* Player bar — inline only; GlobalBroadcastBar (fixed) handles stickiness */}
-        <div ref={playerBarRef} className="bg-black border-b border-white/10">
+        <div data-hero-player-bar className="bg-black border-b border-white/10">
           <div className="flex items-center gap-3 py-2">
             {/* Play/Pause */}
             <button
