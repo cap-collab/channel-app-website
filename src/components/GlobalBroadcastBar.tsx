@@ -7,6 +7,9 @@ import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 
 const HEADER_HEIGHT = 52;
 
+/** Pages where the Header uses position="fixed" instead of "sticky" */
+const FIXED_HEADER_PATHS = ['/', '/page'];
+
 /**
  * A fixed bar shown across all pages when a broadcast is live.
  * Uses shared BroadcastStreamContext for synced play/pause.
@@ -20,20 +23,28 @@ export function GlobalBroadcastBar() {
   const pathname = usePathname();
   const [scrolledPastHeader, setScrolledPastHeader] = useState(false);
 
+  // On pages with a fixed header, the header never scrolls away so the bar
+  // should always sit below it. On pages with a sticky header, slide to top
+  // once the user scrolls past the header.
+  const hasFixedHeader = FIXED_HEADER_PATHS.includes(pathname);
+
   useEffect(() => {
+    if (hasFixedHeader) return;
     const onScroll = () => {
       setScrolledPastHeader(window.scrollY >= HEADER_HEIGHT);
     };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [hasFixedHeader]);
 
   // Don't show when not live, or when on /radio and the hero bar is still visible
   if (!isLive || (pathname === '/radio' && heroBarVisible)) return null;
 
+  const top = hasFixedHeader ? HEADER_HEIGHT : (scrolledPastHeader ? 0 : HEADER_HEIGHT);
+
   return (
-    <div className={`fixed left-0 right-0 z-[99] bg-black border-b border-white/10 overflow-hidden transition-[top] duration-200`} style={{ top: scrolledPastHeader ? 0 : HEADER_HEIGHT }}>
+    <div className={`fixed left-0 right-0 z-[99] bg-black border-b border-white/10 overflow-hidden transition-[top] duration-200`} style={{ top }}>
       <div className="flex items-center gap-2 py-2 px-3">
         {/* Play/Pause — synced with broadcast stream */}
         <button

@@ -146,6 +146,7 @@ export function LiveBroadcastHero() {
   const [isSending, setIsSending] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [scrolledPastHeader, setScrolledPastHeader] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const stickyBarRef = useRef<HTMLDivElement>(null);
 
@@ -161,6 +162,17 @@ export function LiveBroadcastHero() {
       container.scrollTop = container.scrollHeight;
     }
   }, [messages]);
+
+  // Track whether user has scrolled past the header (52px) so sticky bar can move to top
+  useEffect(() => {
+    const HEADER_HEIGHT = 52;
+    const onScroll = () => {
+      setScrolledPastHeader(window.scrollY >= HEADER_HEIGHT);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   // Track sticky bar visibility so GlobalBroadcastBar can take over when scrolled past
   useEffect(() => {
@@ -359,7 +371,7 @@ export function LiveBroadcastHero() {
         )}
 
         {/* Sticky bar: Play + Show Info + Live + Love + Tip — sticks when scrolled past */}
-        <div ref={stickyBarRef} className="sticky top-[52px] z-[99] bg-black border-b border-white/10">
+        <div ref={stickyBarRef} className="sticky z-[99] bg-black border-b border-white/10 transition-[top] duration-200" style={{ top: scrolledPastHeader ? 0 : 52 }}>
           <div className="flex items-center gap-3 py-2">
             {/* Play/Pause */}
             <button
