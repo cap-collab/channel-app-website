@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { useBroadcastToken } from '@/hooks/useBroadcastToken';
+import { useToken } from './SearchParamsProvider';
 import { useBroadcast } from '@/hooks/useBroadcast';
 import { AudioInputSelector } from '@/components/broadcast/AudioInputSelector';
 import { SystemAudioCapture } from '@/components/broadcast/SystemAudioCapture';
@@ -35,8 +35,7 @@ function formatTimeWithDate(date: Date): string {
 }
 
 export function BroadcastClient() {
-  const searchParams = useSearchParams();
-  const token = searchParams.get('token');
+  const token = useToken();
   const { user } = useAuthContext();
 
   const { slot, error: tokenError, loading: tokenLoading, scheduleStatus, message } = useBroadcastToken(token);

@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import { Suspense } from 'react';
+import { SearchParamsProvider } from './SearchParamsProvider';
 import { BroadcastClient } from './BroadcastClient';
 
 export const metadata: Metadata = {
@@ -14,7 +15,9 @@ export default function BroadcastPage() {
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
       </div>
     }>
-      <BroadcastClient />
+      <SearchParamsProvider>
+        <BroadcastClient />
+      </SearchParamsProvider>
     </Suspense>
   );
 }

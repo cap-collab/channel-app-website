@@ -61,6 +61,9 @@ export function useBroadcast(
   const isLiveRef = useRef(state.isLive);
   isLiveRef.current = state.isLive;
 
+  const isConnectedRef = useRef(state.isConnected);
+  isConnectedRef.current = state.isConnected;
+
   // Update state.roomName when prop changes (for consumers to check readiness)
   useEffect(() => {
     setState(prev => {
@@ -293,8 +296,8 @@ export function useBroadcast(
 
   // Go live - connect, publish, and start egress
   const goLive = useCallback(async (stream: MediaStream) => {
-    // Connect if not already
-    if (!state.isConnected) {
+    // Use ref to avoid recreating this callback when isConnected changes mid-flow
+    if (!isConnectedRef.current) {
       const connected = await connect();
       if (!connected) return false;
     }
@@ -306,7 +309,8 @@ export function useBroadcast(
     // Start egress
     const started = await startEgress();
     return started;
-  }, [state.isConnected, connect, publishAudio, startEgress]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- isConnected read via ref to keep callback stable during async flow
+  }, [connect, publishAudio, startEgress]);
 
   // Stop egress (both HLS and recording, or just recording in recording-only mode)
   const stopEgress = useCallback(async () => {
