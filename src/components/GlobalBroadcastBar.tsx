@@ -26,7 +26,7 @@ export function GlobalBroadcastBar() {
 
   const hasFixedHeader = FIXED_HEADER_PATHS.includes(pathname);
   const isRadio = pathname === '/radio';
-  const isBroadcastPage = pathname.startsWith('/broadcast') || pathname.startsWith('/studio');
+  const isBroadcastLivePage = pathname === '/broadcast/live';
 
   // Track whether the header has scrolled away (for sticky-header pages)
   useEffect(() => {
@@ -66,10 +66,10 @@ export function GlobalBroadcastBar() {
   }, [isRadio]);
 
   // Debug: log why the bar is or isn't rendering
-  console.log('[GlobalBroadcastBar]', { isLive, isRadio, heroBarOnScreen, isBroadcastPage, pathname });
+  console.log('[GlobalBroadcastBar]', { isLive, isRadio, heroBarOnScreen, isBroadcastLivePage, pathname });
 
-  // Never show on broadcast/studio pages (go-live journey)
-  if (isBroadcastPage) return null;
+  // Never show on the go-live broadcast page
+  if (isBroadcastLivePage) return null;
   if (!isLive) return null;
   if (isRadio && heroBarOnScreen) return null;
 
