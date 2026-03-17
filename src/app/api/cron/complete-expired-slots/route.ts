@@ -46,21 +46,31 @@ export async function GET(request: NextRequest) {
       .get();
 
     for (const doc of snapshot.docs) {
-      const slot = doc.data();
-      const endTime = slot.endTime?.toMillis?.() || slot.endTime;
+      try {
+        const slot = doc.data();
+        const endTime = slot.endTime?.toMillis?.() || slot.endTime;
 
-      // Skip if slot hasn't ended yet
-      if (now <= endTime) continue;
+        // Skip if slot hasn't ended yet or endTime is invalid
+        if (!endTime || now <= endTime) continue;
 
-      // Determine final status based on current status
-      let newStatus: 'completed' | 'missed';
+        // Determine final status based on current status
+        let newStatus: 'completed' | 'missed';
 
-      if (slot.status === 'live' || slot.status === 'paused') {
-        // Was live at some point, mark as completed
-        newStatus = 'completed';
-        completedCount++;
+        if (slot.status === 'live' || slot.status === 'paused') {
+          newStatus = 'completed';
+          completedCount++;
+        } else if (slot.status === 'scheduled') {
+          newStatus = 'missed';
+          missedCount++;
+        } else {
+          continue;
+        }
 
-        // Disconnect DJ from LiveKit if they're still connected
+        // Update Firebase status FIRST, before attempting LiveKit disconnect
+        await doc.ref.update({ status: newStatus });
+        console.log(`Slot ${doc.id} marked as ${newStatus}`);
+
+        // Then disconnect DJ from LiveKit if they're still connected
         if (slot.status === 'live' && roomService) {
           const djIdentity = slot.liveDjUsername || slot.liveDjUserId;
           if (djIdentity) {
@@ -74,16 +84,10 @@ export async function GET(request: NextRequest) {
             }
           }
         }
-      } else if (slot.status === 'scheduled') {
-        // Never went live, mark as missed
-        newStatus = 'missed';
-        missedCount++;
-      } else {
-        continue;
+      } catch (slotError) {
+        // Log but continue processing remaining slots
+        console.error(`Error processing slot ${doc.id}:`, slotError);
       }
-
-      await doc.ref.update({ status: newStatus });
-      console.log(`Slot ${doc.id} marked as ${newStatus}`);
     }
 
     return NextResponse.json({
