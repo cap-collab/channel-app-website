@@ -42,6 +42,9 @@ export function GlobalBroadcastBar() {
   const top = hasFixedHeader ? HEADER_HEIGHT : (scrolledPastHeader ? 0 : HEADER_HEIGHT);
 
   return (
+    <>
+    {/* Spacer pushes page content down so the fixed bar doesn't overlap */}
+    <div className="h-[52px] w-full" />
     <div className={`fixed left-0 right-0 z-[99] bg-black border-b border-white/10 overflow-hidden transition-[top] duration-200`} style={{ top }}>
       <div className="flex items-center gap-2 py-2 px-3">
         {/* Play/Pause — synced with broadcast stream */}
@@ -95,5 +98,6 @@ export function GlobalBroadcastBar() {
         </Link>
       </div>
     </div>
+    </>
   );
 }

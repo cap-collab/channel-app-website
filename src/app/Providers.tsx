@@ -13,8 +13,8 @@ export function Providers({ children }: { children: ReactNode }) {
       <BPMProvider>
         <ScheduleProvider>
           <BroadcastStreamProvider>
-            {children}
             <GlobalBroadcastBar />
+            {children}
           </BroadcastStreamProvider>
         </ScheduleProvider>
       </BPMProvider>
