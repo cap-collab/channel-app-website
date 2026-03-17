@@ -147,8 +147,7 @@ export function LiveBroadcastHero() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [imageError, setImageError] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const stickyBarRef = useRef<HTMLDivElement>(null);
-  const heroImageRef = useRef<HTMLDivElement>(null);
+  const playerBarRef = useRef<HTMLDivElement>(null);
 
   // Username setup state
   const [usernameInput, setUsernameInput] = useState('');
@@ -163,20 +162,21 @@ export function LiveBroadcastHero() {
     }
   }, [messages]);
 
-  // Track hero image visibility — when the image scrolls out of view the
-  // GlobalBroadcastBar (position:fixed) takes over so the player stays on
-  // screen across all page sections, not just within this component.
+  // Tell GlobalBroadcastBar whether the inline player bar is on-screen.
+  // Uses getBoundingClientRect on scroll — simple and reliable.
   useEffect(() => {
-    const el = heroImageRef.current;
-    if (!el) return;
     setHeroBarVisible(true);
-    const observer = new IntersectionObserver(
-      ([entry]) => setHeroBarVisible(entry.isIntersecting),
-      { threshold: 0.1 },
-    );
-    observer.observe(el);
+    const onScroll = () => {
+      const el = playerBarRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      // Bar is "visible" if its bottom edge is below the top of the viewport
+      setHeroBarVisible(rect.bottom > 0);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
-      observer.disconnect();
+      window.removeEventListener('scroll', onScroll);
       setHeroBarVisible(false);
     };
   }, [setHeroBarVisible]);
@@ -301,7 +301,6 @@ export function LiveBroadcastHero() {
         </div>
 
         {/* DJ Image — 16:9 with overlays, same as LiveShowCard */}
-        <div ref={heroImageRef}>
         {djProfileUsername ? (
           <Link href={`/dj/${djProfileUsername}`} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
             {hasPhoto ? (
@@ -361,10 +360,8 @@ export function LiveBroadcastHero() {
             )}
           </div>
         )}
-        </div>
-
-        {/* Player bar — not sticky; GlobalBroadcastBar takes over once the image scrolls out */}
-        <div ref={stickyBarRef} className="bg-black border-b border-white/10">
+        {/* Player bar — inline only; GlobalBroadcastBar (fixed) handles stickiness */}
+        <div ref={playerBarRef} className="bg-black border-b border-white/10">
           <div className="flex items-center gap-3 py-2">
             {/* Play/Pause */}
             <button

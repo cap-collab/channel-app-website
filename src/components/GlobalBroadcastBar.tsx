@@ -38,7 +38,8 @@ export function GlobalBroadcastBar() {
     return () => window.removeEventListener('scroll', onScroll);
   }, [hasFixedHeader]);
 
-  // Don't show when not live, or when on /radio and the hero bar is still visible
+  // On /radio, hide while the inline hero bar is still visible
+  // (heroBarVisible is set by LiveBroadcastHero via scroll position tracking)
   if (!isLive || (pathname === '/radio' && heroBarVisible)) return null;
 
   const top = hasFixedHeader ? HEADER_HEIGHT : (scrolledPastHeader ? 0 : HEADER_HEIGHT);
