@@ -273,11 +273,10 @@ export function ChannelClient() {
     [favorites]
   );
 
-  // Compute all 7 sections with deduplication
+  // Compute all sections with deduplication
   const {
     locationGenreCards,
     filteredCuratorRecs,
-    liveGenreCards,
     genreCards,
     locationCards,
     radioCards,
@@ -312,12 +311,14 @@ export function ChannelClient() {
     // Helper: get genre match count for sorting (more matches = higher priority)
     const genreMatchCount = (genres: string[] | undefined): number => getMatchingGenres(genres).length;
 
-    // Helper: collect candidates, sort by genre match count desc (live first as tiebreaker), then dedup + take top N
-    const takeSorted = (candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; live?: boolean }[], max: number): MatchedItem[] => {
+    // Helper: collect candidates, sort by genre match count > live > isChannelUser, then dedup + take top N
+    const takeSorted = (candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; live?: boolean; isChannelUser?: boolean }[], max: number): MatchedItem[] => {
       candidates.sort((a, b) => {
         if (b.matchCount !== a.matchCount) return b.matchCount - a.matchCount;
         // Same match count: live shows first
         if (a.live !== b.live) return a.live ? -1 : 1;
+        // Then Channel users first
+        if (a.isChannelUser !== b.isChannelUser) return a.isChannelUser ? -1 : 1;
         return 0;
       });
       const result: MatchedItem[] = [];
@@ -329,18 +330,18 @@ export function ChannelClient() {
       return result;
     };
 
-    // Section 1: Location + Genre (grid, max 4) — live and upcoming mixed, sorted by match count then live first
+    // Section 1: Location + Genre (grid, max 4) — sorted by match count > live > isChannelUser
     // Only show when a specific city is selected (not "Anywhere")
     let s1: MatchedItem[] = [];
     if (hasGenreFilter && !isAnywhere) {
-      const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; live?: boolean }[] = [];
-      // IRL shows
+      const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; live?: boolean; isChannelUser?: boolean }[] = [];
+      // IRL shows (always from Channel users)
       for (const show of irlShows) {
         if (!matchesCity(show.location, selectedCity)) continue;
         if (!matchesAnyGenre(show.djGenres)) continue;
         const id = `irl-${show.djUsername}-${show.date}`;
         const label = `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`;
-        candidates.push({ item: makeIRLItem(show, label), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres) });
+        candidates.push({ item: makeIRLItem(show, label), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres), isChannelUser: true });
       }
       // Radio shows (live and upcoming)
       for (const show of allShows) {
@@ -352,9 +353,9 @@ export function ChannelClient() {
         const live = isShowLive(show);
         const label = `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`;
         const item = makeRadioItem(show, label, live || undefined);
-        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), live });
+        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), live, isChannelUser: show.isChannelUser ?? false });
       }
-      console.log('[S1 candidates]', candidates.map(c => ({ djName: c.djName, matchCount: c.matchCount, live: c.live, label: c.item.matchLabel })));
+      console.log('[S1 candidates]', candidates.map(c => ({ djName: c.djName, matchCount: c.matchCount, live: c.live, isChannelUser: c.isChannelUser, label: c.item.matchLabel })));
       s1 = takeSorted(candidates, 4);
       console.log('[S1 result]', s1.map(item => ({ matchLabel: item.matchLabel, type: item.type, dj: item.type === 'radio' ? item.data.dj : item.data.djName })));
     }
@@ -371,68 +372,53 @@ export function ChannelClient() {
       }
     }
 
-    // Section 4: Live Genre matching (swipe, max 5) — live shows matching genre
+    // Section 4: Genre matching (swipe, max 5) — live and upcoming, sorted by match count > live > isChannelUser
     let s4: MatchedItem[] = [];
     if (hasGenreFilter) {
-      const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number }[] = [];
-      for (const show of allShows) {
-        if (!isValidShow(show)) continue;
-        if (!isShowLive(show)) continue;
-        if (!matchesAnyGenre(show.djGenres)) continue;
-        const item = makeRadioItem(show, genreLabelFor(show.djGenres), true);
-        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres) });
-      }
-      s4 = takeSorted(candidates, 5);
-    }
-
-    // Section 5: Genre matching (swipe, max 5) — upcoming, not live
-    let s5: MatchedItem[] = [];
-    if (hasGenreFilter) {
-      const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number }[] = [];
+      const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; live?: boolean; isChannelUser?: boolean }[] = [];
       // IRL shows — only include if user has a location selected and it matches
       for (const show of irlShows) {
         if (isAnywhere || !matchesCity(show.location, selectedCity)) continue;
         if (!matchesAnyGenre(show.djGenres)) continue;
         const id = `irl-${show.djUsername}-${show.date}`;
-        candidates.push({ item: makeIRLItem(show, genreLabelFor(show.djGenres)), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres) });
+        candidates.push({ item: makeIRLItem(show, genreLabelFor(show.djGenres)), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres), isChannelUser: true });
       }
-      // Radio shows
+      // Radio shows (live and upcoming)
       for (const show of allShows) {
         if (!isValidShow(show)) continue;
         if (new Date(show.endTime) <= now) continue;
-        if (isShowLive(show)) continue;
         if (!matchesAnyGenre(show.djGenres)) continue;
-        const item = makeRadioItem(show, genreLabelFor(show.djGenres));
-        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres) });
+        const live = isShowLive(show);
+        const item = makeRadioItem(show, genreLabelFor(show.djGenres), live || undefined);
+        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), live, isChannelUser: show.isChannelUser ?? false });
       }
-      s5 = takeSorted(candidates, 5);
+      s4 = takeSorted(candidates, 5);
     }
 
-    // Section 6: Location matching (swipe, max 5) — upcoming shows matching location
-    const s6: MatchedItem[] = [];
+    // Section 6: Location matching (swipe, max 5) — sorted by live > isChannelUser
+    let s6: MatchedItem[] = [];
     if (!isAnywhere) {
-      // IRL shows
+      const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; live?: boolean; isChannelUser?: boolean }[] = [];
+      // IRL shows (always from Channel users)
       for (const show of irlShows) {
-        if (s6.length >= 5) break;
         if (!matchesCity(show.location, selectedCity)) continue;
         const id = `irl-${show.djUsername}-${show.date}`;
-        if (!tryAddShow(id, show.djName)) continue;
-        s6.push(makeIRLItem(show, selectedCity.toUpperCase()));
+        candidates.push({ item: makeIRLItem(show, selectedCity.toUpperCase()), id, djName: show.djName, matchCount: 0, isChannelUser: true });
       }
       // Radio shows
       for (const show of allShows) {
-        if (s6.length >= 5) break;
         if (!isValidShow(show)) continue;
         if (new Date(show.endTime) <= now) continue;
         if (!show.djLocation || !matchesCity(show.djLocation, selectedCity)) continue;
-        if (!tryAddShow(show.id, show.dj)) continue;
-        const item = makeRadioItem(show, selectedCity.toUpperCase());
-        if (item) s6.push(item);
+        const live = isShowLive(show);
+        const item = makeRadioItem(show, selectedCity.toUpperCase(), live || undefined);
+        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: 0, live, isChannelUser: show.isChannelUser ?? false });
       }
+      s6 = takeSorted(candidates, 5);
     }
 
-    // Section 7: Selected by Radio (swipe, max 5) — external station shows, live shows promoted to top
-    const s7Candidates: { item: MatchedItem; id: string; djName: string | undefined; live: boolean }[] = [];
+    // Section 7: Selected by Radio (swipe, max 5) — external station shows, sorted by live > isChannelUser
+    const s7Candidates: { item: MatchedItem; id: string; djName: string | undefined; live: boolean; isChannelUser: boolean }[] = [];
     for (const show of allShows) {
       if (!isValidShow(show)) continue;
       if (new Date(show.endTime) <= now) continue;
@@ -445,11 +431,13 @@ export function ChannelClient() {
         id: show.id,
         djName: show.dj,
         live,
+        isChannelUser: show.isChannelUser ?? false,
       });
     }
-    // Sort live shows first
+    // Sort: live first, then Channel users first
     s7Candidates.sort((a, b) => {
       if (a.live !== b.live) return a.live ? -1 : 1;
+      if (a.isChannelUser !== b.isChannelUser) return a.isChannelUser ? -1 : 1;
       return 0;
     });
     const s7: MatchedItem[] = [];
@@ -462,8 +450,7 @@ export function ChannelClient() {
     return {
       locationGenreCards: s1,
       filteredCuratorRecs: s3,
-      liveGenreCards: s4,
-      genreCards: s5,
+      genreCards: s4,
       locationCards: s6,
       radioCards: s7,
     };
@@ -480,8 +467,7 @@ export function ChannelClient() {
   // When the main grid (Section 1) is empty, find the first carousel section with content to promote to grid
   const noMainGrid = locationGenreCards.length === 0;
   const promotedSection = noMainGrid
-    ? (liveGenreCards.length > 0 ? 'liveGenre'
-      : genreCards.length > 0 ? 'genre'
+    ? (genreCards.length > 0 ? 'genre'
       : locationCards.length > 0 ? 'location'
       : radioCards.length > 0 ? 'radio'
       : null)
@@ -489,7 +475,7 @@ export function ChannelClient() {
 
   // Compute result counts for Tuner bar
   const allCardCount = locationGenreCards.length +
-    liveGenreCards.length + genreCards.length + locationCards.length + radioCards.length;
+    genreCards.length + locationCards.length + radioCards.length;
 
   const cityResultCount = useMemo(() => {
     if (!selectedCity || selectedCity === 'Anywhere') return undefined;
@@ -498,23 +484,23 @@ export function ChannelClient() {
 
   const genreResultCount = useMemo(() => {
     if (selectedGenres.length === 0) return undefined;
-    return locationGenreCards.length + liveGenreCards.length + genreCards.length;
-  }, [selectedGenres, locationGenreCards, liveGenreCards, genreCards]);
+    return locationGenreCards.length + genreCards.length;
+  }, [selectedGenres, locationGenreCards, genreCards]);
 
   // Determine which selected genres have zero matches across all shows
   const noCuratorsInCity = selectedCity && selectedCity !== 'Anywhere' && locationCards.length === 0 && locationGenreCards.length === 0;
   const missingGenres = useMemo(() => {
     if (selectedGenres.length === 0) return [];
-    if (locationGenreCards.length === 0 && liveGenreCards.length === 0 && genreCards.length === 0) return selectedGenres;
-    // Check each genre individually — a genre is "missing" if no card across S1/S4/S5 matches it
-    const allGenreCards = [...locationGenreCards, ...liveGenreCards, ...genreCards];
+    if (locationGenreCards.length === 0 && genreCards.length === 0) return selectedGenres;
+    // Check each genre individually — a genre is "missing" if no card across S1/S4 matches it
+    const allGenreCards = [...locationGenreCards, ...genreCards];
     return selectedGenres.filter((genre) => {
       return !allGenreCards.some((item) => {
         const showGenres = item.type === 'radio' ? item.data.djGenres : item.data.djGenres;
         return showGenres ? matchesGenre(showGenres, genre) : false;
       });
     });
-  }, [selectedGenres, locationGenreCards, liveGenreCards, genreCards, matchesGenre]);
+  }, [selectedGenres, locationGenreCards, genreCards, matchesGenre]);
 
   // Compute which cities and genres have at least one matching show (for hiding empty options in dropdown)
   // Mirror the actual section logic: radio shows need isValidShow + not ended + valid station
@@ -832,22 +818,7 @@ export function ChannelClient() {
             </div>
           )}
 
-          {/* Section 4: Live Genre matching (swipe, max 5 — promoted to grid if main grid is empty) */}
-          {liveGenreCards.length > 0 && (
-            <div className={`flex-shrink-0 px-4 ${promotedSection === 'liveGenre' ? 'pt-3 md:pt-4' : ''} pb-3 md:pb-4`}>
-              {promotedSection === 'liveGenre' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {liveGenreCards.map((item, index) => renderCard(item, index))}
-                </div>
-              ) : (
-                <SwipeableCardCarousel>
-                  {liveGenreCards.map((item, index) => renderCard(item, index))}
-                </SwipeableCardCarousel>
-              )}
-            </div>
-          )}
-
-          {/* Section 5: Genre matching (swipe, max 5 — promoted to grid if main grid is empty) */}
+          {/* Section 4: Genre matching (swipe, max 5 — promoted to grid if main grid is empty) */}
           {genreCards.length > 0 && (
             <div className={`flex-shrink-0 px-4 ${promotedSection === 'genre' ? 'pt-3 md:pt-4' : ''} pb-3 md:pb-4`}>
               {promotedSection === 'genre' ? (

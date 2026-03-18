@@ -36,6 +36,8 @@ export interface Show {
   promoUrl?: string;
   // DJ genres from profile
   djGenres?: string[];
+  // Whether the DJ has claimed their Channel profile (exists in users collection)
+  isChannelUser?: boolean;
 }
 
 // Metadata response from GitHub

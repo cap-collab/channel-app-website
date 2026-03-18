@@ -111,6 +111,7 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
     photoUrl?: string;
     location?: string;
     genres?: string[];
+    isChannelUser?: boolean;
   }> = {};
 
   const toFetch: string[] = [];
@@ -145,6 +146,7 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
             photoUrl: djProfile?.photoUrl || undefined,
             location: djProfile?.location || undefined,
             genres: djProfile?.genres || undefined,
+            isChannelUser: true,
           };
           profiles[normalized] = profile;
           djProfileCache.set(`username:${normalized}`, { data: profile, expiry: now + DJ_PROFILE_CACHE_TTL });
@@ -166,6 +168,7 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
             photoUrl: djProfile?.photoUrl || undefined,
             location: djProfile?.location || undefined,
             genres: djProfile?.genres || undefined,
+            isChannelUser: false,
           };
           profiles[normalized] = profile;
           djProfileCache.set(`username:${normalized}`, { data: profile, expiry: now + DJ_PROFILE_CACHE_TTL });
@@ -193,6 +196,7 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
           djPhotoUrl: profile.photoUrl,
           djLocation: profile.location,
           djGenres: profile.genres,
+          isChannelUser: profile.isChannelUser,
         };
       }
     }
@@ -269,6 +273,7 @@ async function enrichBroadcastShows(shows: Show[]): Promise<Show[]> {
           promoText: show.promoText || profile.promoText,
           promoUrl: show.promoUrl || profile.promoHyperlink,
           djLocation: profile.location,
+          isChannelUser: true,
         };
       }
     }
@@ -385,6 +390,7 @@ function extractDJRadioShows(djUserDocs: FirestoreDoc[]): Show[] {
         djEmail: userEmail || undefined,
         description: show.url ? `Listen at: ${show.url}` : undefined,
         imageUrl: djProfile.photoUrl || undefined,
+        isChannelUser: true,
       });
     }
   }
