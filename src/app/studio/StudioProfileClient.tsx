@@ -98,6 +98,11 @@ export function StudioProfileClient() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const searchParams = useSearchParams();
 
+  // DJ upgrade state
+  const [agreedToDJTerms, setAgreedToDJTerms] = useState(false);
+  const [upgradingToDJ, setUpgradingToDJ] = useState(false);
+  const [upgradeError, setUpgradeError] = useState("");
+
   // Profile data
   const [chatUsername, setChatUsername] = useState<string | null>(null);
   const [djProfile, setDjProfile] = useState<DJProfile>({
@@ -1157,6 +1162,35 @@ export function StudioProfileClient() {
     });
   };
 
+  const handleUpgradeToDJ = async () => {
+    if (!user || !agreedToDJTerms) {
+      setUpgradeError("Please accept the DJ Terms to continue");
+      return;
+    }
+
+    setUpgradingToDJ(true);
+    setUpgradeError("");
+
+    try {
+      const response = await fetch("/api/users/assign-dj-role", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upgrade to DJ");
+      }
+
+      window.location.reload();
+    } catch (error) {
+      console.error("Failed to upgrade to DJ:", error);
+      setUpgradeError("Failed to upgrade. Please try again.");
+    } finally {
+      setUpgradingToDJ(false);
+    }
+  };
+
   if (authLoading || roleLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -1170,77 +1204,20 @@ export function StudioProfileClient() {
     return (
       <div className="min-h-screen bg-black">
         <Header currentPage="studio" position="sticky" />
-        <main className="p-4 md:p-8">
-          <div className="max-w-2xl mx-auto">
-            {/* Hero Section */}
-            <div className="mb-12">
-              <h1 className="text-3xl font-bold mb-4">Studio</h1>
-              <p className="text-xl text-gray-300 mb-8">Host a show on Channel</p>
-
-              <div className="space-y-4">
-                <div className="flex gap-4">
-                  <div className="w-6 h-6 flex-shrink-0 mt-0.5">
-                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-white font-medium">A show on Channel</p>
-                    <p className="text-gray-400 text-sm">Host regular shows or occasional listening sessions.</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="w-6 h-6 flex-shrink-0 mt-0.5">
-                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-white font-medium">A profile on the radio</p>
-                    <p className="text-gray-400 text-sm">Your page gathers your shows on Channel, on other radios and in real life, your recordings, and your recommendations.</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="w-6 h-6 flex-shrink-0 mt-0.5">
-                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-white font-medium">Direct support from listeners</p>
-                    <p className="text-gray-400 text-sm">People can tune in live, join the chat, and support you through tips.</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="w-6 h-6 flex-shrink-0 mt-0.5">
-                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-white font-medium">Full audience ownership</p>
-                    <p className="text-gray-400 text-sm">Your followers receive notifications every time you go live or publish something new.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Sign Up Section */}
-            <div className="border-t border-gray-800 pt-12">
-              <h2 className="text-2xl font-semibold mb-6">Apply to host a show</h2>
-              <div className="max-w-sm">
-                <AuthModal
-                  isOpen={true}
-                  onClose={() => {}}
-                  message="Create your curator profile"
-                  inline
-                  includeDjTerms
-                  redirectTo="/studio"
-                />
-              </div>
+        <main className="max-w-xl mx-auto p-4">
+          <div className="text-center py-12">
+            <h1 className="text-2xl font-semibold text-white mb-2">Studio</h1>
+            <p className="text-gray-400 mb-8">
+              Sign in to access your DJ profile
+            </p>
+            <div className="max-w-sm mx-auto">
+              <AuthModal
+                isOpen={true}
+                onClose={() => {}}
+                inline
+                includeDjTerms
+                redirectTo="/studio"
+              />
             </div>
           </div>
         </main>
@@ -1248,25 +1225,57 @@ export function StudioProfileClient() {
     );
   }
 
-  // Not a DJ
+  // Not a DJ - show upgrade option
   if (!isDJ(role)) {
     return (
       <div className="min-h-screen bg-black">
         <Header currentPage="studio" position="sticky" />
         <main className="max-w-xl mx-auto p-4">
-          <div className="text-center py-12">
-            <p className="text-gray-500 mb-4">
-              DJ Studio is only available to approved DJs.
+          <div className="py-8">
+            <h1 className="text-2xl font-semibold text-white mb-2">Upgrade to DJ Profile</h1>
+            <p className="text-gray-400 mb-6">
+              You&apos;re logged in as {user?.email}. Accept the DJ Terms to unlock your DJ profile and start broadcasting on Channel.
             </p>
-            <p className="text-gray-600 text-sm mb-6">
-              Want to broadcast on Channel?
-            </p>
-            <Link
-              href="/studio/join"
-              className="bg-white text-black px-6 py-3 rounded font-medium hover:bg-gray-100 transition-colors inline-block"
-            >
-              Host a show
-            </Link>
+
+            <div className="bg-[#1a1a1a] rounded-lg p-6">
+              <label className="flex items-start gap-3 cursor-pointer mb-4">
+                <input
+                  type="checkbox"
+                  checked={agreedToDJTerms}
+                  onChange={(e) => setAgreedToDJTerms(e.target.checked)}
+                  className="mt-1 w-5 h-5 rounded border-gray-600 bg-gray-800 text-white focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                />
+                <span className="text-sm text-gray-300">
+                  I have read and agree to the{" "}
+                  <Link
+                    href="/dj-terms"
+                    target="_blank"
+                    className="text-white underline hover:text-gray-300"
+                  >
+                    DJ Terms
+                  </Link>
+                </span>
+              </label>
+
+              {upgradeError && (
+                <p className="text-red-400 text-sm mb-4">{upgradeError}</p>
+              )}
+
+              <button
+                onClick={handleUpgradeToDJ}
+                disabled={!agreedToDJTerms || upgradingToDJ}
+                className="bg-white text-black px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {upgradingToDJ ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                    Upgrading...
+                  </>
+                ) : (
+                  "Upgrade to DJ"
+                )}
+              </button>
+            </div>
           </div>
         </main>
       </div>
