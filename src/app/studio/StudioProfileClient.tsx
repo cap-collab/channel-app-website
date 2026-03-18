@@ -105,7 +105,13 @@ export function StudioProfileClient() {
 
   // If user signed in via the inline AuthModal with DJ terms,
   // we know they have the DJ role — skip the upgrade screen while role propagates
-  const [djTermsJustAccepted, setDjTermsJustAccepted] = useState(false);
+  const djTermsJustAccepted = typeof window !== 'undefined' && sessionStorage.getItem('djTermsJustAccepted') === 'true';
+  // Clear the flag once role is confirmed
+  useEffect(() => {
+    if (isDJ(role) && typeof window !== 'undefined') {
+      sessionStorage.removeItem('djTermsJustAccepted');
+    }
+  }, [role]);
 
 
   // Profile data
@@ -1218,7 +1224,7 @@ export function StudioProfileClient() {
             <div className="max-w-sm mx-auto">
               <AuthModal
                 isOpen={true}
-                onClose={() => setDjTermsJustAccepted(true)}
+                onClose={() => {}}
                 inline
                 includeDjTerms
               />

@@ -175,12 +175,11 @@ export function AuthModal({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: user.email }),
           });
+          sessionStorage.setItem('djTermsJustAccepted', 'true');
         } catch (err) {
           console.error('Failed to assign DJ role:', err);
         }
       }
-      // For inline modals, let the parent component react to auth state change.
-      // For overlay modals, redirect if specified, otherwise just close.
       if (!inline && redirectTo) {
         window.location.href = redirectTo;
         return;
@@ -199,6 +198,7 @@ export function AuthModal({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: user.email }),
           });
+          sessionStorage.setItem('djTermsJustAccepted', 'true');
         } catch (err) {
           console.error('Failed to assign DJ role:', err);
         }
@@ -224,6 +224,7 @@ export function AuthModal({
     // Store DJ terms acceptance for when magic link is clicked
     if (includeDjTerms) {
       window.localStorage.setItem('djTermsAccepted', 'true');
+      sessionStorage.setItem('djTermsJustAccepted', 'true');
     }
     if (redirectTo) {
       window.localStorage.setItem('authRedirectTo', redirectTo);
@@ -244,6 +245,7 @@ export function AuthModal({
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ email: user.email }),
             });
+            sessionStorage.setItem('djTermsJustAccepted', 'true');
           } catch (err) {
             console.error('Failed to assign DJ role:', err);
           }
@@ -264,6 +266,7 @@ export function AuthModal({
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ email: user.email }),
             });
+            sessionStorage.setItem('djTermsJustAccepted', 'true');
           } catch (err) {
             console.error('Failed to assign DJ role:', err);
           }
