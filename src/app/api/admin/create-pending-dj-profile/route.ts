@@ -407,16 +407,16 @@ export async function DELETE(request: NextRequest) {
     // Delete the profile
     await profileRef.delete();
 
-    // Also clean up the username reservation if it's still pending
+    // Also clean up the username from the usernames collection
     if (normalizedUsername) {
       try {
         const usernameRef = db.collection('usernames').doc(normalizedUsername);
         const usernameDoc = await usernameRef.get();
-        if (usernameDoc.exists && usernameDoc.data()?.isPending) {
+        if (usernameDoc.exists) {
           await usernameRef.delete();
         }
       } catch (err) {
-        console.error('[create-pending-dj-profile] Failed to delete username reservation (non-fatal):', err);
+        console.error('[create-pending-dj-profile] Failed to delete username (non-fatal):', err);
       }
     }
 
