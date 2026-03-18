@@ -717,15 +717,16 @@ See you on Channel!
 
       const result = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok && response.status !== 404) {
         setError(result.error || 'Failed to delete pending profile');
         setDeleting(false);
         return;
       }
 
+      // 404 means already deleted from Firebase — still remove from local state
       setSuccess(`Deleted pending profile for ${editingProfile.chatUsername}`);
+      setPendingProfiles(prev => prev.filter(p => p.id !== editingProfile.id));
       resetForm();
-      fetchPendingProfiles();
     } catch (err) {
       console.error('Error deleting pending profile:', err);
       setError('Failed to delete pending profile');
