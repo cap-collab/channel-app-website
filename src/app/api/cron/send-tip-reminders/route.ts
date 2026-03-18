@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
         const daysRemaining = CLAIM_WINDOW_DAYS - daysSinceOldestTip;
 
         // Generate Stripe onboarding URL with redirect
-        const stripeOnboardingUrl = `${origin}/dj-profile?connect=stripe`;
+        const stripeOnboardingUrl = `${origin}/studio?connect=stripe`;
 
         // Send reminder email
         const sent = await sendTipReminderEmail({
