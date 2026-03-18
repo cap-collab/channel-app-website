@@ -397,25 +397,28 @@ export async function DELETE(request: NextRequest) {
     const profileDoc = await profileRef.get();
 
     if (!profileDoc.exists) {
-      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+      // Already deleted — treat as success
+      return NextResponse.json({ success: true, profileId });
     }
 
     const profileData = profileDoc.data();
     const normalizedUsername = profileData?.chatUsernameNormalized;
 
-    // Delete the profile and username reservation
-    await db.runTransaction(async (transaction) => {
-      transaction.delete(profileRef);
+    // Delete the profile
+    await profileRef.delete();
 
-      if (normalizedUsername) {
+    // Also clean up the username reservation if it's still pending
+    if (normalizedUsername) {
+      try {
         const usernameRef = db.collection('usernames').doc(normalizedUsername);
-        const usernameDoc = await transaction.get(usernameRef);
-        // Only delete if it's a pending reservation
+        const usernameDoc = await usernameRef.get();
         if (usernameDoc.exists && usernameDoc.data()?.isPending) {
-          transaction.delete(usernameRef);
+          await usernameRef.delete();
         }
+      } catch (err) {
+        console.error('[create-pending-dj-profile] Failed to delete username reservation (non-fatal):', err);
       }
-    });
+    }
 
     console.log(`[create-pending-dj-profile] Deleted pending profile ${profileId}`);
 

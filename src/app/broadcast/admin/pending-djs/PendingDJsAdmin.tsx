@@ -661,7 +661,7 @@ export function PendingDJsAdmin() {
       return;
     }
 
-    const signUpUrl = `${window.location.origin}/studio/join`;
+    const signUpUrl = `${window.location.origin}/dj-profile`;
     const profileUrl = `${window.location.origin}/dj/${profile.chatUsernameNormalized}`;
 
     const subject = `Claim your DJ profile on Channel`;

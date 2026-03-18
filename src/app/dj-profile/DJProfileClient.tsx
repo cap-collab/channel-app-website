@@ -625,6 +625,7 @@ export function DJProfileClient() {
         <AuthModal
           isOpen={showAuthModal}
           onClose={() => setShowAuthModal(false)}
+          includeDjTerms={true}
         />
       </div>
     );
