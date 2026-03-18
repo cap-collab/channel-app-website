@@ -438,7 +438,41 @@ export function DJPublicProfileClient({ username }: Props) {
         // Use the first matching profile (no status filter - show page regardless of status)
         const pendingDoc = pendingSnapshot.docs[0];
 
-        if (pendingDoc) {
+        // Always check the users collection (Studio saves here, so it has the latest data)
+        const usersRef = collection(db, "users");
+        const q = query(
+          usersRef,
+          where("chatUsernameNormalized", "==", normalized),
+          where("role", "in", ["dj", "broadcaster", "admin"])
+        );
+        const snapshot = await getDocs(q);
+
+        if (!snapshot.empty) {
+          // Claimed account exists — always prefer users collection (Studio writes here)
+          const doc = snapshot.docs[0];
+          const data = doc.data();
+
+          setDjProfile({
+            chatUsername: data.chatUsername || "",
+            email: data.email || "",
+            djProfile: {
+              bio: data.djProfile?.bio || null,
+              photoUrl: data.djProfile?.photoUrl || null,
+              location: data.djProfile?.location || null,
+              genres: data.djProfile?.genres || [],
+              promoText: data.djProfile?.promoText || null,
+              promoHyperlink: data.djProfile?.promoHyperlink || null,
+              socialLinks: data.djProfile?.socialLinks || {},
+              stripeAccountId: data.djProfile?.stripeAccountId || null,
+              irlShows: data.djProfile?.irlShows || [],
+              radioShows: data.djProfile?.radioShows || [],
+              myRecs: data.djProfile?.myRecs || {},
+            },
+            uid: doc.id,
+          });
+          setLoading(false);
+        } else if (pendingDoc) {
+          // No claimed account — fall back to pending profile
           const pendingData = pendingDoc.data();
           setDjProfile({
             chatUsername: pendingData.chatUsername || pendingData.djName || pendingData.chatUsernameNormalized || "",
@@ -464,47 +498,10 @@ export function DJPublicProfileClient({ username }: Props) {
             setAutoSources(pendingData.autoSources || []);
           }
           setLoading(false);
-          return;
-        }
-
-        // No pending profile found - check users collection
-        // Query with role filter so Firestore rules can validate access
-        const usersRef = collection(db, "users");
-        const q = query(
-          usersRef,
-          where("chatUsernameNormalized", "==", normalized),
-          where("role", "in", ["dj", "broadcaster", "admin"])
-        );
-        const snapshot = await getDocs(q);
-
-        if (snapshot.empty) {
+        } else {
           setNotFound(true);
           setLoading(false);
-          return;
         }
-
-        const doc = snapshot.docs[0];
-        const data = doc.data();
-
-        setDjProfile({
-          chatUsername: data.chatUsername || "",
-          email: data.email || "",
-          djProfile: {
-            bio: data.djProfile?.bio || null,
-            photoUrl: data.djProfile?.photoUrl || null,
-            location: data.djProfile?.location || null,
-            genres: data.djProfile?.genres || [],
-            promoText: data.djProfile?.promoText || null,
-            promoHyperlink: data.djProfile?.promoHyperlink || null,
-            socialLinks: data.djProfile?.socialLinks || {},
-            stripeAccountId: data.djProfile?.stripeAccountId || null,
-            irlShows: data.djProfile?.irlShows || [],
-            radioShows: data.djProfile?.radioShows || [],
-            myRecs: data.djProfile?.myRecs || {},
-          },
-          uid: doc.id,
-        });
-        setLoading(false);
       } catch (error) {
         console.error("Error fetching DJ profile:", error);
         setNotFound(true);
