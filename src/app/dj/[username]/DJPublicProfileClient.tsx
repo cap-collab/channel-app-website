@@ -1305,7 +1305,7 @@ export function DJPublicProfileClient({ username }: Props) {
 
           <div className="md:col-span-8 flex flex-col">
             {/* Large: DJ Name */}
-            <h1 className="text-4xl sm:text-7xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-4 break-all">
+            <h1 className="text-4xl sm:text-7xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-4 break-words">
               {profile.chatUsername}
             </h1>
 
