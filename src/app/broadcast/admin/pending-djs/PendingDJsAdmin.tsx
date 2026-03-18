@@ -1495,8 +1495,8 @@ See you on Channel!
                   if (!searchQuery.trim()) return true;
                   const q = searchQuery.toLowerCase();
                   return (
-                    profile.chatUsername.toLowerCase().includes(q) ||
-                    profile.email.toLowerCase().includes(q)
+                    profile.chatUsername?.toLowerCase().includes(q) ||
+                    profile.email?.toLowerCase().includes(q)
                   );
                 }).map((profile) => (
                   <div
