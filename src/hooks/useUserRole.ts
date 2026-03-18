@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
 import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 export type UserRole = 'broadcaster' | 'admin' | 'dj' | 'user' | null;
 
@@ -12,41 +12,38 @@ interface UserRoleData {
 
 /**
  * Hook to check user's role from Firestore
- * Checks the 'users' collection for a document with the user's UID
- * The document should have a 'role' field: 'broadcaster', 'admin', or 'user'
+ * Uses onSnapshot for real-time updates (e.g. after DJ role assignment)
  */
 export function useUserRole(user: User | null): UserRoleData {
   const [role, setRole] = useState<UserRole>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchRole() {
-      if (!user || !db) {
-        setRole(null);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        // Check users collection for role
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setRole(data.role || 'user');
-        } else {
-          // No document = regular user
-          setRole('user');
-        }
-      } catch (error) {
-        console.error('Error fetching user role:', error);
-        setRole('user');
-      } finally {
-        setLoading(false);
-      }
+    if (!user || !db) {
+      setRole(null);
+      setLoading(false);
+      return;
     }
 
-    fetchRole();
+    const unsubscribe = onSnapshot(
+      doc(db, 'users', user.uid),
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          setRole(data.role || 'user');
+        } else {
+          setRole('user');
+        }
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Error fetching user role:', error);
+        setRole('user');
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
   }, [user]);
 
   return { role, loading };
