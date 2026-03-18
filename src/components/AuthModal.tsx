@@ -166,6 +166,10 @@ export function AuthModal({
   }, [isOpen]);
 
   const handleGoogleSignIn = async () => {
+    // Set flag BEFORE sign-in so it's available when the component re-renders
+    if (includeDjTerms) {
+      sessionStorage.setItem('djTermsJustAccepted', 'true');
+    }
     const user = await signInWithGoogle(enableNotifications);
     if (user) {
       if (includeDjTerms) {
@@ -175,7 +179,6 @@ export function AuthModal({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: user.email }),
           });
-          sessionStorage.setItem('djTermsJustAccepted', 'true');
         } catch (err) {
           console.error('Failed to assign DJ role:', err);
         }
@@ -185,10 +188,16 @@ export function AuthModal({
         return;
       }
       onClose();
+    } else if (includeDjTerms) {
+      // Sign-in failed — remove the flag
+      sessionStorage.removeItem('djTermsJustAccepted');
     }
   };
 
   const handleAppleSignIn = async () => {
+    if (includeDjTerms) {
+      sessionStorage.setItem('djTermsJustAccepted', 'true');
+    }
     const user = await signInWithApple(enableNotifications);
     if (user) {
       if (includeDjTerms) {
@@ -198,7 +207,6 @@ export function AuthModal({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: user.email }),
           });
-          sessionStorage.setItem('djTermsJustAccepted', 'true');
         } catch (err) {
           console.error('Failed to assign DJ role:', err);
         }
@@ -208,6 +216,8 @@ export function AuthModal({
         return;
       }
       onClose();
+    } else if (includeDjTerms) {
+      sessionStorage.removeItem('djTermsJustAccepted');
     }
   };
 
@@ -235,6 +245,11 @@ export function AuthModal({
   const handlePasswordSubmit = async (password: string) => {
     if (!email.trim() || !password) return;
 
+    // Set flag before auth so it survives component unmount
+    if (includeDjTerms) {
+      sessionStorage.setItem('djTermsJustAccepted', 'true');
+    }
+
     if (isNewUser) {
       const user = await createAccountWithPassword(email.trim(), password, enableNotifications);
       if (user) {
@@ -245,7 +260,6 @@ export function AuthModal({
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ email: user.email }),
             });
-            sessionStorage.setItem('djTermsJustAccepted', 'true');
           } catch (err) {
             console.error('Failed to assign DJ role:', err);
           }
@@ -255,6 +269,8 @@ export function AuthModal({
           return;
         }
         onClose();
+      } else if (includeDjTerms) {
+        sessionStorage.removeItem('djTermsJustAccepted');
       }
     } else {
       const user = await signInWithPassword(email.trim(), password, enableNotifications);
@@ -266,7 +282,6 @@ export function AuthModal({
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ email: user.email }),
             });
-            sessionStorage.setItem('djTermsJustAccepted', 'true');
           } catch (err) {
             console.error('Failed to assign DJ role:', err);
           }
