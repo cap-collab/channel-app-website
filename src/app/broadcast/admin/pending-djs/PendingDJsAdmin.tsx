@@ -88,6 +88,7 @@ export function PendingDJsAdmin() {
 
   // Edit mode state
   const [editingProfile, setEditingProfile] = useState<PendingProfile | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Form state
   const [email, setEmail] = useState('');
@@ -1475,6 +1476,13 @@ See you on Channel!
           {/* Existing pending profiles */}
           <div>
             <h2 className="text-lg font-semibold mb-4">Existing Pending Profiles</h2>
+            <input
+              type="text"
+              placeholder="Search by DJ name or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-4 py-2 mb-4 bg-[#1a1a1a] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-gray-500"
+            />
             {loadingProfiles ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
@@ -1483,7 +1491,14 @@ See you on Channel!
               <p className="text-gray-500 text-center py-8">No pending profiles yet</p>
             ) : (
               <div className="space-y-3">
-                {pendingProfiles.map((profile) => (
+                {pendingProfiles.filter((profile) => {
+                  if (!searchQuery.trim()) return true;
+                  const q = searchQuery.toLowerCase();
+                  return (
+                    profile.chatUsername.toLowerCase().includes(q) ||
+                    profile.email.toLowerCase().includes(q)
+                  );
+                }).map((profile) => (
                   <div
                     key={profile.id}
                     className={`bg-[#1a1a1a] rounded-lg p-4 flex items-center gap-4 ${
