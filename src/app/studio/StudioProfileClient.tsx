@@ -103,6 +103,10 @@ export function StudioProfileClient() {
   const [upgradingToDJ, setUpgradingToDJ] = useState(false);
   const [upgradeError, setUpgradeError] = useState("");
 
+  // If user signed in via the inline AuthModal with DJ terms,
+  // we know they have the DJ role — skip the upgrade screen while role propagates
+  const [djTermsJustAccepted, setDjTermsJustAccepted] = useState(false);
+
 
   // Profile data
   const [chatUsername, setChatUsername] = useState<string | null>(null);
@@ -1214,14 +1218,25 @@ export function StudioProfileClient() {
             <div className="max-w-sm mx-auto">
               <AuthModal
                 isOpen={true}
-                onClose={() => {}}
+                onClose={() => setDjTermsJustAccepted(true)}
                 inline
                 includeDjTerms
-                redirectTo="/studio"
               />
             </div>
           </div>
         </main>
+      </div>
+    );
+  }
+
+  // DJ terms just accepted via inline sign-in — show loading while role propagates
+  if (!isDJ(role) && djTermsJustAccepted) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-6 h-6 border-2 border-gray-700 border-t-white rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-400">Building your DJ profile...</p>
+        </div>
       </div>
     );
   }

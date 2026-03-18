@@ -168,7 +168,6 @@ export function AuthModal({
   const handleGoogleSignIn = async () => {
     const user = await signInWithGoogle(enableNotifications);
     if (user) {
-      // If DJ terms were included, assign DJ role
       if (includeDjTerms) {
         try {
           await fetch('/api/users/assign-dj-role', {
@@ -176,12 +175,15 @@ export function AuthModal({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: user.email }),
           });
-          // Redirect or reload to reflect new DJ role
-          window.location.href = redirectTo || window.location.href;
-          return;
         } catch (err) {
           console.error('Failed to assign DJ role:', err);
         }
+      }
+      // For inline modals, let the parent component react to auth state change.
+      // For overlay modals, redirect if specified, otherwise just close.
+      if (!inline && redirectTo) {
+        window.location.href = redirectTo;
+        return;
       }
       onClose();
     }
@@ -190,7 +192,6 @@ export function AuthModal({
   const handleAppleSignIn = async () => {
     const user = await signInWithApple(enableNotifications);
     if (user) {
-      // If DJ terms were included, assign DJ role
       if (includeDjTerms) {
         try {
           await fetch('/api/users/assign-dj-role', {
@@ -198,12 +199,13 @@ export function AuthModal({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: user.email }),
           });
-          // Redirect or reload to reflect new DJ role
-          window.location.href = redirectTo || window.location.href;
-          return;
         } catch (err) {
           console.error('Failed to assign DJ role:', err);
         }
+      }
+      if (!inline && redirectTo) {
+        window.location.href = redirectTo;
+        return;
       }
       onClose();
     }
@@ -235,7 +237,6 @@ export function AuthModal({
     if (isNewUser) {
       const user = await createAccountWithPassword(email.trim(), password, enableNotifications);
       if (user) {
-        // If DJ terms were included, assign DJ role
         if (includeDjTerms) {
           try {
             await fetch('/api/users/assign-dj-role', {
@@ -243,19 +244,19 @@ export function AuthModal({
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ email: user.email }),
             });
-            // Reload page to reflect new DJ role
-            window.location.reload();
-            return;
           } catch (err) {
             console.error('Failed to assign DJ role:', err);
           }
+        }
+        if (!inline && redirectTo) {
+          window.location.href = redirectTo;
+          return;
         }
         onClose();
       }
     } else {
       const user = await signInWithPassword(email.trim(), password, enableNotifications);
       if (user) {
-        // If DJ terms were included and user is signing in (existing user), also assign DJ role
         if (includeDjTerms) {
           try {
             await fetch('/api/users/assign-dj-role', {
@@ -263,12 +264,13 @@ export function AuthModal({
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ email: user.email }),
             });
-            // Reload page to reflect new DJ role
-            window.location.reload();
-            return;
           } catch (err) {
             console.error('Failed to assign DJ role:', err);
           }
+        }
+        if (!inline && redirectTo) {
+          window.location.href = redirectTo;
+          return;
         }
         onClose();
       }
