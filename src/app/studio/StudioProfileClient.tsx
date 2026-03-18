@@ -103,6 +103,29 @@ export function StudioProfileClient() {
   const [upgradingToDJ, setUpgradingToDJ] = useState(false);
   const [upgradeError, setUpgradeError] = useState("");
 
+  // After sign-in, the DJ role may still be propagating. Show spinner
+  // for a few seconds before falling back to the upgrade screen.
+  const [roleSettled, setRoleSettled] = useState(false);
+  useEffect(() => {
+    if (!isAuthenticated || roleLoading || isDJ(role)) {
+      setRoleSettled(true);
+      sessionStorage.removeItem('studioRoleCheck');
+      return;
+    }
+    // Check if we already tried waiting (avoid infinite reload loop)
+    const alreadyWaited = sessionStorage.getItem('studioRoleCheck');
+    if (alreadyWaited) {
+      setRoleSettled(true);
+      return;
+    }
+    // Wait 2s then reload to re-fetch role from server
+    const timer = setTimeout(() => {
+      sessionStorage.setItem('studioRoleCheck', '1');
+      window.location.reload();
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [isAuthenticated, roleLoading, role]);
+
   // Profile data
   const [chatUsername, setChatUsername] = useState<string | null>(null);
   const [djProfile, setDjProfile] = useState<DJProfile>({
@@ -1221,6 +1244,18 @@ export function StudioProfileClient() {
             </div>
           </div>
         </main>
+      </div>
+    );
+  }
+
+  // Not a DJ - but role assignment may be in progress after sign-in
+  if (!isDJ(role) && !roleSettled) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-6 h-6 border-2 border-gray-700 border-t-white rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-400">Building your DJ profile...</p>
+        </div>
       </div>
     );
   }
