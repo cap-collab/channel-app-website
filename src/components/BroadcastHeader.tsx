@@ -123,9 +123,9 @@ export function BroadcastHeader({ stationName = "Channel Radio", openInNewWindow
                       </a>
                       {isDJ(role) && (
                         <a
-                          href="/dj-profile"
+                          href="/studio"
                           onClick={(e) => {
-                            handleLinkClick(e, '/dj-profile');
+                            handleLinkClick(e, '/studio');
                             if (!openInNewWindow) setShowUserMenu(false);
                           }}
                           className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
