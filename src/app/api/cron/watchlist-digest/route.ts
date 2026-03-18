@@ -299,7 +299,7 @@ export async function GET(request: NextRequest) {
     // Key: chatUsernameNormalized from DB (authoritative)
     // Value: { username (for URL), photoUrl (for picture) }
     // Sources: 1) pending-dj-profiles, 2) users with DJ role
-    const djNameToProfile = new Map<string, { username: string; photoUrl?: string; genres?: string[]; location?: string }>();
+    const djNameToProfile = new Map<string, { username: string; photoUrl?: string; genres?: string[]; location?: string; isChannelUser: boolean }>();
     // Normalize to match how pending-dj-profiles stores chatUsernameNormalized
     // Strip ALL non-alphanumeric characters and lowercase (like dublab sync does)
     const normalizeForLookup = (str: string): string => {
@@ -318,7 +318,7 @@ export async function GET(request: NextRequest) {
         const displayName = chatUsername || chatUsernameNormalized;
         const genres = (djProfile?.genres as string[]) || undefined;
         const location = (djProfile?.location as string) || undefined;
-        const profileInfo = { username: displayName, photoUrl, genres, location };
+        const profileInfo = { username: displayName, photoUrl, genres, location, isChannelUser: false };
         // Index by the stored chatUsernameNormalized (primary key)
         djNameToProfile.set(chatUsernameNormalized, profileInfo);
         // Also index by our normalized version of chatUsername
@@ -335,7 +335,7 @@ export async function GET(request: NextRequest) {
     }
     console.log(`[watchlist-digest] Added ${pendingProfiles.length} pending DJ profiles to map`);
 
-    // 2. Add from approved DJ users (don't overwrite pending profiles)
+    // 2. Add from approved DJ users (overwrite pending profiles — claimed users take priority)
     for (const djUser of djUsers) {
       const chatUsername = djUser.data.chatUsername as string | undefined;
       const chatUsernameNormalized = djUser.data.chatUsernameNormalized as string | undefined;
@@ -346,18 +346,16 @@ export async function GET(request: NextRequest) {
         const displayName = chatUsername || chatUsernameNormalized;
         const genres = (djProfile?.genres as string[]) || undefined;
         const location = (djProfile?.location as string) || undefined;
-        const profileInfo = { username: displayName, photoUrl, genres, location };
-        if (!djNameToProfile.has(chatUsernameNormalized)) {
-          djNameToProfile.set(chatUsernameNormalized, profileInfo);
-        }
+        const profileInfo = { username: displayName, photoUrl, genres, location, isChannelUser: true };
+        djNameToProfile.set(chatUsernameNormalized, profileInfo);
         // Also index by our normalized version of chatUsername
         const normalizedChatUsername = normalizeForLookup(displayName);
-        if (normalizedChatUsername !== chatUsernameNormalized && !djNameToProfile.has(normalizedChatUsername)) {
+        if (normalizedChatUsername !== chatUsernameNormalized) {
           djNameToProfile.set(normalizedChatUsername, profileInfo);
         }
         // Also index by normalized version without hyphens
         const withoutHyphens = chatUsernameNormalized.replace(/-/g, "");
-        if (withoutHyphens !== chatUsernameNormalized && withoutHyphens !== normalizedChatUsername && !djNameToProfile.has(withoutHyphens)) {
+        if (withoutHyphens !== chatUsernameNormalized && withoutHyphens !== normalizedChatUsername) {
           djNameToProfile.set(withoutHyphens, profileInfo);
         }
       }
@@ -914,35 +912,39 @@ export async function GET(request: NextRequest) {
 
       // Helper: enrich a show with DJ profile info and return a preference match (or null)
       type PrefMatch = typeof preferenceMatches[number];
-      const enrichShow = (show: BroadcastShow): { djUsername?: string; djPhotoUrl?: string; djGenres?: string[]; djLocation?: string } | null => {
+      const enrichShow = (show: BroadcastShow): { djUsername?: string; djPhotoUrl?: string; djGenres?: string[]; djLocation?: string; isChannelUser: boolean } | null => {
         let djGenres: string[] | undefined;
         let djLocation: string | undefined;
         let djUsername = show.djUsername;
         let djPhotoUrl = show.djPhotoUrl;
+        let isChannelUser = false;
 
         if (show.dj) {
           const profile = djNameToProfile.get(normalizeForLookup(show.dj));
           if (profile) {
             djGenres = profile.genres;
             djLocation = profile.location;
+            isChannelUser = profile.isChannelUser;
             if (!djUsername) djUsername = profile.username;
             if (!djPhotoUrl) djPhotoUrl = profile.photoUrl;
           }
         }
 
         if (!djUsername || !djPhotoUrl) return null;
-        return { djUsername, djPhotoUrl, djGenres, djLocation };
+        return { djUsername, djPhotoUrl, djGenres, djLocation, isChannelUser };
       };
 
       // Helper: try to find a preference show for a specific day
+      // Within each priority tier, Channel users are preferred
       const findShowForDay = (dayKey: string): PrefMatch | null => {
         const dayShows = allShows.filter((s) => {
           const start = new Date(s.startTime);
           return start >= now && start <= windowEnd && getDateKey(start) === dayKey;
         });
 
-        // Priority 1: Genre match
+        // Priority 1: Genre match (Channel users first)
         if (preferredGenres.length > 0) {
+          const genreCandidates: { match: PrefMatch; showKey: string; isChannelUser: boolean }[] = [];
           for (const show of dayShows) {
             const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
             if (favoriteShowKeys.has(showKey) || prefKeys.has(showKey)) continue;
@@ -964,26 +966,36 @@ export async function GET(request: NextRequest) {
               const matchingGenres = preferredGenres.filter((g) => enriched.djGenres && matchesGenre(enriched.djGenres, g));
               matchParts.push(matchingGenres.map((g) => g.toUpperCase()).join(" + "));
 
-              prefKeys.add(showKey);
-              return {
-                showName: show.name,
-                djName: show.dj,
-                djUsername: enriched.djUsername,
-                djPhotoUrl: enriched.djPhotoUrl,
-                stationName: show.stationName,
-                stationId: show.stationId,
-                startTime: new Date(show.startTime),
-                isIRL: broadcastShow.isIRL,
-                irlLocation: broadcastShow.irlLocation,
-                irlTicketUrl: broadcastShow.irlTicketUrl,
-                matchLabel: matchParts.join(" + "),
-              };
+              genreCandidates.push({
+                match: {
+                  showName: show.name,
+                  djName: show.dj,
+                  djUsername: enriched.djUsername,
+                  djPhotoUrl: enriched.djPhotoUrl,
+                  stationName: show.stationName,
+                  stationId: show.stationId,
+                  startTime: new Date(show.startTime),
+                  isIRL: broadcastShow.isIRL,
+                  irlLocation: broadcastShow.irlLocation,
+                  irlTicketUrl: broadcastShow.irlTicketUrl,
+                  matchLabel: matchParts.join(" + "),
+                },
+                showKey,
+                isChannelUser: enriched.isChannelUser,
+              });
             }
+          }
+          if (genreCandidates.length > 0) {
+            genreCandidates.sort((a, b) => (a.isChannelUser === b.isChannelUser ? 0 : a.isChannelUser ? -1 : 1));
+            const best = genreCandidates[0];
+            prefKeys.add(best.showKey);
+            return best.match;
           }
         }
 
-        // Priority 2: City match
+        // Priority 2: City match (Channel users first)
         if (irlCity) {
+          const cityCandidates: { match: PrefMatch; showKey: string; isChannelUser: boolean }[] = [];
           for (const show of dayShows) {
             const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
             if (favoriteShowKeys.has(showKey) || prefKeys.has(showKey)) continue;
@@ -996,25 +1008,35 @@ export async function GET(request: NextRequest) {
             const cityMatch = showLocation ? matchesCity(showLocation, irlCity) : false;
 
             if (cityMatch) {
-              prefKeys.add(showKey);
-              return {
-                showName: show.name,
-                djName: show.dj,
-                djUsername: enriched.djUsername,
-                djPhotoUrl: enriched.djPhotoUrl,
-                stationName: show.stationName,
-                stationId: show.stationId,
-                startTime: new Date(show.startTime),
-                isIRL: broadcastShow.isIRL,
-                irlLocation: broadcastShow.irlLocation,
-                irlTicketUrl: broadcastShow.irlTicketUrl,
-                matchLabel: irlCity.toUpperCase(),
-              };
+              cityCandidates.push({
+                match: {
+                  showName: show.name,
+                  djName: show.dj,
+                  djUsername: enriched.djUsername,
+                  djPhotoUrl: enriched.djPhotoUrl,
+                  stationName: show.stationName,
+                  stationId: show.stationId,
+                  startTime: new Date(show.startTime),
+                  isIRL: broadcastShow.isIRL,
+                  irlLocation: broadcastShow.irlLocation,
+                  irlTicketUrl: broadcastShow.irlTicketUrl,
+                  matchLabel: irlCity.toUpperCase(),
+                },
+                showKey,
+                isChannelUser: enriched.isChannelUser,
+              });
             }
+          }
+          if (cityCandidates.length > 0) {
+            cityCandidates.sort((a, b) => (a.isChannelUser === b.isChannelUser ? 0 : a.isChannelUser ? -1 : 1));
+            const best = cityCandidates[0];
+            prefKeys.add(best.showKey);
+            return best.match;
           }
         }
 
-        // Priority 3: Any online show with profile+photo
+        // Priority 3: Any online show with profile+photo (Channel users first)
+        const onlineCandidates: { match: PrefMatch; showKey: string; isChannelUser: boolean }[] = [];
         for (const show of dayShows) {
           if (!show.dj) continue;
           const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
@@ -1025,16 +1047,25 @@ export async function GET(request: NextRequest) {
           const enriched = enrichShow(broadcastShow);
           if (!enriched) continue;
 
-          prefKeys.add(showKey);
-          return {
-            showName: show.name,
-            djName: show.dj,
-            djUsername: enriched.djUsername,
-            djPhotoUrl: enriched.djPhotoUrl,
-            stationName: show.stationName,
-            stationId: show.stationId,
-            startTime: new Date(show.startTime),
-          };
+          onlineCandidates.push({
+            match: {
+              showName: show.name,
+              djName: show.dj,
+              djUsername: enriched.djUsername,
+              djPhotoUrl: enriched.djPhotoUrl,
+              stationName: show.stationName,
+              stationId: show.stationId,
+              startTime: new Date(show.startTime),
+            },
+            showKey,
+            isChannelUser: enriched.isChannelUser,
+          });
+        }
+        if (onlineCandidates.length > 0) {
+          onlineCandidates.sort((a, b) => (a.isChannelUser === b.isChannelUser ? 0 : a.isChannelUser ? -1 : 1));
+          const best = onlineCandidates[0];
+          prefKeys.add(best.showKey);
+          return best.match;
         }
 
         return null;
@@ -1050,9 +1081,10 @@ export async function GET(request: NextRequest) {
       }
 
       // Pass 2: Fill remaining slots (up to 6 total) from any day
+      // Collect all candidates, sort by relevance then Channel user status, then take what we need
       if (preferenceMatches.length < 6) {
+        const bonusCandidates: { match: PrefMatch; showKey: string; hasRelevanceMatch: boolean; isChannelUser: boolean }[] = [];
         for (const show of allShows) {
-          if (preferenceMatches.length >= 6) break;
           const showStart = new Date(show.startTime);
           if (showStart < now || showStart > windowEnd) continue;
           if (!show.dj) continue;
@@ -1081,21 +1113,36 @@ export async function GET(request: NextRequest) {
               matchParts.push(matchingGenres.map((g) => g.toUpperCase()).join(" + "));
             }
 
-            preferenceMatches.push({
-              showName: show.name,
-              djName: show.dj,
-              djUsername: enriched.djUsername,
-              djPhotoUrl: enriched.djPhotoUrl,
-              stationName: show.stationName,
-              stationId: show.stationId,
-              startTime: showStart,
-              isIRL: broadcastShow.isIRL,
-              irlLocation: broadcastShow.irlLocation,
-              irlTicketUrl: broadcastShow.irlTicketUrl,
-              matchLabel: matchParts.length > 0 ? matchParts.join(" + ") : undefined,
+            bonusCandidates.push({
+              match: {
+                showName: show.name,
+                djName: show.dj,
+                djUsername: enriched.djUsername,
+                djPhotoUrl: enriched.djPhotoUrl,
+                stationName: show.stationName,
+                stationId: show.stationId,
+                startTime: showStart,
+                isIRL: broadcastShow.isIRL,
+                irlLocation: broadcastShow.irlLocation,
+                irlTicketUrl: broadcastShow.irlTicketUrl,
+                matchLabel: matchParts.length > 0 ? matchParts.join(" + ") : undefined,
+              },
+              showKey,
+              hasRelevanceMatch: genreMatch || cityMatch,
+              isChannelUser: enriched.isChannelUser,
             });
-            prefKeys.add(showKey);
           }
+        }
+        // Sort: relevance match first, then Channel users first
+        bonusCandidates.sort((a, b) => {
+          if (a.hasRelevanceMatch !== b.hasRelevanceMatch) return a.hasRelevanceMatch ? -1 : 1;
+          if (a.isChannelUser !== b.isChannelUser) return a.isChannelUser ? -1 : 1;
+          return 0;
+        });
+        for (const candidate of bonusCandidates) {
+          if (preferenceMatches.length >= 6) break;
+          preferenceMatches.push(candidate.match);
+          prefKeys.add(candidate.showKey);
         }
       }
 
