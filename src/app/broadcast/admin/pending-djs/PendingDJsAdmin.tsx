@@ -667,24 +667,26 @@ export function PendingDJsAdmin() {
     const subject = `Claim your DJ profile on Channel`;
     const body = `Hi ${profile.chatUsername},
 
-Your DJ profile is ready on Channel!
+Your DJ profile is ready on Channel.
 
 To claim it:
-1. Go to: ${signUpUrl}
-2. Sign up or log in using THIS email address: ${profile.email}
-   (You must use this exact email for the profile to link automatically)
-3. Once logged in, your DJ profile will be automatically connected to your account
+1. Go to ${signUpUrl}
+2. Sign up or log in using this email: ${profile.email}
+(you need to use this exact email for the profile to link automatically)
+3. Once logged in, your profile will be connected
 
-Your public DJ profile page: ${profileUrl}
+Your public profile:
+${profileUrl}
 
-After claiming, you'll be able to:
-- Edit your bio, photo, and social links
-- Have your followers notified each time you are doing a show on the radio or IRL
-- Chat with your audience
-- Receive tips from listeners
+Once you're in, you can:
+- Edit your bio, photo, and links
+- Add your upcoming shows, on Channel, other radios, or IRL
+- Share what you're into with your followers
+- Have your followers notified when you play or release something
+- Chat with listeners and receive tips
 
-See you on Channel!
-- Channel Team`;
+See you on Channel,
+Cap`;
 
     const gmailUrl = `https://mail.google.com/mail/?authuser=cap@channel-app.com&view=cm&fs=1&to=${encodeURIComponent(profile.email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.open(gmailUrl, '_blank');
