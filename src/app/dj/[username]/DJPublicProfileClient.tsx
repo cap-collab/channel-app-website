@@ -2119,7 +2119,7 @@ export function DJPublicProfileClient({ username }: Props) {
                           <h3 className="text-white text-xl font-bold">{pastShow.showName}</h3>
                         </div>
 
-                        {/* Action Button: Get notified */}
+                        {/* Action Button: Add to watchlist */}
                         <button
                           onClick={async (e) => {
                             e.stopPropagation();
@@ -2142,7 +2142,7 @@ export function DJPublicProfileClient({ username }: Props) {
                               <svg className="w-4 h-4" fill={isWatching ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                               </svg>
-                              {isWatching ? "Notifying" : "Get notified"}
+                              {isWatching ? "Added to watchlist" : "Add to watchlist"}
                             </>
                           )}
                         </button>
