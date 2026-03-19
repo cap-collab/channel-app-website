@@ -9,9 +9,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
     }
 
-    // Get all scheduled/live slots from now onwards
+    // Get all scheduled/live slots from now onwards (5 weeks to cover full navigable range)
     const now = new Date();
-    const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const twoWeeksFromNow = new Date(now.getTime() + 35 * 24 * 60 * 60 * 1000);
 
     const q = query(
       collection(db, 'broadcast-slots'),
