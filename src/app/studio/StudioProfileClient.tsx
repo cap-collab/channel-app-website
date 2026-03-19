@@ -1220,7 +1220,7 @@ export function StudioProfileClient() {
     }
   };
 
-  if (authLoading || roleLoading) {
+  if ((authLoading || roleLoading) && !signingInInline) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-gray-700 border-t-white rounded-full animate-spin" />

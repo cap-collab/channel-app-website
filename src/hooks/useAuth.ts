@@ -615,7 +615,8 @@ export function useAuth() {
       setState({ user, loading: false, error: null, emailSent: false, passwordResetSent: false });
       return user;
     } catch (createError) {
-      const firebaseCreateError = createError as { code?: string };
+      const firebaseCreateError = createError as { code?: string; message?: string };
+      console.error("[signInOrCreate] Create failed:", firebaseCreateError.code, firebaseCreateError.message);
 
       if (firebaseCreateError.code === "auth/email-already-in-use") {
         // Account exists — try signing in instead
