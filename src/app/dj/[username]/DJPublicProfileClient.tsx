@@ -1121,13 +1121,37 @@ export function DJPublicProfileClient({ username }: Props) {
       upcoming.push(item);
     });
 
-    // Add IRL shows - check if past or upcoming based on date
+    // Helper: get the end timestamp for a show given date, time, duration, timezone
+    const getShowEndTime = (date: string, time?: string, duration?: string, timezone?: string): number => {
+      const durationHours = parseFloat(duration || "1") || 1;
+      if (time) {
+        // Parse the date+time in the show's timezone using Intl to find the UTC offset
+        const tz = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+        // Parse as UTC first, then compute the offset for the target timezone
+        const naiveUtc = new Date(`${date}T${time}:00Z`).getTime();
+        // Format that UTC instant in the target timezone to find the offset
+        const parts = new Intl.DateTimeFormat("en-US", {
+          timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+          hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+        }).formatToParts(new Date(naiveUtc));
+        const get = (t: string) => parts.find((p) => p.type === t)?.value || "0";
+        const tzLocal = new Date(`${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}:${get("second")}Z`).getTime();
+        const offsetMs = tzLocal - naiveUtc; // positive = ahead of UTC
+        // The actual UTC start = naive UTC - offset (because the time was entered in that tz)
+        const showStartUtc = naiveUtc - offsetMs;
+        return showStartUtc + durationHours * 3600000;
+      }
+      // No time specified — consider it past after end of that day (UTC)
+      return new Date(date).getTime() + 86400000;
+    };
+
+    // Add IRL shows - check if past or upcoming based on date (end of day)
     if (djProfile?.djProfile.irlShows) {
       djProfile.djProfile.irlShows
         .filter((show) => show.url || show.venue || show.date)
         .forEach((show, i) => {
-          const irlDate = show.date ? new Date(show.date) : null;
-          const isPastIrl = irlDate && irlDate.getTime() < now;
+          const irlEndTime = show.date ? getShowEndTime(show.date) : null;
+          const isPastIrl = irlEndTime !== null && irlEndTime < now;
           const item: ActivityFeedItem = {
             ...show,
             feedType: "irl",
@@ -1142,13 +1166,13 @@ export function DJPublicProfileClient({ username }: Props) {
         });
     }
 
-    // Add DJ radio shows - check if past or upcoming based on date
+    // Add DJ radio shows - check if past or upcoming based on date + time + duration + timezone
     if (djProfile?.djProfile.radioShows) {
       djProfile.djProfile.radioShows
         .filter((show) => show.radioName || show.date)
         .forEach((show, i) => {
-          const radioDate = show.date ? new Date(show.date) : null;
-          const isPastRadio = radioDate && radioDate.getTime() < now;
+          const radioEndTime = show.date ? getShowEndTime(show.date, show.time, show.duration, show.timezone) : null;
+          const isPastRadio = radioEndTime !== null && radioEndTime < now;
           const item: ActivityFeedItem = {
             ...show,
             feedType: "dj-radio",
@@ -1174,20 +1198,38 @@ export function DJPublicProfileClient({ username }: Props) {
 
     // Add past Channel Radio shows (without recordings)
     pastBroadcastShows.forEach((show) => {
-      past.push({
-        ...show,
-        feedType: "show",
-        feedStatus: "past",
-      });
+      const isPast = show.startTime < now;
+      if (isPast) {
+        past.push({
+          ...show,
+          feedType: "show",
+          feedStatus: "past",
+        });
+      } else {
+        upcoming.push({
+          ...show,
+          feedType: "show",
+          feedStatus: "upcoming",
+        });
+      }
     });
 
     // Add past external shows (NTS, Subtle, dublab, etc.)
     pastExternalShows.forEach((show) => {
-      past.push({
-        ...show,
-        feedType: "show",
-        feedStatus: "past",
-      });
+      const isPast = show.startTime < now;
+      if (isPast) {
+        past.push({
+          ...show,
+          feedType: "show",
+          feedStatus: "past",
+        });
+      } else {
+        upcoming.push({
+          ...show,
+          feedType: "show",
+          feedStatus: "upcoming",
+        });
+      }
     });
 
     // Sort upcoming by start time ascending
