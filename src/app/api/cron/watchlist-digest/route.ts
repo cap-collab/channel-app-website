@@ -219,7 +219,7 @@ export async function GET(request: NextRequest) {
 
           allShows.push({
             name: irlShow.name,
-            dj: displayName,
+            dj: chatUsername || displayName,
             startTime: `${irlShow.date}T20:00:00.000Z`, // Default to 8 PM
             stationId: "irl",
             stationName: "IRL Event",
@@ -283,7 +283,7 @@ export async function GET(request: NextRequest) {
 
           allShows.push({
             name: radioShow.name,
-            dj: displayName,
+            dj: chatUsername || displayName,
             startTime,
             stationId: "dj-radio",
             stationName: radioShow.radioName,
