@@ -54,19 +54,18 @@ function PasswordForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <p className="text-white/60 text-sm">{email}</p>
 
-      <p className="text-sm text-white/50">
-        Enter your password to sign in, or choose a password to create a new account
-      </p>
-
       <div>
         <input
           ref={passwordRef}
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password (min 6 characters)"
+          placeholder="Password"
           className="w-full px-4 py-3 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/30 focus:bg-white/[0.08] transition-all"
         />
+        <p className="text-white/30 text-xs mt-2">
+          Enter your existing password, or choose one to create a new account (min 6 characters).
+        </p>
       </div>
 
       <button
