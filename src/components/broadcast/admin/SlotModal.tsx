@@ -269,7 +269,6 @@ export function SlotModal({
   // Remote DJ profile lookup state
   const [remoteProfileFound, setRemoteProfileFound] = useState(false);
   const [isLookingUpRemote, setIsLookingUpRemote] = useState(false);
-  const [remoteUsernameNormalized, setRemoteUsernameNormalized] = useState<string | undefined>(undefined);
   // Show image state
   const [showImageUrl, setShowImageUrl] = useState<string | undefined>(undefined);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -291,14 +290,12 @@ export function SlotModal({
       const data = await res.json();
       if (data.found) {
         setRemoteProfileFound(true);
-        setRemoteUsernameNormalized(data.djUsernameNormalized || undefined);
         // Auto-fill DJ name if empty
         if (!djName && data.djName) {
           setDjName(data.djName);
         }
       } else {
         setRemoteProfileFound(false);
-        setRemoteUsernameNormalized(undefined);
       }
     } catch (error) {
       console.error('Failed to lookup DJ profile:', error);
@@ -749,18 +746,30 @@ export function SlotModal({
   // Open mailto with DJ onboarding email (for remote broadcasts)
   const openDjEmail = () => {
     if (!slot || !djEmail) return;
-    openDjEmailWithDetails(djEmail, djName || 'there', slot.startTime, slot.endTime, remoteUsernameNormalized);
+    openDjEmailWithDetails(djEmail, djName || 'there', slot.startTime, slot.endTime);
   };
 
   // Open mailto for a specific DJ in a venue slot
-  const openDjEmailForSlot = (targetEmail: string, targetDjName: string, slotStartTime: number, slotEndTime: number, targetUsernameNormalized?: string) => {
+  const openDjEmailForSlot = (targetEmail: string, targetDjName: string, slotStartTime: number, slotEndTime: number) => {
     if (!slot || !targetEmail) return;
-    openDjEmailWithDetails(targetEmail, targetDjName || 'there', slotStartTime, slotEndTime, targetUsernameNormalized);
+    openDjEmailWithDetails(targetEmail, targetDjName || 'there', slotStartTime, slotEndTime);
   };
 
   // Shared email generation logic
-  const openDjEmailWithDetails = (targetEmail: string, targetDjName: string, slotStart: number, slotEnd: number, targetUsernameNormalized?: string) => {
+  const openDjEmailWithDetails = async (targetEmail: string, targetDjName: string, slotStart: number, slotEnd: number) => {
     if (!slot) return;
+
+    // Always do a fresh lookup to get the DJ's username for the profile URL
+    let djUsernameNormalized: string | undefined;
+    try {
+      const res = await fetch(`/api/users/lookup-by-email?email=${encodeURIComponent(targetEmail)}`);
+      const data = await res.json();
+      if (data.found && data.djUsernameNormalized) {
+        djUsernameNormalized = data.djUsernameNormalized;
+      }
+    } catch (error) {
+      console.error('Failed to lookup DJ for email template:', error);
+    }
 
     const broadcastUrl = `${window.location.origin}/broadcast/live?token=${slot.broadcastToken}`;
     const djTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone; // Use admin's timezone as default
@@ -773,8 +782,8 @@ export function SlotModal({
     const formattedStart = formatTimeInTimezone(slotStart, djTimezone, { hour: 'numeric', minute: '2-digit' });
     const formattedEnd = formatTimeInTimezone(slotEnd, djTimezone, { hour: 'numeric', minute: '2-digit' });
 
-    const profileUrl = targetUsernameNormalized
-      ? `https://channel-app.com/dj/${targetUsernameNormalized}`
+    const profileUrl = djUsernameNormalized
+      ? `https://channel-app.com/dj/${djUsernameNormalized}`
       : null;
     const profileTipLine = profileUrl
       ? `\n(people can support you anytime via your profile ${profileUrl}, not just during your live set)`
@@ -793,7 +802,7 @@ ${formattedStart} – ${formattedEnd} ${djTz}
 
 1. Fine-tune your profile
 
-Sign up or log in using ${targetEmail} so everything links properly, then update your profile with anything you want people to see before and during your show:
+Sign up or log in using ${targetEmail} so everything links properly:
 
 https://channel-app.com/studio
 
@@ -1253,7 +1262,7 @@ Cap`;
                               onClick={() => {
                                 const slotStartTs = new Date(`${dj.startDate}T${dj.startTime}`).getTime();
                                 const slotEndTs = new Date(`${dj.endDate}T${dj.endTime}`).getTime();
-                                openDjEmailForSlot(profile.email, dj.djName || 'there', slotStartTs, slotEndTs, profile.usernameNormalized);
+                                openDjEmailForSlot(profile.email, dj.djName || 'there', slotStartTs, slotEndTs);
                               }}
                               className="px-2 py-0.5 rounded text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors"
                               title="Send onboarding email"
