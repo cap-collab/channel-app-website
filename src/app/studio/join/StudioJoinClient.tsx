@@ -52,7 +52,7 @@ export function StudioJoinClient() {
       setFormData((prev) => ({
         ...prev,
         email: user.email || prev.email,
-        djName: prev.djName || user.displayName || '',
+        djName: prev.djName,
       }));
     }
   }, [user]);
@@ -74,14 +74,14 @@ export function StudioJoinClient() {
           // Pre-fill form and track which fields came from profile
           setFormData((prev) => ({
             ...prev,
-            djName: chatUsername || data.displayName || user.displayName || prev.djName,
+            djName: chatUsername || prev.djName,
             soundcloud: socialLinks.soundcloud || prev.soundcloud,
             instagram: socialLinks.instagram || prev.instagram,
             youtube: socialLinks.youtube || prev.youtube,
           }));
 
           setProfileFields({
-            djName: !!(chatUsername || data.displayName),
+            djName: !!chatUsername,
             soundcloud: !!socialLinks.soundcloud,
             instagram: !!socialLinks.instagram,
             youtube: !!socialLinks.youtube,
@@ -302,7 +302,7 @@ export function StudioJoinClient() {
                   htmlFor="djName"
                   className="block text-sm font-medium text-gray-300 mb-2"
                 >
-                  Your name *
+                  Curator Name *
                 </label>
                 <input
                   type="text"
@@ -310,7 +310,7 @@ export function StudioJoinClient() {
                   name="djName"
                   value={formData.djName}
                   onChange={handleInputChange}
-                  placeholder="Your name"
+                  placeholder="Your DJ / curator name"
                   disabled={profileFields.djName}
                   className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 />

@@ -43,7 +43,7 @@ export function StudioLivestreamClient() {
       setFormData((prev) => ({
         ...prev,
         email: user.email || prev.email,
-        djName: prev.djName || user.displayName || '',
+        djName: prev.djName,
       }));
     }
   }, [user]);
@@ -64,14 +64,14 @@ export function StudioLivestreamClient() {
 
           setFormData((prev) => ({
             ...prev,
-            djName: chatUsername || data.displayName || user.displayName || prev.djName,
+            djName: chatUsername || prev.djName,
             soundcloud: socialLinks.soundcloud || prev.soundcloud,
             instagram: socialLinks.instagram || prev.instagram,
             youtube: socialLinks.youtube || prev.youtube,
           }));
 
           setProfileFields({
-            djName: !!(chatUsername || data.displayName),
+            djName: !!chatUsername,
             soundcloud: !!socialLinks.soundcloud,
             instagram: !!socialLinks.instagram,
             youtube: !!socialLinks.youtube,
