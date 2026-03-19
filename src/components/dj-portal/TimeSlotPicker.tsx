@@ -21,6 +21,9 @@ const DEFAULT_VIEW_START = 9;
 const VISIBLE_HOUR_COUNT = 9;
 const VISIBLE_HEIGHT = VISIBLE_HOUR_COUNT * HOUR_HEIGHT;
 
+// Hard cutoff: everything up to and including April 1st is blocked (midnight PT = 7am UTC)
+const BLOCKED_UNTIL = new Date('2026-04-02T07:00:00Z').getTime();
+
 function formatHour(hour: number): string {
   if (hour === 0) return '12a';
   if (hour < 12) return `${hour}a`;
@@ -62,7 +65,11 @@ function getTimestamp(baseDate: Date, hour: number): number {
 }
 
 export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlotPickerProps) {
-  const [currentWeekStart, setCurrentWeekStart] = useState(() => getSunday(new Date()));
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => {
+    const today = getSunday(new Date());
+    const firstOpen = getSunday(new Date(BLOCKED_UNTIL));
+    return firstOpen > today ? firstOpen : today;
+  });
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hoverSlot, setHoverSlot] = useState<{ dayIndex: number; startHour: number } | null>(null);
@@ -160,7 +167,7 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
 
   const isTimeUnavailable = (timestamp: number): boolean => {
     const minTime = Date.now() + 36 * 60 * 60 * 1000;
-    return timestamp < minTime;
+    return timestamp < minTime || timestamp < BLOCKED_UNTIL;
   };
 
   const isSlotValid = (dayIndex: number, startHour: number): boolean => {
