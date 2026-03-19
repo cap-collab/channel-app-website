@@ -215,8 +215,10 @@ export function AuthModal({
       window.localStorage.setItem('djTermsAccepted', 'true');
       sessionStorage.setItem('djTermsJustAccepted', 'true');
     }
-    if (redirectTo) {
-      window.localStorage.setItem('authRedirectTo', redirectTo);
+    // Store redirect target — if from /studio (includeDjTerms), always redirect back there
+    const targetRedirect = redirectTo || (includeDjTerms ? '/studio' : null);
+    if (targetRedirect) {
+      window.localStorage.setItem('authRedirectTo', targetRedirect);
     }
     await sendEmailLink(email.trim(), enableNotifications);
   };
