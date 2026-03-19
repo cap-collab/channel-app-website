@@ -320,7 +320,7 @@ type ActivityFeedItem =
   | (IrlShow & { feedType: "irl"; feedStatus: "upcoming" | "past"; id: string })
   | (RadioShow & { feedType: "dj-radio"; feedStatus: "upcoming" | "past"; id: string })
   | (Archive & { feedType: "recording"; feedStatus: "past" })
-  | (PastShow & { feedType: "show"; feedStatus: "past" });
+  | (PastShow & { feedType: "show"; feedStatus: "upcoming" | "past" });
 
 // Word boundary matching for DJ/show names
 // e.g. "PAC" matches "PAC" or "Night PAC" but NOT "pace" or "space"
