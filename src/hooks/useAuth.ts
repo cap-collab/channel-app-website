@@ -656,7 +656,7 @@ export function useAuth() {
           let message = "Failed to sign in";
 
           if (firebaseSignInError.code === "auth/wrong-password" || firebaseSignInError.code === "auth/invalid-credential") {
-            message = "Incorrect password";
+            message = "An account exists with this email but uses a different sign-in method. Try signing in with Google, Apple, or a magic link instead.";
           } else if (firebaseSignInError.code === "auth/too-many-requests") {
             message = "Too many attempts. Please try again later.";
           }
