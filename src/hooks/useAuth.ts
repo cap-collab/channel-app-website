@@ -48,6 +48,12 @@ export function useAuth() {
 
     const handleEmailLinkSignIn = async () => {
       if (isSignInWithEmailLink(authInstance, window.location.href)) {
+        console.log('[email-link] Detected email sign-in link');
+        console.log('[email-link] localStorage keys:', {
+          email: window.localStorage.getItem(EMAIL_FOR_SIGN_IN_KEY),
+          djTermsAccepted: window.localStorage.getItem('djTermsAccepted'),
+          authRedirectTo: window.localStorage.getItem('authRedirectTo'),
+        });
         let email = window.localStorage.getItem(EMAIL_FOR_SIGN_IN_KEY);
         const enableNotifications = window.localStorage.getItem(NOTIFICATIONS_PREF_KEY) === "true";
 
@@ -109,13 +115,16 @@ export function useAuth() {
 
             // Check if DJ terms were accepted before sending the magic link
             const djTermsAccepted = window.localStorage.getItem('djTermsAccepted') === 'true';
+            console.log('[email-link] Sign-in successful, djTermsAccepted:', djTermsAccepted, 'email:', user.email);
             if (djTermsAccepted && user.email) {
               try {
-                await fetch('/api/users/assign-dj-role', {
+                console.log('[email-link] Calling assign-dj-role...');
+                const resp = await fetch('/api/users/assign-dj-role', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ email: user.email }),
                 });
+                console.log('[email-link] assign-dj-role response:', resp.status);
               } catch (err) {
                 console.error('Failed to assign DJ role (non-fatal):', err);
               }
@@ -128,6 +137,7 @@ export function useAuth() {
 
             // Redirect if a target was stored, otherwise clean up URL
             const authRedirectTo = window.localStorage.getItem('authRedirectTo');
+            console.log('[email-link] authRedirectTo:', authRedirectTo);
             window.localStorage.removeItem('authRedirectTo');
             if (authRedirectTo) {
               window.location.href = authRedirectTo;
