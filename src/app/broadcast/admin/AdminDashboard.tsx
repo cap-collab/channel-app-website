@@ -128,8 +128,6 @@ export function AdminDashboard() {
   }) => {
     if (!user) return;
 
-    let createdSlot: BroadcastSlotSerialized | null = null;
-
     if (selectedSlot) {
       // Check if broadcast type changed - if so, need to recreate to get new token
       const typeChanged = selectedSlot.broadcastType !== data.broadcastType;
@@ -137,11 +135,10 @@ export function AdminDashboard() {
       if (typeChanged) {
         // Delete old slot and create new one (new type needs new token)
         await deleteSlotFromDb(selectedSlot.id);
-        const result = await createSlot({
+        await createSlot({
           ...data,
           createdBy: user.uid,
         });
-        createdSlot = result.slot;
       } else {
         // Update existing slot - preserve the token by using updateSlot
         await updateSlot(selectedSlot.id, {
@@ -153,16 +150,13 @@ export function AdminDashboard() {
           endTime: data.endTime,
           showImageUrl: data.showImageUrl,
         });
-        // For updates, we use the existing slot's token
-        createdSlot = { ...selectedSlot, ...data, broadcastToken: selectedSlot.broadcastToken };
       }
     } else {
       // Create new slot
-      const result = await createSlot({
+      await createSlot({
         ...data,
         createdBy: user.uid,
       });
-      createdSlot = result.slot;
     }
 
     await fetchSlots();
