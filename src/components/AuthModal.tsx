@@ -15,6 +15,10 @@ interface AuthModalProps {
   includeDjTerms?: boolean;
   /** Redirect to this URL after successful auth (instead of reloading) */
   redirectTo?: string;
+  /** Called when sign-in starts (popup opened) to prevent premature unmount */
+  onSignInStart?: () => void;
+  /** Called when the full sign-in flow (including role assignment) completes */
+  onSignInComplete?: () => void;
 }
 
 type ModalView = "main" | "emailInput" | "methodChoice" | "password" | "forgotPassword";
@@ -129,6 +133,8 @@ export function AuthModal({
   inline = false,
   includeDjTerms = false,
   redirectTo,
+  onSignInStart,
+  onSignInComplete,
 }: AuthModalProps) {
   const {
     sendEmailLink,
@@ -170,6 +176,7 @@ export function AuthModal({
     if (includeDjTerms) {
       sessionStorage.setItem('djTermsJustAccepted', 'true');
     }
+    onSignInStart?.();
     const user = await signInWithGoogle(enableNotifications);
     if (user) {
       if (includeDjTerms) {
@@ -183,6 +190,7 @@ export function AuthModal({
           console.error('Failed to assign DJ role:', err);
         }
       }
+      onSignInComplete?.();
       if (!inline && redirectTo) {
         window.location.href = redirectTo;
         return;
@@ -198,6 +206,7 @@ export function AuthModal({
     if (includeDjTerms) {
       sessionStorage.setItem('djTermsJustAccepted', 'true');
     }
+    onSignInStart?.();
     const user = await signInWithApple(enableNotifications);
     if (user) {
       if (includeDjTerms) {
@@ -211,6 +220,7 @@ export function AuthModal({
           console.error('Failed to assign DJ role:', err);
         }
       }
+      onSignInComplete?.();
       if (!inline && redirectTo) {
         window.location.href = redirectTo;
         return;
@@ -249,6 +259,7 @@ export function AuthModal({
     if (includeDjTerms) {
       sessionStorage.setItem('djTermsJustAccepted', 'true');
     }
+    onSignInStart?.();
 
     if (isNewUser) {
       const user = await createAccountWithPassword(email.trim(), password, enableNotifications);
@@ -264,6 +275,7 @@ export function AuthModal({
             console.error('Failed to assign DJ role:', err);
           }
         }
+        onSignInComplete?.();
         if (!inline && redirectTo) {
           window.location.href = redirectTo;
           return;
@@ -286,6 +298,7 @@ export function AuthModal({
             console.error('Failed to assign DJ role:', err);
           }
         }
+        onSignInComplete?.();
         if (!inline && redirectTo) {
           window.location.href = redirectTo;
           return;

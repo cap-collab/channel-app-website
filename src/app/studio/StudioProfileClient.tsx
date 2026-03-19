@@ -103,25 +103,22 @@ export function StudioProfileClient() {
   const [upgradingToDJ, setUpgradingToDJ] = useState(false);
   const [upgradeError, setUpgradeError] = useState("");
 
+  // Track when inline sign-in flow completes (role assignment done)
+  const [signInFlowComplete, setSignInFlowComplete] = useState(false);
+  // Keep showing inline auth UI until sign-in flow is fully done
+  const [signingInInline, setSigningInInline] = useState(false);
+
   // If user signed in via the inline AuthModal with DJ terms,
   // we know they have the DJ role — skip the upgrade screen while role propagates
-  const djTermsJustAccepted = typeof window !== 'undefined' && sessionStorage.getItem('djTermsJustAccepted') === 'true';
+  const djTermsJustAccepted = signInFlowComplete || (typeof window !== 'undefined' && sessionStorage.getItem('djTermsJustAccepted') === 'true');
   // Clear the flag once role is confirmed
   useEffect(() => {
     if (isDJ(role) && typeof window !== 'undefined') {
       sessionStorage.removeItem('djTermsJustAccepted');
+      setSignInFlowComplete(false);
+      setSigningInInline(false);
     }
   }, [role]);
-  // Safety: if stuck on "Building your DJ profile" for >4s, reload to re-fetch role
-  useEffect(() => {
-    if (!isDJ(role) && djTermsJustAccepted) {
-      const timer = setTimeout(() => {
-        sessionStorage.removeItem('djTermsJustAccepted');
-        window.location.reload();
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [role, djTermsJustAccepted]);
 
 
   // Profile data
@@ -1220,8 +1217,8 @@ export function StudioProfileClient() {
     );
   }
 
-  // Not authenticated
-  if (!isAuthenticated) {
+  // Not authenticated, or sign-in is in progress (keep AuthModal mounted until flow completes)
+  if (!isAuthenticated || (signingInInline && !signInFlowComplete)) {
     return (
       <div className="min-h-screen bg-black">
         <Header currentPage="studio" position="sticky" />
@@ -1229,7 +1226,7 @@ export function StudioProfileClient() {
           <div className="text-center py-12">
             <h1 className="text-2xl font-semibold text-white mb-2">Studio</h1>
             <p className="text-gray-400 mb-8">
-              Sign in to access your DJ profile
+              {signingInInline ? 'Setting up your account...' : 'Sign in to access your DJ profile'}
             </p>
             <div className="max-w-sm mx-auto">
               <AuthModal
@@ -1237,6 +1234,8 @@ export function StudioProfileClient() {
                 onClose={() => {}}
                 inline
                 includeDjTerms
+                onSignInStart={() => setSigningInInline(true)}
+                onSignInComplete={() => setSignInFlowComplete(true)}
               />
             </div>
           </div>
