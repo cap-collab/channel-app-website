@@ -97,7 +97,9 @@ export async function GET(request: NextRequest) {
   }
 
   // Test mode: ?testEmail=user@example.com bypasses schedule/dedup and only sends to that email
+  // Optional: ?sendTo=other@example.com redirects the email to a different address (for previewing another user's digest)
   const testEmail = request.nextUrl.searchParams.get("testEmail");
+  const sendToOverride = request.nextUrl.searchParams.get("sendTo");
 
   if (!isRestApiConfigured()) {
     return NextResponse.json(
@@ -1155,7 +1157,7 @@ export async function GET(request: NextRequest) {
 
       if (hasContent) {
         const success = await sendWatchlistDigestEmail({
-          to: userData.email as string,
+          to: (testEmail && sendToOverride) ? sendToOverride : userData.email as string,
           userTimezone: userData.timezone as string | undefined,
           favoriteShows,
           curatorRecs: userCuratorRecs,
