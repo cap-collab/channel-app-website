@@ -1752,7 +1752,7 @@ export function DJPublicProfileClient({ username }: Props) {
 
                 if (item.feedType === "irl") {
                   const irlShow = item as IrlShow & { feedType: "irl"; feedStatus: "upcoming"; id: string };
-                  const irlDate = irlShow.date ? new Date(irlShow.date) : null;
+                  const irlDate = irlShow.date ? new Date(irlShow.date + "T00:00:00") : null;
                   const dateStr = irlDate ? irlDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "TBA";
 
                   return (
@@ -1808,28 +1808,36 @@ export function DJPublicProfileClient({ username }: Props) {
 
                 if (item.feedType === "dj-radio") {
                   const radioShow = item as RadioShow & { feedType: "dj-radio"; feedStatus: "upcoming"; id: string };
-                  const radioDate = radioShow.date ? new Date(radioShow.date) : null;
-                  const dateStr = radioDate ? radioDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "TBA";
-                  // Convert radio show time to local device time
-                  let timeStr = "";
-                  if (radioShow.time && radioDate) {
-                    const [hours, minutes] = radioShow.time.split(":").map(Number);
-                    const showDateTime = new Date(radioDate);
-                    showDateTime.setHours(hours || 0, minutes || 0, 0, 0);
-                    timeStr = showDateTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-                  }
-
-                  // Check if show is currently live (within 2 hours of start time)
-                  const nowMs = Date.now();
-                  let isLive = false;
-                  if (radioDate && radioShow.time) {
-                    const [hours, minutes] = radioShow.time.split(":").map(Number);
-                    const showStart = new Date(radioDate);
-                    showStart.setHours(hours || 0, minutes || 0, 0, 0);
+                  const showTz = radioShow.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+                  // Parse date+time in the show's timezone to get the correct UTC instant
+                  let showStartUtc: number | null = null;
+                  let showEndUtc: number | null = null;
+                  if (radioShow.date && radioShow.time) {
+                    const naiveUtc = new Date(`${radioShow.date}T${radioShow.time}:00Z`).getTime();
+                    const parts = new Intl.DateTimeFormat("en-US", {
+                      timeZone: showTz, year: "numeric", month: "2-digit", day: "2-digit",
+                      hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+                    }).formatToParts(new Date(naiveUtc));
+                    const get = (t: string) => parts.find((p) => p.type === t)?.value || "0";
+                    const tzLocal = new Date(`${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}:${get("second")}Z`).getTime();
+                    const offsetMs = tzLocal - naiveUtc;
+                    showStartUtc = naiveUtc - offsetMs;
                     const durationHours = parseFloat(radioShow.duration || "1") || 1;
-                    const showEnd = new Date(showStart.getTime() + durationHours * 60 * 60 * 1000);
-                    isLive = nowMs >= showStart.getTime() && nowMs < showEnd.getTime();
+                    showEndUtc = showStartUtc + durationHours * 3600000;
                   }
+                  // Display date/time in the viewer's local timezone from the correct UTC instant
+                  const dateStr = showStartUtc !== null
+                    ? new Date(showStartUtc).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                    : radioShow.date
+                      ? new Date(radioShow.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                      : "TBA";
+                  const timeStr = showStartUtc !== null
+                    ? new Date(showStartUtc).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+                    : "";
+
+                  // Check if show is currently live
+                  const nowMs = Date.now();
+                  const isLive = showStartUtc !== null && showEndUtc !== null && nowMs >= showStartUtc && nowMs < showEndUtc;
 
                   // Check favorite status for this radio show
                   const showAsShow = radioShowToShow(radioShow);
@@ -1866,26 +1874,21 @@ export function DJPublicProfileClient({ username }: Props) {
                         </div>
 
                         {/* Time Bar - show when time and duration available */}
-                        {radioShow.time && radioShow.duration && (() => {
-                          const [hours, minutes] = radioShow.time.split(":").map(Number);
-                          const showStart = new Date(radioDate!);
-                          showStart.setHours(hours || 0, minutes || 0, 0, 0);
-                          const durationHours = parseFloat(radioShow.duration) || 1;
-                          const showEnd = new Date(showStart.getTime() + durationHours * 60 * 60 * 1000);
+                        {showStartUtc !== null && showEndUtc !== null && (() => {
                           return (
                             <div className="space-y-1">
                               <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
                                 <div
                                   className="h-full"
                                   style={{
-                                    width: isLive ? `${Math.min(100, Math.max(0, (nowMs - showStart.getTime()) / (showEnd.getTime() - showStart.getTime()) * 100))}%` : '0%',
+                                    width: isLive ? `${Math.min(100, Math.max(0, (nowMs - showStartUtc) / (showEndUtc - showStartUtc) * 100))}%` : '0%',
                                     backgroundColor: '#D94099'
                                   }}
                                 />
                               </div>
                               <div className="flex justify-between text-[10px] text-zinc-500">
-                                <span>{showStart.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
-                                <span>{showEnd.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
+                                <span>{new Date(showStartUtc).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
+                                <span>{new Date(showEndUtc).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
                               </div>
                             </div>
                           );
@@ -1970,7 +1973,7 @@ export function DJPublicProfileClient({ username }: Props) {
                             {irlShow.name || irlShow.venue || irlShow.url?.replace(/^https?:\/\//, "").split("/")[0] || "Event"}
                           </h3>
                           <p className="text-gray-500 text-sm">{irlShow.location || "Past IRL Event"}</p>
-                          <p className="text-gray-600 text-xs">{irlShow.date || "TBA"}</p>
+                          <p className="text-gray-600 text-xs">{irlShow.date ? new Date(irlShow.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "TBA"}</p>
                         </div>
                       </div>
                     </div>
@@ -1987,7 +1990,7 @@ export function DJPublicProfileClient({ username }: Props) {
                             {radioShow.name || `On ${radioShow.radioName}`}
                           </h3>
                           <p className="text-gray-500 text-sm">{radioShow.radioName || "Radio Show"}</p>
-                          <p className="text-gray-600 text-xs">{radioShow.date || "TBA"}</p>
+                          <p className="text-gray-600 text-xs">{radioShow.date ? new Date(radioShow.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "TBA"}</p>
                         </div>
                       </div>
                     </div>
