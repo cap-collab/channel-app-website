@@ -26,21 +26,18 @@ type ModalView = "main" | "emailInput" | "methodChoice" | "password" | "forgotPa
 // Isolated password form component to prevent focus loss from parent re-renders
 function PasswordForm({
   email,
-  isNewUser,
   onSubmit,
   onForgotPassword,
   onBack,
   loading,
 }: {
   email: string;
-  isNewUser: boolean;
   onSubmit: (password: string) => Promise<void>;
   onForgotPassword: () => void;
   onBack: () => void;
   loading: boolean;
 }) {
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const passwordRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -49,22 +46,17 @@ function PasswordForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password) return;
-    if (isNewUser && (password !== confirmPassword || password.length < 6)) return;
+    if (!password || password.length < 6) return;
     await onSubmit(password);
   };
-
-  const isValid = password && (!isNewUser || (password === confirmPassword && password.length >= 6));
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <p className="text-white/60 text-sm">{email}</p>
 
-      {isNewUser && (
-        <p className="text-sm text-white/50">
-          Create a password for your new account
-        </p>
-      )}
+      <p className="text-sm text-white/50">
+        Enter your password to sign in, or choose a password to create a new account
+      </p>
 
       <div>
         <input
@@ -72,38 +64,20 @@ function PasswordForm({
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password"
+          placeholder="Password (min 6 characters)"
           className="w-full px-4 py-3 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/30 focus:bg-white/[0.08] transition-all"
         />
       </div>
 
-      {isNewUser && (
-        <div>
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Confirm password"
-            className="w-full px-4 py-3 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/30 focus:bg-white/[0.08] transition-all"
-          />
-          {confirmPassword && password !== confirmPassword && (
-            <p className="text-red-400 text-xs mt-1">Passwords don&apos;t match</p>
-          )}
-          <p className="text-white/40 text-xs mt-2">Password must be at least 6 characters</p>
-        </div>
-      )}
-
       <button
         type="submit"
-        disabled={loading || !isValid}
+        disabled={loading || !password || password.length < 6}
         className="w-full py-3 bg-white text-black rounded-xl font-medium hover:bg-white/90 transition-all disabled:opacity-50"
       >
         {loading ? (
           <div className="w-5 h-5 border-2 border-gray-400 border-t-black rounded-full animate-spin mx-auto" />
-        ) : isNewUser ? (
-          "Create Account"
         ) : (
-          "Sign In"
+          "Continue"
         )}
       </button>
 
@@ -140,10 +114,8 @@ export function AuthModal({
     sendEmailLink,
     signInWithGoogle,
     signInWithApple,
-    signInWithPassword,
-    createAccountWithPassword,
+    signInOrCreateWithPassword,
     sendPasswordReset,
-    checkEmailMethods,
     loading,
     error,
     emailSent,
@@ -155,7 +127,6 @@ export function AuthModal({
   const [email, setEmail] = useState("");
   const [enableNotifications, setEnableNotifications] = useState(true);
   const [view, setView] = useState<ModalView>("main");
-  const [isNewUser, setIsNewUser] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
 
   // Reset state when modal closes
@@ -163,7 +134,6 @@ export function AuthModal({
     if (!isOpen) {
       setEmail("");
       setView("main");
-      setIsNewUser(false);
       setForgotPasswordEmail("");
       resetEmailSent();
       resetPasswordResetSent();
@@ -233,9 +203,9 @@ export function AuthModal({
 
   const handleEmailContinue = async () => {
     if (!email.trim()) return;
-    // Check if user exists to determine if they're new
-    const methods = await checkEmailMethods(email.trim());
-    setIsNewUser(methods.length === 0);
+    // Note: fetchSignInMethodsForEmail returns [] when email enumeration protection
+    // is enabled (Firebase default), so we can't reliably detect existing users.
+    // Instead, always go to methodChoice and handle both cases in handlePasswordSubmit.
     setView("methodChoice");
   };
 
@@ -261,50 +231,29 @@ export function AuthModal({
     }
     onSignInStart?.();
 
-    if (isNewUser) {
-      const user = await createAccountWithPassword(email.trim(), password, enableNotifications);
-      if (user) {
-        if (includeDjTerms) {
-          try {
-            await fetch('/api/users/assign-dj-role', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: user.email }),
-            });
-          } catch (err) {
-            console.error('Failed to assign DJ role:', err);
-          }
+    // Creates account if new, or signs in if email already exists.
+    const user = await signInOrCreateWithPassword(email.trim(), password, enableNotifications);
+
+    if (user) {
+      if (includeDjTerms) {
+        try {
+          await fetch('/api/users/assign-dj-role', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: user.email }),
+          });
+        } catch (err) {
+          console.error('Failed to assign DJ role:', err);
         }
-        onSignInComplete?.();
-        if (!inline && redirectTo) {
-          window.location.href = redirectTo;
-          return;
-        }
-        onClose();
-      } else if (includeDjTerms) {
-        sessionStorage.removeItem('djTermsJustAccepted');
       }
-    } else {
-      const user = await signInWithPassword(email.trim(), password, enableNotifications);
-      if (user) {
-        if (includeDjTerms) {
-          try {
-            await fetch('/api/users/assign-dj-role', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: user.email }),
-            });
-          } catch (err) {
-            console.error('Failed to assign DJ role:', err);
-          }
-        }
-        onSignInComplete?.();
-        if (!inline && redirectTo) {
-          window.location.href = redirectTo;
-          return;
-        }
-        onClose();
+      onSignInComplete?.();
+      if (!inline && redirectTo) {
+        window.location.href = redirectTo;
+        return;
       }
+      onClose();
+    } else if (includeDjTerms) {
+      sessionStorage.removeItem('djTermsJustAccepted');
     }
   };
 
@@ -622,7 +571,6 @@ export function AuthModal({
         {view === "password" && (
           <PasswordForm
             email={email}
-            isNewUser={isNewUser}
             onSubmit={handlePasswordSubmit}
             onForgotPassword={() => {
               setForgotPasswordEmail(email);

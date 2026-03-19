@@ -17,6 +17,7 @@ interface AuthContextType {
   checkEmailMethods: (email: string) => Promise<string[]>;
   signInWithPassword: (email: string, password: string, enableNotifications?: boolean) => Promise<User | null>;
   createAccountWithPassword: (email: string, password: string, enableNotifications?: boolean) => Promise<User | null>;
+  signInOrCreateWithPassword: (email: string, password: string, enableNotifications?: boolean) => Promise<User | null>;
   sendPasswordReset: (email: string) => Promise<boolean>;
   resetPasswordResetSent: () => void;
   signOut: () => Promise<void>;

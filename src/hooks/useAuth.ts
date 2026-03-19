@@ -555,6 +555,122 @@ export function useAuth() {
     }
   }, []);
 
+  // Try to create account; if email is already in use, fall back to sign-in.
+  // This avoids relying on fetchSignInMethodsForEmail which returns [] with email enumeration protection.
+  const signInOrCreateWithPassword = useCallback(async (
+    email: string,
+    password: string,
+    enableNotifications = false
+  ): Promise<User | null> => {
+    if (!auth || !db) {
+      setState((prev) => ({ ...prev, error: "Authentication not configured" }));
+      return null;
+    }
+
+    try {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+      // Try creating a new account first
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      const user = result.user;
+
+      // Create user document
+      const userRef = doc(db, "users", user.uid);
+      await setDoc(userRef, {
+        email: user.email,
+        displayName: user.email?.split("@")[0] || "User",
+        photoURL: null,
+        createdAt: serverTimestamp(),
+        lastSeenAt: serverTimestamp(),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        irlCity: getDefaultCity(),
+        emailNotifications: {
+          showStarting: enableNotifications,
+          watchlistMatch: enableNotifications,
+        },
+      });
+
+      // Reconcile any pending broadcast slots or tips by email
+      if (user.email) {
+        try {
+          await fetch('/api/users/reconcile-broadcast-slots', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.uid, email: user.email }),
+          });
+        } catch (err) {
+          console.error('Failed to reconcile broadcast slots (non-fatal):', err);
+        }
+      }
+
+      setState({ user, loading: false, error: null, emailSent: false, passwordResetSent: false });
+      return user;
+    } catch (createError) {
+      const firebaseCreateError = createError as { code?: string };
+
+      if (firebaseCreateError.code === "auth/email-already-in-use") {
+        // Account exists — try signing in instead
+        try {
+          const result = await signInWithEmailAndPassword(auth, email, password);
+          const user = result.user;
+
+          // Update user document
+          const userRef = doc(db, "users", user.uid);
+          const userSnap = await getDoc(userRef);
+          const updateData: Record<string, unknown> = {
+            lastSeenAt: serverTimestamp(),
+          };
+          if (enableNotifications) {
+            updateData.emailNotifications = {
+              showStarting: true,
+              watchlistMatch: true,
+            };
+          }
+          if (!userSnap.exists()) {
+            await setDoc(userRef, {
+              email: user.email,
+              displayName: user.email?.split("@")[0] || "User",
+              photoURL: null,
+              createdAt: serverTimestamp(),
+              ...updateData,
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              irlCity: getDefaultCity(),
+            });
+          } else {
+            await setDoc(userRef, updateData, { merge: true });
+          }
+
+          setState({ user, loading: false, error: null, emailSent: false, passwordResetSent: false });
+          return user;
+        } catch (signInError) {
+          const firebaseSignInError = signInError as { code?: string };
+          let message = "Failed to sign in";
+
+          if (firebaseSignInError.code === "auth/wrong-password" || firebaseSignInError.code === "auth/invalid-credential") {
+            message = "Incorrect password";
+          } else if (firebaseSignInError.code === "auth/too-many-requests") {
+            message = "Too many attempts. Please try again later.";
+          }
+
+          console.error("Password sign-in error:", signInError);
+          setState((prev) => ({ ...prev, loading: false, error: message }));
+          return null;
+        }
+      }
+
+      // Other create errors (weak password, invalid email, etc.)
+      let message = "Failed to create account";
+      if (firebaseCreateError.code === "auth/weak-password") {
+        message = "Password must be at least 6 characters";
+      } else if (firebaseCreateError.code === "auth/invalid-email") {
+        message = "Invalid email address";
+      }
+
+      console.error("Account creation error:", createError);
+      setState((prev) => ({ ...prev, loading: false, error: message }));
+      return null;
+    }
+  }, []);
+
   // Send password reset email
   const sendPasswordReset = useCallback(async (email: string): Promise<boolean> => {
     if (!auth) {
@@ -613,6 +729,7 @@ export function useAuth() {
     checkEmailMethods,
     signInWithPassword,
     createAccountWithPassword,
+    signInOrCreateWithPassword,
     sendPasswordReset,
     resetPasswordResetSent,
     signOut,
