@@ -187,7 +187,7 @@ export function AdminDashboard() {
         body: JSON.stringify({ email: djEmail }),
       });
       const result = await response.json();
-      const userExists = result.userExists;
+      const djUsernameNormalized = result.djUsernameNormalized;
 
       // Format show date/time
       const startDate = new Date(data.startTime);
@@ -196,69 +196,77 @@ export function AdminDashboard() {
         weekday: 'long',
         month: 'long',
         day: 'numeric',
-        year: 'numeric',
       });
       const startTimeStr = startDate.toLocaleTimeString('en-US', {
         hour: 'numeric',
         minute: '2-digit',
+        timeZoneName: 'short',
       });
       const endTimeStr = endDate.toLocaleTimeString('en-US', {
         hour: 'numeric',
         minute: '2-digit',
+        timeZoneName: 'short',
       });
 
       const broadcastUrl = `https://channel-app.com/broadcast/live?token=${slot.broadcastToken}`;
-      const signInUrl = `https://channel-app.com/radio-portal`;
+      const profileUrl = djUsernameNormalized
+        ? `https://channel-app.com/dj/${djUsernameNormalized}`
+        : null;
 
-      const subject = userExists
-        ? `Your show on Channel: ${data.showName}`
-        : `You're invited to DJ on Channel: ${data.showName}`;
+      const subject = `Your show on Channel: ${data.showName}`;
 
-      const signUpBlock = userExists
-        ? ''
-        : `First, create your account. IMPORTANT: sign up using ${djEmail}
-→ ${signInUrl}
-
-`;
+      const profileTipLine = profileUrl
+        ? `(people can support you anytime via your profile ${profileUrl}, not just during your live set)`
+        : '';
 
       const body = `Hi${data.djName ? ` ${data.djName}` : ''},
 
-You're scheduled to livestream on Channel!
+You're all set to go live on Channel.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-YOUR SHOW
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Show: ${data.showName}
-Date: ${dateStr}
-Time: ${startTimeStr} – ${endTimeStr}
+${dateStr}
+${startTimeStr} – ${endTimeStr}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-GET READY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⸻
 
-${signUpBlock}Complete your DJ profile (photo, bio, promo link):
-→ https://channel-app.com/studio
+1. Fine-tune your profile
 
-Connect Stripe to receive listener support during your set:
-→ https://channel-app.com/stripe-setup
+Sign up or log in using ${djEmail} so everything links properly, then update your profile with anything you want people to see before and during your show:
 
-Your broadcast link (do not share):
-→ ${broadcastUrl}
+https://channel-app.com/studio
 
-Test your stream before going live — open the link above and check your audio/connection.
-Full streaming guide: https://channel-app.com/streaming-guide
+Add your bio, links, and any upcoming shows, on Channel, other radios, or IRL. We feature these on the website and in our bi-weekly newsletter.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DAY OF THE SHOW
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Join a few minutes early
-• Once live, listeners can tune in, chat, and support you
-• Share your live stream: https://channel-app.com/radio
+If you haven't connected Stripe yet and want to receive tips:
+https://channel-app.com/stripe-setup
+${profileTipLine}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⸻
 
-See you on air,
-– The Channel Team`;
+2. Your live stream link
+
+You'll go live from here (keep this link private):
+${broadcastUrl}
+
+I recommend opening it ahead of time and doing a quick test.
+
+Setup guide:
+https://channel-app.com/streaming-guide
+
+⸻
+
+3. Day of the show
+
+Join a few minutes early. Once you go live, people can tune in, chat, and support you in real time.
+
+You can share the radio here:
+https://channel-app.com/radio
+
+⸻
+
+That's it. Excited to have you on.
+
+Cap`;
 
       // Open Gmail compose in new tab
       const gmailUrl = `https://mail.google.com/mail/?authuser=cap@channel-app.com&view=cm&fs=1&to=${encodeURIComponent(djEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;

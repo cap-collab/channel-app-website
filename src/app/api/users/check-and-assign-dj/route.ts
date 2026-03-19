@@ -38,7 +38,11 @@ export async function POST(request: NextRequest) {
       console.log(`User ${userDoc.id} already has role: ${currentRole}, not changing`);
     }
 
-    return NextResponse.json({ userExists: true, userId: userDoc.id });
+    return NextResponse.json({
+      userExists: true,
+      userId: userDoc.id,
+      djUsernameNormalized: userData.chatUsernameNormalized || null,
+    });
   } catch (error) {
     console.error('Error checking/assigning DJ role:', error);
     return NextResponse.json({ error: 'Failed to check user' }, { status: 500 });
