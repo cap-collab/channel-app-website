@@ -18,8 +18,18 @@ interface CustomLink {
 }
 
 interface IrlShow {
+  name: string;
   url: string;
   date: string;
+}
+
+interface RadioShow {
+  name: string;
+  radioName: string;
+  url: string;
+  date: string;
+  time: string;
+  timezone: string;
 }
 
 interface EventDJRef {
@@ -72,6 +82,7 @@ interface PendingProfile {
       customLinks?: CustomLink[];
     };
     irlShows?: IrlShow[];
+    radioShows?: RadioShow[];
     myRecs?: {
       bandcampLinks?: string[];
       eventLinks?: string[];
@@ -109,7 +120,10 @@ export function PendingDJsAdmin() {
   const [customLinks, setCustomLinks] = useState<CustomLink[]>([]);
 
   // IRL Shows state
-  const [irlShows, setIrlShows] = useState<IrlShow[]>([{ url: '', date: '' }, { url: '', date: '' }]);
+  const [irlShows, setIrlShows] = useState<IrlShow[]>([{ name: '', url: '', date: '' }, { name: '', url: '', date: '' }]);
+
+  // Radio Shows state
+  const [radioShows, setRadioShows] = useState<RadioShow[]>([{ name: '', radioName: '', url: '', date: '', time: '', timezone: '' }]);
 
   // My Recs state
   const [bandcampRecs, setBandcampRecs] = useState<string[]>(['']);
@@ -298,7 +312,8 @@ export function PendingDJsAdmin() {
     setResidentAdvisor('');
     setWebsite('');
     setCustomLinks([]);
-    setIrlShows([{ url: '', date: '' }, { url: '', date: '' }]);
+    setIrlShows([{ name: '', url: '', date: '' }, { name: '', url: '', date: '' }]);
+    setRadioShows([{ name: '', radioName: '', url: '', date: '', time: '', timezone: '' }]);
     setBandcampRecs(['']);
     setEventRecs(['']);
     setPhotoUrl(null);
@@ -334,11 +349,25 @@ export function PendingDJsAdmin() {
     setWebsite(profile.djProfile.socialLinks?.website || '');
     setCustomLinks(profile.djProfile.socialLinks?.customLinks || []);
     // IRL Shows - ensure we always have 2 fields
-    const existingIrlShows = profile.djProfile.irlShows || [];
+    const existingIrlShows = (profile.djProfile.irlShows || []).map((s: Partial<IrlShow>) => ({
+      name: s.name || '',
+      url: s.url || '',
+      date: s.date || '',
+    }));
     setIrlShows([
-      existingIrlShows[0] || { url: '', date: '' },
-      existingIrlShows[1] || { url: '', date: '' },
+      existingIrlShows[0] || { name: '', url: '', date: '' },
+      existingIrlShows[1] || { name: '', url: '', date: '' },
     ]);
+    // Radio Shows - ensure at least one empty field
+    const existingRadioShows = (profile.djProfile.radioShows || []).map((s: Partial<RadioShow>) => ({
+      name: s.name || '',
+      radioName: s.radioName || '',
+      url: s.url || '',
+      date: s.date || '',
+      time: s.time || '',
+      timezone: s.timezone || '',
+    }));
+    setRadioShows(existingRadioShows.length > 0 ? existingRadioShows : [{ name: '', radioName: '', url: '', date: '', time: '', timezone: '' }]);
     // My Recs - ensure at least one empty field
     const existingBandcampRecs = profile.djProfile.myRecs?.bandcampLinks || [];
     setBandcampRecs(existingBandcampRecs.length > 0 ? existingBandcampRecs : ['']);
@@ -467,10 +496,23 @@ export function PendingDJsAdmin() {
 
       // Build IRL shows data
       const validIrlShows = irlShows.filter(
-        (show) => (show.url || '').trim() || (show.date || '').trim()
+        (show) => (show.name || '').trim() || (show.url || '').trim() || (show.date || '').trim()
       ).map((show) => ({
+        name: (show.name || '').trim(),
         url: (show.url || '').trim() ? normalizeUrl((show.url || '').trim()) : '',
         date: (show.date || '').trim(),
+      }));
+
+      // Build radio shows data
+      const validRadioShows = radioShows.filter(
+        (show) => (show.radioName || '').trim() || (show.date || '').trim() || (show.name || '').trim()
+      ).map((show) => ({
+        name: (show.name || '').trim(),
+        radioName: (show.radioName || '').trim(),
+        url: (show.url || '').trim() ? normalizeUrl((show.url || '').trim()) : '',
+        date: (show.date || '').trim(),
+        time: (show.time || '').trim(),
+        timezone: (show.timezone || '').trim(),
       }));
 
       // Build my recs data
@@ -490,6 +532,7 @@ export function PendingDJsAdmin() {
             photoUrl: photoUrl || null,
             socialLinks: socialLinksData,
             irlShows: validIrlShows.length > 0 ? validIrlShows : undefined,
+            radioShows: validRadioShows.length > 0 ? validRadioShows : undefined,
             myRecs: (validBandcampRecs.length > 0 || validEventRecs.length > 0) ? {
               bandcampLinks: validBandcampRecs.length > 0 ? validBandcampRecs : undefined,
               eventLinks: validEventRecs.length > 0 ? validEventRecs : undefined,
@@ -1169,7 +1212,30 @@ Cap`;
                 </p>
                 <div className="space-y-3">
                   {irlShows.map((show, index) => (
-                    <div key={index} className="flex gap-2">
+                    <div key={index} className="space-y-2 p-3 bg-[#1a1a1a] rounded-lg border border-gray-800">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={show.name}
+                          onChange={(e) => {
+                            const updated = [...irlShows];
+                            updated[index] = { ...updated[index], name: e.target.value };
+                            setIrlShows(updated);
+                          }}
+                          placeholder="Event name"
+                          className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
+                        />
+                        <input
+                          type="date"
+                          value={show.date}
+                          onChange={(e) => {
+                            const updated = [...irlShows];
+                            updated[index] = { ...updated[index], date: e.target.value };
+                            setIrlShows(updated);
+                          }}
+                          className="w-40 bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm [color-scheme:dark]"
+                        />
+                      </div>
                       <input
                         type="url"
                         value={show.url}
@@ -1179,22 +1245,112 @@ Cap`;
                           setIrlShows(updated);
                         }}
                         placeholder="Event URL (e.g., ra.co/events/...)"
-                        className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
-                      />
-                      <input
-                        type="text"
-                        value={show.date}
-                        onChange={(e) => {
-                          const updated = [...irlShows];
-                          updated[index] = { ...updated[index], date: e.target.value };
-                          setIrlShows(updated);
-                        }}
-                        placeholder="Date"
-                        className="w-28 bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
+                        className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
                       />
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* Radio Shows */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Radio Shows
+                </label>
+                <p className="text-xs text-gray-500 mb-3">
+                  Shows on other online radios
+                </p>
+                <div className="space-y-3">
+                  {radioShows.map((show, index) => (
+                    <div key={index} className="space-y-2 p-3 bg-[#1a1a1a] rounded-lg border border-gray-800">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={show.name}
+                          onChange={(e) => {
+                            const updated = [...radioShows];
+                            updated[index] = { ...updated[index], name: e.target.value };
+                            setRadioShows(updated);
+                          }}
+                          placeholder="Show name"
+                          className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
+                        />
+                        <input
+                          type="text"
+                          value={show.radioName}
+                          onChange={(e) => {
+                            const updated = [...radioShows];
+                            updated[index] = { ...updated[index], radioName: e.target.value };
+                            setRadioShows(updated);
+                          }}
+                          placeholder="Radio name"
+                          className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="date"
+                          value={show.date}
+                          onChange={(e) => {
+                            const updated = [...radioShows];
+                            updated[index] = { ...updated[index], date: e.target.value };
+                            setRadioShows(updated);
+                          }}
+                          className="w-40 bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm [color-scheme:dark]"
+                        />
+                        <input
+                          type="time"
+                          value={show.time}
+                          onChange={(e) => {
+                            const updated = [...radioShows];
+                            updated[index] = { ...updated[index], time: e.target.value };
+                            setRadioShows(updated);
+                          }}
+                          className="w-32 bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm [color-scheme:dark]"
+                        />
+                        <select
+                          value={show.timezone}
+                          onChange={(e) => {
+                            const updated = [...radioShows];
+                            updated[index] = { ...updated[index], timezone: e.target.value };
+                            setRadioShows(updated);
+                          }}
+                          className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-white transition-colors text-sm"
+                        >
+                          <option value="">Timezone</option>
+                          <option value="America/New_York">Eastern (ET)</option>
+                          <option value="America/Chicago">Central (CT)</option>
+                          <option value="America/Denver">Mountain (MT)</option>
+                          <option value="America/Los_Angeles">Pacific (PT)</option>
+                          <option value="Europe/London">London (GMT/BST)</option>
+                          <option value="Europe/Paris">Paris (CET/CEST)</option>
+                          <option value="Europe/Berlin">Berlin (CET/CEST)</option>
+                          <option value="Asia/Tokyo">Tokyo (JST)</option>
+                          <option value="Australia/Sydney">Sydney (AEST)</option>
+                        </select>
+                      </div>
+                      <input
+                        type="url"
+                        value={show.url}
+                        onChange={(e) => {
+                          const updated = [...radioShows];
+                          updated[index] = { ...updated[index], url: e.target.value };
+                          setRadioShows(updated);
+                        }}
+                        placeholder="Stream URL"
+                        className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRadioShows([...radioShows, { name: '', radioName: '', url: '', date: '', time: '', timezone: '' }])}
+                  className="mt-2 text-xs text-gray-400 hover:text-white flex items-center gap-1"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                  Add Radio Show
+                </button>
               </div>
 
               {/* My Recs */}

@@ -52,8 +52,19 @@ interface CustomLink {
 }
 
 interface IrlShow {
+  name?: string;
   url: string;
   date: string;
+}
+
+interface RadioShow {
+  name?: string;
+  radioName?: string;
+  url?: string;
+  date: string;
+  time?: string;
+  duration?: string;
+  timezone?: string;
 }
 
 interface DJProfileData {
@@ -75,6 +86,7 @@ interface DJProfileData {
     customLinks?: CustomLink[];
   };
   irlShows?: IrlShow[];
+  radioShows?: RadioShow[];
   myRecs?: {
     bandcampLinks?: string[];
     eventLinks?: string[];
@@ -177,6 +189,7 @@ export async function POST(request: NextRequest) {
           promoHyperlink: djProfile?.promoHyperlink || null,
           socialLinks: djProfile?.socialLinks || {},
           irlShows: djProfile?.irlShows || [],
+          radioShows: djProfile?.radioShows || [],
           myRecs: djProfile?.myRecs || {},
         },
         status: 'pending',
@@ -301,6 +314,7 @@ export async function PATCH(request: NextRequest) {
       promoHyperlink: djProfile?.promoHyperlink || null,
       socialLinks: djProfile?.socialLinks || {},
       irlShows: djProfile?.irlShows || [],
+      radioShows: djProfile?.radioShows || [],
       myRecs: djProfile?.myRecs || {},
     };
 
