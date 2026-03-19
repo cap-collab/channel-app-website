@@ -120,6 +120,17 @@ export function StudioProfileClient() {
     }
   }, [role]);
 
+  // Safety: if stuck on loading screen for >5s, reload to re-fetch role
+  // This handles edge cases where onSnapshot misses the role update
+  useEffect(() => {
+    if (!isDJ(role) && djTermsJustAccepted && isAuthenticated) {
+      const timer = setTimeout(() => {
+        window.location.reload();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [role, djTermsJustAccepted, isAuthenticated]);
+
 
   // Profile data
   const [chatUsername, setChatUsername] = useState<string | null>(null);

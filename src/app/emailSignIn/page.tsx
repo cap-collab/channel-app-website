@@ -71,11 +71,29 @@ export default function EmailSignInPage() {
       // Clear stored email
       window.localStorage.removeItem(EMAIL_FOR_SIGN_IN_KEY);
 
+      // If user accepted DJ terms before sending magic link, assign DJ role now
+      const djTermsAccepted = window.localStorage.getItem('djTermsAccepted') === 'true';
+      if (djTermsAccepted && user.email) {
+        window.localStorage.removeItem('djTermsAccepted');
+        sessionStorage.setItem('djTermsJustAccepted', 'true');
+        try {
+          await fetch('/api/users/assign-dj-role', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: user.email }),
+          });
+        } catch (err) {
+          console.error('Failed to assign DJ role:', err);
+        }
+      }
+
       setStatus("success");
 
-      // Redirect to channel after short delay
+      // Redirect to stored destination or default to /radio
+      const redirectTo = window.localStorage.getItem('authRedirectTo') || (djTermsAccepted ? '/studio' : '/radio');
+      window.localStorage.removeItem('authRedirectTo');
       setTimeout(() => {
-        window.location.href = "/radio";
+        window.location.href = redirectTo;
       }, 1500);
     } catch (error) {
       console.error("Email link sign-in error:", error);
