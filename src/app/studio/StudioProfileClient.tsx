@@ -112,6 +112,16 @@ export function StudioProfileClient() {
       sessionStorage.removeItem('djTermsJustAccepted');
     }
   }, [role]);
+  // Safety: if stuck on "Building your DJ profile" for >4s, reload to re-fetch role
+  useEffect(() => {
+    if (!isDJ(role) && djTermsJustAccepted) {
+      const timer = setTimeout(() => {
+        sessionStorage.removeItem('djTermsJustAccepted');
+        window.location.reload();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [role, djTermsJustAccepted]);
 
 
   // Profile data
