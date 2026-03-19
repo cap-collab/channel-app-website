@@ -269,6 +269,7 @@ export function SlotModal({
   // Remote DJ profile lookup state
   const [remoteProfileFound, setRemoteProfileFound] = useState(false);
   const [isLookingUpRemote, setIsLookingUpRemote] = useState(false);
+  const [remoteUsernameNormalized, setRemoteUsernameNormalized] = useState<string | undefined>(undefined);
   // Show image state
   const [showImageUrl, setShowImageUrl] = useState<string | undefined>(undefined);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -290,12 +291,14 @@ export function SlotModal({
       const data = await res.json();
       if (data.found) {
         setRemoteProfileFound(true);
+        setRemoteUsernameNormalized(data.djUsernameNormalized || undefined);
         // Auto-fill DJ name if empty
         if (!djName && data.djName) {
           setDjName(data.djName);
         }
       } else {
         setRemoteProfileFound(false);
+        setRemoteUsernameNormalized(undefined);
       }
     } catch (error) {
       console.error('Failed to lookup DJ profile:', error);
@@ -746,17 +749,17 @@ export function SlotModal({
   // Open mailto with DJ onboarding email (for remote broadcasts)
   const openDjEmail = () => {
     if (!slot || !djEmail) return;
-    openDjEmailWithDetails(djEmail, djName || 'there', slot.startTime, slot.endTime);
+    openDjEmailWithDetails(djEmail, djName || 'there', slot.startTime, slot.endTime, remoteUsernameNormalized);
   };
 
   // Open mailto for a specific DJ in a venue slot
-  const openDjEmailForSlot = (targetEmail: string, targetDjName: string, slotStartTime: number, slotEndTime: number) => {
+  const openDjEmailForSlot = (targetEmail: string, targetDjName: string, slotStartTime: number, slotEndTime: number, targetUsernameNormalized?: string) => {
     if (!slot || !targetEmail) return;
-    openDjEmailWithDetails(targetEmail, targetDjName || 'there', slotStartTime, slotEndTime);
+    openDjEmailWithDetails(targetEmail, targetDjName || 'there', slotStartTime, slotEndTime, targetUsernameNormalized);
   };
 
   // Shared email generation logic
-  const openDjEmailWithDetails = (targetEmail: string, targetDjName: string, slotStart: number, slotEnd: number) => {
+  const openDjEmailWithDetails = (targetEmail: string, targetDjName: string, slotStart: number, slotEnd: number, targetUsernameNormalized?: string) => {
     if (!slot) return;
 
     const broadcastUrl = `${window.location.origin}/broadcast/live?token=${slot.broadcastToken}`;
@@ -770,68 +773,64 @@ export function SlotModal({
     const formattedStart = formatTimeInTimezone(slotStart, djTimezone, { hour: 'numeric', minute: '2-digit' });
     const formattedEnd = formatTimeInTimezone(slotEnd, djTimezone, { hour: 'numeric', minute: '2-digit' });
 
-    const subject = `You're scheduled to livestream on Channel — ${formattedDate}`;
+    const profileUrl = targetUsernameNormalized
+      ? `https://channel-app.com/dj/${targetUsernameNormalized}`
+      : null;
+    const profileTipLine = profileUrl
+      ? `\n(people can support you anytime via your profile ${profileUrl}, not just during your live set)`
+      : '';
+
+    const subject = `Your show on Channel: ${showName}`;
     const body = `Hi ${targetDjName},
 
-You're officially scheduled to livestream on Channel!
+You're all set to go live on Channel.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Show: ${showName}
-Date: ${formattedDate}
-Time: ${formattedStart} – ${formattedEnd} ${djTz}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${formattedDate}
+${formattedStart} – ${formattedEnd} ${djTz}
 
-1. COMPLETE YOUR DJ PROFILE
+⸻
 
-Your DJ profile is what listeners see on our calendar, in your show details, and while you're live. A complete profile helps people connect with you and support your work.
+1. Fine-tune your profile
 
-Please take a few minutes to set up your DJ profile. IMPORTANT: Sign up using THIS email address (${targetEmail}) so we can link your profile to your scheduled show.
-→ https://channel-app.com/studio
+Sign up or log in using ${targetEmail} so everything links properly, then update your profile with anything you want people to see before and during your show:
 
-• Connect Stripe so you can receive listener support during your set. If Stripe isn't connected, listeners can still send support — but payouts will be delayed until you finish setup.
-  See our setup guide: https://channel-app.com/stripe-setup
+https://channel-app.com/studio
 
-• Add a profile photo (this shows up during your set)
-• Write a short bio (who you are / what you play)
-• Add a promo text
-• Add anything you want to show on your personal DJ page
+Add your bio, links, and any upcoming shows, on Channel, other radios, or IRL. We feature these on the website and in our bi-weekly newsletter.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+If you haven't connected Stripe yet and want to receive tips:
+https://channel-app.com/stripe-setup${profileTipLine}
 
-2. PREPARE YOUR LIVE STREAM
+⸻
 
-You'll broadcast using your private link below. Do not share this link.
+2. Your live stream link
 
-Your broadcast link:
+You'll go live from here (keep this link private):
 ${broadcastUrl}
 
-We strongly recommend:
-• Opening the link ahead of time
-• Doing a quick test stream (sound levels, connection, device)
-• Using the same setup you'll use for the live set
+I recommend opening it ahead of time and doing a quick test.
 
-→ Full streaming setup guide: https://channel-app.com/streaming-guide
+Setup guide:
+https://channel-app.com/streaming-guide
 
-Need help? Contact support@channel-app.com
+⸻
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. Day of the show
 
-3. DAY OF THE SHOW
+Join a few minutes early. Once you go live, people can tune in, chat, and support you in real time.
 
-• Join a few minutes early
-• Once you hit "Go Live," listeners will be able to tune in, chat, and support you in real time
-• You'll see live feedback and support messages during the set
-• Share your live stream URL: https://channel-app.com/radio
+You can share the radio here:
+https://channel-app.com/radio
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⸻
 
-That's it — we're excited to have you on Channel.
+That's it. Excited to have you on.
 
-See you on air,
-– The Channel Team`;
+Cap`;
 
-    const mailto = `mailto:${targetEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.open(mailto, '_blank');
+    const gmailUrl = `https://mail.google.com/mail/?authuser=cap@channel-app.com&view=cm&fs=1&to=${encodeURIComponent(targetEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(gmailUrl, '_blank');
     setEmailOpened(true);
     setTimeout(() => setEmailOpened(false), 2000);
   };
@@ -1254,7 +1253,7 @@ See you on air,
                               onClick={() => {
                                 const slotStartTs = new Date(`${dj.startDate}T${dj.startTime}`).getTime();
                                 const slotEndTs = new Date(`${dj.endDate}T${dj.endTime}`).getTime();
-                                openDjEmailForSlot(profile.email, dj.djName || 'there', slotStartTs, slotEndTs);
+                                openDjEmailForSlot(profile.email, dj.djName || 'there', slotStartTs, slotEndTs, profile.usernameNormalized);
                               }}
                               className="px-2 py-0.5 rounded text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors"
                               title="Send onboarding email"
