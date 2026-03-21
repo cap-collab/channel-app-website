@@ -23,32 +23,32 @@ export function CuratorRecCard({ rec }: CuratorRecCardProps) {
   const typeBadge = () => {
     if (rec.type === 'irl') {
       return (
-        <>
+        <span className="text-green-400 flex items-center gap-1">
           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
           </svg>
           IRL
-        </>
+        </span>
       );
     }
     if (rec.type === 'online') {
       return (
-        <>
+        <span className="text-sky-300 flex items-center gap-1">
           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
             <path d="M21 6h-7.59l3.29-3.29L16 2l-4 4-4-4-.71.71L10.59 6H3c-1.1 0-2 .89-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.11-.9-2-2-2zm0 14H3V8h18v12z" />
           </svg>
           Online
-        </>
+        </span>
       );
     }
     // Default: music
     return (
-      <>
+      <span className="text-white flex items-center gap-1">
         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm0-12.5c-2.49 0-4.5 2.01-4.5 4.5s2.01 4.5 4.5 4.5 4.5-2.01 4.5-4.5-2.01-4.5-4.5-4.5zm0 5.5c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z" />
         </svg>
         Music
-      </>
+      </span>
     );
   };
 
@@ -75,7 +75,7 @@ export function CuratorRecCard({ rec }: CuratorRecCardProps) {
         </div>
       )}
       <div className="absolute top-2 left-2 right-2 flex items-center justify-between">
-        <span className="text-[10px] font-mono text-white uppercase tracking-tighter flex items-center gap-1 drop-shadow-lg">
+        <span className="text-[10px] font-mono uppercase tracking-tighter flex items-center gap-1 drop-shadow-lg">
           {typeBadge()}
         </span>
       </div>
