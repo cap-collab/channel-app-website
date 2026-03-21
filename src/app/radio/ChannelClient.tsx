@@ -755,7 +755,8 @@ export function ChannelClient() {
         </div>
       </section>
 
-      <main className="max-w-7xl mx-auto flex-1 w-full flex flex-col px-4 md:px-8">
+      <div className="px-4 md:px-8 flex-1 w-full flex flex-col">
+      <main className="max-w-7xl mx-auto flex-1 w-full flex flex-col">
         <div className="flex flex-col">
 
           {isLoading ? (
@@ -889,6 +890,7 @@ export function ChannelClient() {
 
         </div>
       </main>
+      </div>
 
       <GenreAlertPrompt
         isOpen={showGenreAlertPrompt}
