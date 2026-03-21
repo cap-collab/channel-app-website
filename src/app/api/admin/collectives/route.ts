@@ -5,7 +5,9 @@ import { generateSlug } from '@/lib/slug';
 import {
   syncCollectiveToCollectives,
   syncCollectiveToVenues,
+  syncCollectiveToEvents,
   cleanupDeletedCollective,
+  cleanupDeletedCollectiveEvents,
 } from '@/lib/bidirectional-sync';
 
 async function verifyAdminAccess(request: NextRequest): Promise<{ isAdmin: boolean; userId?: string }> {
@@ -48,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, photo, location, description, genres, socialLinks, residentDJs, linkedVenues, linkedCollectives } = body;
+    const { name, photo, location, description, genres, socialLinks, residentDJs, linkedVenues, linkedCollectives, linkedEvents } = body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json({ error: 'Collective name is required' }, { status: 400 });
@@ -82,16 +84,18 @@ export async function POST(request: NextRequest) {
       residentDJs: residentDJs || [],
       linkedVenues: linkedVenues || [],
       linkedCollectives: linkedCollectives || [],
+      linkedEvents: linkedEvents || [],
       createdAt: FieldValue.serverTimestamp(),
       createdBy: adminUserId,
     };
 
     const docRef = await db.collection('collectives').add(collectiveData);
 
-    // Bidirectional sync: add self to all linked collectives and venues
+    // Bidirectional sync: add self to all linked collectives, venues, and events
     const batch = db.batch();
     await syncCollectiveToCollectives(batch, db, docRef.id, name.trim(), slug, [], linkedCollectives || [], photo || null);
     await syncCollectiveToVenues(batch, db, docRef.id, name.trim(), slug, [], linkedVenues || [], photo || null);
+    await syncCollectiveToEvents(batch, db, docRef.id, name.trim(), slug, [], linkedEvents || [], photo || null);
     await batch.commit();
 
     return NextResponse.json({
@@ -119,7 +123,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { collectiveId, name, photo, location, description, genres, socialLinks, residentDJs, linkedVenues, linkedCollectives } = body;
+    const { collectiveId, name, photo, location, description, genres, socialLinks, residentDJs, linkedVenues, linkedCollectives, linkedEvents } = body;
 
     if (!collectiveId) {
       return NextResponse.json({ error: 'collectiveId is required' }, { status: 400 });
@@ -143,6 +147,7 @@ export async function PATCH(request: NextRequest) {
     if (residentDJs !== undefined) updateData.residentDJs = residentDJs;
     if (linkedVenues !== undefined) updateData.linkedVenues = linkedVenues;
     if (linkedCollectives !== undefined) updateData.linkedCollectives = linkedCollectives;
+    if (linkedEvents !== undefined) updateData.linkedEvents = linkedEvents;
 
     const batch = db.batch();
     batch.update(collectiveRef, updateData);
@@ -167,6 +172,16 @@ export async function PATCH(request: NextRequest) {
         batch, db, collectiveId, selfName, selfSlug,
         currentData.linkedVenues || [],
         linkedVenues,
+        selfPhoto
+      );
+    }
+
+    // Bidirectional sync for linkedEvents changes
+    if (linkedEvents !== undefined) {
+      await syncCollectiveToEvents(
+        batch, db, collectiveId, selfName, selfSlug,
+        currentData.linkedEvents || [],
+        linkedEvents,
         selfPhoto
       );
     }
@@ -214,6 +229,12 @@ export async function DELETE(request: NextRequest) {
         data.linkedVenues || [],
         data.linkedCollectives || []
       );
+      if (data.linkedEvents?.length > 0) {
+        await cleanupDeletedCollectiveEvents(
+          batch, db, collectiveId,
+          data.linkedEvents
+        );
+      }
     }
 
     await batch.commit();

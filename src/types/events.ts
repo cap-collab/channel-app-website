@@ -20,6 +20,20 @@ export interface CollectiveRef {
   collectivePhoto?: string | null;
 }
 
+// Reference to an event from a venue or collective
+export interface EventRef {
+  eventId: string;
+  eventName: string;
+  eventSlug?: string;
+  eventDate?: number;
+}
+
+// Reference to a venue from an event (for multi-venue support)
+export interface EventVenueRef {
+  venueId: string;
+  venueName: string;
+}
+
 // Custom link (label + URL pair) for admin-added links
 export interface CustomLink {
   label: string;
@@ -48,6 +62,7 @@ export interface Venue {
   };
   residentDJs?: EventDJRef[];
   collectives?: CollectiveRef[];
+  linkedEvents?: EventRef[];
   createdAt: number;
   createdBy: string;
 }
@@ -75,6 +90,7 @@ export interface Collective {
   residentDJs?: EventDJRef[];
   linkedVenues?: CollectiveVenueRef[];
   linkedCollectives?: CollectiveRef[];
+  linkedEvents?: EventRef[];
   createdAt: number;
   createdBy: string;
 }
@@ -92,6 +108,8 @@ export interface Event {
   venueName?: string | null;
   collectiveId?: string | null;
   collectiveName?: string | null;
+  linkedVenues?: EventVenueRef[];
+  linkedCollectives?: CollectiveRef[];
   djs: EventDJRef[];
   genres?: string[];
   location?: string | null;

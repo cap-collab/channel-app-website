@@ -11,7 +11,7 @@ import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { normalizeUrl } from '@/lib/url';
 import { uploadEventPhoto, deleteEventPhoto, validatePhoto } from '@/lib/photo-upload';
-import { Event, EventDJRef, Venue, Collective, CustomLink } from '@/types/events';
+import { Event, EventDJRef, EventVenueRef, Venue, Collective, CollectiveRef, CustomLink } from '@/types/events';
 
 interface DJOption {
   label: string;
@@ -35,8 +35,8 @@ export function EventsAdmin() {
   const [date, setDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [description, setDescription] = useState('');
-  const [venueId, setVenueId] = useState('');
-  const [collectiveId, setCollectiveId] = useState('');
+  const [eventLinkedVenues, setEventLinkedVenues] = useState<EventVenueRef[]>([]);
+  const [eventLinkedCollectives, setEventLinkedCollectives] = useState<CollectiveRef[]>([]);
   const [location, setLocation] = useState('');
   const [genres, setGenres] = useState('');
   const [ticketLink, setTicketLink] = useState('');
@@ -190,6 +190,8 @@ export function EventsAdmin() {
           description: data.description || null,
           venueId: data.venueId || null,
           venueName: data.venueName || null,
+          linkedVenues: data.linkedVenues || [],
+          linkedCollectives: data.linkedCollectives || [],
           djs: data.djs || [],
           genres: data.genres || [],
           location: data.location || null,
@@ -244,8 +246,8 @@ export function EventsAdmin() {
     setDate('');
     setEndDate('');
     setDescription('');
-    setVenueId('');
-    setCollectiveId('');
+    setEventLinkedVenues([]);
+    setEventLinkedCollectives([]);
     setLocation('');
     setGenres('');
     setTicketLink('');
@@ -272,8 +274,19 @@ export function EventsAdmin() {
     setDate(msToDatetimeLocal(event.date));
     setEndDate(event.endDate ? msToDatetimeLocal(event.endDate) : '');
     setDescription(event.description || '');
-    setVenueId(event.venueId || '');
-    setCollectiveId(event.collectiveId || '');
+    // Populate multi-select from arrays, or fall back to legacy single-select fields
+    const lv = event.linkedVenues || [];
+    if (lv.length === 0 && event.venueId && event.venueName) {
+      setEventLinkedVenues([{ venueId: event.venueId, venueName: event.venueName }]);
+    } else {
+      setEventLinkedVenues(lv);
+    }
+    const lc = event.linkedCollectives || [];
+    if (lc.length === 0 && event.collectiveId && event.collectiveName) {
+      setEventLinkedCollectives([{ collectiveId: event.collectiveId, collectiveName: event.collectiveName }]);
+    } else {
+      setEventLinkedCollectives(lc);
+    }
     setLocation(event.location || '');
     setGenres(event.genres?.join(', ') || '');
     setTicketLink(event.ticketLink || '');
@@ -292,17 +305,6 @@ export function EventsAdmin() {
     setError(null);
     setSuccess(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  // When venue is selected, auto-fill location
-  const handleVenueChange = (selectedVenueId: string) => {
-    setVenueId(selectedVenueId);
-    if (selectedVenueId) {
-      const venue = venues.find(v => v.id === selectedVenueId);
-      if (venue?.location && !location) {
-        setLocation(venue.location);
-      }
-    }
   };
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -411,8 +413,10 @@ export function EventsAdmin() {
         endDate: endDate ? datetimeLocalToMs(endDate) : null,
         photo: photoUrl,
         description: description.trim() || null,
-        venueId: venueId || null,
-        collectiveId: collectiveId || null,
+        venueId: eventLinkedVenues.length > 0 ? eventLinkedVenues[0].venueId : null,
+        collectiveId: eventLinkedCollectives.length > 0 ? eventLinkedCollectives[0].collectiveId : null,
+        linkedVenues: eventLinkedVenues,
+        linkedCollectives: eventLinkedCollectives,
         djs: filteredDJs,
         genres: genres.trim() ? genres.split(',').map(g => g.trim()).filter(Boolean) : [],
         location: location.trim() || null,
@@ -647,38 +651,96 @@ export function EventsAdmin() {
               )}
             </div>
 
-            {/* Venue */}
+            {/* Linked Venues */}
             <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-1">Venue</label>
-              <select
-                value={venueId}
-                onChange={(e) => handleVenueChange(e.target.value)}
-                className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white"
-              >
-                <option value="">TBD</option>
-                {venues.map((venue) => (
-                  <option key={venue.id} value={venue.id}>
-                    {venue.name}{venue.location ? ` (${venue.location})` : ''}
-                  </option>
-                ))}
-              </select>
+              <label className="block text-sm text-gray-400 mb-3">Linked Venues</label>
+              {eventLinkedVenues.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {eventLinkedVenues.map((lv) => (
+                    <div key={lv.venueId} className="flex items-center gap-2 bg-[#252525] rounded-lg px-4 py-2">
+                      <span className="flex-1 text-white text-sm">{lv.venueName}</span>
+                      <button
+                        type="button"
+                        onClick={() => setEventLinkedVenues(eventLinkedVenues.filter(v => v.venueId !== lv.venueId))}
+                        className="text-red-400 hover:text-red-300 text-sm"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {venues.filter(v => !eventLinkedVenues.some(lv => lv.venueId === v.id)).length > 0 && (
+                <select
+                  value=""
+                  onChange={(e) => {
+                    const vId = e.target.value;
+                    if (!vId) return;
+                    const venue = venues.find(v => v.id === vId);
+                    if (!venue) return;
+                    if (eventLinkedVenues.some(lv => lv.venueId === vId)) return;
+                    setEventLinkedVenues([...eventLinkedVenues, { venueId: venue.id, venueName: venue.name }]);
+                    // Auto-fill location from first venue
+                    if (!location && venue.location) {
+                      setLocation(venue.location);
+                    }
+                  }}
+                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white"
+                >
+                  <option value="">Add a venue...</option>
+                  {venues
+                    .filter(v => !eventLinkedVenues.some(lv => lv.venueId === v.id))
+                    .map((venue) => (
+                      <option key={venue.id} value={venue.id}>
+                        {venue.name}{venue.location ? ` (${venue.location})` : ''}
+                      </option>
+                    ))}
+                </select>
+              )}
             </div>
 
-            {/* Collective */}
+            {/* Linked Collectives */}
             <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-1">Collective</label>
-              <select
-                value={collectiveId}
-                onChange={(e) => setCollectiveId(e.target.value)}
-                className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white"
-              >
-                <option value="">None</option>
-                {collectives.map((collective) => (
-                  <option key={collective.id} value={collective.id}>
-                    {collective.name}{collective.location ? ` (${collective.location})` : ''}
-                  </option>
-                ))}
-              </select>
+              <label className="block text-sm text-gray-400 mb-3">Linked Collectives</label>
+              {eventLinkedCollectives.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {eventLinkedCollectives.map((lc) => (
+                    <div key={lc.collectiveId} className="flex items-center gap-2 bg-[#252525] rounded-lg px-4 py-2">
+                      <span className="flex-1 text-white text-sm">{lc.collectiveName}</span>
+                      <button
+                        type="button"
+                        onClick={() => setEventLinkedCollectives(eventLinkedCollectives.filter(c => c.collectiveId !== lc.collectiveId))}
+                        className="text-red-400 hover:text-red-300 text-sm"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {collectives.filter(c => !eventLinkedCollectives.some(lc => lc.collectiveId === c.id)).length > 0 && (
+                <select
+                  value=""
+                  onChange={(e) => {
+                    const cId = e.target.value;
+                    if (!cId) return;
+                    const coll = collectives.find(c => c.id === cId);
+                    if (!coll) return;
+                    if (eventLinkedCollectives.some(lc => lc.collectiveId === cId)) return;
+                    setEventLinkedCollectives([...eventLinkedCollectives, { collectiveId: coll.id, collectiveName: coll.name, collectiveSlug: coll.slug, collectivePhoto: coll.photo || null }]);
+                  }}
+                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white"
+                >
+                  <option value="">Add a collective...</option>
+                  {collectives
+                    .filter(c => !eventLinkedCollectives.some(lc => lc.collectiveId === c.id))
+                    .map((collective) => (
+                      <option key={collective.id} value={collective.id}>
+                        {collective.name}{collective.location ? ` (${collective.location})` : ''}
+                      </option>
+                    ))}
+                </select>
+              )}
             </div>
 
             {/* Location */}
@@ -953,8 +1015,12 @@ export function EventsAdmin() {
                     <p className="text-white font-medium truncate">{event.name}</p>
                     <p className="text-gray-500 text-sm truncate">
                       {formatEventDate(event.date)}
-                      {event.venueName && <> &middot; {event.venueName}</>}
-                      {!event.venueName && event.location && <> &middot; {event.location}</>}
+                      {event.linkedVenues && event.linkedVenues.length > 0
+                        ? <> &middot; {event.linkedVenues.map(v => v.venueName).join(', ')}</>
+                        : event.venueName
+                          ? <> &middot; {event.venueName}</>
+                          : event.location && <> &middot; {event.location}</>
+                      }
                       {event.djs.length > 0 && (
                         <> &middot; {event.djs.length} DJ{event.djs.length !== 1 ? 's' : ''}</>
                       )}

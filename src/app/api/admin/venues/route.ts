@@ -4,6 +4,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { generateSlug } from '@/lib/slug';
 import {
   syncVenueToCollectives,
+  syncVenueToEvents,
   cleanupDeletedVenue,
 } from '@/lib/bidirectional-sync';
 
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, photo, location, description, genres, socialLinks, residentDJs, collectives } = body;
+    const { name, photo, location, description, genres, socialLinks, residentDJs, collectives, linkedEvents } = body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json({ error: 'Venue name is required' }, { status: 400 });
@@ -80,15 +81,17 @@ export async function POST(request: NextRequest) {
       socialLinks: socialLinks || {},
       residentDJs: residentDJs || [],
       collectives: collectives || [],
+      linkedEvents: linkedEvents || [],
       createdAt: FieldValue.serverTimestamp(),
       createdBy: adminUserId,
     };
 
     const docRef = await db.collection('venues').add(venueData);
 
-    // Bidirectional sync: add self to all linked collectives
+    // Bidirectional sync: add self to all linked collectives and events
     const batch = db.batch();
     await syncVenueToCollectives(batch, db, docRef.id, name.trim(), [], collectives || []);
+    await syncVenueToEvents(batch, db, docRef.id, name.trim(), [], linkedEvents || []);
     await batch.commit();
 
     return NextResponse.json({
@@ -116,7 +119,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { venueId, name, photo, location, description, genres, socialLinks, residentDJs, collectives } = body;
+    const { venueId, name, photo, location, description, genres, socialLinks, residentDJs, collectives, linkedEvents } = body;
 
     if (!venueId) {
       return NextResponse.json({ error: 'venueId is required' }, { status: 400 });
@@ -139,17 +142,28 @@ export async function PATCH(request: NextRequest) {
     if (socialLinks !== undefined) updateData.socialLinks = socialLinks;
     if (residentDJs !== undefined) updateData.residentDJs = residentDJs;
     if (collectives !== undefined) updateData.collectives = collectives;
+    if (linkedEvents !== undefined) updateData.linkedEvents = linkedEvents;
 
     const batch = db.batch();
     batch.update(venueRef, updateData);
 
+    const selfName = (name !== undefined ? name : currentData.name) as string;
+
     // Bidirectional sync for collectives changes
     if (collectives !== undefined) {
-      const selfName = (name !== undefined ? name : currentData.name) as string;
       await syncVenueToCollectives(
         batch, db, venueId, selfName,
         currentData.collectives || [],
         collectives
+      );
+    }
+
+    // Bidirectional sync for linkedEvents changes
+    if (linkedEvents !== undefined) {
+      await syncVenueToEvents(
+        batch, db, venueId, selfName,
+        currentData.linkedEvents || [],
+        linkedEvents
       );
     }
 
@@ -191,7 +205,7 @@ export async function DELETE(request: NextRequest) {
     // Clean up reverse links before deleting
     if (venueDoc.exists) {
       const data = venueDoc.data()!;
-      await cleanupDeletedVenue(batch, db, venueId, data.collectives || []);
+      await cleanupDeletedVenue(batch, db, venueId, data.collectives || [], data.linkedEvents || []);
     }
 
     await batch.commit();

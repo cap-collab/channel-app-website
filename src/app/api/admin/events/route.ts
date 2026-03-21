@@ -3,6 +3,11 @@ import { getAdminDb, getAdminAuth } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { generateSlug } from '@/lib/slug';
 import { cleanupFavoritesForShowName } from '@/lib/favorites-cleanup';
+import {
+  syncEventToVenues,
+  syncEventToCollectives,
+  cleanupDeletedEvent,
+} from '@/lib/bidirectional-sync';
 
 async function verifyAdminAccess(request: NextRequest): Promise<{ isAdmin: boolean; userId?: string }> {
   try {
@@ -44,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, date, endDate, photo, description, venueId, collectiveId, djs, genres, location, ticketLink, socialLinks } = body;
+    const { name, date, endDate, photo, description, venueId, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, socialLinks } = body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json({ error: 'Event name is required' }, { status: 400 });
@@ -70,7 +75,7 @@ export async function POST(request: NextRequest) {
       suffix++;
     }
 
-    // Denormalize venue name if venueId is provided
+    // Denormalize venue name if venueId is provided (legacy single-venue)
     let venueName: string | null = null;
     if (venueId) {
       const venueDoc = await db.collection('venues').doc(venueId).get();
@@ -79,7 +84,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Denormalize collective name if collectiveId is provided
+    // Denormalize collective name if collectiveId is provided (legacy single-collective)
     let collectiveName: string | null = null;
     if (collectiveId) {
       const collectiveDoc = await db.collection('collectives').doc(collectiveId).get();
@@ -99,6 +104,8 @@ export async function POST(request: NextRequest) {
       venueName,
       collectiveId: collectiveId || null,
       collectiveName,
+      linkedVenues: linkedVenues || [],
+      linkedCollectives: linkedCollectives || [],
       djs: djs || [],
       genres: genres || [],
       location: location || null,
@@ -109,6 +116,12 @@ export async function POST(request: NextRequest) {
     };
 
     const docRef = await db.collection('events').add(eventData);
+
+    // Bidirectional sync: add self to all linked venues and collectives
+    const batch = db.batch();
+    await syncEventToVenues(batch, db, docRef.id, name.trim(), slug, date, [], linkedVenues || []);
+    await syncEventToCollectives(batch, db, docRef.id, name.trim(), slug, date, [], linkedCollectives || []);
+    await batch.commit();
 
     return NextResponse.json({
       success: true,
@@ -135,7 +148,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { eventId, name, date, endDate, photo, description, venueId, collectiveId, djs, genres, location, ticketLink, socialLinks } = body;
+    const { eventId, name, date, endDate, photo, description, venueId, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, socialLinks } = body;
 
     if (!eventId) {
       return NextResponse.json({ error: 'eventId is required' }, { status: 400 });
@@ -146,6 +159,8 @@ export async function PATCH(request: NextRequest) {
     if (!eventDoc.exists) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
+
+    const currentData = eventDoc.data()!;
 
     const updateData: Record<string, unknown> = {};
     if (name !== undefined) updateData.name = name;
@@ -158,6 +173,8 @@ export async function PATCH(request: NextRequest) {
     if (location !== undefined) updateData.location = location;
     if (ticketLink !== undefined) updateData.ticketLink = ticketLink;
     if (socialLinks !== undefined) updateData.socialLinks = socialLinks;
+    if (linkedVenues !== undefined) updateData.linkedVenues = linkedVenues;
+    if (linkedCollectives !== undefined) updateData.linkedCollectives = linkedCollectives;
 
     // Re-denormalize venue name if venueId changed
     if (venueId !== undefined) {
@@ -181,7 +198,32 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    await eventRef.update(updateData);
+    const batch = db.batch();
+    batch.update(eventRef, updateData);
+
+    // Bidirectional sync for linkedVenues changes
+    const selfName = (name !== undefined ? name : currentData.name) as string;
+    const selfSlug = currentData.slug as string;
+    const selfDate = (date !== undefined ? date : currentData.date) as number;
+
+    if (linkedVenues !== undefined) {
+      await syncEventToVenues(
+        batch, db, eventId, selfName, selfSlug, selfDate,
+        currentData.linkedVenues || [],
+        linkedVenues
+      );
+    }
+
+    // Bidirectional sync for linkedCollectives changes
+    if (linkedCollectives !== undefined) {
+      await syncEventToCollectives(
+        batch, db, eventId, selfName, selfSlug, selfDate,
+        currentData.linkedCollectives || [],
+        linkedCollectives
+      );
+    }
+
+    await batch.commit();
 
     return NextResponse.json({ success: true, eventId });
   } catch (error) {
@@ -210,11 +252,24 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'eventId is required' }, { status: 400 });
     }
 
-    // Read event data before deleting (for favorites cleanup)
-    const eventDoc = await db.collection('events').doc(eventId).get();
+    // Read event data before deleting (for favorites cleanup + bidirectional sync)
+    const eventRef = db.collection('events').doc(eventId);
+    const eventDoc = await eventRef.get();
     const eventData = eventDoc.data();
 
-    await db.collection('events').doc(eventId).delete();
+    const batch = db.batch();
+    batch.delete(eventRef);
+
+    // Clean up reverse links before deleting
+    if (eventDoc.exists && eventData) {
+      await cleanupDeletedEvent(
+        batch, db, eventId,
+        eventData.linkedVenues || [],
+        eventData.linkedCollectives || []
+      );
+    }
+
+    await batch.commit();
 
     // Clean up favorites pointing to this event (fire and forget)
     if (eventData?.name) {

@@ -11,7 +11,7 @@ import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { normalizeUrl } from '@/lib/url';
 import { uploadCollectivePhoto, deleteCollectivePhoto, validatePhoto } from '@/lib/photo-upload';
-import { Collective, CollectiveRef, CollectiveVenueRef, EventDJRef, Venue, CustomLink } from '@/types/events';
+import { Collective, CollectiveRef, CollectiveVenueRef, Event, EventRef, EventDJRef, Venue, CustomLink } from '@/types/events';
 
 interface DJOption {
   label: string;
@@ -47,6 +47,7 @@ export function CollectivesAdmin() {
   const [residentDJs, setResidentDJs] = useState<EventDJRef[]>([{ djName: '' }]);
   const [linkedVenues, setLinkedVenues] = useState<CollectiveVenueRef[]>([]);
   const [linkedCollectives, setLinkedCollectives] = useState<CollectiveRef[]>([]);
+  const [collectiveLinkedEvents, setCollectiveLinkedEvents] = useState<EventRef[]>([]);
 
   // Photo state
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -64,6 +65,9 @@ export function CollectivesAdmin() {
 
   // Available venues for linking
   const [venueOptions, setVenueOptions] = useState<Venue[]>([]);
+
+  // Available events for linking
+  const [eventOptions, setEventOptions] = useState<Event[]>([]);
 
   // Existing collectives
   const [collectives, setCollectives] = useState<Collective[]>([]);
@@ -145,6 +149,32 @@ export function CollectivesAdmin() {
     }
   }, []);
 
+  // Fetch events for linking
+  const fetchEventOptions = useCallback(async () => {
+    if (!db) return;
+    try {
+      const eventsRef = collection(db, 'events');
+      const snapshot = await getDocs(eventsRef);
+      const eventsList: Event[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        eventsList.push({
+          id: docSnap.id,
+          name: data.name,
+          slug: data.slug,
+          date: data.date,
+          djs: data.djs || [],
+          createdAt: data.createdAt?.toMillis?.() || Date.now(),
+          createdBy: data.createdBy,
+        });
+      });
+      eventsList.sort((a, b) => b.date - a.date);
+      setEventOptions(eventsList);
+    } catch (err) {
+      console.error('Error fetching events:', err);
+    }
+  }, []);
+
   // Fetch existing collectives
   const fetchCollectives = useCallback(async () => {
     if (!db) {
@@ -169,6 +199,7 @@ export function CollectivesAdmin() {
           residentDJs: data.residentDJs || [],
           linkedVenues: data.linkedVenues || [],
           linkedCollectives: data.linkedCollectives || [],
+          linkedEvents: data.linkedEvents || [],
           createdAt: data.createdAt?.toMillis?.() || Date.now(),
           createdBy: data.createdBy,
         });
@@ -187,10 +218,11 @@ export function CollectivesAdmin() {
       fetchCollectives();
       fetchDJOptions();
       fetchVenueOptions();
+      fetchEventOptions();
     } else {
       setLoadingCollectives(false);
     }
-  }, [isAuthenticated, hasBroadcasterAccess, fetchCollectives, fetchDJOptions, fetchVenueOptions]);
+  }, [isAuthenticated, hasBroadcasterAccess, fetchCollectives, fetchDJOptions, fetchVenueOptions, fetchEventOptions]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -215,6 +247,7 @@ export function CollectivesAdmin() {
     setResidentDJs([{ djName: '' }]);
     setLinkedVenues([]);
     setLinkedCollectives([]);
+    setCollectiveLinkedEvents([]);
     setPhotoUrl(null);
     setPhotoError(null);
     setEditingCollective(null);
@@ -244,6 +277,7 @@ export function CollectivesAdmin() {
     );
     setLinkedVenues(collective.linkedVenues || []);
     setLinkedCollectives(collective.linkedCollectives || []);
+    setCollectiveLinkedEvents(collective.linkedEvents || []);
     setPhotoUrl(collective.photo || null);
     setPhotoError(null);
     setError(null);
@@ -383,6 +417,7 @@ export function CollectivesAdmin() {
         residentDJs: filteredDJs,
         linkedVenues,
         linkedCollectives,
+        linkedEvents: collectiveLinkedEvents,
       };
 
       const res = await fetch('/api/admin/collectives', {
@@ -858,6 +893,50 @@ export function CollectivesAdmin() {
                   </select>
                 ) : null;
               })()}
+            </div>
+
+            {/* Linked Events */}
+            <div className="mb-6">
+              <label className="block text-sm text-gray-400 mb-3">Linked Events</label>
+              {collectiveLinkedEvents.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {collectiveLinkedEvents.map((le) => (
+                    <div key={le.eventId} className="flex items-center gap-2 bg-[#252525] rounded-lg px-4 py-2">
+                      <span className="flex-1 text-white text-sm">{le.eventName}</span>
+                      <button
+                        type="button"
+                        onClick={() => setCollectiveLinkedEvents(collectiveLinkedEvents.filter(e => e.eventId !== le.eventId))}
+                        className="text-red-400 hover:text-red-300 text-sm"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {eventOptions.filter(e => !collectiveLinkedEvents.some(le => le.eventId === e.id)).length > 0 && (
+                <select
+                  value=""
+                  onChange={(e) => {
+                    const eId = e.target.value;
+                    if (!eId) return;
+                    const evt = eventOptions.find(ev => ev.id === eId);
+                    if (!evt) return;
+                    if (collectiveLinkedEvents.some(le => le.eventId === eId)) return;
+                    setCollectiveLinkedEvents([...collectiveLinkedEvents, { eventId: evt.id, eventName: evt.name, eventSlug: evt.slug, eventDate: evt.date }]);
+                  }}
+                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white"
+                >
+                  <option value="">Add an event...</option>
+                  {eventOptions
+                    .filter(ev => !collectiveLinkedEvents.some(le => le.eventId === ev.id))
+                    .map((ev) => (
+                      <option key={ev.id} value={ev.id}>
+                        {ev.name}{ev.date ? ` (${new Date(ev.date).toLocaleDateString()})` : ''}
+                      </option>
+                    ))}
+                </select>
+              )}
             </div>
 
             {/* Buttons */}
