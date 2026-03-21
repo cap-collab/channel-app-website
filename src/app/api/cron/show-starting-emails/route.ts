@@ -47,6 +47,7 @@ interface LiveShow {
   djUsername?: string;
   djPhotoUrl?: string;
   djHasEmail?: boolean;
+  streamingUrl?: string;
 }
 
 const STATION_NAMES: Record<string, string> = {
@@ -99,6 +100,9 @@ export async function GET(request: NextRequest) {
     const windowEnd = new Date(now.getTime() + 5 * 60 * 1000);
     const liveShows: LiveShow[] = [];
 
+    // Fetch DJ users early — reused for DJ radio show extraction and profile lookup
+    const djUsers = await queryUsersWhere("role", "EQUAL", "dj");
+
     for (const [stationKey, shows] of Object.entries(metadata.stations)) {
       if (!Array.isArray(shows)) continue;
       for (const show of shows) {
@@ -139,6 +143,59 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Also check DJ radio shows (manually added via /studio) starting within the window
+    for (const djUser of djUsers) {
+      const chatUsername = djUser.data.chatUsername as string | undefined;
+      const djProfile = djUser.data.djProfile as Record<string, unknown> | undefined;
+      const radioShows = djProfile?.radioShows as Array<Record<string, string>> | undefined;
+
+      if (!radioShows || !Array.isArray(radioShows)) continue;
+
+      for (const show of radioShows) {
+        // Only include online shows with a streaming URL
+        if (!show.url) continue;
+        if (!show.date) continue;
+
+        // Convert local date/time/timezone to UTC (same logic as schedule route)
+        const timezone = show.timezone || "America/Los_Angeles";
+        const timeStr = show.time || "12:00";
+        const [hours, minutes] = timeStr.split(":").map(Number);
+
+        const localDateTime = `${show.date}T${String(hours || 0).padStart(2, "0")}:${String(minutes || 0).padStart(2, "0")}:00`;
+        const testDate = new Date(localDateTime + "Z");
+        const localStr = testDate.toLocaleString("en-US", { timeZone: timezone, hour12: false });
+        const localMatch = localStr.match(/(\d+):(\d+):(\d+)/);
+        const localHour = localMatch ? parseInt(localMatch[1]) : hours || 0;
+
+        let offsetHours = (hours || 0) - localHour;
+        if (offsetHours > 12) offsetHours -= 24;
+        if (offsetHours < -12) offsetHours += 24;
+
+        const startTimeMs = testDate.getTime() + offsetHours * 60 * 60 * 1000;
+        const startTime = new Date(startTimeMs);
+
+        if (startTime >= windowStart && startTime <= windowEnd) {
+          const showNameSlug = (show.name || "").replace(/\s+/g, "-").toLowerCase().slice(0, 20);
+          const radioNameSlug = (show.radioName || "radio").replace(/\s+/g, "-").toLowerCase();
+          const normalizedUsername = chatUsername?.replace(/\s+/g, "").toLowerCase();
+          const showId = `dj-radio-${normalizedUsername}-${show.date}-${radioNameSlug}-${showNameSlug}`;
+          const showName = show.name || (show.radioName ? `${chatUsername} on ${show.radioName}` : `${chatUsername} Radio Show`);
+
+          liveShows.push({
+            name: showName,
+            dj: chatUsername || undefined,
+            stationId: "dj-radio",
+            stationName: show.radioName || "Radio",
+            showId,
+            djUsername: normalizedUsername,
+            djPhotoUrl: (djProfile?.photoUrl as string) || undefined,
+            djHasEmail: !!(djUser.data.email),
+            streamingUrl: show.url,
+          });
+        }
+      }
+    }
+
     if (liveShows.length === 0) {
       return NextResponse.json({ liveShows: 0, emailsSent: 0 });
     }
@@ -174,8 +231,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // From DJ users
-    const djUsers = await queryUsersWhere("role", "EQUAL", "dj");
+    // From DJ users (already fetched above)
     for (const djUser of djUsers) {
       const chatUsername = djUser.data.chatUsername as string | undefined;
       const chatUsernameNormalized = djUser.data.chatUsernameNormalized as string | undefined;
