@@ -1174,8 +1174,8 @@ function PastEventCard({ event, venueSlugMap, venuePhotoMap }: { event: Event; v
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <p className="text-white font-medium text-sm truncate min-w-0">{event.name}</p>
-            <span className="text-[10px] font-mono text-green-400 uppercase tracking-tighter flex items-center gap-1 flex-shrink-0">
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" /></svg>
+            <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter flex items-center gap-1 flex-shrink-0">
+              <svg className="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" /></svg>
               IRL
             </span>
           </div>

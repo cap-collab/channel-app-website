@@ -171,15 +171,15 @@ export function MyShowsCard({
           <div className="flex items-center gap-2">
             {/* IRL / Online badge */}
             {showType === 'irl' ? (
-              <div className="text-[10px] font-mono text-green-400 uppercase tracking-tighter flex items-center gap-1">
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+              <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter flex items-center gap-1">
+                <svg className="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
                 </svg>
                 IRL
               </div>
             ) : (
-              <div className="text-[10px] font-mono text-sky-300 uppercase tracking-tighter flex items-center gap-1">
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+              <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter flex items-center gap-1">
+                <svg className="w-3 h-3 text-sky-300" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
                 </svg>
                 Online

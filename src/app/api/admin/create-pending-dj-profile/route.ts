@@ -53,6 +53,7 @@ interface CustomLink {
 
 interface IrlShow {
   name?: string;
+  location?: string;
   url: string;
   date: string;
 }

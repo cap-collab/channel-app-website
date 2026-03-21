@@ -19,6 +19,7 @@ interface CustomLink {
 
 interface IrlShow {
   name: string;
+  location: string;
   url: string;
   date: string;
 }
@@ -120,7 +121,7 @@ export function PendingDJsAdmin() {
   const [customLinks, setCustomLinks] = useState<CustomLink[]>([]);
 
   // IRL Shows state
-  const [irlShows, setIrlShows] = useState<IrlShow[]>([{ name: '', url: '', date: '' }, { name: '', url: '', date: '' }]);
+  const [irlShows, setIrlShows] = useState<IrlShow[]>([{ name: '', location: '', url: '', date: '' }, { name: '', location: '', url: '', date: '' }]);
 
   // Radio Shows state
   const [radioShows, setRadioShows] = useState<RadioShow[]>([{ name: '', radioName: '', url: '', date: '', time: '', timezone: '' }]);
@@ -312,7 +313,7 @@ export function PendingDJsAdmin() {
     setResidentAdvisor('');
     setWebsite('');
     setCustomLinks([]);
-    setIrlShows([{ name: '', url: '', date: '' }, { name: '', url: '', date: '' }]);
+    setIrlShows([{ name: '', location: '', url: '', date: '' }, { name: '', location: '', url: '', date: '' }]);
     setRadioShows([{ name: '', radioName: '', url: '', date: '', time: '', timezone: '' }]);
     setBandcampRecs(['']);
     setEventRecs(['']);
@@ -351,12 +352,13 @@ export function PendingDJsAdmin() {
     // IRL Shows - ensure we always have 2 fields
     const existingIrlShows = (profile.djProfile.irlShows || []).map((s: Partial<IrlShow>) => ({
       name: s.name || '',
+      location: s.location || '',
       url: s.url || '',
       date: s.date || '',
     }));
     setIrlShows([
-      existingIrlShows[0] || { name: '', url: '', date: '' },
-      existingIrlShows[1] || { name: '', url: '', date: '' },
+      existingIrlShows[0] || { name: '', location: '', url: '', date: '' },
+      existingIrlShows[1] || { name: '', location: '', url: '', date: '' },
     ]);
     // Radio Shows - ensure at least one empty field
     const existingRadioShows = (profile.djProfile.radioShows || []).map((s: Partial<RadioShow>) => ({
@@ -496,9 +498,10 @@ export function PendingDJsAdmin() {
 
       // Build IRL shows data
       const validIrlShows = irlShows.filter(
-        (show) => (show.name || '').trim() || (show.url || '').trim() || (show.date || '').trim()
+        (show) => (show.name || '').trim() || (show.url || '').trim() || (show.date || '').trim() || (show.location || '').trim()
       ).map((show) => ({
         name: (show.name || '').trim(),
+        location: (show.location || '').trim(),
         url: (show.url || '').trim() ? normalizeUrl((show.url || '').trim()) : '',
         date: (show.date || '').trim(),
       }));
@@ -1224,6 +1227,17 @@ Cap`;
                           }}
                           placeholder="Event name"
                           className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
+                        />
+                        <input
+                          type="text"
+                          value={show.location}
+                          onChange={(e) => {
+                            const updated = [...irlShows];
+                            updated[index] = { ...updated[index], location: e.target.value };
+                            setIrlShows(updated);
+                          }}
+                          placeholder="City"
+                          className="w-32 bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
                         />
                         <input
                           type="date"
