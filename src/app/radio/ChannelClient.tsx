@@ -755,13 +755,13 @@ export function ChannelClient() {
         </div>
       </section>
 
-      <main className="max-w-7xl mx-auto flex-1 w-full flex flex-col">
+      <main className="max-w-7xl mx-auto flex-1 w-full flex flex-col px-4 md:px-8">
         <div className="flex flex-col">
 
           {isLoading ? (
             <>
               {/* Skeleton grid section */}
-              <div className="flex-shrink-0 px-4 pt-3 md:pt-4 pb-3 md:pb-4">
+              <div className="flex-shrink-0 pt-3 md:pt-4 pb-3 md:pb-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <SkeletonCard />
                   <SkeletonCard />
@@ -770,7 +770,7 @@ export function ChannelClient() {
                 </div>
               </div>
               {/* Skeleton carousel section */}
-              <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
+              <div className="flex-shrink-0 pb-3 md:pb-4">
                 <div className="flex">
                   <div className="w-full md:w-1/2 flex-shrink-0 px-1">
                     <SkeletonCard />
@@ -786,7 +786,7 @@ export function ChannelClient() {
 
           {/* Section 1: Location + Genre (grid, max 4) — sorted by match count, live first as tiebreaker */}
           {locationGenreCards.length > 0 && (
-            <div className="flex-shrink-0 px-4 pt-3 md:pt-4 pb-3 md:pb-4">
+            <div className="flex-shrink-0 pt-3 md:pt-4 pb-3 md:pb-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {locationGenreCards.map((item, index) => renderCard(item, index))}
               </div>
@@ -795,18 +795,18 @@ export function ChannelClient() {
 
           {/* Invite card: priority 1 = no curators in city, priority 2 = missing genres */}
           {noCuratorsInCity ? (
-            <div className="flex-shrink-0 px-4 pt-3 md:pt-4 pb-3 md:pb-4">
+            <div className="flex-shrink-0 pt-3 md:pt-4 pb-3 md:pb-4">
               <InviteCard message={`We don't have curators in ${selectedCity} yet. Know a great curator? Invite them to Channel`} />
             </div>
           ) : missingGenres.length > 0 && (
-            <div className="flex-shrink-0 px-4 pt-3 md:pt-4 pb-3 md:pb-4">
+            <div className="flex-shrink-0 pt-3 md:pt-4 pb-3 md:pb-4">
               <InviteCard message={`We don't have ${missingGenres.join(', ')} curators yet. Know a great curator? Invite them to Channel`} />
             </div>
           )}
 
           {/* Section 3: Selected by your favorite curators (grid, max 4) — shown here on first visit, at the bottom after */}
           {!hasSeenCuratorRecs && filteredCuratorRecs.length > 0 && (
-            <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
+            <div className="flex-shrink-0 pb-3 md:pb-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredCuratorRecs.map((rec, index) => (
                   <CuratorRecCard
@@ -820,7 +820,7 @@ export function ChannelClient() {
 
           {/* Section 4: Genre matching (swipe, max 5 — promoted to grid if main grid is empty) */}
           {genreCards.length > 0 && (
-            <div className={`flex-shrink-0 px-4 ${promotedSection === 'genre' ? 'pt-3 md:pt-4' : ''} pb-3 md:pb-4`}>
+            <div className={`flex-shrink-0 ${promotedSection === 'genre' ? 'pt-3 md:pt-4' : ''} pb-3 md:pb-4`}>
               {promotedSection === 'genre' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {genreCards.map((item, index) => renderCard(item, index))}
@@ -835,7 +835,7 @@ export function ChannelClient() {
 
           {/* Section 6: Location matching (swipe, max 5 — promoted to grid if main grid is empty) */}
           {locationCards.length > 0 && (
-            <div className={`flex-shrink-0 px-4 ${promotedSection === 'location' ? 'pt-3 md:pt-4' : ''} pb-3 md:pb-4`}>
+            <div className={`flex-shrink-0 ${promotedSection === 'location' ? 'pt-3 md:pt-4' : ''} pb-3 md:pb-4`}>
               {promotedSection === 'location' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {locationCards.map((item, index) => renderCard(item, index))}
@@ -850,7 +850,7 @@ export function ChannelClient() {
 
           {/* Section 7: Selected by Radio (swipe, max 5 — promoted to grid if main grid is empty) */}
           {radioCards.length > 0 && (
-            <div className={`flex-shrink-0 px-4 ${promotedSection === 'radio' ? 'pt-3 md:pt-4' : ''} pb-3 md:pb-4`}>
+            <div className={`flex-shrink-0 ${promotedSection === 'radio' ? 'pt-3 md:pt-4' : ''} pb-3 md:pb-4`}>
               {promotedSection === 'radio' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {radioCards.map((item, index) => renderCard(item, index))}
@@ -865,7 +865,7 @@ export function ChannelClient() {
 
           {/* Section 3 (bottom): Curator recs moved here after user has seen them once */}
           {hasSeenCuratorRecs && filteredCuratorRecs.length > 0 && (
-            <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
+            <div className="flex-shrink-0 pb-3 md:pb-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredCuratorRecs.map((rec, index) => (
                   <CuratorRecCard
@@ -879,7 +879,7 @@ export function ChannelClient() {
 
           {/* Empty state when no matches at all and no invite card already shown above */}
           {!isLoading && allCardCount === 0 && !noCuratorsInCity && missingGenres.length === 0 && (
-            <div className="flex-shrink-0 px-4 pb-3 md:pb-4">
+            <div className="flex-shrink-0 pb-3 md:pb-4">
               <InviteCard message="We don't have curators here yet. Know a great curator? Invite them to Channel" />
             </div>
           )}
