@@ -785,8 +785,8 @@ export function SlotModal({
     const profileUrl = djUsernameNormalized
       ? `https://channel-app.com/dj/${djUsernameNormalized}`
       : null;
-    const profileTipLine = profileUrl
-      ? `\n(people can support you anytime via your profile ${profileUrl}, not just during your live set)`
+    const profileBlock = profileUrl
+      ? `\nYour profile:\n${profileUrl}\nPeople can follow you there to receive updates, chat, and tip you anytime.\n`
       : '';
 
     const subject = `Your show on Channel: ${showName}`;
@@ -806,10 +806,10 @@ Sign up or log in using ${targetEmail} so everything links properly:
 
 https://channel-app.com/studio
 
-Add your bio, links, and any upcoming shows, on Channel, other radios, or IRL. We feature these on the website and in our bi-weekly newsletter.
-
+Add your bio, links, and any upcoming shows, on other radios, or IRL. We feature these on the website and in our bi-weekly newsletter.
+${profileBlock}
 If you haven't connected Stripe yet and want to receive tips:
-https://channel-app.com/stripe-setup${profileTipLine}
+https://channel-app.com/stripe-setup
 
 ⸻
 
@@ -831,6 +831,12 @@ Join a few minutes early. Once you go live, people can tune in, chat, and suppor
 
 You can share the radio here:
 https://channel-app.com/radio
+
+⸻
+
+If you want to have someone play just before or after you, they can apply here:
+https://channel-app.com/studio/join
+or you can just put me in touch with them.
 
 ⸻
 
