@@ -767,6 +767,7 @@ export function ChannelClient() {
                     isFollowing={following}
                     isAddingFollow={addingFollow}
                     onFollow={() => handleUnifiedFollow(show)}
+                    profileMode
                   />
                 );
               })}
