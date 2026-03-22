@@ -159,7 +159,6 @@ export async function sendShowStartingEmail({
   // DJ radio / external stations with DJ profile → "See profile" → DJ profile
   // External stations without DJ profile → "Tune In" → station website
   const isChannelRadio = stationId === "broadcast";
-  const isDjRadio = stationId === "dj-radio";
   const hasProfile = !isChannelRadio && djUsername;
   const buttonUrl = isChannelRadio
     ? "https://channel-app.com/radio"
