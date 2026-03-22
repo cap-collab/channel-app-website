@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendWatchlistDigestEmail } from "@/lib/email";
+import { sendWatchlistDigestEmail, sendShowStartingEmail } from "@/lib/email";
 import { queryUsersWhere, queryCollection, getUserFavorites } from "@/lib/firebase-rest";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { matchesGenre } from "@/lib/genres";
@@ -687,6 +687,62 @@ async function sendTestEmail(to: string, section?: string) {
 //   ?secret=XXX          (required)
 //   &to=email@example    (optional, defaults to cap@channel-app.com)
 //   &section=1|2|3       (optional, test individual sections — 1=favorites, 2=recs, 3=preferences)
+async function sendTestShowStartingEmail(to: string, showName: string, stationId: string) {
+  // Fetch metadata to find the show
+  const metadataResponse = await fetch(
+    "https://cap-collab.github.io/channel-metadata/metadata.json",
+    { cache: "no-store" }
+  );
+  const metadata: Metadata = await metadataResponse.json();
+
+  // Find the show across all stations
+  let foundShow: MetadataShow | undefined;
+  let foundStation = stationId;
+  for (const [key, shows] of Object.entries(metadata.stations)) {
+    if (!Array.isArray(shows)) continue;
+    for (const show of shows) {
+      if (show.n.toLowerCase().includes(showName.toLowerCase())) {
+        foundShow = show;
+        foundStation = key;
+        break;
+      }
+    }
+    if (foundShow) break;
+  }
+
+  if (!foundShow) {
+    return NextResponse.json({ error: `Show "${showName}" not found` }, { status: 404 });
+  }
+
+  // Resolve DJ profile
+  let djUsername = foundShow.p || undefined;
+  let djPhotoUrl: string | undefined;
+  const djUsers = await queryUsersWhere("role", "EQUAL", "dj");
+  if (djUsername) {
+    const normalized = normalizeForLookup(djUsername);
+    for (const djUser of djUsers) {
+      const chatUsernameNormalized = djUser.data.chatUsernameNormalized as string | undefined;
+      if (chatUsernameNormalized && normalizeForLookup(chatUsernameNormalized) === normalized) {
+        djUsername = (djUser.data.chatUsername as string) || djUsername;
+        djPhotoUrl = (djUser.data.djProfile as Record<string, unknown>)?.photoUrl as string | undefined;
+        break;
+      }
+    }
+  }
+
+  const success = await sendShowStartingEmail({
+    to,
+    showName: foundShow.n,
+    djName: foundShow.j || undefined,
+    djUsername,
+    djPhotoUrl,
+    stationName: STATION_NAMES[foundStation] || foundStation,
+    stationId: foundStation,
+  });
+
+  return NextResponse.json({ success, show: foundShow.n, djUsername, djPhotoUrl, stationId: foundStation });
+}
+
 export async function GET(request: NextRequest) {
   const secret = request.nextUrl.searchParams.get("secret");
 
@@ -695,6 +751,14 @@ export async function GET(request: NextRequest) {
   }
 
   const to = request.nextUrl.searchParams.get("to") || "cap@channel-app.com";
+  const type = request.nextUrl.searchParams.get("type");
+
+  if (type === "show-starting") {
+    const showName = request.nextUrl.searchParams.get("show") || "Celebrity Bitcrush";
+    const stationId = request.nextUrl.searchParams.get("station") || "subtle";
+    return sendTestShowStartingEmail(to, showName, stationId);
+  }
+
   const section = request.nextUrl.searchParams.get("section") || undefined;
   return sendTestEmail(to, section);
 }
