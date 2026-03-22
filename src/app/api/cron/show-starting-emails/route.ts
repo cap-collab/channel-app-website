@@ -261,40 +261,35 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Generic words that should never resolve to a DJ profile
+    const ignoredProfileUsernames = new Set(["guests"]);
+
     // 4. Resolve DJ profiles for live shows using `p` field, falling back to `ap`
     for (const show of liveShows) {
       if (show.djUsername) continue; // Already resolved (broadcast)
 
-      if (show.profileUsername) {
-        const profile = djNameToProfile.get(normalizeForLookup(show.profileUsername));
+      const effectiveProfileUsername = show.profileUsername && !ignoredProfileUsernames.has(show.profileUsername)
+        ? show.profileUsername
+        : undefined;
+
+      // Try p field first, then ap entries, then dj name
+      const candidates: string[] = [];
+      if (effectiveProfileUsername) candidates.push(effectiveProfileUsername);
+      if (show.additionalProfileUsernames) candidates.push(...show.additionalProfileUsernames);
+      if (show.dj) candidates.push(show.dj);
+
+      for (const candidate of candidates) {
+        const profile = djNameToProfile.get(normalizeForLookup(candidate));
         if (profile) {
           show.djUsername = profile.username;
           show.djPhotoUrl = profile.photoUrl;
           show.djHasEmail = profile.hasEmail;
-        } else if (show.additionalProfileUsernames?.length) {
-          // p didn't resolve to a real profile — try ap entries
-          for (const apUsername of show.additionalProfileUsernames) {
-            const apProfile = djNameToProfile.get(normalizeForLookup(apUsername));
-            if (apProfile) {
-              show.djUsername = apProfile.username;
-              show.djPhotoUrl = apProfile.photoUrl;
-              show.djHasEmail = apProfile.hasEmail;
-              break;
-            }
-          }
-          if (!show.djUsername) {
-            show.djUsername = show.additionalProfileUsernames[0];
-          }
-        } else {
-          show.djUsername = show.profileUsername;
+          break;
         }
-      } else if (show.dj) {
-        const profile = djNameToProfile.get(normalizeForLookup(show.dj));
-        if (profile) {
-          show.djUsername = profile.username;
-          show.djPhotoUrl = profile.photoUrl;
-          show.djHasEmail = profile.hasEmail;
-        }
+      }
+      // If no profile matched but we had a p or ap value, use the first as username
+      if (!show.djUsername && (effectiveProfileUsername || show.additionalProfileUsernames?.length)) {
+        show.djUsername = effectiveProfileUsername || show.additionalProfileUsernames![0];
       }
     }
 
