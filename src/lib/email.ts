@@ -157,13 +157,15 @@ export async function sendShowStartingEmail({
 
   // Channel Radio → "Join the chat" → DJ profile
   // DJ radio shows → "Tune In" → DJ profile (where they can find the streaming link)
-  // External stations → "Tune In" → station website
+  // External stations with DJ profile → "See profile" → DJ profile
+  // External stations without DJ profile → "Tune In" → station website
   const isChannelRadio = stationId === "broadcast";
   const isDjRadio = stationId === "dj-radio";
-  const buttonUrl = (isChannelRadio || isDjRadio) && djUsername
+  const isExternalWithProfile = !isChannelRadio && !isDjRadio && djUsername;
+  const buttonUrl = (isChannelRadio || isDjRadio || isExternalWithProfile) && djUsername
     ? `https://channel-app.com/dj/${normalizeDjUsername(djUsername)}`
     : getStationWebsiteUrl(stationId);
-  const buttonText = isChannelRadio ? "Join the chat" : "Tune In";
+  const buttonText = isChannelRadio ? "Join the chat" : isExternalWithProfile ? "See profile" : "Tune In";
 
   // Station accent colors for fallback avatar (same as watchlist digest)
   const stationAccentColors: Record<string, string> = {

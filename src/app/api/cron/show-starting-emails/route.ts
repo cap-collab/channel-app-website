@@ -25,6 +25,7 @@ interface MetadataShow {
   e: string; // end time (ISO 8601)
   j?: string | null; // dj/host
   p?: string | null; // profile username
+  ap?: string[] | null; // additional profile usernames
   t?: string | null; // type (weekly, monthly, restream, playlist)
 }
 
@@ -43,6 +44,7 @@ interface LiveShow {
   stationId: string;
   stationName: string;
   showId: string; // Unique ID for dedup: "stationId-startTime"
+  additionalProfileUsernames?: string[];
   // Resolved DJ profile info
   djUsername?: string;
   djPhotoUrl?: string;
@@ -115,6 +117,7 @@ export async function GET(request: NextRequest) {
             name: show.n,
             dj: show.j || undefined,
             profileUsername: show.p || undefined,
+            additionalProfileUsernames: show.ap || undefined,
             stationId: stationKey,
             stationName: STATION_NAMES[stationKey] || stationKey,
             showId: `${stationKey}-${show.s}`,
@@ -258,7 +261,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 4. Resolve DJ profiles for live shows using `p` field
+    // 4. Resolve DJ profiles for live shows using `p` field, falling back to `ap`
     for (const show of liveShows) {
       if (show.djUsername) continue; // Already resolved (broadcast)
 
@@ -268,6 +271,20 @@ export async function GET(request: NextRequest) {
           show.djUsername = profile.username;
           show.djPhotoUrl = profile.photoUrl;
           show.djHasEmail = profile.hasEmail;
+        } else if (show.additionalProfileUsernames?.length) {
+          // p didn't resolve to a real profile — try ap entries
+          for (const apUsername of show.additionalProfileUsernames) {
+            const apProfile = djNameToProfile.get(normalizeForLookup(apUsername));
+            if (apProfile) {
+              show.djUsername = apProfile.username;
+              show.djPhotoUrl = apProfile.photoUrl;
+              show.djHasEmail = apProfile.hasEmail;
+              break;
+            }
+          }
+          if (!show.djUsername) {
+            show.djUsername = show.additionalProfileUsernames[0];
+          }
         } else {
           show.djUsername = show.profileUsername;
         }
