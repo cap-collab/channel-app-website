@@ -752,9 +752,9 @@ export function ChannelClient() {
 
       {/* Favorites Now Live — only when NOT on Channel Radio */}
       {!isBroadcastLive && favoritesNowLive.length > 0 && (
-        <section className="px-4 md:px-8 pt-4 pb-2 relative z-10">
+        <section className="px-4 md:px-8 pt-4 pb-6 relative z-10">
           <div className="max-w-7xl mx-auto">
-            <h2 className="text-lg md:text-xl font-bold mb-3">Your favorites are live</h2>
+            <h2 className="text-2xl md:text-3xl font-bold mb-3">Your favorites are live</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {favoritesNowLive.map(({ show, station }) => {
                 const following = show.dj ? isInWatchlist(show.dj) : false;
