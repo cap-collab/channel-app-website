@@ -275,6 +275,7 @@ export function ChannelClient() {
 
   // Compute all sections with deduplication
   const {
+    favoritesNowLive,
     locationGenreCards,
     filteredCuratorRecs,
     genreCards,
@@ -329,6 +330,22 @@ export function ChannelClient() {
       }
       return result;
     };
+
+    // Section 0: Favorites now live — favorited shows or followed DJs currently on air
+    const s0: { show: Show; station: Station }[] = [];
+    for (const show of allShows) {
+      if (!isValidShow(show)) continue;
+      const station = stationsMap.get(show.stationId);
+      if (!station) continue;
+      if (new Date(show.startTime) > now || new Date(show.endTime) <= now) continue;
+      const djFollowed = show.dj ? isInWatchlist(show.dj) : false;
+      const showFaved = isShowFavorited(show);
+      if (djFollowed || showFaved) {
+        if (tryAddShow(show.id, show.dj)) {
+          s0.push({ show, station });
+        }
+      }
+    }
 
     // Section 1: Location + Genre (grid, max 4) — sorted by match count > live > isChannelUser
     // Only show when a specific city is selected (not "Anywhere")
@@ -448,13 +465,14 @@ export function ChannelClient() {
     }
 
     return {
+      favoritesNowLive: s0,
       locationGenreCards: s1,
       filteredCuratorRecs: s3,
       genreCards: s4,
       locationCards: s6,
       radioCards: s7,
     };
-  }, [allShows, irlShows, curatorRecs, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, getMatchingGenres, genreLabelFor, isShowLive, isValidShow, followedDJNames]);
+  }, [allShows, irlShows, curatorRecs, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, getMatchingGenres, genreLabelFor, isShowLive, isValidShow, followedDJNames, isInWatchlist, isShowFavorited]);
 
   // Mark curator recs as seen once they render at the top for the first time
   useEffect(() => {
@@ -486,6 +504,7 @@ export function ChannelClient() {
     if (selectedGenres.length === 0) return undefined;
     return locationGenreCards.length + genreCards.length;
   }, [selectedGenres, locationGenreCards, genreCards]);
+
 
   // Determine which selected genres have zero matches across all shows
   const noCuratorsInCity = selectedCity && selectedCity !== 'Anywhere' && locationCards.length === 0 && locationGenreCards.length === 0;
@@ -726,6 +745,31 @@ export function ChannelClient() {
               >
                 Host a show
               </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Favorites Now Live — only when NOT on Channel Radio */}
+      {!isBroadcastLive && favoritesNowLive.length > 0 && (
+        <section className="px-4 md:px-8 pt-4 pb-2 relative z-10">
+          <div className="max-w-7xl mx-auto">
+            <h2 className="text-lg md:text-xl font-bold mb-3">Your favorites are live</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {favoritesNowLive.map(({ show, station }) => {
+                const following = show.dj ? isInWatchlist(show.dj) : false;
+                const addingFollow = addingFollowDj === show.dj;
+                return (
+                  <LiveShowCard
+                    key={`fav-live-${show.id}`}
+                    show={show}
+                    station={station}
+                    isFollowing={following}
+                    isAddingFollow={addingFollow}
+                    onFollow={() => handleUnifiedFollow(show)}
+                  />
+                );
+              })}
             </div>
           </div>
         </section>
