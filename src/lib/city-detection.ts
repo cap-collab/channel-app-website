@@ -182,6 +182,12 @@ const CITY_ALIASES: Record<string, string[]> = {
   'brussels': ['bru', 'bruxelles'],
 };
 
+// Word-boundary match: ensures short aliases like "la" don't match inside "switzerland"
+function wordBoundaryIncludes(text: string, term: string): boolean {
+  const regex = new RegExp(`(?:^|[\\s,;/|()\\-])${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:$|[\\s,;/|()\\-])`, 'i');
+  return regex.test(text);
+}
+
 /**
  * Check if a location string matches a supported city (case-insensitive)
  * Supports aliases like NY for New York, SF for San Francisco, etc.
@@ -195,10 +201,10 @@ export function matchesCity(location: string, city: string): boolean {
     return true;
   }
 
-  // Check if location matches any alias for the city
+  // Check if location matches any alias for the city (word-boundary to avoid "la" matching "switzerland")
   const aliases = CITY_ALIASES[cityLower];
   if (aliases) {
-    if (aliases.some((alias) => locationLower === alias || locationLower.includes(alias))) {
+    if (aliases.some((alias) => locationLower === alias || wordBoundaryIncludes(locationLower, alias))) {
       return true;
     }
   }
@@ -206,7 +212,7 @@ export function matchesCity(location: string, city: string): boolean {
   // Check reverse: if the selected city is an alias, match against the canonical city
   for (const [canonical, aliasList] of Object.entries(CITY_ALIASES)) {
     if (aliasList.includes(cityLower) || cityLower === canonical) {
-      if (locationLower.includes(canonical) || aliasList.some((a) => locationLower.includes(a))) {
+      if (locationLower.includes(canonical) || aliasList.some((a) => wordBoundaryIncludes(locationLower, a))) {
         return true;
       }
     }
