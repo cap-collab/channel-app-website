@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { collection, query, where, getDocs, orderBy, doc as firestoreDoc, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc as firestoreDoc, getDoc } from "firebase/firestore";
 import { Header } from "@/components/Header";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { db } from "@/lib/firebase";
@@ -119,24 +119,29 @@ export function CollectivePublicPage({ slug }: Props) {
           }
         }
 
-        // Fetch all events for this collective
+        // Fetch all events for this collective (by collectiveId or linkedCollectives)
         try {
           const now = Date.now();
           const eventsRef = collection(db, "events");
-          const eventsQ = query(
-            eventsRef,
-            where("collectiveId", "==", doc.id),
-            orderBy("date", "desc")
-          );
-          const eventsSnapshot = await getDocs(eventsQ);
+          const allEventsSnapshot = await getDocs(eventsRef);
 
-          const seenIds = new Set<string>();
           const upcoming: Event[] = [];
           const past: Event[] = [];
 
-          const parseEvent = (eventDoc: import("firebase/firestore").QueryDocumentSnapshot): Event => {
+          allEventsSnapshot.forEach((eventDoc) => {
             const eventData = eventDoc.data();
-            return {
+
+            // Check if this event belongs to this collective
+            const matchesCollectiveId = eventData.collectiveId === doc.id;
+            const linked = eventData.linkedCollectives || [];
+            const matchesLinked = linked.some(
+              (c: { collectiveId?: string; collectiveSlug?: string }) =>
+                c.collectiveId === doc.id || c.collectiveSlug === collectiveData.slug
+            );
+
+            if (!matchesCollectiveId && !matchesLinked) return;
+
+            const event: Event = {
               id: eventDoc.id,
               name: eventData.name,
               slug: eventData.slug,
@@ -155,32 +160,7 @@ export function CollectivePublicPage({ slug }: Props) {
               createdAt: eventData.createdAt?.toMillis?.() || Date.now(),
               createdBy: eventData.createdBy,
             };
-          };
 
-          eventsSnapshot.forEach((eventDoc) => {
-            seenIds.add(eventDoc.id);
-            const event = parseEvent(eventDoc);
-            if (event.date >= now) {
-              upcoming.push(event);
-            } else {
-              past.push(event);
-            }
-          });
-
-          // Also check linkedCollectives for events that reference this collective
-          const linkedQ = query(eventsRef, orderBy("date", "desc"));
-          const linkedSnapshot = await getDocs(linkedQ);
-          linkedSnapshot.forEach((eventDoc) => {
-            if (seenIds.has(eventDoc.id)) return;
-            const eventData = eventDoc.data();
-            const linked = eventData.linkedCollectives || [];
-            const isLinked = linked.some(
-              (c: { collectiveId?: string; collectiveSlug?: string }) =>
-                c.collectiveId === doc.id || c.collectiveSlug === collectiveData.slug
-            );
-            if (!isLinked) return;
-            seenIds.add(eventDoc.id);
-            const event = parseEvent(eventDoc);
             if (event.date >= now) {
               upcoming.push(event);
             } else {
