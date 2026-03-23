@@ -941,6 +941,7 @@ export function DJPublicProfileClient({ username }: Props) {
               collectiveId: data.collectiveId || null,
               collectiveName: data.collectiveName || null,
               djs: data.djs || [],
+              linkedVenues: data.linkedVenues || [],
               genres: data.genres || [],
               location: data.location || null,
               ticketLink: data.ticketLink || null,
@@ -1621,8 +1622,21 @@ export function DJPublicProfileClient({ username }: Props) {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
-                        {event.location && <> &middot; {event.location}</>}
-                        {event.venueName && <> &middot; {event.venueName}</>}
+                        {(event.location || event.linkedVenues?.length || event.venueName) && (
+                          <>
+                            {" "}
+                            <svg className="inline-block w-3 h-3 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            {" "}
+                            {event.location}
+                            {event.linkedVenues && event.linkedVenues.length > 0
+                              ? <>{event.location && " · "}{event.linkedVenues.map(v => v.venueName).join(", ")}</>
+                              : event.venueName && <>{event.location && " · "}{event.venueName}</>
+                            }
+                          </>
+                        )}
                       </p>
                       {event.djs.length > 0 && (
                         <div className="flex flex-wrap gap-1.5">
