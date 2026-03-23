@@ -392,6 +392,7 @@ export function DJPublicProfileClient({ username }: Props) {
   const [djVenues, setDjVenues] = useState<Venue[]>([]);
   const [djCollectives, setDjCollectives] = useState<Collective[]>([]);
   const [djUpcomingEvents, setDjUpcomingEvents] = useState<ChannelEvent[]>([]);
+  const [djPastEvents, setDjPastEvents] = useState<ChannelEvent[]>([]);
 
   // Broadcast stream context for synced play/pause
   const { isPlaying, isLoading: streamLoading, toggle: toggleStream } = useBroadcastStreamContext();
@@ -925,11 +926,13 @@ export function DJPublicProfileClient({ username }: Props) {
         });
         setDjCollectives(matchedCollectives);
 
-        const matchedEvents: ChannelEvent[] = [];
+        const upcoming: ChannelEvent[] = [];
+        const pastEvts: ChannelEvent[] = [];
+        const now = Date.now();
         eventsSnapshot.forEach((doc) => {
           const data = doc.data();
           if (matchesDJ(data.djs)) {
-            matchedEvents.push({
+            const event: ChannelEvent = {
               id: doc.id,
               name: data.name,
               slug: data.slug,
@@ -949,10 +952,18 @@ export function DJPublicProfileClient({ username }: Props) {
               ticketLink: data.ticketLink || null,
               createdAt: data.createdAt?.toMillis?.() || Date.now(),
               createdBy: data.createdBy,
-            });
+            };
+            if (event.date >= now) {
+              upcoming.push(event);
+            } else {
+              pastEvts.push(event);
+            }
           }
         });
-        setDjUpcomingEvents(matchedEvents);
+        upcoming.sort((a, b) => a.date - b.date);
+        pastEvts.sort((a, b) => b.date - a.date);
+        setDjUpcomingEvents(upcoming);
+        setDjPastEvents(pastEvts);
       } catch (error) {
         console.error("Error fetching linked entities:", error);
       }
@@ -1987,6 +1998,111 @@ export function DJPublicProfileClient({ username }: Props) {
 
                 return null;
               })}
+            </div>
+          </section>
+        )}
+
+        {/* SECTION: PAST EVENTS */}
+        {djPastEvents.length > 0 && (
+          <section className="mb-6">
+            <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2">
+              Past Events
+            </h2>
+            <div className="space-y-3">
+              {djPastEvents.map((event) => (
+                <div
+                  key={event.id}
+                  className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors"
+                >
+                  <div className="flex items-start gap-4">
+                    {event.photo ? (
+                      <Image
+                        src={event.photo}
+                        alt={event.name}
+                        width={64}
+                        height={64}
+                        className="w-16 h-16 object-cover flex-shrink-0"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="w-16 h-16 bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-6 h-6 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-medium mb-1">{event.name}</p>
+                      <p className="text-zinc-500 text-xs uppercase tracking-wide mb-2">
+                        {new Date(event.date).toLocaleDateString("en-US", {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        {(event.location || event.linkedVenues?.length || event.venueName) && (
+                          <>
+                            {" "}
+                            <svg className="inline-block w-2.5 h-2.5 -mt-0.5 mr-0.5" viewBox="0 0 24 36" fill="none">
+                              <circle cx="12" cy="12" r="10" fill="#ef4444" />
+                              <line x1="12" y1="22" x2="12" y2="35" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" />
+                            </svg>
+                            {event.location}
+                            {event.linkedVenues && event.linkedVenues.length > 0
+                              ? <>{event.location && " · "}{event.linkedVenues.map((v: EventVenueRef, vi: number) => (
+                                  <span key={v.venueId}>
+                                    <Link href={`/venue/${generateSlug(v.venueName)}`} className="hover:text-white transition-colors">{v.venueName}</Link>
+                                    {vi < event.linkedVenues!.length - 1 && ", "}
+                                  </span>
+                                ))}</>
+                              : event.venueName && <>{event.location && " · "}{event.venueName}</>
+                            }
+                          </>
+                        )}
+                      </p>
+                      {(event.djs.length > 0 || (event.linkedCollectives && event.linkedCollectives.length > 0)) && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {event.djs.map((dj: EventDJRef, i: number) => (
+                            dj.djUsername ? (
+                              <Link
+                                key={`dj-${i}`}
+                                href={`/dj/${dj.djUsername}`}
+                                className="text-xs text-zinc-400 hover:text-white transition-colors"
+                              >
+                                {dj.djName}
+                                {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
+                              </Link>
+                            ) : (
+                              <span key={`dj-${i}`} className="text-xs text-zinc-400">
+                                {dj.djName}
+                                {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
+                              </span>
+                            )
+                          ))}
+                          {event.linkedCollectives?.map((coll: CollectiveRef, i: number) => (
+                            coll.collectiveSlug ? (
+                              <Link
+                                key={`coll-${coll.collectiveId}`}
+                                href={`/collective/${coll.collectiveSlug}`}
+                                className="text-xs text-zinc-400 hover:text-white transition-colors"
+                              >
+                                {coll.collectiveName}
+                                {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
+                              </Link>
+                            ) : (
+                              <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
+                                {coll.collectiveName}
+                                {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
+                              </span>
+                            )
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
         )}
