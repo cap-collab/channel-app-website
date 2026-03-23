@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { collection, query, where, getDocs, orderBy, doc as firestoreDoc, getDoc } from "firebase/firestore";
@@ -8,6 +8,8 @@ import { Header } from "@/components/Header";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { db } from "@/lib/firebase";
 import { Collective, CollectiveRef, Event, EventDJRef, CollectiveVenueRef } from "@/types/events";
+import { useSchedule } from "@/contexts/ScheduleContext";
+import { getStationById } from "@/lib/stations";
 
 // Icon components
 const InstagramIcon = ({ size = 14 }: { size?: number }) => (
@@ -38,11 +40,23 @@ interface Props {
   slug: string;
 }
 
+interface PastShow {
+  id: string;
+  showName: string;
+  startTime: string;
+  endTime: string;
+  stationId: string;
+  stationName: string;
+  showType?: string;
+}
+
 export function CollectivePublicPage({ slug }: Props) {
   const [collective, setCollective] = useState<Collective | null>(null);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+  const [pastShows, setPastShows] = useState<PastShow[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const { shows: allShows } = useSchedule();
 
   // Fetch collective by slug
   useEffect(() => {
@@ -152,6 +166,39 @@ export function CollectivePublicPage({ slug }: Props) {
     }
 
     fetchCollective();
+  }, [slug]);
+
+  // Upcoming radio shows where this collective's slug matches p or ap
+  const upcomingRadioShows = useMemo(() => {
+    const now = Date.now();
+    const normalizedSlug = slug.toLowerCase();
+
+    return allShows
+      .filter((show) => {
+        if (show.stationId === "broadcast" || show.stationId === "dj-radio") return false;
+        const endTime = new Date(show.endTime).getTime();
+        if (endTime <= now) return false;
+        return (
+          show.djUsername === normalizedSlug ||
+          show.additionalDjUsernames?.includes(normalizedSlug)
+        );
+      })
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  }, [allShows, slug]);
+
+  // Fetch past shows from history
+  useEffect(() => {
+    async function fetchPastShows() {
+      try {
+        const res = await fetch(`/api/past-shows?dj=${slug}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setPastShows(data.shows || []);
+      } catch (error) {
+        console.error("Error fetching past shows:", error);
+      }
+    }
+    fetchPastShows();
   }, [slug]);
 
   const formatEventDate = (ms: number) => {
@@ -480,6 +527,87 @@ export function CollectivePublicPage({ slug }: Props) {
                   </div>
                 </div>
               ))}
+            </div>
+          </section>
+        )}
+
+        {/* SECTION F: UPCOMING RADIO SHOWS */}
+        {upcomingRadioShows.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">
+              Upcoming Shows
+            </h2>
+            <div className="space-y-3">
+              {upcomingRadioShows.map((show) => {
+                const station = getStationById(show.stationId);
+                const showDate = new Date(show.startTime);
+                const dateStr = showDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                const timeStr = showDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+                const endStr = new Date(show.endTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+                const now = Date.now();
+                const isLive = new Date(show.startTime).getTime() <= now && new Date(show.endTime).getTime() > now;
+
+                return (
+                  <div
+                    key={show.id}
+                    className="bg-zinc-900/50 border border-white/10 rounded-lg overflow-hidden"
+                  >
+                    <div className="flex items-center justify-between px-4 py-2 bg-black/40">
+                      <span className="text-zinc-400 text-xs">
+                        {dateStr} · {timeStr} – {endStr}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {isLive && (
+                          <span className="flex items-center gap-1">
+                            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                            <span className="text-red-500 text-xs font-bold uppercase">Live</span>
+                          </span>
+                        )}
+                        <span className="text-zinc-500 text-xs">{station?.name || show.stationId}</span>
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <p className="text-white font-medium">{show.name}</p>
+                      {show.dj && (
+                        <p className="text-zinc-500 text-xs mt-1">{show.dj}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* SECTION G: PAST SHOWS */}
+        {pastShows.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">
+              Past Shows
+            </h2>
+            <div className="space-y-3">
+              {pastShows.slice(0, 20).map((show) => {
+                const showDate = new Date(show.startTime);
+                const dateStr = showDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                const timeStr = showDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+
+                return (
+                  <div
+                    key={show.id}
+                    className="bg-zinc-900/50 border border-white/10 rounded-lg overflow-hidden"
+                  >
+                    <div className="flex items-center justify-between px-4 py-2 bg-black/40">
+                      <span className="text-zinc-400 text-xs">
+                        {dateStr} · {timeStr}
+                      </span>
+                      <span className="text-zinc-500 text-xs">{show.stationName}</span>
+                    </div>
+                    <div className="p-4">
+                      <p className="text-white font-medium">{show.showName}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </section>
         )}
