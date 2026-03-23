@@ -11,6 +11,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useSchedule } from '@/contexts/ScheduleContext';
 import { Show } from '@/types';
+import { Collective, Venue } from '@/types/events';
 import { getStationById, getStationByMetadataKey, STATIONS } from '@/lib/stations';
 import { ExpandedShowCard } from './channel/ExpandedShowCard';
 
@@ -56,6 +57,16 @@ let djCache: {
 } | null = null;
 const DJ_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Module-level cache for collectives and venues
+type CollectiveEntry = { id: string; name: string; slug: string; photo?: string | null; location?: string | null };
+type VenueEntry = { id: string; name: string; slug: string; photo?: string | null; location?: string | null };
+let collectivesVenuesCache: {
+  collectives: CollectiveEntry[];
+  venues: VenueEntry[];
+  timestamp: number;
+} | null = null;
+const CV_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 interface HeaderSearchProps {
   onAuthRequired?: () => void;
 }
@@ -76,6 +87,8 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
   const [isDjLoading, setIsDjLoading] = useState(false);
   const [expandedShow, setExpandedShow] = useState<Show | null>(null);
   const [togglingExpandedFavorite, setTogglingExpandedFavorite] = useState(false);
+  const [matchingCollectives, setMatchingCollectives] = useState<CollectiveEntry[]>([]);
+  const [matchingVenues, setMatchingVenues] = useState<VenueEntry[]>([]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -164,6 +177,66 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
       );
       setRegisteredDjs(
         djCache.registered.filter((dj) => dj.name.toLowerCase().includes(queryLower)).slice(0, 10)
+      );
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Search collectives and venues with module-level cache
+  useEffect(() => {
+    if (!query.trim() || !db) {
+      setMatchingCollectives([]);
+      setMatchingVenues([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      if (!db) return;
+      const queryLower = query.toLowerCase();
+
+      // Populate cache if stale or missing
+      if (!collectivesVenuesCache || Date.now() - collectivesVenuesCache.timestamp > CV_CACHE_TTL) {
+        try {
+          const allCollectives: CollectiveEntry[] = [];
+          const collectivesSnapshot = await getDocs(fbQuery(collection(db, 'collectives')));
+          collectivesSnapshot.forEach((docSnap) => {
+            const data = docSnap.data() as Collective;
+            allCollectives.push({
+              id: docSnap.id,
+              name: data.name,
+              slug: data.slug,
+              photo: data.photo,
+              location: data.location,
+            });
+          });
+
+          const allVenues: VenueEntry[] = [];
+          const venuesSnapshot = await getDocs(fbQuery(collection(db, 'venues')));
+          venuesSnapshot.forEach((docSnap) => {
+            const data = docSnap.data() as Venue;
+            allVenues.push({
+              id: docSnap.id,
+              name: data.name,
+              slug: data.slug,
+              photo: data.photo,
+              location: data.location,
+            });
+          });
+
+          collectivesVenuesCache = { collectives: allCollectives, venues: allVenues, timestamp: Date.now() };
+        } catch (error) {
+          console.error('Error fetching collectives/venues:', error);
+          return;
+        }
+      }
+
+      // Filter cached data
+      setMatchingCollectives(
+        collectivesVenuesCache.collectives.filter((c) => c.name.toLowerCase().includes(queryLower)).slice(0, 5)
+      );
+      setMatchingVenues(
+        collectivesVenuesCache.venues.filter((v) => v.name.toLowerCase().includes(queryLower)).slice(0, 5)
       );
     }, 150);
 
@@ -334,7 +407,7 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
             setIsOpen(true);
           }}
           onFocus={() => setIsOpen(true)}
-          placeholder="Search DJs"
+          placeholder="Search DJs, collectives, venues"
           className={`w-full pl-10 py-2 bg-white/10 rounded-none text-white text-base md:text-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-accent focus:bg-white/15 transition-colors border border-white/10 ${query ? 'pr-10' : 'pr-4'}`}
         />
         {query && (
@@ -492,6 +565,90 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
                   </div>
                 )}
 
+                {/* Collectives Section */}
+                {matchingCollectives.length > 0 && (
+                  <div className="p-3 border-b border-gray-800">
+                    <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-2 px-1">
+                      Collectives ({matchingCollectives.length})
+                    </h3>
+                    <div className="space-y-1">
+                      {matchingCollectives.map((collective) => (
+                        <Link
+                          key={collective.id}
+                          href={`/collective/${collective.slug}`}
+                          onClick={() => setIsOpen(false)}
+                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-gray-700 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                            {collective.photo ? (
+                              <Image
+                                src={collective.photo}
+                                alt={collective.name}
+                                width={32}
+                                height={32}
+                                className="w-full h-full object-cover"
+                                unoptimized
+                              />
+                            ) : (
+                              <span className="text-white text-sm font-medium">
+                                {collective.name.charAt(0).toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm font-medium truncate">{collective.name}</p>
+                            {collective.location && (
+                              <p className="text-gray-500 text-xs truncate">{collective.location}</p>
+                            )}
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Venues Section */}
+                {matchingVenues.length > 0 && (
+                  <div className="p-3 border-b border-gray-800">
+                    <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-2 px-1">
+                      Venues ({matchingVenues.length})
+                    </h3>
+                    <div className="space-y-1">
+                      {matchingVenues.map((venue) => (
+                        <Link
+                          key={venue.id}
+                          href={`/venue/${venue.slug}`}
+                          onClick={() => setIsOpen(false)}
+                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-gray-700 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                            {venue.photo ? (
+                              <Image
+                                src={venue.photo}
+                                alt={venue.name}
+                                width={32}
+                                height={32}
+                                className="w-full h-full object-cover"
+                                unoptimized
+                              />
+                            ) : (
+                              <span className="text-white text-sm font-medium">
+                                {venue.name.charAt(0).toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm font-medium truncate">{venue.name}</p>
+                            {venue.location && (
+                              <p className="text-gray-500 text-xs truncate">{venue.location}</p>
+                            )}
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Shows Section */}
                 {results.length > 0 && (
                   <div className="p-3">
@@ -583,7 +740,7 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
                 )}
 
                 {/* No results message */}
-                {results.length === 0 && combinedDjs.length === 0 && !isDjLoading && (
+                {results.length === 0 && combinedDjs.length === 0 && matchingCollectives.length === 0 && matchingVenues.length === 0 && !isDjLoading && (
                   <div className="p-4 text-center text-gray-500 text-sm">
                     No upcoming shows found for &quot;{query}&quot;
                   </div>
