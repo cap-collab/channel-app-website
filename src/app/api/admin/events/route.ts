@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, date, endDate, photo, description, venueId, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, socialLinks } = body;
+    const { name, date, endDate, photo, description, venueId, venueName: manualVenueName, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, socialLinks } = body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json({ error: 'Event name is required' }, { status: 400 });
@@ -75,13 +75,15 @@ export async function POST(request: NextRequest) {
       suffix++;
     }
 
-    // Denormalize venue name if venueId is provided (legacy single-venue)
+    // Denormalize venue name: use Firestore lookup if venueId provided, otherwise use manual name
     let venueName: string | null = null;
     if (venueId) {
       const venueDoc = await db.collection('venues').doc(venueId).get();
       if (venueDoc.exists) {
         venueName = venueDoc.data()?.name || null;
       }
+    } else if (manualVenueName) {
+      venueName = manualVenueName;
     }
 
     // Denormalize collective name if collectiveId is provided (legacy single-collective)
@@ -148,7 +150,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { eventId, name, date, endDate, photo, description, venueId, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, socialLinks } = body;
+    const { eventId, name, date, endDate, photo, description, venueId, venueName: manualVenueName, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, socialLinks } = body;
 
     if (!eventId) {
       return NextResponse.json({ error: 'eventId is required' }, { status: 400 });
@@ -183,8 +185,10 @@ export async function PATCH(request: NextRequest) {
         const venueDoc = await db.collection('venues').doc(venueId).get();
         updateData.venueName = venueDoc.exists ? venueDoc.data()?.name || null : null;
       } else {
-        updateData.venueName = null;
+        updateData.venueName = manualVenueName || null;
       }
+    } else if (manualVenueName !== undefined) {
+      updateData.venueName = manualVenueName || null;
     }
 
     // Re-denormalize collective name if collectiveId changed

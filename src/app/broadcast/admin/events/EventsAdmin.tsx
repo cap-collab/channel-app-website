@@ -37,6 +37,7 @@ export function EventsAdmin() {
   const [description, setDescription] = useState('');
   const [eventLinkedVenues, setEventLinkedVenues] = useState<EventVenueRef[]>([]);
   const [eventLinkedCollectives, setEventLinkedCollectives] = useState<CollectiveRef[]>([]);
+  const [manualVenueName, setManualVenueName] = useState('');
   const [location, setLocation] = useState('');
   const [genres, setGenres] = useState('');
   const [ticketLink, setTicketLink] = useState('');
@@ -248,6 +249,7 @@ export function EventsAdmin() {
     setDescription('');
     setEventLinkedVenues([]);
     setEventLinkedCollectives([]);
+    setManualVenueName('');
     setLocation('');
     setGenres('');
     setTicketLink('');
@@ -280,6 +282,12 @@ export function EventsAdmin() {
       setEventLinkedVenues([{ venueId: event.venueId, venueName: event.venueName }]);
     } else {
       setEventLinkedVenues(lv);
+    }
+    // If venueName is set but no linked venues, it's a manual venue name
+    if (lv.length === 0 && !event.venueId && event.venueName) {
+      setManualVenueName(event.venueName);
+    } else {
+      setManualVenueName('');
     }
     const lc = event.linkedCollectives || [];
     if (lc.length === 0 && event.collectiveId && event.collectiveName) {
@@ -414,6 +422,7 @@ export function EventsAdmin() {
         photo: photoUrl,
         description: description.trim() || null,
         venueId: eventLinkedVenues.length > 0 ? eventLinkedVenues[0].venueId : null,
+        venueName: eventLinkedVenues.length > 0 ? eventLinkedVenues[0].venueName : (manualVenueName.trim() || null),
         collectiveId: eventLinkedCollectives.length > 0 ? eventLinkedCollectives[0].collectiveId : null,
         linkedVenues: eventLinkedVenues,
         linkedCollectives: eventLinkedCollectives,
@@ -696,6 +705,15 @@ export function EventsAdmin() {
                       </option>
                     ))}
                 </select>
+              )}
+              {eventLinkedVenues.length === 0 && (
+                <input
+                  type="text"
+                  value={manualVenueName}
+                  onChange={(e) => setManualVenueName(e.target.value)}
+                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white mt-2"
+                  placeholder="Or type a venue name..."
+                />
               )}
             </div>
 
