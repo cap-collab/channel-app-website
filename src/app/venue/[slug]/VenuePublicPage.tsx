@@ -7,7 +7,7 @@ import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
 import { Header } from "@/components/Header";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { db } from "@/lib/firebase";
-import { Venue, Event, EventDJRef } from "@/types/events";
+import { Venue, Event, EventDJRef, CollectiveRef } from "@/types/events";
 
 // Icon components (same as DJPublicProfileClient)
 const InstagramIcon = ({ size = 14 }: { size?: number }) => (
@@ -110,6 +110,7 @@ export function VenuePublicPage({ slug }: Props) {
               venueId: eventData.venueId || null,
               venueName: eventData.venueName || null,
               djs: eventData.djs || [],
+              linkedCollectives: eventData.linkedCollectives || [],
               genres: eventData.genres || [],
               location: eventData.location || null,
               ticketLink: eventData.ticketLink || null,
@@ -350,34 +351,50 @@ export function VenuePublicPage({ slug }: Props) {
                       <p className="text-white font-medium mb-1">{event.name}</p>
                       <p className="text-zinc-500 text-xs uppercase tracking-wide mb-2">
                         {formatEventDate(event.date)}
-                        {(event.location || event.venueName) && (
+                        {event.location && (
                           <>
                             {" "}
-                            <svg className="inline-block w-3 h-3 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <svg className="inline-block w-2.5 h-2.5 -mt-0.5 mr-0.5" viewBox="0 0 24 36" fill="none">
+                              <circle cx="12" cy="12" r="10" fill="#ef4444" />
+                              <line x1="12" y1="22" x2="12" y2="35" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" />
                             </svg>
-                            {" "}
                             {event.location}
                           </>
                         )}
                       </p>
-                      {event.djs.length > 0 && (
+                      {(event.djs.length > 0 || (event.linkedCollectives && event.linkedCollectives.length > 0)) && (
                         <div className="flex flex-wrap gap-1.5">
                           {event.djs.map((dj: EventDJRef, i: number) => (
                             dj.djUsername ? (
                               <Link
-                                key={i}
+                                key={`dj-${i}`}
                                 href={`/dj/${dj.djUsername}`}
                                 className="text-xs text-zinc-400 hover:text-white transition-colors"
                               >
                                 {dj.djName}
-                                {i < event.djs.length - 1 ? "," : ""}
+                                {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
                               </Link>
                             ) : (
-                              <span key={i} className="text-xs text-zinc-400">
+                              <span key={`dj-${i}`} className="text-xs text-zinc-400">
                                 {dj.djName}
-                                {i < event.djs.length - 1 ? "," : ""}
+                                {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
+                              </span>
+                            )
+                          ))}
+                          {event.linkedCollectives?.map((coll: CollectiveRef, i: number) => (
+                            coll.collectiveSlug ? (
+                              <Link
+                                key={`coll-${coll.collectiveId}`}
+                                href={`/collective/${coll.collectiveSlug}`}
+                                className="text-xs text-zinc-400 hover:text-white transition-colors"
+                              >
+                                {coll.collectiveName}
+                                {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
+                              </Link>
+                            ) : (
+                              <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
+                                {coll.collectiveName}
+                                {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
                               </span>
                             )
                           ))}
