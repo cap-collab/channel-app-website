@@ -73,6 +73,9 @@ export async function GET(request: NextRequest) {
       const stationName = station?.name || metadataKey;
 
       for (const show of stationShows) {
+        // Skip replays and playlists
+        if (show.t === 'restream' || show.t === 'playlist') continue;
+
         // Match by primary profile (p) or additional profiles (ap)
         const primaryMatch = show.p && djUsernames.has(show.p.toLowerCase());
         const additionalMatch = !primaryMatch && show.ap?.some(

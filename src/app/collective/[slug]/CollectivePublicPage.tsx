@@ -196,6 +196,7 @@ export function CollectivePublicPage({ slug }: Props) {
     return allShows
       .filter((show) => {
         if (show.stationId === "broadcast" || show.stationId === "dj-radio") return false;
+        if (show.type === "restream" || show.type === "playlist") return false;
         const endTime = new Date(show.endTime).getTime();
         if (endTime <= now) return false;
         return (

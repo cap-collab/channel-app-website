@@ -659,6 +659,9 @@ export function DJPublicProfileClient({ username }: Props) {
         // Skip dj-radio shows - these are added separately from djProfile.radioShows
         if (show.stationId === "dj-radio") return;
 
+        // Skip replays and playlists
+        if (show.type === "restream" || show.type === "playlist") return;
+
         // Skip shows that have already ended
         const endTime = new Date(show.endTime).getTime();
         if (endTime <= now) return;
