@@ -53,6 +53,7 @@ interface PastShow {
 export function CollectivePublicPage({ slug }: Props) {
   const [collective, setCollective] = useState<Collective | null>(null);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+  const [pastEvents, setPastEvents] = useState<Event[]>([]);
   const [pastShows, setPastShows] = useState<PastShow[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -118,22 +119,24 @@ export function CollectivePublicPage({ slug }: Props) {
           }
         }
 
-        // Fetch upcoming events for this collective
+        // Fetch all events for this collective
         try {
           const now = Date.now();
           const eventsRef = collection(db, "events");
           const eventsQ = query(
             eventsRef,
             where("collectiveId", "==", doc.id),
-            where("date", ">=", now),
-            orderBy("date", "asc")
+            orderBy("date", "desc")
           );
           const eventsSnapshot = await getDocs(eventsQ);
 
-          const eventsList: Event[] = [];
-          eventsSnapshot.forEach((eventDoc) => {
+          const seenIds = new Set<string>();
+          const upcoming: Event[] = [];
+          const past: Event[] = [];
+
+          const parseEvent = (eventDoc: import("firebase/firestore").QueryDocumentSnapshot): Event => {
             const eventData = eventDoc.data();
-            eventsList.push({
+            return {
               id: eventDoc.id,
               name: eventData.name,
               slug: eventData.slug,
@@ -151,10 +154,44 @@ export function CollectivePublicPage({ slug }: Props) {
               ticketLink: eventData.ticketLink || null,
               createdAt: eventData.createdAt?.toMillis?.() || Date.now(),
               createdBy: eventData.createdBy,
-            });
+            };
+          };
+
+          eventsSnapshot.forEach((eventDoc) => {
+            seenIds.add(eventDoc.id);
+            const event = parseEvent(eventDoc);
+            if (event.date >= now) {
+              upcoming.push(event);
+            } else {
+              past.push(event);
+            }
           });
 
-          setUpcomingEvents(eventsList);
+          // Also check linkedCollectives for events that reference this collective
+          const linkedQ = query(eventsRef, orderBy("date", "desc"));
+          const linkedSnapshot = await getDocs(linkedQ);
+          linkedSnapshot.forEach((eventDoc) => {
+            if (seenIds.has(eventDoc.id)) return;
+            const eventData = eventDoc.data();
+            const linked = eventData.linkedCollectives || [];
+            const isLinked = linked.some(
+              (c: { collectiveId?: string; collectiveSlug?: string }) =>
+                c.collectiveId === doc.id || c.collectiveSlug === collectiveData.slug
+            );
+            if (!isLinked) return;
+            seenIds.add(eventDoc.id);
+            const event = parseEvent(eventDoc);
+            if (event.date >= now) {
+              upcoming.push(event);
+            } else {
+              past.push(event);
+            }
+          });
+
+          upcoming.sort((a, b) => a.date - b.date);
+          past.sort((a, b) => b.date - a.date);
+          setUpcomingEvents(upcoming);
+          setPastEvents(past);
         } catch (eventsError) {
           console.error("Error fetching collective events:", eventsError);
         }
@@ -579,7 +616,66 @@ export function CollectivePublicPage({ slug }: Props) {
           </section>
         )}
 
-        {/* SECTION G: PAST SHOWS */}
+        {/* SECTION G: PAST EVENTS */}
+        {pastEvents.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">
+              Past Events
+            </h2>
+            <div className="space-y-3">
+              {pastEvents.map((event) => (
+                <div
+                  key={event.id}
+                  className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors"
+                >
+                  <div className="flex items-start gap-4">
+                    {event.photo && (
+                      <Image
+                        src={event.photo}
+                        alt={event.name}
+                        width={64}
+                        height={64}
+                        className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                        unoptimized
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-medium mb-1">{event.name}</p>
+                      <p className="text-zinc-500 text-xs uppercase tracking-wide mb-2">
+                        {formatEventDate(event.date)}
+                        {event.location && <> &middot; {event.location}</>}
+                        {event.venueName && <> &middot; {event.venueName}</>}
+                      </p>
+                      {event.djs.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {event.djs.map((dj: EventDJRef, i: number) => (
+                            dj.djUsername ? (
+                              <Link
+                                key={i}
+                                href={`/dj/${dj.djUsername}`}
+                                className="text-xs text-zinc-400 hover:text-white transition-colors"
+                              >
+                                {dj.djName}
+                                {i < event.djs.length - 1 ? "," : ""}
+                              </Link>
+                            ) : (
+                              <span key={i} className="text-xs text-zinc-400">
+                                {dj.djName}
+                                {i < event.djs.length - 1 ? "," : ""}
+                              </span>
+                            )
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* SECTION H: PAST SHOWS */}
         {pastShows.length > 0 && (
           <section className="mb-8">
             <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">
