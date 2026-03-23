@@ -285,9 +285,16 @@ async function enrichBroadcastShows(shows: Show[]): Promise<Show[]> {
 // Extract IRL shows from pre-fetched DJ user docs (no extra Firestore query)
 // ---------------------------------------------------------------------------
 
+function getFourDaysFromNow(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 4);
+  return d.toISOString().split("T")[0];
+}
+
 function extractIRLShows(djUserDocs: FirestoreDoc[]): IRLShowData[] {
   const irlShows: IRLShowData[] = [];
   const today = new Date().toISOString().split("T")[0];
+  const cutoff = getFourDaysFromNow();
 
   for (const doc of djUserDocs) {
     const userData = doc.data();
@@ -299,7 +306,7 @@ function extractIRLShows(djUserDocs: FirestoreDoc[]): IRLShowData[] {
 
     for (const show of djProfile.irlShows) {
       if (!show.date) continue;
-      if (show.date < today) continue;
+      if (show.date < today || show.date > cutoff) continue;
 
       irlShows.push({
         djUsername: chatUsername?.replace(/\s+/g, "").toLowerCase() || "",
@@ -329,6 +336,50 @@ function extractIRLShows(djUserDocs: FirestoreDoc[]): IRLShowData[] {
   }
 
   return deduped;
+}
+
+// ---------------------------------------------------------------------------
+// Extract IRL events from admin-created events (Firestore `events` collection)
+// ---------------------------------------------------------------------------
+
+async function extractAdminEvents(): Promise<IRLShowData[]> {
+  const db = getAdminDb();
+  if (!db) return [];
+  const now = Date.now();
+  const fourDaysMs = 4 * 24 * 60 * 60 * 1000;
+  const cutoff = now + fourDaysMs;
+
+  const snapshot = await db
+    .collection("events")
+    .where("date", ">=", now)
+    .where("date", "<=", cutoff)
+    .get();
+
+  const irlShows: IRLShowData[] = [];
+
+  for (const doc of snapshot.docs) {
+    const data = doc.data();
+    if (!data.location) continue;
+
+    const dateObj = new Date(data.date);
+    const dateStr = dateObj.toISOString().split("T")[0];
+
+    const firstDJ = data.djs?.[0];
+
+    irlShows.push({
+      djUsername: firstDJ?.djUsername || "",
+      djName: firstDJ?.djName || data.name || "Event",
+      djPhotoUrl: firstDJ?.djPhotoUrl || data.photo || undefined,
+      djLocation: data.location,
+      djGenres: data.genres || undefined,
+      eventName: data.name || "Event",
+      location: data.location,
+      ticketUrl: data.ticketLink || "",
+      date: dateStr,
+    });
+  }
+
+  return irlShows;
 }
 
 // ---------------------------------------------------------------------------
@@ -520,12 +571,26 @@ export async function GET() {
       fetchDJUserDocs(),
     ]);
 
-    // Extract IRL shows, DJ radio shows, and curator recs from the same docs (no extra queries)
-    const [irlShows, djRadioShows, curatorRecs] = await Promise.all([
+    // Extract IRL shows, DJ radio shows, curator recs, and admin events in parallel
+    const [djIrlShows, djRadioShows, curatorRecs, adminEvents] = await Promise.all([
       Promise.resolve(extractIRLShows(djUserDocs)),
       Promise.resolve(extractDJRadioShows(djUserDocs)),
       extractCuratorRecs(djUserDocs),
+      extractAdminEvents(),
     ]);
+
+    // Merge DJ IRL shows and admin events, deduplicate by event name + location
+    const mergedIrl = [...djIrlShows, ...adminEvents];
+    mergedIrl.sort((a, b) => a.date.localeCompare(b.date));
+    const irlSeen = new Set<string>();
+    const irlShows: IRLShowData[] = [];
+    for (const show of mergedIrl) {
+      const key = `${show.eventName.toLowerCase()}-${show.location.toLowerCase()}-${show.date}`;
+      if (!irlSeen.has(key)) {
+        irlSeen.add(key);
+        irlShows.push(show);
+      }
+    }
 
     // Merge DJ radio shows into the main shows array
     const allShows = [...shows, ...djRadioShows];

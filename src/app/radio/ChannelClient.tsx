@@ -352,12 +352,12 @@ export function ChannelClient() {
     let s1: MatchedItem[] = [];
     if (hasGenreFilter && !isAnywhere) {
       const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; live?: boolean; isChannelUser?: boolean }[] = [];
-      // IRL shows (always from Channel users)
+      // IRL shows (always from Channel users) — city match only, genre for sorting
       for (const show of irlShows) {
         if (!matchesCity(show.location, selectedCity)) continue;
-        if (!matchesAnyGenre(show.djGenres)) continue;
         const id = `irl-${show.djUsername}-${show.date}`;
-        const label = `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`;
+        const genreLabel = genreLabelFor(show.djGenres);
+        const label = genreLabel ? `${selectedCity.toUpperCase()} + ${genreLabel}` : selectedCity.toUpperCase();
         candidates.push({ item: makeIRLItem(show, label), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres), isChannelUser: true });
       }
       // Radio shows (live and upcoming)
@@ -393,12 +393,12 @@ export function ChannelClient() {
     let s4: MatchedItem[] = [];
     if (hasGenreFilter) {
       const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; live?: boolean; isChannelUser?: boolean }[] = [];
-      // IRL shows — only include if user has a location selected and it matches
+      // IRL shows — city match only, genre for sorting
       for (const show of irlShows) {
         if (isAnywhere || !matchesCity(show.location, selectedCity)) continue;
-        if (!matchesAnyGenre(show.djGenres)) continue;
         const id = `irl-${show.djUsername}-${show.date}`;
-        candidates.push({ item: makeIRLItem(show, genreLabelFor(show.djGenres)), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres), isChannelUser: true });
+        const genreLabel = genreLabelFor(show.djGenres);
+        candidates.push({ item: makeIRLItem(show, genreLabel || selectedCity.toUpperCase()), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres), isChannelUser: true });
       }
       // Radio shows (live and upcoming)
       for (const show of allShows) {
