@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { Header } from "@/components/Header";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { db } from "@/lib/firebase";
@@ -41,6 +41,7 @@ interface Props {
 export function VenuePublicPage({ slug }: Props) {
   const [venue, setVenue] = useState<Venue | null>(null);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+  const [pastEvents, setPastEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -84,22 +85,27 @@ export function VenuePublicPage({ slug }: Props) {
         setVenue(venueData);
         setLoading(false);
 
-        // Fetch upcoming events for this venue (separate try/catch so venue still shows if this fails)
+        // Fetch all events for this venue (by venueId or linkedVenues)
         try {
           const now = Date.now();
           const eventsRef = collection(db, "events");
-          const eventsQ = query(
-            eventsRef,
-            where("venueId", "==", doc.id),
-            where("date", ">=", now),
-            orderBy("date", "asc")
-          );
-          const eventsSnapshot = await getDocs(eventsQ);
+          const allEventsSnapshot = await getDocs(eventsRef);
 
-          const eventsList: Event[] = [];
-          eventsSnapshot.forEach((eventDoc) => {
+          const upcoming: Event[] = [];
+          const past: Event[] = [];
+
+          allEventsSnapshot.forEach((eventDoc) => {
             const eventData = eventDoc.data();
-            eventsList.push({
+
+            const matchesVenueId = eventData.venueId === doc.id;
+            const linked = eventData.linkedVenues || [];
+            const matchesLinked = linked.some(
+              (v: { venueId?: string }) => v.venueId === doc.id
+            );
+
+            if (!matchesVenueId && !matchesLinked) return;
+
+            const event: Event = {
               id: eventDoc.id,
               name: eventData.name,
               slug: eventData.slug,
@@ -116,10 +122,19 @@ export function VenuePublicPage({ slug }: Props) {
               ticketLink: eventData.ticketLink || null,
               createdAt: eventData.createdAt?.toMillis?.() || Date.now(),
               createdBy: eventData.createdBy,
-            });
+            };
+
+            if (event.date >= now) {
+              upcoming.push(event);
+            } else {
+              past.push(event);
+            }
           });
 
-          setUpcomingEvents(eventsList);
+          upcoming.sort((a, b) => a.date - b.date);
+          past.sort((a, b) => b.date - a.date);
+          setUpcomingEvents(upcoming);
+          setPastEvents(past);
         } catch (eventsError) {
           console.error("Error fetching venue events:", eventsError);
         }
@@ -412,6 +427,90 @@ export function VenuePublicPage({ slug }: Props) {
                         <ExternalLinkIcon size={10} />
                       </a>
                     )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* PAST EVENTS */}
+        {pastEvents.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">
+              Past Events
+            </h2>
+            <div className="space-y-3">
+              {pastEvents.map((event) => (
+                <div
+                  key={event.id}
+                  className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors"
+                >
+                  <div className="flex items-start gap-4">
+                    {event.photo && (
+                      <Image
+                        src={event.photo}
+                        alt={event.name}
+                        width={64}
+                        height={64}
+                        className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                        unoptimized
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-medium mb-1">{event.name}</p>
+                      <p className="text-zinc-500 text-xs uppercase tracking-wide mb-2">
+                        {formatEventDate(event.date)}
+                        {event.location && (
+                          <>
+                            {" "}
+                            <svg className="inline-block w-2.5 h-2.5 -mt-0.5 mr-0.5" viewBox="0 0 24 36" fill="none">
+                              <circle cx="12" cy="12" r="10" fill="#ef4444" />
+                              <line x1="12" y1="22" x2="12" y2="35" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" />
+                            </svg>
+                            {event.location}
+                          </>
+                        )}
+                      </p>
+                      {(event.djs.length > 0 || (event.linkedCollectives && event.linkedCollectives.length > 0)) && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {event.djs.map((dj: EventDJRef, i: number) => (
+                            dj.djUsername ? (
+                              <Link
+                                key={`dj-${i}`}
+                                href={`/dj/${dj.djUsername}`}
+                                className="text-xs text-zinc-400 hover:text-white transition-colors"
+                              >
+                                {dj.djName}
+                                {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
+                              </Link>
+                            ) : (
+                              <span key={`dj-${i}`} className="text-xs text-zinc-400">
+                                {dj.djName}
+                                {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
+                              </span>
+                            )
+                          ))}
+                          {event.linkedCollectives?.map((coll: CollectiveRef, i: number) => (
+                            coll.collectiveSlug ? (
+                              <Link
+                                key={`coll-${coll.collectiveId}`}
+                                href={`/collective/${coll.collectiveSlug}`}
+                                className="text-xs text-zinc-400 hover:text-white transition-colors"
+                              >
+                                {coll.collectiveName}
+                                {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
+                              </Link>
+                            ) : (
+                              <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
+                                {coll.collectiveName}
+                                {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
+                              </span>
+                            )
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
