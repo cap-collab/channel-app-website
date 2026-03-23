@@ -921,12 +921,28 @@ export async function GET(request: NextRequest) {
         let djPhotoUrl = show.djPhotoUrl;
         let isChannelUser = false;
 
-        if (show.dj) {
-          const profile = djNameToProfile.get(normalizeForLookup(show.dj));
+        // Priority 1: Use metadata `p` field (profileUsername) for lookup
+        if (show.profileUsername) {
+          const profile = djNameToProfile.get(normalizeForLookup(show.profileUsername));
           if (profile) {
             djGenres = profile.genres;
             djLocation = profile.location;
             isChannelUser = profile.isChannelUser;
+            if (!djUsername) djUsername = profile.username;
+            if (!djPhotoUrl) djPhotoUrl = profile.photoUrl;
+          } else {
+            // Even without a Firebase profile, use `p` as the username for links
+            if (!djUsername) djUsername = show.profileUsername;
+          }
+        }
+
+        // Priority 2: Fallback to DJ name lookup
+        if (show.dj) {
+          const profile = djNameToProfile.get(normalizeForLookup(show.dj));
+          if (profile) {
+            if (!djGenres) djGenres = profile.genres;
+            if (!djLocation) djLocation = profile.location;
+            if (!isChannelUser) isChannelUser = profile.isChannelUser;
             if (!djUsername) djUsername = profile.username;
             if (!djPhotoUrl) djPhotoUrl = profile.photoUrl;
           }
@@ -1070,6 +1086,68 @@ export async function GET(request: NextRequest) {
           return best.match;
         }
 
+        // Priority 4: Any online show even without profile photo (Channel users first, then any DJ)
+        const fallbackCandidates: { match: PrefMatch; showKey: string; hasProfile: boolean; isChannelUser: boolean }[] = [];
+        for (const show of dayShows) {
+          const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
+          if (favoriteShowKeys.has(showKey) || prefKeys.has(showKey)) continue;
+          const broadcastShow = show as BroadcastShow;
+          if (broadcastShow.isIRL) continue;
+
+          // Try to get whatever profile info we can, but don't require photo
+          let djUsername = broadcastShow.djUsername;
+          let djPhotoUrl = broadcastShow.djPhotoUrl;
+          let isChannelUser = false;
+
+          if (broadcastShow.profileUsername) {
+            const profile = djNameToProfile.get(normalizeForLookup(broadcastShow.profileUsername));
+            if (profile) {
+              isChannelUser = profile.isChannelUser;
+              if (!djUsername) djUsername = profile.username;
+              if (!djPhotoUrl) djPhotoUrl = profile.photoUrl;
+            } else {
+              if (!djUsername) djUsername = broadcastShow.profileUsername;
+            }
+          }
+          if (show.dj) {
+            const profile = djNameToProfile.get(normalizeForLookup(show.dj));
+            if (profile) {
+              if (!isChannelUser) isChannelUser = profile.isChannelUser;
+              if (!djUsername) djUsername = profile.username;
+              if (!djPhotoUrl) djPhotoUrl = profile.photoUrl;
+            }
+            if (!djUsername) djUsername = show.dj;
+          }
+
+          if (!djUsername) continue;
+
+          fallbackCandidates.push({
+            match: {
+              showName: show.name,
+              djName: show.dj,
+              djUsername,
+              djPhotoUrl,
+              stationName: show.stationName,
+              stationId: show.stationId,
+              startTime: new Date(show.startTime),
+            },
+            showKey,
+            hasProfile: !!djPhotoUrl,
+            isChannelUser,
+          });
+        }
+        if (fallbackCandidates.length > 0) {
+          // Prefer: has photo > Channel user > any
+          fallbackCandidates.sort((a, b) => {
+            if (a.hasProfile !== b.hasProfile) return a.hasProfile ? -1 : 1;
+            if (a.isChannelUser !== b.isChannelUser) return a.isChannelUser ? -1 : 1;
+            return 0;
+          });
+          const best = fallbackCandidates[0];
+          prefKeys.add(best.showKey);
+          return best.match;
+        }
+
         return null;
       };
 
@@ -1085,11 +1163,10 @@ export async function GET(request: NextRequest) {
       // Pass 2: Fill remaining slots (up to 6 total) from any day
       // Collect all candidates, sort by relevance then Channel user status, then take what we need
       if (preferenceMatches.length < 6) {
-        const bonusCandidates: { match: PrefMatch; showKey: string; hasRelevanceMatch: boolean; isChannelUser: boolean }[] = [];
+        const bonusCandidates: { match: PrefMatch; showKey: string; hasRelevanceMatch: boolean; hasPhoto: boolean; isChannelUser: boolean }[] = [];
         for (const show of allShows) {
           const showStart = new Date(show.startTime);
           if (showStart < now || showStart > windowEnd) continue;
-          if (!show.dj) continue;
           const showKey = `${show.name.toLowerCase()}-${show.stationId}`;
           if (favoriteShowKeys.has(showKey)) continue;
           if (prefKeys.has(showKey)) continue;
@@ -1097,21 +1174,55 @@ export async function GET(request: NextRequest) {
           const broadcastShow = show as BroadcastShow;
           if (broadcastShow.isIRL && !irlCity) continue;
 
+          // Try enrichShow first, then fallback to basic info
           const enriched = enrichShow(broadcastShow);
-          if (!enriched) continue;
+          let djUsername = enriched?.djUsername;
+          let djPhotoUrl = enriched?.djPhotoUrl;
+          let djGenres = enriched?.djGenres;
+          let djLocation = enriched?.djLocation;
+          let isChannelUser = enriched?.isChannelUser || false;
+
+          if (!enriched) {
+            // Fallback: get whatever info we can without requiring photo
+            if (broadcastShow.profileUsername) {
+              const profile = djNameToProfile.get(normalizeForLookup(broadcastShow.profileUsername));
+              if (profile) {
+                djUsername = profile.username;
+                djPhotoUrl = profile.photoUrl;
+                djGenres = profile.genres;
+                djLocation = profile.location;
+                isChannelUser = profile.isChannelUser;
+              } else {
+                djUsername = broadcastShow.profileUsername;
+              }
+            }
+            if (show.dj && !djUsername) {
+              const profile = djNameToProfile.get(normalizeForLookup(show.dj));
+              if (profile) {
+                djUsername = profile.username;
+                djPhotoUrl = profile.photoUrl;
+                djGenres = profile.genres;
+                djLocation = profile.location;
+                isChannelUser = profile.isChannelUser;
+              } else {
+                djUsername = show.dj;
+              }
+            }
+            if (!djUsername) continue;
+          }
 
           // Prefer genre or city matches in the bonus pass too
-          const genreMatch = enriched.djGenres && preferredGenres.length > 0
-            ? preferredGenres.some((g) => matchesGenre(enriched.djGenres!, g))
+          const genreMatch = djGenres && preferredGenres.length > 0
+            ? preferredGenres.some((g) => matchesGenre(djGenres!, g))
             : false;
-          const showLocation = broadcastShow.isIRL ? broadcastShow.irlLocation : enriched.djLocation;
+          const showLocation = broadcastShow.isIRL ? broadcastShow.irlLocation : djLocation;
           const cityMatch = irlCity && showLocation ? matchesCity(showLocation, irlCity) : false;
 
           if (genreMatch || cityMatch || !broadcastShow.isIRL) {
             const matchParts: string[] = [];
             if (cityMatch && irlCity) matchParts.push(irlCity.toUpperCase());
-            if (genreMatch && enriched.djGenres) {
-              const matchingGenres = preferredGenres.filter((g) => matchesGenre(enriched.djGenres!, g));
+            if (genreMatch && djGenres) {
+              const matchingGenres = preferredGenres.filter((g) => matchesGenre(djGenres!, g));
               matchParts.push(matchingGenres.map((g) => g.toUpperCase()).join(" + "));
             }
 
@@ -1119,8 +1230,8 @@ export async function GET(request: NextRequest) {
               match: {
                 showName: show.name,
                 djName: show.dj,
-                djUsername: enriched.djUsername,
-                djPhotoUrl: enriched.djPhotoUrl,
+                djUsername,
+                djPhotoUrl,
                 stationName: show.stationName,
                 stationId: show.stationId,
                 startTime: showStart,
@@ -1131,13 +1242,15 @@ export async function GET(request: NextRequest) {
               },
               showKey,
               hasRelevanceMatch: genreMatch || cityMatch,
-              isChannelUser: enriched.isChannelUser,
+              hasPhoto: !!djPhotoUrl,
+              isChannelUser,
             });
           }
         }
-        // Sort: relevance match first, then Channel users first
+        // Sort: relevance match first, then has photo, then Channel users first
         bonusCandidates.sort((a, b) => {
           if (a.hasRelevanceMatch !== b.hasRelevanceMatch) return a.hasRelevanceMatch ? -1 : 1;
+          if (a.hasPhoto !== b.hasPhoto) return a.hasPhoto ? -1 : 1;
           if (a.isChannelUser !== b.isChannelUser) return a.isChannelUser ? -1 : 1;
           return 0;
         });
