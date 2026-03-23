@@ -873,11 +873,7 @@ export function DJPublicProfileClient({ username }: Props) {
         const [venuesSnapshot, collectivesSnapshot, eventsSnapshot] = await Promise.all([
           getDocs(collection(db, "venues")),
           getDocs(collection(db, "collectives")),
-          getDocs(query(
-            collection(db, "events"),
-            where("date", ">=", Date.now()),
-            orderBy("date", "asc")
-          )),
+          getDocs(collection(db, "events")),
         ]);
 
         // Build venue photo lookup (all venues, for event fallback)
