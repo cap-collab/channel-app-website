@@ -29,6 +29,9 @@ function getNextHourMs(): number {
 const djProfileCache = new Map<string, { data: Record<string, unknown> | null; expiry: number }>();
 const DJ_PROFILE_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
+// OG metadata cache (populated in background, served on subsequent requests)
+const ogMetadataCache = new Map<string, { ogTitle?: string; ogImage?: string; ogDescription?: string }>();
+
 // Blocked profile matches cache: prevents enriching external shows with wrong DJ profiles
 // Each entry is "djUsername:stationId" (or "djUsername:*" for all stations)
 let blockedMatchesCache: Set<string> | null = null;
@@ -587,20 +590,31 @@ async function extractCuratorRecs(djUserDocs: FirestoreDoc[]): Promise<CuratorRe
     }
   }
 
-  // Fetch OG metadata for recs that need it
-  const enriched = await Promise.allSettled(
-    recs.map(async (rec) => {
-      if (rec.url && (!rec.title || !rec.imageUrl)) {
-        const og = await fetchOgMetadata(rec.url);
-        return { ...rec, ...og };
-      }
-      return rec;
-    })
-  );
+  // Apply cached OG metadata immediately (non-blocking)
+  const result = recs.map((rec) => {
+    if (rec.url && (!rec.title || !rec.imageUrl)) {
+      const cached = ogMetadataCache.get(rec.url);
+      if (cached) return { ...rec, ...cached };
+    }
+    return rec;
+  });
 
-  return enriched.map((result, i) =>
-    result.status === "fulfilled" ? result.value : recs[i]
+  // Fire off OG fetches in background for recs that need it (don't await)
+  const recsNeedingOg = recs.filter(
+    (rec) => rec.url && (!rec.title || !rec.imageUrl) && !ogMetadataCache.has(rec.url)
   );
+  if (recsNeedingOg.length > 0) {
+    Promise.allSettled(
+      recsNeedingOg.map(async (rec) => {
+        const og = await fetchOgMetadata(rec.url);
+        if (og.ogTitle || og.ogImage) {
+          ogMetadataCache.set(rec.url, og);
+        }
+      })
+    ).catch(() => {});
+  }
+
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -649,9 +663,14 @@ export async function GET() {
     // Merge DJ radio shows into the main shows array
     const allShows = [...shows, ...djRadioShows];
 
-    // Enrich shows with DJ profiles (with per-profile caching)
-    const showsWithProfiles = await enrichShowsWithDJProfiles(allShows);
-    const enrichedShows = await enrichBroadcastShows(showsWithProfiles);
+    // Enrich shows with DJ profiles in parallel (disjoint subsets: broadcast vs non-broadcast)
+    const nonBroadcastShows = allShows.filter(s => s.stationId !== 'broadcast');
+    const broadcastShows = allShows.filter(s => s.stationId === 'broadcast');
+    const [enrichedNonBroadcast, enrichedBroadcast] = await Promise.all([
+      enrichShowsWithDJProfiles(nonBroadcastShows),
+      enrichBroadcastShows(broadcastShows),
+    ]);
+    const enrichedShows = [...enrichedNonBroadcast, ...enrichedBroadcast];
 
     // Cache until next hour boundary
     const result = { shows: enrichedShows, irlShows, curatorRecs };

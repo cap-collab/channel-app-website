@@ -168,25 +168,29 @@ async function enrichBroadcastShowsClient(shows: Show[]): Promise<Show[]> {
       if (!profileByName.has(normalized)) namesToFetch.push(show.dj);
     }
   }
-  // Use role-based query to find DJs by name (individual doc fetches)
-  for (const djName of namesToFetch) {
-    try {
-      const q = query(
-        collection(db!, "users"),
-        where("role", "in", ["dj", "broadcaster", "admin"]),
-        where("chatUsername", "==", djName)
-      );
-      const snapshot = await getDocs(q);
-      snapshot.forEach((userDoc) => {
-        const profile = buildProfile({ id: userDoc.id, data: () => userDoc.data() });
-        if (profile) {
-          if (profile.username) profileByName.set(profile.username, profile);
-          profileByUserId.set(userDoc.id, profile);
+  // Use role-based query to find DJs by name (parallel lookups)
+  if (namesToFetch.length > 0) {
+    await Promise.all(
+      namesToFetch.map(async (djName) => {
+        try {
+          const q = query(
+            collection(db!, "users"),
+            where("role", "in", ["dj", "broadcaster", "admin"]),
+            where("chatUsername", "==", djName)
+          );
+          const snapshot = await getDocs(q);
+          snapshot.forEach((userDoc) => {
+            const profile = buildProfile({ id: userDoc.id, data: () => userDoc.data() });
+            if (profile) {
+              if (profile.username) profileByName.set(profile.username, profile);
+              profileByUserId.set(userDoc.id, profile);
+            }
+          });
+        } catch (err) {
+          console.error(`[ScheduleContext] Failed to fetch DJ profile for name ${djName}:`, err);
         }
-      });
-    } catch (err) {
-      console.error(`[ScheduleContext] Failed to fetch DJ profile for name ${djName}:`, err);
-    }
+      })
+    );
   }
 
   console.log('[ScheduleContext] Enriched', profileByUserId.size, 'broadcast DJ profiles');

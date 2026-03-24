@@ -48,9 +48,16 @@ export function ChannelClient() {
   const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
 
   // Track whether user has seen curator recs before (move to bottom after first view)
-  const [hasSeenCuratorRecs, setHasSeenCuratorRecs] = useState(() => {
-    try { return localStorage.getItem('channel-seen-curator-recs') === '1'; } catch { return false; }
-  });
+  const [hasSeenCuratorRecs, setHasSeenCuratorRecs] = useState(false);
+
+  // Read localStorage after mount to avoid hydration mismatch
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('channel-seen-curator-recs') === '1') {
+        setHasSeenCuratorRecs(true);
+      }
+    } catch {}
+  }, []);
 
   // All shows data (from shared ScheduleContext)
   const allShows = scheduleShows;
@@ -343,19 +350,6 @@ export function ChannelClient() {
     const s0Candidates: { item: MatchedItem; id: string; djName: string | undefined; startMs: number; live: boolean }[] = [];
     // Radio shows from followed DJs / favorited shows in next 2 weeks
     for (const show of allShows) {
-      if (show.stationId === 'broadcast') {
-        console.log('[S0 broadcast]', show.dj, {
-          valid: isValidShow(show),
-          hasDj: !!show.dj,
-          djUsername: show.djUsername,
-          djUserId: show.djUserId,
-          djPhotoUrl: show.djPhotoUrl,
-          imageUrl: show.imageUrl,
-          type: show.type,
-          followed: (show.dj && isInWatchlist(show.dj)) || (show.djUsername && isInWatchlist(show.djUsername)),
-          faved: isShowFavorited(show),
-        });
-      }
       if (!isValidShow(show)) continue;
       const station = stationsMap.get(show.stationId);
       if (!station) continue;
@@ -415,9 +409,7 @@ export function ChannelClient() {
         const item = makeRadioItem(show, label, live || undefined);
         if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), startMs: new Date(show.startTime).getTime(), live, isChannelUser: show.isChannelUser ?? false });
       }
-      console.log('[S1 candidates]', candidates.map(c => ({ djName: c.djName, matchCount: c.matchCount, live: c.live, isChannelUser: c.isChannelUser, label: c.item.matchLabel })));
       s1 = takeSorted(candidates, 4);
-      console.log('[S1 result]', s1.map(item => ({ matchLabel: item.matchLabel, type: item.type, dj: item.type === 'radio' ? item.data.dj : item.data.djName })));
     }
 
     // Section 3: Curator recs from followed DJs (grid, max 4)
@@ -731,6 +723,11 @@ export function ChannelClient() {
       );
     }
   };
+
+  // Prevent SSR hydration mismatches from Date/localStorage differences
+  if (!mounted) {
+    return <div className="min-h-screen bg-black" />;
+  }
 
   return (
     <div className="min-h-[100dvh] text-white relative flex flex-col">
