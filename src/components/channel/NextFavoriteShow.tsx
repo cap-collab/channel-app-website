@@ -58,10 +58,16 @@ function findMatchingShows(favorite: Favorite, allShows: Show[]): Show[] {
     const showNameLower = show.name.toLowerCase();
 
     if (isStationScoped) {
-      // Station-scoped favorite: exact match on show name + same station
+      // Station-scoped favorite: match on show name + same station
       const favStation = getStation(favorite.stationId);
       const showStation = getStation(show.stationId);
-      if (favStation?.id !== showStation?.id) return false;
+      // If the favorite's stationId doesn't resolve to a known station,
+      // also allow matching against dj-radio shows (DJ-entered radio shows
+      // from /studio are synced with the radio name as stationId, e.g. "nts",
+      // but appear in the schedule under stationId "dj-radio")
+      const stationMatch = favStation?.id === showStation?.id ||
+        (!favStation && show.stationId === "dj-radio");
+      if (!stationMatch) return false;
 
       // Exact match on show name
       const nameMatch = showNameLower === term || (showName && showNameLower === showName);

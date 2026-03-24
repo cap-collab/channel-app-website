@@ -75,7 +75,13 @@ function findMatchingShows(favorite: Favorite, allShows: Show[]): Show[] {
     if (favorite.stationId) {
       const favStation = getStation(favorite.stationId);
       const showStation = getStation(show.stationId);
-      if (favStation?.id !== showStation?.id) return false;
+      // If the favorite's stationId doesn't resolve to a known station,
+      // also allow matching against dj-radio shows (DJ-entered radio shows
+      // from /studio are synced with the radio name as stationId, e.g. "nts",
+      // but appear in the schedule under stationId "dj-radio")
+      const stationMatch = favStation?.id === showStation?.id ||
+        (!favStation && show.stationId === "dj-radio");
+      if (!stationMatch) return false;
     }
 
     // Match by DJ (word boundary match)
@@ -83,9 +89,8 @@ function findMatchingShows(favorite: Favorite, allShows: Show[]): Show[] {
     // Also try matching against the stored showName (word boundary)
     const storedNameMatch = showName && wordBoundaryMatch(show.name, showName);
 
-    // For broadcast/DJ favorites, also match by DJ name or username
-    // This handles cases where the show name changes between broadcast slots
-    // (e.g. DJ creates new slot via /studio with a different show name)
+    // Also match by DJ name or username — handles cases where the show name
+    // changes between broadcast slots (e.g. DJ creates new slot via /studio)
     const djNameMatch = favorite.djName && showMatchesDJ(show, favorite.djName);
     const djUsernameMatch = favorite.djUsername && showMatchesDJ(show, favorite.djUsername);
 
@@ -461,7 +466,7 @@ export function MyShowsClient() {
     return (
       <div className="min-h-[100dvh] text-white relative flex flex-col">
         <AnimatedBackground />
-        <Header currentPage="my-shows" position="sticky" />
+        <Header currentPage="my-shows" position="sticky" showSearch />
         <div className="flex-1 flex items-center justify-center">
           <div className="w-6 h-6 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
         </div>
@@ -472,7 +477,7 @@ export function MyShowsClient() {
   return (
     <div className="min-h-[100dvh] text-white relative flex flex-col">
       <AnimatedBackground />
-      <Header currentPage="my-shows" position="sticky" />
+      <Header currentPage="my-shows" position="sticky" showSearch />
 
       <main className="flex-1 min-h-0 px-8 lg:px-16 py-6 pb-20 overflow-y-auto">
         {!isAuthenticated ? (
