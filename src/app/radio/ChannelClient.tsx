@@ -337,15 +337,25 @@ export function ChannelClient() {
     const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
     const twoWeeksDateStr = twoWeeksFromNow.toLocaleDateString('en-CA'); // YYYY-MM-DD
     const s0Candidates: { item: MatchedItem; id: string; djName: string | undefined; startMs: number; live: boolean }[] = [];
-    // Radio shows from followed DJs / favorited shows in next 7 days
+    // Radio shows from followed DJs / favorited shows in next 2 weeks
     for (const show of allShows) {
+      // Debug: log broadcast shows to trace filtering
+      if (show.stationId === 'broadcast') {
+        const valid = isValidShow(show);
+        const hasStation = stationsMap.has(show.stationId);
+        const endOk = new Date(show.endTime) > now;
+        const startOk = new Date(show.startTime) <= twoWeeksFromNow;
+        const followed = (show.dj && isInWatchlist(show.dj)) || (show.djUsername && isInWatchlist(show.djUsername));
+        const faved = isShowFavorited(show);
+        console.log('[S0 broadcast]', show.dj, { valid, hasStation, endOk, startOk, followed, faved, djUsername: show.djUsername, djUserId: show.djUserId, hasPhoto: !!(show.djPhotoUrl || show.imageUrl), type: show.type });
+      }
       if (!isValidShow(show)) continue;
       const station = stationsMap.get(show.stationId);
       if (!station) continue;
       const endTime = new Date(show.endTime);
       const startTime = new Date(show.startTime);
       if (endTime <= now || startTime > twoWeeksFromNow) continue;
-      const djFollowed = show.dj ? isInWatchlist(show.dj) : false;
+      const djFollowed = (show.dj && isInWatchlist(show.dj)) || (show.djUsername && isInWatchlist(show.djUsername));
       const showFaved = isShowFavorited(show);
       if (djFollowed || showFaved) {
         if (tryAddShow(show.id, show.dj)) {
@@ -497,7 +507,7 @@ export function ChannelClient() {
       locationCards: s6,
       radioCards: s7,
     };
-  }, [allShows, irlShows, curatorRecs, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, getMatchingGenres, genreLabelFor, isShowLive, isValidShow, followedDJNames, isInWatchlist, isShowFavorited]);
+  }, [allShows, irlShows, curatorRecs, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, getMatchingGenres, genreLabelFor, isShowLive, isValidShow, followedDJNames, isInWatchlist, isShowFavorited, user]);
 
   // Mark curator recs as seen once they render at the top for the first time
   useEffect(() => {
