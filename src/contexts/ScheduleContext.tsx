@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
-import { collection, query, where, orderBy, getDocs, Timestamp } from "firebase/firestore";
+import { collection, query, where, orderBy, getDocs, doc, getDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Show, IRLShowData, CuratorRec } from "@/types";
 
@@ -102,6 +102,50 @@ async function fetchBroadcastShowsClient(): Promise<Show[]> {
         });
       }
     });
+
+    // Enrich shows with DJ profile data (photo, username, location, genres)
+    const userIdsToEnrich = new Set<string>();
+    for (const show of shows) {
+      if (show.djUserId && !show.djPhotoUrl) {
+        userIdsToEnrich.add(show.djUserId);
+      }
+    }
+
+    if (userIdsToEnrich.size > 0 && db) {
+      const profileMap = new Map<string, { photoUrl?: string; username?: string; location?: string; genres?: string[]; bio?: string }>();
+      await Promise.all(
+        Array.from(userIdsToEnrich).map(async (userId) => {
+          try {
+            const userDoc = await getDoc(doc(db!, "users", userId));
+            if (userDoc.exists()) {
+              const data = userDoc.data();
+              const djProfile = data?.djProfile;
+              profileMap.set(userId, {
+                photoUrl: djProfile?.photoUrl,
+                username: data?.chatUsername?.replace(/\s+/g, "").toLowerCase(),
+                location: djProfile?.location,
+                genres: djProfile?.genres,
+                bio: djProfile?.bio,
+              });
+            }
+          } catch (err) {
+            console.error(`[ScheduleContext] Failed to fetch DJ profile for ${userId}:`, err);
+          }
+        })
+      );
+
+      for (const show of shows) {
+        if (show.djUserId && profileMap.has(show.djUserId)) {
+          const profile = profileMap.get(show.djUserId)!;
+          if (!show.djPhotoUrl && profile.photoUrl) show.djPhotoUrl = profile.photoUrl;
+          if (!show.djUsername && profile.username) show.djUsername = profile.username;
+          if (!show.djLocation && profile.location) show.djLocation = profile.location;
+          if (!show.djGenres && profile.genres) show.djGenres = profile.genres;
+          if (!show.djBio && profile.bio) show.djBio = profile.bio;
+          show.isChannelUser = true;
+        }
+      }
+    }
 
     return shows;
   } catch (error) {

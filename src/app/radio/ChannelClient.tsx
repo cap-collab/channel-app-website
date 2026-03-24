@@ -339,16 +339,6 @@ export function ChannelClient() {
     const s0Candidates: { item: MatchedItem; id: string; djName: string | undefined; startMs: number; live: boolean }[] = [];
     // Radio shows from followed DJs / favorited shows in next 2 weeks
     for (const show of allShows) {
-      // Debug: log broadcast shows to trace filtering
-      if (show.stationId === 'broadcast') {
-        const valid = isValidShow(show);
-        const hasStation = stationsMap.has(show.stationId);
-        const endOk = new Date(show.endTime) > now;
-        const startOk = new Date(show.startTime) <= twoWeeksFromNow;
-        const followed = (show.dj && isInWatchlist(show.dj)) || (show.djUsername && isInWatchlist(show.djUsername));
-        const faved = isShowFavorited(show);
-        console.log('[S0 broadcast]', show.dj, { valid, hasStation, endOk, startOk, followed, faved, djUsername: show.djUsername, djUserId: show.djUserId, hasPhoto: !!(show.djPhotoUrl || show.imageUrl), type: show.type });
-      }
       if (!isValidShow(show)) continue;
       const station = stationsMap.get(show.stationId);
       if (!station) continue;
