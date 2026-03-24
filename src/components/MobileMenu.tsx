@@ -109,14 +109,14 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                       {isDJ(role) && (
                         <button
                           onClick={() => {
-                            console.log('[MobileMenu] DJ Profile clicked!');
+                            console.log('[MobileMenu] Studio clicked!');
                             setIsOpen(false);
                             window.location.href = "/studio";
                           }}
                           className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                           style={{ pointerEvents: 'auto' }}
                         >
-                          Profile
+                          Studio
                         </button>
                       )}
                       <button
