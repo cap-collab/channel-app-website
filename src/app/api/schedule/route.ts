@@ -285,16 +285,21 @@ async function enrichBroadcastShows(shows: Show[]): Promise<Show[]> {
 // Extract IRL shows from pre-fetched DJ user docs (no extra Firestore query)
 // ---------------------------------------------------------------------------
 
-function getFourDaysFromNow(): string {
+// Get today's date string in America/Los_Angeles (prevents UTC rollover filtering out west-coast evening shows)
+function getTodayPDT(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+}
+
+function getFourDaysFromNowPDT(): string {
   const d = new Date();
   d.setDate(d.getDate() + 4);
-  return d.toISOString().split("T")[0];
+  return d.toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
 }
 
 function extractIRLShows(djUserDocs: FirestoreDoc[]): IRLShowData[] {
   const irlShows: IRLShowData[] = [];
-  const today = new Date().toISOString().split("T")[0];
-  const cutoff = getFourDaysFromNow();
+  const today = getTodayPDT();
+  const cutoff = getFourDaysFromNowPDT();
 
   for (const doc of djUserDocs) {
     const userData = doc.data();
@@ -437,7 +442,7 @@ async function extractAdminEvents(): Promise<IRLShowData[]> {
 
 function extractDJRadioShows(djUserDocs: FirestoreDoc[]): Show[] {
   const radioShows: Show[] = [];
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayPDT();
 
   for (const doc of djUserDocs) {
     const userData = doc.data();

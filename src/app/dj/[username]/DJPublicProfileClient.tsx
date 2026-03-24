@@ -1154,8 +1154,9 @@ export function DJPublicProfileClient({ username }: Props) {
         const showStartUtc = naiveUtc - offsetMs;
         return showStartUtc + durationHours * 3600000;
       }
-      // No time specified — consider it past after end of that day (UTC)
-      return new Date(date).getTime() + 86400000;
+      // No time specified — consider it past after end of that day in viewer's timezone
+      // new Date("YYYY-MM-DD") is UTC midnight; use local midnight + 24h instead
+      return new Date(`${date}T23:59:59`).getTime();
     };
 
     // Add IRL shows - check if past or upcoming based on date (end of day)
