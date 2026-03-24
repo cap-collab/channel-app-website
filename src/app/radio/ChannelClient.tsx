@@ -860,16 +860,6 @@ export function ChannelClient() {
             </div>
           )}
 
-          {/* Invite card: priority 1 = no curators in city, priority 2 = missing genres */}
-          {noCuratorsInCity ? (
-            <div className="flex-shrink-0 pt-3 md:pt-4 pb-3 md:pb-4">
-              <InviteCard message={`We don't have curators in ${selectedCity} yet. Know a great curator? Invite them to Channel`} />
-            </div>
-          ) : missingGenres.length > 0 && (
-            <div className="flex-shrink-0 pt-3 md:pt-4 pb-3 md:pb-4">
-              <InviteCard message={`We don't have ${missingGenres.join(', ')} curators yet. Know a great curator? Invite them to Channel`} />
-            </div>
-          )}
 
           {/* Section 3: Selected by your favorite curators (carousel, max 4) — shown here on first visit, at the bottom after */}
           {!hasSeenCuratorRecs && filteredCuratorRecs.length > 0 && (
@@ -927,9 +917,9 @@ export function ChannelClient() {
           )}
 
           {/* Empty state when no matches at all and no invite card already shown above */}
-          {!isLoading && allCardCount === 0 && !noCuratorsInCity && missingGenres.length === 0 && (
+          {!isLoading && allCardCount === 0 && missingGenres.length === 0 && (
             <div className="flex-shrink-0 pb-3 md:pb-4">
-              <InviteCard message="We don't have curators here yet. Know a great curator? Invite them to Channel" />
+              <InviteCard message="Know a great curator? Invite them to Channel" />
             </div>
           )}
 

@@ -1,10 +1,7 @@
-import { Metadata } from 'next';
+import { makeOG } from '@/lib/og';
 import { DJPortalClient } from './DJPortalClient';
 
-export const metadata: Metadata = {
-  title: 'DJ Portal - Channel',
-  description: 'Apply to broadcast live DJ sets on Channel',
-};
+export const metadata = makeOG();
 
 export default function DJPortalPage() {
   return <DJPortalClient />;

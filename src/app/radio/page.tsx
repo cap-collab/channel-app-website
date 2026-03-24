@@ -1,11 +1,8 @@
-import { Metadata } from 'next';
 import { Suspense } from 'react';
+import { makeOG } from '@/lib/og';
 import { ChannelClient } from './ChannelClient';
 
-export const metadata: Metadata = {
-  title: 'channel',
-  description: 'Listen to Channel Radio live. Real-time chat, schedule, and more.',
-};
+export const metadata = makeOG();
 
 export default function ChannelPage() {
   return (

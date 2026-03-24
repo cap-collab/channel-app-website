@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import { makeOG } from '@/lib/og';
 import { ArchiveClient } from './ArchiveClient';
 
 interface Props {
@@ -7,11 +8,8 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  // Could fetch archive data here for dynamic title, but keeping it simple
-  return {
-    title: `${slug.replace(/-/g, ' ')} | Channel Archives`,
-    description: 'Listen to this recorded broadcast from Channel',
-  };
+  const name = slug.replace(/-/g, ' ');
+  return makeOG({ title: `Channel - ${name}` });
 }
 
 export default async function ArchivePage({ params }: Props) {

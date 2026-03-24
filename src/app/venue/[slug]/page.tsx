@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { makeOG } from "@/lib/og";
 import { VenuePublicPage } from "./VenuePublicPage";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +9,7 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
-async function getVenueData(slug: string): Promise<{ name: string; description?: string } | null> {
+async function getVenueName(slug: string): Promise<string | null> {
   const adminDb = getAdminDb();
   if (!adminDb) return null;
 
@@ -20,12 +21,7 @@ async function getVenueData(slug: string): Promise<{ name: string; description?:
       .get();
 
     if (snapshot.empty) return null;
-
-    const data = snapshot.docs[0].data();
-    return {
-      name: data.name || slug,
-      description: data.description || undefined,
-    };
+    return snapshot.docs[0].data().name || null;
   } catch (error) {
     console.error("[Venue Metadata] Error:", error);
     return null;
@@ -34,23 +30,8 @@ async function getVenueData(slug: string): Promise<{ name: string; description?:
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const venue = await getVenueData(slug);
-  const name = venue?.name || slug;
-  const title = `Channel - ${name}`;
-  const description = venue?.description || `${name} on Channel`;
-
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-    },
-    twitter: {
-      title,
-      description,
-    },
-  };
+  const name = (await getVenueName(slug)) || slug;
+  return makeOG({ title: `Channel - ${name}` });
 }
 
 export default async function VenueProfilePage({ params }: Props) {

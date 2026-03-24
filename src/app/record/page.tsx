@@ -1,11 +1,8 @@
-import { Metadata } from 'next';
 import { Suspense } from 'react';
+import { makeOG } from '@/lib/og';
 import { RecordClient } from './RecordClient';
 
-export const metadata: Metadata = {
-  title: 'Record Your Set - Channel',
-  description: 'Record your DJ set on Channel (2 hours per month)',
-};
+export const metadata = makeOG();
 
 export default function RecordPage() {
   return (

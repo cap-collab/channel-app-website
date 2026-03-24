@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { makeOG } from "@/lib/og";
 import { DJPublicProfileClient } from "./DJPublicProfileClient";
 
 // Force dynamic rendering so Admin SDK has access to env vars at runtime
@@ -9,7 +10,7 @@ interface Props {
   params: Promise<{ username: string }>;
 }
 
-async function getDJDisplayName(username: string): Promise<string | null> {
+async function getDJData(username: string): Promise<{ name: string; photoUrl: string | null } | null> {
   const adminDb = getAdminDb();
   if (!adminDb) {
     console.log("[DJ Metadata] Admin DB not available");
@@ -26,11 +27,13 @@ async function getDJDisplayName(username: string): Promise<string | null> {
       .where("chatUsernameNormalized", "==", normalized)
       .get();
 
-    // Use first matching profile (no status filter - show page regardless of status)
     if (pendingSnapshot.docs.length > 0) {
-      const doc = pendingSnapshot.docs[0];
-      console.log("[DJ Metadata] Found pending profile:", doc.data().chatUsername);
-      return doc.data().chatUsername || null;
+      const data = pendingSnapshot.docs[0].data();
+      console.log("[DJ Metadata] Found pending profile:", data.chatUsername);
+      return {
+        name: data.chatUsername || username,
+        photoUrl: data.djProfile?.photoUrl || null,
+      };
     }
 
     // Check users collection (single where clause, filter roles client-side)
@@ -40,10 +43,14 @@ async function getDJDisplayName(username: string): Promise<string | null> {
       .get();
 
     for (const doc of usersSnapshot.docs) {
-      const role = doc.data().role;
+      const data = doc.data();
+      const role = data.role;
       if (role === "dj" || role === "broadcaster" || role === "admin") {
-        console.log("[DJ Metadata] Found user profile:", doc.data().chatUsername);
-        return doc.data().chatUsername || null;
+        console.log("[DJ Metadata] Found user profile:", data.chatUsername);
+        return {
+          name: data.chatUsername || username,
+          photoUrl: data.djProfile?.photoUrl || null,
+        };
       }
     }
 
@@ -57,23 +64,12 @@ async function getDJDisplayName(username: string): Promise<string | null> {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { username } = await params;
-  const displayName = await getDJDisplayName(username);
-  const name = displayName || username;
-  const title = `Channel - ${name}`;
-  const description = `Listen to ${name} live on Channel`;
-
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-    },
-    twitter: {
-      title,
-      description,
-    },
-  };
+  const dj = await getDJData(username);
+  const name = dj?.name || username;
+  return makeOG({
+    title: `Channel - ${name}`,
+    image: dj?.photoUrl || undefined,
+  });
 }
 
 export default async function DJPublicProfilePage({ params }: Props) {

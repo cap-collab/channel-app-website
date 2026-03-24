@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     url: "https://channel-app.com",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "channel",
     description: "Ditch the algorithms. Stay in the know with the curators who move your world forward.",
   },

@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { makeOG } from "@/lib/og";
 import { CollectivePublicPage } from "./CollectivePublicPage";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +9,7 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
-async function getCollectiveData(slug: string): Promise<{ name: string; description?: string } | null> {
+async function getCollectiveData(slug: string): Promise<{ name: string; photo: string | null } | null> {
   const adminDb = getAdminDb();
   if (!adminDb) return null;
 
@@ -24,7 +25,7 @@ async function getCollectiveData(slug: string): Promise<{ name: string; descript
     const data = snapshot.docs[0].data();
     return {
       name: data.name || slug,
-      description: data.description || undefined,
+      photo: data.photo || null,
     };
   } catch (error) {
     console.error("[Collective Metadata] Error:", error);
@@ -36,21 +37,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const collective = await getCollectiveData(slug);
   const name = collective?.name || slug;
-  const title = `Channel - ${name}`;
-  const description = collective?.description || `${name} on Channel`;
-
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-    },
-    twitter: {
-      title,
-      description,
-    },
-  };
+  return makeOG({
+    title: `Channel - ${name}`,
+    image: collective?.photo || undefined,
+  });
 }
 
 export default async function CollectiveProfilePage({ params }: Props) {

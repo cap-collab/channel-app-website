@@ -1,10 +1,7 @@
-import { Metadata } from "next";
+import { makeOG } from "@/lib/og";
 import { ApplyClient } from "./ApplyClient";
 
-export const metadata: Metadata = {
-  title: "Feature Your Station - Channel",
-  description: "Get your radio station featured on Channel",
-};
+export const metadata = makeOG();
 
 export default function ApplyPage() {
   return <ApplyClient />;
