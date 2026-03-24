@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
@@ -11,6 +12,7 @@ import { useBPM } from '@/contexts/BPMContext';
  * Uses shared BroadcastStreamContext for synced play/pause.
  */
 export function GlobalBroadcastBar() {
+  const [mounted, setMounted] = useState(false);
   const {
     isLive, isPlaying, isLoading, toggle,
     showName, djName, heroBarVisible,
@@ -19,6 +21,10 @@ export function GlobalBroadcastBar() {
   const broadcastBPM = stationBPM['broadcast']?.bpm ?? null;
   const pathname = usePathname();
 
+  useEffect(() => { setMounted(true); }, []);
+
+  // Return null on first render to match server HTML and avoid hydration mismatch
+  if (!mounted) return null;
   // Never show on the go-live broadcast page
   if (pathname === '/broadcast/live') return null;
   if (!isLive) return null;

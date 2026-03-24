@@ -102,6 +102,10 @@ export function LiveBroadcastHero() {
   const { stationBPM } = useBPM();
   const broadcastBPM = stationBPM['broadcast']?.bpm ?? null;
 
+  // Avoid hydration mismatch — isLive is always false on the server
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   // Determine the current DJ's chat room from live broadcast data
   const computeDJChatRoom = useCallback(() => {
     if (!currentShow) return '';
@@ -283,7 +287,7 @@ export function LiveBroadcastHero() {
     }
   };
 
-  if (!isLive || !currentShow) return null;
+  if (!mounted || !isLive || !currentShow) return null;
 
   return (
     <section id="live" className="relative z-10 px-4 pt-6 pb-2">
