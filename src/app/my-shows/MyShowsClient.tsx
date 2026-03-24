@@ -639,17 +639,20 @@ export function MyShowsClient() {
                       {categorizedShows.returningSoon.map((favorite) => {
                         const station = getStation(favorite.stationId);
                         const accentColor = station?.accentColor || "#fff";
-                        // Look up DJ profile from cache
-                        const djName = favorite.djName || favorite.term;
+                        // Look up DJ profile from cache (more up-to-date than stale favorite fields)
                         const djProfile = findDJProfile(favorite, djProfiles);
+                        const djName = djProfile?.username || favorite.djName || favorite.term;
+                        const djUsername = djProfile?.username
+                          ? normalizeForLookup(djProfile.username)
+                          : favorite.djUsername;
 
                         return (
                           <MyShowsCard
                             key={favorite.id}
                             showType="online"
                             djName={djName}
-                            djPhotoUrl={favorite.djPhotoUrl || djProfile?.photoUrl}
-                            djUsername={favorite.djUsername || djProfile?.username}
+                            djPhotoUrl={djProfile?.photoUrl || favorite.djPhotoUrl}
+                            djUsername={djUsername}
                             accentColor={accentColor}
                             isLive={false}
                             showName={favorite.showName || favorite.term}
@@ -673,17 +676,20 @@ export function MyShowsClient() {
                       {categorizedShows.oneTime.map((favorite) => {
                         const station = getStation(favorite.stationId);
                         const accentColor = station?.accentColor || "#fff";
-                        // Look up DJ profile from cache
-                        const djName = favorite.djName || favorite.term;
+                        // Look up DJ profile from cache (more up-to-date than stale favorite fields)
                         const djProfile = findDJProfile(favorite, djProfiles);
+                        const djName = djProfile?.username || favorite.djName || favorite.term;
+                        const djUsername = djProfile?.username
+                          ? normalizeForLookup(djProfile.username)
+                          : favorite.djUsername;
 
                         return (
                           <MyShowsCard
                             key={favorite.id}
                             showType="online"
                             djName={djName}
-                            djPhotoUrl={favorite.djPhotoUrl || djProfile?.photoUrl}
-                            djUsername={favorite.djUsername || djProfile?.username}
+                            djPhotoUrl={djProfile?.photoUrl || favorite.djPhotoUrl}
+                            djUsername={djUsername}
                             accentColor={accentColor}
                             isLive={false}
                             showName={favorite.showName || favorite.term}
