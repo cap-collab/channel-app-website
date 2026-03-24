@@ -133,16 +133,17 @@ export function MyShowsClient() {
   const [removing, setRemoving] = useState<string | null>(null);
   const [djProfiles, setDJProfiles] = useState<Map<string, DJProfileCache>>(new Map());
 
-  // Separate favorites by type
-  const stationShows = favorites.filter(
+  // Separate favorites by type (memoized to prevent render loops)
+  const stationShows = useMemo(() => favorites.filter(
     (f) => (f.type === "show" || f.type === "dj") && f.stationId && f.stationId !== "CHANNEL"
-  );
-  const watchlist = favorites.filter((f) => f.type === "search");
+  ), [favorites]);
+  const watchlist = useMemo(() => favorites.filter((f) => f.type === "search"), [favorites]);
   // IRL events - filter to future events only
   const today = new Date().toISOString().split("T")[0];
-  const irlEvents = favorites
+  const irlEvents = useMemo(() => favorites
     .filter((f) => f.type === "irl" && f.irlDate && f.irlDate >= today)
-    .sort((a, b) => (a.irlDate || "").localeCompare(b.irlDate || ""));
+    .sort((a, b) => (a.irlDate || "").localeCompare(b.irlDate || "")),
+  [favorites, today]);
 
   // Categorize shows into Live Now, Coming Up, Returning Soon, One-Time
   const categorizedShows = useMemo(() => {
