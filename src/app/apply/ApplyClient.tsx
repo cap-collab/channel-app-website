@@ -163,7 +163,7 @@ export function ApplyClient() {
   if (status === "success") {
     return (
       <div className="min-h-screen bg-black">
-        <Header currentPage="apply" position="sticky" />
+        <Header currentPage="apply" position="sticky" showSearch />
 
         <div className="p-4 md:p-8">
           <div className="max-w-2xl mx-auto text-center py-20">
@@ -201,7 +201,7 @@ export function ApplyClient() {
 
   return (
     <div className="min-h-screen bg-black">
-      <Header currentPage="apply" position="sticky" />
+      <Header currentPage="apply" position="sticky" showSearch />
 
       <main className="p-4 md:p-8">
           <div className="max-w-2xl mx-auto">

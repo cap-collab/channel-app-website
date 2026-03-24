@@ -246,7 +246,7 @@ export function SettingsClient() {
 
   return (
     <div className="min-h-screen bg-black">
-      <Header position="sticky" />
+      <Header position="sticky" showSearch />
 
       <main className="max-w-xl mx-auto p-4">
         {!isAuthenticated ? (

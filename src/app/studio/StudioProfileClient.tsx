@@ -1232,7 +1232,7 @@ export function StudioProfileClient() {
   if (!isAuthenticated || (signingInInline && !signInFlowComplete)) {
     return (
       <div className="min-h-screen bg-black">
-        <Header currentPage="studio" position="sticky" />
+        <Header currentPage="studio" position="sticky" showSearch />
         <main className="max-w-xl mx-auto p-4">
           <div className="text-center py-12">
             <h1 className="text-2xl font-semibold text-white mb-2">Studio</h1>
@@ -1271,7 +1271,7 @@ export function StudioProfileClient() {
   if (!isDJ(role)) {
     return (
       <div className="min-h-screen bg-black">
-        <Header currentPage="studio" position="sticky" />
+        <Header currentPage="studio" position="sticky" showSearch />
         <main className="max-w-xl mx-auto p-4">
           <div className="py-8">
             <h1 className="text-2xl font-semibold text-white mb-2">Upgrade to DJ Profile</h1>
@@ -1326,7 +1326,7 @@ export function StudioProfileClient() {
 
   return (
     <div className="min-h-screen bg-black">
-      <Header currentPage="studio" position="sticky" />
+      <Header currentPage="studio" position="sticky" showSearch />
 
       <main className="max-w-xl mx-auto p-4">
         {/* Curator Name Setup Banner - shown when chatUsername is not set */}

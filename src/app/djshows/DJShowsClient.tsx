@@ -56,7 +56,7 @@ export function DJShowsClient() {
     <BPMProvider>
     <div className="min-h-screen bg-black">
       {/* Header */}
-      <Header currentPage="djshows" position="sticky" />
+      <Header currentPage="djshows" position="sticky" showSearch />
 
       {/* Search bar section - sticky until scrolled past current time */}
       <div className={`${isSearchBarSticky ? 'sticky top-[52px] z-[45]' : ''} px-4 py-3 bg-black border-b border-gray-900`}>

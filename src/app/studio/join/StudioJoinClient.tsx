@@ -241,7 +241,7 @@ export function StudioJoinClient() {
   if (status === 'success') {
     return (
       <div className="min-h-screen bg-black">
-        <Header currentPage="studio" position="sticky" />
+        <Header currentPage="studio" position="sticky" showSearch />
 
         <div className="p-4 md:p-8">
           <div className="max-w-2xl mx-auto text-center py-20">
@@ -278,7 +278,7 @@ export function StudioJoinClient() {
 
   return (
     <div className="min-h-screen bg-black">
-      <Header currentPage="studio" position="sticky" />
+      <Header currentPage="studio" position="sticky" showSearch />
 
       <main className="p-4 md:p-8">
         <div className="max-w-2xl mx-auto">

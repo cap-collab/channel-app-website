@@ -243,7 +243,7 @@ export function CollectivePublicPage({ slug }: Props) {
   if (notFound || !collective) {
     return (
       <div className="min-h-screen bg-black">
-        <Header position="sticky" />
+        <Header position="sticky" showSearch />
         <main className="max-w-5xl mx-auto px-6 py-16">
           <div className="text-center py-12">
             <p className="text-zinc-500 mb-4">Collective not found</p>
@@ -262,7 +262,7 @@ export function CollectivePublicPage({ slug }: Props) {
   return (
     <div className="min-h-screen text-white relative">
       <AnimatedBackground />
-      <Header position="sticky" />
+      <Header position="sticky" showSearch />
 
       <main className="max-w-5xl mx-auto px-6 py-4 pb-24">
         {/* SECTION A: IDENTITY */}

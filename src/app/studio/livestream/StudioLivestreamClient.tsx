@@ -190,7 +190,7 @@ export function StudioLivestreamClient() {
   if (status === 'success') {
     return (
       <div className="min-h-screen bg-black">
-        <Header currentPage="studio" position="sticky" />
+        <Header currentPage="studio" position="sticky" showSearch />
 
         <div className="p-4 md:p-8">
           <div className="max-w-2xl mx-auto text-center py-20">
@@ -229,7 +229,7 @@ export function StudioLivestreamClient() {
   if (isAuthenticated && roleLoading) {
     return (
       <div className="min-h-screen bg-black">
-        <Header currentPage="studio" position="sticky" />
+        <Header currentPage="studio" position="sticky" showSearch />
         <div className="p-4 md:p-8">
           <div className="max-w-2xl mx-auto flex items-center justify-center py-20">
             <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -243,7 +243,7 @@ export function StudioLivestreamClient() {
   if (!userIsDJ) {
     return (
       <div className="min-h-screen bg-black">
-        <Header currentPage="studio" position="sticky" />
+        <Header currentPage="studio" position="sticky" showSearch />
         <main className="p-4 md:p-8">
           <div className="max-w-2xl mx-auto text-center py-20">
             <p className="text-gray-500 mb-4">
@@ -273,7 +273,7 @@ export function StudioLivestreamClient() {
 
   return (
     <div className="min-h-screen bg-black">
-      <Header currentPage="studio" position="sticky" />
+      <Header currentPage="studio" position="sticky" showSearch />
 
       <main className="p-4 md:p-8">
         <div className="max-w-2xl mx-auto">

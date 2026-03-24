@@ -20,7 +20,7 @@ export function StripeSetupClient() {
 
   return (
     <div className="min-h-screen bg-black">
-      <Header currentPage="stripe-setup" position="sticky" />
+      <Header currentPage="stripe-setup" position="sticky" showSearch />
 
       <main className="p-4 md:p-8">
         <div className="max-w-2xl mx-auto">
