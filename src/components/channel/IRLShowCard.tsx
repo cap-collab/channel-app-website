@@ -22,11 +22,11 @@ export function IRLShowCard({
 }: IRLShowCardProps) {
   const [imageError, setImageError] = useState(false);
 
-  // Prefer event photo, fall back to DJ photo
-  const photoUrl = show.eventPhotoUrl || show.djPhotoUrl;
+  // DJ photo first, fall back to event photo
+  const photoUrl = show.djPhotoUrl || show.eventPhotoUrl;
   const hasPhoto = photoUrl && !imageError;
 
-  // Click-through: use pre-computed linkUrl, fall back to DJ profile
+  // Click-through: collective/venue/DJ page
   const href = show.linkUrl || (show.djUsername ? `/dj/${show.djUsername}` : undefined);
 
   const imageOverlays = (
@@ -46,16 +46,14 @@ export function IRLShowCard({
           {new Date(show.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
         </span>
       </div>
-      {/* Event name - bottom left */}
+      {/* DJ name and city - bottom left */}
       <div className="absolute bottom-2 left-2 right-2">
         <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
-          {show.eventName}
+          {show.djName}
         </span>
-        {show.venueName && (
-          <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
-            {show.venueName}
-          </span>
-        )}
+        <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
+          {show.location}
+        </span>
       </div>
     </>
   );
@@ -64,7 +62,7 @@ export function IRLShowCard({
     <>
       <Image
         src={photoUrl!}
-        alt={show.eventName}
+        alt={show.djName}
         fill
         className="object-cover"
         unoptimized
@@ -75,7 +73,7 @@ export function IRLShowCard({
   ) : (
     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900 to-pink-900">
       <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-white text-center px-4">
-        {show.eventName}
+        {show.djName}
       </h2>
     </div>
   );
@@ -106,9 +104,15 @@ export function IRLShowCard({
         <h3 className="text-sm font-bold leading-tight truncate">
           {show.eventName}
         </h3>
-        <p className="text-[10px] text-zinc-500 mt-0.5 uppercase">
-          in {show.location}
-        </p>
+        {show.venueName ? (
+          <p className="text-[10px] text-zinc-500 mt-0.5 uppercase">
+            {show.venueName}
+          </p>
+        ) : (
+          <p className="text-[10px] text-zinc-500 mt-0.5 uppercase">
+            in {show.location}
+          </p>
+        )}
         {show.djGenres && show.djGenres.length > 0 && (
           <p className="text-[10px] font-mono text-zinc-500 mt-0.5 uppercase tracking-tighter">
             {show.djGenres.join(' · ')}
@@ -119,7 +123,7 @@ export function IRLShowCard({
       {/* Action Buttons */}
       <div className="space-y-2 mt-auto">
         <div className="flex gap-2">
-          {/* Follow/Unfollow Button */}
+          {/* Follow/Unfollow Button (follows the DJ) */}
           <button
             onClick={onFollow}
             disabled={isAddingFollow}
