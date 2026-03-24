@@ -18,7 +18,8 @@ import { useBroadcastStreamContext } from "@/contexts/BroadcastStreamContext";
 import { useDJProfileChat } from "@/hooks/useDJProfileChat";
 import { Show } from "@/types";
 import { Archive } from "@/types/broadcast";
-import { getStationById } from "@/lib/stations";
+import { getStationById, getMetadataKeyByStationId } from "@/lib/stations";
+import { useBPM } from "@/contexts/BPMContext";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { Venue, Collective, Event as ChannelEvent, EventDJRef, EventVenueRef, CollectiveRef } from "@/types/events";
 import { generateSlug } from "@/lib/slug";
@@ -349,6 +350,7 @@ export function DJPublicProfileClient({ username }: Props) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername, setChatUsername, loading: profileLoading } = useUserProfile(user?.uid);
   const { isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited, addToWatchlist, loading: favoritesLoading } = useFavorites();
+  const { stationBPM } = useBPM();
 
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1449,6 +1451,14 @@ export function DJPublicProfileClient({ username }: Props) {
                   <span className="text-red-500 text-xs font-bold uppercase tracking-wide">
                     Live
                   </span>
+                  {(() => {
+                    const bpm = stationBPM[getMetadataKeyByStationId(currentLiveShow.stationId) || '']?.bpm;
+                    return bpm ? (
+                      <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter">
+                        {bpm} BPM
+                      </span>
+                    ) : null;
+                  })()}
                 </div>
                 <span className="text-zinc-400 text-xs">
                   {liveOnChannel ? "Channel" : liveElsewhere ? liveElsewhere.stationName : ""}
