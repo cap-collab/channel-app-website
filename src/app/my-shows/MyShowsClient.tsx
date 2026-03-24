@@ -157,8 +157,16 @@ export function MyShowsClient() {
     const seenLiveShowNames = new Set<string>();
     const seenUpcomingShowNames = new Set<string>();
 
+    const bcast = allShows.filter(s => s.stationId === "broadcast");
+    if (bcast.length > 0 || stationShows.some(f => f.stationId === "broadcast")) {
+      console.log(`[MyShows] ${bcast.length} broadcast in allShows, names:`, bcast.map(s => s.name));
+    }
+
     for (const favorite of stationShows) {
       const matchingShows = findMatchingShows(favorite, allShows);
+      if (favorite.stationId === "broadcast") {
+        console.log(`[MyShows] fav "${favorite.showName}" → ${matchingShows.length} matches, upcoming: ${matchingShows.filter(s => new Date(s.startTime) > now).length}`);
+      }
 
       // Find live show
       const liveShow = matchingShows.find((show) => {
