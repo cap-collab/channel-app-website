@@ -111,6 +111,7 @@ async function fetchBroadcastShowsClient(): Promise<Show[]> {
       }
     }
 
+    console.log('[ScheduleContext] Broadcast shows to enrich:', userIdsToEnrich.size, 'shows total:', shows.length, 'missing photo:', Array.from(userIdsToEnrich));
     if (userIdsToEnrich.size > 0 && db) {
       const profileMap = new Map<string, { photoUrl?: string; username?: string; location?: string; genres?: string[]; bio?: string }>();
       await Promise.all(
@@ -134,6 +135,7 @@ async function fetchBroadcastShowsClient(): Promise<Show[]> {
         })
       );
 
+      console.log('[ScheduleContext] Enriched profiles:', Array.from(profileMap.entries()).map(([id, p]) => ({ id, photoUrl: !!p.photoUrl, username: p.username })));
       for (const show of shows) {
         if (show.djUserId && profileMap.has(show.djUserId)) {
           const profile = profileMap.get(show.djUserId)!;
