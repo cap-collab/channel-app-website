@@ -257,9 +257,34 @@ export function NextFavoriteShow({ onAuthRequired, currentShow, currentDJ }: Nex
 
       if (upcomingMatches.length > 0) {
         upcoming.push({ favorite, show: upcomingMatches[0] });
-      } else if (isRecurringFavorite(favorite) && currentlyLive.length === 0) {
-        // No upcoming or live shows but it's a recurring favorite
-        returning.push(favorite);
+      } else if (currentlyLive.length === 0) {
+        // No schedule match — check if favorite has a future radioShowDate
+        const today = new Date().toISOString().split("T")[0];
+        if (favorite.radioShowDate && favorite.radioShowDate >= today) {
+          const timeStr = favorite.radioShowTime || "12:00";
+          const durationHours = parseFloat(favorite.radioShowDuration || "1");
+          const startMs = new Date(`${favorite.radioShowDate}T${timeStr}:00`).getTime();
+          if (startMs > now.getTime()) {
+            upcoming.push({
+              favorite,
+              show: {
+                id: `radio-${favorite.id}`,
+                name: favorite.showName || favorite.term,
+                dj: favorite.djName,
+                djUsername: favorite.djUsername,
+                djPhotoUrl: favorite.djPhotoUrl,
+                startTime: new Date(startMs).toISOString(),
+                endTime: new Date(startMs + durationHours * 60 * 60 * 1000).toISOString(),
+                stationId: favorite.stationId || "dj-radio",
+                description: favorite.radioShowUrl ? `Listen at: ${favorite.radioShowUrl}` : undefined,
+              },
+            });
+            continue;
+          }
+        }
+        if (isRecurringFavorite(favorite)) {
+          returning.push(favorite);
+        }
       }
     }
 

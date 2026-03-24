@@ -157,30 +157,8 @@ export function MyShowsClient() {
     const seenLiveShowNames = new Set<string>();
     const seenUpcomingShowNames = new Set<string>();
 
-    // DEBUG: log all broadcast/dj-radio shows in schedule
-    const broadcastShows = allShows.filter(s => s.stationId === "broadcast" || s.stationId === "dj-radio");
-    if (broadcastShows.length > 0) {
-      console.log(`[MyShows DEBUG] broadcast/dj-radio shows in schedule (${broadcastShows.length}):`,
-        broadcastShows.map(s => ({ name: s.name, dj: s.dj, djUsername: s.djUsername, stationId: s.stationId, startTime: s.startTime }))
-      );
-    }
-
     for (const favorite of stationShows) {
       const matchingShows = findMatchingShows(favorite, allShows);
-
-      // DEBUG: log matching results for favorites that end up with no matches
-      if (matchingShows.length === 0) {
-        console.log(`[MyShows DEBUG] No matches for favorite:`, {
-          term: favorite.term,
-          showName: favorite.showName,
-          djName: favorite.djName,
-          djUsername: favorite.djUsername,
-          stationId: favorite.stationId,
-          type: favorite.type,
-          showType: favorite.showType,
-          favStation: getStation(favorite.stationId)?.id,
-        });
-      }
 
       // Find live show
       const liveShow = matchingShows.find((show) => {
@@ -215,11 +193,39 @@ export function MyShowsClient() {
         continue;
       }
 
+      // No schedule match found — check if the favorite itself has a future date
+      // (radio shows synced from /studio have radioShowDate/radioShowTime)
+      if (favorite.radioShowDate && favorite.radioShowDate >= today) {
+        const timeStr = favorite.radioShowTime || "12:00";
+        const durationHours = parseFloat(favorite.radioShowDuration || "1");
+        const startMs = new Date(`${favorite.radioShowDate}T${timeStr}:00`).getTime();
+        if (startMs > now.getTime()) {
+          const showNameKey = normalizeForLookup(favorite.showName || favorite.term);
+          if (!seenUpcomingShowNames.has(showNameKey)) {
+            seenUpcomingShowNames.add(showNameKey);
+            comingUp.push({
+              favorite,
+              show: {
+                id: `radio-${favorite.id}`,
+                name: favorite.showName || favorite.term,
+                dj: favorite.djName,
+                djUsername: favorite.djUsername,
+                djPhotoUrl: favorite.djPhotoUrl,
+                startTime: new Date(startMs).toISOString(),
+                endTime: new Date(startMs + durationHours * 60 * 60 * 1000).toISOString(),
+                stationId: favorite.stationId || "dj-radio",
+                description: favorite.radioShowUrl ? `Listen at: ${favorite.radioShowUrl}` : undefined,
+              },
+            });
+          }
+          continue;
+        }
+      }
+
       // No upcoming or live shows - categorize based on favorite's showType
       if (isRecurringFavorite(favorite)) {
         returningSoon.push(favorite);
       } else {
-        console.log(`[MyShows DEBUG] → goes to oneTime:`, { term: favorite.term, showName: favorite.showName, stationId: favorite.stationId, djName: favorite.djName });
         oneTime.push(favorite);
       }
     }

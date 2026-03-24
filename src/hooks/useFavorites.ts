@@ -48,7 +48,7 @@ export interface Favorite {
   stationId?: string;
   showType?: string; // "regular", "weekly", "biweekly", "monthly", "restream", "playlist"
   createdAt: Date;
-  createdBy: "web" | "ios";
+  createdBy: "web" | "ios" | "system";
   // IRL event fields (type="irl")
   irlEventName?: string;
   irlLocation?: string;
@@ -56,6 +56,11 @@ export interface Favorite {
   irlTicketUrl?: string;
   djUsername?: string;
   djPhotoUrl?: string;
+  // Radio show fields (synced from /studio via sync-shows-to-followers)
+  radioShowDate?: string; // ISO date string (YYYY-MM-DD)
+  radioShowTime?: string; // HH:MM
+  radioShowDuration?: string; // hours
+  radioShowUrl?: string;
 }
 
 // Helper to check if a favorite is for a recurring show
