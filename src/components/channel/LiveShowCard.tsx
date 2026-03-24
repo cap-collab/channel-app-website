@@ -172,7 +172,7 @@ export function LiveShowCard({
               href={`/dj/${show.djUsername}`}
               className="flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white hover:bg-gray-100 text-gray-900 text-center"
             >
-              See profile
+              {show.isChannelUser ? 'Chat' : 'See profile'}
             </Link>
           ) : (
             <button

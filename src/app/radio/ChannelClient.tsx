@@ -333,9 +333,9 @@ export function ChannelClient() {
       return result;
     };
 
-    // Section 0: Favorites — followed DJs / favorited shows in next 7 days, sorted: live now → soonest first
-    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const sevenDaysDateStr = sevenDaysFromNow.toLocaleDateString('en-CA'); // YYYY-MM-DD
+    // Section 0: Favorites — followed DJs / favorited shows in next 2 weeks, sorted: live now → soonest first
+    const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const twoWeeksDateStr = twoWeeksFromNow.toLocaleDateString('en-CA'); // YYYY-MM-DD
     const s0Candidates: { item: MatchedItem; id: string; djName: string | undefined; startMs: number; live: boolean }[] = [];
     // Radio shows from followed DJs / favorited shows in next 7 days
     for (const show of allShows) {
@@ -344,7 +344,7 @@ export function ChannelClient() {
       if (!station) continue;
       const endTime = new Date(show.endTime);
       const startTime = new Date(show.startTime);
-      if (endTime <= now || startTime > sevenDaysFromNow) continue;
+      if (endTime <= now || startTime > twoWeeksFromNow) continue;
       const djFollowed = show.dj ? isInWatchlist(show.dj) : false;
       const showFaved = isShowFavorited(show);
       if (djFollowed || showFaved) {
@@ -357,7 +357,7 @@ export function ChannelClient() {
     }
     // IRL shows from followed DJs in next 7 days
     for (const show of irlShows) {
-      if (show.date > sevenDaysDateStr) continue;
+      if (show.date > twoWeeksDateStr) continue;
       const djFollowed = isInWatchlist(show.djName) || isInWatchlist(show.djUsername);
       if (!djFollowed) continue;
       const id = `irl-${show.djUsername}-${show.date}`;
@@ -654,7 +654,7 @@ export function ChannelClient() {
   }, [isAuthenticated, handleRemindMe, isShowFavorited, toggleFavorite]);
 
   // Render a single matched card (IRL or Radio)
-  const renderCard = (item: MatchedItem, index: number) => {
+  const renderCard = (item: MatchedItem, index: number, profileMode?: boolean) => {
     if (item.type === 'irl') {
       const show = item.data;
       const following = show.djName ? isInWatchlist(show.djName) : false;
@@ -667,6 +667,7 @@ export function ChannelClient() {
           isAddingFollow={addingFollow}
           onFollow={() => handleUnifiedIRLFollow(show)}
           matchLabel={item.matchLabel}
+          profileMode={profileMode}
         />
       );
     } else {
@@ -686,6 +687,7 @@ export function ChannelClient() {
             isAddingFollow={addingFollow}
             onFollow={() => handleUnifiedFollow(show)}
             matchLabel={item.matchLabel}
+            profileMode={profileMode}
           />
         );
       }
@@ -705,6 +707,7 @@ export function ChannelClient() {
           onFollow={() => handleUnifiedFollow(show)}
           onRemindMe={() => handleUnifiedRemindMe(show)}
           matchLabel={item.matchLabel}
+          profileMode={profileMode}
         />
       );
     }
@@ -772,7 +775,7 @@ export function ChannelClient() {
           <div className="max-w-7xl mx-auto">
             <h2 className="text-2xl md:text-3xl font-bold mb-3">From your favorites</h2>
             <SwipeableCardCarousel>
-              {favoritesNowLive.map((item, index) => renderCard(item, index))}
+              {favoritesNowLive.map((item, index) => renderCard(item, index, true))}
             </SwipeableCardCarousel>
           </div>
         </section>
