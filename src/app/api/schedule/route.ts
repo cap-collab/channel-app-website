@@ -392,18 +392,18 @@ async function extractAdminEvents(): Promise<IRLShowData[]> {
 
     const firstDJ = data.djs?.[0];
 
-    // Compute click-through URL: collective > venue > DJ
+    // Compute click-through URL: collective > DJ > venue
     let linkUrl: string | undefined;
     const firstCollective = data.linkedCollectives?.[0];
     if (firstCollective?.collectiveSlug) {
       linkUrl = `/collective/${firstCollective.collectiveSlug}`;
+    } else if (firstDJ?.djUsername) {
+      linkUrl = `/dj/${firstDJ.djUsername}`;
     } else {
       const venueId = data.linkedVenues?.[0]?.venueId || data.venueId;
       const venueSlug = venueId ? venueSlugMap.get(venueId) : undefined;
       if (venueSlug) {
         linkUrl = `/venue/${venueSlug}`;
-      } else if (firstDJ?.djUsername) {
-        linkUrl = `/dj/${firstDJ.djUsername}`;
       }
     }
 
