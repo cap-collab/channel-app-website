@@ -845,12 +845,12 @@ export function ChannelClient() {
           ) : (
           <>
 
-          {/* Section 1: Location + Genre (grid, max 4) — sorted by match count, live first as tiebreaker */}
+          {/* Section 1: Location + Genre (carousel, max 4) */}
           {locationGenreCards.length > 0 && (
             <div className="flex-shrink-0 pt-3 md:pt-4 pb-3 md:pb-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <SwipeableCardCarousel>
                 {locationGenreCards.map((item, index) => renderCard(item, index))}
-              </div>
+              </SwipeableCardCarousel>
             </div>
           )}
 
@@ -865,17 +865,17 @@ export function ChannelClient() {
             </div>
           )}
 
-          {/* Section 3: Selected by your favorite curators (grid, max 4) — shown here on first visit, at the bottom after */}
+          {/* Section 3: Selected by your favorite curators (carousel, max 4) — shown here on first visit, at the bottom after */}
           {!hasSeenCuratorRecs && filteredCuratorRecs.length > 0 && (
             <div className="flex-shrink-0 pb-3 md:pb-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <SwipeableCardCarousel>
                 {filteredCuratorRecs.map((rec, index) => (
                   <CuratorRecCard
                     key={`rec-${rec.djUsername}-${index}`}
                     rec={rec}
                   />
                 ))}
-              </div>
+              </SwipeableCardCarousel>
             </div>
           )}
 
@@ -909,14 +909,14 @@ export function ChannelClient() {
           {/* Section 3 (bottom): Curator recs moved here after user has seen them once */}
           {hasSeenCuratorRecs && filteredCuratorRecs.length > 0 && (
             <div className="flex-shrink-0 pb-3 md:pb-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <SwipeableCardCarousel>
                 {filteredCuratorRecs.map((rec, index) => (
                   <CuratorRecCard
                     key={`rec-${rec.djUsername}-${index}`}
                     rec={rec}
                   />
                 ))}
-              </div>
+              </SwipeableCardCarousel>
             </div>
           )}
 
