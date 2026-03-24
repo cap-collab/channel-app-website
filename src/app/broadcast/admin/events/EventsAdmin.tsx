@@ -229,17 +229,28 @@ export function EventsAdmin() {
     }
   }, [authLoading, isAuthenticated, router]);
 
-  // Convert Unix ms to datetime-local string
+  // Get the UTC offset (in minutes) for a given date in America/Los_Angeles
+  const getPDTOffset = (date: Date) => {
+    const utcStr = date.toLocaleString('en-US', { timeZone: 'UTC' });
+    const pdtStr = date.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+    return (new Date(utcStr).getTime() - new Date(pdtStr).getTime()) / 60000;
+  };
+
+  // Convert Unix ms to datetime-local string in PDT
   const msToDatetimeLocal = (ms: number) => {
     const d = new Date(ms);
-    const offset = d.getTimezoneOffset();
-    const local = new Date(d.getTime() - offset * 60 * 1000);
+    const offsetMin = getPDTOffset(d);
+    const local = new Date(d.getTime() - offsetMin * 60 * 1000);
     return local.toISOString().slice(0, 16);
   };
 
-  // Convert datetime-local string to Unix ms
+  // Convert datetime-local string to Unix ms (interpreting input as PDT)
   const datetimeLocalToMs = (val: string) => {
-    return new Date(val).getTime();
+    // Parse as if the input is in America/Los_Angeles
+    // datetime-local gives us "YYYY-MM-DDTHH:MM" with no timezone
+    const naive = new Date(val + 'Z'); // treat as UTC first
+    const offsetMin = getPDTOffset(naive);
+    return naive.getTime() + offsetMin * 60 * 1000;
   };
 
   const resetForm = () => {
@@ -487,9 +498,10 @@ export function EventsAdmin() {
     }
   };
 
-  // Format date for display
+  // Format date for display (always in PDT)
   const formatEventDate = (ms: number) => {
     return new Date(ms).toLocaleDateString('en-US', {
+      timeZone: 'America/Los_Angeles',
       weekday: 'short',
       month: 'short',
       day: 'numeric',

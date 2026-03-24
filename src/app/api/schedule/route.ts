@@ -388,7 +388,9 @@ async function extractAdminEvents(): Promise<IRLShowData[]> {
     if (!data.location) continue;
 
     const dateObj = new Date(data.date);
-    const dateStr = dateObj.toISOString().split("T")[0];
+    // Format date in PDT so late-night events don't shift to the next day
+    const pdtParts = dateObj.toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" }); // "YYYY-MM-DD"
+    const dateStr = pdtParts;
 
     const firstDJ = data.djs?.[0];
 
