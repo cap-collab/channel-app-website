@@ -153,7 +153,8 @@ export async function sendShowStartingEmail({
   }
 
   const displayName = showName;
-  const djDisplayName = djName || showName;
+  // Prefer resolved DJ profile username (from p field), fall back to raw dj name
+  const djDisplayName = djUsername || djName || showName;
 
   // Channel Radio → "Tune In" → /radio
   // DJ radio / external stations with DJ profile → "See profile" → DJ profile
@@ -215,7 +216,7 @@ export async function sendShowStartingEmail({
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to,
-      subject: `${djName ? djDisplayName : displayName} is live on ${stationName}`,
+      subject: `${djUsername || djName ? djDisplayName : displayName} is live on ${stationName}`,
       html: wrapEmailContent(content, "You're receiving this because you saved this show."),
     });
 
