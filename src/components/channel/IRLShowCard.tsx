@@ -22,7 +22,12 @@ export function IRLShowCard({
 }: IRLShowCardProps) {
   const [imageError, setImageError] = useState(false);
 
-  const hasPhoto = show.djPhotoUrl && !imageError;
+  // Prefer event photo, fall back to DJ photo
+  const photoUrl = show.eventPhotoUrl || show.djPhotoUrl;
+  const hasPhoto = photoUrl && !imageError;
+
+  // Click-through: use pre-computed linkUrl, fall back to DJ profile
+  const href = show.linkUrl || (show.djUsername ? `/dj/${show.djUsername}` : undefined);
 
   const imageOverlays = (
     <>
@@ -41,18 +46,38 @@ export function IRLShowCard({
           {new Date(show.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
         </span>
       </div>
-      {/* DJ Name and Location - bottom left */}
+      {/* Event name - bottom left */}
       <div className="absolute bottom-2 left-2 right-2">
         <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
-          {show.djName}
+          {show.eventName}
         </span>
-        {show.djLocation && (
+        {show.venueName && (
           <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
-            {show.djLocation}
+            {show.venueName}
           </span>
         )}
       </div>
     </>
+  );
+
+  const imageContent = hasPhoto ? (
+    <>
+      <Image
+        src={photoUrl!}
+        alt={show.eventName}
+        fill
+        className="object-cover"
+        unoptimized
+        onError={() => setImageError(true)}
+      />
+      {imageOverlays}
+    </>
+  ) : (
+    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900 to-pink-900">
+      <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-white text-center px-4">
+        {show.eventName}
+      </h2>
+    </div>
   );
 
   return (
@@ -65,50 +90,14 @@ export function IRLShowCard({
           </span>
         </div>
       )}
-      {/* Full width image with overlays - links to DJ profile */}
-      {show.djUsername ? (
-        <Link href={`/dj/${show.djUsername}`} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
-          {hasPhoto ? (
-            <>
-              <Image
-                src={show.djPhotoUrl!}
-                alt={show.djName}
-                fill
-                className="object-cover"
-                unoptimized
-                onError={() => setImageError(true)}
-              />
-              {imageOverlays}
-            </>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900 to-pink-900">
-              <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-white text-center px-4">
-                {show.djName}
-              </h2>
-            </div>
-          )}
+      {/* Full width image with overlays */}
+      {href ? (
+        <Link href={href} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
+          {imageContent}
         </Link>
       ) : (
         <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10">
-          {hasPhoto ? (
-            <>
-              <Image
-                src={show.djPhotoUrl!}
-                alt={show.djName}
-                fill
-                className="object-cover"
-                unoptimized
-                onError={() => setImageError(true)}
-              />
-              {imageOverlays}
-            </>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900 to-pink-900">
-              <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-white text-center px-4">
-                {show.djName}
-              </h2>
-            </div>
-          )}
+          {imageContent}
         </div>
       )}
 
@@ -150,18 +139,20 @@ export function IRLShowCard({
           </button>
 
           {/* Tickets Button */}
-          <a
-            href={show.ticketUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white flex items-center justify-center gap-2"
-          >
-            Tickets
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-          </a>
+          {show.ticketUrl && (
+            <a
+              href={show.ticketUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white flex items-center justify-center gap-2"
+            >
+              Tickets
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
+          )}
         </div>
 
       </div>

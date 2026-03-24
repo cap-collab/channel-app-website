@@ -123,6 +123,9 @@ export interface IRLShowData {
   location: string;   // Event city
   ticketUrl: string;
   date: string;       // ISO date string (YYYY-MM-DD)
+  eventPhotoUrl?: string; // Event-level photo (admin events)
+  venueName?: string;     // Venue name to display
+  linkUrl?: string;       // Pre-computed click-through URL (collective/venue/dj page)
 }
 
 // Curator recommendation (bandcamp/event link from DJ's "My Recs")

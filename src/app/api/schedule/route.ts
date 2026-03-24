@@ -355,6 +355,32 @@ async function extractAdminEvents(): Promise<IRLShowData[]> {
     .where("date", "<=", cutoff)
     .get();
 
+  // Collect venue IDs that need slug lookups
+  const venueIdsToResolve = new Set<string>();
+  for (const doc of snapshot.docs) {
+    const data = doc.data();
+    if (data.venueId) venueIdsToResolve.add(data.venueId);
+    if (data.linkedVenues) {
+      for (const v of data.linkedVenues) {
+        if (v.venueId) venueIdsToResolve.add(v.venueId);
+      }
+    }
+  }
+
+  // Batch-resolve venue slugs
+  const venueSlugMap = new Map<string, string>();
+  const venueIds = Array.from(venueIdsToResolve);
+  for (let i = 0; i < venueIds.length; i += 10) {
+    const batch = venueIds.slice(i, i + 10);
+    const venueDocs = await Promise.all(batch.map((id) => db.collection("venues").doc(id).get()));
+    for (const vDoc of venueDocs) {
+      if (vDoc.exists) {
+        const slug = vDoc.data()?.slug;
+        if (slug) venueSlugMap.set(vDoc.id, slug);
+      }
+    }
+  }
+
   const irlShows: IRLShowData[] = [];
 
   for (const doc of snapshot.docs) {
@@ -366,16 +392,37 @@ async function extractAdminEvents(): Promise<IRLShowData[]> {
 
     const firstDJ = data.djs?.[0];
 
+    // Compute click-through URL: collective > venue > DJ
+    let linkUrl: string | undefined;
+    const firstCollective = data.linkedCollectives?.[0];
+    if (firstCollective?.collectiveSlug) {
+      linkUrl = `/collective/${firstCollective.collectiveSlug}`;
+    } else {
+      const venueId = data.linkedVenues?.[0]?.venueId || data.venueId;
+      const venueSlug = venueId ? venueSlugMap.get(venueId) : undefined;
+      if (venueSlug) {
+        linkUrl = `/venue/${venueSlug}`;
+      } else if (firstDJ?.djUsername) {
+        linkUrl = `/dj/${firstDJ.djUsername}`;
+      }
+    }
+
+    // Venue display name: first linked venue, or legacy venueName
+    const venueName = data.linkedVenues?.[0]?.venueName || data.venueName || undefined;
+
     irlShows.push({
       djUsername: firstDJ?.djUsername || "",
       djName: firstDJ?.djName || data.name || "Event",
-      djPhotoUrl: firstDJ?.djPhotoUrl || data.photo || undefined,
+      djPhotoUrl: firstDJ?.djPhotoUrl || undefined,
       djLocation: data.location,
       djGenres: data.genres || undefined,
       eventName: data.name || "Event",
       location: data.location,
       ticketUrl: data.ticketLink || "",
       date: dateStr,
+      eventPhotoUrl: data.photo || undefined,
+      venueName,
+      linkUrl,
     });
   }
 
