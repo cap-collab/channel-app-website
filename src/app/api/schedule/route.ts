@@ -399,13 +399,13 @@ async function extractAdminEvents(): Promise<IRLShowData[]> {
 
     const firstDJ = data.djs?.[0];
 
-    // Compute click-through URL: collective > DJ > venue
+    // Compute click-through URL: DJ > collective > venue
     let linkUrl: string | undefined;
     const firstCollective = data.linkedCollectives?.[0];
-    if (firstCollective?.collectiveSlug) {
-      linkUrl = `/collective/${firstCollective.collectiveSlug}`;
-    } else if (firstDJ?.djUsername) {
+    if (firstDJ?.djUsername) {
       linkUrl = `/dj/${firstDJ.djUsername}`;
+    } else if (firstCollective?.collectiveSlug) {
+      linkUrl = `/collective/${firstCollective.collectiveSlug}`;
     } else {
       const venueId = data.linkedVenues?.[0]?.venueId || data.venueId;
       const venueSlug = venueId ? venueSlugMap.get(venueId) : undefined;
