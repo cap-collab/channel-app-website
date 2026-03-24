@@ -290,16 +290,16 @@ function getTodayPDT(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
 }
 
-function getFourDaysFromNowPDT(): string {
+function getTwoWeeksFromNowPDT(): string {
   const d = new Date();
-  d.setDate(d.getDate() + 4);
+  d.setDate(d.getDate() + 14);
   return d.toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
 }
 
 function extractIRLShows(djUserDocs: FirestoreDoc[]): IRLShowData[] {
   const irlShows: IRLShowData[] = [];
   const today = getTodayPDT();
-  const cutoff = getFourDaysFromNowPDT();
+  const cutoff = getTwoWeeksFromNowPDT();
 
   for (const doc of djUserDocs) {
     const userData = doc.data();
@@ -351,8 +351,8 @@ async function extractAdminEvents(): Promise<IRLShowData[]> {
   const db = getAdminDb();
   if (!db) return [];
   const now = Date.now();
-  const fourDaysMs = 4 * 24 * 60 * 60 * 1000;
-  const cutoff = now + fourDaysMs;
+  const twoWeeksMs = 14 * 24 * 60 * 60 * 1000;
+  const cutoff = now + twoWeeksMs;
 
   const snapshot = await db
     .collection("events")

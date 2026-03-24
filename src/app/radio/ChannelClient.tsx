@@ -312,12 +312,14 @@ export function ChannelClient() {
     // Helper: get genre match count for sorting (more matches = higher priority)
     const genreMatchCount = (genres: string[] | undefined): number => getMatchingGenres(genres).length;
 
-    // Helper: collect candidates, sort by genre match count > live > isChannelUser, then dedup + take top N
-    const takeSorted = (candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; live?: boolean; isChannelUser?: boolean }[], max: number): MatchedItem[] => {
+    // Helper: collect candidates, sort by genre match count > live > time proximity > isChannelUser, then dedup + take top N
+    const takeSorted = (candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; startMs: number; live?: boolean; isChannelUser?: boolean }[], max: number): MatchedItem[] => {
       candidates.sort((a, b) => {
         if (b.matchCount !== a.matchCount) return b.matchCount - a.matchCount;
         // Same match count: live shows first
         if (a.live !== b.live) return a.live ? -1 : 1;
+        // Then sooner shows first
+        if (a.startMs !== b.startMs) return a.startMs - b.startMs;
         // Then Channel users first
         if (a.isChannelUser !== b.isChannelUser) return a.isChannelUser ? -1 : 1;
         return 0;
@@ -331,34 +333,57 @@ export function ChannelClient() {
       return result;
     };
 
-    // Section 0: Favorites now live — favorited shows or followed DJs currently on air
-    const s0: { show: Show; station: Station }[] = [];
+    // Section 0: Favorites — followed DJs / favorited shows in next 7 days, sorted: live now → soonest first
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const sevenDaysDateStr = sevenDaysFromNow.toLocaleDateString('en-CA'); // YYYY-MM-DD
+    const s0Candidates: { item: MatchedItem; id: string; djName: string | undefined; startMs: number; live: boolean }[] = [];
+    // Radio shows from followed DJs / favorited shows in next 7 days
     for (const show of allShows) {
       if (!isValidShow(show)) continue;
       const station = stationsMap.get(show.stationId);
       if (!station) continue;
-      if (new Date(show.startTime) > now || new Date(show.endTime) <= now) continue;
+      const endTime = new Date(show.endTime);
+      const startTime = new Date(show.startTime);
+      if (endTime <= now || startTime > sevenDaysFromNow) continue;
       const djFollowed = show.dj ? isInWatchlist(show.dj) : false;
       const showFaved = isShowFavorited(show);
       if (djFollowed || showFaved) {
         if (tryAddShow(show.id, show.dj)) {
-          s0.push({ show, station });
+          const live = startTime <= now && endTime > now;
+          const item = makeRadioItem(show, undefined, live || undefined);
+          if (item) s0Candidates.push({ item, id: show.id, djName: show.dj, startMs: startTime.getTime(), live });
         }
       }
     }
+    // IRL shows from followed DJs in next 7 days
+    for (const show of irlShows) {
+      if (show.date > sevenDaysDateStr) continue;
+      const djFollowed = isInWatchlist(show.djName) || isInWatchlist(show.djUsername);
+      if (!djFollowed) continue;
+      const id = `irl-${show.djUsername}-${show.date}`;
+      if (tryAddShow(id, show.djName)) {
+        s0Candidates.push({ item: makeIRLItem(show, undefined), id, djName: show.djName, startMs: new Date(show.date + 'T00:00:00').getTime(), live: false });
+      }
+    }
+    // Sort: live first, then soonest first
+    s0Candidates.sort((a, b) => {
+      if (a.live !== b.live) return a.live ? -1 : 1;
+      return a.startMs - b.startMs;
+    });
+    const s0: MatchedItem[] = s0Candidates.map(c => c.item);
 
     // Section 1: Location + Genre (grid, max 4) — sorted by match count > live > isChannelUser
     // Only show when a specific city is selected (not "Anywhere")
     let s1: MatchedItem[] = [];
     if (hasGenreFilter && !isAnywhere) {
-      const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; live?: boolean; isChannelUser?: boolean }[] = [];
+      const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; startMs: number; live?: boolean; isChannelUser?: boolean }[] = [];
       // IRL shows (always from Channel users) — city match only, genre for sorting
       for (const show of irlShows) {
         if (!matchesCity(show.location, selectedCity)) continue;
         const id = `irl-${show.djUsername}-${show.date}`;
         const genreLabel = genreLabelFor(show.djGenres);
         const label = genreLabel ? `${selectedCity.toUpperCase()} + ${genreLabel}` : selectedCity.toUpperCase();
-        candidates.push({ item: makeIRLItem(show, label), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres), isChannelUser: true });
+        candidates.push({ item: makeIRLItem(show, label), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres), startMs: new Date(show.date + 'T00:00:00').getTime(), isChannelUser: true });
       }
       // Radio shows (live and upcoming)
       for (const show of allShows) {
@@ -370,7 +395,7 @@ export function ChannelClient() {
         const live = isShowLive(show);
         const label = `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`;
         const item = makeRadioItem(show, label, live || undefined);
-        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), live, isChannelUser: show.isChannelUser ?? false });
+        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), startMs: new Date(show.startTime).getTime(), live, isChannelUser: show.isChannelUser ?? false });
       }
       console.log('[S1 candidates]', candidates.map(c => ({ djName: c.djName, matchCount: c.matchCount, live: c.live, isChannelUser: c.isChannelUser, label: c.item.matchLabel })));
       s1 = takeSorted(candidates, 4);
@@ -389,16 +414,16 @@ export function ChannelClient() {
       }
     }
 
-    // Section 4: Genre matching (swipe, max 5) — live and upcoming, sorted by match count > live > isChannelUser
+    // Section 4: Genre matching (swipe, max 5) — live and upcoming, sorted by match count > live > time > isChannelUser
     let s4: MatchedItem[] = [];
     if (hasGenreFilter) {
-      const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; live?: boolean; isChannelUser?: boolean }[] = [];
+      const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; startMs: number; live?: boolean; isChannelUser?: boolean }[] = [];
       // IRL shows — city match only, genre for sorting
       for (const show of irlShows) {
         if (isAnywhere || !matchesCity(show.location, selectedCity)) continue;
         const id = `irl-${show.djUsername}-${show.date}`;
         const genreLabel = genreLabelFor(show.djGenres);
-        candidates.push({ item: makeIRLItem(show, genreLabel || selectedCity.toUpperCase()), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres), isChannelUser: true });
+        candidates.push({ item: makeIRLItem(show, genreLabel || selectedCity.toUpperCase()), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres), startMs: new Date(show.date + 'T00:00:00').getTime(), isChannelUser: true });
       }
       // Radio shows (live and upcoming)
       for (const show of allShows) {
@@ -407,20 +432,20 @@ export function ChannelClient() {
         if (!matchesAnyGenre(show.djGenres)) continue;
         const live = isShowLive(show);
         const item = makeRadioItem(show, genreLabelFor(show.djGenres), live || undefined);
-        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), live, isChannelUser: show.isChannelUser ?? false });
+        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), startMs: new Date(show.startTime).getTime(), live, isChannelUser: show.isChannelUser ?? false });
       }
       s4 = takeSorted(candidates, 5);
     }
 
-    // Section 6: Location matching (swipe, max 5) — sorted by live > isChannelUser
+    // Section 6: Location matching (swipe, max 5) — sorted by live > time > isChannelUser
     let s6: MatchedItem[] = [];
     if (!isAnywhere) {
-      const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; live?: boolean; isChannelUser?: boolean }[] = [];
+      const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; startMs: number; live?: boolean; isChannelUser?: boolean }[] = [];
       // IRL shows (always from Channel users)
       for (const show of irlShows) {
         if (!matchesCity(show.location, selectedCity)) continue;
         const id = `irl-${show.djUsername}-${show.date}`;
-        candidates.push({ item: makeIRLItem(show, selectedCity.toUpperCase()), id, djName: show.djName, matchCount: 0, isChannelUser: true });
+        candidates.push({ item: makeIRLItem(show, selectedCity.toUpperCase()), id, djName: show.djName, matchCount: 0, startMs: new Date(show.date + 'T00:00:00').getTime(), isChannelUser: true });
       }
       // Radio shows
       for (const show of allShows) {
@@ -429,7 +454,7 @@ export function ChannelClient() {
         if (!show.djLocation || !matchesCity(show.djLocation, selectedCity)) continue;
         const live = isShowLive(show);
         const item = makeRadioItem(show, selectedCity.toUpperCase(), live || undefined);
-        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: 0, live, isChannelUser: show.isChannelUser ?? false });
+        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: 0, startMs: new Date(show.startTime).getTime(), live, isChannelUser: show.isChannelUser ?? false });
       }
       s6 = takeSorted(candidates, 5);
     }
@@ -741,27 +766,13 @@ export function ChannelClient() {
         </section>
       )}
 
-      {/* Favorites Now Live — only when NOT on Channel Radio */}
+      {/* Favorites — followed DJs & favorited shows in next 7 days, only when NOT on Channel Radio */}
       {!isBroadcastLive && favoritesNowLive.length > 0 && (
         <section className="px-4 md:px-8 pt-4 pb-6 relative z-10">
           <div className="max-w-7xl mx-auto">
-            <h2 className="text-2xl md:text-3xl font-bold mb-3">Your favorites are live</h2>
+            <h2 className="text-2xl md:text-3xl font-bold mb-3">From your favorites</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {favoritesNowLive.map(({ show, station }) => {
-                const following = show.dj ? isInWatchlist(show.dj) : false;
-                const addingFollow = addingFollowDj === show.dj;
-                return (
-                  <LiveShowCard
-                    key={`fav-live-${show.id}`}
-                    show={show}
-                    station={station}
-                    isFollowing={following}
-                    isAddingFollow={addingFollow}
-                    onFollow={() => handleUnifiedFollow(show)}
-                    profileMode
-                  />
-                );
-              })}
+              {favoritesNowLive.map((item, index) => renderCard(item, index))}
             </div>
           </div>
         </section>
