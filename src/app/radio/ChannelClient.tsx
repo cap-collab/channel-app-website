@@ -20,8 +20,9 @@ import { GenreAlertPrompt } from '@/components/channel/GenreAlertPrompt';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { LiveBroadcastHero } from '@/components/channel/LiveBroadcastHero';
 import { Show, Station, IRLShowData, CuratorRec } from '@/types';
-import { STATIONS } from '@/lib/stations';
+import { STATIONS, getMetadataKeyByStationId } from '@/lib/stations';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
+import { useBPM } from '@/contexts/BPMContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { getDefaultCity, matchesCity, SUPPORTED_CITIES } from '@/lib/city-detection';
 import { GENRE_ALIASES, SUPPORTED_GENRES, matchesGenre as matchesGenreLib } from '@/lib/genres';
@@ -35,6 +36,7 @@ type MatchedItem =
 export function ChannelClient() {
   const { user, isAuthenticated } = useAuthContext();
   const { isLive: isBroadcastLive } = useBroadcastStreamContext();
+  const { stationBPM } = useBPM();
   const { favorites, isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
   const { shows: scheduleShows, irlShows: scheduleIrlShows, curatorRecs: scheduleCuratorRecs, loading: scheduleLoading } = useSchedule();
   const router = useRouter();
@@ -702,6 +704,7 @@ export function ChannelClient() {
             onFollow={() => handleUnifiedFollow(show)}
             matchLabel={item.matchLabel}
             profileMode={profileMode}
+            bpm={stationBPM[getMetadataKeyByStationId(show.stationId) || '']?.bpm ?? null}
           />
         );
       }
