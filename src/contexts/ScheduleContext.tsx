@@ -103,102 +103,111 @@ async function fetchBroadcastShowsClient(): Promise<Show[]> {
       }
     });
 
-    // Enrich shows with DJ profile data (photo, username, location, genres)
-    // Collect shows that need enrichment: by userId or by DJ name
-    const needsEnrichment = shows.filter((s) => !s.djPhotoUrl);
-    if (needsEnrichment.length === 0 || !db) return shows;
-
-    type DJProfile = { photoUrl?: string; username?: string; userId?: string; location?: string; genres?: string[]; bio?: string };
-    const profileByUserId = new Map<string, DJProfile>();
-    const profileByName = new Map<string, DJProfile>();
-
-    // 1. Lookup by djUserId (direct doc fetch)
-    const userIdsToFetch = new Set<string>();
-    for (const show of needsEnrichment) {
-      if (show.djUserId) userIdsToFetch.add(show.djUserId);
-    }
-    if (userIdsToFetch.size > 0) {
-      await Promise.all(
-        Array.from(userIdsToFetch).map(async (userId) => {
-          try {
-            const userDoc = await getDoc(doc(db!, "users", userId));
-            if (userDoc.exists()) {
-              const data = userDoc.data();
-              const djProfile = data?.djProfile;
-              const profile: DJProfile = {
-                photoUrl: djProfile?.photoUrl,
-                username: data?.chatUsername?.replace(/\s+/g, "").toLowerCase(),
-                userId,
-                location: djProfile?.location,
-                genres: djProfile?.genres,
-                bio: djProfile?.bio,
-              };
-              profileByUserId.set(userId, profile);
-              if (data?.chatUsername) profileByName.set(data.chatUsername.toLowerCase(), profile);
-            }
-          } catch (err) {
-            console.error(`[ScheduleContext] Failed to fetch DJ profile for userId ${userId}:`, err);
-          }
-        })
-      );
-    }
-
-    // 2. Lookup remaining by DJ name (query chatUsername)
-    const namesToFetch: string[] = [];
-    for (const show of needsEnrichment) {
-      if (!show.djUserId && show.dj && !profileByName.has(show.dj.toLowerCase())) {
-        namesToFetch.push(show.dj);
-      }
-    }
-    if (namesToFetch.length > 0) {
-      // Firestore 'in' queries support max 30 values
-      for (let i = 0; i < namesToFetch.length; i += 30) {
-        const batch = namesToFetch.slice(i, i + 30);
-        try {
-          const q = query(collection(db!, "users"), where("chatUsername", "in", batch));
-          const snapshot = await getDocs(q);
-          snapshot.forEach((userDoc) => {
-            const data = userDoc.data();
-            const djProfile = data?.djProfile;
-            const profile: DJProfile = {
-              photoUrl: djProfile?.photoUrl,
-              username: data?.chatUsername?.replace(/\s+/g, "").toLowerCase(),
-              userId: userDoc.id,
-              location: djProfile?.location,
-              genres: djProfile?.genres,
-              bio: djProfile?.bio,
-            };
-            if (data?.chatUsername) profileByName.set(data.chatUsername.toLowerCase(), profile);
-            profileByUserId.set(userDoc.id, profile);
-          });
-        } catch (err) {
-          console.error(`[ScheduleContext] Failed to fetch DJ profiles by name:`, err);
-        }
-      }
-    }
-
-    console.log('[ScheduleContext] Enriched', profileByUserId.size + profileByName.size, 'profiles for', needsEnrichment.length, 'shows');
-
-    // Apply profiles to shows
-    for (const show of shows) {
-      const profile = (show.djUserId && profileByUserId.get(show.djUserId)) ||
-                      (show.dj && profileByName.get(show.dj.toLowerCase()));
-      if (profile) {
-        if (!show.djPhotoUrl && profile.photoUrl) show.djPhotoUrl = profile.photoUrl;
-        if (!show.djUsername && profile.username) show.djUsername = profile.username;
-        if (!show.djUserId && profile.userId) show.djUserId = profile.userId;
-        if (!show.djLocation && profile.location) show.djLocation = profile.location;
-        if (!show.djGenres && profile.genres) show.djGenres = profile.genres;
-        if (!show.djBio && profile.bio) show.djBio = profile.bio;
-        show.isChannelUser = true;
-      }
-    }
-
     return shows;
   } catch (error) {
     console.error("[ScheduleContext] Error fetching broadcast shows:", error);
     return [];
   }
+}
+
+// Enrich broadcast shows with DJ profile data (runs on merged shows)
+async function enrichBroadcastShowsClient(shows: Show[]): Promise<Show[]> {
+  if (!db) return shows;
+  const broadcastShows = shows.filter((s) => s.stationId === "broadcast" && !s.djPhotoUrl);
+  if (broadcastShows.length === 0) return shows;
+
+  type DJProfile = { photoUrl?: string; username?: string; userId?: string; location?: string; genres?: string[]; bio?: string };
+  const profileByUserId = new Map<string, DJProfile>();
+  const profileByName = new Map<string, DJProfile>();
+
+  // Helper to build profile from user doc
+  const buildProfile = (userDoc: { id: string; data: () => Record<string, unknown> | undefined }): DJProfile | null => {
+    const data = userDoc.data();
+    if (!data) return null;
+    const djProfile = data.djProfile as Record<string, unknown> | undefined;
+    return {
+      photoUrl: djProfile?.photoUrl as string | undefined,
+      username: (data.chatUsername as string)?.replace(/\s+/g, "").toLowerCase(),
+      userId: userDoc.id,
+      location: djProfile?.location as string | undefined,
+      genres: djProfile?.genres as string[] | undefined,
+      bio: djProfile?.bio as string | undefined,
+    };
+  };
+
+  // 1. Lookup by djUserId (direct doc fetch)
+  const userIdsToFetch = new Set<string>();
+  for (const show of broadcastShows) {
+    if (show.djUserId) userIdsToFetch.add(show.djUserId);
+  }
+  if (userIdsToFetch.size > 0) {
+    await Promise.all(
+      Array.from(userIdsToFetch).map(async (userId) => {
+        try {
+          const userDoc = await getDoc(doc(db!, "users", userId));
+          if (userDoc.exists()) {
+            const profile = buildProfile({ id: userDoc.id, data: () => userDoc.data() });
+            if (profile) {
+              profileByUserId.set(userId, profile);
+              if (profile.username) profileByName.set(profile.username, profile);
+            }
+          }
+        } catch (err) {
+          console.error(`[ScheduleContext] Failed to fetch DJ profile for userId ${userId}:`, err);
+        }
+      })
+    );
+  }
+
+  // 2. Lookup remaining by DJ name using chatUsernameNormalized doc ID convention
+  // Since querying by chatUsername may not be allowed, fetch by normalized username as doc lookup
+  const namesToFetch: string[] = [];
+  for (const show of broadcastShows) {
+    if (!show.djUserId && show.dj) {
+      const normalized = show.dj.toLowerCase();
+      if (!profileByName.has(normalized)) namesToFetch.push(show.dj);
+    }
+  }
+  // Use role-based query to find DJs by name (individual doc fetches)
+  for (const djName of namesToFetch) {
+    try {
+      const q = query(
+        collection(db!, "users"),
+        where("role", "in", ["dj", "broadcaster", "admin"]),
+        where("chatUsername", "==", djName)
+      );
+      const snapshot = await getDocs(q);
+      snapshot.forEach((userDoc) => {
+        const profile = buildProfile({ id: userDoc.id, data: () => userDoc.data() });
+        if (profile) {
+          if (profile.username) profileByName.set(profile.username, profile);
+          profileByUserId.set(userDoc.id, profile);
+        }
+      });
+    } catch (err) {
+      console.error(`[ScheduleContext] Failed to fetch DJ profile for name ${djName}:`, err);
+    }
+  }
+
+  console.log('[ScheduleContext] Enriched', profileByUserId.size, 'broadcast DJ profiles');
+
+  // Apply profiles to shows
+  for (const show of shows) {
+    if (show.stationId !== "broadcast") continue;
+    const profile = (show.djUserId && profileByUserId.get(show.djUserId)) ||
+                    (show.dj && profileByName.get(show.dj.toLowerCase()));
+    if (profile) {
+      if (!show.djPhotoUrl && profile.photoUrl) show.djPhotoUrl = profile.photoUrl;
+      if (!show.djUsername && profile.username) show.djUsername = profile.username;
+      if (!show.djUserId && profile.userId) show.djUserId = profile.userId;
+      if (!show.djLocation && profile.location) show.djLocation = profile.location;
+      if (!show.djGenres && profile.genres) show.djGenres = profile.genres;
+      if (!show.djBio && profile.bio) show.djBio = profile.bio;
+      show.isChannelUser = true;
+    }
+  }
+
+  return shows;
 }
 
 export function ScheduleProvider({ children }: { children: ReactNode }) {
@@ -216,13 +225,17 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
       fetch("/api/schedule").then((res) => res.json()),
       fetchBroadcastShowsClient(),
     ])
-      .then(([data, clientBroadcasts]) => {
+      .then(async ([data, clientBroadcasts]) => {
         const apiShows: Show[] = data.shows || [];
 
         // Merge: use client-fetched broadcasts to fill in any missing from API
         const apiIds = new Set(apiShows.map((s: Show) => s.id));
         const missingBroadcasts = clientBroadcasts.filter((s) => !apiIds.has(s.id));
-        setShows([...apiShows, ...missingBroadcasts]);
+        const mergedShows = [...apiShows, ...missingBroadcasts];
+
+        // Enrich broadcast shows with DJ profile data
+        const enrichedShows = await enrichBroadcastShowsClient(mergedShows);
+        setShows(enrichedShows);
 
         setIrlShows(data.irlShows || []);
         setCuratorRecs(data.curatorRecs || []);
