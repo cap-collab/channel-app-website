@@ -9,7 +9,8 @@ import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { db } from "@/lib/firebase";
 import { Collective, CollectiveRef, Event, EventDJRef, EventVenueRef, CollectiveVenueRef } from "@/types/events";
 import { useSchedule } from "@/contexts/ScheduleContext";
-import { getStationById } from "@/lib/stations";
+import { getStationById, getMetadataKeyByStationId } from "@/lib/stations";
+import { useBPM } from "@/contexts/BPMContext";
 import { generateSlug } from "@/lib/slug";
 
 // Icon components
@@ -59,6 +60,7 @@ export function CollectivePublicPage({ slug }: Props) {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const { shows: allShows } = useSchedule();
+  const { stationBPM } = useBPM();
 
   // Fetch collective by slug
   useEffect(() => {
@@ -613,9 +615,17 @@ export function CollectivePublicPage({ slug }: Props) {
                       </span>
                       <div className="flex items-center gap-2">
                         {isLive && (
-                          <span className="flex items-center gap-1">
+                          <span className="flex items-center gap-1.5">
                             <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                             <span className="text-red-500 text-xs font-bold uppercase">Live</span>
+                            {(() => {
+                              const bpm = stationBPM[getMetadataKeyByStationId(show.stationId) || '']?.bpm;
+                              return bpm ? (
+                                <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter">
+                                  {bpm} BPM
+                                </span>
+                              ) : null;
+                            })()}
                           </span>
                         )}
                         <span className="text-zinc-500 text-xs">{station?.name || show.stationId}</span>

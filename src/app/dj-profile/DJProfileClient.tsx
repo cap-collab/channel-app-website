@@ -14,6 +14,7 @@ import { BroadcastSlotSerialized, ArchiveSerialized } from "@/types/broadcast";
 import { usePendingPayout } from "@/hooks/usePendingPayout";
 import { normalizeUrl } from "@/lib/url";
 import { uploadDJPhoto, deleteDJPhoto, validatePhoto } from "@/lib/photo-upload";
+import { useBPM } from "@/contexts/BPMContext";
 
 interface DJProfile {
   bio: string | null;
@@ -27,6 +28,8 @@ interface DJProfile {
 export function DJProfileClient() {
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const { role, loading: roleLoading } = useUserRole(user);
+  const { stationBPM } = useBPM();
+  const broadcastBPM = stationBPM['broadcast']?.bpm ?? null;
   const [showAuthModal, setShowAuthModal] = useState(false);
   const searchParams = useSearchParams();
 
@@ -951,9 +954,14 @@ export function DJProfileClient() {
                         </p>
                       )}
                       {broadcast.status === "live" ? (
-                        <span className="inline-flex items-center gap-1 mt-2 text-red-400 text-xs">
+                        <span className="inline-flex items-center gap-1.5 mt-2 text-red-400 text-xs">
                           <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                          Live Now
+                          <span className="font-bold uppercase">Live</span>
+                          {broadcastBPM && (
+                            <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter">
+                              {broadcastBPM} BPM
+                            </span>
+                          )}
                         </span>
                       ) : broadcast.broadcastToken && (
                         <Link
