@@ -387,12 +387,13 @@ export function ChannelClient() {
     let s1: MatchedItem[] = [];
     if (hasGenreFilter && !isAnywhere) {
       const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; startMs: number; live?: boolean; isChannelUser?: boolean }[] = [];
-      // IRL shows (always from Channel users) — city match only, genre for sorting
+      // IRL shows (always from Channel users) — city + genre match
       for (const show of irlShows) {
         if (!matchesCity(show.location, selectedCity)) continue;
+        if (!matchesAnyGenre(show.djGenres)) continue;
         const id = `irl-${show.djUsername}-${show.date}`;
         const genreLabel = genreLabelFor(show.djGenres);
-        const label = genreLabel ? `${selectedCity.toUpperCase()} + ${genreLabel}` : selectedCity.toUpperCase();
+        const label = `${selectedCity.toUpperCase()} + ${genreLabel}`;
         candidates.push({ item: makeIRLItem(show, label), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres), startMs: new Date(show.date + 'T00:00:00').getTime(), isChannelUser: true });
       }
       // Radio shows (live and upcoming)
