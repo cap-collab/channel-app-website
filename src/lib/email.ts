@@ -723,24 +723,33 @@ export async function sendWatchlistDigestEmail({
   }
 
   // Build subject line and title
+  // Only use shows that are actually visible in the email (within the 4-day window buckets)
+  const visibleItems: TimelineItem[] = [];
+  for (const key of dayKeys) {
+    visibleItems.push(...(buckets.get(key) || []));
+  }
+  const visibleFavorite = visibleItems.find((item) => item.kind === "show");
+  const visiblePreference = visibleItems.find((item) => item.kind === "preference");
+
   // Include date in subject to prevent Gmail from threading/collapsing repeat digests
   const subjectDate = now.toLocaleDateString("en-US", { timeZone: timezone, month: "short", day: "numeric" });
   let subject: string;
   let titleText: string;
 
-  if (favoriteShows.length > 0) {
-    // Use DJ name from first favorite
-    const firstDj = favoriteShows[0].djUsername || favoriteShows[0].djName || favoriteShows[0].showName;
+  if (visibleFavorite) {
+    // Use DJ name from first visible favorite
+    const show = visibleFavorite.show;
+    const firstDj = show.djUsername || show.djName || show.showName;
     titleText = `${firstDj} & more upcoming`;
     subject = `${firstDj} & more upcoming · ${subjectDate}`;
-  } else {
-    // No favorites — use DJ name from first picked-for-you show
-    let highlightName = "";
-    if (preferenceShows.length > 0) {
-      const firstPrefWithDJ = preferenceShows.find((s) => s.djName);
-      highlightName = firstPrefWithDJ?.djUsername || firstPrefWithDJ?.djName || preferenceShows[0].showName;
-    }
+  } else if (visiblePreference) {
+    // No visible favorites — use DJ name from first visible picked-for-you show
+    const show = visiblePreference.show;
+    const highlightName = show.djUsername || show.djName || show.showName;
     titleText = highlightName ? `Upcoming for you: ${highlightName} & more` : "Upcoming for you";
+    subject = `${titleText} · ${subjectDate}`;
+  } else {
+    titleText = "Upcoming for you";
     subject = `${titleText} · ${subjectDate}`;
   }
 
