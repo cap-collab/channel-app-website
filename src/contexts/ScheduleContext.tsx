@@ -104,48 +104,93 @@ async function fetchBroadcastShowsClient(): Promise<Show[]> {
     });
 
     // Enrich shows with DJ profile data (photo, username, location, genres)
-    const userIdsToEnrich = new Set<string>();
-    for (const show of shows) {
-      if (show.djUserId && !show.djPhotoUrl) {
-        userIdsToEnrich.add(show.djUserId);
-      }
-    }
+    // Collect shows that need enrichment: by userId or by DJ name
+    const needsEnrichment = shows.filter((s) => !s.djPhotoUrl);
+    if (needsEnrichment.length === 0 || !db) return shows;
 
-    console.log('[ScheduleContext] Broadcast shows to enrich:', userIdsToEnrich.size, 'shows total:', shows.length, 'missing photo:', Array.from(userIdsToEnrich));
-    if (userIdsToEnrich.size > 0 && db) {
-      const profileMap = new Map<string, { photoUrl?: string; username?: string; location?: string; genres?: string[]; bio?: string }>();
+    type DJProfile = { photoUrl?: string; username?: string; userId?: string; location?: string; genres?: string[]; bio?: string };
+    const profileByUserId = new Map<string, DJProfile>();
+    const profileByName = new Map<string, DJProfile>();
+
+    // 1. Lookup by djUserId (direct doc fetch)
+    const userIdsToFetch = new Set<string>();
+    for (const show of needsEnrichment) {
+      if (show.djUserId) userIdsToFetch.add(show.djUserId);
+    }
+    if (userIdsToFetch.size > 0) {
       await Promise.all(
-        Array.from(userIdsToEnrich).map(async (userId) => {
+        Array.from(userIdsToFetch).map(async (userId) => {
           try {
             const userDoc = await getDoc(doc(db!, "users", userId));
             if (userDoc.exists()) {
               const data = userDoc.data();
               const djProfile = data?.djProfile;
-              profileMap.set(userId, {
+              const profile: DJProfile = {
                 photoUrl: djProfile?.photoUrl,
                 username: data?.chatUsername?.replace(/\s+/g, "").toLowerCase(),
+                userId,
                 location: djProfile?.location,
                 genres: djProfile?.genres,
                 bio: djProfile?.bio,
-              });
+              };
+              profileByUserId.set(userId, profile);
+              if (data?.chatUsername) profileByName.set(data.chatUsername.toLowerCase(), profile);
             }
           } catch (err) {
-            console.error(`[ScheduleContext] Failed to fetch DJ profile for ${userId}:`, err);
+            console.error(`[ScheduleContext] Failed to fetch DJ profile for userId ${userId}:`, err);
           }
         })
       );
+    }
 
-      console.log('[ScheduleContext] Enriched profiles:', Array.from(profileMap.entries()).map(([id, p]) => ({ id, photoUrl: !!p.photoUrl, username: p.username })));
-      for (const show of shows) {
-        if (show.djUserId && profileMap.has(show.djUserId)) {
-          const profile = profileMap.get(show.djUserId)!;
-          if (!show.djPhotoUrl && profile.photoUrl) show.djPhotoUrl = profile.photoUrl;
-          if (!show.djUsername && profile.username) show.djUsername = profile.username;
-          if (!show.djLocation && profile.location) show.djLocation = profile.location;
-          if (!show.djGenres && profile.genres) show.djGenres = profile.genres;
-          if (!show.djBio && profile.bio) show.djBio = profile.bio;
-          show.isChannelUser = true;
+    // 2. Lookup remaining by DJ name (query chatUsername)
+    const namesToFetch: string[] = [];
+    for (const show of needsEnrichment) {
+      if (!show.djUserId && show.dj && !profileByName.has(show.dj.toLowerCase())) {
+        namesToFetch.push(show.dj);
+      }
+    }
+    if (namesToFetch.length > 0) {
+      // Firestore 'in' queries support max 30 values
+      for (let i = 0; i < namesToFetch.length; i += 30) {
+        const batch = namesToFetch.slice(i, i + 30);
+        try {
+          const q = query(collection(db!, "users"), where("chatUsername", "in", batch));
+          const snapshot = await getDocs(q);
+          snapshot.forEach((userDoc) => {
+            const data = userDoc.data();
+            const djProfile = data?.djProfile;
+            const profile: DJProfile = {
+              photoUrl: djProfile?.photoUrl,
+              username: data?.chatUsername?.replace(/\s+/g, "").toLowerCase(),
+              userId: userDoc.id,
+              location: djProfile?.location,
+              genres: djProfile?.genres,
+              bio: djProfile?.bio,
+            };
+            if (data?.chatUsername) profileByName.set(data.chatUsername.toLowerCase(), profile);
+            profileByUserId.set(userDoc.id, profile);
+          });
+        } catch (err) {
+          console.error(`[ScheduleContext] Failed to fetch DJ profiles by name:`, err);
         }
+      }
+    }
+
+    console.log('[ScheduleContext] Enriched', profileByUserId.size + profileByName.size, 'profiles for', needsEnrichment.length, 'shows');
+
+    // Apply profiles to shows
+    for (const show of shows) {
+      const profile = (show.djUserId && profileByUserId.get(show.djUserId)) ||
+                      (show.dj && profileByName.get(show.dj.toLowerCase()));
+      if (profile) {
+        if (!show.djPhotoUrl && profile.photoUrl) show.djPhotoUrl = profile.photoUrl;
+        if (!show.djUsername && profile.username) show.djUsername = profile.username;
+        if (!show.djUserId && profile.userId) show.djUserId = profile.userId;
+        if (!show.djLocation && profile.location) show.djLocation = profile.location;
+        if (!show.djGenres && profile.genres) show.djGenres = profile.genres;
+        if (!show.djBio && profile.bio) show.djBio = profile.bio;
+        show.isChannelUser = true;
       }
     }
 
