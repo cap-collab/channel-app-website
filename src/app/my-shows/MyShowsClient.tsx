@@ -83,7 +83,13 @@ function findMatchingShows(favorite: Favorite, allShows: Show[]): Show[] {
     // Also try matching against the stored showName (word boundary)
     const storedNameMatch = showName && wordBoundaryMatch(show.name, showName);
 
-    return djMatch || storedNameMatch;
+    // For broadcast/DJ favorites, also match by DJ name or username
+    // This handles cases where the show name changes between broadcast slots
+    // (e.g. DJ creates new slot via /studio with a different show name)
+    const djNameMatch = favorite.djName && showMatchesDJ(show, favorite.djName);
+    const djUsernameMatch = favorite.djUsername && showMatchesDJ(show, favorite.djUsername);
+
+    return djMatch || storedNameMatch || djNameMatch || djUsernameMatch;
   });
 }
 

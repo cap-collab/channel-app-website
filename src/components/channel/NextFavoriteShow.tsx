@@ -63,8 +63,24 @@ function findMatchingShows(favorite: Favorite, allShows: Show[]): Show[] {
       const showStation = getStation(show.stationId);
       if (favStation?.id !== showStation?.id) return false;
 
-      // Exact match on show name only (no DJ matching)
-      return showNameLower === term || (showName && showNameLower === showName);
+      // Exact match on show name
+      const nameMatch = showNameLower === term || (showName && showNameLower === showName);
+      if (nameMatch) return true;
+
+      // Also match by DJ name/username for broadcast shows where show names may change
+      const showDjLower = show.dj?.toLowerCase();
+      const showDjUsernameLower = show.djUsername?.toLowerCase();
+      const favDjNameLower = favorite.djName?.toLowerCase();
+      const favDjUsernameLower = favorite.djUsername?.toLowerCase();
+      const djNameMatch = favDjNameLower && (
+        (showDjLower && containsMatch(showDjLower, favDjNameLower)) ||
+        (showDjUsernameLower && containsMatch(showDjUsernameLower, favDjNameLower))
+      );
+      const djUsernameMatch = favDjUsernameLower && (
+        (showDjLower && containsMatch(showDjLower, favDjUsernameLower)) ||
+        (showDjUsernameLower && containsMatch(showDjUsernameLower, favDjUsernameLower))
+      );
+      return djNameMatch || djUsernameMatch;
     } else {
       // Watchlist (cross-station): contains matching on show name OR DJ
       const showDjLower = show.dj?.toLowerCase();
