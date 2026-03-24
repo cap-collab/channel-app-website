@@ -157,8 +157,30 @@ export function MyShowsClient() {
     const seenLiveShowNames = new Set<string>();
     const seenUpcomingShowNames = new Set<string>();
 
+    // DEBUG: log all broadcast/dj-radio shows in schedule
+    const broadcastShows = allShows.filter(s => s.stationId === "broadcast" || s.stationId === "dj-radio");
+    if (broadcastShows.length > 0) {
+      console.log(`[MyShows DEBUG] broadcast/dj-radio shows in schedule (${broadcastShows.length}):`,
+        broadcastShows.map(s => ({ name: s.name, dj: s.dj, djUsername: s.djUsername, stationId: s.stationId, startTime: s.startTime }))
+      );
+    }
+
     for (const favorite of stationShows) {
       const matchingShows = findMatchingShows(favorite, allShows);
+
+      // DEBUG: log matching results for favorites that end up with no matches
+      if (matchingShows.length === 0) {
+        console.log(`[MyShows DEBUG] No matches for favorite:`, {
+          term: favorite.term,
+          showName: favorite.showName,
+          djName: favorite.djName,
+          djUsername: favorite.djUsername,
+          stationId: favorite.stationId,
+          type: favorite.type,
+          showType: favorite.showType,
+          favStation: getStation(favorite.stationId)?.id,
+        });
+      }
 
       // Find live show
       const liveShow = matchingShows.find((show) => {
@@ -197,6 +219,7 @@ export function MyShowsClient() {
       if (isRecurringFavorite(favorite)) {
         returningSoon.push(favorite);
       } else {
+        console.log(`[MyShows DEBUG] → goes to oneTime:`, { term: favorite.term, showName: favorite.showName, stationId: favorite.stationId, djName: favorite.djName });
         oneTime.push(favorite);
       }
     }
