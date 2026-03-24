@@ -532,8 +532,6 @@ export function ChannelClient() {
   }, [selectedGenres, locationGenreCards, genreCards]);
 
 
-  // Determine which selected genres have zero matches across all shows
-  const noCuratorsInCity = selectedCity && selectedCity !== 'Anywhere' && locationCards.length === 0 && locationGenreCards.length === 0;
   const missingGenres = useMemo(() => {
     if (selectedGenres.length === 0) return [];
     if (locationGenreCards.length === 0 && genreCards.length === 0) return selectedGenres;
