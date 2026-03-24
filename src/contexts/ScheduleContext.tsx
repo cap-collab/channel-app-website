@@ -35,7 +35,7 @@ async function fetchBroadcastShowsClient(): Promise<Show[]> {
     pastCutoff.setDate(pastCutoff.getDate() - 1);
     pastCutoff.setHours(0, 0, 0, 0);
     const futureCutoff = new Date(now);
-    futureCutoff.setDate(futureCutoff.getDate() + 5);
+    futureCutoff.setDate(futureCutoff.getDate() + 14);
 
     const q = query(
       collection(db, "broadcast-slots"),
