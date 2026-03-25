@@ -113,6 +113,7 @@ export async function POST(request: NextRequest) {
       location: location || null,
       ticketLink: ticketLink || null,
       socialLinks: socialLinks || {},
+      source: body.source || 'admin',
       createdAt: FieldValue.serverTimestamp(),
       createdBy: adminUserId,
     };

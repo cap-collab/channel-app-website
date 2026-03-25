@@ -18,6 +18,7 @@ interface IrlShow {
   venueId?: string;
   venueName?: string;
   linkedCollectives?: { collectiveId: string; collectiveName: string }[];
+  djs?: { djName: string; djUserId?: string; djUsername?: string; djPhotoUrl?: string }[];
 }
 
 interface RadioShow {

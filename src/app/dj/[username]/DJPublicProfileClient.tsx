@@ -319,7 +319,6 @@ interface Props {
 // Activity feed item type
 type ActivityFeedItem =
   | (UpcomingShow & { feedType: "radio"; feedStatus: "upcoming" | "live" })
-  | (IrlShow & { feedType: "irl"; feedStatus: "upcoming" | "past"; id: string })
   | (RadioShow & { feedType: "dj-radio"; feedStatus: "upcoming" | "past"; id: string })
   | (Archive & { feedType: "recording"; feedStatus: "past" })
   | (PastShow & { feedType: "show"; feedStatus: "upcoming" | "past" });
@@ -1161,27 +1160,6 @@ export function DJPublicProfileClient({ username }: Props) {
       return new Date(`${date}T23:59:59`).getTime();
     };
 
-    // Add IRL shows - check if past or upcoming based on date (end of day)
-    if (djProfile?.djProfile.irlShows) {
-      djProfile.djProfile.irlShows
-        .filter((show) => show.url || show.venue || show.date)
-        .forEach((show, i) => {
-          const irlEndTime = show.date ? getShowEndTime(show.date) : null;
-          const isPastIrl = irlEndTime !== null && irlEndTime < now;
-          const item: ActivityFeedItem = {
-            ...show,
-            feedType: "irl",
-            feedStatus: isPastIrl ? "past" : "upcoming",
-            id: `irl-${i}`,
-          };
-          if (isPastIrl) {
-            past.push(item);
-          } else {
-            upcoming.push(item);
-          }
-        });
-    }
-
     // Add DJ radio shows - check if past or upcoming based on date + time + duration + timezone
     if (djProfile?.djProfile.radioShows) {
       djProfile.djProfile.radioShows
@@ -1808,62 +1786,6 @@ export function DJPublicProfileClient({ username }: Props) {
                   );
                 }
 
-                if (item.feedType === "irl") {
-                  const irlShow = item as IrlShow & { feedType: "irl"; feedStatus: "upcoming"; id: string };
-                  const irlDate = irlShow.date ? new Date(irlShow.date + "T00:00:00") : null;
-                  const dateStr = irlDate ? irlDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "TBA";
-
-                  return (
-                    <div
-                      key={irlShow.id}
-                      className="bg-surface-card rounded overflow-hidden"
-                    >
-                      {/* Header: Date, Show Type, and Location */}
-                      <div className="grid grid-cols-3 items-center px-4 py-3 bg-black/40">
-                        <span className="text-zinc-400 text-xs">
-                          {dateStr}
-                        </span>
-                        <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center justify-center gap-1">
-                          <svg className="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
-                          </svg>
-                          IRL
-                        </span>
-                        <span className="text-zinc-400 text-xs text-right">
-                          {irlShow.location || ""}
-                        </span>
-                      </div>
-
-                      {/* Show Info */}
-                      <div className="p-4 space-y-4">
-                        <div>
-                          <h3 className="text-white text-xl font-bold">
-                            {irlShow.name || irlShow.venue || irlShow.url?.replace(/^https?:\/\//, "").split("/")[0] || "Event"}
-                          </h3>
-                        </div>
-
-                        {/* Action Button */}
-                        {irlShow.url ? (
-                          <a
-                            href={irlShow.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-full py-3 px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
-                          >
-                            <CalendarIcon size={14} />
-                            Get tickets
-                          </a>
-                        ) : (
-                          <div className="w-full py-3 px-4 rounded text-sm font-semibold bg-white/10 text-zinc-400 flex items-center justify-center gap-2">
-                            <CalendarIcon size={14} />
-                            No tickets link
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                }
-
                 if (item.feedType === "dj-radio") {
                   const radioShow = item as RadioShow & { feedType: "dj-radio"; feedStatus: "upcoming"; id: string };
                   const showTz = radioShow.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -2126,23 +2048,6 @@ export function DJPublicProfileClient({ username }: Props) {
 
             <div className="space-y-3">
               {pastActivities.map((item) => {
-                if (item.feedType === "irl") {
-                  const irlShow = item as IrlShow & { feedType: "irl"; feedStatus: "past"; id: string };
-                  return (
-                    <div key={irlShow.id} className="bg-surface-card rounded p-4 opacity-60">
-                      <div className="flex items-start gap-4">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-gray-400 font-semibold">
-                            {irlShow.name || irlShow.venue || irlShow.url?.replace(/^https?:\/\//, "").split("/")[0] || "Event"}
-                          </h3>
-                          <p className="text-gray-500 text-sm">{irlShow.location || ""}</p>
-                          <p className="text-gray-600 text-xs">{irlShow.date ? new Date(irlShow.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "TBA"}</p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-
                 if (item.feedType === "dj-radio") {
                   const radioShow = item as RadioShow & { feedType: "dj-radio"; feedStatus: "past"; id: string };
                   return (

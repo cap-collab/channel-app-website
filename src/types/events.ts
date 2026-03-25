@@ -114,6 +114,7 @@ export interface Event {
   genres?: string[];
   location?: string | null;
   ticketLink?: string | null;
+  source?: 'admin' | 'dj' | 'pending-admin';
   socialLinks?: {
     instagram?: string;
     soundcloud?: string;

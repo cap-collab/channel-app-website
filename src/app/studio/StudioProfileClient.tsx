@@ -13,7 +13,7 @@ import { AuthModal } from "@/components/AuthModal";
 import { Header } from "@/components/Header";
 import { usePendingPayout } from "@/hooks/usePendingPayout";
 import { normalizeUrl } from "@/lib/url";
-import { uploadDJPhoto, deleteDJPhoto, validatePhoto, uploadRecImage, uploadIrlShowPhoto, deleteIrlShowPhoto } from "@/lib/photo-upload";
+import { uploadDJPhoto, deleteDJPhoto, validatePhoto, uploadRecImage, uploadEventPhoto, deleteEventPhoto } from "@/lib/photo-upload";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { getStationById } from "@/lib/stations";
 
@@ -41,16 +41,17 @@ interface CustomLink {
   url: string;
 }
 
-interface IrlShow {
+interface DJEvent {
+  id?: string; // undefined = new event, string = existing event
   name: string;
+  date: string; // YYYY-MM-DD for form input
   location: string;
-  url: string;
-  date: string;
-  addedAt?: string;
-  imageUrl?: string;
-  venueId?: string;
-  venueName?: string;
-  linkedCollectives?: { collectiveId: string; collectiveName: string }[];
+  ticketLink: string;
+  photo: string | null;
+  linkedVenues: { venueId: string; venueName: string }[];
+  linkedCollectives: { collectiveId: string; collectiveName: string }[];
+  djs: { djName: string; djUserId?: string; djUsername?: string; djPhotoUrl?: string }[];
+  saving?: boolean;
 }
 
 interface RadioShow {
@@ -83,7 +84,6 @@ interface DJProfile {
     residentAdvisor?: string;
     customLinks?: CustomLink[];
   };
-  irlShows?: IrlShow[];
   radioShows?: RadioShow[];
   myRecs?: RecItem[];
 }
@@ -148,7 +148,6 @@ export function StudioProfileClient() {
     location: null,
     genres: [],
     socialLinks: {},
-    irlShows: [],
     radioShows: [],
     myRecs: [],
   });
@@ -197,13 +196,17 @@ export function StudioProfileClient() {
   const [savingSocial, setSavingSocial] = useState(false);
   const [saveSocialSuccess, setSaveSocialSuccess] = useState(false);
 
-  // Form state - IRL Shows section
-  const [irlShowsInput, setIrlShowsInput] = useState<IrlShow[]>([{ name: "", location: "", url: "", date: "" }, { name: "", location: "", url: "", date: "" }]);
-  const [savingIrlShows, setSavingIrlShows] = useState(false);
-  const [saveIrlShowsSuccess, setSaveIrlShowsSuccess] = useState(false);
-  const [uploadingIrlShowIndex, setUploadingIrlShowIndex] = useState<number | null>(null);
+  // Form state - IRL Events section
+  const [djEvents, setDjEvents] = useState<DJEvent[]>([]);
+  const [loadingDjEvents, setLoadingDjEvents] = useState(true);
+  const [newEvent, setNewEvent] = useState<DJEvent>({ name: "", date: "", location: "", ticketLink: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] });
+  const [showNewEventForm, setShowNewEventForm] = useState(false);
+  const [savingNewEvent, setSavingNewEvent] = useState(false);
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [uploadingEventPhoto, setUploadingEventPhoto] = useState(false);
   const [venueOptions, setVenueOptions] = useState<{ id: string; name: string }[]>([]);
   const [collectiveOptions, setCollectiveOptions] = useState<{ id: string; name: string }[]>([]);
+  const [djOptions, setDjOptions] = useState<{ label: string; djName: string; djUserId?: string; djUsername?: string; djPhotoUrl?: string }[]>([]);
 
   // Form state - Radio Shows section
   const [radioShowsInput, setRadioShowsInput] = useState<RadioShow[]>([{ name: "", radioName: "", url: "", date: "", time: "", duration: "1" }, { name: "", radioName: "", url: "", date: "", time: "", duration: "1" }]);
@@ -264,7 +267,6 @@ export function StudioProfileClient() {
   const detailsDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const thankYouDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const socialDebounceRef = useRef<NodeJS.Timeout | null>(null);
-  const irlShowsDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const radioShowsDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const myRecsDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const initialLoadRef = useRef(true);
@@ -289,7 +291,6 @@ export function StudioProfileClient() {
             location: data.djProfile.location || null,
             genres: data.djProfile.genres || [],
             socialLinks: data.djProfile.socialLinks || {},
-            irlShows: data.djProfile.irlShows || [],
             radioShows: data.djProfile.radioShows || [],
             myRecs: Array.isArray(data.djProfile.myRecs) ? data.djProfile.myRecs : [],
           });
@@ -309,9 +310,6 @@ export function StudioProfileClient() {
             setMixcloudInput(data.djProfile.socialLinks?.mixcloud || "");
             setResidentAdvisorInput(data.djProfile.socialLinks?.residentAdvisor || "");
             setCustomLinksInput(data.djProfile.socialLinks?.customLinks || []);
-            // IRL Shows - load all saved shows plus one empty slot
-            const irlShows = (data.djProfile.irlShows || []).map((s: Partial<IrlShow>) => ({ name: "", location: "", url: "", date: "", imageUrl: undefined, venueId: undefined, venueName: undefined, linkedCollectives: [], ...s }));
-            setIrlShowsInput([...irlShows, { name: "", location: "", url: "", date: "" }]);
             // Radio Shows - load all saved shows plus one empty slot
             const radioShows = (data.djProfile.radioShows || []).map((s: Partial<RadioShow>) => ({ name: "", radioName: "", url: "", date: "", time: "", duration: "1", ...s }));
             setRadioShowsInput([...radioShows, { name: "", radioName: "", url: "", date: "", time: "", duration: "1" }]);
@@ -703,8 +701,8 @@ export function StudioProfileClient() {
     }
   }, [user]);
 
-  // Fetch venue and collective options for IRL show selectors
-  const fetchVenueAndCollectiveOptions = useCallback(async () => {
+  // Fetch venue, collective, and DJ options for event selectors
+  const fetchEventOptions = useCallback(async () => {
     if (!db) return;
     try {
       const venuesSnap = await getDocs(collection(db, "venues"));
@@ -718,121 +716,171 @@ export function StudioProfileClient() {
       collectivesSnap.forEach((d) => collectives.push({ id: d.id, name: d.data().name }));
       collectives.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
       setCollectiveOptions(collectives);
+
+      // Fetch DJs: pending profiles + registered DJ users
+      const options: { label: string; djName: string; djUserId?: string; djUsername?: string; djPhotoUrl?: string }[] = [];
+      const seenUsernames = new Set<string>();
+
+      const pendingSnap = await getDocs(collection(db, "pending-dj-profiles"));
+      pendingSnap.forEach((d) => {
+        const data = d.data();
+        if (data.status !== "pending") return;
+        const username = data.chatUsernameNormalized || "";
+        if (username) seenUsernames.add(username);
+        options.push({
+          label: data.chatUsername || data.chatUsernameNormalized || "Unknown",
+          djName: data.chatUsername || data.chatUsernameNormalized || "Unknown",
+          djUsername: data.chatUsernameNormalized,
+          djPhotoUrl: data.djProfile?.photoUrl || undefined,
+        });
+      });
+
+      const djQuery = query(collection(db, "users"), where("role", "in", ["dj", "broadcaster", "admin"]));
+      const usersSnap = await getDocs(djQuery);
+      usersSnap.forEach((d) => {
+        const data = d.data();
+        const username = data.chatUsernameNormalized || "";
+        if (username && seenUsernames.has(username)) return;
+        options.push({
+          label: data.chatUsername || data.displayName || "Unknown",
+          djName: data.chatUsername || data.displayName || "Unknown",
+          djUserId: d.id,
+          djUsername: data.chatUsernameNormalized || data.chatUsername,
+          djPhotoUrl: data.djProfile?.photoUrl || undefined,
+        });
+      });
+
+      options.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+      setDjOptions(options);
     } catch (err) {
-      console.error("Error fetching venue/collective options:", err);
+      console.error("Error fetching event options:", err);
     }
   }, []);
 
+  // Fetch DJ's events from events collection
+  const fetchDjEvents = useCallback(async () => {
+    if (!db || !user) return;
+    setLoadingDjEvents(true);
+    try {
+      const eventsSnap = await getDocs(collection(db, "events"));
+      const events: DJEvent[] = [];
+      eventsSnap.forEach((d) => {
+        const data = d.data();
+        if (data.createdBy === user.uid) {
+          const dateObj = new Date(data.date);
+          const dateStr = dateObj.toISOString().split("T")[0];
+          events.push({
+            id: d.id,
+            name: data.name || "",
+            date: dateStr,
+            location: data.location || "",
+            ticketLink: data.ticketLink || "",
+            photo: data.photo || null,
+            linkedVenues: data.linkedVenues || [],
+            linkedCollectives: data.linkedCollectives || [],
+            djs: data.djs || [],
+          });
+        }
+      });
+      events.sort((a, b) => a.date.localeCompare(b.date));
+      setDjEvents(events);
+    } catch (err) {
+      console.error("Error fetching DJ events:", err);
+    } finally {
+      setLoadingDjEvents(false);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (isDJ(role)) {
-      fetchVenueAndCollectiveOptions();
+      fetchEventOptions();
+      fetchDjEvents();
     }
-  }, [role, fetchVenueAndCollectiveOptions]);
+  }, [role, fetchEventOptions, fetchDjEvents]);
 
-  // Handle IRL show photo upload
-  const handleIrlShowPhotoChange = async (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle event photo upload for new event form
+  const handleEventPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
     const validation = validatePhoto(file);
     if (!validation.valid) return;
 
-    setUploadingIrlShowIndex(index);
+    setUploadingEventPhoto(true);
     try {
-      const result = await uploadIrlShowPhoto(user.uid, index, file);
+      const tempId = `temp-${user.uid}-${Date.now()}`;
+      const result = await uploadEventPhoto(tempId, file);
       if (result.success && result.url) {
-        const updated = [...irlShowsInput];
-        updated[index] = { ...updated[index], imageUrl: result.url };
-        setIrlShowsInput(updated);
+        setNewEvent(prev => ({ ...prev, photo: result.url! }));
       }
     } catch (err) {
-      console.error("Error uploading IRL show photo:", err);
+      console.error("Error uploading event photo:", err);
     } finally {
-      setUploadingIrlShowIndex(null);
+      setUploadingEventPhoto(false);
     }
   };
 
-  const handleRemoveIrlShowPhoto = async (index: number) => {
-    const show = irlShowsInput[index];
-    if (!show.imageUrl || !user) return;
+  // Create a new event via API
+  const createEvent = async () => {
+    if (!user || !newEvent.name.trim()) return;
 
-    setUploadingIrlShowIndex(index);
+    setSavingNewEvent(true);
     try {
-      await deleteIrlShowPhoto(user.uid, show.imageUrl);
-      const updated = [...irlShowsInput];
-      updated[index] = { ...updated[index], imageUrl: undefined };
-      setIrlShowsInput(updated);
+      const token = await user.getIdToken();
+      const response = await fetch("/api/events", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: newEvent.name.trim(),
+          date: newEvent.date || undefined,
+          location: newEvent.location.trim() || undefined,
+          ticketLink: newEvent.ticketLink.trim() ? normalizeUrl(newEvent.ticketLink.trim()) : undefined,
+          photo: newEvent.photo || undefined,
+          linkedVenues: newEvent.linkedVenues.length > 0 ? newEvent.linkedVenues : undefined,
+          linkedCollectives: newEvent.linkedCollectives.length > 0 ? newEvent.linkedCollectives : undefined,
+          djs: newEvent.djs.filter(d => d.djName.trim()).length > 0 ? newEvent.djs.filter(d => d.djName.trim()) : undefined,
+        }),
+      });
+
+      if (response.ok) {
+        setNewEvent({ name: "", date: "", location: "", ticketLink: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] });
+        setShowNewEventForm(false);
+        await fetchDjEvents();
+      } else {
+        const result = await response.json();
+        console.error("Failed to create event:", result.error);
+      }
     } catch (err) {
-      console.error("Error removing IRL show photo:", err);
+      console.error("Error creating event:", err);
     } finally {
-      setUploadingIrlShowIndex(null);
+      setSavingNewEvent(false);
     }
   };
 
-  const saveIrlShows = useCallback(async (shows: IrlShow[]) => {
-    if (!user || !db) return;
+  // Delete an event via API
+  const deleteEvent = async (eventId: string) => {
+    if (!user) return;
 
-    setSavingIrlShows(true);
-    setSaveIrlShowsSuccess(false);
-
+    setDeletingEventId(eventId);
     try {
-      const userRef = doc(db, "users", user.uid);
-      // Filter out empty shows but always save the array structure
-      const previousShows = (djProfile.irlShows || []) as IrlShow[];
-      const validShows = shows.filter(
-        (show) => (show.url || "").trim() || (show.date || "").trim() || (show.name || "").trim() || (show.location || "").trim()
-      ).map((show) => {
-        const name = (show.name || "").trim();
-        const location = (show.location || "").trim();
-        const date = (show.date || "").trim();
-        // Preserve addedAt if this item existed before, otherwise set new timestamp
-        const existingMatch = previousShows.find(
-          (prev) => prev.name === name && prev.date === date && prev.location === location
-        );
-        return {
-          name,
-          location,
-          url: (show.url || "").trim() ? normalizeUrl((show.url || "").trim()) : "",
-          date,
-          addedAt: existingMatch?.addedAt || show.addedAt || new Date().toISOString(),
-          imageUrl: show.imageUrl || undefined,
-          venueId: show.venueId || undefined,
-          venueName: show.venueName || undefined,
-          linkedCollectives: (show.linkedCollectives || []).length > 0 ? show.linkedCollectives : undefined,
-        };
+      const token = await user.getIdToken();
+      const response = await fetch(`/api/events?eventId=${eventId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` },
       });
 
-      await updateDoc(userRef, {
-        "djProfile.irlShows": validShows,
-      });
-      setSaveIrlShowsSuccess(true);
-      setTimeout(() => setSaveIrlShowsSuccess(false), 2000);
-
-      // Sync IRL shows to followers (always call, even with 0 shows, to clean up deleted ones)
-      try {
-        await fetch('/api/dj/sync-shows-to-followers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            djUserId: user.uid,
-            djUsername: chatUsername?.replace(/\s+/g, "").toLowerCase() || "",
-            djName: chatUsername || "",
-            djPhotoUrl: djProfile.photoUrl || undefined,
-            irlShows: validShows,
-            radioShows: [],
-            previousIrlShows: djProfile.irlShows || [],
-            previousRadioShows: [],
-          }),
-        });
-      } catch (syncError) {
-        console.error("Failed to sync IRL shows to followers:", syncError);
+      if (response.ok) {
+        setDjEvents(prev => prev.filter(e => e.id !== eventId));
       }
-    } catch (error) {
-      console.error("Error saving IRL shows:", error);
+    } catch (err) {
+      console.error("Error deleting event:", err);
     } finally {
-      setSavingIrlShows(false);
+      setDeletingEventId(null);
     }
-  }, [user, chatUsername, djProfile.photoUrl, djProfile.irlShows]);
+  };
 
   const saveRadioShows = useCallback(async (shows: RadioShow[]) => {
     if (!user || !db) return;
@@ -1028,14 +1076,6 @@ export function StudioProfileClient() {
     ), 1000);
     return () => { if (socialDebounceRef.current) clearTimeout(socialDebounceRef.current); };
   }, [instagramInput, soundcloudInput, bandcampInput, youtubeInput, bookingEmailInput, mixcloudInput, residentAdvisorInput, customLinksInput, saveSocialLinks]);
-
-  // Auto-save IRL shows with debounce
-  useEffect(() => {
-    if (initialLoadRef.current) return;
-    if (irlShowsDebounceRef.current) clearTimeout(irlShowsDebounceRef.current);
-    irlShowsDebounceRef.current = setTimeout(() => saveIrlShows(irlShowsInput), 1000);
-    return () => { if (irlShowsDebounceRef.current) clearTimeout(irlShowsDebounceRef.current); };
-  }, [irlShowsInput, saveIrlShows]);
 
   // Auto-save radio shows with debounce
   useEffect(() => {
@@ -2024,47 +2064,67 @@ export function StudioProfileClient() {
             </div>
           </section>
 
-          {/* IRL Shows section */}
+          {/* IRL Events section */}
           <section>
             <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
-              IRL Shows
+              IRL Events
             </h2>
             <p className="text-gray-600 text-xs mb-3 px-1">
-              Promote your upcoming in-person gigs.
+              Promote your upcoming in-person gigs. Events appear on your profile, /radio, and linked venue/collective pages.
             </p>
-            <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
-              {irlShowsInput.map((show, index) => (
-                <div key={index} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-gray-400 text-sm">
-                      Show {index + 1}
-                    </label>
-                    {(show.name || show.location || show.url || show.date) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const updated = irlShowsInput.filter((_, i) => i !== index);
-                          if (updated.length === 0 || (updated[updated.length - 1].name || updated[updated.length - 1].location || updated[updated.length - 1].url || updated[updated.length - 1].date)) {
-                            updated.push({ name: "", location: "", url: "", date: "" });
-                          }
-                          setIrlShowsInput(updated);
-                        }}
-                        className="text-gray-600 hover:text-red-400 text-xs transition-colors"
-                      >
-                        Delete
-                      </button>
+            <div className="bg-[#1a1a1a] rounded p-4 space-y-3">
+              {/* Existing events */}
+              {loadingDjEvents ? (
+                <div className="flex items-center justify-center py-4">
+                  <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
+                </div>
+              ) : djEvents.length > 0 ? (
+                djEvents.map((event) => (
+                  <div key={event.id} className="flex items-start gap-3 p-3 bg-black rounded-lg">
+                    {event.photo ? (
+                      <Image src={event.photo} alt={event.name} width={48} height={48} className="w-12 h-12 object-cover rounded flex-shrink-0" unoptimized />
+                    ) : (
+                      <div className="w-12 h-12 bg-gray-900 rounded flex items-center justify-center flex-shrink-0 text-gray-600">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                      </div>
                     )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-medium truncate">{event.name}</p>
+                      <p className="text-gray-500 text-xs">
+                        {event.date && new Date(event.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        {event.location && ` · ${event.location}`}
+                        {event.linkedVenues.length > 0 && ` · ${event.linkedVenues.map(v => v.venueName).join(", ")}`}
+                      </p>
+                      {event.djs.length > 0 && (
+                        <p className="text-gray-600 text-xs mt-0.5">
+                          with {event.djs.map(d => d.djName).join(", ")}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => event.id && deleteEvent(event.id)}
+                      disabled={deletingEventId === event.id}
+                      className="text-gray-600 hover:text-red-400 text-xs transition-colors flex-shrink-0"
+                    >
+                      {deletingEventId === event.id ? "..." : "Delete"}
+                    </button>
                   </div>
-                  {/* Image upload */}
+                ))
+              ) : !showNewEventForm ? (
+                <p className="text-gray-600 text-xs text-center py-2">No events yet.</p>
+              ) : null}
+
+              {/* New event form */}
+              {showNewEventForm && (
+                <div className="space-y-2 p-3 bg-black rounded-lg border border-gray-800">
+                  {/* Photo upload */}
                   <div className="flex items-start gap-3">
-                    <div className="relative w-14 h-14 bg-black rounded overflow-hidden flex-shrink-0">
-                      {show.imageUrl ? (
-                        <Image
-                          src={show.imageUrl}
-                          alt="Event flyer"
-                          fill
-                          className="object-cover"
-                        />
+                    <div className="relative w-14 h-14 bg-gray-900 rounded overflow-hidden flex-shrink-0">
+                      {newEvent.photo ? (
+                        <Image src={newEvent.photo} alt="Event flyer" fill className="object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-600">
                           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2072,179 +2132,87 @@ export function StudioProfileClient() {
                           </svg>
                         </div>
                       )}
-                      {uploadingIrlShowIndex === index && (
+                      {uploadingEventPhoto && (
                         <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                         </div>
                       )}
                     </div>
                     <div className="flex flex-col gap-1">
-                      <label className="cursor-pointer bg-black hover:bg-gray-900 border border-gray-800 rounded px-2.5 py-1 text-xs text-white transition-colors inline-flex items-center gap-1">
-                        {show.imageUrl ? "Change" : "Upload flyer"}
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/gif,image/webp"
-                          onChange={(e) => handleIrlShowPhotoChange(index, e)}
-                          disabled={uploadingIrlShowIndex !== null}
-                          className="hidden"
-                        />
+                      <label className="cursor-pointer bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded px-2.5 py-1 text-xs text-white transition-colors">
+                        {newEvent.photo ? "Change" : "Upload flyer"}
+                        <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" onChange={handleEventPhotoUpload} disabled={uploadingEventPhoto} className="hidden" />
                       </label>
-                      {show.imageUrl && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveIrlShowPhoto(index)}
-                          disabled={uploadingIrlShowIndex !== null}
-                          className="text-red-400 hover:text-red-300 text-xs transition-colors text-left"
-                        >
-                          Remove
-                        </button>
+                      {newEvent.photo && (
+                        <button type="button" onClick={() => setNewEvent(prev => ({ ...prev, photo: null }))} className="text-red-400 hover:text-red-300 text-xs text-left">Remove</button>
                       )}
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={show.name}
-                      onChange={(e) => {
-                        const updated = [...irlShowsInput];
-                        updated[index] = { ...updated[index], name: e.target.value };
-                        setIrlShowsInput(updated);
-                      }}
-                      placeholder="Event Name"
-                      className="flex-1 bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
-                    />
-                    <input
-                      type="text"
-                      value={show.location}
-                      onChange={(e) => {
-                        const updated = [...irlShowsInput];
-                        updated[index] = { ...updated[index], location: e.target.value };
-                        setIrlShowsInput(updated);
-                      }}
-                      placeholder="City"
-                      className="w-32 bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
-                    />
+                    <input type="text" value={newEvent.name} onChange={(e) => setNewEvent(prev => ({ ...prev, name: e.target.value }))} placeholder="Event Name" className="flex-1 bg-[#1a1a1a] border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none" />
+                    <input type="text" value={newEvent.location} onChange={(e) => setNewEvent(prev => ({ ...prev, location: e.target.value }))} placeholder="City" className="w-32 bg-[#1a1a1a] border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none" />
                   </div>
                   <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={show.url}
-                      onChange={(e) => {
-                        const updated = [...irlShowsInput];
-                        updated[index] = { ...updated[index], url: e.target.value };
-                        setIrlShowsInput(updated);
-                      }}
-                      placeholder="Event URL (e.g., ra.co/events/...)"
-                      className="flex-1 bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
-                    />
-                    <input
-                      type="date"
-                      value={show.date}
-                      onChange={(e) => {
-                        const updated = [...irlShowsInput];
-                        updated[index] = { ...updated[index], date: e.target.value };
-                        setIrlShowsInput(updated);
-                      }}
-                      className="w-36 bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none [color-scheme:dark]"
-                    />
+                    <input type="text" value={newEvent.ticketLink} onChange={(e) => setNewEvent(prev => ({ ...prev, ticketLink: e.target.value }))} placeholder="Ticket URL (e.g., ra.co/events/...)" className="flex-1 bg-[#1a1a1a] border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none" />
+                    <input type="date" value={newEvent.date} onChange={(e) => setNewEvent(prev => ({ ...prev, date: e.target.value }))} className="w-36 bg-[#1a1a1a] border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none [color-scheme:dark]" />
                   </div>
                   {/* Venue selector */}
-                  <select
-                    value={show.venueId || ""}
-                    onChange={(e) => {
-                      const updated = [...irlShowsInput];
-                      const venueId = e.target.value;
-                      if (venueId) {
-                        const venue = venueOptions.find(v => v.id === venueId);
-                        updated[index] = { ...updated[index], venueId, venueName: venue?.name || "" };
-                      } else {
-                        updated[index] = { ...updated[index], venueId: undefined, venueName: undefined };
-                      }
-                      setIrlShowsInput(updated);
-                    }}
-                    className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none"
-                  >
+                  <select value={newEvent.linkedVenues[0]?.venueId || ""} onChange={(e) => { const vId = e.target.value; if (!vId) { setNewEvent(prev => ({ ...prev, linkedVenues: [] })); return; } const venue = venueOptions.find(v => v.id === vId); if (venue) setNewEvent(prev => ({ ...prev, linkedVenues: [{ venueId: venue.id, venueName: venue.name }] })); }} className="w-full bg-[#1a1a1a] border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none">
                     <option value="">Select a venue...</option>
-                    {venueOptions.map((venue) => (
-                      <option key={venue.id} value={venue.id}>{venue.name}</option>
-                    ))}
+                    {venueOptions.map((venue) => (<option key={venue.id} value={venue.id}>{venue.name}</option>))}
                   </select>
-                  {!show.venueId && (
-                    <input
-                      type="text"
-                      value={show.venueName || ""}
-                      onChange={(e) => {
-                        const updated = [...irlShowsInput];
-                        updated[index] = { ...updated[index], venueName: e.target.value || undefined };
-                        setIrlShowsInput(updated);
-                      }}
-                      placeholder="Or type a venue name..."
-                      className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
-                    />
-                  )}
                   {/* Linked Collectives */}
                   <div>
-                    {(show.linkedCollectives || []).length > 0 && (
+                    {newEvent.linkedCollectives.length > 0 && (
                       <div className="flex flex-wrap gap-1 mb-1">
-                        {(show.linkedCollectives || []).map((lc) => (
-                          <span key={lc.collectiveId} className="inline-flex items-center gap-1 bg-black rounded px-2 py-1 text-xs text-white">
+                        {newEvent.linkedCollectives.map((lc) => (
+                          <span key={lc.collectiveId} className="inline-flex items-center gap-1 bg-[#1a1a1a] rounded px-2 py-1 text-xs text-white">
                             {lc.collectiveName}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const updated = [...irlShowsInput];
-                                updated[index] = {
-                                  ...updated[index],
-                                  linkedCollectives: (updated[index].linkedCollectives || []).filter(c => c.collectiveId !== lc.collectiveId),
-                                };
-                                setIrlShowsInput(updated);
-                              }}
-                              className="text-red-400 hover:text-red-300"
-                            >
-                              &times;
-                            </button>
+                            <button type="button" onClick={() => setNewEvent(prev => ({ ...prev, linkedCollectives: prev.linkedCollectives.filter(c => c.collectiveId !== lc.collectiveId) }))} className="text-red-400 hover:text-red-300">&times;</button>
                           </span>
                         ))}
                       </div>
                     )}
-                    <select
-                      value=""
-                      onChange={(e) => {
-                        const cId = e.target.value;
-                        if (!cId) return;
-                        const coll = collectiveOptions.find(c => c.id === cId);
-                        if (!coll) return;
-                        const existing = show.linkedCollectives || [];
-                        if (existing.some(lc => lc.collectiveId === cId)) return;
-                        const updated = [...irlShowsInput];
-                        updated[index] = {
-                          ...updated[index],
-                          linkedCollectives: [...existing, { collectiveId: coll.id, collectiveName: coll.name }],
-                        };
-                        setIrlShowsInput(updated);
-                      }}
-                      className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none"
-                    >
+                    <select value="" onChange={(e) => { const cId = e.target.value; if (!cId) return; const coll = collectiveOptions.find(c => c.id === cId); if (!coll || newEvent.linkedCollectives.some(lc => lc.collectiveId === cId)) return; setNewEvent(prev => ({ ...prev, linkedCollectives: [...prev.linkedCollectives, { collectiveId: coll.id, collectiveName: coll.name }] })); }} className="w-full bg-[#1a1a1a] border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none">
                       <option value="">Add a collective...</option>
-                      {collectiveOptions
-                        .filter(c => !(show.linkedCollectives || []).some(lc => lc.collectiveId === c.id))
-                        .map((collective) => (
-                          <option key={collective.id} value={collective.id}>{collective.name}</option>
-                        ))}
+                      {collectiveOptions.filter(c => !newEvent.linkedCollectives.some(lc => lc.collectiveId === c.id)).map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
                     </select>
                   </div>
+                  {/* Tagged DJs */}
+                  <div>
+                    {newEvent.djs.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-1">
+                        {newEvent.djs.map((dj, djIdx) => (
+                          <span key={djIdx} className="inline-flex items-center gap-1 bg-[#1a1a1a] rounded px-2 py-1 text-xs text-white">
+                            {dj.djName}{dj.djUsername ? ` @${dj.djUsername}` : ""}
+                            <button type="button" onClick={() => setNewEvent(prev => ({ ...prev, djs: prev.djs.filter((_, j) => j !== djIdx) }))} className="text-red-400 hover:text-red-300">&times;</button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <select value="" onChange={(e) => { const val = e.target.value; if (!val) return; if (val === "__manual__") { setNewEvent(prev => ({ ...prev, djs: [...prev.djs, { djName: "" }] })); return; } const option = djOptions.find(o => (o.djUsername || o.djName) === val); if (!option || newEvent.djs.some(d => (d.djUsername || d.djName) === (option.djUsername || option.djName))) return; setNewEvent(prev => ({ ...prev, djs: [...prev.djs, { djName: option.djName, djUserId: option.djUserId, djUsername: option.djUsername, djPhotoUrl: option.djPhotoUrl }] })); }} className="w-full bg-[#1a1a1a] border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none">
+                      <option value="">Tag a DJ...</option>
+                      {djOptions.filter(o => !newEvent.djs.some(d => (d.djUsername || d.djName) === (o.djUsername || o.djName))).map((o) => (<option key={o.djUsername || o.djName} value={o.djUsername || o.djName}>{o.label}</option>))}
+                      <option value="__manual__">Other (type name)</option>
+                    </select>
+                  </div>
+                  {/* Action buttons */}
+                  <div className="flex gap-2 pt-1">
+                    <button type="button" onClick={createEvent} disabled={savingNewEvent || !newEvent.name.trim()} className="px-4 py-2 bg-white text-black text-xs font-medium rounded hover:bg-gray-200 transition-colors disabled:opacity-50">
+                      {savingNewEvent ? "Creating..." : "Create Event"}
+                    </button>
+                    <button type="button" onClick={() => { setShowNewEventForm(false); setNewEvent({ name: "", date: "", location: "", ticketLink: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] }); }} className="px-4 py-2 text-gray-400 hover:text-white text-xs transition-colors">
+                      Cancel
+                    </button>
+                  </div>
                 </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => setIrlShowsInput([...irlShowsInput, { name: "", location: "", url: "", date: "" }])}
-                className="text-gray-500 hover:text-white text-xs transition-colors"
-              >
-                + Add another show
-              </button>
-              <p className="text-gray-600 text-xs">
-                {savingIrlShows ? "Saving..." : saveIrlShowsSuccess ? "Saved" : ""}
-              </p>
+              )}
+
+              {!showNewEventForm && (
+                <button type="button" onClick={() => setShowNewEventForm(true)} className="text-gray-500 hover:text-white text-xs transition-colors">
+                  + Add event
+                </button>
+              )}
             </div>
           </section>
 

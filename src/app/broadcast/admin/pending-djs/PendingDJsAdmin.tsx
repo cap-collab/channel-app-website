@@ -10,7 +10,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { normalizeUrl } from '@/lib/url';
-import { uploadPendingDJPhoto, deletePendingDJPhoto, uploadIrlShowPhoto, deleteIrlShowPhoto, validatePhoto } from '@/lib/photo-upload';
+import { uploadPendingDJPhoto, deletePendingDJPhoto, uploadEventPhoto, deleteEventPhoto, validatePhoto } from '@/lib/photo-upload';
 
 interface CustomLink {
   label: string;
@@ -26,6 +26,7 @@ interface IrlShow {
   venueId?: string;
   venueName?: string;
   linkedCollectives?: { collectiveId: string; collectiveName: string }[];
+  djs?: EventDJRef[];
 }
 
 interface RadioShow {
@@ -482,7 +483,7 @@ export function PendingDJsAdmin() {
 
     setUploadingIrlShowIndex(index);
     try {
-      const result = await uploadIrlShowPhoto(profileId, index, file);
+      const result = await uploadEventPhoto(`pending-${profileId}-${index}`, file);
       if (!result.success) {
         setPhotoError(result.error || 'Upload failed');
         return;
@@ -507,7 +508,7 @@ export function PendingDJsAdmin() {
 
     setUploadingIrlShowIndex(index);
     try {
-      await deleteIrlShowPhoto(profileId, show.imageUrl);
+      await deleteEventPhoto(`pending-${profileId}-${index}`, show.imageUrl);
       const updated = [...irlShows];
       updated[index] = { ...updated[index], imageUrl: undefined };
       setIrlShows(updated);
@@ -572,6 +573,7 @@ export function PendingDJsAdmin() {
         venueId: show.venueId || undefined,
         venueName: show.venueName || undefined,
         linkedCollectives: (show.linkedCollectives || []).length > 0 ? show.linkedCollectives : undefined,
+        djs: (show.djs || []).filter(d => d.djName.trim()).length > 0 ? show.djs : undefined,
       }));
 
       // Build radio shows data
@@ -602,7 +604,6 @@ export function PendingDJsAdmin() {
             promoHyperlink: promoHyperlink.trim() ? normalizeUrl(promoHyperlink.trim()) : null,
             photoUrl: photoUrl || null,
             socialLinks: socialLinksData,
-            irlShows: validIrlShows.length > 0 ? validIrlShows : undefined,
             radioShows: validRadioShows.length > 0 ? validRadioShows : undefined,
             myRecs: (validBandcampRecs.length > 0 || validEventRecs.length > 0) ? {
               bandcampLinks: validBandcampRecs.length > 0 ? validBandcampRecs : undefined,
@@ -714,6 +715,29 @@ export function PendingDJsAdmin() {
           });
         }
 
+        // Create real events for IRL shows
+        for (const show of validIrlShows) {
+          if (!show.name && !show.date) continue;
+          await fetch('/api/admin/events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({
+              name: show.name || 'Event',
+              date: show.date ? new Date(show.date + 'T00:00:00').getTime() : Date.now(),
+              location: show.location || null,
+              ticketLink: show.url || null,
+              photo: show.imageUrl || null,
+              linkedVenues: show.venueId ? [{ venueId: show.venueId, venueName: show.venueName || '' }] : [],
+              linkedCollectives: show.linkedCollectives || [],
+              djs: [
+                { djName: editingProfile.chatUsername, djUsername: editingProfile.chatUsernameNormalized, djPhotoUrl: photoUrl || undefined },
+                ...(show.djs || []),
+              ],
+              source: 'pending-admin',
+            }),
+          });
+        }
+
         setSuccess(`Updated DJ profile for ${djName}`);
         resetForm();
         fetchPendingProfiles();
@@ -739,7 +763,6 @@ export function PendingDJsAdmin() {
               promoHyperlink: promoHyperlink.trim() ? normalizeUrl(promoHyperlink.trim()) : null,
               photoUrl: photoUrl || null,
               socialLinks: socialLinksData,
-              irlShows: validIrlShows.length > 0 ? validIrlShows : undefined,
               myRecs: (validBandcampRecs.length > 0 || validEventRecs.length > 0) ? {
                 bandcampLinks: validBandcampRecs.length > 0 ? validBandcampRecs : undefined,
                 eventLinks: validEventRecs.length > 0 ? validEventRecs : undefined,
@@ -754,6 +777,29 @@ export function PendingDJsAdmin() {
           setError(result.error || 'Failed to create pending profile');
           setSaving(false);
           return;
+        }
+
+        // Create real events for IRL shows
+        for (const show of validIrlShows) {
+          if (!show.name && !show.date) continue;
+          await fetch('/api/admin/events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({
+              name: show.name || 'Event',
+              date: show.date ? new Date(show.date + 'T00:00:00').getTime() : Date.now(),
+              location: show.location || null,
+              ticketLink: show.url || null,
+              photo: show.imageUrl || null,
+              linkedVenues: show.venueId ? [{ venueId: show.venueId, venueName: show.venueName || '' }] : [],
+              linkedCollectives: show.linkedCollectives || [],
+              djs: [
+                { djName: djName.trim(), djUsername: djName.trim().replace(/\s+/g, '').toLowerCase(), djPhotoUrl: photoUrl || undefined },
+                ...(show.djs || []),
+              ],
+              source: 'pending-admin',
+            }),
+          });
         }
 
         setSuccess(`Created pending DJ profile for ${djName}. Profile URL: /dj/${result.username}`);

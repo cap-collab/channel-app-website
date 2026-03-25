@@ -284,72 +284,13 @@ async function enrichBroadcastShows(shows: Show[]): Promise<Show[]> {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Extract IRL shows from pre-fetched DJ user docs (no extra Firestore query)
-// ---------------------------------------------------------------------------
-
 // Get today's date string in America/Los_Angeles (prevents UTC rollover filtering out west-coast evening shows)
 function getTodayPDT(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
 }
 
-function getTwoWeeksFromNowPDT(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 14);
-  return d.toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
-}
-
-function extractIRLShows(djUserDocs: FirestoreDoc[]): IRLShowData[] {
-  const irlShows: IRLShowData[] = [];
-  const today = getTodayPDT();
-  const cutoff = getTwoWeeksFromNowPDT();
-
-  for (const doc of djUserDocs) {
-    const userData = doc.data();
-    const djProfile = userData?.djProfile;
-    const chatUsername = userData?.chatUsername;
-
-    if (!djProfile?.irlShows || !Array.isArray(djProfile.irlShows)) continue;
-    if (!chatUsername) continue;
-
-    for (const show of djProfile.irlShows) {
-      if (!show.date) continue;
-      if (show.date < today || show.date > cutoff) continue;
-
-      irlShows.push({
-        djUsername: chatUsername?.replace(/\s+/g, "").toLowerCase() || "",
-        djName: djProfile.djName || chatUsername || "Unknown DJ",
-        djPhotoUrl: djProfile.photoUrl || undefined,
-        djLocation: djProfile.location || undefined,
-        djGenres: djProfile.genres || undefined,
-        eventName: show.name || "Event",
-        location: show.location || "",
-        ticketUrl: show.url,
-        date: show.date,
-        eventPhotoUrl: show.imageUrl || undefined,
-        venueName: show.venueName || undefined,
-      });
-    }
-  }
-
-  irlShows.sort((a, b) => a.date.localeCompare(b.date));
-
-  // Deduplicate: keep only one IRL show per DJ per location (the soonest one)
-  const deduped: IRLShowData[] = [];
-  const seen = new Set<string>();
-  for (const show of irlShows) {
-    const key = `${show.djUsername}-${show.location.toLowerCase()}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      deduped.push(show);
-    }
-  }
-
-  return deduped;
-}
-
 // ---------------------------------------------------------------------------
-// Extract IRL events from admin-created events (Firestore `events` collection)
+// Extract IRL events from the Firestore `events` collection
 // ---------------------------------------------------------------------------
 
 async function extractAdminEvents(): Promise<IRLShowData[]> {
@@ -641,26 +582,12 @@ export async function GET() {
       fetchDJUserDocs(),
     ]);
 
-    // Extract IRL shows, DJ radio shows, curator recs, and admin events in parallel
-    const [djIrlShows, djRadioShows, curatorRecs, adminEvents] = await Promise.all([
-      Promise.resolve(extractIRLShows(djUserDocs)),
+    // Extract DJ radio shows, curator recs, and events in parallel
+    const [djRadioShows, curatorRecs, irlShows] = await Promise.all([
       Promise.resolve(extractDJRadioShows(djUserDocs)),
       extractCuratorRecs(djUserDocs),
       extractAdminEvents(),
     ]);
-
-    // Merge DJ IRL shows and admin events, deduplicate by event name + location
-    const mergedIrl = [...djIrlShows, ...adminEvents];
-    mergedIrl.sort((a, b) => a.date.localeCompare(b.date));
-    const irlSeen = new Set<string>();
-    const irlShows: IRLShowData[] = [];
-    for (const show of mergedIrl) {
-      const key = `${show.eventName.toLowerCase()}-${show.location.toLowerCase()}-${show.date}`;
-      if (!irlSeen.has(key)) {
-        irlSeen.add(key);
-        irlShows.push(show);
-      }
-    }
 
     // Merge DJ radio shows into the main shows array
     const allShows = [...shows, ...djRadioShows];
