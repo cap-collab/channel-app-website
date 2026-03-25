@@ -86,14 +86,14 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                     <div key={index}>
                       <button
                         onClick={() => {
-                          console.log('[MobileMenu] My Favorites clicked!');
+                          console.log('[MobileMenu] My Watchlist clicked!');
                           setIsOpen(false);
                           window.location.href = "/my-shows";
                         }}
                         className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                         style={{ pointerEvents: 'auto' }}
                       >
-                        My Favorites
+                        My Watchlist
                       </button>
                       <button
                         onClick={() => {

@@ -14,7 +14,7 @@ interface WhoNotToMissProps {
   stations: Map<string, Station>;
   isAuthenticated: boolean;
   onAuthRequired: (show: Show) => void;
-  excludedShowIds?: Set<string>; // Shows already displayed in My Favorites or Local DJs sections
+  excludedShowIds?: Set<string>; // Shows already displayed in My Watchlist or Local DJs sections
   featuredDJNames?: string[]; // DJ names already featured (first position) in earlier sections - avoid featuring them first here
   selectedGenre: string; // Selected genre from Tuner bar
 }
