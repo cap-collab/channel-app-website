@@ -247,6 +247,11 @@ interface IrlShow {
   url?: string;
   venue?: string; // legacy field
   date: string;
+  imageUrl?: string;
+  venueId?: string;
+  venueName?: string;
+  linkedCollectives?: { collectiveId: string; collectiveName: string }[];
+  djs?: { djName: string; djUserId?: string; djUsername?: string; djPhotoUrl?: string }[];
 }
 
 interface RadioShow {
@@ -955,6 +960,43 @@ export function DJPublicProfileClient({ username }: Props) {
             }
           }
         });
+        // Also include legacy inline irlShows (from djProfile) as ChannelEvents
+        const inlineShows = djProfile?.djProfile?.irlShows || [];
+        for (const show of inlineShows) {
+          if (!show.date && !show.name) continue;
+          const showDate = show.date ? new Date(show.date + "T00:00:00").getTime() : 0;
+          // Skip if an event with the same name+date already exists (already migrated)
+          const isDuplicate = [...upcoming, ...pastEvts].some(
+            e => e.name === (show.name || "Event") && Math.abs(e.date - showDate) < 86400000
+          );
+          if (isDuplicate) continue;
+          const inlineEvent: ChannelEvent = {
+            id: `inline-${show.name}-${show.date}`,
+            name: show.name || "Event",
+            slug: "",
+            date: showDate,
+            photo: show.imageUrl || null,
+            description: null,
+            venueId: show.venueId || null,
+            venueName: show.venueName || show.venue || null,
+            collectiveId: null,
+            collectiveName: null,
+            djs: [],
+            linkedVenues: show.venueId ? [{ venueId: show.venueId, venueName: show.venueName || "" }] : [],
+            linkedCollectives: [],
+            genres: [],
+            location: show.location || null,
+            ticketLink: show.url || null,
+            createdAt: Date.now(),
+            createdBy: "",
+          };
+          if (showDate >= now) {
+            upcoming.push(inlineEvent);
+          } else {
+            pastEvts.push(inlineEvent);
+          }
+        }
+
         upcoming.sort((a, b) => a.date - b.date);
         pastEvts.sort((a, b) => b.date - a.date);
         setDjUpcomingEvents(upcoming);

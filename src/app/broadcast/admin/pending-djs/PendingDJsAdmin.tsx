@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
@@ -144,6 +144,7 @@ export function PendingDJsAdmin() {
   const [venueOptions, setVenueOptions] = useState<VenueOption[]>([]);
   const [collectiveOptions, setCollectiveOptions] = useState<CollectiveOption[]>([]);
   const [eventOptions, setEventOptions] = useState<EventOption[]>([]);
+  const [djTagOptions, setDjTagOptions] = useState<{ label: string; djName: string; djUserId?: string; djUsername?: string; djPhotoUrl?: string }[]>([]);
   const [linkedVenueIds, setLinkedVenueIds] = useState<string[]>([]);
   const [linkedCollectiveIds, setLinkedCollectiveIds] = useState<string[]>([]);
   const [linkedEventIds, setLinkedEventIds] = useState<string[]>([]);
@@ -279,6 +280,49 @@ export function PendingDJsAdmin() {
     }
   }, []);
 
+  // Fetch DJ options for tagging on IRL events
+  const fetchDjTagOptions = useCallback(async () => {
+    if (!db) return;
+    try {
+      const options: { label: string; djName: string; djUserId?: string; djUsername?: string; djPhotoUrl?: string }[] = [];
+      const seenUsernames = new Set<string>();
+
+      const pendingSnap = await getDocs(collection(db, 'pending-dj-profiles'));
+      pendingSnap.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.status !== 'pending') return;
+        const username = data.chatUsernameNormalized || '';
+        if (username) seenUsernames.add(username);
+        options.push({
+          label: data.chatUsername || data.chatUsernameNormalized || 'Unknown',
+          djName: data.chatUsername || data.chatUsernameNormalized || 'Unknown',
+          djUsername: data.chatUsernameNormalized,
+          djPhotoUrl: data.djProfile?.photoUrl || undefined,
+        });
+      });
+
+      const djQuery = query(collection(db, 'users'), where('role', 'in', ['dj', 'broadcaster', 'admin']));
+      const usersSnap = await getDocs(djQuery);
+      usersSnap.forEach((docSnap) => {
+        const data = docSnap.data();
+        const username = data.chatUsernameNormalized || '';
+        if (username && seenUsernames.has(username)) return;
+        options.push({
+          label: data.chatUsername || data.displayName || 'Unknown',
+          djName: data.chatUsername || data.displayName || 'Unknown',
+          djUserId: docSnap.id,
+          djUsername: data.chatUsernameNormalized || data.chatUsername,
+          djPhotoUrl: data.djProfile?.photoUrl || undefined,
+        });
+      });
+
+      options.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+      setDjTagOptions(options);
+    } catch (err) {
+      console.error('Error fetching DJ tag options:', err);
+    }
+  }, []);
+
   useEffect(() => {
     console.log('[pending-djs] useEffect triggered - isAuthenticated:', isAuthenticated, 'hasBroadcasterAccess:', hasBroadcasterAccess);
     if (isAuthenticated && hasBroadcasterAccess) {
@@ -287,11 +331,12 @@ export function PendingDJsAdmin() {
       fetchVenueOptions();
       fetchCollectiveOptions();
       fetchEventOptions();
+      fetchDjTagOptions();
     } else {
       console.log('[pending-djs] Conditions NOT met, not fetching');
       setLoadingProfiles(false);
     }
-  }, [isAuthenticated, hasBroadcasterAccess, fetchPendingProfiles, fetchVenueOptions, fetchCollectiveOptions, fetchEventOptions]);
+  }, [isAuthenticated, hasBroadcasterAccess, fetchPendingProfiles, fetchVenueOptions, fetchCollectiveOptions, fetchEventOptions, fetchDjTagOptions]);
 
   // Redirect to radio portal if not authenticated
   useEffect(() => {
@@ -1514,6 +1559,83 @@ Cap`;
                               </option>
                             ))}
                         </select>
+                      </div>
+                      {/* Tagged DJs */}
+                      <div>
+                        {(show.djs || []).length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-1">
+                            {(show.djs || []).map((dj, djIdx) => (
+                              <span key={djIdx} className="inline-flex items-center gap-1 bg-[#252525] rounded px-2 py-1 text-xs text-white">
+                                {dj.djName}{dj.djUsername ? ` @${dj.djUsername}` : ''}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = [...irlShows];
+                                    updated[index] = {
+                                      ...updated[index],
+                                      djs: (updated[index].djs || []).filter((_, j) => j !== djIdx),
+                                    };
+                                    setIrlShows(updated);
+                                  }}
+                                  className="text-red-400 hover:text-red-300"
+                                >
+                                  &times;
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (!val) return;
+                            const existing = show.djs || [];
+                            if (val === '__manual__') {
+                              const updated = [...irlShows];
+                              updated[index] = { ...updated[index], djs: [...existing, { djName: '' }] };
+                              setIrlShows(updated);
+                              return;
+                            }
+                            const option = djTagOptions.find(o => (o.djUsername || o.djName) === val);
+                            if (!option || existing.some(d => (d.djUsername || d.djName) === (option.djUsername || option.djName))) return;
+                            const updated = [...irlShows];
+                            updated[index] = {
+                              ...updated[index],
+                              djs: [...existing, { djName: option.djName, djUserId: option.djUserId, djUsername: option.djUsername, djPhotoUrl: option.djPhotoUrl }],
+                            };
+                            setIrlShows(updated);
+                          }}
+                          className="w-full bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-white transition-colors text-sm"
+                        >
+                          <option value="">Tag a DJ...</option>
+                          {djTagOptions
+                            .filter(o => !(show.djs || []).some(d => (d.djUsername || d.djName) === (o.djUsername || o.djName)))
+                            .map((option) => (
+                              <option key={option.djUsername || option.djName} value={option.djUsername || option.djName}>
+                                {option.label}
+                              </option>
+                            ))}
+                          <option value="__manual__">Other (type name)</option>
+                        </select>
+                        {(show.djs || []).map((dj, djIdx) => (
+                          !dj.djUsername && dj.djName === '' ? (
+                            <input
+                              key={`manual-${djIdx}`}
+                              type="text"
+                              value={dj.djName}
+                              onChange={(e) => {
+                                const updated = [...irlShows];
+                                const updatedDjs = [...(updated[index].djs || [])];
+                                updatedDjs[djIdx] = { ...updatedDjs[djIdx], djName: e.target.value };
+                                updated[index] = { ...updated[index], djs: updatedDjs };
+                                setIrlShows(updated);
+                              }}
+                              placeholder="DJ Name"
+                              className="w-full bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm mt-1"
+                            />
+                          ) : null
+                        ))}
                       </div>
                     </div>
                   ))}
