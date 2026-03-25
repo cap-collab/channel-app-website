@@ -20,6 +20,8 @@ export interface BroadcastStreamContextValue {
   // From lightweight status hook (always available)
   showName: string | null;
   djName: string | null;
+  // Whether the current DJ is eligible for tips
+  tipEligible: boolean;
   // Whether the hero sticky bar on /radio is currently visible
   heroBarVisible: boolean;
   setHeroBarVisible: (visible: boolean) => void;
@@ -28,6 +30,16 @@ export interface BroadcastStreamContextValue {
 export const BroadcastStreamContext = createContext<BroadcastStreamContextValue | null>(null);
 
 const noopFn = () => {};
+
+function isTipEligible(show: BroadcastSlotSerialized | null, currentDJ: string | null): boolean {
+  if (!show || !currentDJ) return false;
+  if (show.djSlots && show.djSlots.length > 0) {
+    const now = Date.now();
+    const slot = show.djSlots.find(s => s.startTime <= now && s.endTime > now);
+    if (slot) return !!(slot.liveDjUserId || slot.djUserId || slot.djEmail);
+  }
+  return !!(show.liveDjUserId || show.djUserId || show.djEmail);
+}
 
 /**
  * Provider that initializes useBroadcastStream only when a broadcast is live.
@@ -48,7 +60,7 @@ export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<BroadcastStreamContextValue>(() => {
     if (statusIsLive) {
-      return { ...stream, showName, djName, heroBarVisible, setHeroBarVisible: setHeroBarVisibleCb };
+      return { ...stream, showName, djName, tipEligible: isTipEligible(stream.currentShow, stream.currentDJ), heroBarVisible, setHeroBarVisible: setHeroBarVisibleCb };
     }
     return {
       isPlaying: false, isLoading: false, isLive: false,
@@ -56,6 +68,7 @@ export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
       play: noopFn, pause: noopFn, toggle: noopFn,
       listenerCount: 0, audioStream: null,
       showName: null, djName: null,
+      tipEligible: false,
       heroBarVisible: false, setHeroBarVisible: setHeroBarVisibleCb,
     };
   }, [statusIsLive, stream, showName, djName, heroBarVisible, setHeroBarVisibleCb]);

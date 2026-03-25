@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { BroadcastSlotSerialized, DJSlot } from '@/types/broadcast';
-import { TipButton } from './TipButton';
 import { normalizeUrl } from '@/lib/url';
 
 interface BroadcastScheduleProps {
@@ -80,19 +80,11 @@ interface ShowCardProps {
   isPast: boolean;
   height: number;
   top: number;
-  isAuthenticated?: boolean;
-  userId?: string;
-  username?: string;
 }
 
-function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, username }: ShowCardProps) {
-  const [expanded, setExpanded] = useState(false);
+function ShowCard({ slot, isLive, isPast, height, top }: ShowCardProps) {
+  const router = useRouter();
 
-  // Read DJ profile data - for venue DJ slots, use the djSlot's pre-configured data
-  // For regular shows, fall back to the broadcast-level live DJ fields
-  const djBio = slot.isVenueSlot && slot.djSlot
-    ? (slot.djSlot.djBio || null)
-    : (slot.originalShow.liveDjBio || null);
   const djPhotoUrl = slot.isVenueSlot && slot.djSlot
     ? (slot.djSlot.djPhotoUrl || null)
     : (slot.originalShow.liveDjPhotoUrl || null);
@@ -100,41 +92,35 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
     ? (slot.djSlot.djPromoHyperlink || slot.originalShow.showPromoHyperlink || null)
     : (slot.originalShow.showPromoHyperlink || null);
 
-  // Show tip button if ANY DJ has identity (email or userId)
-  // For B3B slots, check djProfiles array; for single DJ, check slot-level fields
-  const hasDjInfo = (() => {
-    if (slot.isVenueSlot && slot.djSlot) {
-      // B3B: check if any profile has identity
-      if (slot.djSlot.djProfiles && slot.djSlot.djProfiles.length > 0) {
-        return slot.djSlot.djProfiles.some(p => p.email || p.userId);
-      }
-      // Single DJ: check slot-level
-      return !!(slot.djSlot.djEmail || slot.djSlot.djUserId || slot.djSlot.liveDjUserId);
-    }
-    // Remote broadcast
-    return !!(slot.originalShow.djEmail || slot.originalShow.djUserId || slot.originalShow.liveDjUserId);
-  })();
+  // Get DJ profile username for navigation
+  const djProfileUsername = slot.isVenueSlot && slot.djSlot
+    ? (slot.djSlot.liveDjUsername || slot.djSlot.djUsername || null)
+    : (slot.originalShow.liveDjUsername || slot.originalShow.djUsername || null);
 
-  // Determine if there's enough room to show bio inline (height > 80px)
-  const canShowBioInline = height > 80 && djBio;
-  // Only show expand button if there's a bio but not enough room to show it inline
-  const needsExpandButton = djBio && !canShowBioInline;
+  const isRestream = slot.originalShow.broadcastType === 'restream';
+
+  const handleClick = () => {
+    if (djProfileUsername) {
+      router.push(`/dj/${djProfileUsername}`);
+    }
+  };
 
   return (
     <div
-      className={`absolute left-1 right-1 overflow-hidden transition-all bg-black border border-accent ${
-        isPast ? 'opacity-60' : ''
-      } ${expanded ? 'z-20' : ''}`}
+      onClick={handleClick}
+      className={`absolute left-1 right-1 overflow-hidden border-b border-white/10 ${
+        isRestream ? 'bg-zinc-900' : 'bg-black'
+      } ${isPast ? 'opacity-60' : ''} ${djProfileUsername ? 'cursor-pointer hover:bg-white/5' : ''}`}
       style={{
         top: `${top}px`,
         minHeight: `${height}px`,
-        height: expanded ? 'auto' : `${height}px`
+        height: `${height}px`
       }}
     >
       <div className="px-3 py-2 h-full flex flex-col">
         {/* Header row with photo */}
         <div className="flex items-start gap-2">
-          {/* DJ Photo - show on left of name */}
+          {/* DJ Photo */}
           {djPhotoUrl && (
             <div className="w-9 h-9 flex-shrink-0 relative">
               <Image
@@ -162,84 +148,22 @@ function ShowCard({ slot, isLive, isPast, height, top, isAuthenticated, userId, 
             )}
           </div>
 
-          {/* Right side: tip button + promo link + expand button */}
-          <div className="flex items-center gap-1 flex-shrink-0">
-            {/* Tip button - show if DJ info is assigned */}
-            {hasDjInfo && (
-              <div onClick={(e) => e.stopPropagation()}>
-                <TipButton
-                  isAuthenticated={isAuthenticated || false}
-                  tipperUserId={userId}
-                  tipperUsername={username}
-                  djUserId={slot.isVenueSlot && slot.djSlot
-                    ? (slot.djSlot.djUserId || slot.djSlot.liveDjUserId)
-                    : (slot.originalShow.djUserId || slot.originalShow.liveDjUserId)}
-                  djEmail={slot.isVenueSlot && slot.djSlot
-                    ? slot.djSlot.djEmail
-                    : slot.originalShow.djEmail}
-                  djUsername={slot.djName || 'DJ'}
-                  broadcastSlotId={slot.originalShow.id}
-                  showName={slot.showName}
-                  compact
-                />
-              </div>
-            )}
-
-            {/* Promo link - show only link icon */}
-            {djPromoHyperlink && (
-              <a
-                href={normalizeUrl(djPromoHyperlink)}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="text-accent hover:text-white p-1.5 bg-accent/10 transition-colors"
-                title="Open promo link"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-              </a>
-            )}
-
-            {/* Expand button - only show if bio exists but card is too small */}
-            {needsExpandButton && (
-              <button
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  setExpanded(!expanded);
-                }}
-                className="p-2 text-gray-400 hover:text-white transition-colors touch-manipulation"
-                title={expanded ? 'Collapse' : 'Show DJ info'}
-              >
-                <svg
-                  className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-            )}
-          </div>
+          {/* Promo link */}
+          {djPromoHyperlink && (
+            <a
+              href={normalizeUrl(djPromoHyperlink)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-accent hover:text-white p-1.5 bg-accent/10 transition-colors flex-shrink-0"
+              title="Open promo link"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
+          )}
         </div>
-
-        {/* Bio shown inline if there's room */}
-        {canShowBioInline && (
-          <p className="text-gray-400 text-xs mt-2 line-clamp-2 leading-relaxed">
-            {djBio}
-          </p>
-        )}
-
-        {/* Expanded content - only when expanded via button */}
-        {expanded && needsExpandButton && (
-          <div className="mt-2 pt-2 border-t border-gray-800">
-            <p className="text-gray-400 text-xs leading-relaxed">
-              {djBio}
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );

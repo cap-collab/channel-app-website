@@ -10,7 +10,10 @@ const DEMO_SHOW: BroadcastSlotSerialized = {
   showName: 'Demo Show',
   djName: 'Demo DJ',
   djUsername: 'demodj',
+  djUserId: 'demo-user-id',
+  djEmail: 'demo@channel.fm',
   liveDjUsername: 'demodj',
+  liveDjUserId: 'demo-user-id',
   liveDjPhotoUrl: undefined,
   showImageUrl: undefined,
   startTime: Date.now() - 3600000,
@@ -124,6 +127,7 @@ export function DemoBroadcastStreamProvider({ children }: { children: ReactNode 
     audioStream: null,
     showName: 'Demo Show',
     djName: 'Demo DJ',
+    tipEligible: true,
     heroBarVisible,
     setHeroBarVisible: setHeroBarVisibleCb,
   }), [isPlaying, isLoading, error, play, pause, toggle, heroBarVisible, setHeroBarVisibleCb]);
