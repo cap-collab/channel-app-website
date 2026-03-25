@@ -5,7 +5,7 @@ import { useBroadcastStream } from '@/hooks/useBroadcastStream';
 import { useBroadcastLiveStatus } from '@/hooks/useBroadcastLiveStatus';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
 
-interface BroadcastStreamContextValue {
+export interface BroadcastStreamContextValue {
   isPlaying: boolean;
   isLoading: boolean;
   isLive: boolean;
@@ -25,7 +25,7 @@ interface BroadcastStreamContextValue {
   setHeroBarVisible: (visible: boolean) => void;
 }
 
-const BroadcastStreamContext = createContext<BroadcastStreamContextValue | null>(null);
+export const BroadcastStreamContext = createContext<BroadcastStreamContextValue | null>(null);
 
 const noopFn = () => {};
 

@@ -1631,9 +1631,6 @@ export function DJPublicProfileClient({ username }: Props) {
         {/* SECTION: UPCOMING SHOWS (unified: online + IRL events) */}
         {(upcomingShows.length > 0) && (
           <section className="mb-6">
-            <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2">
-              Upcoming Shows
-            </h2>
             <div className="space-y-3">
               {upcomingShows.map((item) => {
                 if (item.feedType === "event") {
