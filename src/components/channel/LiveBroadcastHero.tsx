@@ -90,7 +90,7 @@ function HeroChatMessage({
   );
 }
 
-export function LiveBroadcastHero() {
+export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?: boolean } = {}) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername, loading: profileLoading, setChatUsername } = useUserProfile(user?.uid);
 
@@ -145,7 +145,7 @@ export function LiveBroadcastHero() {
     currentShowStartTime: currentShow?.startTime,
   });
 
-  const { shows: scheduleShows, loading: scheduleLoading, selectedDate, setSelectedDate } = useBroadcastSchedule();
+  const { shows: scheduleShows, loading: scheduleLoading, selectedDate, setSelectedDate } = useBroadcastSchedule(jumpToEarliestShow ? { jumpToEarliestShow: true } : undefined);
 
   const [activeTab, setActiveTab] = useState<'chat' | 'schedule'>('chat');
   const [heartTrigger, setHeartTrigger] = useState(0);

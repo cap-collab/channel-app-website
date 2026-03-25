@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { getFirestore, collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { getFirestore, collection, query, where, orderBy, onSnapshot, Timestamp, getDocs, limit } from 'firebase/firestore';
 import { getApps, initializeApp } from 'firebase/app';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
 
@@ -29,7 +29,7 @@ interface UseBroadcastScheduleReturn {
   setSelectedDate: (date: Date) => void;
 }
 
-export function useBroadcastSchedule(): UseBroadcastScheduleReturn {
+export function useBroadcastSchedule(options?: { jumpToEarliestShow?: boolean }): UseBroadcastScheduleReturn {
   const [shows, setShows] = useState<BroadcastSlotSerialized[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +38,7 @@ export function useBroadcastSchedule(): UseBroadcastScheduleReturn {
     now.setHours(0, 0, 0, 0);
     return now;
   });
+  const hasJumped = useRef(false);
 
   // Get start and end of selected date
   const getDateRange = useCallback((date: Date) => {
@@ -104,6 +105,29 @@ export function useBroadcastSchedule(): UseBroadcastScheduleReturn {
         setShows(filteredSlots);
         setLoading(false);
         setError(null);
+
+        // On first load with jumpToEarliestShow, if no shows today, jump to earliest upcoming show
+        if (options?.jumpToEarliestShow && !hasJumped.current && filteredSlots.length === 0) {
+          hasJumped.current = true;
+          const now = new Date();
+          const slotsCol = collection(db, 'broadcast-slots');
+          const futureQuery = query(
+            slotsCol,
+            where('startTime', '>', Timestamp.fromDate(now)),
+            orderBy('startTime', 'asc'),
+            limit(1)
+          );
+          getDocs(futureQuery).then((snap) => {
+            if (!snap.empty) {
+              const earliest = (snap.docs[0].data().startTime as Timestamp).toDate();
+              const jumpDate = new Date(earliest);
+              jumpDate.setHours(0, 0, 0, 0);
+              setSelectedDate(jumpDate);
+            }
+          }).catch(() => {});
+        } else if (filteredSlots.length > 0) {
+          hasJumped.current = true;
+        }
       },
       (err) => {
         console.error('Schedule subscription error:', err);
