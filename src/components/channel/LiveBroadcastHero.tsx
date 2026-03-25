@@ -441,7 +441,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
                 tipperUsername={chatUsername || undefined}
                 djUserId={currentDJUserId || undefined}
                 djEmail={currentDJEmail || undefined}
-                djUsername={currentDJ}
+                djUsername={currentDJ || 'DJ'}
                 broadcastSlotId={currentShow.id}
                 showName={showName}
                 className="w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors text-green-400 flex-shrink-0"
@@ -638,9 +638,6 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
               selectedDate={selectedDate}
               onDateChange={setSelectedDate}
               loading={scheduleLoading}
-              isAuthenticated={isAuthenticated}
-              userId={user?.uid}
-              username={chatUsername || undefined}
             />
           </div>
         )}

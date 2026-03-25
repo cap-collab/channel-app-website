@@ -11,9 +11,6 @@ interface BroadcastScheduleProps {
   selectedDate: Date;
   onDateChange: (date: Date) => void;
   loading: boolean;
-  isAuthenticated?: boolean;
-  userId?: string;
-  username?: string;
 }
 
 // Expanded slot for display - either a single show or a DJ slot within a venue show
@@ -174,9 +171,6 @@ export function BroadcastSchedule({
   selectedDate,
   onDateChange,
   loading,
-  isAuthenticated,
-  userId,
-  username,
 }: BroadcastScheduleProps) {
   // Get day boundaries for the selected date
   const { dayStart, dayEnd } = useMemo(() => getDayBoundaries(selectedDate), [selectedDate]);
@@ -382,9 +376,6 @@ export function BroadcastSchedule({
                     isPast={isPast}
                     height={height}
                     top={top}
-                    isAuthenticated={isAuthenticated}
-                    userId={userId}
-                    username={username}
                   />
                 );
               })}
