@@ -52,7 +52,7 @@ async function verifyDJAccess(request: NextRequest): Promise<{
 
 // POST - Create an event
 export async function POST(request: NextRequest) {
-  const { isAuthorized, userId, role, chatUsername, chatUsernameNormalized, djPhotoUrl } = await verifyDJAccess(request);
+  const { isAuthorized, userId, chatUsername, chatUsernameNormalized, djPhotoUrl } = await verifyDJAccess(request);
   if (!isAuthorized || !userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

@@ -13,7 +13,7 @@ import { AuthModal } from "@/components/AuthModal";
 import { Header } from "@/components/Header";
 import { usePendingPayout } from "@/hooks/usePendingPayout";
 import { normalizeUrl } from "@/lib/url";
-import { uploadDJPhoto, deleteDJPhoto, validatePhoto, uploadRecImage, uploadEventPhoto, deleteEventPhoto } from "@/lib/photo-upload";
+import { uploadDJPhoto, deleteDJPhoto, validatePhoto, uploadRecImage, uploadEventPhoto } from "@/lib/photo-upload";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { getStationById } from "@/lib/stations";
 
