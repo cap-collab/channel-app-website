@@ -326,6 +326,8 @@ function extractIRLShows(djUserDocs: FirestoreDoc[]): IRLShowData[] {
         location: show.location || "",
         ticketUrl: show.url,
         date: show.date,
+        eventPhotoUrl: show.imageUrl || undefined,
+        venueName: show.venueName || undefined,
       });
     }
   }

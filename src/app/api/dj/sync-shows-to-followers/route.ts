@@ -14,6 +14,10 @@ interface IrlShow {
   location: string;
   url: string;
   date: string;
+  imageUrl?: string;
+  venueId?: string;
+  venueName?: string;
+  linkedCollectives?: { collectiveId: string; collectiveName: string }[];
 }
 
 interface RadioShow {

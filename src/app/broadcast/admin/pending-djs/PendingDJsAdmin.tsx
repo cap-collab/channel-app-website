@@ -10,7 +10,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { normalizeUrl } from '@/lib/url';
-import { uploadPendingDJPhoto, deletePendingDJPhoto, validatePhoto } from '@/lib/photo-upload';
+import { uploadPendingDJPhoto, deletePendingDJPhoto, uploadIrlShowPhoto, deleteIrlShowPhoto, validatePhoto } from '@/lib/photo-upload';
 
 interface CustomLink {
   label: string;
@@ -22,6 +22,10 @@ interface IrlShow {
   location: string;
   url: string;
   date: string;
+  imageUrl?: string;
+  venueId?: string;
+  venueName?: string;
+  linkedCollectives?: { collectiveId: string; collectiveName: string }[];
 }
 
 interface RadioShow {
@@ -313,7 +317,7 @@ export function PendingDJsAdmin() {
     setResidentAdvisor('');
     setWebsite('');
     setCustomLinks([]);
-    setIrlShows([{ name: '', location: '', url: '', date: '' }, { name: '', location: '', url: '', date: '' }]);
+    setIrlShows([{ name: '', location: '', url: '', date: '', imageUrl: undefined, venueId: undefined, venueName: undefined, linkedCollectives: [] }, { name: '', location: '', url: '', date: '', imageUrl: undefined, venueId: undefined, venueName: undefined, linkedCollectives: [] }]);
     setRadioShows([{ name: '', radioName: '', url: '', date: '', time: '', timezone: '' }]);
     setBandcampRecs(['']);
     setEventRecs(['']);
@@ -350,15 +354,20 @@ export function PendingDJsAdmin() {
     setWebsite(profile.djProfile.socialLinks?.website || '');
     setCustomLinks(profile.djProfile.socialLinks?.customLinks || []);
     // IRL Shows - ensure we always have 2 fields
+    const emptyIrlShow: IrlShow = { name: '', location: '', url: '', date: '', imageUrl: undefined, venueId: undefined, venueName: undefined, linkedCollectives: [] };
     const existingIrlShows = (profile.djProfile.irlShows || []).map((s: Partial<IrlShow>) => ({
       name: s.name || '',
       location: s.location || '',
       url: s.url || '',
       date: s.date || '',
+      imageUrl: s.imageUrl || undefined,
+      venueId: s.venueId || undefined,
+      venueName: s.venueName || undefined,
+      linkedCollectives: s.linkedCollectives || [],
     }));
     setIrlShows([
-      existingIrlShows[0] || { name: '', location: '', url: '', date: '' },
-      existingIrlShows[1] || { name: '', location: '', url: '', date: '' },
+      existingIrlShows[0] || emptyIrlShow,
+      existingIrlShows[1] || emptyIrlShow,
     ]);
     // Radio Shows - ensure at least one empty field
     const existingRadioShows = (profile.djProfile.radioShows || []).map((s: Partial<RadioShow>) => ({
@@ -455,6 +464,61 @@ export function PendingDJsAdmin() {
     }
   };
 
+  // Handle IRL show photo upload
+  const [uploadingIrlShowIndex, setUploadingIrlShowIndex] = useState<number | null>(null);
+
+  const handleIrlShowPhotoChange = async (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validation = validatePhoto(file);
+    if (!validation.valid) {
+      setPhotoError(validation.error || 'Invalid file');
+      return;
+    }
+
+    const tempKey = email.trim() || djName.trim();
+    const profileId = editingProfile?.id || `temp-${tempKey.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+
+    setUploadingIrlShowIndex(index);
+    try {
+      const result = await uploadIrlShowPhoto(profileId, index, file);
+      if (!result.success) {
+        setPhotoError(result.error || 'Upload failed');
+        return;
+      }
+      const updated = [...irlShows];
+      updated[index] = { ...updated[index], imageUrl: result.url || undefined };
+      setIrlShows(updated);
+    } catch (err) {
+      console.error('Error uploading IRL show photo:', err);
+      setPhotoError('Failed to upload photo');
+    } finally {
+      setUploadingIrlShowIndex(null);
+    }
+  };
+
+  const handleRemoveIrlShowPhoto = async (index: number) => {
+    const show = irlShows[index];
+    if (!show.imageUrl) return;
+
+    const tempKey = email.trim() || djName.trim();
+    const profileId = editingProfile?.id || `temp-${tempKey.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+
+    setUploadingIrlShowIndex(index);
+    try {
+      await deleteIrlShowPhoto(profileId, show.imageUrl);
+      const updated = [...irlShows];
+      updated[index] = { ...updated[index], imageUrl: undefined };
+      setIrlShows(updated);
+    } catch (err) {
+      console.error('Error removing IRL show photo:', err);
+      setPhotoError('Failed to remove photo');
+    } finally {
+      setUploadingIrlShowIndex(null);
+    }
+  };
+
   // Handle form submission (create or update)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -504,6 +568,10 @@ export function PendingDJsAdmin() {
         location: (show.location || '').trim(),
         url: (show.url || '').trim() ? normalizeUrl((show.url || '').trim()) : '',
         date: (show.date || '').trim(),
+        imageUrl: show.imageUrl || undefined,
+        venueId: show.venueId || undefined,
+        venueName: show.venueName || undefined,
+        linkedCollectives: (show.linkedCollectives || []).length > 0 ? show.linkedCollectives : undefined,
       }));
 
       // Build radio shows data
@@ -1216,6 +1284,55 @@ Cap`;
                 <div className="space-y-3">
                   {irlShows.map((show, index) => (
                     <div key={index} className="space-y-2 p-3 bg-[#1a1a1a] rounded-lg border border-gray-800">
+                      {/* Image upload */}
+                      <div className="flex items-start gap-3">
+                        <div className="relative w-16 h-16 bg-[#252525] rounded-lg overflow-hidden flex-shrink-0">
+                          {show.imageUrl ? (
+                            <Image
+                              src={show.imageUrl}
+                              alt="Event flyer"
+                              fill
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-500">
+                              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                          )}
+                          {uploadingIrlShowIndex === index && (
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="cursor-pointer bg-[#252525] hover:bg-[#303030] border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white transition-colors inline-flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            {show.imageUrl ? 'Change' : 'Upload flyer'}
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/gif,image/webp"
+                              onChange={(e) => handleIrlShowPhotoChange(index, e)}
+                              disabled={uploadingIrlShowIndex !== null}
+                              className="hidden"
+                            />
+                          </label>
+                          {show.imageUrl && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveIrlShowPhoto(index)}
+                              disabled={uploadingIrlShowIndex !== null}
+                              className="text-red-400 hover:text-red-300 text-xs transition-colors text-left"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                      </div>
                       <div className="flex gap-2">
                         <input
                           type="text"
@@ -1261,6 +1378,97 @@ Cap`;
                         placeholder="Event URL (e.g., ra.co/events/...)"
                         className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
                       />
+                      {/* Venue selector */}
+                      <div>
+                        <select
+                          value={show.venueId || ''}
+                          onChange={(e) => {
+                            const updated = [...irlShows];
+                            const venueId = e.target.value;
+                            if (venueId) {
+                              const venue = venueOptions.find(v => v.id === venueId);
+                              updated[index] = { ...updated[index], venueId, venueName: venue?.name || '' };
+                            } else {
+                              updated[index] = { ...updated[index], venueId: undefined, venueName: undefined };
+                            }
+                            setIrlShows(updated);
+                          }}
+                          className="w-full bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-white transition-colors text-sm"
+                        >
+                          <option value="">Select a venue...</option>
+                          {venueOptions.map((venue) => (
+                            <option key={venue.id} value={venue.id}>
+                              {venue.name}
+                            </option>
+                          ))}
+                        </select>
+                        {!show.venueId && (
+                          <input
+                            type="text"
+                            value={show.venueName || ''}
+                            onChange={(e) => {
+                              const updated = [...irlShows];
+                              updated[index] = { ...updated[index], venueName: e.target.value || undefined };
+                              setIrlShows(updated);
+                            }}
+                            placeholder="Or type a venue name..."
+                            className="w-full bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm mt-1"
+                          />
+                        )}
+                      </div>
+                      {/* Linked Collectives */}
+                      <div>
+                        {(show.linkedCollectives || []).length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-1">
+                            {(show.linkedCollectives || []).map((lc) => (
+                              <span key={lc.collectiveId} className="inline-flex items-center gap-1 bg-[#252525] rounded px-2 py-1 text-xs text-white">
+                                {lc.collectiveName}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = [...irlShows];
+                                    updated[index] = {
+                                      ...updated[index],
+                                      linkedCollectives: (updated[index].linkedCollectives || []).filter(c => c.collectiveId !== lc.collectiveId),
+                                    };
+                                    setIrlShows(updated);
+                                  }}
+                                  className="text-red-400 hover:text-red-300"
+                                >
+                                  &times;
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            const cId = e.target.value;
+                            if (!cId) return;
+                            const coll = collectiveOptions.find(c => c.id === cId);
+                            if (!coll) return;
+                            const existing = show.linkedCollectives || [];
+                            if (existing.some(lc => lc.collectiveId === cId)) return;
+                            const updated = [...irlShows];
+                            updated[index] = {
+                              ...updated[index],
+                              linkedCollectives: [...existing, { collectiveId: coll.id, collectiveName: coll.name }],
+                            };
+                            setIrlShows(updated);
+                          }}
+                          className="w-full bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-white transition-colors text-sm"
+                        >
+                          <option value="">Add a collective...</option>
+                          {collectiveOptions
+                            .filter(c => !(show.linkedCollectives || []).some(lc => lc.collectiveId === c.id))
+                            .map((collective) => (
+                              <option key={collective.id} value={collective.id}>
+                                {collective.name}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
                     </div>
                   ))}
                 </div>

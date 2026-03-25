@@ -345,6 +345,68 @@ export async function deleteCollectivePhoto(collectiveId: string, photoUrl: stri
 }
 
 /**
+ * Upload an IRL show image to Firebase Storage
+ * Uses profileId + show index as path
+ */
+export async function uploadIrlShowPhoto(profileId: string, showIndex: number, file: File): Promise<UploadPhotoResult> {
+  if (!storage) {
+    return { success: false, error: 'Storage not configured' };
+  }
+
+  const validation = validatePhoto(file);
+  if (!validation.valid) {
+    return { success: false, error: validation.error };
+  }
+
+  try {
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const filename = `irl-show-${showIndex}.${ext}`;
+    const photoRef = ref(storage, `pending-dj-photos/${profileId}/${filename}`);
+
+    await uploadBytes(photoRef, file, {
+      contentType: file.type,
+      customMetadata: {
+        uploadedAt: new Date().toISOString(),
+      },
+    });
+
+    const url = await getDownloadURL(photoRef);
+    return { success: true, url };
+  } catch (error) {
+    console.error('IRL show photo upload failed:', error);
+    return { success: false, error: 'Failed to upload photo. Please try again.' };
+  }
+}
+
+/**
+ * Delete an IRL show image from Firebase Storage
+ */
+export async function deleteIrlShowPhoto(profileId: string, photoUrl: string): Promise<boolean> {
+  if (!storage) return false;
+
+  try {
+    const match = photoUrl.match(/pending-dj-photos%2F[^%]+%2F([^?]+)/);
+    let filename = 'irl-show-0.jpg';
+
+    if (match) {
+      filename = decodeURIComponent(match[1]);
+    } else {
+      const altMatch = photoUrl.match(/pending-dj-photos\/[^/]+\/([^?]+)/);
+      if (altMatch) {
+        filename = altMatch[1];
+      }
+    }
+
+    const photoRef = ref(storage, `pending-dj-photos/${profileId}/${filename}`);
+    await deleteObject(photoRef);
+    return true;
+  } catch (error) {
+    console.error('IRL show photo delete failed:', error);
+    return false;
+  }
+}
+
+/**
  * Upload an event photo to Firebase Storage
  */
 export async function uploadEventPhoto(eventId: string, file: File): Promise<UploadPhotoResult> {
