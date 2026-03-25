@@ -321,7 +321,8 @@ type ActivityFeedItem =
   | (UpcomingShow & { feedType: "radio"; feedStatus: "upcoming" | "live" })
   | (RadioShow & { feedType: "dj-radio"; feedStatus: "upcoming" | "past"; id: string })
   | (Archive & { feedType: "recording"; feedStatus: "past" })
-  | (PastShow & { feedType: "show"; feedStatus: "upcoming" | "past" });
+  | (PastShow & { feedType: "show"; feedStatus: "upcoming" | "past" })
+  | (ChannelEvent & { feedType: "event"; feedStatus: "upcoming" | "past" });
 
 // Word boundary matching for DJ/show names
 // e.g. "PAC" matches "PAC" or "Night PAC" but NOT "pace" or "space"
@@ -1263,25 +1264,31 @@ export function DJPublicProfileClient({ username }: Props) {
       }
     });
 
+    // Add IRL events from the events collection
+    djUpcomingEvents.forEach((event) => {
+      upcoming.push({ ...event, feedType: "event", feedStatus: "upcoming" });
+    });
+    djPastEvents.forEach((event) => {
+      past.push({ ...event, feedType: "event", feedStatus: "past" });
+    });
+
     // Sort upcoming by start time ascending
-    const sortUpcoming = (a: ActivityFeedItem, b: ActivityFeedItem) => {
-      const aTime = "startTime" in a ? a.startTime : ("date" in a && a.date ? new Date(a.date).getTime() : 0);
-      const bTime = "startTime" in b ? b.startTime : ("date" in b && b.date ? new Date(b.date).getTime() : 0);
-      return aTime - bTime;
+    const getItemTime = (item: ActivityFeedItem): number => {
+      if ("startTime" in item && typeof item.startTime === "number") return item.startTime;
+      if (item.feedType === "event") return item.date;
+      if ("recordedAt" in item && typeof item.recordedAt === "number") return item.recordedAt;
+      if ("date" in item && item.date) return new Date(item.date).getTime();
+      return 0;
     };
 
-    // Sort past by date descending
-    const sortPast = (a: ActivityFeedItem, b: ActivityFeedItem) => {
-      const aTime = "recordedAt" in a ? a.recordedAt : ("startTime" in a ? a.startTime : ("date" in a && a.date ? new Date(a.date).getTime() : 0));
-      const bTime = "recordedAt" in b ? b.recordedAt : ("startTime" in b ? b.startTime : ("date" in b && b.date ? new Date(b.date).getTime() : 0));
-      return bTime - aTime;
-    };
+    const sortUpcoming = (a: ActivityFeedItem, b: ActivityFeedItem) => getItemTime(a) - getItemTime(b);
+    const sortPast = (a: ActivityFeedItem, b: ActivityFeedItem) => getItemTime(b) - getItemTime(a);
 
     upcoming.sort(sortUpcoming);
     past.sort(sortPast);
 
     return { upcomingShows: upcoming, pastActivities: past };
-  }, [upcomingBroadcasts, pastRecordings, pastExternalShows, pastBroadcastShows, djProfile]);
+  }, [upcomingBroadcasts, pastRecordings, pastExternalShows, pastBroadcastShows, djProfile, djUpcomingEvents, djPastEvents]);
 
   // Create Artist Selects (recommendations)
   const artistSelects = useMemo(() => {
@@ -1621,131 +1628,122 @@ export function DJPublicProfileClient({ username }: Props) {
           /* TIMELINE TAB (default, or when no email) */
           <>
 
-        {/* SECTION: UPCOMING EVENTS (from venues/collectives/events) */}
-        {djUpcomingEvents.length > 0 && (
-          <section className="mb-6">
-            <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2">
-              Upcoming Events
-            </h2>
-            <div className="space-y-3">
-              {djUpcomingEvents.map((event) => (
-                <div
-                  key={event.id}
-                  className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors"
-                >
-                  <div className="flex items-start gap-4">
-                    {event.photo ? (
-                      <Image
-                        src={event.photo}
-                        alt={event.name}
-                        width={64}
-                        height={64}
-                        className="w-16 h-16 object-cover flex-shrink-0"
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="w-16 h-16 bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-6 h-6 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-medium mb-1">{event.name}</p>
-                      <p className="text-zinc-500 text-xs uppercase tracking-wide mb-2">
-                        {new Date(event.date).toLocaleDateString("en-US", {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                        {(event.location || event.linkedVenues?.length || event.venueName) && (
-                          <>
-                            {" "}
-                            <svg className="inline-block w-2.5 h-2.5 -mt-0.5 mr-0.5" viewBox="0 0 24 36" fill="none">
-                              <circle cx="12" cy="12" r="10" fill="#ef4444" />
-                              <line x1="12" y1="22" x2="12" y2="35" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" />
-                            </svg>
-                            {event.location}
-                            {event.linkedVenues && event.linkedVenues.length > 0
-                              ? <>{event.location && " · "}{event.linkedVenues.map((v: EventVenueRef, vi: number) => (
-                                  <span key={v.venueId}>
-                                    <Link href={`/venue/${generateSlug(v.venueName)}`} className="hover:text-white transition-colors">{v.venueName}</Link>
-                                    {vi < event.linkedVenues!.length - 1 && ", "}
-                                  </span>
-                                ))}</>
-                              : event.venueName && <>{event.location && " · "}{event.venueName}</>
-                            }
-                          </>
-                        )}
-                      </p>
-                      {(event.djs.length > 0 || (event.linkedCollectives && event.linkedCollectives.length > 0)) && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {event.djs.map((dj: EventDJRef, i: number) => (
-                            dj.djUsername ? (
-                              <Link
-                                key={`dj-${i}`}
-                                href={`/dj/${dj.djUsername}`}
-                                className="text-xs text-zinc-400 hover:text-white transition-colors"
-                              >
-                                {dj.djName}
-                                {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
-                              </Link>
-                            ) : (
-                              <span key={`dj-${i}`} className="text-xs text-zinc-400">
-                                {dj.djName}
-                                {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
-                              </span>
-                            )
-                          ))}
-                          {event.linkedCollectives?.map((coll: CollectiveRef, i: number) => (
-                            coll.collectiveSlug ? (
-                              <Link
-                                key={`coll-${coll.collectiveId}`}
-                                href={`/collective/${coll.collectiveSlug}`}
-                                className="text-xs text-zinc-400 hover:text-white transition-colors"
-                              >
-                                {coll.collectiveName}
-                                {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
-                              </Link>
-                            ) : (
-                              <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
-                                {coll.collectiveName}
-                                {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
-                              </span>
-                            )
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    {event.ticketLink && (
-                      <a
-                        href={event.ticketLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black text-xs font-medium rounded-full hover:bg-zinc-200 transition-colors flex-shrink-0"
-                      >
-                        Tickets
-                        <ExternalLinkIcon size={10} />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* SECTION: UPCOMING SHOWS */}
-        {upcomingShows.length > 0 && (
+        {/* SECTION: UPCOMING SHOWS (unified: online + IRL events) */}
+        {(upcomingShows.length > 0) && (
           <section className="mb-6">
             <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2">
               Upcoming Shows
             </h2>
-
             <div className="space-y-3">
               {upcomingShows.map((item) => {
+                if (item.feedType === "event") {
+                  const event = item as ChannelEvent & { feedType: "event"; feedStatus: "upcoming" };
+                  return (
+                    <div
+                      key={event.id}
+                      className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors"
+                    >
+                      <div className="flex items-start gap-4">
+                        {event.photo ? (
+                          <Image
+                            src={event.photo}
+                            alt={event.name}
+                            width={64}
+                            height={64}
+                            className="w-16 h-16 object-cover flex-shrink-0"
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="w-16 h-16 bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-6 h-6 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                            </svg>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-medium mb-1">{event.name}</p>
+                          <p className="text-zinc-500 text-xs uppercase tracking-wide mb-2">
+                            {new Date(event.date).toLocaleDateString("en-US", {
+                              weekday: "short",
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                            {(event.location || event.linkedVenues?.length || event.venueName) && (
+                              <>
+                                {" "}
+                                <svg className="inline-block w-2.5 h-2.5 -mt-0.5 mr-0.5" viewBox="0 0 24 36" fill="none">
+                                  <circle cx="12" cy="12" r="10" fill="#ef4444" />
+                                  <line x1="12" y1="22" x2="12" y2="35" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" />
+                                </svg>
+                                {event.location}
+                                {event.linkedVenues && event.linkedVenues.length > 0
+                                  ? <>{event.location && " · "}{event.linkedVenues.map((v: EventVenueRef, vi: number) => (
+                                      <span key={v.venueId}>
+                                        <Link href={`/venue/${generateSlug(v.venueName)}`} className="hover:text-white transition-colors">{v.venueName}</Link>
+                                        {vi < event.linkedVenues!.length - 1 && ", "}
+                                      </span>
+                                    ))}</>
+                                  : event.venueName && <>{event.location && " · "}{event.venueName}</>
+                                }
+                              </>
+                            )}
+                          </p>
+                          {(event.djs.length > 0 || (event.linkedCollectives && event.linkedCollectives.length > 0)) && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {event.djs.map((dj: EventDJRef, i: number) => (
+                                dj.djUsername ? (
+                                  <Link
+                                    key={`dj-${i}`}
+                                    href={`/dj/${dj.djUsername}`}
+                                    className="text-xs text-zinc-400 hover:text-white transition-colors"
+                                  >
+                                    {dj.djName}
+                                    {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
+                                  </Link>
+                                ) : (
+                                  <span key={`dj-${i}`} className="text-xs text-zinc-400">
+                                    {dj.djName}
+                                    {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
+                                  </span>
+                                )
+                              ))}
+                              {event.linkedCollectives?.map((coll: CollectiveRef, i: number) => (
+                                coll.collectiveSlug ? (
+                                  <Link
+                                    key={`coll-${coll.collectiveId}`}
+                                    href={`/collective/${coll.collectiveSlug}`}
+                                    className="text-xs text-zinc-400 hover:text-white transition-colors"
+                                  >
+                                    {coll.collectiveName}
+                                    {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
+                                  </Link>
+                                ) : (
+                                  <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
+                                    {coll.collectiveName}
+                                    {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
+                                  </span>
+                                )
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        {event.ticketLink && (
+                          <a
+                            href={event.ticketLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black text-xs font-medium rounded-full hover:bg-zinc-200 transition-colors flex-shrink-0"
+                          >
+                            Tickets
+                            <ExternalLinkIcon size={10} />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
                 if (item.feedType === "radio") {
                   const broadcast = item as UpcomingShow & { feedType: "radio"; feedStatus: "upcoming" };
                   const showAsShow = upcomingShowToShow(broadcast);
@@ -1971,111 +1969,6 @@ export function DJPublicProfileClient({ username }: Props) {
           </section>
         )}
 
-        {/* SECTION: PAST EVENTS */}
-        {djPastEvents.length > 0 && (
-          <section className="mb-6">
-            <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2">
-              Past Events
-            </h2>
-            <div className="space-y-3">
-              {djPastEvents.map((event) => (
-                <div
-                  key={event.id}
-                  className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors"
-                >
-                  <div className="flex items-start gap-4">
-                    {event.photo ? (
-                      <Image
-                        src={event.photo}
-                        alt={event.name}
-                        width={64}
-                        height={64}
-                        className="w-16 h-16 object-cover flex-shrink-0"
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="w-16 h-16 bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-6 h-6 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-medium mb-1">{event.name}</p>
-                      <p className="text-zinc-500 text-xs uppercase tracking-wide mb-2">
-                        {new Date(event.date).toLocaleDateString("en-US", {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                        {(event.location || event.linkedVenues?.length || event.venueName) && (
-                          <>
-                            {" "}
-                            <svg className="inline-block w-2.5 h-2.5 -mt-0.5 mr-0.5" viewBox="0 0 24 36" fill="none">
-                              <circle cx="12" cy="12" r="10" fill="#ef4444" />
-                              <line x1="12" y1="22" x2="12" y2="35" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" />
-                            </svg>
-                            {event.location}
-                            {event.linkedVenues && event.linkedVenues.length > 0
-                              ? <>{event.location && " · "}{event.linkedVenues.map((v: EventVenueRef, vi: number) => (
-                                  <span key={v.venueId}>
-                                    <Link href={`/venue/${generateSlug(v.venueName)}`} className="hover:text-white transition-colors">{v.venueName}</Link>
-                                    {vi < event.linkedVenues!.length - 1 && ", "}
-                                  </span>
-                                ))}</>
-                              : event.venueName && <>{event.location && " · "}{event.venueName}</>
-                            }
-                          </>
-                        )}
-                      </p>
-                      {(event.djs.length > 0 || (event.linkedCollectives && event.linkedCollectives.length > 0)) && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {event.djs.map((dj: EventDJRef, i: number) => (
-                            dj.djUsername ? (
-                              <Link
-                                key={`dj-${i}`}
-                                href={`/dj/${dj.djUsername}`}
-                                className="text-xs text-zinc-400 hover:text-white transition-colors"
-                              >
-                                {dj.djName}
-                                {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
-                              </Link>
-                            ) : (
-                              <span key={`dj-${i}`} className="text-xs text-zinc-400">
-                                {dj.djName}
-                                {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
-                              </span>
-                            )
-                          ))}
-                          {event.linkedCollectives?.map((coll: CollectiveRef, i: number) => (
-                            coll.collectiveSlug ? (
-                              <Link
-                                key={`coll-${coll.collectiveId}`}
-                                href={`/collective/${coll.collectiveSlug}`}
-                                className="text-xs text-zinc-400 hover:text-white transition-colors"
-                              >
-                                {coll.collectiveName}
-                                {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
-                              </Link>
-                            ) : (
-                              <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
-                                {coll.collectiveName}
-                                {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
-                              </span>
-                            )
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
         {/* SECTION: PAST ACTIVITIES */}
         {pastActivities.length > 0 && (
           <section className="mb-6">
@@ -2085,6 +1978,26 @@ export function DJPublicProfileClient({ username }: Props) {
 
             <div className="space-y-3">
               {pastActivities.map((item) => {
+                if (item.feedType === "event") {
+                  const event = item as ChannelEvent & { feedType: "event"; feedStatus: "past" };
+                  return (
+                    <div key={event.id} className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 opacity-60">
+                      <div className="flex items-start gap-4">
+                        {event.photo && (
+                          <Image src={event.photo} alt={event.name} width={48} height={48} className="w-12 h-12 object-cover flex-shrink-0" unoptimized />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-medium mb-1">{event.name}</p>
+                          <p className="text-zinc-500 text-xs">
+                            {new Date(event.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            {event.location && ` · ${event.location}`}
+                            {event.venueName && ` · ${event.venueName}`}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
                 if (item.feedType === "dj-radio") {
                   const radioShow = item as RadioShow & { feedType: "dj-radio"; feedStatus: "past"; id: string };
                   return (
