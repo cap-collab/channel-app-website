@@ -9,8 +9,8 @@ export type AudioInputMethod = 'system' | 'device' | 'rtmp';
 // - missed: slot time passed without ever going live
 export type BroadcastSlotStatus = 'scheduled' | 'live' | 'paused' | 'completed' | 'missed';
 
-// Broadcast type - venue uses permanent URL, remote gets unique token, recording is self-service
-export type BroadcastType = 'venue' | 'remote' | 'recording';
+// Broadcast type - venue uses permanent URL, remote gets unique token, recording is self-service, restream plays archived content
+export type BroadcastType = 'venue' | 'remote' | 'recording' | 'restream';
 
 // Individual DJ profile for B3B scenarios (multiple DJs sharing one slot)
 export interface DJProfileInfo {
@@ -123,6 +123,10 @@ export interface BroadcastSlot {
   roomName?: string;            // Custom room name for recordings (not shared channel-radio)
   // Tagged DJs for venue recordings (other DJs playing alongside the recorder)
   taggedDJs?: TaggedDJ[];
+  // Restream fields (when broadcastType === 'restream')
+  archiveId?: string;             // Firestore doc ID of the archive being restreamed
+  archiveRecordingUrl?: string;   // Cached MP4 URL from the archive
+  archiveDuration?: number;       // Duration in seconds
 }
 
 // Serialized version for API responses (timestamps as numbers)
@@ -171,6 +175,10 @@ export interface BroadcastSlotSerialized {
   roomName?: string;            // Custom room name for recordings
   // Tagged DJs for venue recordings (other DJs playing alongside the recorder)
   taggedDJs?: TaggedDJ[];
+  // Restream fields (when broadcastType === 'restream')
+  archiveId?: string;             // Firestore doc ID of the archive being restreamed
+  archiveRecordingUrl?: string;   // Cached MP4 URL from the archive
+  archiveDuration?: number;       // Duration in seconds
 }
 
 // Recording status type

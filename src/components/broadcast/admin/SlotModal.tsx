@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { BroadcastSlotSerialized, BroadcastType, DJSlot, DJProfileInfo, Recording } from '@/types/broadcast';
+import { BroadcastSlotSerialized, BroadcastType, DJSlot, DJProfileInfo, Recording, Archive } from '@/types/broadcast';
 import { uploadShowImage, validatePhoto } from '@/lib/photo-upload';
+
+type SlotModalTab = 'new-show' | 'archives';
 
 interface SlotModalProps {
   slot?: BroadcastSlotSerialized | null;
@@ -18,6 +20,10 @@ interface SlotModalProps {
     endTime: number;
     broadcastType: BroadcastType;
     showImageUrl?: string;
+    // Restream fields
+    archiveId?: string;
+    archiveRecordingUrl?: string;
+    archiveDuration?: number;
   }) => Promise<void>;
   onDelete?: (slotId: string) => Promise<void>;
   initialStartTime?: Date;
@@ -274,6 +280,13 @@ export function SlotModal({
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  // Archive/restream tab state
+  const [modalTab, setModalTab] = useState<SlotModalTab>('new-show');
+  const [archives, setArchives] = useState<Archive[]>([]);
+  const [archivesLoaded, setArchivesLoaded] = useState(false);
+  const [archiveSearchQuery, setArchiveSearchQuery] = useState('');
+  const [archiveDateFilter, setArchiveDateFilter] = useState('');
+  const [selectedArchive, setSelectedArchive] = useState<Archive | null>(null);
 
   const isEditing = !!slot;
 
@@ -424,6 +437,47 @@ export function SlotModal({
     }));
   };
 
+  // Fetch archives when archives tab is first opened
+  const fetchArchives = async () => {
+    if (archivesLoaded) return;
+    try {
+      const res = await fetch('/api/archives');
+      const data = await res.json();
+      if (data.archives) {
+        setArchives(data.archives);
+      }
+      setArchivesLoaded(true);
+    } catch (error) {
+      console.error('Failed to fetch archives:', error);
+    }
+  };
+
+  // Filter archives by search query and date
+  const filteredArchives = archives.filter(archive => {
+    const matchesSearch = !archiveSearchQuery ||
+      archive.djs.some(dj => dj.name.toLowerCase().includes(archiveSearchQuery.toLowerCase())) ||
+      archive.showName.toLowerCase().includes(archiveSearchQuery.toLowerCase());
+    const matchesDate = !archiveDateFilter ||
+      new Date(archive.recordedAt).toISOString().split('T')[0] === archiveDateFilter;
+    return matchesSearch && matchesDate;
+  });
+
+  // Handle archive selection — auto-set end time based on duration
+  const handleSelectArchive = (archive: Archive) => {
+    setSelectedArchive(archive);
+    setShowName(archive.showName);
+    setDjName(archive.djs[0]?.name || '');
+    setShowImageUrl(archive.showImageUrl);
+    // Auto-set end time based on archive duration
+    if (startDate && startTime) {
+      const startTs = new Date(`${startDate}T${startTime}`).getTime();
+      const endTs = startTs + archive.duration * 1000;
+      const endDt = new Date(endTs);
+      setEndDate(`${endDt.getFullYear()}-${(endDt.getMonth() + 1).toString().padStart(2, '0')}-${endDt.getDate().toString().padStart(2, '0')}`);
+      setEndTime(snapToHalfHour(`${endDt.getHours().toString().padStart(2, '0')}:${endDt.getMinutes().toString().padStart(2, '0')}`));
+    }
+  };
+
   // Check if this is an overnight show
   const isOvernight = startDate && endDate && endDate > startDate;
 
@@ -438,7 +492,14 @@ export function SlotModal({
   // Initialize form when modal opens
   useEffect(() => {
     if (isOpen) {
+      // Reset archive state
+      setArchiveSearchQuery('');
+      setArchiveDateFilter('');
+      setSelectedArchive(null);
+
       if (slot) {
+        // Default to archives tab when editing a restream
+        setModalTab(slot.broadcastType === 'restream' ? 'archives' : 'new-show');
         // Editing existing slot
         const start = new Date(slot.startTime);
         const end = new Date(slot.endTime);
@@ -524,6 +585,7 @@ export function SlotModal({
         setRemoteProfileFound(false);
       } else if (initialStartTime && initialEndTime) {
         // Creating new slot from calendar drag
+        setModalTab('new-show');
         setShowName('');
         setDjName('');
         setDjEmail('');
@@ -626,11 +688,11 @@ export function SlotModal({
   };
 
   const handleSave = async () => {
-    console.log('[SlotModal] handleSave called with:', { showName, startDate, endDate, startTime, endTime, broadcastType, djSlotsCount: djSlots.length });
-    if (!showName || !startDate || !endDate || !startTime || !endTime) {
-      console.log('[SlotModal] Validation failed:', { showName: !showName, startDate: !startDate, endDate: !endDate, startTime: !startTime, endTime: !endTime });
-      return;
-    }
+    console.log('[SlotModal] handleSave called with:', { showName, startDate, endDate, startTime, endTime, broadcastType, modalTab, djSlotsCount: djSlots.length });
+    // For archives tab, require selected archive instead of show name
+    if (modalTab === 'archives' && !selectedArchive) return;
+    if (modalTab === 'new-show' && !showName) return;
+    if (!startDate || !endDate || !startTime || !endTime) return;
 
     setIsSaving(true);
     try {
@@ -686,16 +748,25 @@ export function SlotModal({
           })
         : undefined;
 
-      await onSave({
+      // Build save data — include restream fields when on archives tab
+      const saveData: Parameters<typeof onSave>[0] = {
         showName,
-        djName: broadcastType === 'remote' ? (djName || undefined) : undefined,
-        djEmail: djEmail || undefined,  // Same for both venue and remote
+        djName: modalTab === 'archives' ? (selectedArchive?.djs[0]?.name || djName || undefined) : (broadcastType === 'remote' ? (djName || undefined) : undefined),
+        djEmail: modalTab === 'archives' ? (selectedArchive?.djs[0]?.email || undefined) : (djEmail || undefined),
         djSlots: convertedDjSlots,
         startTime: startDateTime,
         endTime: endDateTime,
-        broadcastType,
+        broadcastType: modalTab === 'archives' ? 'restream' : broadcastType,
         showImageUrl,
-      });
+      };
+
+      if (modalTab === 'archives' && selectedArchive) {
+        saveData.archiveId = selectedArchive.id;
+        saveData.archiveRecordingUrl = selectedArchive.recordingUrl;
+        saveData.archiveDuration = selectedArchive.duration;
+      }
+
+      await onSave(saveData);
       onClose();
     } catch (error) {
       console.error('Failed to save slot:', error);
@@ -966,7 +1037,7 @@ Cap`;
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-800 sticky top-0 bg-[#252525] z-10">
           <h2 className="text-lg font-semibold text-white">
-            {isEditing ? 'Edit Show' : 'New Show'}
+            {isEditing ? 'Edit Show' : modalTab === 'archives' ? 'Schedule Restream' : 'New Show'}
           </h2>
           <button
             onClick={onClose}
@@ -978,10 +1049,136 @@ Cap`;
           </button>
         </div>
 
+        {/* Tab bar — show when creating new, or editing a restream */}
+        {(!isEditing || slot?.broadcastType === 'restream') && (
+          <div className="flex border-b border-gray-800">
+            <button
+              type="button"
+              onClick={() => setModalTab('new-show')}
+              className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors ${
+                modalTab === 'new-show'
+                  ? 'text-white border-b-2 border-accent'
+                  : 'text-gray-400 hover:text-gray-300'
+              }`}
+            >
+              New Show
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setModalTab('archives');
+                fetchArchives();
+              }}
+              className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors ${
+                modalTab === 'archives'
+                  ? 'text-white border-b-2 border-purple-500'
+                  : 'text-gray-400 hover:text-gray-300'
+              }`}
+            >
+              Archives
+            </button>
+          </div>
+        )}
+
         {/* Content */}
         <div className="p-4 space-y-4">
+          {/* Archive search panel (archives tab) */}
+          {modalTab === 'archives' && (
+            <div className="space-y-3">
+              {selectedArchive ? (
+                /* Selected archive summary */
+                <div className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      {selectedArchive.showImageUrl && (
+                        <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                          <Image
+                            src={selectedArchive.showImageUrl}
+                            alt={selectedArchive.showName}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-white font-medium text-sm">{selectedArchive.showName}</p>
+                        <p className="text-gray-400 text-xs">
+                          {selectedArchive.djs.map(d => d.name).join(', ')} &middot;{' '}
+                          {new Date(selectedArchive.recordedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} &middot;{' '}
+                          {Math.floor(selectedArchive.duration / 3600)}h{Math.floor((selectedArchive.duration % 3600) / 60).toString().padStart(2, '0')}m
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedArchive(null)}
+                      className="text-xs text-purple-400 hover:text-purple-300"
+                    >
+                      Change
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Archive search */
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      value={archiveSearchQuery}
+                      onChange={(e) => setArchiveSearchQuery(e.target.value)}
+                      placeholder="Search by DJ or show name..."
+                      className="bg-black text-white border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+                    />
+                    <input
+                      type="date"
+                      value={archiveDateFilter}
+                      onChange={(e) => setArchiveDateFilter(e.target.value)}
+                      className="bg-black text-white border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+                    />
+                  </div>
+                  <div className="max-h-60 overflow-y-auto space-y-1">
+                    {!archivesLoaded ? (
+                      <p className="text-gray-500 text-sm text-center py-4">Loading archives...</p>
+                    ) : filteredArchives.length === 0 ? (
+                      <p className="text-gray-500 text-sm text-center py-4">No archives found</p>
+                    ) : (
+                      filteredArchives.map(archive => (
+                        <button
+                          key={archive.id}
+                          type="button"
+                          onClick={() => handleSelectArchive(archive)}
+                          className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors text-left"
+                        >
+                          {archive.showImageUrl ? (
+                            <div className="relative w-10 h-10 rounded overflow-hidden flex-shrink-0">
+                              <Image src={archive.showImageUrl} alt="" fill className="object-cover" />
+                            </div>
+                          ) : (
+                            <div className="w-10 h-10 rounded bg-gray-800 flex items-center justify-center flex-shrink-0">
+                              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                              </svg>
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm font-medium truncate">{archive.showName}</p>
+                            <p className="text-gray-400 text-xs truncate">
+                              {archive.djs.map(d => d.name).join(', ')} &middot;{' '}
+                              {new Date(archive.recordedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} &middot;{' '}
+                              {Math.floor(archive.duration / 60)}min
+                            </p>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           {/* Broadcast link (for existing slots) */}
-          {isEditing && (
+          {isEditing && modalTab === 'new-show' && (
             <div className="bg-black rounded-lg p-3">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-gray-400">Broadcast Link</span>
@@ -1016,7 +1213,8 @@ Cap`;
             </div>
           )}
 
-          {/* Show Name (REQUIRED) */}
+          {/* Show Name + Image — only for new-show tab */}
+          {modalTab === 'new-show' && <>
           <div>
             <label className="block text-sm text-gray-400 mb-1">Show Name *</label>
             <input
@@ -1104,6 +1302,7 @@ Cap`;
               </div>
             </div>
           </div>
+          </>}
 
           {/* Date & Time */}
           <div className="space-y-3">
@@ -1171,7 +1370,8 @@ Cap`;
             )}
           </div>
 
-          {/* Broadcast Type */}
+          {/* Broadcast Type and DJ info — only for new-show tab */}
+          {modalTab === 'new-show' && <>
           <div>
             <label className="block text-sm text-gray-400 mb-2">Broadcast Location</label>
             <div className="flex gap-3">
@@ -1490,6 +1690,7 @@ Cap`;
               )}
             </div>
           )}
+          </>}
         </div>
 
         {/* Footer */}
@@ -1515,10 +1716,12 @@ Cap`;
             </button>
             <button
               onClick={handleSave}
-              disabled={isSaving || !showName || !startDate || !endDate || !startTime || !endTime}
-              className="px-4 py-2 bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors"
+              disabled={isSaving || !startDate || !endDate || !startTime || !endTime || (modalTab === 'archives' ? !selectedArchive : !showName)}
+              className={`px-4 py-2 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors ${
+                modalTab === 'archives' ? 'bg-purple-600 hover:bg-purple-500' : 'bg-accent hover:bg-accent-hover'
+              }`}
             >
-              {isSaving ? 'Saving...' : isEditing ? 'Save Changes' : 'Create Show'}
+              {isSaving ? 'Saving...' : isEditing ? 'Save Changes' : modalTab === 'archives' ? 'Schedule Restream' : 'Create Show'}
             </button>
           </div>
         </div>

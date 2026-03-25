@@ -32,7 +32,7 @@ interface DJProfileSetupProps {
   defaultPromoText?: string;
   defaultPromoHyperlink?: string;
   defaultThankYouMessage?: string;
-  broadcastType?: 'venue' | 'remote' | 'recording';
+  broadcastType?: 'venue' | 'remote' | 'recording' | 'restream';
   isVenueRecording?: boolean;  // For recordings made at a venue (shows venue-specific terms)
   onComplete: (username: string, promoText?: string, promoHyperlink?: string, thankYouMessage?: string) => void;
 }

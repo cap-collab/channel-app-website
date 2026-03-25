@@ -177,6 +177,10 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
             liveDjPromoHyperlink: data.liveDjPromoHyperlink,
             showPromoText: data.showPromoText,
             showPromoHyperlink: data.showPromoHyperlink,
+            // Restream fields
+            archiveId: data.archiveId,
+            archiveRecordingUrl: data.archiveRecordingUrl,
+            archiveDuration: data.archiveDuration,
           };
           setCurrentShow(slot);
 
@@ -323,6 +327,46 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
     audioElementRef.current.setAttribute('webkit-playsinline', 'true');
     // Enable CORS for captureStream to work
     audioElementRef.current.crossOrigin = 'anonymous';
+
+    // Restream: play archive MP4 directly with time-offset sync
+    if (currentShow?.broadcastType === 'restream' && currentShow.archiveRecordingUrl) {
+      console.log('🎵 Playing restream archive:', currentShow.archiveRecordingUrl);
+      try {
+        audioElementRef.current.src = currentShow.archiveRecordingUrl;
+        await audioElementRef.current.play();
+
+        // Seek to the correct offset so all listeners hear roughly the same point
+        const offset = (Date.now() - currentShow.startTime) / 1000;
+        if (offset > 0 && offset < (currentShow.archiveDuration || Infinity)) {
+          audioElementRef.current.currentTime = offset;
+        }
+
+        // Capture stream for visualization
+        try {
+          const stream = (audioElementRef.current as HTMLAudioElement & { captureStream?: () => MediaStream }).captureStream?.();
+          if (stream) setAudioStream(stream);
+        } catch { /* ignore */ }
+
+        setIsPlaying(true);
+        setIsLoading(false);
+
+        // Register presence
+        const sessionId = getSessionId();
+        if (sessionId) {
+          ensureAuthAndExecute(() => {
+            const db = getDatabase(getFirebaseApp());
+            const presenceRef = ref(db, `presence/broadcast/${sessionId}`);
+            onDisconnect(presenceRef).remove();
+            set(presenceRef, true);
+          });
+        }
+      } catch (err) {
+        console.error('🎵 Restream play error:', err);
+        setError('Failed to play restream');
+        setIsLoading(false);
+      }
+      return;
+    }
 
     // Helper to capture audio stream from element for visualization
     const captureAudioStream = () => {
@@ -499,7 +543,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
       setError('Failed to connect to stream');
       setIsLoading(false);
     }
-  }, [isLive, handleTrackSubscribed, handleTrackUnsubscribed]);
+  }, [isLive, currentShow, handleTrackSubscribed, handleTrackUnsubscribed]);
 
   const pause = useCallback(() => {
     // Clean up WebRTC

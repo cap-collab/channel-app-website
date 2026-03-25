@@ -63,6 +63,10 @@ function serializeSlot(docId: string, data: Record<string, unknown>): BroadcastS
     recordingUrl: data.recordingUrl as string | undefined,
     recordingStatus: data.recordingStatus as BroadcastSlotSerialized['recordingStatus'],
     recordingDuration: data.recordingDuration as number | undefined,
+    // Restream fields
+    archiveId: data.archiveId as string | undefined,
+    archiveRecordingUrl: data.archiveRecordingUrl as string | undefined,
+    archiveDuration: data.archiveDuration as number | undefined,
   };
 }
 
@@ -95,6 +99,10 @@ export async function createSlot(data: {
   createdBy: string;
   broadcastType?: BroadcastType;
   showImageUrl?: string;
+  // Restream fields
+  archiveId?: string;
+  archiveRecordingUrl?: string;
+  archiveDuration?: number;
 }): Promise<{ slot: BroadcastSlotSerialized; broadcastUrl: string }> {
   if (!db) throw new Error('Firestore not initialized');
 
@@ -166,6 +174,12 @@ export async function createSlot(data: {
     liveDjBio: liveDjBio || null,
     liveDjPhotoUrl: liveDjPhotoUrl || null,
     showImageUrl: data.showImageUrl || null,
+    // Restream fields
+    ...(broadcastType === 'restream' && {
+      archiveId: data.archiveId || null,
+      archiveRecordingUrl: data.archiveRecordingUrl || null,
+      archiveDuration: data.archiveDuration || null,
+    }),
   };
 
   const docRef = await addDoc(collection(db, COLLECTION), slotData);
@@ -190,6 +204,10 @@ export async function createSlot(data: {
     liveDjBio: liveDjBio || undefined,
     liveDjPhotoUrl: liveDjPhotoUrl || undefined,
     showImageUrl: data.showImageUrl,
+    // Restream fields
+    archiveId: data.archiveId,
+    archiveRecordingUrl: data.archiveRecordingUrl,
+    archiveDuration: data.archiveDuration,
   };
 
   // All slots use token URLs
@@ -209,6 +227,10 @@ export async function updateSlot(
     startTime: number;
     endTime: number;
     showImageUrl: string;
+    // Restream fields
+    archiveId: string;
+    archiveRecordingUrl: string;
+    archiveDuration: number;
   }>
 ): Promise<void> {
   if (!db) throw new Error('Firestore not initialized');
@@ -256,6 +278,11 @@ export async function updateSlot(
   if (updates.showImageUrl !== undefined) {
     updateData.showImageUrl = updates.showImageUrl || null;
   }
+
+  // Restream fields
+  if (updates.archiveId !== undefined) updateData.archiveId = updates.archiveId || null;
+  if (updates.archiveRecordingUrl !== undefined) updateData.archiveRecordingUrl = updates.archiveRecordingUrl || null;
+  if (updates.archiveDuration !== undefined) updateData.archiveDuration = updates.archiveDuration || null;
 
   await updateDoc(doc(db, COLLECTION, slotId), updateData);
 }

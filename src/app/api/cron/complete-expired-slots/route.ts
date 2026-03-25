@@ -32,11 +32,34 @@ export async function GET(request: NextRequest) {
     let completedCount = 0;
     let missedCount = 0;
     let disconnectedCount = 0;
+    let restreamActivatedCount = 0;
 
     // Initialize LiveKit client if configured
     const roomService = (livekitHost && apiKey && apiSecret)
       ? new RoomServiceClient(livekitHost, apiKey, apiSecret)
       : null;
+
+    // Auto-activate scheduled restreams whose start time has arrived
+    const restreamSnapshot = await db
+      .collection('broadcast-slots')
+      .where('status', '==', 'scheduled')
+      .where('broadcastType', '==', 'restream')
+      .get();
+
+    for (const restreamDoc of restreamSnapshot.docs) {
+      try {
+        const slot = restreamDoc.data();
+        const startTime = slot.startTime?.toMillis?.() || slot.startTime;
+        const endTime = slot.endTime?.toMillis?.() || slot.endTime;
+        if (startTime && now >= startTime && now < endTime) {
+          await restreamDoc.ref.update({ status: 'live' });
+          restreamActivatedCount++;
+          console.log(`Restream slot ${restreamDoc.id} activated (set to live)`);
+        }
+      } catch (err) {
+        console.error(`Error activating restream ${restreamDoc.id}:`, err);
+      }
+    }
 
     // Query all slots that are still live, paused, or scheduled
     // We'll check their end times in memory
@@ -95,6 +118,7 @@ export async function GET(request: NextRequest) {
       completed: completedCount,
       missed: missedCount,
       disconnected: disconnectedCount,
+      restreamActivated: restreamActivatedCount,
       totalProcessed: completedCount + missedCount,
     });
   } catch (error) {

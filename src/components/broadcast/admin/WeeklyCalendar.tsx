@@ -346,10 +346,12 @@ export function WeeklyCalendar({
     const isLive = slot.status === 'live';
     const isPast = new Date(slot.endTime) < new Date();
     const isRemote = slot.broadcastType === 'remote';
+    const isRestream = slot.broadcastType === 'restream';
 
     const getSlotColors = () => {
       if (isLive) return 'bg-red-600 border-2 border-red-400';
       if (isPast) return 'bg-gray-600 opacity-60';
+      if (isRestream) return 'bg-purple-600 hover:bg-purple-500';
       if (isRemote) return 'bg-blue-600 hover:bg-blue-500';
       return 'bg-accent hover:bg-accent-hover'; // venue slots
     };
@@ -583,6 +585,10 @@ export function WeeklyCalendar({
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded bg-blue-600"></div>
               <span className="text-gray-400">Remote</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded bg-purple-600"></div>
+              <span className="text-gray-400">Restream</span>
             </div>
           </div>
           <div className="text-sm text-gray-500">|</div>

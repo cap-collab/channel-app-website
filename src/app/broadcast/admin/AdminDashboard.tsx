@@ -125,6 +125,10 @@ export function AdminDashboard() {
     endTime: number;
     broadcastType: BroadcastType;
     showImageUrl?: string;
+    // Restream fields
+    archiveId?: string;
+    archiveRecordingUrl?: string;
+    archiveDuration?: number;
   }) => {
     if (!user) return;
 
@@ -149,6 +153,9 @@ export function AdminDashboard() {
           startTime: data.startTime,
           endTime: data.endTime,
           showImageUrl: data.showImageUrl,
+          archiveId: data.archiveId,
+          archiveRecordingUrl: data.archiveRecordingUrl,
+          archiveDuration: data.archiveDuration,
         });
       }
     } else {

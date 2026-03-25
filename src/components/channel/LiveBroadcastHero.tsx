@@ -293,14 +293,16 @@ export function LiveBroadcastHero() {
     <section id="live" className="relative z-10 px-4 pt-6 pb-2">
       <div className="max-w-2xl mx-auto">
 
-        {/* Live indicator — same style as LiveShowCard */}
+        {/* Live / Restream indicator — same style as LiveShowCard */}
         <div className="flex items-center justify-end mb-1 h-4 px-0.5">
           <div className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${currentShow?.broadcastType === 'restream' ? 'bg-purple-400' : 'bg-red-400'} opacity-75`} />
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${currentShow?.broadcastType === 'restream' ? 'bg-purple-600' : 'bg-red-600'}`} />
             </span>
-            <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">Live</span>
+            <span className={`text-[10px] font-mono uppercase tracking-tighter font-bold ${currentShow?.broadcastType === 'restream' ? 'text-purple-500' : 'text-red-500'}`}>
+              {currentShow?.broadcastType === 'restream' ? 'Restream' : 'Live'}
+            </span>
             {broadcastBPM && (
               <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter">
                 {broadcastBPM} BPM
