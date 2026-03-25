@@ -106,6 +106,8 @@ export function getMetadataKeyByStationId(stationId: string): string | undefined
 }
 
 const STATION_LOGOS: Record<string, string> = {
+  "broadcast": "/stations/channel-logo.png",
+  "dj-radio": "/stations/channel-logo.png",
   "nts-1": "/stations/nts-logo.png",
   "nts-2": "/stations/nts-logo.png",
   "rinse-fm": "/stations/rinsefm-logo.png",
