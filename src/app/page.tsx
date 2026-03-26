@@ -44,28 +44,14 @@ export default function Home() {
             Bringing DJs, producers, and dancers closer together.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-stretch">
             <Link
               href="/radio"
-              className="inline-block bg-white text-black px-10 py-4 rounded text-lg font-semibold hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(255,255,255,0.15)] transition-all"
+              className="inline-flex items-center justify-center bg-white text-black px-10 py-4 rounded text-lg font-semibold hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(255,255,255,0.15)] transition-all"
             >
               Open Channel Radio
             </Link>
-            <Link
-              href="/radio#scene"
-              className="inline-block bg-transparent text-white border border-white px-10 py-4 rounded text-lg font-semibold hover:-translate-y-0.5 hover:bg-white hover:text-black transition-all"
-            >
-              Explore the scene
-            </Link>
-          </div>
-        </div>
-
-        {/* Email signup — just above scroll arrow */}
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 w-full max-w-3xl px-6">
-          <div className="flex justify-center">
-            <div className="w-full sm:w-auto">
-              <EmailSignup />
-            </div>
+            <EmailSignup />
           </div>
         </div>
 
