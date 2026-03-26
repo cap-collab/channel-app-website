@@ -30,7 +30,7 @@ export function DemoBroadcastStreamProvider({ children }: { children: ReactNode 
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [heroBarVisible, setHeroBarVisible] = useState(false);
+  const [heroBarVisible, setHeroBarVisible] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Clean up audio on unmount
