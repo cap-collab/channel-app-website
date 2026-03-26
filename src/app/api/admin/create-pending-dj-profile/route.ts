@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb, getAdminAuth } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { cleanupFavoritesForPendingDJ } from '@/lib/favorites-cleanup';
 
 // Check if user is admin/broadcaster
 async function verifyAdminAccess(request: NextRequest): Promise<{ isAdmin: boolean; userId?: string }> {
@@ -438,6 +439,19 @@ export async function DELETE(request: NextRequest) {
       } catch (err) {
         console.error('[create-pending-dj-profile] Failed to delete username (non-fatal):', err);
       }
+    }
+
+    // Clean up IRL favorites for this DJ's shows (fire and forget)
+    const djUsername = profileData?.chatUsername || profileData?.chatUsernameNormalized || '';
+    const irlShows = (profileData?.djProfile?.irlShows || []) as Array<{ date: string; location?: string; name?: string }>;
+    if (djUsername && irlShows.length > 0) {
+      cleanupFavoritesForPendingDJ(djUsername, irlShows)
+        .then(count => {
+          if (count > 0) console.log(`[create-pending-dj-profile] Cleaned up ${count} IRL favorites for "${djUsername}"`);
+        })
+        .catch(err => {
+          console.error('[create-pending-dj-profile] Error cleaning up IRL favorites:', err);
+        });
     }
 
     console.log(`[create-pending-dj-profile] Deleted pending profile ${profileId}`);

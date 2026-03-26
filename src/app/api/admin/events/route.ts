@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb, getAdminAuth } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { generateSlug } from '@/lib/slug';
-import { cleanupFavoritesForShowName } from '@/lib/favorites-cleanup';
+import { cleanupFavoritesForShowName, cleanupFavoritesForIRLEvent } from '@/lib/favorites-cleanup';
 import {
   syncEventToVenues,
   syncEventToCollectives,
@@ -280,10 +280,25 @@ export async function DELETE(request: NextRequest) {
     if (eventData?.name) {
       cleanupFavoritesForShowName(eventData.name as string)
         .then(count => {
-          if (count > 0) console.log(`[events DELETE] Cleaned up ${count} favorites for "${eventData.name}"`);
+          if (count > 0) console.log(`[events DELETE] Cleaned up ${count} show favorites for "${eventData.name}"`);
         })
         .catch(err => {
-          console.error('[events DELETE] Error cleaning up favorites:', err);
+          console.error('[events DELETE] Error cleaning up show favorites:', err);
+        });
+    }
+
+    // Clean up IRL favorites for this event (fire and forget)
+    if (eventData?.location && eventData?.date) {
+      const firstDJ = eventData.djs?.[0];
+      const djUsername = firstDJ?.djUsername || '';
+      const dateObj = new Date(eventData.date);
+      const dateStr = dateObj.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+      cleanupFavoritesForIRLEvent(djUsername, dateStr, eventData.location as string)
+        .then(count => {
+          if (count > 0) console.log(`[events DELETE] Cleaned up ${count} IRL favorites for "${eventData.name}"`);
+        })
+        .catch(err => {
+          console.error('[events DELETE] Error cleaning up IRL favorites:', err);
         });
     }
 
