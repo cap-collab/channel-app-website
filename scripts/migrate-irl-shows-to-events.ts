@@ -77,7 +77,7 @@ async function migrateUserIrlShows(existingSlugs: Set<string>) {
 
     for (const show of validShows) {
       const name = (show.name || 'Event').trim();
-      const dateMs = show.date ? new Date(show.date + 'T00:00:00').getTime() : Date.now();
+      const dateMs = show.date ? new Date(show.date + 'T12:00:00Z').getTime() : Date.now();
 
       // Generate unique slug
       let baseSlug = generateSlug(name);
@@ -165,7 +165,7 @@ async function migratePendingDjIrlShows(existingSlugs: Set<string>) {
 
     for (const show of validShows) {
       const name = (show.name || 'Event').trim();
-      const dateMs = show.date ? new Date(show.date + 'T00:00:00').getTime() : Date.now();
+      const dateMs = show.date ? new Date(show.date + 'T12:00:00Z').getTime() : Date.now();
 
       let baseSlug = generateSlug(name);
       if (!baseSlug) baseSlug = 'event';

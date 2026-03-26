@@ -965,7 +965,7 @@ export function DJPublicProfileClient({ username }: Props) {
         const inlineShows = djProfile?.djProfile?.irlShows || [];
         for (const show of inlineShows) {
           if (!show.date && !show.name) continue;
-          const showDate = show.date ? new Date(show.date + "T00:00:00").getTime() : 0;
+          const showDate = show.date ? new Date(show.date + "T12:00:00Z").getTime() : 0;
           // Skip if an event with the same name+date already exists (already migrated)
           const isDuplicate = [...upcoming, ...pastEvts].some(
             e => e.name === (show.name || "Event") && Math.abs(e.date - showDate) < 86400000

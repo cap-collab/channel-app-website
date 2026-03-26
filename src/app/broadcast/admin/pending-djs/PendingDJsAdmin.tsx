@@ -768,7 +768,7 @@ export function PendingDJsAdmin() {
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({
               name: show.name || 'Event',
-              date: show.date ? new Date(show.date + 'T00:00:00').getTime() : Date.now(),
+              date: show.date ? new Date(show.date + 'T12:00:00Z').getTime() : Date.now(),
               location: show.location || null,
               ticketLink: show.url || null,
               photo: show.imageUrl || null,
@@ -832,7 +832,7 @@ export function PendingDJsAdmin() {
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({
               name: show.name || 'Event',
-              date: show.date ? new Date(show.date + 'T00:00:00').getTime() : Date.now(),
+              date: show.date ? new Date(show.date + 'T12:00:00Z').getTime() : Date.now(),
               location: show.location || null,
               ticketLink: show.url || null,
               photo: show.imageUrl || null,

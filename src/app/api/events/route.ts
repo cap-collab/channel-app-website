@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     let dateMs: number = Date.now();
     if (date) {
       if (typeof date === 'string') {
-        dateMs = new Date(date + 'T00:00:00').getTime();
+        dateMs = new Date(date + 'T12:00:00Z').getTime();
         if (isNaN(dateMs)) {
           return NextResponse.json({ error: 'Invalid date format' }, { status: 400 });
         }
@@ -252,7 +252,7 @@ export async function PATCH(request: NextRequest) {
     let dateMs: number | undefined;
     if (date !== undefined) {
       if (typeof date === 'string') {
-        dateMs = new Date(date + 'T00:00:00').getTime();
+        dateMs = new Date(date + 'T12:00:00Z').getTime();
         if (isNaN(dateMs)) {
           return NextResponse.json({ error: 'Invalid date format' }, { status: 400 });
         }
