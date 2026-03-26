@@ -4,7 +4,6 @@ import { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { BroadcastSlotSerialized, DJSlot } from '@/types/broadcast';
-import { normalizeUrl } from '@/lib/url';
 
 interface BroadcastScheduleProps {
   shows: BroadcastSlotSerialized[];
@@ -111,10 +110,6 @@ function ShowCard({ slot, isLive, isPast, height, top }: ShowCardProps) {
     setPhotoError(false);
   }, [photoUrl]);
 
-  const djPromoHyperlink = slot.isVenueSlot && slot.djSlot
-    ? (slot.djSlot.djPromoHyperlink || slot.originalShow.showPromoHyperlink || null)
-    : (slot.originalShow.showPromoHyperlink || null);
-
   const isRestream = slot.originalShow.broadcastType === 'restream';
 
   const content = (
@@ -161,21 +156,26 @@ function ShowCard({ slot, isLive, isPast, height, top }: ShowCardProps) {
             )}
           </div>
 
-          {/* Promo link */}
-          {djPromoHyperlink && (
-            <a
-              href={normalizeUrl(djPromoHyperlink)}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="text-accent hover:text-white p-1.5 bg-accent/10 transition-colors flex-shrink-0"
-              title="Open promo link"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          {/* Show type indicator — top right */}
+          <div className="flex-shrink-0 mt-0.5">
+            {isRestream ? (
+              <svg
+                className="w-3 h-3"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#6b7280"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                title="Restream"
+              >
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
               </svg>
-            </a>
-          )}
+            ) : (
+              <span className="w-2 h-2 bg-red-600 rounded-full block" title="Live" />
+            )}
+          </div>
         </div>
       </div>
     </div>
