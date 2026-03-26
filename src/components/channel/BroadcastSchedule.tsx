@@ -93,21 +93,23 @@ function ShowCard({ slot, isLive, isPast, height, top }: ShowCardProps) {
     ? djProfileUsername.replace(/[\s-]+/g, '').toLowerCase()
     : null;
 
-  // Use dj-photo API to get photo by DJ name — works for both confirmed users and pending profiles
+  // Show image priority: show image > archive image > DJ photo (via API)
+  const showImageUrl = slot.originalShow.showImageUrl || null;
   const djNameForPhoto = slot.djName || djProfileUsername;
-  const photoApiUrl = djNameForPhoto
+  const djPhotoApiUrl = djNameForPhoto
     ? `/api/dj-photo/${encodeURIComponent(djNameForPhoto.replace(/[\s-]+/g, '').toLowerCase())}`
     : null;
+  const photoUrl = showImageUrl || djPhotoApiUrl;
 
   // Track photo load state — hide if 404 or error
   const [photoLoaded, setPhotoLoaded] = useState(false);
   const [photoError, setPhotoError] = useState(false);
 
-  // Reset photo state when DJ changes
+  // Reset photo state when source changes
   useEffect(() => {
     setPhotoLoaded(false);
     setPhotoError(false);
-  }, [photoApiUrl]);
+  }, [photoUrl]);
 
   const djPromoHyperlink = slot.isVenueSlot && slot.djSlot
     ? (slot.djSlot.djPromoHyperlink || slot.originalShow.showPromoHyperlink || null)
@@ -128,11 +130,11 @@ function ShowCard({ slot, isLive, isPast, height, top }: ShowCardProps) {
     >
       <div className="px-3 py-2 h-full flex flex-col">
         <div className="flex items-start gap-2">
-          {/* DJ Photo via API (works for pending profiles too) */}
-          {photoApiUrl && !photoError && (
+          {/* Show image or DJ photo */}
+          {photoUrl && !photoError && (
             <div className={`w-9 h-9 flex-shrink-0 relative ${photoLoaded ? '' : 'bg-white/5'}`}>
               <Image
-                src={photoApiUrl}
+                src={photoUrl}
                 alt={slot.djName || 'DJ'}
                 fill
                 sizes="36px"

@@ -186,7 +186,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
   }, [setHeroBarVisible]);
 
   // DJ info from current show
-  const djPhotoUrl = currentShow?.liveDjPhotoUrl || currentShow?.showImageUrl || null;
+  const djPhotoUrl = currentShow?.showImageUrl || currentShow?.liveDjPhotoUrl || null;
   const showName = currentShow?.showName || 'Live Now';
   const djName = currentDJ || currentShow?.djName || null;
   const hasPhoto = djPhotoUrl && !imageError;
