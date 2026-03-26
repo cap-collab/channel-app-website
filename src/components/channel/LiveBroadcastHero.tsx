@@ -481,7 +481,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
               )}
             </div>
             {activeTab === 'chat' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
             )}
           </button>
           <button
@@ -492,7 +492,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
           >
             Schedule
             {activeTab === 'schedule' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
             )}
           </button>
         </div>
