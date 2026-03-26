@@ -1040,14 +1040,6 @@ export function DJPublicProfileClient({ username }: Props) {
   };
 
   // Format date for activity feed
-  const formatFeedDate = (timestamp: number | string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    }).toUpperCase();
-  };
-
   // Convert UpcomingShow to Show type for favorites compatibility
   const upcomingShowToShow = (show: UpcomingShow): Show => ({
     id: show.id,
@@ -2294,10 +2286,9 @@ export function DJPublicProfileClient({ username }: Props) {
                   const isToggling = togglingFavoriteId === pastShow.id;
                   const stationAccentColor = getStationById(pastShow.stationId)?.accentColor;
 
-                  // Format date and time for header
+                  // Format date for header
                   const showDate = new Date(pastShow.startTime);
                   const dateStr = showDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                  const timeStr = showDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 
                   return (
                     <div

@@ -9,8 +9,7 @@ import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { db } from "@/lib/firebase";
 import { Collective, CollectiveRef, Event, EventDJRef, EventVenueRef, CollectiveVenueRef } from "@/types/events";
 import { useSchedule } from "@/contexts/ScheduleContext";
-import { getStationById, getMetadataKeyByStationId } from "@/lib/stations";
-import { useBPM } from "@/contexts/BPMContext";
+import { getStationById } from "@/lib/stations";
 import { generateSlug } from "@/lib/slug";
 
 // Icon components
@@ -60,8 +59,6 @@ export function CollectivePublicPage({ slug }: Props) {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const { shows: allShows } = useSchedule();
-  const { stationBPM } = useBPM();
-
   // Fetch collective by slug
   useEffect(() => {
     async function fetchCollective() {
