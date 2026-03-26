@@ -33,9 +33,10 @@ export function Header({ currentPage = "home", position = "fixed", showSearch = 
       items.push({ label: "Home", href: "/radio", active: currentPage === "channel" });
     }
 
-    // DJ Studio link - only show when not signed in (signed-in users have it in the auth section)
+    // Links only shown when signed out (signed-in users have Studio in the auth section)
     if (!isAuthenticated) {
       items.push({ label: "Studio", href: "/studio/join", active: currentPage === "studio" || currentPage === "dj-portal" });
+      items.push({ label: "About", href: "/#get-involved" });
     }
 
     // Always show auth option in menu
