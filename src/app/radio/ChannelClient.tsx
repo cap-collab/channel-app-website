@@ -389,6 +389,11 @@ export function ChannelClient() {
       return a.startMs - b.startMs;
     });
     const s0: MatchedItem[] = s0Candidates.map(c => c.item);
+    // Append followed DJ profile cards at the end of the watchlist
+    for (const profile of djProfiles) {
+      if (!isInWatchlist(profile.displayName) && !isInWatchlist(profile.username)) continue;
+      s0.push({ type: 'profile', data: profile, matchLabel: undefined });
+    }
 
     // Section 1: Location + Genre (grid, max 4) — sorted by match count > sortGroup > time > isChannelUser
     // Only show when a specific city is selected (not "Anywhere")
@@ -417,8 +422,9 @@ export function ChannelClient() {
         const item = makeRadioItem(show, label, live || undefined);
         if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), startMs: new Date(show.startTime).getTime(), sortGroup: live ? 0 : 3, isChannelUser: show.isChannelUser ?? false });
       }
-      // DJ profiles matching city + genre
+      // DJ profiles matching city + genre (skip already-followed)
       for (const profile of djProfiles) {
+        if (isInWatchlist(profile.displayName) || isInWatchlist(profile.username)) continue;
         if (!profile.location || !matchesCity(profile.location, selectedCity)) continue;
         if (!matchesAnyGenre(profile.genres)) continue;
         const id = `profile-${profile.username}`;
@@ -462,8 +468,9 @@ export function ChannelClient() {
         const item = makeRadioItem(show, genreLabelFor(show.djGenres), live || undefined);
         if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), startMs: new Date(show.startTime).getTime(), sortGroup: live ? 0 : 3, isChannelUser: show.isChannelUser ?? false });
       }
-      // DJ profiles matching genre
+      // DJ profiles matching genre (skip already-followed)
       for (const profile of djProfiles) {
+        if (isInWatchlist(profile.displayName) || isInWatchlist(profile.username)) continue;
         if (!matchesAnyGenre(profile.genres)) continue;
         const id = `profile-${profile.username}`;
         const genreLabel = genreLabelFor(profile.genres);
