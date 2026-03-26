@@ -58,9 +58,14 @@ export default function Home() {
               Explore the scene
             </Link>
           </div>
+        </div>
 
-          <div className="mt-8">
-            <EmailSignup />
+        {/* Email signup — just above scroll arrow */}
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 w-full max-w-3xl px-6">
+          <div className="flex justify-center">
+            <div className="w-full sm:w-auto">
+              <EmailSignup />
+            </div>
           </div>
         </div>
 

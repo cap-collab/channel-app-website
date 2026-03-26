@@ -52,7 +52,7 @@ export function EmailSignup({ placeholder = 'Get email updates' }: { placeholder
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="bg-white/10 border border-white/20 rounded-l px-4 py-3 text-white placeholder-gray-300 text-sm focus:outline-none focus:border-white/40 min-w-0 flex-1 sm:w-80 max-w-sm"
+          className="bg-white/10 border border-white/20 rounded-l px-4 py-3 text-white placeholder-gray-300 text-sm focus:outline-none focus:border-white/40 min-w-0 flex-1"
         />
         <button
           type="submit"
