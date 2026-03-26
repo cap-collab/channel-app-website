@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useSchedule } from '@/contexts/ScheduleContext';
 import { Header } from '@/components/Header';
