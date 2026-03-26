@@ -199,7 +199,7 @@ export function MyShowsCard({
             onClick={onRemove}
             disabled={isRemoving}
             className="p-0.5 transition-colors disabled:opacity-50 hover:opacity-70"
-            style={{ color: showType === 'irl' ? '#22c55e' : accentColor }}
+            style={{ color: '#ffffff' }}
             aria-label="Remove from favorites"
           >
             {isRemoving ? (
