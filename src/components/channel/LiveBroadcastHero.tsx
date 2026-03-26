@@ -313,7 +313,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
 
         {/* DJ Image — 16:9 with overlays, same as LiveShowCard */}
         {djProfileUsername ? (
-          <Link href={`/dj/${djProfileUsername}`} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
+          <Link href={`/dj/${djProfileUsername}`} className="block relative w-full aspect-[16/9] lg:aspect-[5/2] overflow-hidden border border-white/10">
             {hasPhoto ? (
               <>
                 <Image
@@ -343,7 +343,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
             )}
           </Link>
         ) : (
-          <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10">
+          <div className="relative w-full aspect-[16/9] lg:aspect-[5/2] overflow-hidden border border-white/10">
             {hasPhoto ? (
               <>
                 <Image
@@ -494,7 +494,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
 
         {/* Tab Content */}
         {activeTab === 'chat' ? (
-          <div className="flex flex-col h-[30vh] lg:h-[35vh]">
+          <div className="flex flex-col h-[30vh] lg:h-[25vh]">
             {/* Promo bar */}
             {promoToShow && promoToShow.username && (() => {
               const hasHyperlink = !!promoToShow.hyperlink;
@@ -627,7 +627,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
             )}
           </div>
         ) : (
-          <div className="py-4 overflow-y-auto h-[30vh] lg:h-[35vh]">
+          <div className="py-4 overflow-y-auto h-[30vh] lg:h-[25vh]">
             <BroadcastSchedule
               shows={scheduleShows}
               selectedDate={selectedDate}
