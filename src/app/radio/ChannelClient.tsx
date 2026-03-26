@@ -787,9 +787,9 @@ export function ChannelClient() {
       ) : (
         <section className="px-4 md:px-8 py-16 md:py-24 text-center relative z-10">
           <div className="max-w-2xl mx-auto">
-            <h1 className="text-3xl md:text-5xl font-bold mb-4">Channel Radio</h1>
-            <p className="text-lg md:text-xl text-gray-300 mb-3">Launching soon.</p>
-            <p className="text-gray-400 leading-relaxed mb-10 max-w-lg mx-auto">
+            <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter leading-none mb-4">Channel Radio</h1>
+            <p className="text-lg md:text-xl text-zinc-300 mb-3">Launching soon.</p>
+            <p className="text-zinc-400 leading-relaxed mb-10 max-w-lg mx-auto">
               We are currently inviting DJs, labels, venues, and collectives from the LA scene to host the first shows.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -834,7 +834,7 @@ export function ChannelClient() {
       {mounted && !isBroadcastLive && favoritesNowLive.length > 0 && (
         <section className="px-4 md:px-8 pt-4 pb-6 relative z-10">
           <div className="max-w-7xl mx-auto">
-            <h2 className="text-2xl md:text-3xl font-bold mb-3">On your watchlist</h2>
+            <h2 className="text-2xl md:text-3xl font-black mb-3">On your watchlist</h2>
             <SwipeableCardCarousel>
               {favoritesNowLive.map((item, index) => renderCard(item, index, true))}
             </SwipeableCardCarousel>
@@ -845,8 +845,8 @@ export function ChannelClient() {
       {/* Meanwhile in the Scene */}
       <section className="px-4 md:px-8 pb-4 relative z-10">
         <div className="max-w-7xl mx-auto">
-          <h2 className="text-2xl md:text-3xl font-bold mb-2">Meanwhile in the scene</h2>
-          <p className="text-gray-400 mb-6">Upcoming shows from selectors in your community</p>
+          <h2 className="text-2xl md:text-3xl font-black mb-2">Meanwhile in the scene</h2>
+          <p className="text-zinc-400 mb-6">Upcoming shows from selectors in your community</p>
           <div className="flex flex-col sm:flex-row gap-3 mb-4">
             <div className="flex-1 max-w-md">
               <HeaderSearch onAuthRequired={() => setShowAuthModal(true)} />

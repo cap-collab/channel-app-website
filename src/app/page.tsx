@@ -35,11 +35,11 @@ export default function Home() {
       {/* Hero Section */}
       <section className="min-h-screen flex flex-col justify-center items-center px-6 pt-24 pb-20 relative bg-[#1a1a1a]">
         <div className="max-w-3xl text-center">
-          <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-white mb-6 uppercase tracking-tighter leading-none">
             Radio for the electronic music community, curated in LA.
           </h1>
 
-          <p className="text-lg md:text-xl text-gray-400 mb-12 max-w-xl mx-auto leading-relaxed">
+          <p className="text-lg md:text-xl text-zinc-400 mb-12 max-w-xl mx-auto leading-relaxed">
             Bringing DJs, producers, and dancers closer together.
           </p>
 
@@ -95,10 +95,10 @@ export default function Home() {
             <div className="flex flex-col md:flex-row md:divide-x divide-gray-800">
               {/* Curated */}
               <div className="flex-1 py-8 md:py-0 md:px-8 first:md:pl-0 last:md:pr-0 border-b md:border-b-0 border-gray-800 last:border-b-0 flex flex-col items-center">
-                <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 text-center">
+                <h2 className="text-xl md:text-2xl font-bold text-white mb-4 text-center">
                   Curated
                 </h2>
-                <p className="text-gray-400 leading-relaxed text-center text-sm mb-8">
+                <p className="text-zinc-400 leading-relaxed text-center text-sm mb-8">
                   Channel is built around collectives and people most active in
                   their communities, not surfaced by an algorithm. Discovery
                   here is intentional, rooted in trust, taste, and local
@@ -117,10 +117,10 @@ export default function Home() {
 
               {/* Independent */}
               <div className="flex-1 py-8 md:py-0 md:px-8 first:md:pl-0 last:md:pr-0 border-b md:border-b-0 border-gray-800 last:border-b-0 flex flex-col items-center">
-                <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 text-center">
+                <h2 className="text-xl md:text-2xl font-bold text-white mb-4 text-center">
                   Independent
                 </h2>
-                <p className="text-gray-400 leading-relaxed text-center text-sm mb-8">
+                <p className="text-zinc-400 leading-relaxed text-center text-sm mb-8">
                   When someone you follow hosts a show or goes live, you hear
                   about it directly. You can support them through tips and
                   connect with others in the room through chat. No ads. No
@@ -139,10 +139,10 @@ export default function Home() {
 
               {/* Collaborative */}
               <div className="flex-1 py-8 md:py-0 md:px-8 first:md:pl-0 last:md:pr-0 border-b md:border-b-0 border-gray-800 last:border-b-0 flex flex-col items-center">
-                <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 text-center">
+                <h2 className="text-xl md:text-2xl font-bold text-white mb-4 text-center">
                   Collective
                 </h2>
-                <p className="text-gray-400 leading-relaxed text-center text-sm mb-8">
+                <p className="text-zinc-400 leading-relaxed text-center text-sm mb-8">
                   Culture is collective. DJs, producers, venues, promoters,
                   listeners, and dancers shape it together. Channel reflects
                   that. Curators host shows, share the music they care about,
@@ -167,7 +167,7 @@ export default function Home() {
       <section className="py-24 px-6 bg-[#1a1a1a]">
         <ScrollReveal>
           <div className="max-w-3xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-12 text-center">
+            <h2 className="text-3xl md:text-4xl font-black text-white mb-12 text-center">
               About / FAQs
             </h2>
             <FAQAccordion items={faqItems} />
@@ -179,11 +179,11 @@ export default function Home() {
       <section id="get-involved" className="py-24 px-6 bg-black">
         <ScrollReveal>
           <div className="max-w-3xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-8 text-center">
+            <h2 className="text-3xl md:text-4xl font-black text-white mb-8 text-center">
               Get Involved
             </h2>
 
-            <div className="space-y-6 text-gray-400 leading-relaxed">
+            <div className="space-y-6 text-zinc-400 leading-relaxed">
               <p>
                 My name is Cap. I&apos;m building Channel out of love for DJ culture and the communities that make it so special.
               </p>
@@ -221,10 +221,10 @@ export default function Home() {
       <footer className="py-24 px-6 bg-[#1a1a1a]">
         <div className="max-w-3xl mx-auto text-center">
           <ScrollReveal>
-            <h3 className="text-2xl md:text-3xl font-semibold text-white mb-4">
+            <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">
               Still have questions?
             </h3>
-            <p className="text-gray-400 mb-10">
+            <p className="text-zinc-400 mb-10">
               Email us anytime:{" "}
               <a
                 href="mailto:info@channel-app.com"
