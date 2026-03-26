@@ -34,7 +34,7 @@ type MatchedItem =
   | { type: 'radio'; data: Show; station: Station; matchLabel: string | undefined; live?: boolean }
   | { type: 'profile'; data: DJProfile; matchLabel: string | undefined };
 
-export function ChannelClient() {
+export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
   const { user, isAuthenticated } = useAuthContext();
   const { isLive: isBroadcastLive } = useBroadcastStreamContext();
   const { stationBPM } = useBPM();
@@ -796,7 +796,7 @@ export function ChannelClient() {
       </div>
 
       {/* Hero Section — Live Broadcast or Launching Soon */}
-      {mounted && isBroadcastLive ? (
+      {skipHero ? null : mounted && isBroadcastLive ? (
         <LiveBroadcastHero />
       ) : (
         <section className="px-4 md:px-8 py-16 md:py-24 text-center relative z-10">

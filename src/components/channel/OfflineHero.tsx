@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, FormEvent } from 'react';
+import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useDJProfileChat } from '@/hooks/useDJProfileChat';
@@ -8,7 +9,6 @@ import { useBroadcastSchedule } from '@/hooks/useBroadcastSchedule';
 import { BroadcastSchedule } from '@/components/channel/BroadcastSchedule';
 import { AuthModal } from '@/components/AuthModal';
 import { HeroChatMessage } from '@/components/channel/LiveBroadcastHero';
-import { addDoc, collection, getFirestore } from 'firebase/firestore';
 
 export function OfflineHero({ jumpToEarliestShow }: { jumpToEarliestShow?: boolean } = {}) {
   const { user, isAuthenticated } = useAuthContext();
@@ -21,8 +21,6 @@ export function OfflineHero({ jumpToEarliestShow }: { jumpToEarliestShow?: boole
   const [usernameInput, setUsernameInput] = useState('');
   const [usernameError, setUsernameError] = useState('');
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
-  const [notifyEmail, setNotifyEmail] = useState('');
-  const [notifyStatus, setNotifyStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // Chat connected to channelbroadcast room
@@ -43,23 +41,6 @@ export function OfflineHero({ jumpToEarliestShow }: { jumpToEarliestShow?: boole
       container.scrollTop = container.scrollHeight;
     }
   }, [messages]);
-
-  // Email notification
-  const handleNotifySubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!notifyEmail.trim()) return;
-    setNotifyStatus('submitting');
-    try {
-      const db = getFirestore();
-      await addDoc(collection(db, 'radioNotifyEmails'), {
-        email: notifyEmail.trim(),
-        createdAt: new Date(),
-      });
-      setNotifyStatus('success');
-    } catch {
-      setNotifyStatus('error');
-    }
-  };
 
   // Username setup
   const handleSetUsername = useCallback(async () => {
@@ -105,34 +86,12 @@ export function OfflineHero({ jumpToEarliestShow }: { jumpToEarliestShow?: boole
           <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter leading-none mb-3">Channel Radio</h1>
           <p className="text-lg text-zinc-400 mb-8">Back online soon</p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <div className="w-full sm:w-auto">
-              {notifyStatus === 'success' ? (
-                <p className="text-green-400 text-sm py-3">You&apos;re on the list!</p>
-              ) : (
-                <form onSubmit={handleNotifySubmit} className="flex">
-                  <input
-                    type="email"
-                    placeholder="get an email when Channel goes live"
-                    value={notifyEmail}
-                    onChange={(e) => setNotifyEmail(e.target.value)}
-                    required
-                    className="bg-white/10 border border-white/20 rounded-l px-4 py-3 text-white placeholder-gray-300 text-sm focus:outline-none focus:border-white/40 min-w-0 flex-1 sm:w-80"
-                  />
-                  <button
-                    type="submit"
-                    disabled={notifyStatus === 'submitting'}
-                    className="bg-white/20 border border-white/20 border-l-0 rounded-r px-4 py-3 text-white text-sm font-medium hover:bg-white/30 transition-colors disabled:opacity-50 shrink-0"
-                  >
-                    {notifyStatus === 'submitting' ? '...' : 'Submit'}
-                  </button>
-                </form>
-              )}
-              {notifyStatus === 'error' && (
-                <p className="text-red-400 text-xs mt-1">Something went wrong. Try again.</p>
-              )}
-            </div>
-          </div>
+          <Link
+            href="/explore"
+            className="inline-block bg-white text-black px-8 py-3 rounded font-semibold hover:bg-gray-200 transition-colors"
+          >
+            Explore the scene
+          </Link>
           <p className="text-zinc-500 text-sm mt-6">
             DJs, producers, collectives, reach out to{' '}
             <a href="mailto:djshows@channel-app.com" className="text-white hover:underline">djshows@channel-app.com</a>
