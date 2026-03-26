@@ -21,6 +21,18 @@ const DEFAULT_VIEW_START = 9;
 const VISIBLE_HOUR_COUNT = 9;
 const VISIBLE_HEIGHT = VISIBLE_HOUR_COUNT * HOUR_HEIGHT;
 
+// Check if a timestamp falls in nighttime hours (10 PM – 7 AM PT)
+function isNighttimePT(timestamp: number): boolean {
+  const ptHour = parseInt(
+    new Date(timestamp).toLocaleString('en-US', {
+      hour: 'numeric',
+      hour12: false,
+      timeZone: 'America/Los_Angeles',
+    })
+  );
+  return ptHour >= 22 || ptHour < 7;
+}
+
 // Hard cutoff: everything up to and including April 1st is blocked (midnight PT = 7am UTC)
 const BLOCKED_UNTIL = new Date('2026-04-02T07:00:00Z').getTime();
 
@@ -167,7 +179,7 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
 
   const isTimeUnavailable = (timestamp: number): boolean => {
     const minTime = Date.now() + 36 * 60 * 60 * 1000;
-    return timestamp < minTime || timestamp < BLOCKED_UNTIL;
+    return timestamp < minTime || timestamp < BLOCKED_UNTIL || isNighttimePT(timestamp);
   };
 
   const isSlotValid = (dayIndex: number, startHour: number): boolean => {
@@ -397,12 +409,12 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
                           key={dayIndex}
                           className={`
                             border-l border-gray-800/50 transition-colors
-                            ${blocked ? 'bg-gray-800/50 cursor-not-allowed' : ''}
-                            ${unavailable && !blocked ? 'bg-red-950/40 cursor-not-allowed' : ''}
-                            ${selected ? 'bg-green-900/40 cursor-pointer' : ''}
-                            ${inPreview && !selected ? 'bg-green-900/30 cursor-pointer' : ''}
-                            ${!blocked && !unavailable && !selected && !inPreview && canSelect ? 'hover:bg-gray-800/30 cursor-pointer' : ''}
-                            ${!blocked && !unavailable && !canSelect && !selected ? 'cursor-not-allowed' : ''}
+                            ${selected ? 'bg-green-600/40 border-l-green-700 cursor-pointer' : ''}
+                            ${inPreview && !selected ? 'bg-green-700/30 cursor-pointer' : ''}
+                            ${blocked && !selected ? 'bg-white/[0.03] cursor-not-allowed' : ''}
+                            ${unavailable && !blocked && !selected ? 'bg-white/[0.02] cursor-not-allowed' : ''}
+                            ${!blocked && !unavailable && !selected && !inPreview && canSelect ? 'bg-white/[0.08] hover:bg-green-800/30 cursor-pointer' : ''}
+                            ${!blocked && !unavailable && !canSelect && !selected && !inPreview ? 'bg-white/[0.08] cursor-not-allowed' : ''}
                           `}
                           onClick={() => handleCellClick(dayIndex, hour)}
                           onMouseEnter={() => handleCellMouseEnter(dayIndex, hour)}
@@ -420,17 +432,17 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
 
       {/* Legend */}
       <div className="px-4 py-3 bg-[#1a1a1a] border-t border-gray-800">
-        <div className="flex gap-6 text-xs text-gray-500">
+        <div className="flex flex-wrap gap-4 text-xs text-gray-400">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-gray-800/50 rounded"></div>
-            <span>Booked</span>
+            <div className="w-4 h-4 bg-white/[0.08] rounded border border-gray-700"></div>
+            <span>Available</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-red-950/40 rounded"></div>
+            <div className="w-4 h-4 bg-white/[0.02] rounded border border-gray-800"></div>
             <span>Unavailable</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-green-900/40 rounded"></div>
+            <div className="w-4 h-4 bg-green-600/40 rounded border border-green-700"></div>
             <span>Your selection</span>
           </div>
         </div>
