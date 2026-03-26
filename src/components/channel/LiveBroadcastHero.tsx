@@ -36,7 +36,7 @@ function formatTimeAgo(timestamp: number): string {
   return `${Math.floor(diff / 86400000)}d`;
 }
 
-function HeroChatMessage({
+export function HeroChatMessage({
   message,
   isOwnMessage,
   currentLiveDjUsername,
