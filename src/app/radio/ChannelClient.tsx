@@ -802,10 +802,7 @@ export function ChannelClient() {
         <section className="px-4 md:px-8 py-16 md:py-24 text-center relative z-10">
           <div className="max-w-2xl mx-auto">
             <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter leading-none mb-4">Channel Radio</h1>
-            <p className="text-lg md:text-xl text-zinc-300 mb-3">Launching soon.</p>
-            <p className="text-zinc-400 leading-relaxed mb-10 max-w-lg mx-auto">
-              We are currently inviting DJs, labels, venues, and collectives from the LA scene to host the first shows.
-            </p>
+            <p className="text-lg md:text-xl text-zinc-300 mb-8">Launching soon.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <div className="w-full sm:w-auto">
                 {notifyStatus === 'success' ? (
@@ -835,7 +832,7 @@ export function ChannelClient() {
               </div>
             </div>
             <p className="text-zinc-500 text-sm mt-6">
-              DJs, producers, collectives — reach out to{' '}
+              DJs, producers, collectives, reach out to{' '}
               <a href="mailto:djshows@channel-app.com" className="text-white hover:underline">djshows@channel-app.com</a>
               {' '}to host a show or claim your profile
             </p>

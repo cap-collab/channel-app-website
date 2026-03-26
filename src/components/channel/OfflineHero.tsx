@@ -103,7 +103,7 @@ export function OfflineHero({ jumpToEarliestShow }: { jumpToEarliestShow?: boole
         {/* Header */}
         <div className="text-center py-10 md:py-14">
           <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter leading-none mb-3">Channel Radio</h1>
-          <p className="text-lg text-zinc-400 mb-8">We&apos;ll be back online soon</p>
+          <p className="text-lg text-zinc-400 mb-8">Back online soon</p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <div className="w-full sm:w-auto">
@@ -134,7 +134,7 @@ export function OfflineHero({ jumpToEarliestShow }: { jumpToEarliestShow?: boole
             </div>
           </div>
           <p className="text-zinc-500 text-sm mt-6">
-            DJs, producers, collectives — reach out to{' '}
+            DJs, producers, collectives, reach out to{' '}
             <a href="mailto:djshows@channel-app.com" className="text-white hover:underline">djshows@channel-app.com</a>
             {' '}to host a show or claim your profile
           </p>
