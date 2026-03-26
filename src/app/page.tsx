@@ -35,7 +35,7 @@ export default function Home() {
       {/* Hero Section */}
       <section className="min-h-screen flex flex-col justify-center items-center px-6 pt-24 pb-20 relative bg-[#1a1a1a]">
         <div className="max-w-3xl text-center">
-          <h1 className="text-3xl md:text-5xl lg:text-6xl font-black text-white mb-6 uppercase tracking-tighter leading-none">
+          <h1 className="text-2xl md:text-4xl lg:text-5xl font-black text-white mb-6 uppercase tracking-tighter leading-none">
             Radio for the electronic music community, curated in LA.
           </h1>
 
