@@ -106,7 +106,7 @@ export default function Home() {
                 </p>
                 <div className="hidden md:block transform scale-[0.55] origin-top -mb-[45%]">
                   <Image
-                    src="/curated.png"
+                    src="/CuratedFilter.png"
                     alt="Curated"
                     width={300}
                     height={200}
