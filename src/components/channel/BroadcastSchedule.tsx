@@ -333,26 +333,26 @@ export function BroadcastSchedule({
   return (
     <div className="flex flex-col h-full">
       {/* Date navigation - Sticky */}
-      <div className="flex-shrink-0 sticky top-0 bg-black pb-4 z-10">
-        <div className="flex items-center gap-2">
+      <div className="flex-shrink-0 sticky top-0 bg-black pb-2 z-10">
+        <div className="flex items-center gap-1">
           <button
             onClick={goToPrevDay}
             disabled={!canGoPrev}
-            className="p-2 text-gray-400 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-1 text-gray-500 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <span className="text-white font-medium">
+          <span className="text-gray-400 text-xs">
             {isToday(selectedDate) ? 'Today' : isTomorrow(selectedDate) ? 'Tomorrow' : formatDate(selectedDate)}
           </span>
           <button
             onClick={goToNextDay}
             disabled={!canGoNext}
-            className="p-2 text-gray-400 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-1 text-gray-500 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
