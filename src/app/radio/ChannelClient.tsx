@@ -853,11 +853,11 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
       )}
 
       {/* Meanwhile in the Scene */}
-      <section className="px-4 md:px-8 pb-4 relative z-10">
+      <section className="px-4 md:px-8 pb-0 relative z-10">
         <div className="max-w-7xl mx-auto">
           <h2 className="text-2xl md:text-3xl font-semibold mb-2">Meanwhile in the scene</h2>
           <p className="text-zinc-400 mb-6">Upcoming shows from selectors in your community</p>
-          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+          <div className="flex flex-col sm:flex-row gap-3 mb-1">
             <div className="flex-1 max-w-md">
               <HeaderSearch onAuthRequired={() => setShowAuthModal(true)} />
             </div>
