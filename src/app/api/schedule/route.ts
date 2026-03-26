@@ -494,6 +494,83 @@ function extractDJRadioShows(djUserDocs: FirestoreDoc[]): Show[] {
 }
 
 // ---------------------------------------------------------------------------
+// Extract radio shows from pending DJ profiles (same logic as extractDJRadioShows)
+// ---------------------------------------------------------------------------
+
+async function extractPendingDJRadioShows(): Promise<Show[]> {
+  const adminDb = getAdminDb();
+  if (!adminDb) return [];
+
+  const radioShows: Show[] = [];
+  const today = getTodayPDT();
+
+  try {
+    const snapshot = await adminDb.collection("pending-dj-profiles").get();
+
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
+      const djProfile = data?.djProfile;
+      const chatUsername = data?.chatUsername || data?.djName;
+
+      if (!djProfile?.radioShows || !Array.isArray(djProfile.radioShows)) continue;
+
+      for (const show of djProfile.radioShows) {
+        if (!show.date) continue;
+        if (show.date < today) continue;
+
+        const showNameSlug = (show.name || "").replace(/\s+/g, "-").toLowerCase().slice(0, 20);
+        const radioNameSlug = (show.radioName || "radio").replace(/\s+/g, "-").toLowerCase();
+        const usernameSlug = chatUsername?.replace(/\s+/g, "").toLowerCase() || "pending";
+        const showId = `dj-radio-pending-${usernameSlug}-${show.date}-${radioNameSlug}-${showNameSlug}`;
+
+        const timezone = show.timezone || "America/Los_Angeles";
+        const timeStr = show.time || "12:00";
+        const [hours, minutes] = timeStr.split(":").map(Number);
+
+        const localDateTime = `${show.date}T${String(hours || 0).padStart(2, '0')}:${String(minutes || 0).padStart(2, '0')}:00`;
+        const testDate = new Date(localDateTime + "Z");
+        const localStr = testDate.toLocaleString("en-US", { timeZone: timezone, hour12: false });
+        const localMatch = localStr.match(/(\d+):(\d+):(\d+)/);
+        const localHour = localMatch ? parseInt(localMatch[1]) : hours || 0;
+
+        let offsetHours = (hours || 0) - localHour;
+        if (offsetHours > 12) offsetHours -= 24;
+        if (offsetHours < -12) offsetHours += 24;
+
+        const startTimeMs = testDate.getTime() + (offsetHours * 60 * 60 * 1000);
+        const startTime = new Date(startTimeMs).toISOString();
+        const durationHours = parseFloat(show.duration) || 1;
+        const endTime = new Date(startTimeMs + durationHours * 60 * 60 * 1000).toISOString();
+
+        const showName = show.name || (show.radioName ? `${chatUsername} on ${show.radioName}` : `${chatUsername} Radio Show`);
+
+        radioShows.push({
+          id: showId,
+          name: showName,
+          dj: chatUsername || "Unknown DJ",
+          startTime,
+          endTime,
+          stationId: "dj-radio",
+          djUsername: usernameSlug,
+          djPhotoUrl: djProfile.photoUrl || undefined,
+          djLocation: djProfile.location || undefined,
+          djGenres: djProfile.genres || undefined,
+          djEmail: data?.email || undefined,
+          description: show.url ? `Listen at: ${show.url}` : undefined,
+          imageUrl: djProfile.photoUrl || undefined,
+          isChannelUser: false,
+        });
+      }
+    }
+  } catch (error) {
+    console.error("[API /schedule] Failed to extract pending DJ radio shows:", error);
+  }
+
+  radioShows.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  return radioShows;
+}
+
+// ---------------------------------------------------------------------------
 // Fetch Open Graph metadata from a URL (title, image, description)
 // ---------------------------------------------------------------------------
 
@@ -687,16 +764,17 @@ export async function GET() {
       fetchDJUserDocs(),
     ]);
 
-    // Extract DJ radio shows, curator recs, events, and profiles in parallel
-    const [djRadioShows, curatorRecs, irlShows, djProfiles] = await Promise.all([
+    // Extract DJ radio shows, pending DJ radio shows, curator recs, events, and profiles in parallel
+    const [djRadioShows, pendingDjRadioShows, curatorRecs, irlShows, djProfiles] = await Promise.all([
       Promise.resolve(extractDJRadioShows(djUserDocs)),
+      extractPendingDJRadioShows(),
       extractCuratorRecs(djUserDocs),
       extractAdminEvents(),
       extractDJProfiles(djUserDocs),
     ]);
 
-    // Merge DJ radio shows into the main shows array
-    const allShows = [...shows, ...djRadioShows];
+    // Merge DJ radio shows (from users and pending profiles) into the main shows array
+    const allShows = [...shows, ...djRadioShows, ...pendingDjRadioShows];
 
     // Enrich shows with DJ profiles in parallel (disjoint subsets: broadcast vs non-broadcast)
     const nonBroadcastShows = allShows.filter(s => s.stationId !== 'broadcast');

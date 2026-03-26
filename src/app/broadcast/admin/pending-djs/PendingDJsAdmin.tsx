@@ -36,6 +36,7 @@ interface RadioShow {
   date: string;
   time: string;
   timezone: string;
+  duration: string;
 }
 
 interface EventDJRef {
@@ -129,7 +130,7 @@ export function PendingDJsAdmin() {
   const [irlShows, setIrlShows] = useState<IrlShow[]>([{ name: '', location: '', url: '', date: '' }, { name: '', location: '', url: '', date: '' }]);
 
   // Radio Shows state
-  const [radioShows, setRadioShows] = useState<RadioShow[]>([{ name: '', radioName: '', url: '', date: '', time: '', timezone: '' }]);
+  const [radioShows, setRadioShows] = useState<RadioShow[]>([{ name: '', radioName: '', url: '', date: '', time: '', timezone: '', duration: '1' }]);
 
   // My Recs state
   const [bandcampRecs, setBandcampRecs] = useState<string[]>(['']);
@@ -364,7 +365,7 @@ export function PendingDJsAdmin() {
     setWebsite('');
     setCustomLinks([]);
     setIrlShows([{ name: '', location: '', url: '', date: '', imageUrl: undefined, venueId: undefined, venueName: undefined, linkedCollectives: [] }, { name: '', location: '', url: '', date: '', imageUrl: undefined, venueId: undefined, venueName: undefined, linkedCollectives: [] }]);
-    setRadioShows([{ name: '', radioName: '', url: '', date: '', time: '', timezone: '' }]);
+    setRadioShows([{ name: '', radioName: '', url: '', date: '', time: '', timezone: '', duration: '1' }]);
     setBandcampRecs(['']);
     setEventRecs(['']);
     setPhotoUrl(null);
@@ -423,8 +424,9 @@ export function PendingDJsAdmin() {
       date: s.date || '',
       time: s.time || '',
       timezone: s.timezone || '',
+      duration: s.duration || '1',
     }));
-    setRadioShows(existingRadioShows.length > 0 ? existingRadioShows : [{ name: '', radioName: '', url: '', date: '', time: '', timezone: '' }]);
+    setRadioShows(existingRadioShows.length > 0 ? existingRadioShows : [{ name: '', radioName: '', url: '', date: '', time: '', timezone: '', duration: '1' }]);
     // My Recs - ensure at least one empty field
     const existingBandcampRecs = profile.djProfile.myRecs?.bandcampLinks || [];
     setBandcampRecs(existingBandcampRecs.length > 0 ? existingBandcampRecs : ['']);
@@ -631,6 +633,7 @@ export function PendingDJsAdmin() {
         date: (show.date || '').trim(),
         time: (show.time || '').trim(),
         timezone: (show.timezone || '').trim(),
+        duration: (show.duration || '1').trim(),
       }));
 
       // Build my recs data
@@ -1719,23 +1722,41 @@ Cap`;
                           <option value="Australia/Sydney">Sydney (AEST)</option>
                         </select>
                       </div>
-                      <input
-                        type="url"
-                        value={show.url}
-                        onChange={(e) => {
-                          const updated = [...radioShows];
-                          updated[index] = { ...updated[index], url: e.target.value };
-                          setRadioShows(updated);
-                        }}
-                        placeholder="Stream URL"
-                        className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
-                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="url"
+                          value={show.url}
+                          onChange={(e) => {
+                            const updated = [...radioShows];
+                            updated[index] = { ...updated[index], url: e.target.value };
+                            setRadioShows(updated);
+                          }}
+                          placeholder="Stream URL"
+                          className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
+                        />
+                        <select
+                          value={show.duration}
+                          onChange={(e) => {
+                            const updated = [...radioShows];
+                            updated[index] = { ...updated[index], duration: e.target.value };
+                            setRadioShows(updated);
+                          }}
+                          className="w-28 bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-white transition-colors text-sm"
+                        >
+                          <option value="0.5">30 min</option>
+                          <option value="1">1 hour</option>
+                          <option value="1.5">1.5 hours</option>
+                          <option value="2">2 hours</option>
+                          <option value="3">3 hours</option>
+                          <option value="4">4 hours</option>
+                        </select>
+                      </div>
                     </div>
                   ))}
                 </div>
                 <button
                   type="button"
-                  onClick={() => setRadioShows([...radioShows, { name: '', radioName: '', url: '', date: '', time: '', timezone: '' }])}
+                  onClick={() => setRadioShows([...radioShows, { name: '', radioName: '', url: '', date: '', time: '', timezone: '', duration: '1' }])}
                   className="mt-2 text-xs text-gray-400 hover:text-white flex items-center gap-1"
                 >
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
