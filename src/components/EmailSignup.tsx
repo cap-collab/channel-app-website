@@ -44,20 +44,20 @@ export function EmailSignup({ placeholder = 'Get email updates' }: { placeholder
   }
 
   return (
-    <div>
-      <form onSubmit={handleSubmit} className="flex justify-center">
+    <div className="flex flex-col">
+      <form onSubmit={handleSubmit} className="flex justify-center h-full">
         <input
           type="email"
           placeholder={placeholder}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="bg-white/10 border border-white/20 rounded-l px-4 py-4 text-white placeholder-gray-300 text-sm focus:outline-none focus:border-white/40 min-w-0 flex-1"
+          className="bg-white/10 border border-white/20 rounded-l px-4 text-white placeholder-gray-300 text-sm focus:outline-none focus:border-white/40 min-w-0 flex-1 h-full"
         />
         <button
           type="submit"
           disabled={status === 'submitting'}
-          className="bg-white/20 border border-white/20 border-l-0 rounded-r px-4 py-4 text-white text-sm font-medium hover:bg-white/30 transition-colors disabled:opacity-50 shrink-0"
+          className="bg-white/20 border border-white/20 border-l-0 rounded-r px-4 text-white text-sm font-medium hover:bg-white/30 transition-colors disabled:opacity-50 shrink-0 h-full"
         >
           {status === 'submitting' ? '...' : 'Submit'}
         </button>
