@@ -202,6 +202,7 @@ export function StudioProfileClient() {
   const [newEvent, setNewEvent] = useState<DJEvent>({ name: "", date: "", location: "", ticketLink: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] });
   const [showNewEventForm, setShowNewEventForm] = useState(false);
   const [savingNewEvent, setSavingNewEvent] = useState(false);
+  const [eventError, setEventError] = useState<string | null>(null);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [uploadingEventPhoto, setUploadingEventPhoto] = useState(false);
   const [venueOptions, setVenueOptions] = useState<{ id: string; name: string }[]>([]);
@@ -825,6 +826,7 @@ export function StudioProfileClient() {
     if (!user || !newEvent.name.trim()) return;
 
     setSavingNewEvent(true);
+    setEventError(null);
     try {
       const token = await user.getIdToken();
       const response = await fetch("/api/events", {
@@ -851,10 +853,11 @@ export function StudioProfileClient() {
         await fetchDjEvents();
       } else {
         const result = await response.json();
-        console.error("Failed to create event:", result.error);
+        setEventError(result.error || "Failed to create event");
       }
     } catch (err) {
       console.error("Error creating event:", err);
+      setEventError("Failed to create event. Please try again.");
     } finally {
       setSavingNewEvent(false);
     }
@@ -2196,12 +2199,16 @@ export function StudioProfileClient() {
                       <option value="__manual__">Other (type name)</option>
                     </select>
                   </div>
+                  {/* Error display */}
+                  {eventError && (
+                    <p className="text-red-400 text-xs">{eventError}</p>
+                  )}
                   {/* Action buttons */}
                   <div className="flex gap-2 pt-1">
                     <button type="button" onClick={createEvent} disabled={savingNewEvent || !newEvent.name.trim()} className="px-4 py-2 bg-white text-black text-xs font-medium rounded hover:bg-gray-200 transition-colors disabled:opacity-50">
                       {savingNewEvent ? "Creating..." : "Create Event"}
                     </button>
-                    <button type="button" onClick={() => { setShowNewEventForm(false); setNewEvent({ name: "", date: "", location: "", ticketLink: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] }); }} className="px-4 py-2 text-gray-400 hover:text-white text-xs transition-colors">
+                    <button type="button" onClick={() => { setShowNewEventForm(false); setEventError(null); setNewEvent({ name: "", date: "", location: "", ticketLink: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] }); }} className="px-4 py-2 text-gray-400 hover:text-white text-xs transition-colors">
                       Cancel
                     </button>
                   </div>

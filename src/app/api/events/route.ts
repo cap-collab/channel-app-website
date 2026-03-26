@@ -74,21 +74,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Event name is required' }, { status: 400 });
     }
 
-    if (!date) {
-      return NextResponse.json({ error: 'Event date is required' }, { status: 400 });
-    }
-
-    // Accept date as YYYY-MM-DD string or unix ms number
-    let dateMs: number;
-    if (typeof date === 'string') {
-      dateMs = new Date(date + 'T00:00:00').getTime();
-      if (isNaN(dateMs)) {
-        return NextResponse.json({ error: 'Invalid date format' }, { status: 400 });
+    // Accept date as YYYY-MM-DD string or unix ms number, default to now
+    let dateMs: number = Date.now();
+    if (date) {
+      if (typeof date === 'string') {
+        dateMs = new Date(date + 'T00:00:00').getTime();
+        if (isNaN(dateMs)) {
+          return NextResponse.json({ error: 'Invalid date format' }, { status: 400 });
+        }
+      } else if (typeof date === 'number') {
+        dateMs = date;
       }
-    } else if (typeof date === 'number') {
-      dateMs = date;
-    } else {
-      return NextResponse.json({ error: 'Invalid date format' }, { status: 400 });
     }
 
     // Generate unique slug
@@ -108,14 +104,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Build DJs array — auto-include the creating DJ
-    const djSelf = {
+    const djSelf: Record<string, string> = {
       djName: chatUsername || 'Unknown',
       djUserId: userId,
-      djUsername: chatUsernameNormalized || chatUsername?.replace(/\s+/g, '').toLowerCase(),
-      djPhotoUrl: djPhotoUrl || undefined,
+      djUsername: chatUsernameNormalized || chatUsername?.replace(/\s+/g, '').toLowerCase() || '',
+    };
+    if (djPhotoUrl) djSelf.djPhotoUrl = djPhotoUrl;
+
+    // Clean undefined values from djs entries (Firestore rejects undefined)
+    const cleanDj = (d: Record<string, unknown>) => {
+      const cleaned: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(d)) {
+        if (v !== undefined) cleaned[k] = v;
+      }
+      return cleaned;
     };
 
-    let eventDjs = djs || [];
+    let eventDjs = (djs || []).map((d: Record<string, unknown>) => cleanDj(d));
     // Only add self if not already in the djs array
     const selfAlreadyIncluded = eventDjs.some(
       (d: { djUserId?: string; djUsername?: string }) =>
@@ -200,7 +205,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error creating event:', error);
-    return NextResponse.json({ error: 'Failed to create event' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Failed to create event';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
