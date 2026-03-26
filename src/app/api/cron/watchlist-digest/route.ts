@@ -96,9 +96,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // PAUSED: disable automated sends, but allow test emails through
+  const testEmail = request.nextUrl.searchParams.get("testEmail");
+  if (!testEmail) {
+    return NextResponse.json({ paused: true, message: "Watchlist digest is temporarily paused" });
+  }
+
   // Test mode: ?testEmail=user@example.com bypasses schedule/dedup and only sends to that email
   // Optional: ?sendTo=other@example.com redirects the email to a different address (for previewing another user's digest)
-  const testEmail = request.nextUrl.searchParams.get("testEmail");
   const sendToOverride = request.nextUrl.searchParams.get("sendTo");
 
   if (!isRestApiConfigured()) {
