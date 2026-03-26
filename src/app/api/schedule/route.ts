@@ -379,6 +379,49 @@ async function extractAdminEvents(): Promise<IRLShowData[]> {
     });
   }
 
+  // Resolve isChannelUser for each IRL show DJ using the shared profile cache
+  const now2 = Date.now();
+  const djUsernamesToCheck = new Set<string>();
+  for (const show of irlShows) {
+    if (show.djUsername) djUsernamesToCheck.add(show.djUsername.toLowerCase());
+  }
+
+  const channelUserMap = new Map<string, boolean>();
+  const toFetch: string[] = [];
+  for (const normalized of Array.from(djUsernamesToCheck)) {
+    const cached = djProfileCache.get(`username:${normalized}`);
+    if (cached && now2 < cached.expiry) {
+      channelUserMap.set(normalized, cached.data?.isChannelUser === true);
+    } else {
+      toFetch.push(normalized);
+    }
+  }
+
+  if (toFetch.length > 0 && db) {
+    await Promise.all(toFetch.map(async (normalized) => {
+      try {
+        const usersSnap = await db.collection("users")
+          .where("chatUsernameNormalized", "==", normalized)
+          .limit(1)
+          .get();
+        if (!usersSnap.empty) {
+          channelUserMap.set(normalized, true);
+          djProfileCache.set(`username:${normalized}`, { data: { isChannelUser: true }, expiry: now2 + DJ_PROFILE_CACHE_TTL });
+          return;
+        }
+        channelUserMap.set(normalized, false);
+      } catch {
+        // Silently ignore lookup errors
+      }
+    }));
+  }
+
+  for (const show of irlShows) {
+    if (show.djUsername) {
+      show.isChannelUser = channelUserMap.get(show.djUsername.toLowerCase()) ?? false;
+    }
+  }
+
   return irlShows;
 }
 

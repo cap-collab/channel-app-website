@@ -126,6 +126,7 @@ export interface IRLShowData {
   eventPhotoUrl?: string; // Event-level photo (admin events)
   venueName?: string;     // Venue name to display
   linkUrl?: string;       // Pre-computed click-through URL (collective/venue/dj page)
+  isChannelUser?: boolean; // true if DJ exists in `users` collection (has chat enabled)
 }
 
 // Curator recommendation (bandcamp/event link from DJ's "My Recs")
