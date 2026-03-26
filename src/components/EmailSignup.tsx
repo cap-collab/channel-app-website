@@ -52,12 +52,12 @@ export function EmailSignup({ placeholder = 'Get email updates' }: { placeholder
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="bg-white/10 border border-white/20 rounded-l px-4 py-3 text-white placeholder-gray-300 text-sm focus:outline-none focus:border-white/40 min-w-0 flex-1"
+          className="bg-white/10 border border-white/20 rounded-l px-4 py-4 text-white placeholder-gray-300 text-sm focus:outline-none focus:border-white/40 min-w-0 flex-1"
         />
         <button
           type="submit"
           disabled={status === 'submitting'}
-          className="bg-white/20 border border-white/20 border-l-0 rounded-r px-4 py-3 text-white text-sm font-medium hover:bg-white/30 transition-colors disabled:opacity-50 shrink-0"
+          className="bg-white/20 border border-white/20 border-l-0 rounded-r px-4 py-4 text-white text-sm font-medium hover:bg-white/30 transition-colors disabled:opacity-50 shrink-0"
         >
           {status === 'submitting' ? '...' : 'Submit'}
         </button>
