@@ -49,12 +49,6 @@ function isTomorrow(date: Date): boolean {
   );
 }
 
-// Height per hour in pixels for the grid view
-const HOUR_HEIGHT = 60;
-
-// Generate hours array for the time grid
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
-
 // Get day boundaries (midnight to midnight) for a given date
 function getDayBoundaries(date: Date): { dayStart: number; dayEnd: number } {
   const dayStart = new Date(date);
@@ -69,17 +63,17 @@ function slotOverlapsDay(slotStart: number, slotEnd: number, dayStart: number, d
   return slotStart <= dayEnd && slotEnd >= dayStart;
 }
 
-// Show card component with expandable DJ info
-interface ShowCardProps {
-  slot: DisplaySlot;
-  isLive: boolean;
-  isPast: boolean;
-  height: number;
-  top: number;
+function formatTime(ms: number): string {
+  const d = new Date(ms);
+  const h = d.getHours();
+  const m = d.getMinutes();
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  const hour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return m === 0 ? `${hour} ${suffix}` : `${hour}:${m.toString().padStart(2, '0')} ${suffix}`;
 }
 
-function ShowCard({ slot, isLive, isPast, height, top }: ShowCardProps) {
-  // Resolve DJ profile username for navigation — fall back to djName normalized
+function ShowRow({ slot }: { slot: DisplaySlot }) {
+  // Resolve DJ profile username for navigation
   const djProfileUsername = (() => {
     if (slot.isVenueSlot && slot.djSlot) {
       return slot.djSlot.liveDjUsername || slot.djSlot.djUsername || slot.djSlot.djName || null;
@@ -87,12 +81,11 @@ function ShowCard({ slot, isLive, isPast, height, top }: ShowCardProps) {
     return slot.originalShow.liveDjUsername || slot.originalShow.djUsername || slot.originalShow.djName || null;
   })();
 
-  // Normalize for URL: lowercase, remove spaces/hyphens
   const djProfileSlug = djProfileUsername
     ? djProfileUsername.replace(/[\s-]+/g, '').toLowerCase()
     : null;
 
-  // Show image priority: show image > archive image > DJ photo (via API)
+  // Show image priority: show image > DJ photo (via API)
   const showImageUrl = slot.originalShow.showImageUrl || null;
   const djNameForPhoto = slot.djName || djProfileUsername;
   const djPhotoApiUrl = djNameForPhoto
@@ -100,91 +93,78 @@ function ShowCard({ slot, isLive, isPast, height, top }: ShowCardProps) {
     : null;
   const photoUrl = showImageUrl || djPhotoApiUrl;
 
-  // Track photo load state — hide if 404 or error
   const [photoLoaded, setPhotoLoaded] = useState(false);
   const [photoError, setPhotoError] = useState(false);
 
-  // Reset photo state when source changes
   useEffect(() => {
     setPhotoLoaded(false);
     setPhotoError(false);
   }, [photoUrl]);
 
   const isRestream = slot.originalShow.broadcastType === 'restream';
+  const isLive = slot.originalShow.status === 'live' &&
+    slot.startTime <= Date.now() && slot.endTime > Date.now();
 
   const content = (
     <div
-      className={`absolute left-1 right-1 overflow-hidden border-b border-gray-500/30 ${
-        isRestream ? 'bg-zinc-900' : 'bg-black'
-      } ${isPast ? 'opacity-60' : ''} ${djProfileSlug ? 'cursor-pointer hover:bg-white/5' : ''}`}
-      style={{
-        top: `${top}px`,
-        minHeight: `${height}px`,
-        height: `${height}px`
-      }}
+      className={`flex items-center gap-3 px-3 py-2.5 border-b border-gray-500/30 ${
+        isRestream ? 'bg-zinc-900' : ''
+      } ${djProfileSlug ? 'cursor-pointer hover:bg-white/5' : ''}`}
     >
-      <div className="px-3 py-2 h-full flex flex-col">
-        <div className="flex items-start gap-2">
-          {/* Show image or DJ photo */}
-          {photoUrl && !photoError && (
-            <div className={`w-9 h-9 flex-shrink-0 relative ${photoLoaded ? '' : 'bg-white/5'}`}>
-              <Image
-                src={photoUrl}
-                alt={slot.djName || 'DJ'}
-                fill
-                sizes="36px"
-                className="object-cover"
-                onLoad={() => setPhotoLoaded(true)}
-                onError={() => setPhotoError(true)}
-                unoptimized
-              />
-            </div>
-          )}
-
-          {/* Show name and DJ name */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              {isLive && (
-                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0" />
-              )}
-              <h3 className="text-white font-medium text-sm truncate">{slot.showName}</h3>
-            </div>
-            {slot.djName && (
-              <p className="text-white/70 text-xs truncate mt-0.5">
-                {slot.djName}
-              </p>
-            )}
-          </div>
-
-          {/* Show type indicator — top right */}
-          <div className="flex-shrink-0 mt-0.5">
-            {isRestream ? (
-              <svg
-                className="w-3 h-3"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#6b7280"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                <path d="M3 3v5h5" />
-              </svg>
-            ) : (
-              <span className="w-2 h-2 bg-red-600 rounded-full block" />
-            )}
-          </div>
+      {/* Photo */}
+      {photoUrl && !photoError && (
+        <div className={`w-9 h-9 flex-shrink-0 relative ${photoLoaded ? '' : 'bg-white/5'}`}>
+          <Image
+            src={photoUrl}
+            alt={slot.djName || 'DJ'}
+            fill
+            sizes="36px"
+            className="object-cover"
+            onLoad={() => setPhotoLoaded(true)}
+            onError={() => setPhotoError(true)}
+            unoptimized
+          />
         </div>
+      )}
+
+      {/* Show name + DJ */}
+      <div className="flex-1 min-w-0">
+        <h3 className="text-white font-medium text-sm truncate">{slot.showName}</h3>
+        {slot.djName && (
+          <p className="text-white/50 text-xs truncate">{slot.djName}</p>
+        )}
+      </div>
+
+      {/* Time range + type indicator */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <span className="text-gray-500 text-[10px] tabular-nums">
+          {formatTime(slot.startTime)} – {formatTime(slot.endTime)}
+        </span>
+        {isRestream ? (
+          <svg
+            className="w-3 h-3"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#6b7280"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+          </svg>
+        ) : isLive ? (
+          <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+        ) : (
+          <span className="w-2 h-2 bg-red-600/40 rounded-full" />
+        )}
       </div>
     </div>
   );
 
-  // Wrap in Link if DJ has a profile page
   if (djProfileSlug) {
     return <Link href={`/dj/${djProfileSlug}`}>{content}</Link>;
   }
-
   return content;
 }
 
@@ -194,23 +174,16 @@ export function BroadcastSchedule({
   onDateChange,
   loading,
 }: BroadcastScheduleProps) {
-  // Get day boundaries for the selected date
   const { dayStart, dayEnd } = useMemo(() => getDayBoundaries(selectedDate), [selectedDate]);
 
-  // Expand shows with djSlots into individual rows, filtered and clipped to selected day
   const displaySlots = useMemo<DisplaySlot[]>(() => {
     const slots: DisplaySlot[] = [];
 
     for (const show of shows) {
-      // If show has djSlots, create a row for each DJ slot that overlaps with selected day
       if (show.djSlots && show.djSlots.length > 0) {
         for (const djSlot of show.djSlots) {
-          // Check if this DJ slot overlaps with the selected day
-          if (!slotOverlapsDay(djSlot.startTime, djSlot.endTime, dayStart, dayEnd)) {
-            continue; // Skip slots that don't overlap with selected day
-          }
+          if (!slotOverlapsDay(djSlot.startTime, djSlot.endTime, dayStart, dayEnd)) continue;
 
-          // Clip the slot times to the selected day's boundaries
           const clippedStart = Math.max(djSlot.startTime, dayStart);
           const clippedEnd = Math.min(djSlot.endTime, dayEnd);
 
@@ -228,12 +201,8 @@ export function BroadcastSchedule({
           });
         }
       } else {
-        // Regular show without djSlots - check if it overlaps with selected day
-        if (!slotOverlapsDay(show.startTime, show.endTime, dayStart, dayEnd)) {
-          continue; // Skip shows that don't overlap with selected day
-        }
+        if (!slotOverlapsDay(show.startTime, show.endTime, dayStart, dayEnd)) continue;
 
-        // Clip the show times to the selected day's boundaries
         const clippedStart = Math.max(show.startTime, dayStart);
         const clippedEnd = Math.min(show.endTime, dayEnd);
 
@@ -251,37 +220,8 @@ export function BroadcastSchedule({
       }
     }
 
-    // Sort by start time
     return slots.sort((a, b) => a.startTime - b.startTime);
   }, [shows, dayStart, dayEnd, selectedDate]);
-
-  // Calculate time range for the day based on shows
-  const timeRange = useMemo(() => {
-    if (displaySlots.length === 0) {
-      return { startHour: 8, endHour: 23 }; // Default range
-    }
-
-    let minHour = 24;
-    let maxHour = 0;
-
-    for (const slot of displaySlots) {
-      const startDate = new Date(slot.startTime);
-      const endDate = new Date(slot.endTime);
-      const startHour = startDate.getHours();
-      const endHour = endDate.getHours() + (endDate.getMinutes() > 0 ? 1 : 0);
-
-      minHour = Math.min(minHour, startHour);
-      maxHour = Math.max(maxHour, endHour);
-    }
-
-    // Add some padding
-    return {
-      startHour: Math.max(0, minHour - 1),
-      endHour: Math.min(24, maxHour + 1),
-    };
-  }, [displaySlots]);
-
-  const visibleHours = HOURS.filter(h => h >= timeRange.startHour && h < timeRange.endHour);
 
   // Count shows overlapping a given day
   const countShowsForDay = useCallback((date: Date): number => {
@@ -322,17 +262,9 @@ export function BroadcastSchedule({
     if (canGoNext) onDateChange(nextDay);
   };
 
-  // Format hour for display
-  const formatHour = (hour: number) => {
-    if (hour === 0) return '12 AM';
-    if (hour < 12) return `${hour} AM`;
-    if (hour === 12) return '12 PM';
-    return `${hour - 12} PM`;
-  };
-
   return (
     <div className="flex flex-col h-full">
-      {/* Date navigation - Sticky */}
+      {/* Date navigation */}
       <div className="flex-shrink-0 pb-2 z-10">
         <div className="flex items-center gap-1">
           <button
@@ -359,7 +291,7 @@ export function BroadcastSchedule({
         </div>
       </div>
 
-      {/* Schedule grid - Scrollable */}
+      {/* Show list */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -370,66 +302,13 @@ export function BroadcastSchedule({
           </div>
         ) : displaySlots.length === 0 ? (
           <div className="text-center py-12">
-            <svg className="w-12 h-12 text-gray-700 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <p className="text-gray-500">No show scheduled for this day</p>
+            <p className="text-gray-500 text-sm">No shows scheduled</p>
           </div>
         ) : (
-          <div className="flex">
-            {/* Time labels column */}
-            <div className="w-16 flex-shrink-0">
-              {visibleHours.map(hour => (
-                <div
-                  key={hour}
-                  className="text-right pr-3 text-xs text-gray-500"
-                  style={{ height: `${HOUR_HEIGHT}px` }}
-                >
-                  {formatHour(hour)}
-                </div>
-              ))}
-            </div>
-
-            {/* Shows column */}
-            <div className="flex-1 relative border-l border-gray-800" style={{ height: `${visibleHours.length * HOUR_HEIGHT}px` }}>
-              {/* Hour grid lines */}
-              {visibleHours.map((hour, index) => (
-                <div
-                  key={hour}
-                  className="absolute left-0 right-0 border-t border-gray-800/50"
-                  style={{ top: `${index * HOUR_HEIGHT}px` }}
-                />
-              ))}
-
-              {/* Show blocks */}
-              {displaySlots.map((slot) => {
-                const startDate = new Date(slot.startTime);
-                const endDate = new Date(slot.endTime);
-                const startHour = startDate.getHours() + startDate.getMinutes() / 60;
-                const endHour = endDate.getHours() + endDate.getMinutes() / 60;
-                const duration = endHour - startHour;
-
-                // Adjust position relative to visible time range
-                const top = (startHour - timeRange.startHour) * HOUR_HEIGHT;
-                const height = Math.max(duration * HOUR_HEIGHT, 40);
-
-                const now = Date.now();
-                const isLive = slot.originalShow.status === 'live' &&
-                  slot.startTime <= now && slot.endTime > now;
-                const isPast = slot.endTime < now;
-
-                return (
-                  <ShowCard
-                    key={slot.id}
-                    slot={slot}
-                    isLive={isLive}
-                    isPast={isPast}
-                    height={height}
-                    top={top}
-                  />
-                );
-              })}
-            </div>
+          <div>
+            {displaySlots.map((slot) => (
+              <ShowRow key={slot.id} slot={slot} />
+            ))}
           </div>
         )}
       </div>
