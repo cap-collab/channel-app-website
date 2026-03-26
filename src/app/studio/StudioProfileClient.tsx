@@ -203,6 +203,7 @@ export function StudioProfileClient() {
   const [showNewEventForm, setShowNewEventForm] = useState(false);
   const [savingNewEvent, setSavingNewEvent] = useState(false);
   const [eventError, setEventError] = useState<string | null>(null);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [uploadingEventPhoto, setUploadingEventPhoto] = useState(false);
   const [venueOptions, setVenueOptions] = useState<{ id: string; name: string }[]>([]);
@@ -858,6 +859,58 @@ export function StudioProfileClient() {
     } catch (err) {
       console.error("Error creating event:", err);
       setEventError("Failed to create event. Please try again.");
+    } finally {
+      setSavingNewEvent(false);
+    }
+  };
+
+  // Start editing an existing event
+  const startEditingEvent = (event: DJEvent) => {
+    setEditingEventId(event.id || null);
+    setNewEvent({ ...event });
+    setShowNewEventForm(true);
+    setEventError(null);
+  };
+
+  // Update an existing event via API
+  const updateEvent = async () => {
+    if (!user || !editingEventId || !newEvent.name.trim()) return;
+
+    setSavingNewEvent(true);
+    setEventError(null);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch("/api/events", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          eventId: editingEventId,
+          name: newEvent.name.trim(),
+          date: newEvent.date || undefined,
+          location: newEvent.location.trim() || null,
+          ticketLink: newEvent.ticketLink.trim() ? normalizeUrl(newEvent.ticketLink.trim()) : null,
+          photo: newEvent.photo || null,
+          linkedVenues: newEvent.linkedVenues,
+          linkedCollectives: newEvent.linkedCollectives,
+          djs: newEvent.djs.filter(d => d.djName.trim()),
+        }),
+      });
+
+      if (response.ok) {
+        setNewEvent({ name: "", date: "", location: "", ticketLink: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] });
+        setShowNewEventForm(false);
+        setEditingEventId(null);
+        await fetchDjEvents();
+      } else {
+        const result = await response.json();
+        setEventError(result.error || "Failed to update event");
+      }
+    } catch (err) {
+      console.error("Error updating event:", err);
+      setEventError("Failed to update event. Please try again.");
     } finally {
       setSavingNewEvent(false);
     }
@@ -2106,14 +2159,12 @@ export function StudioProfileClient() {
                         </p>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => event.id && deleteEvent(event.id)}
-                      disabled={deletingEventId === event.id}
-                      className="text-gray-600 hover:text-red-400 text-xs transition-colors flex-shrink-0"
-                    >
-                      {deletingEventId === event.id ? "..." : "Delete"}
-                    </button>
+                    <div className="flex flex-col gap-1 flex-shrink-0">
+                      <button type="button" onClick={() => startEditingEvent(event)} className="text-gray-500 hover:text-white text-xs transition-colors">Edit</button>
+                      <button type="button" onClick={() => event.id && deleteEvent(event.id)} disabled={deletingEventId === event.id} className="text-gray-600 hover:text-red-400 text-xs transition-colors">
+                        {deletingEventId === event.id ? "..." : "Delete"}
+                      </button>
+                    </div>
                   </div>
                 ))
               ) : !showNewEventForm ? (
@@ -2205,10 +2256,10 @@ export function StudioProfileClient() {
                   )}
                   {/* Action buttons */}
                   <div className="flex gap-2 pt-1">
-                    <button type="button" onClick={createEvent} disabled={savingNewEvent || !newEvent.name.trim()} className="px-4 py-2 bg-white text-black text-xs font-medium rounded hover:bg-gray-200 transition-colors disabled:opacity-50">
-                      {savingNewEvent ? "Creating..." : "Create Event"}
+                    <button type="button" onClick={editingEventId ? updateEvent : createEvent} disabled={savingNewEvent || !newEvent.name.trim()} className="px-4 py-2 bg-white text-black text-xs font-medium rounded hover:bg-gray-200 transition-colors disabled:opacity-50">
+                      {savingNewEvent ? "Saving..." : editingEventId ? "Update Event" : "Create Event"}
                     </button>
-                    <button type="button" onClick={() => { setShowNewEventForm(false); setEventError(null); setNewEvent({ name: "", date: "", location: "", ticketLink: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] }); }} className="px-4 py-2 text-gray-400 hover:text-white text-xs transition-colors">
+                    <button type="button" onClick={() => { setShowNewEventForm(false); setEditingEventId(null); setEventError(null); setNewEvent({ name: "", date: "", location: "", ticketLink: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] }); }} className="px-4 py-2 text-gray-400 hover:text-white text-xs transition-colors">
                       Cancel
                     </button>
                   </div>
