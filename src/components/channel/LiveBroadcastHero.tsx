@@ -155,7 +155,6 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
   const [imageError, setImageError] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const stickyBarRef = useRef<HTMLDivElement>(null);
-  const heroSentinelRef = useRef<HTMLDivElement>(null);
 
   // Username setup state
   const [usernameInput, setUsernameInput] = useState('');
@@ -170,15 +169,14 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
     }
   }, [messages]);
 
-  // Track hero section visibility so GlobalBroadcastBar takes over when scrolled past
-  // Uses a sentinel div at the bottom of the hero (not the sticky bar itself, which never leaves viewport)
+  // Track player bar visibility — GlobalBroadcastBar shows when this scrolls out of view
   useEffect(() => {
-    const el = heroSentinelRef.current;
+    const el = stickyBarRef.current;
     if (!el) return;
     setHeroBarVisible(true);
     const observer = new IntersectionObserver(
       ([entry]) => setHeroBarVisible(entry.isIntersecting),
-      { threshold: 0 },
+      { threshold: 0.1 },
     );
     observer.observe(el);
     return () => {
@@ -374,8 +372,8 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
           </div>
         )}
 
-        {/* Sticky bar: Play + Show Info + Live + Love + Tip — sticks when scrolled past */}
-        <div ref={stickyBarRef} className="sticky top-[52px] z-[99] bg-black border-b border-white/10">
+        {/* Player bar: Play + Show Info + Live + Love + Tip */}
+        <div ref={stickyBarRef} className="bg-black border-b border-white/10">
           <div className="flex items-center gap-3 py-2">
             {/* Play/Pause */}
             <button
@@ -408,11 +406,6 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
                 </span>
                 <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold flex-shrink-0">Live</span>
-                {broadcastBPM && (
-                  <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter flex-shrink-0">
-                    {broadcastBPM} BPM
-                  </span>
-                )}
               </div>
               {djName && (
                 <p className="text-[10px] text-zinc-500 uppercase mt-0.5">{djName}</p>
@@ -651,8 +644,6 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
         onClose={() => setShowAuthModal(false)}
         message="Sign in to join the chat"
       />
-      {/* Sentinel for IntersectionObserver — GlobalBroadcastBar shows when this scrolls out of view */}
-      <div ref={heroSentinelRef} className="h-0" />
     </section>
   );
 }

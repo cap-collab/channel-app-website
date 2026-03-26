@@ -108,8 +108,8 @@ function ShowRow({ slot }: { slot: DisplaySlot }) {
   const content = (
     <div
       className={`flex items-center gap-3 px-3 py-2.5 border-b border-gray-500/30 ${
-        isRestream ? 'bg-zinc-900' : ''
-      } ${djProfileSlug ? 'cursor-pointer hover:bg-white/5' : ''}`}
+        djProfileSlug ? 'cursor-pointer hover:bg-white/5' : ''
+      }`}
     >
       {/* Photo */}
       {photoUrl && !photoError && (
