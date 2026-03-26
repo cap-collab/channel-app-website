@@ -129,6 +129,17 @@ export interface IRLShowData {
   isChannelUser?: boolean; // true if DJ exists in `users` collection (has chat enabled)
 }
 
+// DJ profile (for genre-matching discovery without upcoming shows)
+export interface DJProfile {
+  username: string;
+  displayName: string;
+  photoUrl?: string;
+  location?: string;
+  genres?: string[];
+  bio?: string;
+  isChannelUser: boolean;
+}
+
 // Curator recommendation (bandcamp/event link from DJ's "My Recs")
 export interface CuratorRec {
   djUsername: string;

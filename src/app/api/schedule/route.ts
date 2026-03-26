@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAllShows } from "@/lib/metadata";
 import { getAdminDb } from "@/lib/firebase-admin";
-import { Show, IRLShowData, CuratorRec } from "@/types";
+import { Show, IRLShowData, CuratorRec, DJProfile } from "@/types";
 
 // Must be dynamic since it uses Firebase Admin SDK at runtime
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type FirestoreDoc = { id: string; data: () => any };
 
-let scheduleCache: { shows: Show[]; irlShows: IRLShowData[]; curatorRecs: CuratorRec[] } | null = null;
+let scheduleCache: { shows: Show[]; irlShows: IRLShowData[]; curatorRecs: CuratorRec[]; djProfiles: DJProfile[] } | null = null;
 let scheduleCacheExpiry = 0;
 
 function getNextHourMs(): number {
@@ -604,6 +604,68 @@ async function extractCuratorRecs(djUserDocs: FirestoreDoc[]): Promise<CuratorRe
 }
 
 // ---------------------------------------------------------------------------
+// Extract DJ profiles for genre-based discovery (no upcoming show required)
+// ---------------------------------------------------------------------------
+
+async function extractDJProfiles(djUserDocs: FirestoreDoc[]): Promise<DJProfile[]> {
+  const profiles: DJProfile[] = [];
+  const seenUsernames = new Set<string>();
+
+  // Channel users first (from users collection)
+  for (const doc of djUserDocs) {
+    const data = doc.data();
+    const djProfile = data?.djProfile as Record<string, unknown> | undefined;
+    const chatUsername = data?.chatUsername as string | undefined;
+    if (!chatUsername || !djProfile) continue;
+    const username = chatUsername.replace(/\s+/g, "").toLowerCase();
+    const genres = djProfile.genres as string[] | undefined;
+    if (!genres || genres.length === 0) continue;
+    seenUsernames.add(username);
+    profiles.push({
+      username,
+      displayName: (djProfile.djName as string) || chatUsername,
+      photoUrl: (djProfile.photoUrl as string) || undefined,
+      location: (djProfile.location as string) || undefined,
+      genres,
+      bio: (djProfile.bio as string) || undefined,
+      isChannelUser: true,
+    });
+  }
+
+  // Pending DJs (from pending-dj-profiles collection)
+  const db = getAdminDb();
+  if (db) {
+    try {
+      const pendingSnapshot = await db.collection("pending-dj-profiles").get();
+      for (const doc of pendingSnapshot.docs) {
+        const data = doc.data();
+        const djProfile = data?.djProfile as Record<string, unknown> | undefined;
+        const chatUsername = (data?.chatUsername as string) || (data?.djName as string);
+        if (!chatUsername || !djProfile) continue;
+        const username = chatUsername.replace(/\s+/g, "").toLowerCase();
+        if (seenUsernames.has(username)) continue;
+        const genres = djProfile.genres as string[] | undefined;
+        if (!genres || genres.length === 0) continue;
+        seenUsernames.add(username);
+        profiles.push({
+          username,
+          displayName: (djProfile.djName as string) || chatUsername,
+          photoUrl: (djProfile.photoUrl as string) || undefined,
+          location: (djProfile.location as string) || undefined,
+          genres,
+          bio: (djProfile.bio as string) || undefined,
+          isChannelUser: false,
+        });
+      }
+    } catch {
+      // Silently ignore pending profile fetch errors
+    }
+  }
+
+  return profiles;
+}
+
+// ---------------------------------------------------------------------------
 // GET handler with full response caching (until next hour boundary)
 // ---------------------------------------------------------------------------
 
@@ -625,11 +687,12 @@ export async function GET() {
       fetchDJUserDocs(),
     ]);
 
-    // Extract DJ radio shows, curator recs, and events in parallel
-    const [djRadioShows, curatorRecs, irlShows] = await Promise.all([
+    // Extract DJ radio shows, curator recs, events, and profiles in parallel
+    const [djRadioShows, curatorRecs, irlShows, djProfiles] = await Promise.all([
       Promise.resolve(extractDJRadioShows(djUserDocs)),
       extractCuratorRecs(djUserDocs),
       extractAdminEvents(),
+      extractDJProfiles(djUserDocs),
     ]);
 
     // Merge DJ radio shows into the main shows array
@@ -645,7 +708,7 @@ export async function GET() {
     const enrichedShows = [...enrichedNonBroadcast, ...enrichedBroadcast];
 
     // Cache until next hour boundary
-    const result = { shows: enrichedShows, irlShows, curatorRecs };
+    const result = { shows: enrichedShows, irlShows, curatorRecs, djProfiles };
     scheduleCache = result;
     scheduleCacheExpiry = getNextHourMs();
 
@@ -656,6 +719,6 @@ export async function GET() {
     });
   } catch (error) {
     console.error("[API /schedule] Error fetching shows:", error);
-    return NextResponse.json({ shows: [], irlShows: [], curatorRecs: [], error: "Failed to fetch shows" }, { status: 500 });
+    return NextResponse.json({ shows: [], irlShows: [], curatorRecs: [], djProfiles: [], error: "Failed to fetch shows" }, { status: 500 });
   }
 }

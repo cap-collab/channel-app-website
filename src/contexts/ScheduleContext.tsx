@@ -3,12 +3,13 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { collection, query, where, orderBy, getDocs, doc, getDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Show, IRLShowData, CuratorRec } from "@/types";
+import { Show, IRLShowData, CuratorRec, DJProfile } from "@/types";
 
 interface ScheduleContextType {
   shows: Show[];
   irlShows: IRLShowData[];
   curatorRecs: CuratorRec[];
+  djProfiles: DJProfile[];
   loading: boolean;
   error: string | null;
   refetch: () => void;
@@ -18,6 +19,7 @@ const ScheduleContext = createContext<ScheduleContextType>({
   shows: [],
   irlShows: [],
   curatorRecs: [],
+  djProfiles: [],
   loading: true,
   error: null,
   refetch: () => {},
@@ -218,6 +220,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
   const [shows, setShows] = useState<Show[]>([]);
   const [irlShows, setIrlShows] = useState<IRLShowData[]>([]);
   const [curatorRecs, setCuratorRecs] = useState<CuratorRec[]>([]);
+  const [djProfiles, setDjProfiles] = useState<DJProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -243,6 +246,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
 
         setIrlShows(data.irlShows || []);
         setCuratorRecs(data.curatorRecs || []);
+        setDjProfiles(data.djProfiles || []);
         setError(null);
       })
       .catch((err) => {
@@ -257,7 +261,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
   }, [fetchSchedule]);
 
   return (
-    <ScheduleContext.Provider value={{ shows, irlShows, curatorRecs, loading, error, refetch: fetchSchedule }}>
+    <ScheduleContext.Provider value={{ shows, irlShows, curatorRecs, djProfiles, loading, error, refetch: fetchSchedule }}>
       {children}
     </ScheduleContext.Provider>
   );
