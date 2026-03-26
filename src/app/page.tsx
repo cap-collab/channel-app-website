@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import ScrollReveal from "@/components/ScrollReveal";
+import { EmailSignup } from "@/components/EmailSignup";
 import FAQAccordion from "@/components/FAQAccordion";
 import { Header } from "@/components/Header";
 
@@ -56,6 +57,10 @@ export default function Home() {
             >
               Explore the scene
             </Link>
+          </div>
+
+          <div className="mt-8">
+            <EmailSignup />
           </div>
         </div>
 
