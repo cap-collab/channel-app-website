@@ -347,6 +347,9 @@ export function ChannelClient() {
     // Section 0: Favorites — followed DJs / favorited shows in next 2 weeks, sorted: live now → soonest first
     const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
     const twoWeeksDateStr = twoWeeksFromNow.toLocaleDateString('en-CA'); // YYYY-MM-DD
+    // IRL shows in the scene section: only today, tomorrow, or day after tomorrow
+    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    const sceneCutoffDateStr = threeDaysFromNow.toLocaleDateString('en-CA'); // YYYY-MM-DD
     const s0Candidates: { item: MatchedItem; id: string; djName: string | undefined; startMs: number; live: boolean }[] = [];
     // Radio shows from followed DJs / favorited shows in next 2 weeks
     for (const show of allShows) {
@@ -388,8 +391,9 @@ export function ChannelClient() {
     let s1: MatchedItem[] = [];
     if (hasGenreFilter && !isAnywhere) {
       const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; startMs: number; live?: boolean; isChannelUser?: boolean }[] = [];
-      // IRL shows (always from Channel users) — city + genre match
+      // IRL shows (always from Channel users) — city + genre match, within 3 days
       for (const show of irlShows) {
+        if (show.date >= sceneCutoffDateStr) continue;
         if (!matchesCity(show.location, selectedCity)) continue;
         if (!matchesAnyGenre(show.djGenres)) continue;
         const id = `irl-${show.djUsername}-${show.date}`;
@@ -428,8 +432,9 @@ export function ChannelClient() {
     let s4: MatchedItem[] = [];
     if (hasGenreFilter) {
       const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; startMs: number; live?: boolean; isChannelUser?: boolean }[] = [];
-      // IRL shows — city match only, genre for sorting
+      // IRL shows — city match only, genre for sorting, within 3 days
       for (const show of irlShows) {
+        if (show.date >= sceneCutoffDateStr) continue;
         if (isAnywhere || !matchesCity(show.location, selectedCity)) continue;
         const id = `irl-${show.djUsername}-${show.date}`;
         const genreLabel = genreLabelFor(show.djGenres);
@@ -451,8 +456,9 @@ export function ChannelClient() {
     let s6: MatchedItem[] = [];
     if (!isAnywhere) {
       const candidates: { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; startMs: number; live?: boolean; isChannelUser?: boolean }[] = [];
-      // IRL shows (always from Channel users)
+      // IRL shows (always from Channel users), within 3 days
       for (const show of irlShows) {
+        if (show.date >= sceneCutoffDateStr) continue;
         if (!matchesCity(show.location, selectedCity)) continue;
         const id = `irl-${show.djUsername}-${show.date}`;
         candidates.push({ item: makeIRLItem(show, selectedCity.toUpperCase()), id, djName: show.djName, matchCount: 0, startMs: new Date(show.date + 'T00:00:00').getTime(), isChannelUser: true });
