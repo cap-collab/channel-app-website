@@ -173,63 +173,63 @@ export function TicketCard({
       <div className="space-y-2 mt-auto">
         <div className="flex gap-2">
           {profileMode && show.djUsername ? (
-            <Link
-              href={`/dj/${show.djUsername}`}
-              className="flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white hover:bg-gray-100 text-gray-900 text-center"
-            >
-              {show.isChannelUser ? 'Chat' : 'See profile'}
-            </Link>
+            <>
+              <button
+                onClick={() => {
+                  const url = `${window.location.origin}/dj/${show.djUsername}`;
+                  navigator.clipboard.writeText(url).then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  });
+                }}
+                className="flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-1"
+              >
+                {copied ? 'Copied!' : 'Share'}
+              </button>
+              <Link
+                href={`/dj/${show.djUsername}`}
+                className="flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white text-center"
+              >
+                See profile
+              </Link>
+            </>
           ) : (
-            <button
-              onClick={onFollow}
-              disabled={isAddingFollow}
-              className={`flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors ${
-                isFollowing
-                  ? 'bg-white/10 hover:bg-white/20 text-white'
-                  : 'bg-white hover:bg-gray-100 text-gray-900'
-              } disabled:opacity-50`}
-            >
-              {isAddingFollow ? (
-                <div className={`w-4 h-4 border-2 ${isFollowing ? 'border-white' : 'border-gray-900'} border-t-transparent rounded-full animate-spin mx-auto`} />
-              ) : isFollowing ? (
-                'Following'
-              ) : (
-                '+ Follow'
-              )}
-            </button>
-          )}
-
-          {profileMode && show.djUsername ? (
-            <button
-              onClick={() => {
-                const url = `${window.location.origin}/dj/${show.djUsername}`;
-                navigator.clipboard.writeText(url).then(() => {
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 2000);
-                });
-              }}
-              className="flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white flex items-center justify-center gap-1"
-            >
-              {copied ? 'Copied!' : 'Share'}
-            </button>
-          ) : (
-            <button
-              onClick={onRemindMe}
-              disabled={isAddingReminder || isShowFavorited}
-              className={`flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors ${
-                isShowFavorited
-                  ? 'bg-white/10 text-gray-400 cursor-default'
-                  : 'bg-white/10 hover:bg-white/20 text-white'
-              } disabled:opacity-50`}
-            >
-              {isAddingReminder ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
-              ) : isShowFavorited ? (
-                'Reminded'
-              ) : (
-                'Remind Me'
-              )}
-            </button>
+            <>
+              <button
+                onClick={onFollow}
+                disabled={isAddingFollow}
+                className={`flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors ${
+                  isFollowing
+                    ? 'bg-white/10 hover:bg-white/20 text-white'
+                    : 'bg-white hover:bg-gray-100 text-gray-900'
+                } disabled:opacity-50`}
+              >
+                {isAddingFollow ? (
+                  <div className={`w-4 h-4 border-2 ${isFollowing ? 'border-white' : 'border-gray-900'} border-t-transparent rounded-full animate-spin mx-auto`} />
+                ) : isFollowing ? (
+                  'Following'
+                ) : (
+                  '+ Follow'
+                )}
+              </button>
+              <button
+                onClick={onRemindMe}
+                disabled={isAddingReminder || isShowFavorited}
+                className={`flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors ${
+                  isShowFavorited
+                    ? 'bg-white/10 text-gray-400 cursor-default'
+                    : 'bg-white/10 hover:bg-white/20 text-white'
+                } disabled:opacity-50`}
+              >
+                {isAddingReminder ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+                ) : isShowFavorited ? (
+                  'Reminded'
+                ) : (
+                  'Remind Me'
+                )}
+              </button>
+            </>
           )}
         </div>
 

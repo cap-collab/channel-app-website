@@ -184,42 +184,57 @@ export function LiveShowCard({
       <div className="space-y-2 mt-auto">
         <div className="flex gap-2">
           {profileMode && show.djUsername ? (
-            <Link
-              href={`/dj/${show.djUsername}`}
-              className="flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white hover:bg-gray-100 text-gray-900 text-center"
-            >
-              {show.isChannelUser ? 'Chat' : 'See profile'}
-            </Link>
+            <>
+              <a
+                href={station.websiteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-2 px-4 rounded text-sm font-semibold bg-white hover:bg-gray-100 text-gray-900 transition-colors flex items-center justify-center gap-1"
+              >
+                Join
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+              <Link
+                href={`/dj/${show.djUsername}`}
+                className="flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white text-center"
+              >
+                See profile
+              </Link>
+            </>
           ) : (
-            <button
-              onClick={(e) => { e.stopPropagation(); onFollow(); }}
-              disabled={isAddingFollow}
-              className={`flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors ${
-                isFollowing
-                  ? 'bg-white/10 hover:bg-white/20 text-white'
-                  : 'bg-white hover:bg-gray-100 text-gray-900'
-              } disabled:opacity-50`}
-            >
-              {isAddingFollow ? (
-                <div className={`w-4 h-4 border-2 ${isFollowing ? 'border-white' : 'border-gray-900'} border-t-transparent rounded-full animate-spin mx-auto`} />
-              ) : isFollowing ? (
-                'Following'
-              ) : (
-                '+ Follow'
-              )}
-            </button>
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); onFollow(); }}
+                disabled={isAddingFollow}
+                className={`flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors ${
+                  isFollowing
+                    ? 'bg-white/10 hover:bg-white/20 text-white'
+                    : 'bg-white hover:bg-gray-100 text-gray-900'
+                } disabled:opacity-50`}
+              >
+                {isAddingFollow ? (
+                  <div className={`w-4 h-4 border-2 ${isFollowing ? 'border-white' : 'border-gray-900'} border-t-transparent rounded-full animate-spin mx-auto`} />
+                ) : isFollowing ? (
+                  'Following'
+                ) : (
+                  '+ Follow'
+                )}
+              </button>
+              <a
+                href={station.websiteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-2 px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1"
+              >
+                Join
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            </>
           )}
-          <a
-            href={station.websiteUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 py-2 px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1"
-          >
-            Join
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-          </a>
         </div>
       </div>
     </div>
