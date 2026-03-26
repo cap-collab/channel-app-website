@@ -40,6 +40,17 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
   const { stationBPM } = useBPM();
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
+
+  // Scroll to #scene anchor after mount
+  useEffect(() => {
+    if (!mounted) return;
+    if (window.location.hash === '#scene') {
+      const el = document.getElementById('scene');
+      if (el) {
+        setTimeout(() => el.scrollIntoView({ behavior: 'smooth' }), 100);
+      }
+    }
+  }, [mounted]);
   const { favorites, isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
   const { shows: scheduleShows, irlShows: scheduleIrlShows, curatorRecs: scheduleCuratorRecs, djProfiles: scheduleDjProfiles, loading: scheduleLoading } = useSchedule();
   const router = useRouter();
