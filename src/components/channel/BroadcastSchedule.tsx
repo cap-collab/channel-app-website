@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { BroadcastSlotSerialized, DJSlot } from '@/types/broadcast';
 import { normalizeUrl } from '@/lib/url';
 
@@ -80,34 +80,46 @@ interface ShowCardProps {
 }
 
 function ShowCard({ slot, isLive, isPast, height, top }: ShowCardProps) {
-  const router = useRouter();
+  // Resolve DJ profile username for navigation — fall back to djName normalized
+  const djProfileUsername = (() => {
+    if (slot.isVenueSlot && slot.djSlot) {
+      return slot.djSlot.liveDjUsername || slot.djSlot.djUsername || slot.djSlot.djName || null;
+    }
+    return slot.originalShow.liveDjUsername || slot.originalShow.djUsername || slot.originalShow.djName || null;
+  })();
 
-  const djPhotoUrl = slot.isVenueSlot && slot.djSlot
-    ? (slot.djSlot.djPhotoUrl || null)
-    : (slot.originalShow.liveDjPhotoUrl || null);
+  // Normalize for URL: lowercase, remove spaces/hyphens
+  const djProfileSlug = djProfileUsername
+    ? djProfileUsername.replace(/[\s-]+/g, '').toLowerCase()
+    : null;
+
+  // Use dj-photo API to get photo by DJ name — works for both confirmed users and pending profiles
+  const djNameForPhoto = slot.djName || djProfileUsername;
+  const photoApiUrl = djNameForPhoto
+    ? `/api/dj-photo/${encodeURIComponent(djNameForPhoto.replace(/[\s-]+/g, '').toLowerCase())}`
+    : null;
+
+  // Track photo load state — hide if 404 or error
+  const [photoLoaded, setPhotoLoaded] = useState(false);
+  const [photoError, setPhotoError] = useState(false);
+
+  // Reset photo state when DJ changes
+  useEffect(() => {
+    setPhotoLoaded(false);
+    setPhotoError(false);
+  }, [photoApiUrl]);
+
   const djPromoHyperlink = slot.isVenueSlot && slot.djSlot
     ? (slot.djSlot.djPromoHyperlink || slot.originalShow.showPromoHyperlink || null)
     : (slot.originalShow.showPromoHyperlink || null);
 
-  // Get DJ profile username for navigation
-  const djProfileUsername = slot.isVenueSlot && slot.djSlot
-    ? (slot.djSlot.liveDjUsername || slot.djSlot.djUsername || null)
-    : (slot.originalShow.liveDjUsername || slot.originalShow.djUsername || null);
-
   const isRestream = slot.originalShow.broadcastType === 'restream';
 
-  const handleClick = () => {
-    if (djProfileUsername) {
-      router.push(`/dj/${djProfileUsername}`);
-    }
-  };
-
-  return (
+  const content = (
     <div
-      onClick={handleClick}
-      className={`absolute left-1 right-1 overflow-hidden border-b border-white/10 ${
+      className={`absolute left-1 right-1 overflow-hidden border-b border-gray-500/30 ${
         isRestream ? 'bg-zinc-900' : 'bg-black'
-      } ${isPast ? 'opacity-60' : ''} ${djProfileUsername ? 'cursor-pointer hover:bg-white/5' : ''}`}
+      } ${isPast ? 'opacity-60' : ''} ${djProfileSlug ? 'cursor-pointer hover:bg-white/5' : ''}`}
       style={{
         top: `${top}px`,
         minHeight: `${height}px`,
@@ -115,17 +127,19 @@ function ShowCard({ slot, isLive, isPast, height, top }: ShowCardProps) {
       }}
     >
       <div className="px-3 py-2 h-full flex flex-col">
-        {/* Header row with photo */}
         <div className="flex items-start gap-2">
-          {/* DJ Photo */}
-          {djPhotoUrl && (
-            <div className="w-9 h-9 flex-shrink-0 relative">
+          {/* DJ Photo via API (works for pending profiles too) */}
+          {photoApiUrl && !photoError && (
+            <div className={`w-9 h-9 flex-shrink-0 relative ${photoLoaded ? '' : 'bg-white/5'}`}>
               <Image
-                src={djPhotoUrl}
+                src={photoApiUrl}
                 alt={slot.djName || 'DJ'}
                 fill
                 sizes="36px"
                 className="object-cover"
+                onLoad={() => setPhotoLoaded(true)}
+                onError={() => setPhotoError(true)}
+                unoptimized
               />
             </div>
           )}
@@ -164,6 +178,13 @@ function ShowCard({ slot, isLive, isPast, height, top }: ShowCardProps) {
       </div>
     </div>
   );
+
+  // Wrap in Link if DJ has a profile page
+  if (djProfileSlug) {
+    return <Link href={`/dj/${djProfileSlug}`}>{content}</Link>;
+  }
+
+  return content;
 }
 
 export function BroadcastSchedule({
