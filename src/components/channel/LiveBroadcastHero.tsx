@@ -155,6 +155,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
   const [imageError, setImageError] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const stickyBarRef = useRef<HTMLDivElement>(null);
+  const heroSentinelRef = useRef<HTMLDivElement>(null);
 
   // Username setup state
   const [usernameInput, setUsernameInput] = useState('');
@@ -169,14 +170,15 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
     }
   }, [messages]);
 
-  // Track sticky bar visibility so GlobalBroadcastBar can take over when scrolled past
+  // Track hero section visibility so GlobalBroadcastBar takes over when scrolled past
+  // Uses a sentinel div at the bottom of the hero (not the sticky bar itself, which never leaves viewport)
   useEffect(() => {
-    const el = stickyBarRef.current;
+    const el = heroSentinelRef.current;
     if (!el) return;
     setHeroBarVisible(true);
     const observer = new IntersectionObserver(
       ([entry]) => setHeroBarVisible(entry.isIntersecting),
-      { threshold: 0.1 },
+      { threshold: 0 },
     );
     observer.observe(el);
     return () => {
@@ -649,6 +651,8 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
         onClose={() => setShowAuthModal(false)}
         message="Sign in to join the chat"
       />
+      {/* Sentinel for IntersectionObserver — GlobalBroadcastBar shows when this scrolls out of view */}
+      <div ref={heroSentinelRef} className="h-0" />
     </section>
   );
 }
