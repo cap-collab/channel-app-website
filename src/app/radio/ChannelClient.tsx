@@ -389,9 +389,10 @@ export function ChannelClient() {
       return a.startMs - b.startMs;
     });
     const s0: MatchedItem[] = s0Candidates.map(c => c.item);
-    // Append followed DJ profile cards at the end of the watchlist
-    for (const profile of djProfiles) {
-      if (!isInWatchlist(profile.displayName) && !isInWatchlist(profile.username)) continue;
+    // Append followed DJ profile cards at the end of the watchlist (Channel users first)
+    const followedProfiles = djProfiles.filter(p => isInWatchlist(p.displayName) || isInWatchlist(p.username));
+    followedProfiles.sort((a, b) => (a.isChannelUser === b.isChannelUser ? 0 : a.isChannelUser ? -1 : 1));
+    for (const profile of followedProfiles) {
       s0.push({ type: 'profile', data: profile, matchLabel: undefined });
     }
 
@@ -430,7 +431,7 @@ export function ChannelClient() {
         const id = `profile-${profile.username}`;
         const genreLabel = genreLabelFor(profile.genres);
         const label = `${selectedCity.toUpperCase()} + ${genreLabel}`;
-        candidates.push({ item: { type: 'profile', data: profile, matchLabel: label }, id, djName: profile.displayName, matchCount: genreMatchCount(profile.genres), startMs: 0, sortGroup: 2, isChannelUser: profile.isChannelUser });
+        candidates.push({ item: { type: 'profile', data: profile, matchLabel: label }, id, djName: profile.displayName, matchCount: genreMatchCount(profile.genres), startMs: 0, sortGroup: profile.isChannelUser ? 1 : 2, isChannelUser: profile.isChannelUser });
       }
       s1 = takeSorted(candidates, 4);
     }
@@ -474,7 +475,7 @@ export function ChannelClient() {
         if (!matchesAnyGenre(profile.genres)) continue;
         const id = `profile-${profile.username}`;
         const genreLabel = genreLabelFor(profile.genres);
-        candidates.push({ item: { type: 'profile', data: profile, matchLabel: genreLabel }, id, djName: profile.displayName, matchCount: genreMatchCount(profile.genres), startMs: 0, sortGroup: 2, isChannelUser: profile.isChannelUser });
+        candidates.push({ item: { type: 'profile', data: profile, matchLabel: genreLabel }, id, djName: profile.displayName, matchCount: genreMatchCount(profile.genres), startMs: 0, sortGroup: profile.isChannelUser ? 1 : 2, isChannelUser: profile.isChannelUser });
       }
       s4 = takeSorted(candidates, 5);
     }
@@ -714,6 +715,7 @@ export function ChannelClient() {
           isAddingFollow={addingFollow}
           onFollow={() => handleUnifiedIRLFollow({ djName: profile.displayName, djUsername: profile.username } as IRLShowData)}
           matchLabel={item.matchLabel}
+          watchlistMode={profileMode}
         />
       );
     }

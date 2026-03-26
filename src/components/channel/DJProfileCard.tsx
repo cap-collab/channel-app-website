@@ -7,10 +7,11 @@ import { DJProfile } from '@/types';
 
 interface DJProfileCardProps {
   profile: DJProfile;
-  isFollowing: boolean;
-  isAddingFollow: boolean;
-  onFollow: () => void;
+  isFollowing?: boolean;
+  isAddingFollow?: boolean;
+  onFollow?: () => void;
   matchLabel?: string;
+  watchlistMode?: boolean;
 }
 
 export function DJProfileCard({
@@ -19,8 +20,10 @@ export function DJProfileCard({
   isAddingFollow,
   onFollow,
   matchLabel,
+  watchlistMode,
 }: DJProfileCardProps) {
   const [imageError, setImageError] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const hasPhoto = profile.photoUrl && !imageError;
   const href = `/dj/${profile.username}`;
@@ -94,23 +97,55 @@ export function DJProfileCard({
       {/* Action Buttons */}
       <div className="space-y-2 mt-auto">
         <div className="flex gap-2">
-          <button
-            onClick={onFollow}
-            disabled={isAddingFollow}
-            className={`flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors ${
-              isFollowing
-                ? 'bg-white/10 hover:bg-white/20 text-white'
-                : 'bg-white hover:bg-gray-100 text-gray-900'
-            } disabled:opacity-50`}
-          >
-            {isAddingFollow ? (
-              <div className={`w-4 h-4 border-2 ${isFollowing ? 'border-white' : 'border-gray-900'} border-t-transparent rounded-full animate-spin mx-auto`} />
-            ) : isFollowing ? (
-              'Following'
+          {watchlistMode ? (
+            profile.isChannelUser ? (
+              <Link
+                href={`/dj/${profile.username}#chat`}
+                className="flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white hover:bg-gray-100 text-gray-900 text-center"
+              >
+                Chat
+              </Link>
             ) : (
-              '+ Follow'
-            )}
-          </button>
+              <button
+                onClick={async () => {
+                  const shareData = {
+                    text: "Hey, your profile showed up on Channel, a platform built by Cap (a girl based in LA) for niche electronic music scenes. She\u2019d love to have you on board. Reach out to her at info@channel-app.com.",
+                    url: `${window.location.origin}/dj/${profile.username}`,
+                  };
+                  try {
+                    if (navigator.share) {
+                      await navigator.share(shareData);
+                    } else {
+                      await navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }
+                  } catch {}
+                }}
+                className="flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white hover:bg-gray-100 text-gray-900 text-center"
+              >
+                {copied ? 'Copied!' : 'Invite to Channel'}
+              </button>
+            )
+          ) : (
+            <button
+              onClick={onFollow}
+              disabled={isAddingFollow}
+              className={`flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors ${
+                isFollowing
+                  ? 'bg-white/10 hover:bg-white/20 text-white'
+                  : 'bg-white hover:bg-gray-100 text-gray-900'
+              } disabled:opacity-50`}
+            >
+              {isAddingFollow ? (
+                <div className={`w-4 h-4 border-2 ${isFollowing ? 'border-white' : 'border-gray-900'} border-t-transparent rounded-full animate-spin mx-auto`} />
+              ) : isFollowing ? (
+                'Following'
+              ) : (
+                '+ Follow'
+              )}
+            </button>
+          )}
           <Link
             href={href}
             className="flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white text-center"
