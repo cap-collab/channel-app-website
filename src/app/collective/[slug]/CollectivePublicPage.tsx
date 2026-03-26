@@ -494,93 +494,106 @@ export function CollectivePublicPage({ slug }: Props) {
               {upcomingEvents.map((event) => (
                 <div
                   key={event.id}
-                  className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors"
+                  className="bg-zinc-900/50 border border-white/10 rounded-lg overflow-hidden hover:bg-zinc-800/50 transition-colors"
                 >
-                  <div className="flex items-start gap-4">
-                    {event.photo && (
-                      <Image
-                        src={event.photo}
-                        alt={event.name}
-                        width={64}
-                        height={64}
-                        className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-                        unoptimized
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-medium mb-1">{event.name}</p>
-                      <p className="text-zinc-500 text-xs uppercase tracking-wide mb-2">
-                        {formatEventDate(event.date)}
-                        {(event.location || event.linkedVenues?.length || event.venueName) && (
-                          <>
-                            {" "}
+                  {/* Header bar */}
+                  <div className="grid grid-cols-3 items-center px-4 py-2 bg-black/40">
+                    <span className="text-zinc-400 text-xs">
+                      {formatEventDate(event.date)}
+                    </span>
+                    <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center justify-center gap-1">
+                      <svg className="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
+                      </svg>
+                      IRL
+                    </span>
+                    <span className="text-zinc-400 text-xs text-right">
+                      {event.location || ""}
+                    </span>
+                  </div>
+                  {/* Body */}
+                  <div className="p-4">
+                    <div className="flex items-start gap-4">
+                      {event.photo && (
+                        <Image
+                          src={event.photo}
+                          alt={event.name}
+                          width={64}
+                          height={64}
+                          className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                          unoptimized
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-medium mb-1">{event.name}</p>
+                        {(event.linkedVenues?.length || event.venueName) && (
+                          <p className="text-zinc-500 text-xs mb-1">
                             <svg className="inline-block w-2.5 h-2.5 -mt-0.5 mr-0.5" viewBox="0 0 24 36" fill="none">
                               <circle cx="12" cy="12" r="10" fill="#ef4444" />
                               <line x1="12" y1="22" x2="12" y2="35" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" />
                             </svg>
-                            {event.location}
                             {event.linkedVenues && event.linkedVenues.length > 0
-                              ? <>{event.location && " · "}{event.linkedVenues.map((v: EventVenueRef, vi: number) => (
+                              ? event.linkedVenues.map((v: EventVenueRef, vi: number) => (
                                   <span key={v.venueId}>
                                     <Link href={`/venue/${generateSlug(v.venueName)}`} className="hover:text-white transition-colors">{v.venueName}</Link>
                                     {vi < event.linkedVenues!.length - 1 && ", "}
                                   </span>
-                                ))}</>
-                              : event.venueName && <>{event.location && " · "}{event.venueName}</>
+                                ))
+                              : event.venueName
                             }
-                          </>
+                          </p>
                         )}
-                      </p>
-                      {(event.djs.length > 0 || (event.linkedCollectives && event.linkedCollectives.length > 0)) && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {event.djs.map((dj: EventDJRef, i: number) => (
-                            dj.djUsername ? (
-                              <Link
-                                key={`dj-${i}`}
-                                href={`/dj/${dj.djUsername}`}
-                                className="text-xs text-zinc-400 hover:text-white transition-colors"
-                              >
-                                {dj.djName}
-                                {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
-                              </Link>
-                            ) : (
-                              <span key={`dj-${i}`} className="text-xs text-zinc-400">
-                                {dj.djName}
-                                {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
-                              </span>
-                            )
-                          ))}
-                          {event.linkedCollectives?.map((coll: CollectiveRef, i: number) => (
-                            coll.collectiveSlug ? (
-                              <Link
-                                key={`coll-${coll.collectiveId}`}
-                                href={`/collective/${coll.collectiveSlug}`}
-                                className="text-xs text-zinc-400 hover:text-white transition-colors"
-                              >
-                                {coll.collectiveName}
-                                {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
-                              </Link>
-                            ) : (
-                              <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
-                                {coll.collectiveName}
-                                {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
-                              </span>
-                            )
-                          ))}
-                        </div>
+                        {(event.djs.length > 0 || (event.linkedCollectives && event.linkedCollectives.length > 0)) && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {event.djs.map((dj: EventDJRef, i: number) => (
+                              dj.djUsername ? (
+                                <Link
+                                  key={`dj-${i}`}
+                                  href={`/dj/${dj.djUsername}`}
+                                  className="text-xs text-zinc-400 hover:text-white transition-colors"
+                                >
+                                  {dj.djName}
+                                  {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
+                                </Link>
+                              ) : (
+                                <span key={`dj-${i}`} className="text-xs text-zinc-400">
+                                  {dj.djName}
+                                  {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
+                                </span>
+                              )
+                            ))}
+                            {event.linkedCollectives?.map((coll: CollectiveRef, i: number) => (
+                              coll.collectiveSlug ? (
+                                <Link
+                                  key={`coll-${coll.collectiveId}`}
+                                  href={`/collective/${coll.collectiveSlug}`}
+                                  className="text-xs text-zinc-400 hover:text-white transition-colors"
+                                >
+                                  {coll.collectiveName}
+                                  {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
+                                </Link>
+                              ) : (
+                                <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
+                                  {coll.collectiveName}
+                                  {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
+                                </span>
+                              )
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {event.ticketLink && (
+                        <a
+                          href={event.ticketLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black text-xs font-medium rounded-full hover:bg-zinc-200 transition-colors flex-shrink-0"
+                        >
+                          Tickets
+                          <ExternalLinkIcon size={10} />
+                        </a>
                       )}
                     </div>
-                    {event.ticketLink && (
-                      <a
-                        href={event.ticketLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black text-xs font-medium rounded-full hover:bg-zinc-200 transition-colors flex-shrink-0"
-                      >
-                        Tickets
-                        <ExternalLinkIcon size={10} />
-                      </a>
-                    )}
                   </div>
                 </div>
               ))}
@@ -600,7 +613,6 @@ export function CollectivePublicPage({ slug }: Props) {
                 const showDate = new Date(show.startTime);
                 const dateStr = showDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
                 const timeStr = showDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-                const endStr = new Date(show.endTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
                 const now = Date.now();
                 const isLive = new Date(show.startTime).getTime() <= now && new Date(show.endTime).getTime() > now;
 
@@ -609,28 +621,31 @@ export function CollectivePublicPage({ slug }: Props) {
                     key={show.id}
                     className="bg-zinc-900/50 border border-white/10 rounded-lg overflow-hidden"
                   >
-                    <div className="flex items-center justify-between px-4 py-2 bg-black/40">
+                    {/* Header bar */}
+                    <div className="grid grid-cols-3 items-center px-4 py-2 bg-black/40">
                       <span className="text-zinc-400 text-xs">
-                        {dateStr} · {timeStr} – {endStr}
+                        {dateStr} · {timeStr}
                       </span>
-                      <div className="flex items-center gap-2">
-                        {isLive && (
-                          <span className="flex items-center gap-1.5">
+                      <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center justify-center gap-1">
+                        {isLive ? (
+                          <>
                             <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                            <span className="text-red-500 text-xs font-bold uppercase">Live</span>
-                            {(() => {
-                              const bpm = stationBPM[getMetadataKeyByStationId(show.stationId) || '']?.bpm;
-                              return bpm ? (
-                                <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter">
-                                  {bpm} BPM
-                                </span>
-                              ) : null;
-                            })()}
-                          </span>
+                            <span className="text-red-500 font-bold">Live</span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-3 h-3 text-sky-300" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
+                            </svg>
+                            Online
+                          </>
                         )}
-                        <span className="text-zinc-500 text-xs">{station?.name || show.stationId}</span>
-                      </div>
+                      </span>
+                      <span className="text-zinc-400 text-xs text-right">
+                        {station?.name || show.stationId}
+                      </span>
                     </div>
+                    {/* Body */}
                     <div className="p-4">
                       <p className="text-white font-medium">{show.name}</p>
                       {show.dj && (
@@ -654,81 +669,94 @@ export function CollectivePublicPage({ slug }: Props) {
               {pastEvents.map((event) => (
                 <div
                   key={event.id}
-                  className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors"
+                  className="bg-zinc-900/50 border border-white/10 rounded-lg overflow-hidden hover:bg-zinc-800/50 transition-colors"
                 >
-                  <div className="flex items-start gap-4">
-                    {event.photo && (
-                      <Image
-                        src={event.photo}
-                        alt={event.name}
-                        width={64}
-                        height={64}
-                        className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-                        unoptimized
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-medium mb-1">{event.name}</p>
-                      <p className="text-zinc-500 text-xs uppercase tracking-wide mb-2">
-                        {formatEventDate(event.date)}
-                        {(event.location || event.linkedVenues?.length || event.venueName) && (
-                          <>
-                            {" "}
+                  {/* Header bar */}
+                  <div className="grid grid-cols-3 items-center px-4 py-2 bg-black/40">
+                    <span className="text-zinc-400 text-xs">
+                      {formatEventDate(event.date)}
+                    </span>
+                    <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center justify-center gap-1">
+                      <svg className="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
+                      </svg>
+                      IRL
+                    </span>
+                    <span className="text-zinc-400 text-xs text-right">
+                      {event.location || ""}
+                    </span>
+                  </div>
+                  {/* Body */}
+                  <div className="p-4">
+                    <div className="flex items-start gap-4">
+                      {event.photo && (
+                        <Image
+                          src={event.photo}
+                          alt={event.name}
+                          width={64}
+                          height={64}
+                          className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                          unoptimized
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-medium mb-1">{event.name}</p>
+                        {(event.linkedVenues?.length || event.venueName) && (
+                          <p className="text-zinc-500 text-xs mb-1">
                             <svg className="inline-block w-2.5 h-2.5 -mt-0.5 mr-0.5" viewBox="0 0 24 36" fill="none">
                               <circle cx="12" cy="12" r="10" fill="#ef4444" />
                               <line x1="12" y1="22" x2="12" y2="35" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" />
                             </svg>
-                            {event.location}
                             {event.linkedVenues && event.linkedVenues.length > 0
-                              ? <>{event.location && " · "}{event.linkedVenues.map((v: EventVenueRef, vi: number) => (
+                              ? event.linkedVenues.map((v: EventVenueRef, vi: number) => (
                                   <span key={v.venueId}>
                                     <Link href={`/venue/${generateSlug(v.venueName)}`} className="hover:text-white transition-colors">{v.venueName}</Link>
                                     {vi < event.linkedVenues!.length - 1 && ", "}
                                   </span>
-                                ))}</>
-                              : event.venueName && <>{event.location && " · "}{event.venueName}</>
+                                ))
+                              : event.venueName
                             }
-                          </>
+                          </p>
                         )}
-                      </p>
-                      {(event.djs.length > 0 || (event.linkedCollectives && event.linkedCollectives.length > 0)) && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {event.djs.map((dj: EventDJRef, i: number) => (
-                            dj.djUsername ? (
-                              <Link
-                                key={`dj-${i}`}
-                                href={`/dj/${dj.djUsername}`}
-                                className="text-xs text-zinc-400 hover:text-white transition-colors"
-                              >
-                                {dj.djName}
-                                {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
-                              </Link>
-                            ) : (
-                              <span key={`dj-${i}`} className="text-xs text-zinc-400">
-                                {dj.djName}
-                                {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
-                              </span>
-                            )
-                          ))}
-                          {event.linkedCollectives?.map((coll: CollectiveRef, i: number) => (
-                            coll.collectiveSlug ? (
-                              <Link
-                                key={`coll-${coll.collectiveId}`}
-                                href={`/collective/${coll.collectiveSlug}`}
-                                className="text-xs text-zinc-400 hover:text-white transition-colors"
-                              >
-                                {coll.collectiveName}
-                                {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
-                              </Link>
-                            ) : (
-                              <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
-                                {coll.collectiveName}
-                                {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
-                              </span>
-                            )
-                          ))}
-                        </div>
-                      )}
+                        {(event.djs.length > 0 || (event.linkedCollectives && event.linkedCollectives.length > 0)) && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {event.djs.map((dj: EventDJRef, i: number) => (
+                              dj.djUsername ? (
+                                <Link
+                                  key={`dj-${i}`}
+                                  href={`/dj/${dj.djUsername}`}
+                                  className="text-xs text-zinc-400 hover:text-white transition-colors"
+                                >
+                                  {dj.djName}
+                                  {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
+                                </Link>
+                              ) : (
+                                <span key={`dj-${i}`} className="text-xs text-zinc-400">
+                                  {dj.djName}
+                                  {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
+                                </span>
+                              )
+                            ))}
+                            {event.linkedCollectives?.map((coll: CollectiveRef, i: number) => (
+                              coll.collectiveSlug ? (
+                                <Link
+                                  key={`coll-${coll.collectiveId}`}
+                                  href={`/collective/${coll.collectiveSlug}`}
+                                  className="text-xs text-zinc-400 hover:text-white transition-colors"
+                                >
+                                  {coll.collectiveName}
+                                  {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
+                                </Link>
+                              ) : (
+                                <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
+                                  {coll.collectiveName}
+                                  {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
+                                </span>
+                              )
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -746,20 +774,29 @@ export function CollectivePublicPage({ slug }: Props) {
             <div className="space-y-3">
               {pastShows.slice(0, 20).map((show) => {
                 const showDate = new Date(show.startTime);
-                const dateStr = showDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-                const timeStr = showDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+                const dateStr = showDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
                 return (
                   <div
                     key={show.id}
                     className="bg-zinc-900/50 border border-white/10 rounded-lg overflow-hidden"
                   >
-                    <div className="flex items-center justify-between px-4 py-2 bg-black/40">
+                    {/* Header bar */}
+                    <div className="grid grid-cols-3 items-center px-4 py-2 bg-black/40">
                       <span className="text-zinc-400 text-xs">
-                        {dateStr} · {timeStr}
+                        {dateStr}
                       </span>
-                      <span className="text-zinc-500 text-xs">{show.stationName}</span>
+                      <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center justify-center gap-1">
+                        <svg className="w-3 h-3 text-sky-300" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
+                        </svg>
+                        Online
+                      </span>
+                      <span className="text-zinc-400 text-xs text-right">
+                        {show.stationName}
+                      </span>
                     </div>
+                    {/* Body */}
                     <div className="p-4">
                       <p className="text-white font-medium">{show.showName}</p>
                     </div>

@@ -349,84 +349,89 @@ export function VenuePublicPage({ slug }: Props) {
               {upcomingEvents.map((event) => (
                 <div
                   key={event.id}
-                  className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors"
+                  className="bg-zinc-900/50 border border-white/10 rounded-lg overflow-hidden hover:bg-zinc-800/50 transition-colors"
                 >
-                  <div className="flex items-start gap-4">
-                    {event.photo && (
-                      <Image
-                        src={event.photo}
-                        alt={event.name}
-                        width={64}
-                        height={64}
-                        className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-                        unoptimized
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-medium mb-1">{event.name}</p>
-                      <p className="text-zinc-500 text-xs uppercase tracking-wide mb-2">
-                        {formatEventDate(event.date)}
-                        {event.location && (
-                          <>
-                            {" "}
-                            <svg className="inline-block w-2.5 h-2.5 -mt-0.5 mr-0.5" viewBox="0 0 24 36" fill="none">
-                              <circle cx="12" cy="12" r="10" fill="#ef4444" />
-                              <line x1="12" y1="22" x2="12" y2="35" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" />
-                            </svg>
-                            {event.location}
-                          </>
+                  {/* Header bar */}
+                  <div className="grid grid-cols-3 items-center px-4 py-2 bg-black/40">
+                    <span className="text-zinc-400 text-xs">
+                      {formatEventDate(event.date)}
+                    </span>
+                    <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center justify-center gap-1">
+                      <svg className="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
+                      </svg>
+                      IRL
+                    </span>
+                    <span className="text-zinc-400 text-xs text-right">
+                      {event.location || ""}
+                    </span>
+                  </div>
+                  {/* Body */}
+                  <div className="p-4">
+                    <div className="flex items-start gap-4">
+                      {event.photo && (
+                        <Image
+                          src={event.photo}
+                          alt={event.name}
+                          width={64}
+                          height={64}
+                          className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                          unoptimized
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-medium mb-1">{event.name}</p>
+                        {(event.djs.length > 0 || (event.linkedCollectives && event.linkedCollectives.length > 0)) && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {event.djs.map((dj: EventDJRef, i: number) => (
+                              dj.djUsername ? (
+                                <Link
+                                  key={`dj-${i}`}
+                                  href={`/dj/${dj.djUsername}`}
+                                  className="text-xs text-zinc-400 hover:text-white transition-colors"
+                                >
+                                  {dj.djName}
+                                  {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
+                                </Link>
+                              ) : (
+                                <span key={`dj-${i}`} className="text-xs text-zinc-400">
+                                  {dj.djName}
+                                  {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
+                                </span>
+                              )
+                            ))}
+                            {event.linkedCollectives?.map((coll: CollectiveRef, i: number) => (
+                              coll.collectiveSlug ? (
+                                <Link
+                                  key={`coll-${coll.collectiveId}`}
+                                  href={`/collective/${coll.collectiveSlug}`}
+                                  className="text-xs text-zinc-400 hover:text-white transition-colors"
+                                >
+                                  {coll.collectiveName}
+                                  {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
+                                </Link>
+                              ) : (
+                                <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
+                                  {coll.collectiveName}
+                                  {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
+                                </span>
+                              )
+                            ))}
+                          </div>
                         )}
-                      </p>
-                      {(event.djs.length > 0 || (event.linkedCollectives && event.linkedCollectives.length > 0)) && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {event.djs.map((dj: EventDJRef, i: number) => (
-                            dj.djUsername ? (
-                              <Link
-                                key={`dj-${i}`}
-                                href={`/dj/${dj.djUsername}`}
-                                className="text-xs text-zinc-400 hover:text-white transition-colors"
-                              >
-                                {dj.djName}
-                                {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
-                              </Link>
-                            ) : (
-                              <span key={`dj-${i}`} className="text-xs text-zinc-400">
-                                {dj.djName}
-                                {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
-                              </span>
-                            )
-                          ))}
-                          {event.linkedCollectives?.map((coll: CollectiveRef, i: number) => (
-                            coll.collectiveSlug ? (
-                              <Link
-                                key={`coll-${coll.collectiveId}`}
-                                href={`/collective/${coll.collectiveSlug}`}
-                                className="text-xs text-zinc-400 hover:text-white transition-colors"
-                              >
-                                {coll.collectiveName}
-                                {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
-                              </Link>
-                            ) : (
-                              <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
-                                {coll.collectiveName}
-                                {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
-                              </span>
-                            )
-                          ))}
-                        </div>
+                      </div>
+                      {event.ticketLink && (
+                        <a
+                          href={event.ticketLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black text-xs font-medium rounded-full hover:bg-zinc-200 transition-colors flex-shrink-0"
+                        >
+                          Tickets
+                          <ExternalLinkIcon size={10} />
+                        </a>
                       )}
                     </div>
-                    {event.ticketLink && (
-                      <a
-                        href={event.ticketLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black text-xs font-medium rounded-full hover:bg-zinc-200 transition-colors flex-shrink-0"
-                      >
-                        Tickets
-                        <ExternalLinkIcon size={10} />
-                      </a>
-                    )}
                   </div>
                 </div>
               ))}
@@ -444,72 +449,77 @@ export function VenuePublicPage({ slug }: Props) {
               {pastEvents.map((event) => (
                 <div
                   key={event.id}
-                  className="bg-zinc-900/50 border border-white/10 rounded-lg p-4 hover:bg-zinc-800/50 transition-colors"
+                  className="bg-zinc-900/50 border border-white/10 rounded-lg overflow-hidden hover:bg-zinc-800/50 transition-colors"
                 >
-                  <div className="flex items-start gap-4">
-                    {event.photo && (
-                      <Image
-                        src={event.photo}
-                        alt={event.name}
-                        width={64}
-                        height={64}
-                        className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-                        unoptimized
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-medium mb-1">{event.name}</p>
-                      <p className="text-zinc-500 text-xs uppercase tracking-wide mb-2">
-                        {formatEventDate(event.date)}
-                        {event.location && (
-                          <>
-                            {" "}
-                            <svg className="inline-block w-2.5 h-2.5 -mt-0.5 mr-0.5" viewBox="0 0 24 36" fill="none">
-                              <circle cx="12" cy="12" r="10" fill="#ef4444" />
-                              <line x1="12" y1="22" x2="12" y2="35" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" />
-                            </svg>
-                            {event.location}
-                          </>
-                        )}
-                      </p>
-                      {(event.djs.length > 0 || (event.linkedCollectives && event.linkedCollectives.length > 0)) && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {event.djs.map((dj: EventDJRef, i: number) => (
-                            dj.djUsername ? (
-                              <Link
-                                key={`dj-${i}`}
-                                href={`/dj/${dj.djUsername}`}
-                                className="text-xs text-zinc-400 hover:text-white transition-colors"
-                              >
-                                {dj.djName}
-                                {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
-                              </Link>
-                            ) : (
-                              <span key={`dj-${i}`} className="text-xs text-zinc-400">
-                                {dj.djName}
-                                {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
-                              </span>
-                            )
-                          ))}
-                          {event.linkedCollectives?.map((coll: CollectiveRef, i: number) => (
-                            coll.collectiveSlug ? (
-                              <Link
-                                key={`coll-${coll.collectiveId}`}
-                                href={`/collective/${coll.collectiveSlug}`}
-                                className="text-xs text-zinc-400 hover:text-white transition-colors"
-                              >
-                                {coll.collectiveName}
-                                {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
-                              </Link>
-                            ) : (
-                              <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
-                                {coll.collectiveName}
-                                {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
-                              </span>
-                            )
-                          ))}
-                        </div>
+                  {/* Header bar */}
+                  <div className="grid grid-cols-3 items-center px-4 py-2 bg-black/40">
+                    <span className="text-zinc-400 text-xs">
+                      {formatEventDate(event.date)}
+                    </span>
+                    <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center justify-center gap-1">
+                      <svg className="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
+                      </svg>
+                      IRL
+                    </span>
+                    <span className="text-zinc-400 text-xs text-right">
+                      {event.location || ""}
+                    </span>
+                  </div>
+                  {/* Body */}
+                  <div className="p-4">
+                    <div className="flex items-start gap-4">
+                      {event.photo && (
+                        <Image
+                          src={event.photo}
+                          alt={event.name}
+                          width={64}
+                          height={64}
+                          className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                          unoptimized
+                        />
                       )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-medium mb-1">{event.name}</p>
+                        {(event.djs.length > 0 || (event.linkedCollectives && event.linkedCollectives.length > 0)) && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {event.djs.map((dj: EventDJRef, i: number) => (
+                              dj.djUsername ? (
+                                <Link
+                                  key={`dj-${i}`}
+                                  href={`/dj/${dj.djUsername}`}
+                                  className="text-xs text-zinc-400 hover:text-white transition-colors"
+                                >
+                                  {dj.djName}
+                                  {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
+                                </Link>
+                              ) : (
+                                <span key={`dj-${i}`} className="text-xs text-zinc-400">
+                                  {dj.djName}
+                                  {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
+                                </span>
+                              )
+                            ))}
+                            {event.linkedCollectives?.map((coll: CollectiveRef, i: number) => (
+                              coll.collectiveSlug ? (
+                                <Link
+                                  key={`coll-${coll.collectiveId}`}
+                                  href={`/collective/${coll.collectiveSlug}`}
+                                  className="text-xs text-zinc-400 hover:text-white transition-colors"
+                                >
+                                  {coll.collectiveName}
+                                  {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
+                                </Link>
+                              ) : (
+                                <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
+                                  {coll.collectiveName}
+                                  {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
+                                </span>
+                              )
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
