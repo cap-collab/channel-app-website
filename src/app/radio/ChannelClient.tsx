@@ -840,6 +840,8 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
         </section>
       )}
 
+      <div id="scene" />
+
       {/* Favorites — followed DJs & favorited shows in next 7 days, only when NOT on Channel Radio */}
       {mounted && !isBroadcastLive && favoritesNowLive.length > 0 && (
         <section className="px-4 md:px-8 pt-4 pb-6 relative z-10">

@@ -87,7 +87,7 @@ export function OfflineHero({ jumpToEarliestShow }: { jumpToEarliestShow?: boole
           <p className="text-lg text-zinc-400 mb-8">Back online soon</p>
 
           <Link
-            href="/explore"
+            href="/radio#scene"
             className="inline-block bg-white text-black px-8 py-3 rounded font-semibold hover:bg-gray-200 transition-colors"
           >
             Explore the scene
