@@ -6,6 +6,7 @@ export const SUPPORTED_GENRES = [
   'Drum and Bass',
   'Dub',
   'Electronic',
+  'Experimental',
   'Funk',
   'Garage',
   'Hip Hop',
