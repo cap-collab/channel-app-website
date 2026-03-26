@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { BroadcastSlotSerialized, DJSlot } from '@/types/broadcast';
@@ -283,16 +283,43 @@ export function BroadcastSchedule({
 
   const visibleHours = HOURS.filter(h => h >= timeRange.startHour && h < timeRange.endHour);
 
+  // Count shows overlapping a given day
+  const countShowsForDay = useCallback((date: Date): number => {
+    const { dayStart, dayEnd } = getDayBoundaries(date);
+    let count = 0;
+    for (const show of shows) {
+      if (show.djSlots && show.djSlots.length > 0) {
+        for (const djSlot of show.djSlots) {
+          if (slotOverlapsDay(djSlot.startTime, djSlot.endTime, dayStart, dayEnd)) count++;
+        }
+      } else {
+        if (slotOverlapsDay(show.startTime, show.endTime, dayStart, dayEnd)) count++;
+      }
+    }
+    return count;
+  }, [shows]);
+
+  const prevDay = useMemo(() => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() - 1);
+    return d;
+  }, [selectedDate]);
+
+  const nextDay = useMemo(() => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + 1);
+    return d;
+  }, [selectedDate]);
+
+  const canGoPrev = !isToday(selectedDate) && countShowsForDay(prevDay) >= 3;
+  const canGoNext = countShowsForDay(nextDay) >= 3;
+
   const goToPrevDay = () => {
-    const prev = new Date(selectedDate);
-    prev.setDate(prev.getDate() - 1);
-    onDateChange(prev);
+    if (canGoPrev) onDateChange(prevDay);
   };
 
   const goToNextDay = () => {
-    const next = new Date(selectedDate);
-    next.setDate(next.getDate() + 1);
-    onDateChange(next);
+    if (canGoNext) onDateChange(nextDay);
   };
 
   // Format hour for display
@@ -310,7 +337,7 @@ export function BroadcastSchedule({
         <div className="flex items-center gap-2">
           <button
             onClick={goToPrevDay}
-            disabled={isToday(selectedDate)}
+            disabled={!canGoPrev}
             className="p-2 text-gray-400 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -322,7 +349,8 @@ export function BroadcastSchedule({
           </span>
           <button
             onClick={goToNextDay}
-            className="p-2 text-gray-400 hover:text-white transition-colors"
+            disabled={!canGoNext}
+            className="p-2 text-gray-400 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
