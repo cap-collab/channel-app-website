@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, FormEvent } from 'react';
-import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useDJProfileChat } from '@/hooks/useDJProfileChat';
@@ -133,13 +132,12 @@ export function OfflineHero({ jumpToEarliestShow }: { jumpToEarliestShow?: boole
                 <p className="text-red-400 text-xs mt-1">Something went wrong. Try again.</p>
               )}
             </div>
-            <Link
-              href="/studio/join"
-              className="bg-white text-black px-8 py-3 rounded font-semibold hover:bg-gray-200 transition-colors"
-            >
-              Host a show
-            </Link>
           </div>
+          <p className="text-zinc-500 text-sm mt-6">
+            DJs, producers, collectives — reach out to{' '}
+            <a href="mailto:djshows@channel-app.com" className="text-white hover:underline">djshows@channel-app.com</a>
+            {' '}to host a show or claim your profile
+          </p>
         </div>
 
         {/* Tab Bar */}
