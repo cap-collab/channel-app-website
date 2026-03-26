@@ -36,7 +36,7 @@ export default function Home() {
       <section className="min-h-screen flex flex-col justify-center items-center px-6 pt-24 pb-20 relative bg-[#1a1a1a]">
         <div className="max-w-3xl text-center">
           <h1 className="text-2xl md:text-4xl lg:text-5xl font-black text-white mb-6 uppercase tracking-tighter leading-none">
-            Radio for the electronic music community, curated in LA.
+            Platform for electronic music communities, curated in LA.
           </h1>
 
           <p className="text-lg md:text-xl text-zinc-400 mb-12 max-w-xl mx-auto leading-relaxed">
@@ -51,10 +51,10 @@ export default function Home() {
               Open Channel Radio
             </Link>
             <Link
-              href="/studio/join"
+              href="/explore"
               className="inline-block bg-transparent text-white border border-white px-10 py-4 rounded text-lg font-semibold hover:-translate-y-0.5 hover:bg-white hover:text-black transition-all"
             >
-              Host a show
+              Explore your scene
             </Link>
           </div>
         </div>
