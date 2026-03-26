@@ -2196,7 +2196,7 @@ export function DJPublicProfileClient({ username }: Props) {
                                     setCopiedArchiveId(archive.id);
                                     setTimeout(() => setCopiedArchiveId(null), 2000);
                                   }}
-                                  className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-xs bg-accent/10 hover:bg-accent/20 text-accent"
+                                  className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
                                   title="Copy archive link"
                                 >
                                   {copiedArchiveId === archive.id ? (
@@ -2242,7 +2242,7 @@ export function DJPublicProfileClient({ username }: Props) {
                         <div className="flex items-center gap-3">
                           <button
                             onClick={() => handlePlayPause(archive.id)}
-                            className="w-10 h-10 rounded-full bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0 text-black"
+                            className="w-10 h-10 rounded bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0 text-black"
                           >
                             {isPlaying ? (
                               <PauseIcon size={16} />
