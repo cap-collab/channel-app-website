@@ -834,7 +834,7 @@ export function ChannelClient() {
       {mounted && !isBroadcastLive && favoritesNowLive.length > 0 && (
         <section className="px-4 md:px-8 pt-4 pb-6 relative z-10">
           <div className="max-w-7xl mx-auto">
-            <h2 className="text-2xl md:text-3xl font-black mb-3">On your watchlist</h2>
+            <h2 className="text-2xl md:text-3xl font-semibold mb-3">On your watchlist</h2>
             <SwipeableCardCarousel>
               {favoritesNowLive.map((item, index) => renderCard(item, index, true))}
             </SwipeableCardCarousel>
@@ -845,7 +845,7 @@ export function ChannelClient() {
       {/* Meanwhile in the Scene */}
       <section className="px-4 md:px-8 pb-4 relative z-10">
         <div className="max-w-7xl mx-auto">
-          <h2 className="text-2xl md:text-3xl font-black mb-2">Meanwhile in the scene</h2>
+          <h2 className="text-2xl md:text-3xl font-semibold mb-2">Meanwhile in the scene</h2>
           <p className="text-zinc-400 mb-6">Upcoming shows from selectors in your community</p>
           <div className="flex flex-col sm:flex-row gap-3 mb-4">
             <div className="flex-1 max-w-md">

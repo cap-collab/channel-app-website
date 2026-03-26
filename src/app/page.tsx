@@ -35,7 +35,7 @@ export default function Home() {
       {/* Hero Section */}
       <section className="min-h-screen flex flex-col justify-center items-center px-6 pt-24 pb-20 relative bg-[#1a1a1a]">
         <div className="max-w-3xl text-center">
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-white mb-6 uppercase tracking-tighter leading-none">
+          <h1 className="text-3xl md:text-5xl lg:text-6xl font-black text-white mb-6 uppercase tracking-tighter leading-none">
             Radio for the electronic music community, curated in LA.
           </h1>
 
@@ -167,7 +167,7 @@ export default function Home() {
       <section className="py-24 px-6 bg-[#1a1a1a]">
         <ScrollReveal>
           <div className="max-w-3xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-black text-white mb-12 text-center">
+            <h2 className="text-3xl md:text-4xl font-semibold text-white mb-12 text-center">
               About / FAQs
             </h2>
             <FAQAccordion items={faqItems} />
@@ -179,7 +179,7 @@ export default function Home() {
       <section id="get-involved" className="py-24 px-6 bg-black">
         <ScrollReveal>
           <div className="max-w-3xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-black text-white mb-8 text-center">
+            <h2 className="text-3xl md:text-4xl font-semibold text-white mb-8 text-center">
               Get Involved
             </h2>
 
@@ -221,7 +221,7 @@ export default function Home() {
       <footer className="py-24 px-6 bg-[#1a1a1a]">
         <div className="max-w-3xl mx-auto text-center">
           <ScrollReveal>
-            <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">
+            <h3 className="text-2xl md:text-3xl font-semibold text-white mb-4">
               Still have questions?
             </h3>
             <p className="text-zinc-400 mb-10">
