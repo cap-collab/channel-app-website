@@ -389,8 +389,14 @@ export function ChannelClient() {
       return a.startMs - b.startMs;
     });
     const s0: MatchedItem[] = s0Candidates.map(c => c.item);
-    // Append followed DJ profile cards at the end of the watchlist (Channel users first)
-    const followedProfiles = djProfiles.filter(p => isInWatchlist(p.displayName) || isInWatchlist(p.username));
+    // Append followed DJ profile cards at the end of the watchlist (Channel users first),
+    // but skip DJs who already appear via a show in the watchlist
+    const s0DjNames = new Set(s0Candidates.map(c => c.djName?.toLowerCase()).filter(Boolean));
+    const followedProfiles = djProfiles.filter(p =>
+      (isInWatchlist(p.displayName) || isInWatchlist(p.username)) &&
+      !s0DjNames.has(p.displayName.toLowerCase()) &&
+      !s0DjNames.has(p.username.toLowerCase())
+    );
     followedProfiles.sort((a, b) => (a.isChannelUser === b.isChannelUser ? 0 : a.isChannelUser ? -1 : 1));
     for (const profile of followedProfiles) {
       s0.push({ type: 'profile', data: profile, matchLabel: undefined });
