@@ -291,7 +291,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
 
   return (
     <section id="live" className="relative z-10 px-4 pt-6 pb-2">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-3xl mx-auto">
 
         {/* Live / Restream indicator — same style as LiveShowCard */}
         <div className="flex items-center justify-end mb-1 h-4 px-0.5">
