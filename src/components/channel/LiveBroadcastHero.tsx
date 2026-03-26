@@ -291,7 +291,10 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
 
   return (
     <section id="live" className="relative z-10 px-4 pt-6 pb-2">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-6xl mx-auto lg:grid lg:grid-cols-[55%_45%]">
+
+        {/* Left column: indicator + image + player bar */}
+        <div>
 
         {/* Live / Restream indicator — same style as LiveShowCard */}
         <div className="flex items-center justify-end mb-1 h-4 px-0.5">
@@ -448,6 +451,11 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
           )}
         </div>
 
+        </div>
+
+        {/* Right column: tabs + content */}
+        <div className="flex flex-col lg:border-l lg:border-white/10">
+
         {/* Tab Bar */}
         <div className="flex border-b border-white/10">
           <button
@@ -494,7 +502,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
 
         {/* Tab Content */}
         {activeTab === 'chat' ? (
-          <div className="flex flex-col" style={{ height: '45vh' }}>
+          <div className="flex flex-col h-[30vh] lg:h-0 lg:flex-1">
             {/* Promo bar */}
             {promoToShow && promoToShow.username && (() => {
               const hasHyperlink = !!promoToShow.hyperlink;
@@ -627,7 +635,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
             )}
           </div>
         ) : (
-          <div className="py-4 overflow-y-auto" style={{ height: '45vh' }}>
+          <div className="py-4 overflow-y-auto h-[30vh] lg:h-0 lg:flex-1">
             <BroadcastSchedule
               shows={scheduleShows}
               selectedDate={selectedDate}
@@ -637,6 +645,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
           </div>
         )}
 
+        </div>
       </div>
 
       <AuthModal
