@@ -15,7 +15,7 @@ export function GlobalBroadcastBar() {
   const [mounted, setMounted] = useState(false);
   const {
     isLive, isStreaming, isPlaying, isLoading, toggle,
-    showName, djName, heroBarVisible, tipEligible,
+    showName, djName, heroBarVisible, tipEligible, currentShow,
   } = useBroadcastStreamContext();
   const { stationBPM } = useBPM();
   const broadcastBPM = stationBPM['broadcast']?.bpm ?? null;
@@ -59,13 +59,25 @@ export function GlobalBroadcastBar() {
         <Link href="/radio#live" className="flex-1 min-w-0 overflow-hidden">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-bold leading-tight truncate text-white">{showName || 'Live Now'}</h3>
-            <span className="relative flex h-2 w-2 flex-shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
-            </span>
-            <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold flex-shrink-0">Live</span>
+            {currentShow?.broadcastType === 'restream' ? (
+              <span className="relative flex h-3 w-3 flex-shrink-0">
+                <svg className="animate-ping absolute inset-0 w-3 h-3 opacity-50" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                  <path d="M3 3v5h5" />
+                </svg>
+                <svg className="relative w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                  <path d="M3 3v5h5" />
+                </svg>
+              </span>
+            ) : (
+              <span className="relative flex h-2 w-2 flex-shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+              </span>
+            )}
             {broadcastBPM && (
-              <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter flex-shrink-0">
+              <span className={`text-[10px] font-mono uppercase tracking-tighter font-bold flex-shrink-0 ${currentShow?.broadcastType === 'restream' ? 'text-gray-500' : 'text-red-500'}`}>
                 {broadcastBPM} BPM
               </span>
             )}
