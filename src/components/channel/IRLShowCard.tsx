@@ -154,18 +154,18 @@ export function IRLShowCard({
             <button
               onClick={onFollow}
               disabled={isAddingFollow}
-              className={`flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors ${
+              className={`flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-1 ${
                 isFollowing
-                  ? 'bg-white/10 hover:bg-white/20 text-white'
+                  ? 'bg-white/10 text-gray-400 cursor-default'
                   : 'bg-white hover:bg-gray-100 text-gray-900'
               } disabled:opacity-50`}
             >
               {isAddingFollow ? (
                 <div className={`w-4 h-4 border-2 ${isFollowing ? 'border-white' : 'border-gray-900'} border-t-transparent rounded-full animate-spin mx-auto`} />
               ) : isFollowing ? (
-                'Following'
+                <><svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg> Watchlist</>
               ) : (
-                '+ Follow'
+                <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> Watchlist</>
               )}
             </button>
 

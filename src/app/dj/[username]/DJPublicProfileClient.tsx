@@ -2509,13 +2509,13 @@ export function DJPublicProfileClient({ username }: Props) {
           <button
             onClick={handleSubscribe}
             disabled={subscribing || favoritesLoading}
-            className={`flex-1 min-w-0 py-3 text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50 ${
+            className={`flex-1 min-w-0 py-3 text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 whitespace-nowrap ${
               isSubscribed
-                ? "bg-zinc-900 text-white border border-white/10 hover:bg-zinc-800"
+                ? "bg-zinc-900 text-gray-400 border border-white/10 cursor-default"
                 : "bg-white text-black hover:bg-gray-100"
             }`}
           >
-            {subscribing ? "..." : isSubscribed ? "Added to watchlist" : "Add to watchlist"}
+            {subscribing ? "..." : isSubscribed ? (<><svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg> Added to watchlist</>) : (<><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> Add to watchlist</>)}
           </button>
           {profile.email && (
             <div className="flex-1 min-w-0 relative">
