@@ -120,6 +120,7 @@ export async function POST(request: NextRequest) {
 
     // Sync promo back to DJ profile so profile and broadcast stay in sync
     if (slot.liveDjUserId || slot.djUserId) {
+      // DJ is a Channel user — save to their user profile
       const djUserId = slot.liveDjUserId || slot.djUserId;
       try {
         const updateData: Record<string, string | FieldValue> = {
@@ -134,6 +135,31 @@ export async function POST(request: NextRequest) {
       } catch (err) {
         // Non-critical — don't fail the promo post if profile sync fails
         console.error('Failed to sync promo to DJ profile:', err);
+      }
+    } else if (slot.djEmail) {
+      // DJ is a pending DJ (no account yet) — save to their pending profile
+      try {
+        const pendingSnapshot = await db.collection('pending-dj-profiles')
+          .where('email', '==', slot.djEmail.toLowerCase())
+          .where('status', '==', 'pending')
+          .limit(1)
+          .get();
+
+        if (!pendingSnapshot.empty) {
+          const pendingDoc = pendingSnapshot.docs[0];
+          const updateData: Record<string, string | FieldValue> = {
+            'djProfile.promoText': promoText,
+          };
+          if (normalizedHyperlink) {
+            updateData['djProfile.promoHyperlink'] = normalizedHyperlink;
+          } else {
+            updateData['djProfile.promoHyperlink'] = FieldValue.delete();
+          }
+          await pendingDoc.ref.update(updateData);
+          console.log('Synced promo to pending DJ profile:', { email: slot.djEmail, pendingId: pendingDoc.id });
+        }
+      } catch (err) {
+        console.error('Failed to sync promo to pending DJ profile:', err);
       }
     }
 

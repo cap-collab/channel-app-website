@@ -39,12 +39,28 @@ export async function POST(request: NextRequest) {
     // Save to the DJ profile linked to the slot (not the logged-in user)
     const slotDjUserId = slotData.liveDjUserId || slotData.djUserId;
     if (slotDjUserId) {
+      // DJ is a Channel user — save to their user profile
       const userRef = db.collection('users').doc(slotDjUserId);
       await userRef.set({
         'djProfile.thankYouMessage': trimmedMessage,
       }, { merge: true });
 
-      console.log('[update-thank-you] Saved to slot DJ profile:', { slotDjUserId, messageLength: trimmedMessage.length });
+      console.log('[update-thank-you] Saved to user profile:', { slotDjUserId, messageLength: trimmedMessage.length });
+    } else if (slotData.djEmail) {
+      // DJ is a pending DJ (no account yet) — save to their pending profile
+      const pendingSnapshot = await db.collection('pending-dj-profiles')
+        .where('email', '==', slotData.djEmail.toLowerCase())
+        .where('status', '==', 'pending')
+        .limit(1)
+        .get();
+
+      if (!pendingSnapshot.empty) {
+        const pendingDoc = pendingSnapshot.docs[0];
+        await pendingDoc.ref.update({
+          'djProfile.thankYouMessage': trimmedMessage,
+        });
+        console.log('[update-thank-you] Saved to pending DJ profile:', { email: slotData.djEmail, pendingId: pendingDoc.id });
+      }
     }
 
     return NextResponse.json({
