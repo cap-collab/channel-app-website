@@ -66,7 +66,7 @@ export function LoveButton({
         className={`${buttonSize} flex items-center justify-center transition-all ${
           disabled
             ? 'text-gray-600 cursor-not-allowed'
-            : 'text-accent hover:text-accent-hover'
+            : 'text-white hover:text-white/80'
         } ${isAnimating ? 'scale-125' : 'scale-100'}`}
       >
         <svg
