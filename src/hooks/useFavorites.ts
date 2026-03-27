@@ -614,7 +614,7 @@ export function useFavorites() {
           // Find the matched DJ — use the specific DJ that matched, not just the first
           let matchedDjUsername = irlShow.djUsername;
           let matchedDjName = irlShow.djName;
-          let matchedDjPhotoUrl = irlShow.djPhotoUrl;
+          const matchedDjPhotoUrl = irlShow.djPhotoUrl;
           if (irlShow.allDjs) {
             const matchedDj = irlShow.allDjs.find(dj =>
               (dj.djUsername && containsMatch(dj.djUsername, term)) ||
