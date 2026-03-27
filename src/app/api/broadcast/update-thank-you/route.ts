@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { broadcastToken, thankYouMessage, djUserId } = body;
+    const { broadcastToken, thankYouMessage } = body;
 
     if (!broadcastToken) {
       return NextResponse.json({ error: 'No broadcast token provided' }, { status: 400 });
