@@ -93,23 +93,23 @@ function ShowRow({ slot }: { slot: DisplaySlot }) {
     ? djProfileUsername.replace(/[\s-]+/g, '').toLowerCase()
     : null;
 
-  // Show image priority: show image > DJ photo (via API)
-  // For restreams with multiple DJs, use the primary DJ's name for photo lookup
+  // Show image priority: show image > primary restream DJ photo > DJ photo (via API)
+  // For restreams with multiple DJs, use the primary DJ's name/photo
   const showImageUrl = slot.originalShow.showImageUrl || null;
-  const primaryDjName = (() => {
+  const primaryRestreamDj = (() => {
     if (slot.originalShow.restreamDjs && slot.originalShow.restreamDjs.length > 0) {
-      const primary = slot.originalShow.restreamDjs.find(dj => dj.userId)
+      return slot.originalShow.restreamDjs.find(dj => dj.userId)
         || slot.originalShow.restreamDjs.find(dj => dj.username)
         || slot.originalShow.restreamDjs[0];
-      return primary.name;
     }
     return null;
   })();
-  const djNameForPhoto = primaryDjName || slot.djName || djProfileUsername;
+  const primaryDjPhoto = primaryRestreamDj?.photoUrl || null;
+  const djNameForPhoto = primaryRestreamDj?.name || slot.djName || djProfileUsername;
   const djPhotoApiUrl = djNameForPhoto
     ? `/api/dj-photo/${encodeURIComponent(djNameForPhoto.replace(/[\s-]+/g, '').toLowerCase())}`
     : null;
-  const photoUrl = showImageUrl || djPhotoApiUrl;
+  const photoUrl = showImageUrl || primaryDjPhoto || djPhotoApiUrl;
 
   const [photoLoaded, setPhotoLoaded] = useState(false);
   const [photoError, setPhotoError] = useState(false);
