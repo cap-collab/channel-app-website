@@ -102,6 +102,8 @@ export interface BroadcastSlot {
   liveDjPhotoUrl?: string;     // DJ profile picture URL
   liveDjPromoText?: string;    // DJ promo text (from their profile)
   liveDjPromoHyperlink?: string; // DJ promo link (from their profile)
+  liveDjGenres?: string[];       // DJ genres (from their profile)
+  liveDjDescription?: string;    // DJ description (from their profile)
   // Current DJ slot tracking (for venue multi-DJ shows)
   currentDjSlotId?: string;      // ID of the currently active DJ slot
   // Show-level promo (default for all DJs)
@@ -154,6 +156,8 @@ export interface BroadcastSlotSerialized {
   liveDjPhotoUrl?: string;
   liveDjPromoText?: string;
   liveDjPromoHyperlink?: string;
+  liveDjGenres?: string[];       // DJ genres (from their profile)
+  liveDjDescription?: string;    // DJ description (from their profile)
   // Current DJ slot tracking (for venue multi-DJ shows)
   currentDjSlotId?: string;
   // Show-level promo

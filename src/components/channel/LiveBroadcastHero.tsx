@@ -90,6 +90,85 @@ export function HeroChatMessage({
   );
 }
 
+/** Overlay on DJ image showing name, genres, and auto-scrolling description */
+function DJImageOverlay({
+  djName,
+  djGenres,
+  djDescription,
+}: {
+  djName: string | null;
+  djGenres: string[];
+  djDescription: string | null;
+}) {
+  const descriptionRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [needsScroll, setNeedsScroll] = useState(false);
+  const [scrollDistance, setScrollDistance] = useState(0);
+
+  // Measure whether description overflows 2 lines and calculate scroll distance
+  useEffect(() => {
+    const desc = descriptionRef.current;
+    const container = containerRef.current;
+    if (!desc || !container) return;
+    const overflow = desc.scrollHeight > container.clientHeight;
+    setNeedsScroll(overflow);
+    if (overflow) {
+      setScrollDistance(desc.scrollHeight - container.clientHeight);
+    }
+  }, [djDescription]);
+
+  // Genre line: "DJ NAME - GENRE1 · GENRE2" or just "DJ NAME"
+  const genreText = djGenres.length > 0 ? djGenres.join(' · ') : null;
+
+  return (
+    <div className="absolute bottom-2 left-2 right-2 drop-shadow-lg">
+      {/* DJ Name + Genre on one line */}
+      <div className="text-xs font-black uppercase tracking-wider text-white line-clamp-1">
+        {djName}
+        {genreText && (
+          <span className="font-medium tracking-[0.15em] text-zinc-300"> - {genreText}</span>
+        )}
+      </div>
+
+      {/* Description — max 2 visible lines, auto-scrolls if longer */}
+      {djDescription && (
+        <div
+          ref={containerRef}
+          className="mt-1 overflow-hidden"
+          style={{ maxHeight: '2.6em' }}
+        >
+          <div
+            ref={descriptionRef}
+            className={`text-[11px] leading-[1.3em] text-zinc-300 font-light ${needsScroll ? 'animate-desc-scroll' : ''}`}
+            style={needsScroll ? {
+              '--scroll-distance': `-${scrollDistance}px`,
+            } as React.CSSProperties : undefined}
+          >
+            {djDescription}
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        @keyframes desc-scroll {
+          0%, 15% {
+            transform: translateY(0);
+          }
+          45%, 55% {
+            transform: translateY(var(--scroll-distance));
+          }
+          85%, 100% {
+            transform: translateY(0);
+          }
+        }
+        .animate-desc-scroll {
+          animation: desc-scroll 10s ease-in-out infinite;
+        }
+      `}</style>
+    </div>
+  );
+}
+
 export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?: boolean } = {}) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername, loading: profileLoading, setChatUsername } = useUserProfile(user?.uid);
@@ -190,6 +269,8 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
   const showName = currentShow?.showName || 'Live Now';
   const djName = currentDJ || currentShow?.djName || null;
   const hasPhoto = djPhotoUrl && !imageError;
+  const djGenres = currentShow?.liveDjGenres || [];
+  const djDescription = currentShow?.liveDjDescription || null;
 
   // DJ profile username for linking
   const djProfileUsername = (() => {
@@ -326,13 +407,9 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
                 />
                 {/* Gradient scrims */}
                 <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
-                <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
-                {/* DJ Name overlay — bottom left */}
-                <div className="absolute bottom-2 left-2 right-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
-                    {djName}
-                  </span>
-                </div>
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
+                {/* DJ info overlay — bottom left */}
+                <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
               </>
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-white/5">
@@ -355,12 +432,8 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
                   onError={() => setImageError(true)}
                 />
                 <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
-                <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
-                <div className="absolute bottom-2 left-2 right-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
-                    {djName}
-                  </span>
-                </div>
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
+                <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
               </>
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-white/5">
