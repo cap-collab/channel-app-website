@@ -37,7 +37,7 @@ interface DJProfileSetupProps {
   onComplete: (username: string, promoText?: string, promoHyperlink?: string, thankYouMessage?: string) => void;
 }
 
-export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromoHyperlink, defaultThankYouMessage, broadcastType, onComplete }: DJProfileSetupProps) {
+export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromoHyperlink, defaultThankYouMessage, broadcastType, isVenueRecording, onComplete }: DJProfileSetupProps) {
   const { user, isAuthenticated, signInWithGoogle, signInWithApple, sendEmailLink, emailSent, resetEmailSent, loading: authLoading } = useAuthContext();
   const { chatUsername: savedUsername, djProfile, loading: profileLoading } = useUserProfile(user?.uid);
   const [username, setUsername] = useState(defaultUsername || '');
@@ -333,9 +333,11 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
       <h2 className="text-2xl font-bold text-white mb-2">
         {broadcastType === 'recording' ? 'Recording Settings' : 'Your DJ Profile'}
       </h2>
-      <p className="text-gray-400 mb-8">
-        Enter your DJ name for this {broadcastType === 'recording' ? 'recording' : 'broadcast'}.
-      </p>
+      {broadcastType !== 'recording' && (
+        <p className="text-gray-400 mb-8">
+          Enter your DJ name for this broadcast.
+        </p>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {error && (
@@ -413,19 +415,27 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
             By starting this {broadcastType === 'recording' ? 'recording' : 'broadcast'}, I represent and warrant that:
           </p>
           <ul className="text-gray-400 text-sm space-y-1 mb-4 ml-4">
-            {broadcastType === 'venue' && (
-              <li>• The venue and promoters have authorized this livestream and any related recording.</li>
-            )}
-            {broadcastType === 'recording' && (
+            {broadcastType === 'recording' && isVenueRecording ? (
               <>
                 <li>• The venue and promoters have authorized this recording.</li>
                 <li>• I am responsible for ensuring the recording content complies with venue policies and applicable laws.</li>
+                <li>• Channel may use this recording and replay it or make it available on Channel websites and channels.</li>
+                <li>• All DJs listed on this recording are aware of and consent to being recorded and used by Channel.</li>
               </>
-            )}
-            <li>• Channel may {broadcastType === 'recording' ? 'use' : 'record'} this {broadcastType === 'recording' ? 'recording' : 'broadcast'} and replay it or make it available on Channel websites and channels.</li>
-            <li>• All DJs listed on this {broadcastType === 'recording' ? 'recording' : 'broadcast'} are aware of and consent to being {broadcastType === 'recording' ? 'recorded' : 'livestreamed, recorded,'} and used by Channel.</li>
-            {broadcastType !== 'recording' && (
-              <li>• I am responsible for ensuring the livestream complies with venue policies and applicable laws.</li>
+            ) : broadcastType === 'recording' ? (
+              <>
+                <li>• I am responsible for ensuring the recording content complies with applicable laws.</li>
+                <li>• Channel may use this recording and replay it or make it available on Channel websites and radio.</li>
+              </>
+            ) : (
+              <>
+                {broadcastType === 'venue' && (
+                  <li>• The venue and promoters have authorized this livestream and any related recording.</li>
+                )}
+                <li>• Channel may record this broadcast and replay it or make it available on Channel websites and channels.</li>
+                <li>• All DJs listed on this broadcast are aware of and consent to being livestreamed, recorded, and used by Channel.</li>
+                <li>• I am responsible for ensuring the livestream complies with venue policies and applicable laws.</li>
+              </>
             )}
           </ul>
           <label className="flex items-start gap-3 cursor-pointer">
@@ -436,15 +446,21 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
               className="mt-0.5 w-5 h-5 rounded border-gray-600 bg-gray-800 text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
             />
             <span className="text-gray-300 text-sm">
-              I confirm and agree to the{' '}
-              <a
-                href="/dj-terms"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-white underline hover:text-gray-300"
-              >
-                DJ Terms
-              </a>
+              {broadcastType === 'recording' ? (
+                'I confirm and agree'
+              ) : (
+                <>
+                  I confirm and agree to the{' '}
+                  <a
+                    href="/dj-terms"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-white underline hover:text-gray-300"
+                  >
+                    DJ Terms
+                  </a>
+                </>
+              )}
             </span>
           </label>
         </div>
@@ -457,27 +473,29 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
           {broadcastType === 'recording' ? 'Continue to Record' : 'Continue to Go Live'}
         </button>
 
-        {/* Promo Text (Optional) */}
-        <div>
-          <label htmlFor="promoText" className="block text-gray-400 text-sm mb-2">
-            Promo text <span className="text-gray-600">(optional)</span>
-          </label>
-          <input
-            id="promoText"
-            type="text"
-            value={promoText}
-            onChange={(e) => setPromoText(e.target.value)}
-            placeholder="New album out now!"
-            maxLength={200}
-            className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-gray-500"
-          />
-          <p className="text-gray-500 text-xs mt-1">
-            This text appears in chat during your broadcast ({promoText.length}/200)
-          </p>
-        </div>
+        {/* Promo Text (Optional) - hidden for recordings */}
+        {broadcastType !== 'recording' && (
+          <div>
+            <label htmlFor="promoText" className="block text-gray-400 text-sm mb-2">
+              Promo text <span className="text-gray-600">(optional)</span>
+            </label>
+            <input
+              id="promoText"
+              type="text"
+              value={promoText}
+              onChange={(e) => setPromoText(e.target.value)}
+              placeholder="New album out now!"
+              maxLength={200}
+              className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-gray-500"
+            />
+            <p className="text-gray-500 text-xs mt-1">
+              This text appears in chat during your broadcast ({promoText.length}/200)
+            </p>
+          </div>
+        )}
 
-        {/* Promo Hyperlink (Optional) */}
-        {promoText && (
+        {/* Promo Hyperlink (Optional) - hidden for recordings */}
+        {broadcastType !== 'recording' && promoText && (
           <div>
             <label htmlFor="promoHyperlink" className="block text-gray-400 text-sm mb-2">
               Promo hyperlink <span className="text-gray-600">(optional)</span>

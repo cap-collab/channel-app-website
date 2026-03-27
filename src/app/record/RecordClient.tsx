@@ -472,7 +472,7 @@ export function RecordClient() {
                 type="text"
                 value={showName}
                 onChange={(e) => setShowName(e.target.value)}
-                placeholder="My DJ Set"
+                placeholder="#djname recording"
                 className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-gray-500 mb-4"
                 maxLength={100}
                 required
@@ -526,6 +526,7 @@ export function RecordClient() {
               defaultPromoHyperlink={djProfile?.promoHyperlink || undefined}
               defaultThankYouMessage={djProfile?.thankYouMessage || undefined}
               broadcastType="recording"
+              isVenueRecording={broadcastType === 'venue'}
               onComplete={(username, promoText, promoHyperlink, thankYouMessage) => {
                 if (showName.trim()) {
                   handleProfileComplete(username, promoText, promoHyperlink, thankYouMessage);
