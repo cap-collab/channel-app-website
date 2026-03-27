@@ -74,9 +74,17 @@ function formatTime(ms: number): string {
 
 function ShowRow({ slot }: { slot: DisplaySlot }) {
   // Resolve DJ profile username for navigation
+  // For restreams with multiple DJs, link to the primary DJ (channel user first, then pending DJ)
   const djProfileUsername = (() => {
     if (slot.isVenueSlot && slot.djSlot) {
       return slot.djSlot.liveDjUsername || slot.djSlot.djUsername || slot.djSlot.djName || null;
+    }
+    if (slot.originalShow.restreamDjs && slot.originalShow.restreamDjs.length > 0) {
+      // Find the primary DJ: channel user (has userId) first, then pending DJ (has username)
+      const primary = slot.originalShow.restreamDjs.find(dj => dj.userId)
+        || slot.originalShow.restreamDjs.find(dj => dj.username)
+        || null;
+      if (primary?.username) return primary.username;
     }
     return slot.originalShow.liveDjUsername || slot.originalShow.djUsername || slot.originalShow.djName || null;
   })();
@@ -86,8 +94,18 @@ function ShowRow({ slot }: { slot: DisplaySlot }) {
     : null;
 
   // Show image priority: show image > DJ photo (via API)
+  // For restreams with multiple DJs, use the primary DJ's name for photo lookup
   const showImageUrl = slot.originalShow.showImageUrl || null;
-  const djNameForPhoto = slot.djName || djProfileUsername;
+  const primaryDjName = (() => {
+    if (slot.originalShow.restreamDjs && slot.originalShow.restreamDjs.length > 0) {
+      const primary = slot.originalShow.restreamDjs.find(dj => dj.userId)
+        || slot.originalShow.restreamDjs.find(dj => dj.username)
+        || slot.originalShow.restreamDjs[0];
+      return primary.name;
+    }
+    return null;
+  })();
+  const djNameForPhoto = primaryDjName || slot.djName || djProfileUsername;
   const djPhotoApiUrl = djNameForPhoto
     ? `/api/dj-photo/${encodeURIComponent(djNameForPhoto.replace(/[\s-]+/g, '').toLowerCase())}`
     : null;
@@ -205,11 +223,24 @@ export function BroadcastSchedule({
         const clippedStart = Math.max(show.startTime, dayStart);
         const clippedEnd = Math.min(show.endTime, dayEnd);
 
+        // For restreams with multiple DJs, show all names (channel user first, pending DJ second)
+        let djName = show.djName || show.liveDjUsername;
+        if (show.restreamDjs && show.restreamDjs.length > 1) {
+          const sortedDjs = [...show.restreamDjs].sort((a, b) => {
+            if (a.userId && !b.userId) return -1;
+            if (!a.userId && b.userId) return 1;
+            if (a.username && !b.username) return -1;
+            if (!a.username && b.username) return 1;
+            return 0;
+          });
+          djName = sortedDjs.map(dj => dj.name).join(', ');
+        }
+
         slots.push({
           id: `${show.id}-${selectedDate.toISOString().split('T')[0]}`,
           parentShowId: show.id,
           showName: show.showName,
-          djName: show.djName || show.liveDjUsername,
+          djName,
           startTime: clippedStart,
           endTime: clippedEnd,
           status: show.status,

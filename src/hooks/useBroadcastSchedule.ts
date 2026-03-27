@@ -95,6 +95,12 @@ export function useBroadcastSchedule(options?: { jumpToEarliestShow?: boolean })
             liveDjPhotoUrl: data.liveDjPhotoUrl,
             showPromoText: data.showPromoText,
             showPromoHyperlink: data.showPromoHyperlink,
+            showImageUrl: data.showImageUrl,
+            // Restream fields
+            archiveId: data.archiveId,
+            archiveRecordingUrl: data.archiveRecordingUrl,
+            archiveDuration: data.archiveDuration,
+            restreamDjs: data.restreamDjs,
           });
         });
         // Filter to only shows that overlap with selected day

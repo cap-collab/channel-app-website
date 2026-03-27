@@ -59,6 +59,17 @@ export function useBroadcastLiveStatus(): UseBroadcastLiveStatusReturn {
             const slot = data.djSlots.find((s: { startTime: number; endTime: number }) => s.startTime <= now && s.endTime > now);
             if (slot) dj = slot.liveDjUsername || slot.djName || null;
           }
+          // For restreams with multiple DJs, show all names (channel user first)
+          if (data.restreamDjs && Array.isArray(data.restreamDjs) && data.restreamDjs.length > 1) {
+            const sortedDjs = [...data.restreamDjs].sort((a: { userId?: string; username?: string }, b: { userId?: string; username?: string }) => {
+              if (a.userId && !b.userId) return -1;
+              if (!a.userId && b.userId) return 1;
+              if (a.username && !b.username) return -1;
+              if (!a.username && b.username) return 1;
+              return 0;
+            });
+            dj = sortedDjs.map((d: { name: string }) => d.name).join(', ');
+          }
           if (!dj) dj = data.liveDjUsername || data.djName || null;
           setDjName(dj);
         } else {

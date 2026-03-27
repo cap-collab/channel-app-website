@@ -129,6 +129,7 @@ export interface BroadcastSlot {
   archiveId?: string;             // Firestore doc ID of the archive being restreamed
   archiveRecordingUrl?: string;   // Cached MP4 URL from the archive
   archiveDuration?: number;       // Duration in seconds
+  restreamDjs?: ArchiveDJ[];      // All DJs from the archive (for multi-DJ restream display)
 }
 
 // Serialized version for API responses (timestamps as numbers)
@@ -183,6 +184,7 @@ export interface BroadcastSlotSerialized {
   archiveId?: string;             // Firestore doc ID of the archive being restreamed
   archiveRecordingUrl?: string;   // Cached MP4 URL from the archive
   archiveDuration?: number;       // Duration in seconds
+  restreamDjs?: ArchiveDJ[];      // All DJs from the archive (for multi-DJ restream display)
 }
 
 // Recording status type

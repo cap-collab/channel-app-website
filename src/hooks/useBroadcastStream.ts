@@ -181,6 +181,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
             archiveId: data.archiveId,
             archiveRecordingUrl: data.archiveRecordingUrl,
             archiveDuration: data.archiveDuration,
+            restreamDjs: data.restreamDjs,
           };
           setCurrentShow(slot);
 
@@ -197,6 +198,20 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
               // Priority: djUsername (chat username) > liveDjUsername > djName (admin-set)
               djNameToUse = currentDjSlot.djUsername || currentDjSlot.liveDjUsername || currentDjSlot.djName || null;
             }
+          }
+          // For restreams with multiple DJs, build a combined DJ name string
+          // Priority: channel user first, pending DJ second, others after
+          if (slot.restreamDjs && slot.restreamDjs.length > 1) {
+            const sortedDjs = [...slot.restreamDjs].sort((a, b) => {
+              // DJs with userId (channel users) come first
+              if (a.userId && !b.userId) return -1;
+              if (!a.userId && b.userId) return 1;
+              // DJs with username (pending DJs) come second
+              if (a.username && !b.username) return -1;
+              if (!a.username && b.username) return 1;
+              return 0;
+            });
+            djNameToUse = sortedDjs.map(dj => dj.name).join(', ');
           }
           setCurrentDJ(djNameToUse || slot.liveDjUsername || slot.djName || null);
           setIsLive(true);

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { BroadcastSlotSerialized, BroadcastType, DJSlot, DJProfileInfo, Recording, Archive } from '@/types/broadcast';
+import { BroadcastSlotSerialized, BroadcastType, DJSlot, DJProfileInfo, Recording, Archive, ArchiveDJ } from '@/types/broadcast';
 import { uploadShowImage, validatePhoto } from '@/lib/photo-upload';
 
 type SlotModalTab = 'new-show' | 'archives';
@@ -24,6 +24,7 @@ interface SlotModalProps {
     archiveId?: string;
     archiveRecordingUrl?: string;
     archiveDuration?: number;
+    restreamDjs?: ArchiveDJ[];
   }) => Promise<void>;
   onDelete?: (slotId: string) => Promise<void>;
   initialStartTime?: Date;
@@ -851,6 +852,10 @@ export function SlotModal({
         saveData.archiveId = selectedArchive.id;
         saveData.archiveRecordingUrl = selectedArchive.recordingUrl;
         saveData.archiveDuration = selectedArchive.duration;
+        // Pass all DJs from the archive for multi-DJ restream display
+        if (selectedArchive.djs && selectedArchive.djs.length > 0) {
+          saveData.restreamDjs = selectedArchive.djs;
+        }
       }
 
       await onSave(saveData);

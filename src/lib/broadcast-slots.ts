@@ -11,7 +11,7 @@ import {
   orderBy,
   Timestamp,
 } from 'firebase/firestore';
-import { BroadcastSlotSerialized, BroadcastType, DJSlot, STATION_ID } from '@/types/broadcast';
+import { BroadcastSlotSerialized, BroadcastType, DJSlot, ArchiveDJ, STATION_ID } from '@/types/broadcast';
 
 const COLLECTION = 'broadcast-slots';
 
@@ -103,6 +103,7 @@ export async function createSlot(data: {
   archiveId?: string;
   archiveRecordingUrl?: string;
   archiveDuration?: number;
+  restreamDjs?: ArchiveDJ[];
 }): Promise<{ slot: BroadcastSlotSerialized; broadcastUrl: string }> {
   if (!db) throw new Error('Firestore not initialized');
 
@@ -196,6 +197,7 @@ export async function createSlot(data: {
       archiveId: data.archiveId || null,
       archiveRecordingUrl: data.archiveRecordingUrl || null,
       archiveDuration: data.archiveDuration || null,
+      restreamDjs: data.restreamDjs || null,
     }),
   };
 
@@ -225,6 +227,7 @@ export async function createSlot(data: {
     archiveId: data.archiveId,
     archiveRecordingUrl: data.archiveRecordingUrl,
     archiveDuration: data.archiveDuration,
+    restreamDjs: data.restreamDjs,
   };
 
   // All slots use token URLs
@@ -248,6 +251,7 @@ export async function updateSlot(
     archiveId: string;
     archiveRecordingUrl: string;
     archiveDuration: number;
+    restreamDjs: ArchiveDJ[];
   }>
 ): Promise<void> {
   if (!db) throw new Error('Firestore not initialized');
@@ -300,6 +304,7 @@ export async function updateSlot(
   if (updates.archiveId !== undefined) updateData.archiveId = updates.archiveId || null;
   if (updates.archiveRecordingUrl !== undefined) updateData.archiveRecordingUrl = updates.archiveRecordingUrl || null;
   if (updates.archiveDuration !== undefined) updateData.archiveDuration = updates.archiveDuration || null;
+  if (updates.restreamDjs !== undefined) updateData.restreamDjs = updates.restreamDjs || null;
 
   await updateDoc(doc(db, COLLECTION, slotId), updateData);
 }

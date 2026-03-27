@@ -273,8 +273,15 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
   const djDescription = currentShow?.liveDjDescription || null;
 
   // DJ profile username for linking
+  // For restreams with multiple DJs, link to the primary DJ (channel user first, then pending DJ)
   const djProfileUsername = (() => {
     if (!currentShow) return null;
+    if (currentShow.restreamDjs && currentShow.restreamDjs.length > 0) {
+      const primary = currentShow.restreamDjs.find(dj => dj.userId)
+        || currentShow.restreamDjs.find(dj => dj.username)
+        || null;
+      if (primary?.username) return primary.username;
+    }
     if (currentShow.djSlots && currentShow.djSlots.length > 0) {
       const now = Date.now();
       const slot = currentShow.djSlots.find(s => s.startTime <= now && s.endTime > now);

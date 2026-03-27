@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
-import { BroadcastSlotSerialized, RoomStatus, BroadcastType, DJSlot } from '@/types/broadcast';
+import { BroadcastSlotSerialized, RoomStatus, BroadcastType, DJSlot, ArchiveDJ } from '@/types/broadcast';
 import { WeeklyCalendar } from '@/components/broadcast/admin/WeeklyCalendar';
 import { SlotModal } from '@/components/broadcast/admin/SlotModal';
 import { getSlots, createSlot, deleteSlot as deleteSlotFromDb, updateSlot } from '@/lib/broadcast-slots';
@@ -129,6 +129,7 @@ export function AdminDashboard() {
     archiveId?: string;
     archiveRecordingUrl?: string;
     archiveDuration?: number;
+    restreamDjs?: ArchiveDJ[];
   }) => {
     if (!user) return;
 
@@ -156,6 +157,7 @@ export function AdminDashboard() {
           archiveId: data.archiveId,
           archiveRecordingUrl: data.archiveRecordingUrl,
           archiveDuration: data.archiveDuration,
+          restreamDjs: data.restreamDjs,
         });
       }
     } else {
