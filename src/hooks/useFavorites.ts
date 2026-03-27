@@ -601,14 +601,60 @@ export function useFavorites() {
         }
         console.log(`[addToWatchlist] Auto-added ${addedCount} shows to favorites`);
 
-        // Also find and add matching IRL events to favorites
-        // Uses irlShowMatchesDJ which checks djName, djUsername, and allDjs
+        // Find and add matching IRL events to favorites
+        // First: check events from /api/schedule (next 2 weeks, already enriched)
         const matchingIRLShows = allIRLShows.filter((irlShow) => {
           return irlShowMatchesDJ(irlShow, term);
         });
-        console.log(`[addToWatchlist] Found ${matchingIRLShows.length} IRL events matching DJ "${term}"`);
+        console.log(`[addToWatchlist] Found ${matchingIRLShows.length} IRL events from schedule matching DJ "${term}"`);
 
-        // Add each matching IRL event to favorites
+        // Second: query Firestore directly for ALL upcoming events (catches events beyond 2-week schedule window)
+        // Firestore can't filter by nested array fields, so we fetch all upcoming events and filter client-side
+        interface EventDJRef { djName?: string; djUsername?: string; djPhotoUrl?: string }
+        const directIRLMatches: Array<{
+          eventName: string; location: string; date: string; ticketUrl: string;
+          matchedDjUsername: string; matchedDjName: string; matchedDjPhotoUrl?: string;
+        }> = [];
+        try {
+          const eventsRef = collection(db, "events");
+          const eventsQuery = query(
+            eventsRef,
+            where("date", ">=", Date.now()),
+            orderBy("date", "asc")
+          );
+          const eventsSnapshot = await getDocs(eventsQuery);
+          for (const eventDoc of eventsSnapshot.docs) {
+            const data = eventDoc.data();
+            if (!data.location) continue;
+            const djs = (data.djs || []) as EventDJRef[];
+            // Check if any DJ in the lineup matches the search term
+            const matchedDj = djs.find(dj =>
+              (dj.djUsername && containsMatch(dj.djUsername, term)) ||
+              (dj.djName && containsMatch(dj.djName, term))
+            );
+            if (matchedDj) {
+              const dateObj = new Date(data.date);
+              const dateStr = dateObj.toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+              directIRLMatches.push({
+                eventName: data.name || "Event",
+                location: data.location,
+                date: dateStr,
+                ticketUrl: data.ticketLink || "",
+                matchedDjUsername: matchedDj.djUsername || "",
+                matchedDjName: matchedDj.djName || "",
+                matchedDjPhotoUrl: matchedDj.djPhotoUrl,
+              });
+            }
+          }
+          console.log(`[addToWatchlist] Found ${directIRLMatches.length} IRL events from direct query matching DJ "${term}"`);
+        } catch (err) {
+          console.warn("[addToWatchlist] Failed to query events directly:", err);
+        }
+
+        // Merge: build a set of keys from schedule-based matches, then add direct matches that aren't already covered
+        const scheduleIRLKeys = new Set<string>();
+
+        // Add each matching IRL event from schedule to favorites
         let addedIRLCount = 0;
         for (const irlShow of matchingIRLShows) {
           // Find the matched DJ — use the specific DJ that matched, not just the first
@@ -623,22 +669,15 @@ export function useFavorites() {
             if (matchedDj) {
               matchedDjUsername = matchedDj.djUsername || matchedDjUsername;
               matchedDjName = matchedDj.djName || matchedDjName;
-              // Photo not in allDjs, keep primary photo
             }
           }
 
-          // Create unique key for IRL event: matched djUsername + date + location
           const irlKey = `irl-${matchedDjUsername}-${irlShow.date}-${irlShow.location}`.toLowerCase();
+          scheduleIRLKeys.add(irlKey);
 
-          // Check if already favorited
-          const existingIRLFav = query(
-            favoritesRef,
-            where("term", "==", irlKey)
-          );
+          const existingIRLFav = query(favoritesRef, where("term", "==", irlKey));
           const irlFavDocs = await getDocs(existingIRLFav);
-          const alreadyFavoritedIRL = irlFavDocs.docs.some(
-            (doc) => doc.data().type === "irl"
-          );
+          const alreadyFavoritedIRL = irlFavDocs.docs.some((d) => d.data().type === "irl");
 
           if (!alreadyFavoritedIRL) {
             console.log(`[addToWatchlist] Auto-adding IRL event to favorites: ${irlShow.eventName} (${irlShow.location}) for DJ ${matchedDjName}`);
@@ -654,6 +693,36 @@ export function useFavorites() {
               irlTicketUrl: irlShow.ticketUrl,
               djUsername: matchedDjUsername,
               djPhotoUrl: matchedDjPhotoUrl || null,
+              createdAt: serverTimestamp(),
+              createdBy: "web",
+            });
+            addedIRLCount++;
+          }
+        }
+
+        // Add direct Firestore matches not already covered by schedule
+        for (const match of directIRLMatches) {
+          const irlKey = `irl-${match.matchedDjUsername}-${match.date}-${match.location}`.toLowerCase();
+          if (scheduleIRLKeys.has(irlKey)) continue;
+
+          const existingIRLFav = query(favoritesRef, where("term", "==", irlKey));
+          const irlFavDocs = await getDocs(existingIRLFav);
+          const alreadyFavoritedIRL = irlFavDocs.docs.some((d) => d.data().type === "irl");
+
+          if (!alreadyFavoritedIRL) {
+            console.log(`[addToWatchlist] Auto-adding IRL event (direct) to favorites: ${match.eventName} (${match.location}) for DJ ${match.matchedDjName}`);
+            await addDoc(favoritesRef, {
+              term: irlKey,
+              type: "irl",
+              showName: match.eventName,
+              djName: match.matchedDjName,
+              stationId: null,
+              irlEventName: match.eventName,
+              irlLocation: match.location,
+              irlDate: match.date,
+              irlTicketUrl: match.ticketUrl,
+              djUsername: match.matchedDjUsername,
+              djPhotoUrl: match.matchedDjPhotoUrl || null,
               createdAt: serverTimestamp(),
               createdBy: "web",
             });
