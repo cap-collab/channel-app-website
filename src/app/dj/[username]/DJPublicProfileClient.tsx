@@ -2126,17 +2126,16 @@ export function DJPublicProfileClient({ username }: Props) {
                             setTogglingFavoriteId(null);
                           }}
                           disabled={isToggling || isWatching}
-                          className="w-full py-3 px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                          className={`w-full py-3 px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-1 disabled:opacity-50 ${
+                            isWatching ? 'bg-white/10 text-gray-400 cursor-default' : 'bg-white/10 hover:bg-white/20 text-white'
+                          }`}
                         >
                           {isToggling ? (
                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          ) : isWatching ? (
+                            <><svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg> Watchlist</>
                           ) : (
-                            <>
-                              <svg className="w-4 h-4" fill={isWatching ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                              </svg>
-                              {isWatching ? "Added to watchlist" : "Add to watchlist"}
-                            </>
+                            <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> Watchlist</>
                           )}
                         </button>
                       </div>
@@ -2330,18 +2329,17 @@ export function DJPublicProfileClient({ username }: Props) {
                             setTogglingFavoriteId(null);
                           }}
                           disabled={isToggling || isWatching}
-                          className="w-full py-3 px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                          className={`w-full py-3 px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-1 disabled:opacity-50 ${
+                            isWatching ? 'bg-white/10 text-gray-400 cursor-default' : 'bg-white/10 hover:bg-white/20 text-white'
+                          }`}
                           style={stationAccentColor ? { borderColor: stationAccentColor } : undefined}
                         >
                           {isToggling ? (
                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          ) : isWatching ? (
+                            <><svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg> Watchlist</>
                           ) : (
-                            <>
-                              <svg className="w-4 h-4" fill={isWatching ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                              </svg>
-                              {isWatching ? "Added to watchlist" : "Add to watchlist"}
-                            </>
+                            <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> Watchlist</>
                           )}
                         </button>
                       </div>
