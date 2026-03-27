@@ -8,6 +8,7 @@ import {
   syncEventToCollectives,
   cleanupDeletedEvent,
 } from '@/lib/bidirectional-sync';
+import { syncIRLEventToFollowers } from '@/lib/sync-irl-event';
 
 // Verify user is authenticated and has DJ-level access
 async function verifyDJAccess(request: NextRequest): Promise<{
@@ -170,32 +171,17 @@ export async function POST(request: NextRequest) {
     await syncEventToCollectives(batch, db, docRef.id, name.trim(), slug, dateMs, [], linkedCollectives || []);
     await batch.commit();
 
-    // Sync to followers (fire and forget)
-    try {
-      const protocol = request.headers.get('x-forwarded-proto') || 'https';
-      const host = request.headers.get('host') || 'localhost:3000';
-      const baseUrl = `${protocol}://${host}`;
-      await fetch(`${baseUrl}/api/dj/sync-shows-to-followers`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          djUserId: userId,
-          djUsername: chatUsernameNormalized || '',
-          djName: chatUsername || '',
-          djPhotoUrl: djPhotoUrl || undefined,
-          irlShows: [{
-            name: name.trim(),
-            location: location || '',
-            url: ticketLink || '',
-            date: new Date(dateMs).toISOString().split('T')[0],
-          }],
-          radioShows: [],
-          previousIrlShows: [],
-          previousRadioShows: [],
-        }),
+    // Sync to followers of ALL DJs in the lineup (fire and forget)
+    if (location && eventDjs.length > 0) {
+      syncIRLEventToFollowers(request, {
+        name: name.trim(),
+        date: dateMs,
+        location: location || '',
+        ticketLink: ticketLink || undefined,
+        djs: eventDjs,
+      }).catch(err => {
+        console.error('[events POST] Failed to sync to followers:', err);
       });
-    } catch (syncError) {
-      console.error('[events POST] Failed to sync to followers:', syncError);
     }
 
     return NextResponse.json({
@@ -310,6 +296,35 @@ export async function PATCH(request: NextRequest) {
 
     await batch.commit();
 
+    // Sync watchlist changes for IRL events (fire and forget)
+    const mergedLocation = (location !== undefined ? location : currentData.location) as string | null;
+    const mergedDateMs = (dateMs !== undefined ? dateMs : currentData.date) as number;
+    const mergedDjs = (djs !== undefined ? djs : currentData.djs) as Array<{ djName: string; djUserId?: string; djUsername?: string; djPhotoUrl?: string }> | undefined;
+    const previousLocation = currentData.location as string | null;
+    const previousDjs = currentData.djs as Array<{ djName: string; djUserId?: string; djUsername?: string; djPhotoUrl?: string }> | undefined;
+
+    if ((mergedLocation || previousLocation) && ((mergedDjs || []).length > 0 || (previousDjs || []).length > 0)) {
+      const currentEvent = mergedLocation ? {
+        name: (name !== undefined ? name : currentData.name) as string,
+        date: mergedDateMs,
+        location: mergedLocation,
+        ticketLink: ((ticketLink !== undefined ? ticketLink : currentData.ticketLink) as string) || undefined,
+        djs: mergedDjs || [],
+      } : undefined;
+
+      const previousEvent = previousLocation ? {
+        name: currentData.name as string,
+        date: currentData.date as number,
+        location: previousLocation,
+        ticketLink: (currentData.ticketLink as string) || undefined,
+        djs: previousDjs || [],
+      } : undefined;
+
+      syncIRLEventToFollowers(request, currentEvent, previousEvent).catch(err => {
+        console.error('[events PATCH] Failed to sync to followers:', err);
+      });
+    }
+
     return NextResponse.json({ success: true, eventId });
   } catch (error) {
     console.error('Error updating event:', error);
@@ -373,19 +388,22 @@ export async function DELETE(request: NextRequest) {
         });
     }
 
-    // Clean up IRL favorites for this event (fire and forget)
+    // Clean up IRL favorites for ALL DJs in this event (fire and forget)
     if (eventData.location && eventData.date) {
-      const firstDJ = eventData.djs?.[0];
-      const djUsername = firstDJ?.djUsername || '';
       const dateObj = new Date(eventData.date);
       const dateStr = dateObj.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
-      cleanupFavoritesForIRLEvent(djUsername, dateStr, eventData.location as string)
-        .then(count => {
-          if (count > 0) console.log(`[events DELETE] Cleaned up ${count} IRL favorites for "${eventData.name}"`);
-        })
-        .catch(err => {
-          console.error('[events DELETE] Error cleaning up IRL favorites:', err);
-        });
+      const eventDjs = (eventData.djs || []) as Array<{ djUsername?: string }>;
+      for (const dj of eventDjs) {
+        const djUsername = dj.djUsername || '';
+        if (!djUsername) continue;
+        cleanupFavoritesForIRLEvent(djUsername, dateStr, eventData.location as string)
+          .then(count => {
+            if (count > 0) console.log(`[events DELETE] Cleaned up ${count} IRL favorites for DJ "${djUsername}" on "${eventData.name}"`);
+          })
+          .catch(err => {
+            console.error(`[events DELETE] Error cleaning up IRL favorites for DJ "${djUsername}":`, err);
+          });
+      }
     }
 
     return NextResponse.json({ success: true, eventId });
