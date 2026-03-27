@@ -407,6 +407,9 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
         {/* Broadcast/Recording Permissions Confirmation */}
         <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
           <p className="text-gray-300 text-sm mb-3">
+            I confirm that I am the DJ (or authorized representative) known as <span className="text-white font-medium">{username.trim() || 'DJName'}</span>, under whose name this {broadcastType === 'recording' ? 'recording' : 'broadcast'} is being made.
+          </p>
+          <p className="text-gray-300 text-sm mb-3">
             By starting this {broadcastType === 'recording' ? 'recording' : 'broadcast'}, I represent and warrant that:
           </p>
           <ul className="text-gray-400 text-sm space-y-1 mb-4 ml-4">
