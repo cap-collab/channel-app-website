@@ -544,7 +544,7 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
                                   ? 'text-accent cursor-default'
                                   : 'text-gray-500 hover:text-white hover:bg-white/10'
                               } disabled:opacity-50`}
-                              title={djInWatchlist ? `Following ${dj.name}` : `Follow ${dj.name}`}
+                              title={djInWatchlist ? `${dj.name} added to watchlist` : `Add ${dj.name} to watchlist`}
                             >
                               {isAddingThisDj ? (
                                 <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />

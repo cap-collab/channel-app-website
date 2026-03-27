@@ -2515,7 +2515,7 @@ export function DJPublicProfileClient({ username }: Props) {
                 : "bg-white text-black hover:bg-gray-100"
             }`}
           >
-            {subscribing ? "..." : isSubscribed ? "Following" : "Follow"}
+            {subscribing ? "..." : isSubscribed ? "Added to watchlist" : "Add to watchlist"}
           </button>
           {profile.email && (
             <div className="flex-1 min-w-0 relative">
