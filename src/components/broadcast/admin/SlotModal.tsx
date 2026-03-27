@@ -540,6 +540,21 @@ export function SlotModal({
     }
   };
 
+  // When editing a restream, auto-select the matching archive once archives load
+  // This also fills in showImageUrl if it was missing from the slot
+  useEffect(() => {
+    if (slot?.broadcastType === 'restream' && slot.archiveId && archives.length > 0 && !selectedArchive) {
+      const match = archives.find(a => a.id === slot.archiveId);
+      if (match) {
+        setSelectedArchive(match);
+        // Fill in showImageUrl from archive if missing on the slot
+        if (!showImageUrl && match.showImageUrl) {
+          setShowImageUrl(match.showImageUrl);
+        }
+      }
+    }
+  }, [slot, archives, selectedArchive, showImageUrl]);
+
   // Filter archives by search query and date
   const filteredArchives = archives.filter(archive => {
     const matchesSearch = !archiveSearchQuery ||
@@ -587,7 +602,9 @@ export function SlotModal({
 
       if (slot) {
         // Default to archives tab when editing a restream
-        setModalTab(slot.broadcastType === 'restream' ? 'archives' : 'new-show');
+        const isRestream = slot.broadcastType === 'restream';
+        setModalTab(isRestream ? 'archives' : 'new-show');
+        if (isRestream) fetchArchives();
         // Editing existing slot
         const start = new Date(slot.startTime);
         const end = new Date(slot.endTime);
