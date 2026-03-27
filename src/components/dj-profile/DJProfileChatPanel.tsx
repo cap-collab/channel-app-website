@@ -384,8 +384,9 @@ export function DJProfileChatPanel({
       if (activePromoText) return { text: activePromoText, hyperlink: activePromoHyperlink };
       return null;
     }
-    // Remote: use latest promo from chat messages
+    // Remote: use latest promo from chat messages, fall back to slot DJ profile promo
     if (currentPromo?.promoText) return { text: currentPromo.promoText, hyperlink: currentPromo.promoHyperlink };
+    if (activePromoText) return { text: activePromoText, hyperlink: activePromoHyperlink };
     return null;
   })();
 
