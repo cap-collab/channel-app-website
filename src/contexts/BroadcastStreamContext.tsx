@@ -1,14 +1,16 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from 'react';
 import { useBroadcastStream } from '@/hooks/useBroadcastStream';
 import { useBroadcastLiveStatus } from '@/hooks/useBroadcastLiveStatus';
-import { BroadcastSlotSerialized } from '@/types/broadcast';
+import { BroadcastSlotSerialized, ROOM_NAME } from '@/types/broadcast';
 
 export interface BroadcastStreamContextValue {
   isPlaying: boolean;
   isLoading: boolean;
   isLive: boolean;
+  /** Whether a DJ is actually publishing audio in the LiveKit room (not just scheduled) */
+  isStreaming: boolean;
   currentShow: BroadcastSlotSerialized | null;
   currentDJ: string | null;
   error: string | null;
@@ -42,6 +44,52 @@ function isTipEligible(show: BroadcastSlotSerialized | null, currentDJ: string |
 }
 
 /**
+ * Polls /api/livekit/room-status to check if a DJ is actually publishing audio.
+ * Only polls when a broadcast slot is live (statusIsLive). For restream broadcasts,
+ * audio comes from an archive URL (not LiveKit), so isStreaming is always true.
+ */
+function useIsStreaming(statusIsLive: boolean, currentShow: BroadcastSlotSerialized | null): boolean {
+  const [isStreaming, setIsStreaming] = useState(false);
+
+  useEffect(() => {
+    if (!statusIsLive) {
+      setIsStreaming(false);
+      return;
+    }
+
+    // Restreams play from archive URL, not LiveKit — always "streaming"
+    if (currentShow?.broadcastType === 'restream') {
+      setIsStreaming(true);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function checkRoomStatus() {
+      try {
+        const res = await fetch(`/api/livekit/room-status?room=${ROOM_NAME}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setIsStreaming(data.isLive === true);
+      } catch {
+        // Network error — keep previous state
+      }
+    }
+
+    // Check immediately, then poll every 10s
+    checkRoomStatus();
+    const interval = setInterval(checkRoomStatus, 10_000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [statusIsLive, currentShow?.broadcastType]);
+
+  return isStreaming;
+}
+
+/**
  * Provider that initializes useBroadcastStream only when a broadcast is live.
  * This shares a single stream instance across the GlobalBroadcastBar + LiveBroadcastHero.
  *
@@ -58,12 +106,15 @@ export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
   // but it should be a no-op internally when not live
   const stream = useBroadcastStream(statusIsLive);
 
+  // Check if DJ is actually publishing audio in the LiveKit room
+  const isStreaming = useIsStreaming(statusIsLive, stream.currentShow);
+
   const value = useMemo<BroadcastStreamContextValue>(() => {
     if (statusIsLive) {
-      return { ...stream, showName, djName, tipEligible: isTipEligible(stream.currentShow, stream.currentDJ), heroBarVisible, setHeroBarVisible: setHeroBarVisibleCb };
+      return { ...stream, isStreaming, showName, djName, tipEligible: isTipEligible(stream.currentShow, stream.currentDJ), heroBarVisible, setHeroBarVisible: setHeroBarVisibleCb };
     }
     return {
-      isPlaying: false, isLoading: false, isLive: false,
+      isPlaying: false, isLoading: false, isLive: false, isStreaming: false,
       currentShow: null, currentDJ: null, error: null,
       play: noopFn, pause: noopFn, toggle: noopFn,
       listenerCount: 0, audioStream: null,
@@ -71,7 +122,7 @@ export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
       tipEligible: false,
       heroBarVisible: false, setHeroBarVisible: setHeroBarVisibleCb,
     };
-  }, [statusIsLive, stream, showName, djName, heroBarVisible, setHeroBarVisibleCb]);
+  }, [statusIsLive, stream, isStreaming, showName, djName, heroBarVisible, setHeroBarVisibleCb]);
 
   return (
     <BroadcastStreamContext.Provider value={value}>

@@ -29,11 +29,16 @@ interface UseBroadcastScheduleReturn {
   setSelectedDate: (date: Date) => void;
 }
 
-export function useBroadcastSchedule(options?: { jumpToEarliestShow?: boolean }): UseBroadcastScheduleReturn {
+export function useBroadcastSchedule(options?: { jumpToEarliestShow?: boolean; initialDate?: Date }): UseBroadcastScheduleReturn {
   const [shows, setShows] = useState<BroadcastSlotSerialized[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    if (options?.initialDate) {
+      const d = new Date(options.initialDate);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     return now;

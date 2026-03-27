@@ -36,7 +36,7 @@ type MatchedItem =
 
 export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
   const { user, isAuthenticated } = useAuthContext();
-  const { isLive: isBroadcastLive } = useBroadcastStreamContext();
+  const { isLive: isBroadcastLive, isStreaming: isBroadcastStreaming } = useBroadcastStreamContext();
   const { stationBPM } = useBPM();
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -833,7 +833,7 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
       </div>
 
       {/* Hero Section — Live Broadcast or Launching Soon */}
-      {skipHero ? null : mounted && isBroadcastLive ? (
+      {skipHero ? null : mounted && isBroadcastLive && isBroadcastStreaming ? (
         <LiveBroadcastHero />
       ) : (
         <section className="px-4 md:px-8 py-16 md:py-24 text-center relative z-10">
@@ -880,7 +880,7 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
       <div id="scene" />
 
       {/* Favorites — followed DJs & favorited shows in next 7 days, only when NOT on Channel Radio */}
-      {mounted && !isBroadcastLive && favoritesNowLive.length > 0 && (
+      {mounted && !(isBroadcastLive && isBroadcastStreaming) && favoritesNowLive.length > 0 && (
         <section className="px-4 md:px-8 pt-4 pb-6 relative z-10">
           <div className="max-w-7xl mx-auto">
             <h2 className="text-2xl md:text-3xl font-semibold mb-3">On your watchlist</h2>

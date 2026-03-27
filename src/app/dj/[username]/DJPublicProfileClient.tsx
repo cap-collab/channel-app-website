@@ -310,6 +310,8 @@ interface UpcomingShow {
   isExternal?: boolean;
   // Show image (from broadcast slot)
   showImageUrl?: string;
+  // All DJs for multi-DJ restream display
+  restreamDjs?: { name: string; userId?: string; username?: string; email?: string; photoUrl?: string }[];
 }
 
 interface Props {
@@ -397,7 +399,7 @@ export function DJPublicProfileClient({ username }: Props) {
   const [djPastEvents, setDjPastEvents] = useState<ChannelEvent[]>([]);
 
   // Broadcast stream context for synced play/pause
-  const { isPlaying, isLoading: streamLoading, toggle: toggleStream } = useBroadcastStreamContext();
+  const { isPlaying, isLoading: streamLoading, toggle: toggleStream, isStreaming } = useBroadcastStreamContext();
 
   // Tab state for claimed profiles (with email)
   const [activeTab, setActiveTab] = useState<'timeline' | 'chat'>('timeline');
@@ -522,6 +524,7 @@ export function DJPublicProfileClient({ username }: Props) {
   const [liveShowProgress, setLiveShowProgress] = useState(0);
 
   // Check if DJ is live on Channel or elsewhere
+  // For Channel broadcasts, also requires isStreaming (DJ actually publishing audio)
   useEffect(() => {
     if (!djProfile || allShows.length === 0) return;
 
@@ -544,7 +547,8 @@ export function DJPublicProfileClient({ username }: Props) {
         matchesProfile(show)
     );
 
-    if (channelShow) {
+    // Only show Channel live card if DJ is actually streaming audio
+    if (channelShow && isStreaming) {
       setLiveOnChannel(true);
       setLiveElsewhere(null);
       setCurrentLiveShow(channelShow);
@@ -574,7 +578,7 @@ export function DJPublicProfileClient({ username }: Props) {
       setLiveElsewhere(null);
       setCurrentLiveShow(null);
     }
-  }, [djProfile, allShows]);
+  }, [djProfile, allShows, isStreaming]);
 
   // Update live show progress bar
   useEffect(() => {
@@ -621,20 +625,44 @@ export function DJPublicProfileClient({ username }: Props) {
           snapshot.forEach((docSnap) => {
             const data = docSnap.data();
             // Match by DJ username, name, or userId/email
+            // Also check restreamDjs for multi-DJ restream archives
+            const restreamDjMatch = data.restreamDjs && Array.isArray(data.restreamDjs) &&
+              data.restreamDjs.some((dj: { userId?: string; username?: string; email?: string; name?: string }) =>
+                dj.userId === djProfile.uid ||
+                (dj.username && containsMatch(dj.username, djProfile.chatUsername)) ||
+                (dj.email && djProfile.email && dj.email.toLowerCase() === djProfile.email.toLowerCase())
+              );
             const isMatch =
               (data.djUsername && containsMatch(data.djUsername, djProfile.chatUsername)) ||
               (data.djName && containsMatch(data.djName, djProfile.chatUsername)) ||
               (data.liveDjUsername && containsMatch(data.liveDjUsername, djProfile.chatUsername)) ||
               data.djUserId === djProfile.uid ||
-              (data.djEmail && djProfile.email && data.djEmail.toLowerCase() === djProfile.email.toLowerCase());
+              (data.djEmail && djProfile.email && data.djEmail.toLowerCase() === djProfile.email.toLowerCase()) ||
+              restreamDjMatch;
 
             if (isMatch) {
               const id = `broadcast-${docSnap.id}`;
               seenIds.add(id);
+
+              // For restreams with multiple DJs, build DJ name with all names
+              // Order: channel users first, pending DJs second, others after
+              let djName = data.djName || djProfile.chatUsername;
+              const restreamDjs = data.restreamDjs as UpcomingShow['restreamDjs'];
+              if (restreamDjs && restreamDjs.length > 1) {
+                const sortedDjs = [...restreamDjs].sort((a, b) => {
+                  if (a.userId && !b.userId) return -1;
+                  if (!a.userId && b.userId) return 1;
+                  if (a.username && !b.username) return -1;
+                  if (!a.username && b.username) return 1;
+                  return 0;
+                });
+                djName = sortedDjs.map(dj => dj.name).join(', ');
+              }
+
               upcomingShows.push({
                 id,
                 showName: data.showName || "Broadcast",
-                djName: data.djName || djProfile.chatUsername,
+                djName,
                 startTime: (data.startTime as Timestamp).toMillis(),
                 endTime: (data.endTime as Timestamp).toMillis(),
                 status: data.status,
@@ -642,6 +670,7 @@ export function DJPublicProfileClient({ username }: Props) {
                 stationName: "Channel Radio",
                 isExternal: false,
                 showImageUrl: data.showImageUrl,
+                restreamDjs,
               });
             }
           });
@@ -1781,6 +1810,9 @@ export function DJPublicProfileClient({ username }: Props) {
                       <div className="p-4 space-y-4">
                         <div>
                           <h3 className="text-white font-medium">{broadcast.showName}</h3>
+                          {broadcast.djName && (
+                            <p className="text-zinc-400 text-sm mt-0.5">{broadcast.djName}</p>
+                          )}
                         </div>
 
                         {/* Time Bar */}

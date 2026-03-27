@@ -14,7 +14,7 @@ import { useBPM } from '@/contexts/BPMContext';
 export function GlobalBroadcastBar() {
   const [mounted, setMounted] = useState(false);
   const {
-    isLive, isPlaying, isLoading, toggle,
+    isLive, isStreaming, isPlaying, isLoading, toggle,
     showName, djName, heroBarVisible, tipEligible,
   } = useBroadcastStreamContext();
   const { stationBPM } = useBPM();
@@ -27,7 +27,7 @@ export function GlobalBroadcastBar() {
   if (!mounted) return null;
   // Never show on the go-live broadcast page
   if (pathname === '/broadcast/live') return null;
-  if (!isLive) return null;
+  if (!isLive || !isStreaming) return null;
   // Hide when the LiveBroadcastHero's inline bar is visible (on /radio)
   if (heroBarVisible) return null;
 

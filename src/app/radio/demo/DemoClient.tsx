@@ -15,7 +15,7 @@ export function DemoClient() {
 
       {/* Online view — wrapped in DemoBroadcastStreamProvider for mock live data */}
       <DemoBroadcastStreamProvider>
-        <LiveBroadcastHero jumpToEarliestShow />
+        <LiveBroadcastHero jumpToEarliestShow initialScheduleDate={new Date('2026-04-02')} />
       </DemoBroadcastStreamProvider>
     </div>
   );

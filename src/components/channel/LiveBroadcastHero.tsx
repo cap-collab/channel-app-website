@@ -169,12 +169,12 @@ function DJImageOverlay({
   );
 }
 
-export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?: boolean } = {}) {
+export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: { jumpToEarliestShow?: boolean; initialScheduleDate?: Date } = {}) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername, loading: profileLoading, setChatUsername } = useUserProfile(user?.uid);
 
   const {
-    isPlaying, isLoading, isLive, currentShow, currentDJ,
+    isPlaying, isLoading, isLive, isStreaming, currentShow, currentDJ,
     listenerCount, toggle, error: streamError,
     setHeroBarVisible, tipEligible,
   } = useBroadcastStreamContext();
@@ -224,7 +224,10 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
     currentShowStartTime: currentShow?.startTime,
   });
 
-  const { shows: scheduleShows, loading: scheduleLoading, selectedDate, setSelectedDate } = useBroadcastSchedule(jumpToEarliestShow ? { jumpToEarliestShow: true } : undefined);
+  const { shows: scheduleShows, loading: scheduleLoading, selectedDate, setSelectedDate } = useBroadcastSchedule({
+    ...(jumpToEarliestShow && { jumpToEarliestShow: true }),
+    ...(initialScheduleDate && { initialDate: initialScheduleDate }),
+  });
 
   const [activeTab, setActiveTab] = useState<'chat' | 'schedule'>('chat');
   const [heartTrigger, setHeartTrigger] = useState(0);
@@ -265,7 +268,15 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
   }, [setHeroBarVisible]);
 
   // DJ info from current show
-  const djPhotoUrl = currentShow?.showImageUrl || currentShow?.liveDjPhotoUrl || null;
+  // For restreams, also check the primary DJ's photo from restreamDjs
+  const primaryRestreamDjPhoto = (() => {
+    if (!currentShow?.restreamDjs || currentShow.restreamDjs.length === 0) return null;
+    const primary = currentShow.restreamDjs.find(dj => dj.userId)
+      || currentShow.restreamDjs.find(dj => dj.username)
+      || null;
+    return primary?.photoUrl || null;
+  })();
+  const djPhotoUrl = currentShow?.showImageUrl || currentShow?.liveDjPhotoUrl || primaryRestreamDjPhoto || null;
   const showName = currentShow?.showName || 'Live Now';
   const djName = currentDJ || currentShow?.djName || null;
   const hasPhoto = djPhotoUrl && !imageError;
@@ -375,7 +386,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow }: { jumpToEarliestShow?:
     }
   };
 
-  if (!mounted || !isLive || !currentShow) return null;
+  if (!mounted || !isLive || !isStreaming || !currentShow) return null;
 
   return (
     <section id="live" className="relative z-10 px-4 pt-6 pb-2">
