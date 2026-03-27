@@ -123,7 +123,7 @@ function DJImageOverlay({
   return (
     <div className="absolute bottom-2 left-2 right-2 drop-shadow-lg">
       {/* DJ Name + Genre on one line */}
-      <div className="text-xs font-black uppercase tracking-wider text-white line-clamp-1">
+      <div className="text-xs font-black uppercase tracking-wider text-white whitespace-nowrap overflow-hidden">
         {djName}
         {genreText && (
           <span className="font-medium tracking-[0.15em] text-zinc-300"> - {genreText}</span>

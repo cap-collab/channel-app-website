@@ -122,7 +122,6 @@ function ShowRow({ slot }: { slot: DisplaySlot }) {
             className="object-cover"
             onLoad={() => setPhotoLoaded(true)}
             onError={() => setPhotoError(true)}
-            unoptimized
           />
         </div>
       )}
