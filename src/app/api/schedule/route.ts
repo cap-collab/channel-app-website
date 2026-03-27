@@ -363,6 +363,14 @@ async function extractAdminEvents(): Promise<IRLShowData[]> {
     // Venue display name: first linked venue, or legacy venueName
     const venueName = data.linkedVenues?.[0]?.venueName || data.venueName || undefined;
 
+    // Build allDjs array for watchlist matching across all DJs in the lineup
+    const allDjs = (data.djs || [])
+      .filter((dj: { djUsername?: string; djName?: string }) => dj.djUsername || dj.djName)
+      .map((dj: { djUsername?: string; djName?: string }) => ({
+        djUsername: dj.djUsername || "",
+        djName: dj.djName || "",
+      }));
+
     irlShows.push({
       djUsername: firstDJ?.djUsername || "",
       djName: firstDJ?.djName || data.name || "Event",
@@ -376,6 +384,7 @@ async function extractAdminEvents(): Promise<IRLShowData[]> {
       eventPhotoUrl: data.photo || undefined,
       venueName,
       linkUrl,
+      allDjs: allDjs.length > 1 ? allDjs : undefined,
     });
   }
 

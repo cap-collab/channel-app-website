@@ -385,10 +385,14 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
         }
       }
     }
-    // IRL shows from followed DJs in next 7 days
+    // IRL shows from followed DJs in next 2 weeks
     for (const show of irlShows) {
       if (show.date > twoWeeksDateStr) continue;
-      const djFollowed = isInWatchlist(show.djName) || isInWatchlist(show.djUsername);
+      let djFollowed = isInWatchlist(show.djName) || isInWatchlist(show.djUsername);
+      // Also check all DJs in the lineup for multi-DJ events
+      if (!djFollowed && show.allDjs) {
+        djFollowed = show.allDjs.some(dj => isInWatchlist(dj.djName) || isInWatchlist(dj.djUsername));
+      }
       if (!djFollowed) continue;
       const id = `irl-${show.djUsername}-${show.date}`;
       if (tryAddShow(id, show.djName)) {

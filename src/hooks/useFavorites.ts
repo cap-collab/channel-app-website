@@ -602,7 +602,7 @@ export function useFavorites() {
         console.log(`[addToWatchlist] Auto-added ${addedCount} shows to favorites`);
 
         // Also find and add matching IRL events to favorites
-        // Uses irlShowMatchesDJ which checks djName and djUsername
+        // Uses irlShowMatchesDJ which checks djName, djUsername, and allDjs
         const matchingIRLShows = allIRLShows.filter((irlShow) => {
           return irlShowMatchesDJ(irlShow, term);
         });
@@ -611,8 +611,24 @@ export function useFavorites() {
         // Add each matching IRL event to favorites
         let addedIRLCount = 0;
         for (const irlShow of matchingIRLShows) {
-          // Create unique key for IRL event: djUsername + date + location
-          const irlKey = `irl-${irlShow.djUsername}-${irlShow.date}-${irlShow.location}`.toLowerCase();
+          // Find the matched DJ — use the specific DJ that matched, not just the first
+          let matchedDjUsername = irlShow.djUsername;
+          let matchedDjName = irlShow.djName;
+          let matchedDjPhotoUrl = irlShow.djPhotoUrl;
+          if (irlShow.allDjs) {
+            const matchedDj = irlShow.allDjs.find(dj =>
+              (dj.djUsername && containsMatch(dj.djUsername, term)) ||
+              (dj.djName && containsMatch(dj.djName, term))
+            );
+            if (matchedDj) {
+              matchedDjUsername = matchedDj.djUsername || matchedDjUsername;
+              matchedDjName = matchedDj.djName || matchedDjName;
+              // Photo not in allDjs, keep primary photo
+            }
+          }
+
+          // Create unique key for IRL event: matched djUsername + date + location
+          const irlKey = `irl-${matchedDjUsername}-${irlShow.date}-${irlShow.location}`.toLowerCase();
 
           // Check if already favorited
           const existingIRLFav = query(
@@ -625,19 +641,19 @@ export function useFavorites() {
           );
 
           if (!alreadyFavoritedIRL) {
-            console.log(`[addToWatchlist] Auto-adding IRL event to favorites: ${irlShow.eventName} (${irlShow.location})`);
+            console.log(`[addToWatchlist] Auto-adding IRL event to favorites: ${irlShow.eventName} (${irlShow.location}) for DJ ${matchedDjName}`);
             await addDoc(favoritesRef, {
               term: irlKey,
               type: "irl",
               showName: irlShow.eventName,
-              djName: irlShow.djName,
+              djName: matchedDjName,
               stationId: null,
               irlEventName: irlShow.eventName,
               irlLocation: irlShow.location,
               irlDate: irlShow.date,
               irlTicketUrl: irlShow.ticketUrl,
-              djUsername: irlShow.djUsername,
-              djPhotoUrl: irlShow.djPhotoUrl || null,
+              djUsername: matchedDjUsername,
+              djPhotoUrl: matchedDjPhotoUrl || null,
               createdAt: serverTimestamp(),
               createdBy: "web",
             });

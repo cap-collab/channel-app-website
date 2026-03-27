@@ -127,6 +127,7 @@ export interface IRLShowData {
   venueName?: string;     // Venue name to display
   linkUrl?: string;       // Pre-computed click-through URL (collective/venue/dj page)
   isChannelUser?: boolean; // true if DJ exists in `users` collection (has chat enabled)
+  allDjs?: Array<{ djUsername: string; djName: string }>; // All DJs in the lineup (for watchlist matching)
 }
 
 // DJ profile (for genre-matching discovery without upcoming shows)

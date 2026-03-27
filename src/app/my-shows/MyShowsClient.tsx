@@ -432,9 +432,16 @@ export function MyShowsClient() {
     const watchlistTerms = watchlist.map((w) => w.term);
 
     for (const irlShow of allIRLShows) {
-      // Check if this DJ is in the watchlist (word boundary match)
+      // Check if any DJ in the lineup is in the watchlist (word boundary match)
       const isWatchlisted = watchlistTerms.some(
-        (term) => wordBoundaryMatch(irlShow.djName, term) || wordBoundaryMatch(irlShow.djUsername, term)
+        (term) => {
+          if (wordBoundaryMatch(irlShow.djName, term) || wordBoundaryMatch(irlShow.djUsername, term)) return true;
+          // Also check all DJs for multi-DJ events
+          if (irlShow.allDjs) {
+            return irlShow.allDjs.some(dj => wordBoundaryMatch(dj.djName, term) || wordBoundaryMatch(dj.djUsername, term));
+          }
+          return false;
+        }
       );
 
       if (!isWatchlisted) continue;

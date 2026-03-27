@@ -158,17 +158,29 @@ export function showMatchesAnyDJ(
  * Check if an IRL show matches a DJ search term using word boundary matching.
  */
 export function irlShowMatchesDJ(
-  irlShow: { djName: string; djUsername?: string },
+  irlShow: { djName: string; djUsername?: string; allDjs?: Array<{ djUsername: string; djName: string }> },
   searchTerm: string
 ): boolean {
-  // Check djUsername
+  // Check primary djUsername
   if (irlShow.djUsername && wordBoundaryMatch(irlShow.djUsername, searchTerm)) {
     return true;
   }
 
-  // Check djName
+  // Check primary djName
   if (wordBoundaryMatch(irlShow.djName, searchTerm)) {
     return true;
+  }
+
+  // Check all DJs in the lineup (for multi-DJ events)
+  if (irlShow.allDjs) {
+    for (const dj of irlShow.allDjs) {
+      if (dj.djUsername && wordBoundaryMatch(dj.djUsername, searchTerm)) {
+        return true;
+      }
+      if (dj.djName && wordBoundaryMatch(dj.djName, searchTerm)) {
+        return true;
+      }
+    }
   }
 
   return false;
@@ -179,7 +191,7 @@ export function irlShowMatchesDJ(
  * Returns the matching search term, or undefined if no match.
  */
 export function irlShowMatchesAnyDJ(
-  irlShow: { djName: string; djUsername?: string },
+  irlShow: { djName: string; djUsername?: string; allDjs?: Array<{ djUsername: string; djName: string }> },
   searchTerms: string[]
 ): string | undefined {
   for (const term of searchTerms) {
