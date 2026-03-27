@@ -33,14 +33,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid broadcast token' }, { status: 404 });
     }
 
-    // If user is logged in, save to their profile
-    if (djUserId) {
-      const userRef = db.collection('users').doc(djUserId);
+    const slotDoc = snapshot.docs[0];
+    const slotData = slotDoc.data();
+
+    // Save to the DJ profile linked to the slot (not the logged-in user)
+    const slotDjUserId = slotData.liveDjUserId || slotData.djUserId;
+    if (slotDjUserId) {
+      const userRef = db.collection('users').doc(slotDjUserId);
       await userRef.set({
         'djProfile.thankYouMessage': trimmedMessage,
       }, { merge: true });
 
-      console.log('[update-thank-you] Saved to user profile:', { djUserId, messageLength: trimmedMessage.length });
+      console.log('[update-thank-you] Saved to slot DJ profile:', { slotDjUserId, messageLength: trimmedMessage.length });
     }
 
     return NextResponse.json({

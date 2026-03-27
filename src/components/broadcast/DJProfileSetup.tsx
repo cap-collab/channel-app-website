@@ -39,7 +39,7 @@ interface DJProfileSetupProps {
 
 export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromoHyperlink, defaultThankYouMessage, broadcastType, isVenueRecording, onComplete }: DJProfileSetupProps) {
   const { user, isAuthenticated, signInWithGoogle, signInWithApple, sendEmailLink, emailSent, resetEmailSent, loading: authLoading } = useAuthContext();
-  const { chatUsername: savedUsername, djProfile, loading: profileLoading } = useUserProfile(user?.uid);
+  const { chatUsername: savedUsername, loading: profileLoading } = useUserProfile(user?.uid);
   const [username, setUsername] = useState(defaultUsername || '');
   const [promoText, setPromoText] = useState(defaultPromoText || '');
   const [promoHyperlink, setPromoHyperlink] = useState(defaultPromoHyperlink || '');
@@ -125,21 +125,8 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
     }
   }, [savedUsername, isVenueBroadcast]);
 
-  // Pre-fill promo text/hyperlink and thank you message from logged-in user's DJ profile
-  // Only for remote broadcasts (venue uses slot's pre-configured data)
-  useEffect(() => {
-    if (djProfile && !isVenueBroadcast && !promoText) {
-      if (djProfile.promoText) {
-        setPromoText(djProfile.promoText);
-      }
-      if (djProfile.promoHyperlink) {
-        setPromoHyperlink(djProfile.promoHyperlink);
-      }
-      if (djProfile.thankYouMessage) {
-        setThankYouMessage(djProfile.thankYouMessage);
-      }
-    }
-  }, [djProfile, promoText, isVenueBroadcast]);
+  // Promo and thank you data comes from slot defaults (passed via props)
+  // No fallback to logged-in user's profile — slot data is primary
 
   // Get valid username for saving during sign-in (if valid)
   // Must match validateUsername() validation rules
@@ -330,9 +317,9 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
 
   return (
     <div className="bg-[#252525] rounded-xl p-8 max-w-md mx-auto">
-      <h2 className="text-2xl font-bold text-white mb-2">
-        {broadcastType === 'recording' ? 'Recording Settings' : 'Your DJ Profile'}
-      </h2>
+      {broadcastType === 'recording' && (
+        <h2 className="text-2xl font-bold text-white mb-2">Recording Settings</h2>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {error && (
@@ -428,7 +415,9 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
             ) : (
               <>
                 <li>• Channel may record this broadcast and replay it or make it available on Channel websites and channels.</li>
-                <li>• All DJs listed on this broadcast are aware of and consent to being livestreamed, recorded, and used by Channel.</li>
+                {broadcastType === 'venue' && (
+                  <li>• All DJs listed on this broadcast are aware of and consent to being livestreamed, recorded, and used by Channel.</li>
+                )}
                 <li>• I am responsible for ensuring the livestream complies with applicable laws.</li>
               </>
             )}
