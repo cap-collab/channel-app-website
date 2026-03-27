@@ -333,11 +333,6 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
       <h2 className="text-2xl font-bold text-white mb-2">
         {broadcastType === 'recording' ? 'Recording Settings' : 'Your DJ Profile'}
       </h2>
-      {broadcastType !== 'recording' && (
-        <p className="text-gray-400 mb-8">
-          Enter your DJ name for this broadcast.
-        </p>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {error && (
@@ -429,12 +424,9 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
               </>
             ) : (
               <>
-                {broadcastType === 'venue' && (
-                  <li>• The venue and promoters have authorized this livestream and any related recording.</li>
-                )}
                 <li>• Channel may record this broadcast and replay it or make it available on Channel websites and channels.</li>
                 <li>• All DJs listed on this broadcast are aware of and consent to being livestreamed, recorded, and used by Channel.</li>
-                <li>• I am responsible for ensuring the livestream complies with venue policies and applicable laws.</li>
+                <li>• I am responsible for ensuring the livestream complies with applicable laws.</li>
               </>
             )}
           </ul>
@@ -446,7 +438,7 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
               className="mt-0.5 w-5 h-5 rounded border-gray-600 bg-gray-800 text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
             />
             <span className="text-gray-300 text-sm">
-              {broadcastType === 'recording' ? (
+              {isAuthenticated ? (
                 'I confirm and agree'
               ) : (
                 <>
@@ -472,47 +464,6 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
         >
           {broadcastType === 'recording' ? 'Continue to Record' : 'Continue to Go Live'}
         </button>
-
-        {/* Promo Text (Optional) - hidden for recordings */}
-        {broadcastType !== 'recording' && (
-          <div>
-            <label htmlFor="promoText" className="block text-gray-400 text-sm mb-2">
-              Promo text <span className="text-gray-600">(optional)</span>
-            </label>
-            <input
-              id="promoText"
-              type="text"
-              value={promoText}
-              onChange={(e) => setPromoText(e.target.value)}
-              placeholder="New album out now!"
-              maxLength={200}
-              className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-gray-500"
-            />
-            <p className="text-gray-500 text-xs mt-1">
-              This text appears in chat during your broadcast ({promoText.length}/200)
-            </p>
-          </div>
-        )}
-
-        {/* Promo Hyperlink (Optional) - hidden for recordings */}
-        {broadcastType !== 'recording' && promoText && (
-          <div>
-            <label htmlFor="promoHyperlink" className="block text-gray-400 text-sm mb-2">
-              Promo hyperlink <span className="text-gray-600">(optional)</span>
-            </label>
-            <input
-              id="promoHyperlink"
-              type="text"
-              value={promoHyperlink}
-              onChange={(e) => setPromoHyperlink(e.target.value)}
-              placeholder="bandcamp.com/your-album"
-              className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-gray-500"
-            />
-            <p className="text-gray-500 text-xs mt-1">
-              Clicking the promo text will open this link
-            </p>
-          </div>
-        )}
 
         {/* Thank You Message (Optional) */}
         <div>
