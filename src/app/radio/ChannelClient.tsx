@@ -367,13 +367,15 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
     const s0Candidates: { item: MatchedItem; id: string; djName: string | undefined; startMs: number; live: boolean }[] = [];
     // Radio shows from followed DJs / favorited shows in next 2 weeks
     for (const show of allShows) {
-      if (!isValidShow(show)) continue;
+      if (!show.dj) continue;
       const station = stationsMap.get(show.stationId);
       if (!station) continue;
       const endTime = new Date(show.endTime);
       const startTime = new Date(show.startTime);
       if (endTime <= now || startTime > twoWeeksFromNow) continue;
-      const djFollowed = (show.dj && isInWatchlist(show.dj)) || (show.djUsername && isInWatchlist(show.djUsername));
+      const djFollowed = isInWatchlist(show.dj) || (show.djUsername && isInWatchlist(show.djUsername));
+      // For followed DJs, skip isValidShow — show their content even if profile data is incomplete
+      if (!djFollowed && !isValidShow(show)) continue;
       const showFaved = isShowFavorited(show);
       if (djFollowed || showFaved) {
         if (tryAddShow(show.id, show.dj)) {

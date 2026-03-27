@@ -195,7 +195,38 @@ async function enrichBroadcastShowsClient(shows: Show[]): Promise<Show[]> {
     );
   }
 
-  console.log('[ScheduleContext] Enriched', profileByUserId.size, 'broadcast DJ profiles');
+  // 3. Lookup remaining in pending-dj-profiles (for DJs who haven't created accounts yet)
+  const stillMissing: string[] = [];
+  for (const show of broadcastShows) {
+    if (!show.djUserId && show.dj) {
+      const normalized = show.dj.toLowerCase();
+      if (!profileByName.has(normalized)) stillMissing.push(show.dj);
+    }
+  }
+  if (stillMissing.length > 0) {
+    await Promise.all(
+      stillMissing.map(async (djName) => {
+        try {
+          const normalized = djName.replace(/[\s-]+/g, "").toLowerCase();
+          const q = query(
+            collection(db!, "pending-dj-profiles"),
+            where("chatUsernameNormalized", "==", normalized)
+          );
+          const snapshot = await getDocs(q);
+          snapshot.forEach((pendingDoc) => {
+            const profile = buildProfile({ id: pendingDoc.id, data: () => pendingDoc.data() });
+            if (profile) {
+              profileByName.set(djName.toLowerCase(), profile);
+            }
+          });
+        } catch (err) {
+          console.error(`[ScheduleContext] Failed to fetch pending DJ profile for ${djName}:`, err);
+        }
+      })
+    );
+  }
+
+  console.log('[ScheduleContext] Enriched', profileByUserId.size + profileByName.size, 'broadcast DJ profiles');
 
   // Apply profiles to shows
   for (const show of shows) {

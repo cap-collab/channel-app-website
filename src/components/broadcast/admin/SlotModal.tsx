@@ -318,6 +318,34 @@ export function SlotModal({
     }
   };
 
+  // Lookup DJ profile by name (for remote broadcasts) — checks users + pending-dj-profiles
+  const lookupRemoteDjByName = async (name: string) => {
+    if (!name || name.trim().length < 2) {
+      setRemoteProfileFound(false);
+      return;
+    }
+
+    setIsLookingUpRemote(true);
+    try {
+      const res = await fetch(`/api/users/lookup-by-name?name=${encodeURIComponent(name.trim())}`);
+      const data = await res.json();
+      if (data.found) {
+        setRemoteProfileFound(true);
+        // Auto-fill email if found and currently empty
+        if (data.djEmail && !djEmail) {
+          setDjEmail(data.djEmail);
+        }
+      } else {
+        setRemoteProfileFound(false);
+      }
+    } catch (error) {
+      console.error('Failed to lookup DJ profile by name:', error);
+      setRemoteProfileFound(false);
+    } finally {
+      setIsLookingUpRemote(false);
+    }
+  };
+
   // Lookup DJ profile for a specific DJ in a B3B slot
   const lookupDjProfileInSlot = async (slotId: string, profileIndex: number, email: string) => {
     if (!email || !email.includes('@')) {
@@ -400,6 +428,65 @@ export function SlotModal({
         if (dj.id !== slotId) return dj;
         const updatedProfiles = [...dj.djProfiles];
         updatedProfiles[profileIndex] = { ...updatedProfiles[profileIndex], isLookingUp: false, profileFound: false };
+        return { ...dj, djProfiles: updatedProfiles };
+      }));
+    }
+  };
+
+  // Lookup DJ profile by name for a venue DJ slot — checks users + pending-dj-profiles
+  const lookupDjByNameInSlot = async (slotId: string, name: string) => {
+    if (!name || name.trim().length < 2) return;
+
+    // Set loading on first profile
+    setDjSlots(prev => prev.map(dj => {
+      if (dj.id !== slotId) return dj;
+      const updatedProfiles = [...dj.djProfiles];
+      updatedProfiles[0] = { ...updatedProfiles[0], isLookingUp: true };
+      return { ...dj, djProfiles: updatedProfiles };
+    }));
+
+    try {
+      const res = await fetch(`/api/users/lookup-by-name?name=${encodeURIComponent(name.trim())}`);
+      const data = await res.json();
+
+      setDjSlots(prev => prev.map(dj => {
+        if (dj.id !== slotId) return dj;
+        const updatedProfiles = [...dj.djProfiles];
+
+        if (data.found) {
+          // Auto-fill email if found and first profile has no email
+          if (data.djEmail && !updatedProfiles[0].email) {
+            updatedProfiles[0] = {
+              ...updatedProfiles[0],
+              email: data.djEmail,
+            };
+          }
+          updatedProfiles[0] = {
+            ...updatedProfiles[0],
+            isLookingUp: false,
+            profileFound: true,
+            userId: data.djUserId || undefined,
+            username: data.djUsername || undefined,
+            usernameNormalized: data.djUsernameNormalized || undefined,
+            bio: data.djBio || undefined,
+            photoUrl: data.djPhotoUrl || undefined,
+            promoText: data.djPromoText || undefined,
+            promoHyperlink: data.djPromoHyperlink || undefined,
+            thankYouMessage: data.djThankYouMessage || undefined,
+            socialLinks: data.djSocialLinks || undefined,
+          };
+        } else {
+          updatedProfiles[0] = { ...updatedProfiles[0], isLookingUp: false, profileFound: false };
+        }
+
+        return { ...dj, djProfiles: updatedProfiles };
+      }));
+    } catch (error) {
+      console.error('Failed to lookup DJ profile by name in slot:', error);
+      setDjSlots(prev => prev.map(dj => {
+        if (dj.id !== slotId) return dj;
+        const updatedProfiles = [...dj.djProfiles];
+        updatedProfiles[0] = { ...updatedProfiles[0], isLookingUp: false, profileFound: false };
         return { ...dj, djProfiles: updatedProfiles };
       }));
     }
@@ -1426,6 +1513,7 @@ Cap`;
                         type="text"
                         value={dj.djName}
                         onChange={(e) => updateDjSlot(dj.id, 'djName', e.target.value)}
+                        onBlur={(e) => lookupDjByNameInSlot(dj.id, e.target.value)}
                         placeholder="DJ Name"
                         className="flex-1 bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:border-gray-500"
                       />
@@ -1558,23 +1646,13 @@ Cap`;
             <>
               <div>
                 <label className="block text-sm text-gray-400 mb-1">DJ Name</label>
-                <input
-                  type="text"
-                  value={djName}
-                  onChange={(e) => setDjName(e.target.value)}
-                  placeholder="e.g., DJ Shadow"
-                  className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">DJ Email</label>
                 <div className="flex items-center gap-2">
                   <input
-                    type="email"
-                    value={djEmail}
-                    onChange={(e) => setDjEmail(e.target.value)}
-                    onBlur={(e) => lookupRemoteDjProfile(e.target.value)}
-                    placeholder="dj@example.com"
+                    type="text"
+                    value={djName}
+                    onChange={(e) => setDjName(e.target.value)}
+                    onBlur={(e) => lookupRemoteDjByName(e.target.value)}
+                    placeholder="e.g., DJ Shadow"
                     className="flex-1 bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
                   />
                   {isLookingUpRemote && (
@@ -1589,8 +1667,21 @@ Cap`;
                     </span>
                   )}
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">DJ Email</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="email"
+                    value={djEmail}
+                    onChange={(e) => setDjEmail(e.target.value)}
+                    onBlur={(e) => lookupRemoteDjProfile(e.target.value)}
+                    placeholder="dj@example.com"
+                    className="flex-1 bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
+                  />
+                </div>
                 <p className="text-gray-500 text-xs mt-1">
-                  Required for tips. Auto-fills DJ profile if account exists.
+                  Required for tips. Auto-fills from DJ profile if found.
                 </p>
               </div>
             </>

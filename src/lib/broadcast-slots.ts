@@ -117,7 +117,7 @@ export async function createSlot(data: {
     try {
       const res = await fetch(`/api/users/lookup-by-email?email=${encodeURIComponent(data.djEmail)}`);
       const djInfo = await res.json();
-      if (djInfo) {
+      if (djInfo?.found) {
         djUserId = djInfo.djUserId;
         djUsername = djInfo.djUsername;  // chatUsername for profile URL
         finalDjName = djInfo.djName || data.djName;
@@ -126,6 +126,23 @@ export async function createSlot(data: {
       }
     } catch (error) {
       console.error('Failed to lookup DJ info:', error);
+    }
+  }
+
+  // If email lookup didn't find anything, try by DJ name (checks users + pending-dj-profiles)
+  if (!djUserId && !liveDjPhotoUrl && data.djName) {
+    try {
+      const res = await fetch(`/api/users/lookup-by-name?name=${encodeURIComponent(data.djName)}`);
+      const djInfo = await res.json();
+      if (djInfo?.found) {
+        djUserId = djInfo.djUserId;
+        djUsername = djInfo.djUsername;
+        finalDjName = djInfo.djName || data.djName;
+        liveDjBio = djInfo.liveDjBio;
+        liveDjPhotoUrl = djInfo.liveDjPhotoUrl;
+      }
+    } catch (error) {
+      console.error('Failed to lookup DJ info by name:', error);
     }
   }
 
