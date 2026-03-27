@@ -7,15 +7,15 @@ import { BroadcastSlotSerialized } from '@/types/broadcast';
 const DEMO_SHOW: BroadcastSlotSerialized = {
   id: 'demo-show',
   stationId: 'channel-main',
-  showName: 'Demo Show',
+  showName: 'Late Night Sessions',
   djName: 'Demo DJ',
   djUsername: 'demodj',
   djUserId: 'demo-user-id',
   djEmail: 'demo@channel.fm',
   liveDjUsername: 'demodj',
   liveDjUserId: 'demo-user-id',
-  liveDjPhotoUrl: undefined,
-  showImageUrl: undefined,
+  liveDjPhotoUrl: 'https://placehold.co/800x450/1a1a1a/ffffff?text=Demo+DJ',
+  showImageUrl: 'https://placehold.co/800x450/1a1a1a/ffffff?text=Demo+Show',
   startTime: Date.now() - 3600000,
   endTime: Date.now() + 3600000,
   broadcastToken: 'demo',
@@ -24,6 +24,7 @@ const DEMO_SHOW: BroadcastSlotSerialized = {
   createdBy: 'demo',
   status: 'live',
   broadcastType: 'remote',
+  liveDjPromoText: 'Deep house & techno vibes every Friday night. Tune in and feel the groove.',
 };
 
 export function DemoBroadcastStreamProvider({ children }: { children: ReactNode }) {
@@ -125,7 +126,7 @@ export function DemoBroadcastStreamProvider({ children }: { children: ReactNode 
     toggle,
     listenerCount: 42,
     audioStream: null,
-    showName: 'Demo Show',
+    showName: 'Late Night Sessions',
     djName: 'Demo DJ',
     tipEligible: true,
     heroBarVisible,

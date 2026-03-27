@@ -2,7 +2,8 @@
 
 import { Header } from '@/components/Header';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
-import { OfflineHero } from '@/components/channel/OfflineHero';
+import { LiveBroadcastHero } from '@/components/channel/LiveBroadcastHero';
+import { DemoBroadcastStreamProvider } from './DemoBroadcastStreamProvider';
 
 export function DemoClient() {
   return (
@@ -12,8 +13,10 @@ export function DemoClient() {
         <Header currentPage="channel" position="sticky" />
       </div>
 
-      {/* Offline view — no DemoBroadcastStreamProvider needed */}
-      <OfflineHero jumpToEarliestShow />
+      {/* Online view — wrapped in DemoBroadcastStreamProvider for mock live data */}
+      <DemoBroadcastStreamProvider>
+        <LiveBroadcastHero jumpToEarliestShow />
+      </DemoBroadcastStreamProvider>
     </div>
   );
 }

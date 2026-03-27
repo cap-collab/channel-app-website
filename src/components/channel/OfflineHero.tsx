@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, FormEvent } from 'react';
-import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useDJProfileChat } from '@/hooks/useDJProfileChat';
@@ -86,12 +85,6 @@ export function OfflineHero({ jumpToEarliestShow }: { jumpToEarliestShow?: boole
           <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter leading-none mb-2">Channel Radio</h1>
           <p className="text-lg text-zinc-400 mb-5">Back online soon</p>
 
-          <Link
-            href="/radio#scene"
-            className="inline-block bg-white text-black px-8 py-3 rounded font-semibold hover:bg-gray-200 transition-colors"
-          >
-            Explore the scene
-          </Link>
           <p className="text-zinc-500 text-sm mt-4">
             DJs, producers, collectives, reach out to{' '}
             <a href="mailto:djshows@channel-app.com" className="text-white hover:underline">djshows@channel-app.com</a>
