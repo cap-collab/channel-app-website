@@ -41,8 +41,8 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
   const { user, isAuthenticated, signInWithGoogle, signInWithApple, sendEmailLink, emailSent, resetEmailSent, loading: authLoading } = useAuthContext();
   const { chatUsername: savedUsername, loading: profileLoading } = useUserProfile(user?.uid);
   const [username, setUsername] = useState(defaultUsername || '');
-  const [promoText, setPromoText] = useState(defaultPromoText || '');
-  const [promoHyperlink, setPromoHyperlink] = useState(defaultPromoHyperlink || '');
+  const [promoText] = useState(defaultPromoText || '');
+  const [promoHyperlink] = useState(defaultPromoHyperlink || '');
   const [thankYouMessage, setThankYouMessage] = useState(defaultThankYouMessage || '');
   const [error, setError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
