@@ -361,6 +361,7 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
     // Section 0: Favorites — followed DJs / favorited shows in next 2 weeks, sorted: live now → soonest first
     const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
     const twoWeeksDateStr = twoWeeksFromNow.toLocaleDateString('en-CA'); // YYYY-MM-DD
+    const nowDateStr = now.toLocaleDateString('en-CA'); // YYYY-MM-DD
     // IRL shows in the scene section: only today, tomorrow, or day after tomorrow
     const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
     const sceneCutoffDateStr = threeDaysFromNow.toLocaleDateString('en-CA'); // YYYY-MM-DD
@@ -385,7 +386,8 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
         }
       }
     }
-    // IRL shows from followed DJs in next 2 weeks
+    // IRL shows from followed DJs in next 2 weeks (from schedule)
+    const s0IrlKeys = new Set<string>();
     for (const show of irlShows) {
       if (show.date > twoWeeksDateStr) continue;
       let djFollowed = isInWatchlist(show.djName) || isInWatchlist(show.djUsername);
@@ -395,9 +397,27 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
       }
       if (!djFollowed) continue;
       const id = `irl-${show.djUsername}-${show.date}`;
+      s0IrlKeys.add(id);
       if (tryAddShow(id, show.djName)) {
         s0Candidates.push({ item: makeIRLItem(show, undefined), id, djName: show.djName, startMs: new Date(show.date + 'T00:00:00').getTime(), live: false });
       }
+    }
+    // IRL favorites beyond the 2-week schedule window (from user's favorites collection)
+    const irlFavorites = favorites.filter(f => f.type === 'irl' && f.irlDate && f.irlDate >= nowDateStr);
+    for (const fav of irlFavorites) {
+      const id = `irl-${fav.djUsername || ''}-${fav.irlDate}`;
+      if (s0IrlKeys.has(id)) continue; // Already covered by schedule data
+      if (!tryAddShow(id, fav.djName)) continue;
+      const syntheticShow: IRLShowData = {
+        djUsername: fav.djUsername || '',
+        djName: fav.djName || fav.irlEventName || 'Event',
+        djPhotoUrl: fav.djPhotoUrl,
+        eventName: fav.irlEventName || fav.showName || 'Event',
+        location: fav.irlLocation || '',
+        ticketUrl: fav.irlTicketUrl || '',
+        date: fav.irlDate!,
+      };
+      s0Candidates.push({ item: makeIRLItem(syntheticShow, undefined), id, djName: fav.djName, startMs: new Date(fav.irlDate + 'T00:00:00').getTime(), live: false });
     }
     // Sort: live first, then soonest first
     s0Candidates.sort((a, b) => {
@@ -563,7 +583,7 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
       locationCards: s6,
       radioCards: s7,
     };
-  }, [allShows, irlShows, curatorRecs, djProfiles, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, getMatchingGenres, genreLabelFor, isShowLive, isValidShow, followedDJNames, isInWatchlist, isShowFavorited, user]);
+  }, [allShows, irlShows, curatorRecs, djProfiles, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, getMatchingGenres, genreLabelFor, isShowLive, isValidShow, followedDJNames, isInWatchlist, isShowFavorited, favorites, user]);
 
   // Mark curator recs as seen once they render at the top for the first time
   useEffect(() => {
