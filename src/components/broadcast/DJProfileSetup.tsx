@@ -41,8 +41,8 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
   const { user, isAuthenticated, signInWithGoogle, signInWithApple, sendEmailLink, emailSent, resetEmailSent, loading: authLoading } = useAuthContext();
   const { chatUsername: savedUsername, loading: profileLoading } = useUserProfile(user?.uid);
   const [username, setUsername] = useState(defaultUsername || '');
-  const [promoText] = useState(defaultPromoText || '');
-  const [promoHyperlink] = useState(defaultPromoHyperlink || '');
+  const [promoText, setPromoText] = useState(defaultPromoText || '');
+  const [promoHyperlink, setPromoHyperlink] = useState(defaultPromoHyperlink || '');
   const [thankYouMessage, setThankYouMessage] = useState(defaultThankYouMessage || '');
   const [error, setError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -125,8 +125,18 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
     }
   }, [savedUsername, isVenueBroadcast]);
 
-  // Promo and thank you data comes from slot defaults (passed via props)
-  // No fallback to logged-in user's profile — slot data is primary
+  // Sync from default props when they arrive async (e.g. from slot DJ profile fetch)
+  useEffect(() => {
+    if (defaultPromoText && !promoText) setPromoText(defaultPromoText);
+  }, [defaultPromoText, promoText]);
+
+  useEffect(() => {
+    if (defaultPromoHyperlink && !promoHyperlink) setPromoHyperlink(defaultPromoHyperlink);
+  }, [defaultPromoHyperlink, promoHyperlink]);
+
+  useEffect(() => {
+    if (defaultThankYouMessage && !thankYouMessage) setThankYouMessage(defaultThankYouMessage);
+  }, [defaultThankYouMessage, thankYouMessage]);
 
   // Get valid username for saving during sign-in (if valid)
   // Must match validateUsername() validation rules

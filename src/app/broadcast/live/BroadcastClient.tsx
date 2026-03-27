@@ -56,8 +56,29 @@ export function BroadcastClient() {
   // Multi-DJ show: track current DJ slot to detect DJ changes (use ref to avoid re-render loops)
   const currentDjSlotIdRef = useRef<string | null>(null);
 
-  // Thank you message comes from the slot's DJ profile data (via DJProfileSetup defaults)
-  // No fallback to logged-in user's profile — slot data is primary
+  // Fetch DJ profile data from the slot's linked DJ (user or pending)
+  // This pre-populates promo text, promo hyperlink, and thank you message
+  useEffect(() => {
+    if (!token || !slot) return;
+    // Don't fetch if multi-DJ slot detection will handle it
+    if (slot.djSlots && slot.djSlots.length > 0) return;
+
+    const fetchDjProfile = async () => {
+      try {
+        const res = await fetch(`/api/broadcast/slot-dj-profile?token=${encodeURIComponent(token)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.promoText && !initialPromoText) setInitialPromoText(data.promoText);
+        if (data.promoHyperlink && !initialPromoHyperlink) setInitialPromoHyperlink(data.promoHyperlink);
+        if (data.thankYouMessage && !initialThankYouMessage) setInitialThankYouMessage(data.thankYouMessage);
+      } catch (err) {
+        console.error('Failed to fetch slot DJ profile:', err);
+      }
+    };
+
+    fetchDjProfile();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Only fetch once when slot loads
+  }, [token, slot?.id]);
 
   // Get current DJ slot based on current time (for multi-DJ shows)
   const getCurrentDjSlot = useCallback(() => {
@@ -516,9 +537,9 @@ export function BroadcastClient() {
                 </div>
                 <DJProfileSetup
                   defaultUsername={getDefaultDjName()}
-                  defaultPromoText={activeDjSlot?.djPromoText || activeDjSlot?.promoText || slot?.showPromoText}
-                  defaultPromoHyperlink={activeDjSlot?.djPromoHyperlink || activeDjSlot?.promoHyperlink || slot?.showPromoHyperlink}
-                  defaultThankYouMessage={activeDjSlot?.djThankYouMessage}
+                  defaultPromoText={activeDjSlot?.djPromoText || activeDjSlot?.promoText || initialPromoText || slot?.showPromoText}
+                  defaultPromoHyperlink={activeDjSlot?.djPromoHyperlink || activeDjSlot?.promoHyperlink || initialPromoHyperlink || slot?.showPromoHyperlink}
+                  defaultThankYouMessage={activeDjSlot?.djThankYouMessage || initialThankYouMessage}
                   broadcastType={slot?.broadcastType}
                   onComplete={handleProfileComplete}
                 />
@@ -621,9 +642,9 @@ export function BroadcastClient() {
         <div className="flex items-center justify-center p-8 min-h-[calc(100vh-60px)]">
         <DJProfileSetup
           defaultUsername={getDefaultDjName()}
-          defaultPromoText={activeDjSlot?.djPromoText || activeDjSlot?.promoText || slot?.showPromoText}
-          defaultPromoHyperlink={activeDjSlot?.djPromoHyperlink || activeDjSlot?.promoHyperlink || slot?.showPromoHyperlink}
-          defaultThankYouMessage={activeDjSlot?.djThankYouMessage}
+          defaultPromoText={activeDjSlot?.djPromoText || activeDjSlot?.promoText || initialPromoText || slot?.showPromoText}
+          defaultPromoHyperlink={activeDjSlot?.djPromoHyperlink || activeDjSlot?.promoHyperlink || initialPromoHyperlink || slot?.showPromoHyperlink}
+          defaultThankYouMessage={activeDjSlot?.djThankYouMessage || initialThankYouMessage}
           broadcastType={slot?.broadcastType}
           onComplete={handleProfileComplete}
         />
