@@ -542,12 +542,13 @@ export function DJPublicProfileClient({ username }: Props) {
     const channelShow = allShows.find(
       (show) =>
         show.stationId === "broadcast" &&
+        show.type === "live" &&
         new Date(show.startTime).getTime() <= now &&
         new Date(show.endTime).getTime() > now &&
         matchesProfile(show)
     );
 
-    // Only show Channel live card if DJ is actually streaming audio
+    // Only show Channel live card if slot status is 'live' AND DJ is actually streaming audio
     if (channelShow && isStreaming) {
       setLiveOnChannel(true);
       setLiveElsewhere(null);
@@ -1181,9 +1182,18 @@ export function DJPublicProfileClient({ username }: Props) {
 
     // Add radio shows - only upcoming (live shows are handled separately)
     upcomingBroadcasts.forEach((show) => {
-      const isLive = show.startTime <= now && show.endTime > now;
+      // For Channel broadcasts, only treat as live if status is 'live' (DJ actually streaming)
+      // For external shows, use time-based check
+      const isLive = show.stationId === "broadcast"
+        ? show.status === 'live'
+        : show.startTime <= now && show.endTime > now;
       // Skip live shows - they're displayed in the dedicated live card above
       if (isLive) {
+        return;
+      }
+      // Skip Channel broadcasts with status 'missed' or 'completed' that are within the time window
+      // These should not appear as upcoming since the DJ didn't show up
+      if (show.stationId === "broadcast" && (show.status === 'missed' || show.status === 'completed')) {
         return;
       }
       const item: ActivityFeedItem = {
