@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useSchedule } from '@/contexts/ScheduleContext';
 import { Header } from '@/components/Header';
-import { HeaderSearch } from '@/components/HeaderSearch';
 import { Tuner } from '@/components/channel/Tuner';
 import { SwipeableCardCarousel } from '@/components/channel/SwipeableCardCarousel';
 import { TicketCard } from '@/components/channel/TicketCard';
@@ -831,7 +830,7 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
     <div className="min-h-[100dvh] text-white relative flex flex-col">
       <AnimatedBackground />
       <div className="sticky top-0 z-[100]">
-        <Header currentPage="channel" position="sticky" />
+        <Header currentPage="channel" position="sticky" showSearch />
       </div>
 
       {/* Hero Section — Live Broadcast or Launching Soon */}
@@ -897,11 +896,7 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
       <section className="px-4 md:px-8 pb-0 relative z-10">
         <div className="max-w-7xl mx-auto">
           <h2 className="text-2xl md:text-3xl font-semibold mb-2">Meanwhile in the scene</h2>
-          <p className="text-zinc-400 mb-6">Upcoming shows from selectors in your community</p>
           <div className="flex flex-col sm:flex-row gap-3 mb-1">
-            <div className="flex-1 max-w-md">
-              <HeaderSearch onAuthRequired={() => setShowAuthModal(true)} />
-            </div>
             <Tuner
               selectedCity={selectedCity}
               onCityChange={handleCityChange}
