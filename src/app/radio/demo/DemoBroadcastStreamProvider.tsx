@@ -127,8 +127,8 @@ export function DemoBroadcastStreamProvider({ children }: { children: ReactNode 
   const value = useMemo<BroadcastStreamContextValue>(() => ({
     isPlaying,
     isLoading,
-    isLive: true,
-    isStreaming: true,
+    isLive: false,
+    isStreaming: false,
     currentShow: DEMO_SHOW,
     currentDJ: 'Junior, Stacy Christine, Lovefingers, Heidi Lawden & Flabbergast',
     error,
