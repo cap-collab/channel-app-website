@@ -1534,11 +1534,13 @@ export function DJPublicProfileClient({ username }: Props) {
                     <button
                       onClick={async () => {
                         if (!isAuthenticated) { setShowAuthModal(true); return; }
-                        if (currentLiveShow) await addToWatchlist(currentLiveShow.name);
+                        if (currentLiveShow) {
+                          if (isInWatchlist(currentLiveShow.name)) await removeFromWatchlist(currentLiveShow.name);
+                          else await addToWatchlist(currentLiveShow.name);
+                        }
                       }}
-                      disabled={currentLiveShow ? isInWatchlist(currentLiveShow.name) : false}
                       className={`flex-1 min-w-0 py-3 px-2 sm:px-4 text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap ${
-                        currentLiveShow && isInWatchlist(currentLiveShow.name) ? 'bg-white/10 text-gray-400 cursor-default' : 'bg-white/10 hover:bg-white/20 text-white'
+                        currentLiveShow && isInWatchlist(currentLiveShow.name) ? 'bg-white/10 hover:bg-white/20 text-gray-400' : 'bg-white/10 hover:bg-white/20 text-white'
                       }`}
                     >
                       {currentLiveShow && isInWatchlist(currentLiveShow.name) ? (
@@ -1564,11 +1566,13 @@ export function DJPublicProfileClient({ username }: Props) {
                     <button
                       onClick={async () => {
                         if (!isAuthenticated) { setShowAuthModal(true); return; }
-                        if (currentLiveShow) await addToWatchlist(currentLiveShow.name);
+                        if (currentLiveShow) {
+                          if (isInWatchlist(currentLiveShow.name)) await removeFromWatchlist(currentLiveShow.name);
+                          else await addToWatchlist(currentLiveShow.name);
+                        }
                       }}
-                      disabled={currentLiveShow ? isInWatchlist(currentLiveShow.name) : false}
                       className={`flex-1 min-w-0 py-3 px-2 sm:px-4 text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap ${
-                        currentLiveShow && isInWatchlist(currentLiveShow.name) ? 'bg-white/10 text-gray-400 cursor-default' : 'bg-white/10 hover:bg-white/20 text-white'
+                        currentLiveShow && isInWatchlist(currentLiveShow.name) ? 'bg-white/10 hover:bg-white/20 text-gray-400' : 'bg-white/10 hover:bg-white/20 text-white'
                       }`}
                     >
                       {currentLiveShow && isInWatchlist(currentLiveShow.name) ? (
@@ -1835,18 +1839,19 @@ export function DJPublicProfileClient({ username }: Props) {
                           </div>
                         </div>
 
-                        {/* Action Button: Add to watchlist */}
+                        {/* Action Button: Toggle watchlist */}
                         <button
                           onClick={async (e) => {
                             e.stopPropagation();
                             if (!isAuthenticated) { setShowAuthModal(true); return; }
                             setTogglingFavoriteId(broadcast.id);
-                            await addToWatchlist(broadcast.showName);
+                            if (isWatching) await removeFromWatchlist(broadcast.showName);
+                            else await addToWatchlist(broadcast.showName);
                             setTogglingFavoriteId(null);
                           }}
-                          disabled={isToggling || isWatching}
+                          disabled={isToggling}
                           className={`w-full py-3 px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-1 disabled:opacity-50 ${
-                            isWatching ? 'bg-white/10 text-gray-400 cursor-default' : 'bg-white/10 hover:bg-white/20 text-white'
+                            isWatching ? 'bg-white/10 hover:bg-white/20 text-gray-400' : 'bg-white/10 hover:bg-white/20 text-white'
                           }`}
                           style={stationAccentColor ? { borderColor: stationAccentColor } : undefined}
                         >
@@ -1970,12 +1975,13 @@ export function DJPublicProfileClient({ username }: Props) {
                                 e.stopPropagation();
                                 if (!isAuthenticated) { setShowAuthModal(true); return; }
                                 setTogglingFavoriteId(radioShow.id);
-                                await addToWatchlist(radioShowName);
+                                if (isWatching) await removeFromWatchlist(radioShowName);
+                                else await addToWatchlist(radioShowName);
                                 setTogglingFavoriteId(null);
                               }}
-                              disabled={isToggling || isWatching}
+                              disabled={isToggling}
                               className={`flex-1 min-w-0 py-3 px-2 sm:px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-1 whitespace-nowrap disabled:opacity-50 ${
-                                isWatching ? 'bg-white/10 text-gray-400 cursor-default' : 'bg-white/10 hover:bg-white/20 text-white'
+                                isWatching ? 'bg-white/10 hover:bg-white/20 text-gray-400' : 'bg-white/10 hover:bg-white/20 text-white'
                               }`}
                             >
                               {isToggling ? (
@@ -1993,12 +1999,13 @@ export function DJPublicProfileClient({ username }: Props) {
                               e.stopPropagation();
                               if (!isAuthenticated) { setShowAuthModal(true); return; }
                               setTogglingFavoriteId(radioShow.id);
-                              await addToWatchlist(radioShowName);
+                              if (isWatching) await removeFromWatchlist(radioShowName);
+                              else await addToWatchlist(radioShowName);
                               setTogglingFavoriteId(null);
                             }}
-                            disabled={isToggling || isWatching}
+                            disabled={isToggling}
                             className={`w-full py-3 px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-1 disabled:opacity-50 ${
-                              isWatching ? 'bg-white/10 text-gray-400 cursor-default' : 'bg-white/10 hover:bg-white/20 text-white'
+                              isWatching ? 'bg-white/10 hover:bg-white/20 text-gray-400' : 'bg-white/10 hover:bg-white/20 text-white'
                             }`}
                           >
                             {isToggling ? (
@@ -2174,12 +2181,13 @@ export function DJPublicProfileClient({ username }: Props) {
                               return;
                             }
                             setTogglingFavoriteId(radioShow.id);
-                            await addToWatchlist(showName);
+                            if (isWatching) await removeFromWatchlist(showName);
+                            else await addToWatchlist(showName);
                             setTogglingFavoriteId(null);
                           }}
-                          disabled={isToggling || isWatching}
+                          disabled={isToggling}
                           className={`w-full py-3 px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-1 disabled:opacity-50 ${
-                            isWatching ? 'bg-white/10 text-gray-400 cursor-default' : 'bg-white/10 hover:bg-white/20 text-white'
+                            isWatching ? 'bg-white/10 hover:bg-white/20 text-gray-400' : 'bg-white/10 hover:bg-white/20 text-white'
                           }`}
                         >
                           {isToggling ? (
@@ -2370,7 +2378,7 @@ export function DJPublicProfileClient({ username }: Props) {
                           <h3 className="text-white font-medium">{pastShow.showName}</h3>
                         </div>
 
-                        {/* Action Button: Add to watchlist */}
+                        {/* Action Button: Toggle watchlist */}
                         <button
                           onClick={async (e) => {
                             e.stopPropagation();
@@ -2379,12 +2387,13 @@ export function DJPublicProfileClient({ username }: Props) {
                               return;
                             }
                             setTogglingFavoriteId(pastShow.id);
-                            await addToWatchlist(pastShow.showName);
+                            if (isWatching) await removeFromWatchlist(pastShow.showName);
+                            else await addToWatchlist(pastShow.showName);
                             setTogglingFavoriteId(null);
                           }}
-                          disabled={isToggling || isWatching}
+                          disabled={isToggling}
                           className={`w-full py-3 px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-1 disabled:opacity-50 ${
-                            isWatching ? 'bg-white/10 text-gray-400 cursor-default' : 'bg-white/10 hover:bg-white/20 text-white'
+                            isWatching ? 'bg-white/10 hover:bg-white/20 text-gray-400' : 'bg-white/10 hover:bg-white/20 text-white'
                           }`}
                           style={stationAccentColor ? { borderColor: stationAccentColor } : undefined}
                         >
