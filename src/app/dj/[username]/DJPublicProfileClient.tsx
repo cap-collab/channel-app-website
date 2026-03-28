@@ -353,7 +353,7 @@ function normalizeUsername(chatUsername: string): string {
 export function DJPublicProfileClient({ username }: Props) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername, setChatUsername, loading: profileLoading } = useUserProfile(user?.uid);
-  const { isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited, addToWatchlist, loading: favoritesLoading } = useFavorites();
+  const { isInWatchlist, followDJ, removeFromWatchlist, addToWatchlist, loading: favoritesLoading } = useFavorites();
   const { stationBPM } = useBPM();
 
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
@@ -1074,66 +1074,6 @@ export function DJPublicProfileClient({ username }: Props) {
 
   // Format date for activity feed
   // Convert UpcomingShow to Show type for favorites compatibility
-  const upcomingShowToShow = (show: UpcomingShow): Show => ({
-    id: show.id,
-    name: show.showName,
-    dj: show.djName,
-    startTime: new Date(show.startTime).toISOString(),
-    endTime: new Date(show.endTime).toISOString(),
-    stationId: show.stationId,
-    description: show.description,
-  });
-
-  // Convert RadioShow to Show type for favorites compatibility
-  const radioShowToShow = (show: RadioShow & { id: string }): Show => {
-    const radioDate = show.date ? new Date(show.date) : new Date();
-    let startTime = radioDate;
-    let endTime = radioDate;
-
-    if (show.time) {
-      const [hours, minutes] = show.time.split(":").map(Number);
-      startTime = new Date(radioDate);
-      startTime.setHours(hours || 0, minutes || 0, 0, 0);
-      const durationHours = parseFloat(show.duration || "1") || 1;
-      endTime = new Date(startTime.getTime() + durationHours * 60 * 60 * 1000);
-    }
-
-    // Use "dj-radio" as stationId to match how /api/schedule returns these shows
-    const stationId = "dj-radio";
-
-    return {
-      id: show.id,
-      name: show.name || `Show on ${show.radioName}`,
-      dj: djProfile?.chatUsername || "",
-      startTime: startTime.toISOString(),
-      endTime: endTime.toISOString(),
-      stationId,
-    };
-  };
-
-  // Handle favorite toggle for a broadcast
-  const handleToggleFavorite = async (broadcast: UpcomingShow, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!isAuthenticated) {
-      setShowAuthModal(true);
-      return;
-    }
-    setTogglingFavoriteId(broadcast.id);
-    await toggleFavorite(upcomingShowToShow(broadcast));
-    setTogglingFavoriteId(null);
-  };
-
-  // Handle favorite toggle for a DJ radio show
-  const handleToggleRadioShowFavorite = async (radioShow: RadioShow & { id: string }, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!isAuthenticated) {
-      setShowAuthModal(true);
-      return;
-    }
-    setTogglingFavoriteId(radioShow.id);
-    await toggleFavorite(radioShowToShow(radioShow));
-    setTogglingFavoriteId(null);
-  };
 
   // Audio player handlers for past recordings
   const handlePlayPause = (archiveId: string) => {
@@ -1592,16 +1532,20 @@ export function DJPublicProfileClient({ username }: Props) {
                       {isPlaying ? 'Pause' : 'Play'}
                     </button>
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         if (!isAuthenticated) { setShowAuthModal(true); return; }
-                        if (currentLiveShow) toggleFavorite(currentLiveShow);
+                        if (currentLiveShow) await addToWatchlist(currentLiveShow.name);
                       }}
-                      className="flex-1 min-w-0 py-3 px-2 sm:px-4 text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
+                      disabled={currentLiveShow ? isInWatchlist(currentLiveShow.name) : false}
+                      className={`flex-1 min-w-0 py-3 px-2 sm:px-4 text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                        currentLiveShow && isInWatchlist(currentLiveShow.name) ? 'bg-white/10 text-gray-400 cursor-default' : 'bg-white/10 hover:bg-white/20 text-white'
+                      }`}
                     >
-                      <svg className="w-4 h-4 shrink-0" fill={currentLiveShow && isShowFavorited(currentLiveShow) ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                      </svg>
-                      {currentLiveShow && isShowFavorited(currentLiveShow) ? "Reminded" : "Remind Me"}
+                      {currentLiveShow && isInWatchlist(currentLiveShow.name) ? (
+                        <><svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg> Watchlist</>
+                      ) : (
+                        <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> Watchlist</>
+                      )}
                     </button>
                   </div>
                 ) : liveElsewhere ? (
@@ -1618,16 +1562,20 @@ export function DJPublicProfileClient({ username }: Props) {
                       </svg>
                     </a>
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         if (!isAuthenticated) { setShowAuthModal(true); return; }
-                        if (currentLiveShow) toggleFavorite(currentLiveShow);
+                        if (currentLiveShow) await addToWatchlist(currentLiveShow.name);
                       }}
-                      className="flex-1 min-w-0 py-3 px-2 sm:px-4 text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
+                      disabled={currentLiveShow ? isInWatchlist(currentLiveShow.name) : false}
+                      className={`flex-1 min-w-0 py-3 px-2 sm:px-4 text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                        currentLiveShow && isInWatchlist(currentLiveShow.name) ? 'bg-white/10 text-gray-400 cursor-default' : 'bg-white/10 hover:bg-white/20 text-white'
+                      }`}
                     >
-                      <svg className="w-4 h-4 shrink-0" fill={currentLiveShow && isShowFavorited(currentLiveShow) ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                      </svg>
-                      {currentLiveShow && isShowFavorited(currentLiveShow) ? "Reminded" : "Remind Me"}
+                      {currentLiveShow && isInWatchlist(currentLiveShow.name) ? (
+                        <><svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg> Watchlist</>
+                      ) : (
+                        <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> Watchlist</>
+                      )}
                     </button>
                   </div>
                 ) : null}
@@ -1812,8 +1760,7 @@ export function DJPublicProfileClient({ username }: Props) {
                 }
                 if (item.feedType === "radio") {
                   const broadcast = item as UpcomingShow & { feedType: "radio"; feedStatus: "upcoming" };
-                  const showAsShow = upcomingShowToShow(broadcast);
-                  const isFavorited = isShowFavorited(showAsShow);
+                  const isWatching = isInWatchlist(broadcast.showName);
                   const isToggling = togglingFavoriteId === broadcast.id;
                   const stationAccentColor = getStationById(broadcast.stationId)?.accentColor;
 
@@ -1888,21 +1835,27 @@ export function DJPublicProfileClient({ username }: Props) {
                           </div>
                         </div>
 
-                        {/* Action Button */}
+                        {/* Action Button: Add to watchlist */}
                         <button
-                          onClick={(e) => handleToggleFavorite(broadcast, e)}
-                          disabled={isToggling}
-                          className="w-full py-3 px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (!isAuthenticated) { setShowAuthModal(true); return; }
+                            setTogglingFavoriteId(broadcast.id);
+                            await addToWatchlist(broadcast.showName);
+                            setTogglingFavoriteId(null);
+                          }}
+                          disabled={isToggling || isWatching}
+                          className={`w-full py-3 px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-1 disabled:opacity-50 ${
+                            isWatching ? 'bg-white/10 text-gray-400 cursor-default' : 'bg-white/10 hover:bg-white/20 text-white'
+                          }`}
+                          style={stationAccentColor ? { borderColor: stationAccentColor } : undefined}
                         >
                           {isToggling ? (
                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          ) : isWatching ? (
+                            <><svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg> Watchlist</>
                           ) : (
-                            <>
-                              <svg className="w-4 h-4" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                              </svg>
-                              {isFavorited ? "Reminded" : "Remind Me"}
-                            </>
+                            <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> Watchlist</>
                           )}
                         </button>
                       </div>
@@ -1943,9 +1896,9 @@ export function DJPublicProfileClient({ username }: Props) {
                   const nowMs = Date.now();
                   const isLive = showStartUtc !== null && showEndUtc !== null && nowMs >= showStartUtc && nowMs < showEndUtc;
 
-                  // Check favorite status for this radio show
-                  const showAsShow = radioShowToShow(radioShow);
-                  const isFavorited = isShowFavorited(showAsShow);
+                  // Check watchlist status for this radio show
+                  const radioShowName = radioShow.name || `On ${radioShow.radioName}`;
+                  const isWatching = isInWatchlist(radioShowName);
                   const isToggling = togglingFavoriteId === radioShow.id;
 
                   return (
@@ -1998,7 +1951,7 @@ export function DJPublicProfileClient({ username }: Props) {
                           );
                         })()}
 
-                        {/* Action Buttons - Join Stream + Add to Favorites if live, otherwise Remind Me */}
+                        {/* Action Buttons - Join Stream + Watchlist if live, otherwise Watchlist */}
                         {isLive && radioShow.url ? (
                           <div className="flex gap-2">
                             <a
@@ -2013,37 +1966,47 @@ export function DJPublicProfileClient({ username }: Props) {
                               Join Stream
                             </a>
                             <button
-                              onClick={(e) => handleToggleRadioShowFavorite(radioShow, e)}
-                              disabled={isToggling}
-                              className="flex-1 min-w-0 py-3 px-2 sm:px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (!isAuthenticated) { setShowAuthModal(true); return; }
+                                setTogglingFavoriteId(radioShow.id);
+                                await addToWatchlist(radioShowName);
+                                setTogglingFavoriteId(null);
+                              }}
+                              disabled={isToggling || isWatching}
+                              className={`flex-1 min-w-0 py-3 px-2 sm:px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-1 whitespace-nowrap disabled:opacity-50 ${
+                                isWatching ? 'bg-white/10 text-gray-400 cursor-default' : 'bg-white/10 hover:bg-white/20 text-white'
+                              }`}
                             >
                               {isToggling ? (
                                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              ) : isWatching ? (
+                                <><svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg> Watchlist</>
                               ) : (
-                                <>
-                                  <svg className="w-4 h-4 shrink-0" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                  </svg>
-                                  {isFavorited ? "Reminded" : "Remind Me"}
-                                </>
+                                <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> Watchlist</>
                               )}
                             </button>
                           </div>
                         ) : (
                           <button
-                            onClick={(e) => handleToggleRadioShowFavorite(radioShow, e)}
-                            disabled={isToggling}
-                            className="w-full py-3 px-4 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-2"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (!isAuthenticated) { setShowAuthModal(true); return; }
+                              setTogglingFavoriteId(radioShow.id);
+                              await addToWatchlist(radioShowName);
+                              setTogglingFavoriteId(null);
+                            }}
+                            disabled={isToggling || isWatching}
+                            className={`w-full py-3 px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-1 disabled:opacity-50 ${
+                              isWatching ? 'bg-white/10 text-gray-400 cursor-default' : 'bg-white/10 hover:bg-white/20 text-white'
+                            }`}
                           >
                             {isToggling ? (
                               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : isWatching ? (
+                              <><svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg> Watchlist</>
                             ) : (
-                              <>
-                                <svg className="w-4 h-4" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                </svg>
-                                {isFavorited ? "Reminded" : "Remind Me"}
-                              </>
+                              <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> Watchlist</>
                             )}
                           </button>
                         )}
