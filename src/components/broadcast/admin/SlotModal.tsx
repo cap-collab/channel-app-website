@@ -966,7 +966,7 @@ export function SlotModal({
       ? `https://channel-app.com/dj/${djUsernameNormalized}`
       : null;
     const profileBlock = profileUrl
-      ? `\nYour profile:\n${profileUrl}\nPeople can follow you there to receive updates, chat, and tip you anytime.\n`
+      ? `\nYour profile:\n${profileUrl}\n`
       : '';
 
     const subject = `Your show on Channel: ${showName}`;
@@ -981,13 +981,12 @@ ${formattedStart} – ${formattedEnd} ${djTz}
 ⸻
 
 1. Fine-tune your profile
-
+${profileBlock}
 Sign up or log in using ${targetEmail} so everything links properly:
-
 https://channel-app.com/studio
 
 Add your bio, links, and any upcoming shows, on other radios, or IRL. We feature these on the website and in our bi-weekly newsletter.
-${profileBlock}
+
 If you haven't connected Stripe yet and want to receive tips:
 https://channel-app.com/stripe-setup
 
@@ -999,6 +998,8 @@ You'll go live from here (keep this link private):
 ${broadcastUrl}
 
 I recommend opening it ahead of time and doing a quick test.
+
+You can also test your audio setup by clicking on "Record a set" in the studio. You'll be able to listen back to your recording to make sure everything sounds good.
 
 Setup guide:
 https://channel-app.com/streaming-guide
