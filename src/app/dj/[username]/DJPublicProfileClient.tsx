@@ -623,6 +623,8 @@ export function DJPublicProfileClient({ username }: Props) {
 
           snapshot.forEach((docSnap) => {
             const data = docSnap.data();
+            // Skip recording-type slots — they appear via archives, not as shows
+            if (data.broadcastType === 'recording') return;
             // Match by DJ username, name, or userId/email
             // Also check restreamDjs for multi-DJ restream archives
             const restreamDjMatch = data.restreamDjs && Array.isArray(data.restreamDjs) &&
