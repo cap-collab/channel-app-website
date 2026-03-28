@@ -263,6 +263,213 @@ export function StudioProfileClient() {
   const [recordingCurrentTime, setRecordingCurrentTime] = useState<Record<string, number>>({});
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
 
+  // Pre-recording upload state
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadShowName, setUploadShowName] = useState('');
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadDuration, setUploadDuration] = useState<number | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [detectingDuration, setDetectingDuration] = useState(false);
+  const [uploadQuotaRemaining, setUploadQuotaRemaining] = useState<number | null>(null);
+  const xhrRef = useRef<XMLHttpRequest | null>(null);
+
+  // Detect audio file duration
+  const detectAudioDuration = useCallback((file: File): Promise<number> => {
+    return new Promise((resolve, reject) => {
+      const audio = new Audio();
+      audio.preload = 'metadata';
+      const objectUrl = URL.createObjectURL(file);
+      audio.src = objectUrl;
+
+      const cleanup = () => URL.revokeObjectURL(objectUrl);
+
+      audio.onloadedmetadata = () => {
+        if (audio.duration === Infinity || isNaN(audio.duration)) {
+          // Some browsers report Infinity for WAV — seek to force duration calculation
+          audio.currentTime = Number.MAX_SAFE_INTEGER;
+          audio.ontimeupdate = () => {
+            audio.ontimeupdate = null;
+            cleanup();
+            resolve(Math.ceil(audio.duration));
+            audio.currentTime = 0;
+          };
+        } else {
+          cleanup();
+          resolve(Math.ceil(audio.duration));
+        }
+      };
+
+      audio.onerror = () => {
+        cleanup();
+        reject(new Error('Could not read this audio file. Please try a different format.'));
+      };
+
+      // Timeout after 10 seconds
+      setTimeout(() => {
+        cleanup();
+        reject(new Error('Could not read this audio file. Please try a different format.'));
+      }, 10000);
+    });
+  }, []);
+
+  // Handle file selection for upload
+  const handleUploadFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadError('');
+    setUploadFile(file);
+    setUploadDuration(null);
+
+    // Validate file size
+    if (file.size > 500 * 1024 * 1024) {
+      setUploadError('File is too large. Maximum size is 500MB.');
+      return;
+    }
+
+    // Detect duration
+    setDetectingDuration(true);
+    try {
+      const duration = await detectAudioDuration(file);
+      setUploadDuration(duration);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Could not read this audio file. Please try a different format.');
+      setUploadFile(null);
+    } finally {
+      setDetectingDuration(false);
+    }
+  }, [detectAudioDuration]);
+
+  // Handle upload submission
+  const handleUpload = useCallback(async () => {
+    if (!user || !uploadFile || !uploadDuration || !uploadShowName.trim()) return;
+
+    setUploading(true);
+    setUploadError('');
+    setUploadProgress(0);
+
+    try {
+      // Step 1: Initiate upload — get presigned URL and create broadcast slot
+      const initRes = await fetch('/api/recording/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.uid,
+          showName: uploadShowName.trim(),
+          duration: uploadDuration,
+          fileType: uploadFile.type,
+          fileSize: uploadFile.size,
+        }),
+      });
+
+      const initData = await initRes.json();
+
+      if (!initRes.ok) {
+        setUploadError(initData.error || 'Failed to start upload. Please try again.');
+        setUploading(false);
+        return;
+      }
+
+      const { presignedUrl, slotId } = initData;
+
+      // Step 2: Upload file directly to R2 via XHR (for progress tracking)
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhrRef.current = xhr;
+
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            setUploadProgress(Math.round((e.loaded / e.total) * 100));
+          }
+        };
+
+        xhr.onload = () => {
+          xhrRef.current = null;
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error('Upload failed — check your internet connection and try again.'));
+          }
+        };
+
+        xhr.onerror = () => {
+          xhrRef.current = null;
+          reject(new Error('Upload failed — check your internet connection and try again.'));
+        };
+
+        xhr.ontimeout = () => {
+          xhrRef.current = null;
+          reject(new Error('Upload timed out. Please try again with a smaller file or faster connection.'));
+        };
+
+        xhr.open('PUT', presignedUrl);
+        xhr.setRequestHeader('Content-Type', uploadFile.type);
+        xhr.timeout = 900000; // 15 minutes
+        xhr.send(uploadFile);
+      });
+
+      // Step 3: Complete upload — verify file and update slot
+      const completeRes = await fetch('/api/recording/upload/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slotId, userId: user.uid }),
+      });
+
+      const completeData = await completeRes.json();
+
+      if (!completeRes.ok) {
+        setUploadError(completeData.error || 'Upload finished but we couldn\'t save it. Please try again or contact support.');
+        setUploading(false);
+        return;
+      }
+
+      // Success — close modal and reset state
+      setShowUploadModal(false);
+      setUploadShowName('');
+      setUploadFile(null);
+      setUploadDuration(null);
+      setUploadProgress(0);
+      setUploadError('');
+      // Recording will appear automatically via onSnapshot listener
+
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  }, [user, uploadFile, uploadDuration, uploadShowName]);
+
+  // Close upload modal and reset state
+  const closeUploadModal = useCallback(() => {
+    if (uploading && xhrRef.current) {
+      xhrRef.current.abort();
+      xhrRef.current = null;
+    }
+    setShowUploadModal(false);
+    setUploadShowName('');
+    setUploadFile(null);
+    setUploadDuration(null);
+    setUploadProgress(0);
+    setUploadError('');
+    setUploading(false);
+  }, [uploading]);
+
+  // Fetch quota when upload modal opens
+  useEffect(() => {
+    if (!showUploadModal || !user) return;
+    setUploadQuotaRemaining(null);
+    fetch(`/api/recording/start?userId=${user.uid}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.quota) {
+          setUploadQuotaRemaining(data.quota.remainingSeconds);
+        }
+      })
+      .catch(() => {});
+  }, [showUploadModal, user]);
+
   // Auto-save debounce refs
   const bioDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const promoDebounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -1611,6 +1818,12 @@ export function StudioProfileClient() {
               >
                 Host a show
               </Link>
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="flex-1 block bg-gray-800 text-white text-center py-3 rounded font-medium hover:bg-gray-700 transition-colors border border-gray-700"
+              >
+                Upload a pre-recording
+              </button>
             </div>
           </section>
 
@@ -2720,6 +2933,123 @@ export function StudioProfileClient() {
         onClose={() => setShowAuthModal(false)}
         includeDjTerms
       />
+
+      {/* Upload Pre-Recording Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/70"
+            onClick={!uploading ? closeUploadModal : undefined}
+          />
+
+          {/* Modal */}
+          <div className="relative bg-[#1a1a1a] rounded-xl w-full max-w-md p-6 border border-gray-800">
+            <h2 className="text-white text-lg font-semibold mb-4">Upload a pre-recording</h2>
+
+            {/* Show name input */}
+            <div className="mb-4">
+              <label className="text-gray-400 text-sm mb-1 block">Recording name</label>
+              <input
+                type="text"
+                value={uploadShowName}
+                onChange={(e) => setUploadShowName(e.target.value.slice(0, 100))}
+                placeholder="e.g. Deep House Sessions"
+                disabled={uploading}
+                className="w-full bg-[#252525] text-white rounded px-3 py-2 text-sm border border-gray-700 focus:border-gray-500 focus:outline-none disabled:opacity-50"
+              />
+            </div>
+
+            {/* File picker */}
+            <div className="mb-4">
+              <label className="text-gray-400 text-sm mb-1 block">Audio file</label>
+              <input
+                type="file"
+                accept="audio/*,.mp3,.wav,.aac,.m4a,.flac,.ogg,.mp4,.webm"
+                onChange={handleUploadFileChange}
+                disabled={uploading}
+                className="w-full text-sm text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-gray-800 file:text-white hover:file:bg-gray-700 file:cursor-pointer disabled:opacity-50"
+              />
+            </div>
+
+            {/* File info */}
+            {uploadFile && (
+              <div className="mb-4 bg-[#252525] rounded p-3 text-sm">
+                <div className="flex justify-between text-gray-400">
+                  <span className="truncate mr-2">{uploadFile.name}</span>
+                  <span className="flex-shrink-0">{(uploadFile.size / (1024 * 1024)).toFixed(1)} MB</span>
+                </div>
+                {detectingDuration && (
+                  <div className="flex items-center gap-2 mt-1 text-gray-500">
+                    <div className="w-3 h-3 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
+                    <span>Reading audio file...</span>
+                  </div>
+                )}
+                {uploadDuration !== null && (
+                  <div className="text-gray-300 mt-1">
+                    Duration: {Math.floor(uploadDuration / 60)}m {uploadDuration % 60}s
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Quota info */}
+            {uploadQuotaRemaining !== null && (
+              <div className="mb-4 text-sm text-gray-500">
+                {Math.floor(uploadQuotaRemaining / 60)} minutes remaining this month
+              </div>
+            )}
+
+            {/* Upload progress */}
+            {uploading && (
+              <div className="mb-4">
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-400">Uploading...</span>
+                  <span className="text-white">{uploadProgress}%</span>
+                </div>
+                <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-white rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Error message */}
+            {uploadError && (
+              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded text-red-400 text-sm">
+                {uploadError}
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={closeUploadModal}
+                disabled={uploading && uploadProgress > 0 && uploadProgress < 100}
+                className="flex-1 py-2.5 rounded font-medium text-white bg-gray-800 hover:bg-gray-700 transition-colors border border-gray-700 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpload}
+                disabled={
+                  uploading ||
+                  !uploadFile ||
+                  !uploadShowName.trim() ||
+                  uploadDuration === null ||
+                  detectingDuration ||
+                  (uploadQuotaRemaining !== null && uploadDuration > uploadQuotaRemaining)
+                }
+                className="flex-1 py-2.5 rounded font-medium bg-white text-black hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {uploading ? 'Uploading...' : uploadError ? 'Try again' : 'Upload'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
