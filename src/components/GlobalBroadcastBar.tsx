@@ -94,7 +94,7 @@ export function GlobalBroadcastBar() {
           </svg>
         </Link>
 
-        {/* Tip icon — broadcasting DJs are always channel users, so tipEligible suffices */}
+        {/* Tip icon */}
         {tipEligible && (
           <Link href="/radio#live" className="w-8 h-8 flex items-center justify-center text-green-400 flex-shrink-0">
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">

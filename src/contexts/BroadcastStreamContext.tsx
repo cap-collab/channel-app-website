@@ -4,6 +4,8 @@ import { createContext, useContext, useState, useCallback, useEffect, useMemo, R
 import { useBroadcastStream } from '@/hooks/useBroadcastStream';
 import { useBroadcastLiveStatus } from '@/hooks/useBroadcastLiveStatus';
 import { BroadcastSlotSerialized, ROOM_NAME } from '@/types/broadcast';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export interface BroadcastStreamContextValue {
   isPlaying: boolean;
@@ -89,6 +91,38 @@ function useIsStreaming(statusIsLive: boolean, currentShow: BroadcastSlotSeriali
   return isStreaming;
 }
 
+/** Checks if the current DJ exists in the `users` collection (i.e., is a channel user). */
+function useDjIsChannelUser(show: BroadcastSlotSerialized | null): boolean | null {
+  const [isChannelUser, setIsChannelUser] = useState<boolean | null>(null);
+
+  // Resolve the current DJ's userId from the show
+  const djUserId = useMemo(() => {
+    if (!show) return null;
+    if (show.djSlots && show.djSlots.length > 0) {
+      const now = Date.now();
+      const slot = show.djSlots.find(s => s.startTime <= now && s.endTime > now);
+      if (slot) return slot.liveDjUserId || slot.djUserId || null;
+    }
+    return show.liveDjUserId || show.djUserId || null;
+  }, [show]);
+
+  useEffect(() => {
+    if (!djUserId) {
+      setIsChannelUser(null);
+      return;
+    }
+    let cancelled = false;
+    getDoc(doc(db, 'users', djUserId)).then((snap) => {
+      if (!cancelled) setIsChannelUser(snap.exists());
+    }).catch(() => {
+      if (!cancelled) setIsChannelUser(null);
+    });
+    return () => { cancelled = true; };
+  }, [djUserId]);
+
+  return isChannelUser;
+}
+
 /**
  * Provider that initializes useBroadcastStream only when a broadcast is live.
  * This shares a single stream instance across the GlobalBroadcastBar + LiveBroadcastHero.
@@ -109,9 +143,12 @@ export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
   // Check if DJ is actually publishing audio in the LiveKit room
   const isStreaming = useIsStreaming(statusIsLive, stream.currentShow);
 
+  // Check if current DJ is a channel user (exists in users collection)
+  const djIsChannelUser = useDjIsChannelUser(stream.currentShow);
+
   const value = useMemo<BroadcastStreamContextValue>(() => {
     if (statusIsLive) {
-      return { ...stream, isStreaming, showName, djName, tipEligible: isTipEligible(stream.currentShow, stream.currentDJ), heroBarVisible, setHeroBarVisible: setHeroBarVisibleCb };
+      return { ...stream, isStreaming, showName, djName, tipEligible: isTipEligible(stream.currentShow, stream.currentDJ) && djIsChannelUser !== false, heroBarVisible, setHeroBarVisible: setHeroBarVisibleCb };
     }
     return {
       isPlaying: false, isLoading: false, isLive: false, isStreaming: false,
@@ -122,7 +159,7 @@ export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
       tipEligible: false,
       heroBarVisible: false, setHeroBarVisible: setHeroBarVisibleCb,
     };
-  }, [statusIsLive, stream, isStreaming, showName, djName, heroBarVisible, setHeroBarVisibleCb]);
+  }, [statusIsLive, stream, isStreaming, showName, djName, djIsChannelUser, heroBarVisible, setHeroBarVisibleCb]);
 
   return (
     <BroadcastStreamContext.Provider value={value}>
