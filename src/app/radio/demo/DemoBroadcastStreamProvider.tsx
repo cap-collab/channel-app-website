@@ -1,21 +1,32 @@
 'use client';
 
-import { useState, useCallback, useMemo, useRef, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect, ReactNode } from 'react';
 import { BroadcastStreamContext, BroadcastStreamContextValue } from '@/contexts/BroadcastStreamContext';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
 
-const DEMO_SHOW: BroadcastSlotSerialized = {
+export type DemoMode = 'offline' | 'live' | 'restream';
+
+const DemoModeContext = createContext<{ mode: DemoMode; setMode: (m: DemoMode) => void }>({
+  mode: 'offline',
+  setMode: () => {},
+});
+
+export function useDemoMode() {
+  return useContext(DemoModeContext);
+}
+
+const DEMO_SHOW_LIVE: BroadcastSlotSerialized = {
   id: 'demo-show',
   stationId: 'channel-main',
-  showName: 'VICE EVOLUTION',
-  djName: 'Junior',
-  djUsername: 'junior',
+  showName: 'IMAGINARY SHOW NAME',
+  djName: 'Skee Mask',
+  djUsername: 'skeemask',
   djUserId: 'demo-user-id',
-  djEmail: 'juniorsbl@gmail.com',
-  liveDjUsername: 'junior',
+  djEmail: 'demo@example.com',
+  liveDjUsername: 'skeemask',
   liveDjUserId: 'demo-user-id',
-  liveDjPhotoUrl: 'https://media2.ntslive.co.uk/resize/1600x1600/7e06e23e-d6ae-4e5a-86d5-08a3d7015537_1677801600.jpeg',
-  showImageUrl: 'https://media2.ntslive.co.uk/resize/1600x1600/7e06e23e-d6ae-4e5a-86d5-08a3d7015537_1677801600.jpeg',
+  liveDjPhotoUrl: 'https://image.rinse.fm/_/0079_SEPT_2023_2025-06-17-154928_fccn.jpeg?w=800&h=800',
+  showImageUrl: 'https://image.rinse.fm/_/0079_SEPT_2023_2025-06-17-154928_fccn.jpeg?w=800&h=800',
   startTime: Date.now() - 3600000,
   endTime: Date.now() + 3600000,
   broadcastToken: 'demo',
@@ -24,20 +35,31 @@ const DEMO_SHOW: BroadcastSlotSerialized = {
   createdBy: 'demo',
   status: 'live',
   broadcastType: 'remote',
-  liveDjPromoText: 'Deep house & techno vibes every Friday night. Tune in and feel the groove.',
+  liveDjPromoText: 'Skee\'s insight through his daily listening habits, from guilty pleasures to casual recommendations and in between…',
   liveDjGenres: ['Deep House', 'Dub Techno', 'Techno'],
-  liveDjDescription: 'Bringing soulful house and disco flavors from the heart of the underground.',
+  liveDjDescription: 'Skee\'s insight through his daily listening habits, from guilty pleasures to casual recommendations and in between…',
   archiveId: 'demo-archive',
   archiveRecordingUrl: 'https://example.com/demo.mp4',
   archiveDuration: 16997,
   restreamDjs: [
-    { name: 'Junior', email: 'juniorsbl@gmail.com', userId: 'demo-user-id', username: 'junior' },
+    { name: 'Skee Mask', email: 'demo@example.com', userId: 'demo-user-id', username: 'skeemask' },
+  ],
+};
+
+const DEMO_SHOW_RESTREAM: BroadcastSlotSerialized = {
+  ...DEMO_SHOW_LIVE,
+  id: 'demo-restream',
+  broadcastType: 'restream',
+  showName: 'IMAGINARY SHOW NAME (Restream)',
+  restreamDjs: [
+    { name: 'Skee Mask', email: 'demo@example.com', userId: 'demo-user-id', username: 'skeemask' },
     { name: 'Stacy Christine' },
     { name: 'Lovefingers, Heidi Lawden & Flabbergast' },
   ],
 };
 
 export function DemoBroadcastStreamProvider({ children }: { children: ReactNode }) {
+  const [mode, setMode] = useState<DemoMode>('offline');
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -124,29 +146,40 @@ export function DemoBroadcastStreamProvider({ children }: { children: ReactNode 
 
   const setHeroBarVisibleCb = useCallback((v: boolean) => setHeroBarVisible(v), []);
 
+  const isLive = mode !== 'offline';
+  const currentShow = mode === 'restream' ? DEMO_SHOW_RESTREAM : DEMO_SHOW_LIVE;
+  const djLabel = mode === 'restream'
+    ? 'Skee Mask, Stacy Christine, Lovefingers, Heidi Lawden & Flabbergast'
+    : 'Skee Mask';
+  const showLabel = mode === 'restream' ? 'IMAGINARY SHOW NAME (Restream)' : 'IMAGINARY SHOW NAME';
+
   const value = useMemo<BroadcastStreamContextValue>(() => ({
     isPlaying,
     isLoading,
-    isLive: false,
-    isStreaming: false,
-    currentShow: DEMO_SHOW,
-    currentDJ: 'Junior, Stacy Christine, Lovefingers, Heidi Lawden & Flabbergast',
+    isLive,
+    isStreaming: isLive,
+    currentShow: isLive ? currentShow : null,
+    currentDJ: isLive ? djLabel : null,
     error,
     play,
     pause,
     toggle,
-    listenerCount: 42,
+    listenerCount: isLive ? 42 : 0,
     audioStream: null,
-    showName: 'VICE EVOLUTION',
-    djName: 'Junior, Stacy Christine, Lovefingers, Heidi Lawden & Flabbergast',
-    tipEligible: true,
+    showName: isLive ? showLabel : null,
+    djName: isLive ? djLabel : null,
+    tipEligible: isLive,
     heroBarVisible,
     setHeroBarVisible: setHeroBarVisibleCb,
-  }), [isPlaying, isLoading, error, play, pause, toggle, heroBarVisible, setHeroBarVisibleCb]);
+  }), [isPlaying, isLoading, isLive, currentShow, djLabel, showLabel, error, play, pause, toggle, heroBarVisible, setHeroBarVisibleCb]);
+
+  const modeCtx = useMemo(() => ({ mode, setMode }), [mode]);
 
   return (
-    <BroadcastStreamContext.Provider value={value}>
-      {children}
-    </BroadcastStreamContext.Provider>
+    <DemoModeContext.Provider value={modeCtx}>
+      <BroadcastStreamContext.Provider value={value}>
+        {children}
+      </BroadcastStreamContext.Provider>
+    </DemoModeContext.Provider>
   );
 }
