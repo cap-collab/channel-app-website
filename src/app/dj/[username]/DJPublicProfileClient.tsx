@@ -1500,7 +1500,7 @@ export function DJPublicProfileClient({ username }: Props) {
                       className="h-full transition-all duration-1000 ease-linear"
                       style={{
                         width: `${liveShowProgress}%`,
-                        backgroundColor: liveElsewhere?.stationAccentColor || '#D94099'
+                        backgroundColor: liveOnChannel ? '#FFFFFF' : (liveElsewhere?.stationAccentColor || '#D94099')
                       }}
                     />
                   </div>
