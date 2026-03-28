@@ -29,8 +29,6 @@ function SearchResultCardComponent({ show, station }: SearchResultCardProps) {
   };
 
   const isFavorited = isShowFavorited(show);
-  const accentColor = station?.accentColor || "#fff";
-
   const showStart = new Date(show.startTime);
 
   // Check if this is a restream or playlist show (needs replay icon instead of red dot)
@@ -69,25 +67,17 @@ function SearchResultCardComponent({ show, station }: SearchResultCardProps) {
     <>
       <div className="relative flex rounded-xl overflow-hidden bg-[#1a1a1a] border border-gray-800/50">
 
-        {/* Left accent bar */}
-        <div
-          className="w-1 flex-shrink-0"
-          style={{ backgroundColor: accentColor }}
-        />
-
         <div className="flex-1 px-3 py-2.5">
           {/* Station name + star button */}
           <div className="flex items-center justify-between mb-1">
             <span
-              className="text-[10px] font-semibold uppercase tracking-wide"
-              style={{ color: accentColor }}
+              className="text-[10px] font-semibold uppercase tracking-wide text-white"
             >
               {station?.name || show.stationId}
             </span>
             <button
               onClick={handleFavoriteClick}
-              className="p-0.5 transition-colors"
-              style={{ color: accentColor }}
+              className="p-0.5 transition-colors text-white"
               aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}
             >
               <svg
@@ -95,7 +85,7 @@ function SearchResultCardComponent({ show, station }: SearchResultCardProps) {
                 viewBox="0 0 24 24"
                 fill={isFavorited ? "currentColor" : "none"}
                 stroke="currentColor"
-                strokeWidth={2}
+                strokeWidth={1.5}
               >
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
               </svg>
@@ -151,7 +141,7 @@ function SearchResultCardComponent({ show, station }: SearchResultCardProps) {
             <div className="mt-1.5">
               <span
                 className="text-[9px] px-1.5 py-0.5 rounded-full"
-                style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
+                style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: '#fff' }}
               >
                 {show.type}
               </span>
