@@ -740,6 +740,7 @@ export function DJPublicProfileClient({ username }: Props) {
         const djEmail = djProfile.email?.toLowerCase() || "";
 
         // Query 1: Past slots with root-level djEmail (remote broadcasts)
+        // Excludes recording-type slots — those appear via archives only
         const remoteQ = query(
           slotsRef,
           where("endTime", "<", Timestamp.fromDate(new Date())),
@@ -750,6 +751,8 @@ export function DJPublicProfileClient({ username }: Props) {
           const data = doc.data();
           // Skip recording-type slots — they appear via archives, not as broadcast shows
           if (data.broadcastType === 'recording') return;
+          // Skip slots with status 'uploading' or 'completed' (upload pre-recordings)
+          if (data.status === 'uploading' || data.status === 'completed') return;
           pastSlotsMap.set(doc.id, {
             showName: data.showName || "Broadcast",
             startTime: (data.startTime as Timestamp).toMillis(),
