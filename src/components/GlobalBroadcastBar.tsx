@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useBPM } from '@/contexts/BPMContext';
-import { ScrollingShowName } from '@/components/channel/LiveBroadcastHero';
+import { ScrollingShowName, ScrollingDJName } from '@/components/channel/LiveBroadcastHero';
 
 /**
  * A bar shown below the header on all pages when a broadcast is live.
@@ -82,7 +82,7 @@ export function GlobalBroadcastBar() {
             )}
           </div>
           {djName && (
-            <p className="text-[10px] text-zinc-500 uppercase mt-0.5">{djName}</p>
+            <ScrollingDJName text={djName} className="text-[10px] text-zinc-500 uppercase mt-0.5 leading-[1.3em]" />
           )}
         </Link>
 

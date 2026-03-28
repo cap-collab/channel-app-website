@@ -65,6 +65,59 @@ export function ScrollingShowName({ text, className }: { text: string; className
   );
 }
 
+/** Vertically scrolling text capped at a max number of lines */
+export function ScrollingDJName({ text, className }: { text: string; className?: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLDivElement>(null);
+  const [needsScroll, setNeedsScroll] = useState(false);
+  const [scrollDistance, setScrollDistance] = useState(0);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const textEl = textRef.current;
+    if (!container || !textEl) return;
+    const overflow = textEl.scrollHeight > container.clientHeight;
+    setNeedsScroll(overflow);
+    if (overflow) {
+      setScrollDistance(textEl.scrollHeight - container.clientHeight);
+    }
+  }, [text]);
+
+  return (
+    <div
+      ref={containerRef}
+      className={`overflow-hidden ${className || ''}`}
+      style={{ maxHeight: '2.6em' }}
+    >
+      <div
+        ref={textRef}
+        className={needsScroll ? 'animate-dj-scroll' : ''}
+        style={needsScroll ? {
+          '--scroll-distance': `-${scrollDistance}px`,
+        } as React.CSSProperties : undefined}
+      >
+        {text}
+      </div>
+      <style jsx>{`
+        @keyframes dj-scroll {
+          0%, 15% {
+            transform: translateY(0);
+          }
+          45%, 55% {
+            transform: translateY(var(--scroll-distance));
+          }
+          85%, 100% {
+            transform: translateY(0);
+          }
+        }
+        .animate-dj-scroll {
+          animation: dj-scroll 8s ease-in-out infinite;
+        }
+      `}</style>
+    </div>
+  );
+}
+
 const RESERVED_USERNAMES = ['channel', 'admin', 'system', 'moderator', 'mod'];
 
 function isValidUsername(username: string): boolean {
@@ -573,7 +626,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
                 )}
               </div>
               {djName && (
-                <p className="text-[10px] text-zinc-500 uppercase mt-0.5">{djName}</p>
+                <ScrollingDJName text={djName} className="text-[10px] text-zinc-500 uppercase mt-0.5 leading-[1.3em]" />
               )}
             </div>
 
