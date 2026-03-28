@@ -2260,18 +2260,18 @@ export function DJPublicProfileClient({ username }: Props) {
                       <div className="p-4">
                         <div className="flex items-start gap-4">
                           {showImage && (
-                            <div className="w-16 h-16 rounded bg-zinc-800 flex-shrink-0 overflow-hidden">
+                            <div className="w-20 h-20 rounded bg-zinc-800 flex-shrink-0 overflow-hidden">
                               <Image
                                 src={showImage}
                                 alt={archive.showName}
-                                width={64}
-                                height={64}
+                                width={80}
+                                height={80}
                                 className="w-full h-full object-cover"
                                 unoptimized
                               />
                             </div>
                           )}
-                          <div className="flex-1 min-w-0 flex flex-col justify-between" style={showImage ? { minHeight: '64px' } : undefined}>
+                          <div className="flex-1 min-w-0 flex flex-col justify-between" style={showImage ? { minHeight: '80px' } : undefined}>
                             <div>
                               <div className="flex items-start justify-between gap-2">
                                 <p className="text-white font-medium">{archive.showName}</p>
@@ -2284,7 +2284,7 @@ export function DJPublicProfileClient({ username }: Props) {
                                       setCopiedArchiveId(archive.id);
                                       setTimeout(() => setCopiedArchiveId(null), 2000);
                                     }}
-                                    className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
+                                    className="w-7 h-7 rounded flex items-center justify-center transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
                                     title="Copy archive link"
                                   >
                                     {copiedArchiveId === archive.id ? (
