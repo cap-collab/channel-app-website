@@ -1852,7 +1852,7 @@ export function DJPublicProfileClient({ username }: Props) {
                             )}
                           </div>
                           {broadcast.stationId === "broadcast" && (
-                            <div className="flex items-center gap-1.5 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-sm flex-shrink-0">
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
                               {broadcast.broadcastType === "restream" ? (
                                 <>
                                   <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
