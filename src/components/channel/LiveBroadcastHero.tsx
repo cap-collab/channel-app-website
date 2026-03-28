@@ -776,7 +776,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
 
         {/* Tab Content */}
         {activeTab === 'chat' ? (
-          <div className="flex flex-col h-[30vh] lg:h-[25vh]">
+          <div className="flex flex-col h-[22vh] lg:h-[18vh]">
             {/* Promo bar */}
             {promoToShow && promoToShow.username && (() => {
               const hasHyperlink = !!promoToShow.hyperlink;
@@ -909,7 +909,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
             )}
           </div>
         ) : (
-          <div className="py-4 overflow-y-auto h-[30vh] lg:h-[25vh]">
+          <div className="py-4 overflow-y-auto h-[22vh] lg:h-[18vh]">
             <BroadcastSchedule
               shows={scheduleShows}
               selectedDate={selectedDate}
