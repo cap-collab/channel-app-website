@@ -274,6 +274,7 @@ export function StudioProfileClient() {
   const [uploadError, setUploadError] = useState('');
   const [detectingDuration, setDetectingDuration] = useState(false);
   const [uploadQuotaRemaining, setUploadQuotaRemaining] = useState<number | null>(null);
+  const [uploadTermsConfirmed, setUploadTermsConfirmed] = useState(false);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
 
   // Detect audio file duration
@@ -433,6 +434,7 @@ export function StudioProfileClient() {
       setUploadDuration(null);
       setUploadProgress(0);
       setUploadError('');
+      setUploadTermsConfirmed(false);
       // Recording will appear automatically via onSnapshot listener
 
     } catch (err) {
@@ -455,6 +457,7 @@ export function StudioProfileClient() {
     setUploadProgress(0);
     setUploadError('');
     setUploading(false);
+    setUploadTermsConfirmed(false);
   }, [uploading]);
 
   // Fetch quota when upload modal opens
@@ -3014,6 +3017,41 @@ export function StudioProfileClient() {
               </div>
             )}
 
+            {/* Terms confirmation */}
+            <div className="mb-4 bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+              <p className="text-gray-300 text-sm mb-3">
+                I confirm that I am the DJ (or authorized representative) known as <span className="text-white font-medium">{chatUsername || 'DJName'}</span>, under whose name this upload is being made.
+              </p>
+              <p className="text-gray-300 text-sm mb-3">
+                By uploading this recording, I represent and warrant that:
+              </p>
+              <ul className="text-gray-400 text-sm space-y-1 mb-4 ml-1">
+                <li>• I am responsible for ensuring the content complies with applicable laws.</li>
+                <li>• Channel may use this recording, replay it, and make it available on Channel websites and radio.</li>
+                <li>• All DJs featured in this recording are aware of and consent to its use on Channel.</li>
+              </ul>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={uploadTermsConfirmed}
+                  onChange={(e) => setUploadTermsConfirmed(e.target.checked)}
+                  disabled={uploading}
+                  className="mt-0.5 w-4 h-4 rounded border-gray-600 bg-gray-800 text-white focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                />
+                <span className="text-gray-300 text-sm">
+                  I confirm and agree to the{' '}
+                  <a
+                    href="/dj-terms"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-white underline hover:text-gray-300"
+                  >
+                    DJ Terms
+                  </a>
+                </span>
+              </label>
+            </div>
+
             {/* Actions */}
             <div className="flex gap-3">
               <button
@@ -3031,6 +3069,7 @@ export function StudioProfileClient() {
                   !uploadShowName.trim() ||
                   uploadDuration === null ||
                   detectingDuration ||
+                  !uploadTermsConfirmed ||
                   (uploadQuotaRemaining !== null && uploadDuration > uploadQuotaRemaining)
                 }
                 className="flex-1 py-2.5 rounded font-medium bg-white text-black hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
