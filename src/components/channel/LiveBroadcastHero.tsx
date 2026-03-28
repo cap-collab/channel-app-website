@@ -645,7 +645,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
 
         {/* Player bar: Play + Show Info + Live + Love + Tip */}
         <div ref={stickyBarRef} className="bg-black border-b border-white/10">
-          <div className="flex items-center gap-3 py-2 px-1">
+          <div className="flex items-center gap-1 sm:gap-3 py-2 px-1">
             {/* Play/Pause */}
             <button
               onClick={toggle}

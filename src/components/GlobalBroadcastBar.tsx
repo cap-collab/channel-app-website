@@ -37,7 +37,7 @@ export function GlobalBroadcastBar() {
 
   return (
     <div className="z-[99] bg-black border-b border-white/10 overflow-hidden">
-      <div className="flex items-center gap-3 py-2 px-1">
+      <div className="flex items-center gap-1 sm:gap-3 py-2 px-1">
         {/* Play/Pause — synced with broadcast stream */}
         <button
           onClick={toggle}
