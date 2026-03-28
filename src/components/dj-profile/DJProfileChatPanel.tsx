@@ -27,6 +27,7 @@ interface DJProfileChatPanelProps {
   onChangeUsername?: (newUsername: string) => void;
   activePromoText?: string;
   activePromoHyperlink?: string;
+  isChannelUser?: boolean;
 }
 
 // Reserved usernames that cannot be registered (case-insensitive)
@@ -295,6 +296,7 @@ export function DJProfileChatPanel({
   onChangeUsername,
   activePromoText,
   activePromoHyperlink,
+  isChannelUser = true,
 }: DJProfileChatPanelProps) {
   const isBroadcasting = !!broadcastToken;
 
@@ -506,20 +508,22 @@ export function DJProfileChatPanel({
             <FloatingHearts trigger={heartTrigger} />
           </div>
 
-          {/* Tip button */}
-          <div className="flex-shrink-0 flex items-center">
-            <TipButton
-              isAuthenticated={isAuthenticated}
-              tipperUserId={userId}
-              tipperUsername={username}
-              djUserId={djUserId}
-              djEmail={djEmail}
-              djUsername={djUsername}
-              broadcastSlotId=""
-              showName={`Support ${djUsername}`}
-              size="small"
-            />
-          </div>
+          {/* Tip button — only shown for channel users (claimed accounts) */}
+          {isChannelUser && (
+            <div className="flex-shrink-0 flex items-center">
+              <TipButton
+                isAuthenticated={isAuthenticated}
+                tipperUserId={userId}
+                tipperUsername={username}
+                djUserId={djUserId}
+                djEmail={djEmail}
+                djUsername={djUsername}
+                broadcastSlotId=""
+                showName={`Support ${djUsername}`}
+                size="small"
+              />
+            </div>
+          )}
 
           {/* Text input */}
           <input

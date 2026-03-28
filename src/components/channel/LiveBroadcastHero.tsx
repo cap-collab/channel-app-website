@@ -553,7 +553,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
               <FloatingHearts trigger={heartTrigger} />
             </div>
 
-            {/* Tip Button */}
+            {/* Tip Button — broadcasting DJs are always channel users, so tipEligible suffices */}
             {tipEligible && currentShow && (
               <TipButton
                 tipperUserId={user?.uid}

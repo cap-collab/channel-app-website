@@ -1679,6 +1679,7 @@ export function DJPublicProfileClient({ username }: Props) {
               profileLoading={profileLoading}
               onSetUsername={setChatUsername}
               isOwner={user?.uid === profile.uid}
+              isChannelUser={!profile.uid.startsWith("pending-")}
             />
           </div>
         ) : (
@@ -2605,7 +2606,7 @@ export function DJPublicProfileClient({ username }: Props) {
           >
             {subscribing ? "..." : isSubscribed ? (<><svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg> Added to watchlist</>) : (<><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> Add to watchlist</>)}
           </button>
-          {profile.email && (
+          {!profile.uid.startsWith("pending-") && profile.email && (
             <div className="flex-1 min-w-0 relative">
               <button className="w-full bg-white py-3 text-xs font-bold uppercase tracking-wider text-black flex items-center justify-center gap-1.5 hover:bg-gray-100 transition-colors">
                 <svg className="w-4 h-4 shrink-0 text-green-500" fill="currentColor" viewBox="0 0 24 24">
