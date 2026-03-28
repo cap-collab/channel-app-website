@@ -124,8 +124,8 @@ export function DemoClient() {
       </div>
 
       <DemoBroadcastStreamProvider>
-        <DemoToggle />
         <DemoHero />
+        <DemoToggle />
       </DemoBroadcastStreamProvider>
     </div>
   );

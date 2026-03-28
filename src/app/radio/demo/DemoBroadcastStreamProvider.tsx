@@ -19,11 +19,11 @@ const DEMO_SHOW_LIVE: BroadcastSlotSerialized = {
   id: 'demo-show',
   stationId: 'channel-main',
   showName: 'IMAGINARY SHOW NAME',
-  djName: 'Skee Mask',
-  djUsername: 'skeemask',
+  djName: 'Random DJ Name',
+  djUsername: 'randomdjname',
   djUserId: 'demo-user-id',
   djEmail: 'demo@example.com',
-  liveDjUsername: 'skeemask',
+  liveDjUsername: 'randomdjname',
   liveDjUserId: 'demo-user-id',
   liveDjPhotoUrl: 'https://image.rinse.fm/_/0079_SEPT_2023_2025-06-17-154928_fccn.jpeg?w=800&h=800',
   showImageUrl: 'https://image.rinse.fm/_/0079_SEPT_2023_2025-06-17-154928_fccn.jpeg?w=800&h=800',
@@ -42,7 +42,7 @@ const DEMO_SHOW_LIVE: BroadcastSlotSerialized = {
   archiveRecordingUrl: 'https://example.com/demo.mp4',
   archiveDuration: 16997,
   restreamDjs: [
-    { name: 'Skee Mask', email: 'demo@example.com', userId: 'demo-user-id', username: 'skeemask' },
+    { name: 'Random DJ Name', email: 'demo@example.com', userId: 'demo-user-id', username: 'randomdjname' },
   ],
 };
 
@@ -52,7 +52,7 @@ const DEMO_SHOW_RESTREAM: BroadcastSlotSerialized = {
   broadcastType: 'restream',
   showName: 'IMAGINARY SHOW NAME',
   restreamDjs: [
-    { name: 'Skee Mask', email: 'demo@example.com', userId: 'demo-user-id', username: 'skeemask' },
+    { name: 'Random DJ Name', email: 'demo@example.com', userId: 'demo-user-id', username: 'randomdjname' },
     { name: 'Stacy Christine' },
     { name: 'Lovefingers, Heidi Lawden & Flabbergast' },
   ],
@@ -149,8 +149,8 @@ export function DemoBroadcastStreamProvider({ children }: { children: ReactNode 
   const isLive = mode !== 'offline';
   const currentShow = mode === 'restream' ? DEMO_SHOW_RESTREAM : DEMO_SHOW_LIVE;
   const djLabel = mode === 'restream'
-    ? 'Skee Mask, Stacy Christine, Lovefingers, Heidi Lawden & Flabbergast'
-    : 'Skee Mask';
+    ? 'Random DJ Name, Stacy Christine, Lovefingers, Heidi Lawden & Flabbergast'
+    : 'Random DJ Name';
   const showLabel = 'IMAGINARY SHOW NAME';
 
   const value = useMemo<BroadcastStreamContextValue>(() => ({
