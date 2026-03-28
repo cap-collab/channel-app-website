@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useBPM } from '@/contexts/BPMContext';
+import { ScrollingShowName } from '@/components/channel/LiveBroadcastHero';
 
 /**
  * A bar shown below the header on all pages when a broadcast is live.
@@ -60,7 +61,7 @@ export function GlobalBroadcastBar() {
         {/* Show info — clicking navigates to /radio */}
         <Link href="/radio#live" className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold leading-tight truncate text-white">{showName || 'Live Now'}</h3>
+            <ScrollingShowName text={showName || 'Live Now'} className="text-sm font-bold leading-tight text-white min-w-0 flex-1" />
             {isRestream ? (
               <span className="flex h-3 w-3 flex-shrink-0">
                 <svg className="animate-pulse w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -16,6 +16,55 @@ import { ChatMessageSerialized } from '@/types/broadcast';
 import { normalizeUrl } from '@/lib/url';
 import { useBPM } from '@/contexts/BPMContext';
 
+/** Horizontally scrolling text when content overflows its container */
+export function ScrollingShowName({ text, className }: { text: string; className?: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+  const [needsScroll, setNeedsScroll] = useState(false);
+  const [scrollDistance, setScrollDistance] = useState(0);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const textEl = textRef.current;
+    if (!container || !textEl) return;
+    const overflow = textEl.scrollWidth > container.clientWidth;
+    setNeedsScroll(overflow);
+    if (overflow) {
+      setScrollDistance(textEl.scrollWidth - container.clientWidth);
+    }
+  }, [text]);
+
+  return (
+    <div ref={containerRef} className={`overflow-hidden ${className || ''}`}>
+      <span
+        ref={textRef}
+        className={`inline-block whitespace-nowrap ${needsScroll ? 'animate-show-scroll' : ''}`}
+        style={needsScroll ? {
+          '--scroll-distance': `-${scrollDistance}px`,
+        } as React.CSSProperties : undefined}
+      >
+        {text}
+      </span>
+      <style jsx>{`
+        @keyframes show-scroll {
+          0%, 15% {
+            transform: translateX(0);
+          }
+          45%, 55% {
+            transform: translateX(var(--scroll-distance));
+          }
+          85%, 100% {
+            transform: translateX(0);
+          }
+        }
+        .animate-show-scroll {
+          animation: show-scroll 8s ease-in-out infinite;
+        }
+      `}</style>
+    </div>
+  );
+}
+
 const RESERVED_USERNAMES = ['channel', 'admin', 'system', 'moderator', 'mod'];
 
 function isValidUsername(username: string): boolean {
@@ -503,7 +552,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
             {/* Show info + indicator */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold leading-tight truncate text-white">{showName}</h3>
+                <ScrollingShowName text={showName} className="text-sm font-bold leading-tight text-white min-w-0 flex-1" />
                 {isRestream ? (
                   <span className="flex h-3 w-3 flex-shrink-0">
                     <svg className="animate-pulse w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
