@@ -939,7 +939,8 @@ export function SlotModal({
   const openDjEmailWithDetails = async (targetEmail: string, targetDjName: string, slotStart: number, slotEnd: number) => {
     if (!slot) return;
 
-    // Always do a fresh lookup to get the DJ's username for the profile URL
+    // Fresh lookup to get the DJ's username for the profile URL
+    // Try by email first, then fall back to name lookup (which also checks pending-dj-profiles)
     let djUsernameNormalized: string | undefined;
     try {
       const res = await fetch(`/api/users/lookup-by-email?email=${encodeURIComponent(targetEmail)}`);
@@ -950,6 +951,19 @@ export function SlotModal({
     } catch (error) {
       console.error('Failed to lookup DJ for email template:', error);
     }
+
+    if (!djUsernameNormalized && targetDjName) {
+      try {
+        const res = await fetch(`/api/users/lookup-by-name?name=${encodeURIComponent(targetDjName.trim())}`);
+        const data = await res.json();
+        if (data.found && data.djUsernameNormalized) {
+          djUsernameNormalized = data.djUsernameNormalized;
+        }
+      } catch (error) {
+        console.error('Failed to lookup DJ by name for email template:', error);
+      }
+    }
+
 
     const broadcastUrl = `${window.location.origin}/broadcast/live?token=${slot.broadcastToken}`;
     const djTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone; // Use admin's timezone as default
