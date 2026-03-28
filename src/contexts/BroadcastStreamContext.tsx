@@ -107,7 +107,7 @@ function useDjIsChannelUser(show: BroadcastSlotSerialized | null): boolean | nul
   }, [show]);
 
   useEffect(() => {
-    if (!djUserId) {
+    if (!djUserId || !db) {
       setIsChannelUser(null);
       return;
     }
