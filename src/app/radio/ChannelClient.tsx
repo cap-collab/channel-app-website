@@ -838,7 +838,7 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
       {skipHero ? null : mounted && isBroadcastLive && isBroadcastStreaming ? (
         <LiveBroadcastHero />
       ) : (
-        <section className="px-4 md:px-8 py-16 md:py-24 text-center relative z-10">
+        <section className="px-4 md:px-8 py-10 md:py-16 text-center relative z-10">
           <div className="max-w-2xl mx-auto">
             <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter leading-none mb-4">Channel Radio</h1>
             <p className="text-lg md:text-xl text-zinc-300 mb-8">Back online soon.</p>
