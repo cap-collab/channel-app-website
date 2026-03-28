@@ -344,27 +344,28 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
     // Set mobile-friendly attributes
     audioElementRef.current.setAttribute('playsinline', 'true');
     audioElementRef.current.setAttribute('webkit-playsinline', 'true');
-    // Enable CORS for captureStream to work
-    audioElementRef.current.crossOrigin = 'anonymous';
-
     // Restream: play archive MP4 directly with time-offset sync
+    // Note: crossOrigin is NOT set for restreams — archive MP4 URLs may not support CORS,
+    // and crossOrigin='anonymous' would cause the browser to block playback.
+    // captureStream (for visualization) requires CORS, so we only set it for non-restream sources.
     if (currentShow?.broadcastType === 'restream' && currentShow.archiveRecordingUrl) {
       console.log('🎵 Playing restream archive:', currentShow.archiveRecordingUrl);
       try {
         audioElementRef.current.src = currentShow.archiveRecordingUrl;
-        await audioElementRef.current.play();
 
-        // Seek to the correct offset so all listeners hear roughly the same point
+        // Seek to the correct offset BEFORE playing so all listeners hear the same point
         const offset = (Date.now() - currentShow.startTime) / 1000;
         if (offset > 0 && offset < (currentShow.archiveDuration || Infinity)) {
           audioElementRef.current.currentTime = offset;
         }
 
-        // Capture stream for visualization
+        await audioElementRef.current.play();
+
+        // Try to capture stream for visualization (may fail without CORS, that's OK)
         try {
           const stream = (audioElementRef.current as HTMLAudioElement & { captureStream?: () => MediaStream }).captureStream?.();
           if (stream) setAudioStream(stream);
-        } catch { /* ignore */ }
+        } catch { /* captureStream requires CORS — visualization won't work for restreams */ }
 
         setIsPlaying(true);
         setIsLoading(false);
@@ -386,6 +387,9 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
       }
       return;
     }
+
+    // Enable CORS for captureStream to work (live/HLS sources support CORS)
+    audioElementRef.current.crossOrigin = 'anonymous';
 
     // Helper to capture audio stream from element for visualization
     const captureAudioStream = () => {
