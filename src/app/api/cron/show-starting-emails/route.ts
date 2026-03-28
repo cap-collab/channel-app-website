@@ -49,6 +49,7 @@ interface LiveShow {
   djUsername?: string;
   djPhotoUrl?: string;
   djHasEmail?: boolean;
+  djUserId?: string; // Firebase UID of the DJ — used to skip sending them their own "go live" email
   streamingUrl?: string;
 }
 
@@ -144,6 +145,7 @@ export async function GET(request: NextRequest) {
         stationName: "Channel Radio",
         showId: `broadcast-${slot.id}`,
         djUsername: data.djUsername as string | undefined,
+        djUserId: (data.liveDjUserId as string) || (data.djUserId as string) || undefined,
       });
     }
 
@@ -194,6 +196,7 @@ export async function GET(request: NextRequest) {
             djUsername: normalizedUsername,
             djPhotoUrl: (djProfile?.photoUrl as string) || undefined,
             djHasEmail: !!(djUser.data.email),
+            djUserId: djUser.id,
             streamingUrl: show.url,
           });
         }
@@ -207,8 +210,8 @@ export async function GET(request: NextRequest) {
     console.log(`[show-starting] Found ${liveShows.length} live shows`);
 
     // 3. Build DJ profile lookup map (same approach as watchlist-digest)
-    // Maps normalized name to { chatUsername, photoUrl, hasEmail }
-    const djNameToProfile = new Map<string, { username: string; photoUrl?: string; hasEmail: boolean }>();
+    // Maps normalized name to { chatUsername, photoUrl, hasEmail, userId }
+    const djNameToProfile = new Map<string, { username: string; photoUrl?: string; hasEmail: boolean; userId?: string }>();
 
     // From pending-dj-profiles
     const pendingProfiles = await queryCollection("pending-dj-profiles", [], 10000);
@@ -218,10 +221,11 @@ export async function GET(request: NextRequest) {
       const djProfile = pending.data.djProfile as Record<string, unknown> | undefined;
       const photoUrl = djProfile?.photoUrl as string | undefined;
       const email = pending.data.email as string | undefined;
+      const userId = pending.data.userId as string | undefined;
 
       if (chatUsernameNormalized) {
         const displayName = chatUsername || chatUsernameNormalized;
-        const profileData = { username: displayName, photoUrl, hasEmail: !!email };
+        const profileData = { username: displayName, photoUrl, hasEmail: !!email, userId };
         djNameToProfile.set(chatUsernameNormalized, profileData);
         // Also index by normalized chatUsername and without hyphens
         const normalizedChatUsername = normalizeForLookup(displayName);
@@ -246,17 +250,17 @@ export async function GET(request: NextRequest) {
       if (chatUsernameNormalized) {
         const displayName = chatUsername || chatUsernameNormalized;
         if (!djNameToProfile.has(chatUsernameNormalized)) {
-          const profileData = { username: displayName, photoUrl, hasEmail: !!email };
+          const profileData = { username: displayName, photoUrl, hasEmail: !!email, userId: djUser.id };
           djNameToProfile.set(chatUsernameNormalized, profileData);
         }
         const normalizedChatUsername = normalizeForLookup(displayName);
         if (normalizedChatUsername !== chatUsernameNormalized && !djNameToProfile.has(normalizedChatUsername)) {
-          const profileData = { username: displayName, photoUrl, hasEmail: !!email };
+          const profileData = { username: displayName, photoUrl, hasEmail: !!email, userId: djUser.id };
           djNameToProfile.set(normalizedChatUsername, profileData);
         }
         const withoutHyphens = chatUsernameNormalized.replace(/-/g, "");
         if (withoutHyphens !== chatUsernameNormalized && withoutHyphens !== normalizedChatUsername && !djNameToProfile.has(withoutHyphens)) {
-          const profileData = { username: displayName, photoUrl, hasEmail: !!email };
+          const profileData = { username: displayName, photoUrl, hasEmail: !!email, userId: djUser.id };
           djNameToProfile.set(withoutHyphens, profileData);
         }
       }
@@ -285,6 +289,7 @@ export async function GET(request: NextRequest) {
           show.djUsername = profile.username;
           show.djPhotoUrl = profile.photoUrl;
           show.djHasEmail = profile.hasEmail;
+          show.djUserId = profile.userId;
           break;
         }
       }
@@ -361,6 +366,9 @@ export async function GET(request: NextRequest) {
         }
 
         if (!matched) continue;
+
+        // Don't email the DJ about their own live show
+        if (show.djUserId && show.djUserId === userId) continue;
 
         // Dedup: skip if we already emailed about this exact show occurrence
         if (lastShowStartingEmailAt[show.showId]) {
