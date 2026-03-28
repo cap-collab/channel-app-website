@@ -312,6 +312,8 @@ interface UpcomingShow {
   showImageUrl?: string;
   // All DJs for multi-DJ restream display
   restreamDjs?: { name: string; userId?: string; username?: string; email?: string; photoUrl?: string }[];
+  // Broadcast type (remote, venue, restream, recording)
+  broadcastType?: string;
 }
 
 interface Props {
@@ -672,6 +674,7 @@ export function DJPublicProfileClient({ username }: Props) {
                 isExternal: false,
                 showImageUrl: data.showImageUrl,
                 restreamDjs,
+                broadcastType: data.broadcastType as string | undefined,
               });
             }
           });
@@ -1818,10 +1821,39 @@ export function DJPublicProfileClient({ username }: Props) {
 
                       {/* Body */}
                       <div className="p-4 space-y-4">
-                        <div>
-                          <h3 className="text-white font-medium">{broadcast.showName}</h3>
-                          {broadcast.djName && (
-                            <p className="text-zinc-400 text-sm mt-0.5">{broadcast.djName}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <h3 className="text-white font-medium">{broadcast.showName}</h3>
+                            {broadcast.djName && (
+                              <p className="text-zinc-400 text-sm mt-0.5">{broadcast.djName}</p>
+                            )}
+                          </div>
+                          {broadcast.stationId === "broadcast" && (
+                            <div className="flex items-center gap-1.5 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-sm flex-shrink-0">
+                              {broadcast.broadcastType === "restream" ? (
+                                <>
+                                  <span className="relative flex h-3 w-3">
+                                    <svg className="animate-ping absolute inset-0 w-3 h-3 opacity-50" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                                      <path d="M3 3v5h5" />
+                                    </svg>
+                                    <svg className="relative w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                                      <path d="M3 3v5h5" />
+                                    </svg>
+                                  </span>
+                                  <span className="text-[10px] font-mono text-gray-400 uppercase tracking-tighter font-bold">Restream</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                                  </span>
+                                  <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">Live</span>
+                                </>
+                              )}
+                            </div>
                           )}
                         </div>
 
@@ -2211,7 +2243,7 @@ export function DJPublicProfileClient({ username }: Props) {
                         </span>
                       </div>
                       {/* Body */}
-                      <div className="p-4 space-y-4">
+                      <div className="p-4">
                         <div className="flex items-start gap-4">
                           {showImage && (
                             <div className="w-16 h-16 rounded bg-zinc-800 flex-shrink-0 overflow-hidden">
@@ -2225,86 +2257,88 @@ export function DJPublicProfileClient({ username }: Props) {
                               />
                             </div>
                           )}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="text-white font-medium">{archive.showName}</p>
-                              <div className="relative flex-shrink-0">
-                                <button
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    const archiveUrl = `${window.location.origin}/archives/${archive.slug}`;
-                                    await navigator.clipboard.writeText(archiveUrl);
-                                    setCopiedArchiveId(archive.id);
-                                    setTimeout(() => setCopiedArchiveId(null), 2000);
-                                  }}
-                                  className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
-                                  title="Copy archive link"
-                                >
-                                  {copiedArchiveId === archive.id ? (
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                    </svg>
-                                  ) : (
-                                    <ShareIcon size={14} />
+                          <div className="flex-1 min-w-0 flex flex-col justify-between" style={showImage ? { minHeight: '64px' } : undefined}>
+                            <div>
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-white font-medium">{archive.showName}</p>
+                                <div className="relative flex-shrink-0">
+                                  <button
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      const archiveUrl = `${window.location.origin}/archives/${archive.slug}`;
+                                      await navigator.clipboard.writeText(archiveUrl);
+                                      setCopiedArchiveId(archive.id);
+                                      setTimeout(() => setCopiedArchiveId(null), 2000);
+                                    }}
+                                    className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
+                                    title="Copy archive link"
+                                  >
+                                    {copiedArchiveId === archive.id ? (
+                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    ) : (
+                                      <ShareIcon size={14} />
+                                    )}
+                                  </button>
+                                  {copiedArchiveId === archive.id && (
+                                    <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-0.5 rounded whitespace-nowrap z-10">
+                                      Copied!
+                                    </div>
                                   )}
-                                </button>
-                                {copiedArchiveId === archive.id && (
-                                  <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-0.5 rounded whitespace-nowrap z-10">
-                                    Copied!
-                                  </div>
-                                )}
+                                </div>
                               </div>
+                              {archive.djs && archive.djs.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mt-1">
+                                  {archive.djs.map((dj, i) => (
+                                    dj.username ? (
+                                      <Link
+                                        key={`dj-${i}`}
+                                        href={`/dj/${dj.username}`}
+                                        className="text-xs text-zinc-400 hover:text-white transition-colors"
+                                      >
+                                        {dj.name}
+                                        {i < archive.djs.length - 1 ? "," : ""}
+                                      </Link>
+                                    ) : (
+                                      <span key={`dj-${i}`} className="text-xs text-zinc-400">
+                                        {dj.name}
+                                        {i < archive.djs.length - 1 ? "," : ""}
+                                      </span>
+                                    )
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                            {archive.djs && archive.djs.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5 mt-1">
-                                {archive.djs.map((dj, i) => (
-                                  dj.username ? (
-                                    <Link
-                                      key={`dj-${i}`}
-                                      href={`/dj/${dj.username}`}
-                                      className="text-xs text-zinc-400 hover:text-white transition-colors"
-                                    >
-                                      {dj.name}
-                                      {i < archive.djs.length - 1 ? "," : ""}
-                                    </Link>
-                                  ) : (
-                                    <span key={`dj-${i}`} className="text-xs text-zinc-400">
-                                      {dj.name}
-                                      {i < archive.djs.length - 1 ? "," : ""}
-                                    </span>
-                                  )
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
 
-                        {/* Player */}
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => handlePlayPause(archive.id)}
-                            className="w-10 h-10 rounded bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0 text-black"
-                          >
-                            {isPlaying ? (
-                              <PauseIcon size={16} />
-                            ) : (
-                              <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M8 5v14l11-7z" />
-                              </svg>
-                            )}
-                          </button>
-                          <div className="flex-1 min-w-0 space-y-1">
-                            <input
-                              type="range"
-                              min={0}
-                              max={archive.duration || 100}
-                              value={currentTime}
-                              onChange={(e) => handleSeek(archive.id, parseFloat(e.target.value))}
-                              className="w-full h-1 bg-zinc-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
-                            />
-                            <div className="flex justify-between text-[10px] text-zinc-500">
-                              <span>{formatDuration(currentTime)}</span>
-                              <span>{formatDuration(archive.duration)}</span>
+                            {/* Player — aligned with bottom of image */}
+                            <div className="flex items-center gap-2 mt-1">
+                              <button
+                                onClick={() => handlePlayPause(archive.id)}
+                                className="w-7 h-7 rounded bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0 text-black"
+                              >
+                                {isPlaying ? (
+                                  <PauseIcon size={12} />
+                                ) : (
+                                  <svg className="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M8 5v14l11-7z" />
+                                  </svg>
+                                )}
+                              </button>
+                              <div className="flex-1 min-w-0 space-y-0.5">
+                                <input
+                                  type="range"
+                                  min={0}
+                                  max={archive.duration || 100}
+                                  value={currentTime}
+                                  onChange={(e) => handleSeek(archive.id, parseFloat(e.target.value))}
+                                  className="w-full h-1 bg-zinc-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+                                />
+                                <div className="flex justify-between text-[10px] text-zinc-500">
+                                  <span>{formatDuration(currentTime)}</span>
+                                  <span>{formatDuration(archive.duration)}</span>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
