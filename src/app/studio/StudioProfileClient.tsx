@@ -254,6 +254,7 @@ export function StudioProfileClient() {
     isPublic: boolean;
     slug: string;
     audioUrl?: string;
+    sourceType?: string;
   }
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [loadingRecordings, setLoadingRecordings] = useState(true);
@@ -690,6 +691,7 @@ export function StudioProfileClient() {
             isPublic: data.isPublic !== false,
             slug: data.slug || docSnap.id,
             audioUrl: data.recordingUrl,
+            sourceType: data.sourceType,
           });
         });
         // Sort by createdAt descending (client-side)
@@ -1953,7 +1955,8 @@ export function StudioProfileClient() {
                                 )}
                               </button>
 
-                              {/* Delete button */}
+                              {/* Delete button — hidden for live broadcast recordings */}
+                              {recording.sourceType !== 'live' && (
                               <button
                                 onClick={() => handleDeleteRecording(recording.id)}
                                 disabled={deletingRecording === recording.id}
@@ -1968,6 +1971,7 @@ export function StudioProfileClient() {
                                   </svg>
                                 )}
                               </button>
+                              )}
                             </div>
                           </div>
                           {/* Progress bar */}
