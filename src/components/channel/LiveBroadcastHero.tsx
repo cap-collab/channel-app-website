@@ -394,7 +394,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
       <div className="max-w-3xl mx-auto">
 
         {/* Live/Restream status line above image */}
-        <div className="flex items-center gap-1.5 mb-2">
+        <div className="flex items-center justify-end gap-1.5 mb-2">
           {isRestream ? (
             <>
               <span className="relative flex h-3 w-3">
