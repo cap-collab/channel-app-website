@@ -24,11 +24,7 @@ import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { Venue, Collective, Event as ChannelEvent, EventDJRef, EventVenueRef, CollectiveRef } from "@/types/events";
 import { generateSlug } from "@/lib/slug";
 // Icon components (inline SVGs to avoid external dependencies)
-const ShareIcon = ({ size = 14 }: { size?: number }) => (
-  <svg width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-  </svg>
-);
+
 
 const ExternalLinkIcon = ({ size = 24 }: { size?: number }) => (
   <svg width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -388,7 +384,7 @@ export function DJPublicProfileClient({ username }: Props) {
 
   // Show popup state
   const [togglingFavoriteId, setTogglingFavoriteId] = useState<string | null>(null);
-  const [copiedArchiveId, setCopiedArchiveId] = useState<string | null>(null);
+
 
   // Auto-profile state
   const [isAutoProfile, setIsAutoProfile] = useState(false);
@@ -2245,35 +2241,7 @@ export function DJPublicProfileClient({ username }: Props) {
                           )}
                           <div className="flex-1 min-w-0 flex flex-col justify-between" style={showImage ? { minHeight: '80px' } : undefined}>
                             <div>
-                              <div className="flex items-start justify-between gap-2">
-                                <p className="text-white font-medium">{archive.showName}</p>
-                                <div className="relative flex-shrink-0">
-                                  <button
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      const archiveUrl = `${window.location.origin}/archives/${archive.slug}`;
-                                      await navigator.clipboard.writeText(archiveUrl);
-                                      setCopiedArchiveId(archive.id);
-                                      setTimeout(() => setCopiedArchiveId(null), 2000);
-                                    }}
-                                    className="w-7 h-7 rounded flex items-center justify-center transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
-                                    title="Copy archive link"
-                                  >
-                                    {copiedArchiveId === archive.id ? (
-                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                      </svg>
-                                    ) : (
-                                      <ShareIcon size={14} />
-                                    )}
-                                  </button>
-                                  {copiedArchiveId === archive.id && (
-                                    <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-0.5 rounded whitespace-nowrap z-10">
-                                      Copied!
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
+                              <p className="text-white font-medium">{archive.showName}</p>
                               {archive.djs && archive.djs.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5 mt-1">
                                   {archive.djs.map((dj, i) => (
