@@ -344,51 +344,10 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
     // Set mobile-friendly attributes
     audioElementRef.current.setAttribute('playsinline', 'true');
     audioElementRef.current.setAttribute('webkit-playsinline', 'true');
-    // Restream: play archive MP4 directly with time-offset sync
-    // Note: crossOrigin is NOT set for restreams — archive MP4 URLs may not support CORS,
-    // and crossOrigin='anonymous' would cause the browser to block playback.
-    // captureStream (for visualization) requires CORS, so we only set it for non-restream sources.
-    if (currentShow?.broadcastType === 'restream' && currentShow.archiveRecordingUrl) {
-      console.log('🎵 Playing restream archive:', currentShow.archiveRecordingUrl);
-      try {
-        audioElementRef.current.src = currentShow.archiveRecordingUrl;
+    // Restreams now use a server-side URL ingress into the LiveKit room,
+    // so they flow through the same WebRTC/HLS playback path as live broadcasts.
 
-        // Seek to the correct offset BEFORE playing so all listeners hear the same point
-        const offset = (Date.now() - currentShow.startTime) / 1000;
-        if (offset > 0 && offset < (currentShow.archiveDuration || Infinity)) {
-          audioElementRef.current.currentTime = offset;
-        }
-
-        await audioElementRef.current.play();
-
-        // Try to capture stream for visualization (may fail without CORS, that's OK)
-        try {
-          const stream = (audioElementRef.current as HTMLAudioElement & { captureStream?: () => MediaStream }).captureStream?.();
-          if (stream) setAudioStream(stream);
-        } catch { /* captureStream requires CORS — visualization won't work for restreams */ }
-
-        setIsPlaying(true);
-        setIsLoading(false);
-
-        // Register presence
-        const sessionId = getSessionId();
-        if (sessionId) {
-          ensureAuthAndExecute(() => {
-            const db = getDatabase(getFirebaseApp());
-            const presenceRef = ref(db, `presence/broadcast/${sessionId}`);
-            onDisconnect(presenceRef).remove();
-            set(presenceRef, true);
-          });
-        }
-      } catch (err) {
-        console.error('🎵 Restream play error:', err);
-        setError('Failed to play restream');
-        setIsLoading(false);
-      }
-      return;
-    }
-
-    // Enable CORS for captureStream to work (live/HLS sources support CORS)
+    // Enable CORS for captureStream to work
     audioElementRef.current.crossOrigin = 'anonymous';
 
     // Helper to capture audio stream from element for visualization

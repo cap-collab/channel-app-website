@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { RoomServiceClient } from 'livekit-server-sdk';
+import { IngressClient, IngressInput, RoomServiceClient } from 'livekit-server-sdk';
 import { ROOM_NAME } from '@/types/broadcast';
 
 // LiveKit server configuration
@@ -46,15 +46,47 @@ export async function GET(request: NextRequest) {
       .where('broadcastType', '==', 'restream')
       .get();
 
+    // Initialize IngressClient for restream URL ingress
+    const ingressClient = (livekitHost && apiKey && apiSecret)
+      ? new IngressClient(livekitHost, apiKey, apiSecret)
+      : null;
+
     for (const restreamDoc of restreamSnapshot.docs) {
       try {
         const slot = restreamDoc.data();
         const startTime = slot.startTime?.toMillis?.() || slot.startTime;
         const endTime = slot.endTime?.toMillis?.() || slot.endTime;
         if (startTime && now >= startTime && now < endTime) {
-          await restreamDoc.ref.update({ status: 'live' });
+          // Create a URL ingress to push the archive audio into the LiveKit room
+          if (ingressClient && slot.archiveRecordingUrl) {
+            try {
+              const ingress = await ingressClient.createIngress(
+                IngressInput.URL_INPUT,
+                {
+                  name: `restream-${restreamDoc.id}`,
+                  roomName: ROOM_NAME,
+                  participantIdentity: `restream-${restreamDoc.id}`,
+                  participantName: slot.showName || 'Restream',
+                  url: slot.archiveRecordingUrl,
+                }
+              );
+              // Save ingress ID so we can clean it up when the slot ends
+              await restreamDoc.ref.update({
+                status: 'live',
+                restreamIngressId: ingress.ingressId,
+              });
+              console.log(`Restream slot ${restreamDoc.id} activated with ingress ${ingress.ingressId}`);
+            } catch (ingressErr) {
+              console.error(`Error creating ingress for restream ${restreamDoc.id}:`, ingressErr);
+              // Still set to live even if ingress fails — allows retry next cron run
+              await restreamDoc.ref.update({ status: 'live' });
+              console.log(`Restream slot ${restreamDoc.id} activated (set to live, ingress failed)`);
+            }
+          } else {
+            await restreamDoc.ref.update({ status: 'live' });
+            console.log(`Restream slot ${restreamDoc.id} activated (set to live, no ingress client or no archive URL)`);
+          }
           restreamActivatedCount++;
-          console.log(`Restream slot ${restreamDoc.id} activated (set to live)`);
         }
       } catch (err) {
         console.error(`Error activating restream ${restreamDoc.id}:`, err);
@@ -93,17 +125,32 @@ export async function GET(request: NextRequest) {
         await doc.ref.update({ status: newStatus });
         console.log(`Slot ${doc.id} marked as ${newStatus}`);
 
-        // Then disconnect DJ from LiveKit if they're still connected
-        if (slot.status === 'live' && roomService) {
-          const djIdentity = slot.liveDjUsername || slot.liveDjUserId;
-          if (djIdentity) {
+        // Clean up LiveKit resources when slot ends
+        if (slot.status === 'live') {
+          // Clean up restream ingress if this was a restream
+          if (slot.restreamIngressId && ingressClient) {
             try {
-              await roomService.removeParticipant(ROOM_NAME, djIdentity);
-              disconnectedCount++;
-              console.log(`Disconnected DJ ${djIdentity} from LiveKit (show ended)`);
+              await ingressClient.deleteIngress(slot.restreamIngressId);
+              console.log(`Deleted restream ingress ${slot.restreamIngressId} for slot ${doc.id}`);
             } catch (e) {
-              // DJ may have already disconnected - that's fine
-              console.log(`Could not remove DJ ${djIdentity} from LiveKit: ${e}`);
+              console.log(`Could not delete restream ingress ${slot.restreamIngressId}: ${e}`);
+            }
+          }
+
+          // Disconnect DJ from LiveKit if they're still connected
+          if (roomService) {
+            const djIdentity = slot.restreamIngressId
+              ? `restream-${doc.id}`
+              : (slot.liveDjUsername || slot.liveDjUserId);
+            if (djIdentity) {
+              try {
+                await roomService.removeParticipant(ROOM_NAME, djIdentity);
+                disconnectedCount++;
+                console.log(`Disconnected ${djIdentity} from LiveKit (show ended)`);
+              } catch (e) {
+                // Participant may have already disconnected - that's fine
+                console.log(`Could not remove ${djIdentity} from LiveKit: ${e}`);
+              }
             }
           }
         }
