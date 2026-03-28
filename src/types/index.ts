@@ -27,6 +27,7 @@ export interface Show {
   imageUrl?: string;
   stationId: string;
   type?: string; // weekly, monthly, restream, playlist
+  broadcastType?: string; // venue, remote, restream, recording (broadcast shows only)
   // For tipping (broadcast shows only)
   djUserId?: string;
   djEmail?: string;

@@ -315,6 +315,7 @@ async function fetchBroadcastShows(): Promise<Show[]> {
             endTime: slotEnd,
             stationId: "broadcast",
             type: status === "live" ? "live" : undefined,
+            broadcastType,
             // Use DJ slot's own userId/email for tips (pre-configured at setup)
             djUserId: djSlot.djUserId || djSlot.liveDjUserId || djUserId,
             djEmail: djSlot.djEmail || djEmail,
@@ -338,6 +339,7 @@ async function fetchBroadcastShows(): Promise<Show[]> {
           endTime,
           stationId: "broadcast",
           type: status === "live" ? "live" : undefined,
+          broadcastType,
           djUserId: liveDjUserId || djUserId,
           djEmail: djEmail,
           djUsername: djUsername,

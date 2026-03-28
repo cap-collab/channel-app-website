@@ -1500,13 +1500,36 @@ export function DJPublicProfileClient({ username }: Props) {
         {currentLiveShow && (
           <section className="mb-4">
             <div className="bg-surface-card overflow-hidden">
-              {/* Header: LIVE badge and radio name */}
+              {/* Header: LIVE/RESTREAM badge and radio name */}
               <div className="flex items-center justify-between px-4 py-3 bg-black/40">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                  <span className="text-red-500 text-xs font-bold uppercase tracking-wide">
-                    Live
-                  </span>
+                  {currentLiveShow.broadcastType === "restream" ? (
+                    <>
+                      <span className="relative flex h-3 w-3">
+                        <svg className="animate-ping absolute inset-0 w-3 h-3 opacity-50" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                          <path d="M3 3v5h5" />
+                        </svg>
+                        <svg className="relative w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                          <path d="M3 3v5h5" />
+                        </svg>
+                      </span>
+                      <span className="text-gray-400 text-xs font-bold uppercase tracking-wide">
+                        Restream
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                      </span>
+                      <span className="text-red-500 text-xs font-bold uppercase tracking-wide">
+                        Live
+                      </span>
+                    </>
+                  )}
                   {(() => {
                     const bpm = stationBPM[getMetadataKeyByStationId(currentLiveShow.stationId) || '']?.bpm;
                     return bpm ? (
@@ -1832,24 +1855,15 @@ export function DJPublicProfileClient({ username }: Props) {
                             <div className="flex items-center gap-1.5 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-sm flex-shrink-0">
                               {broadcast.broadcastType === "restream" ? (
                                 <>
-                                  <span className="relative flex h-3 w-3">
-                                    <svg className="animate-ping absolute inset-0 w-3 h-3 opacity-50" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                                      <path d="M3 3v5h5" />
-                                    </svg>
-                                    <svg className="relative w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                                      <path d="M3 3v5h5" />
-                                    </svg>
-                                  </span>
+                                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                                    <path d="M3 3v5h5" />
+                                  </svg>
                                   <span className="text-[10px] font-mono text-gray-400 uppercase tracking-tighter font-bold">Restream</span>
                                 </>
                               ) : (
                                 <>
-                                  <span className="relative flex h-2 w-2">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
-                                  </span>
+                                  <span className="inline-flex rounded-full h-2 w-2 bg-red-600" />
                                   <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">Live</span>
                                 </>
                               )}
