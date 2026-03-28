@@ -200,6 +200,14 @@ export async function POST(request: NextRequest) {
               // Determine if this is a recording-only session (not a live broadcast)
               const isRecordingOnly = slotData?.broadcastType === 'recording';
 
+              // For recording-only sessions, enrich DJs with email
+              if (isRecordingOnly && slotData?.djEmail) {
+                const djEmail = slotData.djEmail as string;
+                if (djs.length > 0 && !djs[0].email) {
+                  djs[0] = { ...djs[0], email: djEmail };
+                }
+              }
+
               // Create the archive document
               const archiveDoc: Record<string, unknown> = {
                 slug,
@@ -211,10 +219,13 @@ export async function POST(request: NextRequest) {
                 recordedAt,
                 createdAt: Date.now(),
                 stationId: (slotData?.stationId as string) || STATION_ID,
-                // Recording-only mode: private by default until published
-                // Live broadcasts: public by default
-                isPublic: !isRecordingOnly,
+                // Both recordings and live broadcasts are public (auto-published)
+                isPublic: true,
                 sourceType: isRecordingOnly ? 'recording' : 'live',
+                ...(isRecordingOnly ? {
+                  uploadedBy: slotData?.djUserId as string,
+                  publishedAt: Date.now(),
+                } : {}),
               };
 
               // Include show image if available
