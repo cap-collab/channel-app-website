@@ -108,8 +108,8 @@ export async function GET(request: NextRequest) {
     for (const [stationKey, shows] of Object.entries(metadata.stations)) {
       if (!Array.isArray(shows)) continue;
       for (const show of shows) {
-        // Skip playlist shows - don't notify for automated playlists
-        if (show.t === "playlist") continue;
+        // Skip playlist and restream shows - don't notify for automated/replayed content
+        if (show.t === "playlist" || show.t === "restream") continue;
 
         const start = new Date(show.s);
         if (start >= windowStart && start <= windowEnd) {
@@ -135,6 +135,7 @@ export async function GET(request: NextRequest) {
 
     for (const slot of broadcastSlots) {
       const data = slot.data;
+      if (data.broadcastType === "restream") continue;
       liveShows.push({
         name: data.showName as string,
         dj: data.djName as string | undefined,
