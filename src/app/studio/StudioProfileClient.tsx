@@ -1795,24 +1795,207 @@ export function StudioProfileClient() {
               )}
             </div>
             <div className="mt-4 flex flex-col sm:flex-row gap-3">
-              <Link
-                href="/record"
+              <button
+                onClick={() => setShowUploadModal(true)}
                 className="flex-1 block bg-white text-black text-center py-3 rounded font-medium hover:bg-gray-100 transition-colors"
               >
-                Record my set
+                Upload a pre-recording
+              </button>
+              <Link
+                href="/record"
+                className="flex-1 block bg-gray-800 text-white text-center py-3 rounded font-medium hover:bg-gray-700 transition-colors border border-gray-700"
+              >
+                Record my live set
               </Link>
               <Link
                 href="/studio/livestream"
                 className="flex-1 block bg-gray-800 text-white text-center py-3 rounded font-medium hover:bg-gray-700 transition-colors border border-gray-700"
               >
-                Host a show
+                Host a live show
               </Link>
-              <button
-                onClick={() => setShowUploadModal(true)}
-                className="flex-1 block bg-gray-800 text-white text-center py-3 rounded font-medium hover:bg-gray-700 transition-colors border border-gray-700"
-              >
-                Upload a pre-recording
-              </button>
+            </div>
+          </section>
+
+          {/* Upcoming shows on Channel */}
+          {(loadingBroadcasts || upcomingShows.length > 0) && (
+          <section>
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+              Upcoming Shows on Channel
+            </h2>
+            <div className="bg-[#1a1a1a] rounded">
+              {loadingBroadcasts ? (
+                <div className="p-4 flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-800">
+                  {upcomingShows.map((show) => (
+                    <div key={show.id} className="p-4">
+                      <p className="text-white font-medium">{show.showName}</p>
+                      <p className="text-gray-400 text-sm">
+                        {formatBroadcastTime(show.startTime, show.endTime)}
+                      </p>
+                      <p className="text-gray-500 text-xs mt-1">{show.stationName}</p>
+                      {show.status === "live" ? (
+                        <div className="flex items-center gap-3 mt-2">
+                          <span className="inline-flex items-center gap-1 text-red-400 text-xs">
+                            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                            Live Now
+                          </span>
+                          {!show.isExternal && show.broadcastToken && (
+                            <Link
+                              href={`/broadcast/live?token=${show.broadcastToken}`}
+                              className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 text-sm transition-colors"
+                            >
+                              Go to Studio &rarr;
+                            </Link>
+                          )}
+                        </div>
+                      ) : !show.isExternal && show.broadcastToken && (
+                        <Link
+                          href={`/broadcast/live?token=${show.broadcastToken}`}
+                          className="inline-flex items-center gap-1 mt-2 text-blue-400 hover:text-blue-300 text-sm transition-colors"
+                        >
+                          Go Live &rarr;
+                        </Link>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+          )}
+
+          {/* My Recordings section */}
+          <section>
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
+              My Recordings
+            </h2>
+            <p className="text-gray-600 text-xs mb-3 px-1">
+              Manage your recorded sets. Publish them to your profile or delete them.
+            </p>
+            <div className="bg-[#1a1a1a] rounded">
+              {loadingRecordings ? (
+                <div className="p-4 flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
+                </div>
+              ) : recordings.length === 0 ? (
+                <div className="p-4 text-center">
+                  <p className="text-gray-500">No recordings yet</p>
+                  <Link
+                    href="/record"
+                    className="inline-block mt-2 text-blue-400 hover:text-blue-300 text-sm transition-colors"
+                  >
+                    Start recording &rarr;
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-2 p-2">
+                  {recordings.map((recording) => (
+                    <div key={recording.id} className="bg-[#252525] rounded p-3">
+                      <div className="flex items-center gap-3">
+                        {/* Play button */}
+                        <button
+                          onClick={() => handlePlayPauseRecording(recording.id)}
+                          disabled={!recording.audioUrl}
+                          className="w-10 h-10 rounded-full bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {playingRecordingId === recording.id ? (
+                            <svg className="w-4 h-4 text-black" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 5v14l11-7z" />
+                            </svg>
+                          )}
+                        </button>
+
+                        {/* Content and progress */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <h3 className="text-white font-semibold text-sm truncate">{recording.showName}</h3>
+                              <p className="text-gray-500 text-xs">
+                                {formatRecordingDate(recording.createdAt)} · {formatDuration(recording.duration)}
+                                {recording.isPublic ? (
+                                  <span className="text-green-400 ml-2">· Published</span>
+                                ) : (
+                                  <span className="text-gray-500 ml-2">· Private</span>
+                                )}
+                              </p>
+                            </div>
+                            {/* Action buttons */}
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              {/* Publish/Unpublish button */}
+                              <button
+                                onClick={() => handlePublishRecording(recording.id, !recording.isPublic)}
+                                disabled={publishingRecording === recording.id}
+                                className={`w-7 h-7 rounded-full flex items-center justify-center transition-all text-xs ${
+                                  recording.isPublic
+                                    ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                                    : 'bg-white/10 hover:bg-white/20 text-white'
+                                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                title={recording.isPublic ? 'Unpublish' : 'Publish to profile'}
+                              >
+                                {publishingRecording === recording.id ? (
+                                  <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                ) : recording.isPublic ? (
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                  </svg>
+                                )}
+                              </button>
+
+                              {/* Delete button */}
+                              <button
+                                onClick={() => handleDeleteRecording(recording.id)}
+                                disabled={deletingRecording === recording.id}
+                                className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-xs bg-white/10 hover:bg-red-500/20 text-white hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Delete recording"
+                              >
+                                {deletingRecording === recording.id ? (
+                                  <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                          {/* Progress bar */}
+                          <input
+                            type="range"
+                            min={0}
+                            max={recording.duration || 100}
+                            value={recordingCurrentTime[recording.id] || 0}
+                            onChange={(e) => handleRecordingSeek(recording.id, parseFloat(e.target.value))}
+                            className="w-full h-1 bg-gray-700 rounded-full appearance-none cursor-pointer mt-1.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Hidden audio element */}
+                      {recording.audioUrl && (
+                        <audio
+                          ref={(el) => { audioRefs.current[recording.id] = el; }}
+                          src={recording.audioUrl}
+                          preload="none"
+                          onTimeUpdate={() => handleRecordingTimeUpdate(recording.id)}
+                          onEnded={() => handleRecordingEnded(recording.id)}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
 
@@ -2190,138 +2373,6 @@ export function StudioProfileClient() {
             </div>
           </section>
 
-          {/* My Recordings section */}
-          <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
-              My Recordings
-            </h2>
-            <p className="text-gray-600 text-xs mb-3 px-1">
-              Manage your recorded sets. Publish them to your profile or delete them.
-            </p>
-            <div className="bg-[#1a1a1a] rounded">
-              {loadingRecordings ? (
-                <div className="p-4 flex items-center justify-center">
-                  <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
-                </div>
-              ) : recordings.length === 0 ? (
-                <div className="p-4 text-center">
-                  <p className="text-gray-500">No recordings yet</p>
-                  <Link
-                    href="/record"
-                    className="inline-block mt-2 text-blue-400 hover:text-blue-300 text-sm transition-colors"
-                  >
-                    Start recording &rarr;
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-2 p-2">
-                  {recordings.map((recording) => (
-                    <div key={recording.id} className="bg-[#252525] rounded p-3">
-                      <div className="flex items-center gap-3">
-                        {/* Play button */}
-                        <button
-                          onClick={() => handlePlayPauseRecording(recording.id)}
-                          disabled={!recording.audioUrl}
-                          className="w-10 h-10 rounded-full bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {playingRecordingId === recording.id ? (
-                            <svg className="w-4 h-4 text-black" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-                            </svg>
-                          ) : (
-                            <svg className="w-4 h-4 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M8 5v14l11-7z" />
-                            </svg>
-                          )}
-                        </button>
-
-                        {/* Content and progress */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <h3 className="text-white font-semibold text-sm truncate">{recording.showName}</h3>
-                              <p className="text-gray-500 text-xs">
-                                {formatRecordingDate(recording.createdAt)} · {formatDuration(recording.duration)}
-                                {recording.isPublic ? (
-                                  <span className="text-green-400 ml-2">· Published</span>
-                                ) : (
-                                  <span className="text-gray-500 ml-2">· Private</span>
-                                )}
-                              </p>
-                            </div>
-                            {/* Action buttons */}
-                            <div className="flex items-center gap-1 flex-shrink-0">
-                              {/* Publish/Unpublish button */}
-                              <button
-                                onClick={() => handlePublishRecording(recording.id, !recording.isPublic)}
-                                disabled={publishingRecording === recording.id}
-                                className={`w-7 h-7 rounded-full flex items-center justify-center transition-all text-xs ${
-                                  recording.isPublic
-                                    ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                                    : 'bg-white/10 hover:bg-white/20 text-white'
-                                } disabled:opacity-50 disabled:cursor-not-allowed`}
-                                title={recording.isPublic ? 'Unpublish' : 'Publish to profile'}
-                              >
-                                {publishingRecording === recording.id ? (
-                                  <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                ) : recording.isPublic ? (
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                  </svg>
-                                ) : (
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                  </svg>
-                                )}
-                              </button>
-
-                              {/* Delete button */}
-                              <button
-                                onClick={() => handleDeleteRecording(recording.id)}
-                                disabled={deletingRecording === recording.id}
-                                className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-xs bg-white/10 hover:bg-red-500/20 text-white hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Delete recording"
-                              >
-                                {deletingRecording === recording.id ? (
-                                  <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                ) : (
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                )}
-                              </button>
-                            </div>
-                          </div>
-                          {/* Progress bar */}
-                          <input
-                            type="range"
-                            min={0}
-                            max={recording.duration || 100}
-                            value={recordingCurrentTime[recording.id] || 0}
-                            onChange={(e) => handleRecordingSeek(recording.id, parseFloat(e.target.value))}
-                            className="w-full h-1 bg-gray-700 rounded-full appearance-none cursor-pointer mt-1.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Hidden audio element */}
-                      {recording.audioUrl && (
-                        <audio
-                          ref={(el) => { audioRefs.current[recording.id] = el; }}
-                          src={recording.audioUrl}
-                          preload="none"
-                          onTimeUpdate={() => handleRecordingTimeUpdate(recording.id)}
-                          onEnded={() => handleRecordingEnded(recording.id)}
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-
           {/* IRL Events section */}
           <section>
             <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
@@ -2472,59 +2523,6 @@ export function StudioProfileClient() {
                 <button type="button" onClick={() => setShowNewEventForm(true)} className="text-gray-500 hover:text-white text-xs transition-colors">
                   + Add event
                 </button>
-              )}
-            </div>
-          </section>
-
-          {/* Automatically detected shows section */}
-          <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-              Automatically Detected Shows
-            </h2>
-            <div className="bg-[#1a1a1a] rounded">
-              {loadingBroadcasts ? (
-                <div className="p-4 flex items-center justify-center">
-                  <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
-                </div>
-              ) : upcomingShows.length === 0 ? (
-                <div className="p-4 text-center">
-                  <p className="text-gray-500">No upcoming shows detected</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-800">
-                  {upcomingShows.map((show) => (
-                    <div key={show.id} className="p-4">
-                      <p className="text-white font-medium">{show.showName}</p>
-                      <p className="text-gray-400 text-sm">
-                        {formatBroadcastTime(show.startTime, show.endTime)}
-                      </p>
-                      <p className="text-gray-500 text-xs mt-1">{show.stationName}</p>
-                      {show.status === "live" ? (
-                        <div className="flex items-center gap-3 mt-2">
-                          <span className="inline-flex items-center gap-1 text-red-400 text-xs">
-                            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                            Live Now
-                          </span>
-                          {!show.isExternal && show.broadcastToken && (
-                            <Link
-                              href={`/broadcast/live?token=${show.broadcastToken}`}
-                              className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 text-sm transition-colors"
-                            >
-                              Go to Studio &rarr;
-                            </Link>
-                          )}
-                        </div>
-                      ) : !show.isExternal && show.broadcastToken && (
-                        <Link
-                          href={`/broadcast/live?token=${show.broadcastToken}`}
-                          className="inline-flex items-center gap-1 mt-2 text-blue-400 hover:text-blue-300 text-sm transition-colors"
-                        >
-                          Go Live &rarr;
-                        </Link>
-                      )}
-                    </div>
-                  ))}
-                </div>
               )}
             </div>
           </section>
