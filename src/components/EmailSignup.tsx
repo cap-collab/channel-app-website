@@ -18,7 +18,7 @@ function getFirebaseApp() {
   return getApps()[0];
 }
 
-export function EmailSignup({ placeholder = 'Get email updates' }: { placeholder?: string }) {
+export function EmailSignup({ placeholder = 'Get really cool email updates' }: { placeholder?: string }) {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
 
