@@ -666,31 +666,33 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
               )}
             </button>
 
-            {/* Show info + indicator */}
+            {/* Show info */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <ScrollingShowName text={showName} className="text-sm font-bold leading-tight text-white min-w-0 flex-1" />
-                {isRestream ? (
-                  <span className="flex h-3 w-3 flex-shrink-0">
-                    <svg className="animate-pulse w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                      <path d="M3 3v5h5" />
-                    </svg>
-                  </span>
-                ) : (
-                  <span className="relative flex h-2 w-2 flex-shrink-0">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
-                  </span>
-                )}
-                {broadcastBPM && (
-                  <span className={`text-[10px] font-mono uppercase tracking-tighter font-bold flex-shrink-0 ${isRestream ? 'text-gray-500' : 'text-red-500'}`}>
-                    {broadcastBPM} BPM
-                  </span>
-                )}
-              </div>
+              <ScrollingShowName text={showName} className="text-sm font-bold leading-tight text-white" />
               {djName && (
                 <ScrollingDJName text={djName} className="text-[10px] text-zinc-500 uppercase mt-0.5 leading-[1.3em]" />
+              )}
+            </div>
+
+            {/* Live/Restream indicator + BPM */}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {isRestream ? (
+                <span className="flex h-3 w-3">
+                  <svg className="animate-pulse w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                    <path d="M3 3v5h5" />
+                  </svg>
+                </span>
+              ) : (
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                </span>
+              )}
+              {broadcastBPM && (
+                <span className={`text-[10px] font-mono uppercase tracking-tighter font-bold ${isRestream ? 'text-gray-500' : 'text-red-500'}`}>
+                  {broadcastBPM} BPM
+                </span>
               )}
             </div>
 
