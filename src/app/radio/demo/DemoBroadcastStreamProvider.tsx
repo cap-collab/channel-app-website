@@ -50,7 +50,7 @@ const DEMO_SHOW_RESTREAM: BroadcastSlotSerialized = {
   ...DEMO_SHOW_LIVE,
   id: 'demo-restream',
   broadcastType: 'restream',
-  showName: 'IMAGINARY SHOW NAME (Restream)',
+  showName: 'IMAGINARY SHOW NAME',
   restreamDjs: [
     { name: 'Skee Mask', email: 'demo@example.com', userId: 'demo-user-id', username: 'skeemask' },
     { name: 'Stacy Christine' },
@@ -151,7 +151,7 @@ export function DemoBroadcastStreamProvider({ children }: { children: ReactNode 
   const djLabel = mode === 'restream'
     ? 'Skee Mask, Stacy Christine, Lovefingers, Heidi Lawden & Flabbergast'
     : 'Skee Mask';
-  const showLabel = mode === 'restream' ? 'IMAGINARY SHOW NAME (Restream)' : 'IMAGINARY SHOW NAME';
+  const showLabel = 'IMAGINARY SHOW NAME';
 
   const value = useMemo<BroadcastStreamContextValue>(() => ({
     isPlaying,
