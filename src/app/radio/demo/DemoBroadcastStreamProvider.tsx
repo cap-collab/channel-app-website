@@ -23,7 +23,7 @@ const DEMO_SHOW: BroadcastSlotSerialized = {
   createdAt: Date.now() - 7200000,
   createdBy: 'demo',
   status: 'live',
-  broadcastType: 'restream',
+  broadcastType: 'remote',
   liveDjPromoText: 'Deep house & techno vibes every Friday night. Tune in and feel the groove.',
   liveDjGenres: ['Deep House', 'Dub Techno', 'Techno'],
   liveDjDescription: 'Bringing soulful house and disco flavors from the heart of the underground.',
