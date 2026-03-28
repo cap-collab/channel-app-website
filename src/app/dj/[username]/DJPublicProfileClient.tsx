@@ -748,6 +748,8 @@ export function DJPublicProfileClient({ username }: Props) {
         const remoteSnapshot = await getDocs(remoteQ);
         remoteSnapshot.forEach((doc) => {
           const data = doc.data();
+          // Skip recording-type slots — they appear via archives, not as broadcast shows
+          if (data.broadcastType === 'recording') return;
           pastSlotsMap.set(doc.id, {
             showName: data.showName || "Broadcast",
             startTime: (data.startTime as Timestamp).toMillis(),
