@@ -467,14 +467,14 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
       if (isDJInWatchlist) {
         await removeFromWatchlist(djWatchlistName);
       } else {
-        await followDJ(djWatchlistName, currentDJUserId || undefined, currentDJEmail || undefined, currentShow || undefined);
+        await followDJ(djWatchlistName, currentDJUserId || undefined, currentDJEmail || undefined);
       }
     } catch (err) {
       console.error('Failed to update watchlist:', err);
     } finally {
       setIsAddingToWatchlist(false);
     }
-  }, [isAuthenticated, isDJInWatchlist, djWatchlistName, currentDJUserId, currentDJEmail, currentShow, followDJ, removeFromWatchlist]);
+  }, [isAuthenticated, isDJInWatchlist, djWatchlistName, currentDJUserId, currentDJEmail, followDJ, removeFromWatchlist]);
 
   const handleSendLove = useCallback(async () => {
     if (!chatUsername) return;
