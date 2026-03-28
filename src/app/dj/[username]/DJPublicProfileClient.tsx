@@ -1439,7 +1439,7 @@ export function DJPublicProfileClient({ username }: Props) {
                     href={profile.djProfile.promoHyperlink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block w-full bg-zinc-900/50 border border-white/10 p-4 rounded hover:bg-zinc-800/50 transition-colors"
+                    className="block w-full bg-zinc-900/50 p-4 rounded hover:bg-zinc-800/50 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <p className="text-base leading-relaxed text-white">
@@ -1449,7 +1449,7 @@ export function DJPublicProfileClient({ username }: Props) {
                     </div>
                   </a>
                 ) : (
-                  <div className="w-full bg-zinc-900/50 border border-white/10 p-4 rounded">
+                  <div className="w-full bg-zinc-900/50 p-4 rounded">
                     <p className="text-base leading-relaxed text-white">
                       {profile.djProfile.promoText}
                     </p>
@@ -1613,7 +1613,7 @@ export function DJPublicProfileClient({ username }: Props) {
         {/* STICKY TAB BAR - only if DJ has email (claimed profile) */}
         {profile.email && (
           <div className="sticky top-[48px] z-30 bg-black -mx-6 px-6 mb-4">
-            <div className="flex max-w-5xl mx-auto bg-zinc-900/50 border border-white/10 p-1">
+            <div className="flex max-w-5xl mx-auto bg-zinc-900/50 p-1">
               <button
                 onClick={() => setActiveTab('chat')}
                 className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest transition-colors ${
