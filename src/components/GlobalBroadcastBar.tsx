@@ -16,7 +16,7 @@ export function GlobalBroadcastBar() {
   const [mounted, setMounted] = useState(false);
   const {
     isLive, isStreaming, isPlaying, isLoading, toggle,
-    showName, djName, heroBarVisible, tipEligible, currentShow,
+    showName, djName, heroBarVisible, heroBarObserverReady, tipEligible, currentShow,
   } = useBroadcastStreamContext();
   const { stationBPM } = useBPM();
   const broadcastBPM = stationBPM['broadcast']?.bpm ?? null;
@@ -29,8 +29,9 @@ export function GlobalBroadcastBar() {
   // Never show on the go-live broadcast page
   if (pathname === '/broadcast/live') return null;
   if (!isLive || !isStreaming) return null;
-  // Hide when the LiveBroadcastHero's inline bar is visible (on /radio)
-  if (heroBarVisible) return null;
+  // On /radio, hide while the LiveBroadcastHero's inline player bar is in view.
+  // Before the observer initializes, default to hidden to prevent a flash on load.
+  if (heroBarVisible || (pathname === '/radio' && !heroBarObserverReady)) return null;
 
   const isRestream = currentShow?.broadcastType === 'restream';
 

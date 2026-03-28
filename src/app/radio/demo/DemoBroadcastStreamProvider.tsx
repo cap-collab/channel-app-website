@@ -64,6 +64,7 @@ export function DemoBroadcastStreamProvider({ children }: { children: ReactNode 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [heroBarVisible, setHeroBarVisible] = useState(true);
+  const [heroBarObserverReady, setHeroBarObserverReady] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Clean up audio on unmount
@@ -145,6 +146,7 @@ export function DemoBroadcastStreamProvider({ children }: { children: ReactNode 
   }, [isPlaying, play, pause]);
 
   const setHeroBarVisibleCb = useCallback((v: boolean) => setHeroBarVisible(v), []);
+  const setHeroBarObserverReadyCb = useCallback((v: boolean) => setHeroBarObserverReady(v), []);
 
   const isLive = mode !== 'offline';
   const currentShow = mode === 'restream' ? DEMO_SHOW_RESTREAM : DEMO_SHOW_LIVE;
@@ -171,7 +173,9 @@ export function DemoBroadcastStreamProvider({ children }: { children: ReactNode 
     tipEligible: isLive,
     heroBarVisible,
     setHeroBarVisible: setHeroBarVisibleCb,
-  }), [isPlaying, isLoading, isLive, currentShow, djLabel, showLabel, error, play, pause, toggle, heroBarVisible, setHeroBarVisibleCb]);
+    heroBarObserverReady,
+    setHeroBarObserverReady: setHeroBarObserverReadyCb,
+  }), [isPlaying, isLoading, isLive, currentShow, djLabel, showLabel, error, play, pause, toggle, heroBarVisible, setHeroBarVisibleCb, heroBarObserverReady, setHeroBarObserverReadyCb]);
 
   const modeCtx = useMemo(() => ({ mode, setMode }), [mode]);
 

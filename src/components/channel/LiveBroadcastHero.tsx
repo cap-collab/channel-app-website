@@ -279,7 +279,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
   const {
     isPlaying, isLoading, isLive, isStreaming, currentShow, currentDJ,
     listenerCount, toggle, error: streamError,
-    setHeroBarVisible, tipEligible,
+    setHeroBarVisible, setHeroBarObserverReady, tipEligible,
   } = useBroadcastStreamContext();
   const { stationBPM } = useBPM();
   const broadcastBPM = stationBPM['broadcast']?.bpm ?? null;
@@ -362,6 +362,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
     const el = stickyBarRef.current;
     if (!el) return;
     setHeroBarVisible(true);
+    setHeroBarObserverReady(true);
     const observer = new IntersectionObserver(
       ([entry]) => setHeroBarVisible(entry.isIntersecting),
       { threshold: 0.1 },
@@ -370,8 +371,9 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
     return () => {
       observer.disconnect();
       setHeroBarVisible(false);
+      setHeroBarObserverReady(false);
     };
-  }, [setHeroBarVisible]);
+  }, [setHeroBarVisible, setHeroBarObserverReady]);
 
   // DJ info from current show
   // For restreams, also check the primary DJ's photo from restreamDjs

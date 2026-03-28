@@ -29,6 +29,9 @@ export interface BroadcastStreamContextValue {
   // Whether the hero sticky bar on /radio is currently visible
   heroBarVisible: boolean;
   setHeroBarVisible: (visible: boolean) => void;
+  // Whether the IntersectionObserver for the hero bar has initialized
+  heroBarObserverReady: boolean;
+  setHeroBarObserverReady: (ready: boolean) => void;
 }
 
 export const BroadcastStreamContext = createContext<BroadcastStreamContextValue | null>(null);
@@ -135,6 +138,8 @@ export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
   const { isLive: statusIsLive, showName, djName } = useBroadcastLiveStatus();
   const [heroBarVisible, setHeroBarVisible] = useState(false);
   const setHeroBarVisibleCb = useCallback((v: boolean) => setHeroBarVisible(v), []);
+  const [heroBarObserverReady, setHeroBarObserverReady] = useState(false);
+  const setHeroBarObserverReadyCb = useCallback((v: boolean) => setHeroBarObserverReady(v), []);
 
   // useBroadcastStream is always called (hooks can't be conditional),
   // but it should be a no-op internally when not live
@@ -148,7 +153,7 @@ export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<BroadcastStreamContextValue>(() => {
     if (statusIsLive) {
-      return { ...stream, isStreaming, showName, djName, tipEligible: isTipEligible(stream.currentShow, stream.currentDJ) && djIsChannelUser !== false, heroBarVisible, setHeroBarVisible: setHeroBarVisibleCb };
+      return { ...stream, isStreaming, showName, djName, tipEligible: isTipEligible(stream.currentShow, stream.currentDJ) && djIsChannelUser !== false, heroBarVisible, setHeroBarVisible: setHeroBarVisibleCb, heroBarObserverReady, setHeroBarObserverReady: setHeroBarObserverReadyCb };
     }
     return {
       isPlaying: false, isLoading: false, isLive: false, isStreaming: false,
@@ -157,9 +162,9 @@ export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
       listenerCount: 0, audioStream: null,
       showName: null, djName: null,
       tipEligible: false,
-      heroBarVisible: false, setHeroBarVisible: setHeroBarVisibleCb,
+      heroBarVisible: false, setHeroBarVisible: setHeroBarVisibleCb, heroBarObserverReady: false, setHeroBarObserverReady: setHeroBarObserverReadyCb,
     };
-  }, [statusIsLive, stream, isStreaming, showName, djName, djIsChannelUser, heroBarVisible, setHeroBarVisibleCb]);
+  }, [statusIsLive, stream, isStreaming, showName, djName, djIsChannelUser, heroBarVisible, setHeroBarVisibleCb, heroBarObserverReady, setHeroBarObserverReadyCb]);
 
   return (
     <BroadcastStreamContext.Provider value={value}>
