@@ -393,6 +393,39 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
     <section id="live" className="relative z-10 px-4 pt-6 pb-2">
       <div className="max-w-3xl mx-auto">
 
+        {/* Live/Restream status line above image */}
+        <div className="flex items-center gap-1.5 mb-2">
+          {isRestream ? (
+            <>
+              <span className="relative flex h-3 w-3">
+                <svg className="animate-ping absolute inset-0 w-3 h-3 opacity-50" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                  <path d="M3 3v5h5" />
+                </svg>
+                <svg className="relative w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                  <path d="M3 3v5h5" />
+                </svg>
+              </span>
+              <span className="text-[10px] font-mono text-gray-400 uppercase tracking-tighter font-bold">Restream</span>
+              {broadcastBPM && (
+                <span className="text-[10px] font-mono text-gray-400 uppercase tracking-tighter font-bold">{broadcastBPM} BPM</span>
+              )}
+            </>
+          ) : (
+            <>
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+              </span>
+              <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">Live</span>
+              {broadcastBPM && (
+                <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">{broadcastBPM} BPM</span>
+              )}
+            </>
+          )}
+        </div>
+
         {/* DJ Image — 16:9 with overlays */}
         {djProfileUsername ? (
           <Link href={`/dj/${djProfileUsername}`} className="block relative w-full aspect-[16/9] lg:aspect-[5/2] overflow-hidden border border-white/10">
@@ -409,32 +442,6 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
                 {/* Gradient scrims */}
                 <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
-                {/* Live/Restream badge — top right */}
-                <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-sm z-10">
-                  {isRestream ? (
-                    <>
-                      <span className="relative flex h-3 w-3">
-                        <svg className="animate-ping absolute inset-0 w-3 h-3 opacity-50" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                          <path d="M3 3v5h5" />
-                        </svg>
-                        <svg className="relative w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                          <path d="M3 3v5h5" />
-                        </svg>
-                      </span>
-                      <span className="text-[10px] font-mono text-gray-400 uppercase tracking-tighter font-bold">Restream</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
-                      </span>
-                      <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">Live</span>
-                    </>
-                  )}
-                </div>
                 {/* DJ info overlay — bottom left */}
                 <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
               </>
@@ -443,32 +450,6 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
                 <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-center px-4 text-white">
                   {djName || showName}
                 </h2>
-                {/* Live/Restream badge — top right (no-photo) */}
-                <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-sm z-10">
-                  {isRestream ? (
-                    <>
-                      <span className="relative flex h-3 w-3">
-                        <svg className="animate-ping absolute inset-0 w-3 h-3 opacity-50" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                          <path d="M3 3v5h5" />
-                        </svg>
-                        <svg className="relative w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                          <path d="M3 3v5h5" />
-                        </svg>
-                      </span>
-                      <span className="text-[10px] font-mono text-gray-400 uppercase tracking-tighter font-bold">Restream</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
-                      </span>
-                      <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">Live</span>
-                    </>
-                  )}
-                </div>
               </div>
             )}
           </Link>
@@ -486,32 +467,6 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
                 />
                 <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
-                {/* Live/Restream badge — top right */}
-                <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-sm z-10">
-                  {isRestream ? (
-                    <>
-                      <span className="relative flex h-3 w-3">
-                        <svg className="animate-ping absolute inset-0 w-3 h-3 opacity-50" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                          <path d="M3 3v5h5" />
-                        </svg>
-                        <svg className="relative w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                          <path d="M3 3v5h5" />
-                        </svg>
-                      </span>
-                      <span className="text-[10px] font-mono text-gray-400 uppercase tracking-tighter font-bold">Restream</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
-                      </span>
-                      <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">Live</span>
-                    </>
-                  )}
-                </div>
                 <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
               </>
             ) : (
@@ -519,32 +474,6 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
                 <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-center px-4 text-white">
                   {djName || showName}
                 </h2>
-                {/* Live/Restream badge — top right (no-photo) */}
-                <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-sm z-10">
-                  {isRestream ? (
-                    <>
-                      <span className="relative flex h-3 w-3">
-                        <svg className="animate-ping absolute inset-0 w-3 h-3 opacity-50" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                          <path d="M3 3v5h5" />
-                        </svg>
-                        <svg className="relative w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                          <path d="M3 3v5h5" />
-                        </svg>
-                      </span>
-                      <span className="text-[10px] font-mono text-gray-400 uppercase tracking-tighter font-bold">Restream</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
-                      </span>
-                      <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">Live</span>
-                    </>
-                  )}
-                </div>
               </div>
             )}
           </div>
