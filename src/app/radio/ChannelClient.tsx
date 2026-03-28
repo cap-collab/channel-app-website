@@ -369,6 +369,8 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
     // Radio shows from followed DJs / favorited shows in next 2 weeks
     for (const show of allShows) {
       if (!show.dj) continue;
+      // Never show restreams in watchlist (regular restreams, external show restreams, or channel broadcast restreams)
+      if (show.type === 'restream' || show.type === 'playlist' || show.broadcastType === 'restream') continue;
       const station = stationsMap.get(show.stationId);
       if (!station) continue;
       const endTime = new Date(show.endTime);
