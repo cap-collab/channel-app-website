@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { Timestamp } from 'firebase-admin/firestore';
 import { STATION_ID } from '@/types/broadcast';
 import { generatePresignedUploadUrl, getR2PublicUrl } from '@/lib/r2-upload';
 
@@ -35,6 +34,16 @@ function getExtension(mimeType: string): string {
     'audio/webm': 'webm',
   };
   return map[mimeType] || 'mp3';
+}
+
+// Generate a URL-friendly slug from the show name
+function generateSlug(showName: string): string {
+  return showName
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .substring(0, 50);
 }
 
 function getCurrentMonthKey(): string {
@@ -138,42 +147,67 @@ export async function POST(request: NextRequest) {
     // Get DJ profile info
     const djProfile = userData?.djProfile || {};
     const chatUsername = userData?.chatUsername;
-    const now = Timestamp.now();
 
-    // Create the broadcast slot
-    const slotData: Record<string, unknown> = {
-      stationId: STATION_ID,
+    // Generate slug for the archive
+    const baseSlug = generateSlug(showName.trim());
+    const archivesRef = db.collection('archives');
+
+    // Check for existing archives with same slug
+    const existingArchives = await archivesRef
+      .where('slug', '>=', baseSlug)
+      .where('slug', '<=', baseSlug + '\uf8ff')
+      .get();
+
+    let slug = baseSlug;
+    if (!existingArchives.empty) {
+      let maxNumber = 0;
+      existingArchives.docs.forEach(doc => {
+        const existingSlug = doc.data().slug;
+        if (existingSlug === baseSlug) {
+          maxNumber = Math.max(maxNumber, 1);
+        } else {
+          const match = existingSlug.match(new RegExp(`^${baseSlug}-(\\d+)$`));
+          if (match) {
+            maxNumber = Math.max(maxNumber, parseInt(match[1], 10));
+          }
+        }
+      });
+      if (maxNumber > 0) {
+        slug = `${baseSlug}-${maxNumber + 1}`;
+      }
+    }
+
+    // Create the archive document directly (no broadcast-slot needed)
+    const archiveData: Record<string, unknown> = {
+      slug,
       showName: showName.trim(),
-      djUserId: userId,
-      djEmail: userData?.email,
-      djUsername: chatUsername,
-      startTime: now,
-      endTime: now,
-      createdAt: now,
-      createdBy: userId,
-      status: 'uploading',
-      broadcastType: 'recording',
-      recordingStatus: 'uploading',
+      djs: [{
+        name: chatUsername || 'DJ',
+        username: chatUsername,
+        userId: userId,
+        email: userData?.email,
+        photoUrl: djProfile.photoUrl || null,
+      }],
       recordingUrl,
-      recordingDuration: durationSeconds,
-      isPublic: false,
+      duration: durationSeconds,
+      recordedAt: timestamp,
+      createdAt: timestamp,
+      stationId: STATION_ID,
+      isPublic: true,
+      sourceType: 'recording',
+      publishedAt: timestamp,
+      // Upload tracking fields
+      uploadStatus: 'uploading',
       uploadFilePath: r2Key,
-      // Live DJ info from profile (needed by publish endpoint)
-      liveDjUserId: userId,
-      liveDjUsername: chatUsername,
-      liveDjChatUsername: chatUsername,
-      liveDjBio: djProfile.bio || null,
-      liveDjPhotoUrl: djProfile.photoUrl || null,
-      liveDjPromoText: djProfile.promoText || null,
-      liveDjPromoHyperlink: djProfile.promoHyperlink || null,
+      uploadedBy: userId,
     };
 
-    const slotRef = await db.collection('broadcast-slots').add(slotData);
-    const slotId = slotRef.id;
+    const archiveRef = await archivesRef.add(archiveData);
+    const archiveId = archiveRef.id;
 
     return NextResponse.json({
       success: true,
-      slotId,
+      archiveId,
       presignedUrl,
       quota: {
         usedSeconds: recordingQuota.usedSeconds,

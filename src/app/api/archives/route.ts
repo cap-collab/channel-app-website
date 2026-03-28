@@ -33,6 +33,8 @@ export async function GET(request: Request) {
     const rawArchives = snapshot.docs
       .filter((doc) => {
         const data = doc.data();
+        // Skip archives still being uploaded
+        if (data.uploadStatus === 'uploading') return false;
         // If includePrivate is true, include all archives
         // Otherwise, include only if isPublic is true or undefined (legacy archives)
         return includePrivate || data.isPublic !== false;

@@ -126,6 +126,15 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.token.email == 'cron@channel-app.com';
     }
 
+    // Archives (recordings and broadcast archives)
+    // - Anyone can read (needed for /archives, /dj/[username] pages)
+    // - DJs can update/delete their own uploaded recordings
+    match /archives/{archiveId} {
+      allow read: if true;
+      allow update, delete: if request.auth != null
+        && resource.data.uploadedBy == request.auth.uid;
+    }
+
     // Tips - anyone can read tips (needed for DJ dashboard to show tip totals)
     // Tips are created only by the server via Stripe webhook
     match /tips/{tipId} {

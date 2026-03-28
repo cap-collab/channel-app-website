@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { Timestamp } from 'firebase-admin/firestore';
 import { checkFileExists } from '@/lib/r2-upload';
 
 // Default recording quota: 2 hours per month
@@ -15,10 +14,10 @@ function getCurrentMonthKey(): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const { slotId, userId } = await request.json();
+    const { archiveId, userId } = await request.json();
 
-    if (!slotId) {
-      return NextResponse.json({ error: 'Slot ID required' }, { status: 400 });
+    if (!archiveId) {
+      return NextResponse.json({ error: 'Archive ID required' }, { status: 400 });
     }
 
     if (!userId) {
@@ -30,28 +29,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
     }
 
-    // Get the broadcast slot
-    const slotRef = db.collection('broadcast-slots').doc(slotId);
-    const slotDoc = await slotRef.get();
+    // Get the archive document
+    const archiveRef = db.collection('archives').doc(archiveId);
+    const archiveDoc = await archiveRef.get();
 
-    if (!slotDoc.exists) {
+    if (!archiveDoc.exists) {
       return NextResponse.json({ error: 'Upload session not found' }, { status: 404 });
     }
 
-    const slotData = slotDoc.data();
+    const archiveData = archiveDoc.data();
 
     // Verify ownership
-    if (slotData?.djUserId !== userId && slotData?.createdBy !== userId) {
+    if (archiveData?.uploadedBy !== userId) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
 
     // Verify status is uploading
-    if (slotData?.status !== 'uploading') {
+    if (archiveData?.uploadStatus !== 'uploading') {
       return NextResponse.json({ error: 'Upload session is not in uploading state' }, { status: 400 });
     }
 
     // Verify file exists in R2
-    const uploadFilePath = slotData?.uploadFilePath;
+    const uploadFilePath = archiveData?.uploadFilePath;
     if (!uploadFilePath) {
       return NextResponse.json({ error: 'Upload file path not found' }, { status: 500 });
     }
@@ -80,7 +79,7 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    const durationSeconds = slotData?.recordingDuration || 0;
+    const durationSeconds = archiveData?.duration || 0;
     const remainingSeconds = recordingQuota.maxSeconds - recordingQuota.usedSeconds;
 
     if (durationSeconds > remainingSeconds) {
@@ -89,11 +88,9 @@ export async function POST(request: NextRequest) {
       }, { status: 403 });
     }
 
-    // Update broadcast slot to ready
-    await slotRef.update({
-      status: 'completed',
-      recordingStatus: 'ready',
-      completedAt: Timestamp.now(),
+    // Mark archive as ready (upload complete)
+    await archiveRef.update({
+      uploadStatus: 'ready',
     });
 
     // Update user's recording quota
@@ -107,7 +104,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      slotId,
+      archiveId,
       message: 'Pre-recording uploaded successfully',
     });
 

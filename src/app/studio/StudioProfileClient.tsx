@@ -372,7 +372,7 @@ export function StudioProfileClient() {
         return;
       }
 
-      const { presignedUrl, slotId } = initData;
+      const { presignedUrl, archiveId } = initData;
 
       // Step 2: Upload file directly to R2 via XHR (for progress tracking)
       await new Promise<void>((resolve, reject) => {
@@ -410,11 +410,11 @@ export function StudioProfileClient() {
         xhr.send(uploadFile);
       });
 
-      // Step 3: Complete upload — verify file and update slot
+      // Step 3: Complete upload — verify file and finalize archive
       const completeRes = await fetch('/api/recording/upload/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slotId, userId: user.uid }),
+        body: JSON.stringify({ archiveId, userId: user.uid }),
       });
 
       const completeData = await completeRes.json();
@@ -657,21 +657,20 @@ export function StudioProfileClient() {
     return () => unsubscribe();
   }, [user, chatUsername, allShows]);
 
-  // Load my recordings (broadcast-slots with broadcastType: 'recording' and recordingStatus: 'ready')
+  // Load my recordings from archives collection (sourceType: 'recording')
   useEffect(() => {
     if (!user || !db) {
       setLoadingRecordings(false);
       return;
     }
 
-    const slotsRef = collection(db, "broadcast-slots");
+    const archivesRef = collection(db, "archives");
 
-    // Query for recording slots owned by this user
-    // Use simple query to avoid needing composite index, filter client-side
+    // Query for recording archives owned by this user
     const q = query(
-      slotsRef,
-      where("djUserId", "==", user.uid),
-      where("broadcastType", "==", "recording")
+      archivesRef,
+      where("sourceType", "==", "recording"),
+      where("uploadedBy", "==", user.uid)
     );
 
     const unsubscribe = onSnapshot(
@@ -680,19 +679,18 @@ export function StudioProfileClient() {
         const recs: Recording[] = [];
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
-          // Only include recordings that are ready (filter client-side)
-          if (data.recordingStatus === 'ready') {
-            recs.push({
-              id: docSnap.id,
-              showName: data.showName || 'Untitled Recording',
-              djName: data.liveDjUsername || data.djUsername,
-              createdAt: data.createdAt?.toMillis?.() || data.createdAt || Date.now(),
-              duration: data.recordingDuration || 0,
-              isPublic: data.isPublic || false,
-              slug: docSnap.id,
-              audioUrl: data.recordingUrl,
-            });
-          }
+          // Skip archives still being uploaded
+          if (data.uploadStatus === 'uploading') return;
+          recs.push({
+            id: docSnap.id,
+            showName: data.showName || 'Untitled Recording',
+            djName: data.djs?.[0]?.name,
+            createdAt: data.recordedAt || data.createdAt || Date.now(),
+            duration: data.duration || 0,
+            isPublic: data.isPublic !== false,
+            slug: data.slug || docSnap.id,
+            audioUrl: data.recordingUrl,
+          });
         });
         // Sort by createdAt descending (client-side)
         recs.sort((a, b) => b.createdAt - a.createdAt);
@@ -710,48 +708,39 @@ export function StudioProfileClient() {
 
   // Handle publish/unpublish recording
   const handlePublishRecording = useCallback(async (recordingId: string, publish: boolean) => {
-    if (!user) return;
+    if (!user || !db) return;
     setPublishingRecording(recordingId);
     try {
-      const res = await fetch('/api/recording/publish', {
-        method: publish ? 'POST' : 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ archiveId: recordingId, userId: user.uid }),
+      const { doc: firestoreDoc, updateDoc } = await import('firebase/firestore');
+      const archiveRef = firestoreDoc(db, 'archives', recordingId);
+      await updateDoc(archiveRef, {
+        isPublic: publish,
+        ...(publish ? { publishedAt: Date.now() } : { publishedAt: null }),
       });
-      if (!res.ok) {
-        const data = await res.json();
-        console.error('Failed to update recording:', data.error);
-      }
     } catch (error) {
       console.error('Error updating recording:', error);
     } finally {
       setPublishingRecording(null);
     }
-  }, [user]);
+  }, [user, db]);
 
   // Handle delete recording
   const handleDeleteRecording = useCallback(async (recordingId: string) => {
-    if (!user) return;
+    if (!user || !db) return;
     if (!confirm('Are you sure you want to delete this recording? This cannot be undone.')) {
       return;
     }
     setDeletingRecording(recordingId);
     try {
-      const res = await fetch('/api/recording/delete', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ archiveId: recordingId, userId: user.uid }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        console.error('Failed to delete recording:', data.error);
-      }
+      const { doc: firestoreDoc, deleteDoc } = await import('firebase/firestore');
+      const archiveRef = firestoreDoc(db, 'archives', recordingId);
+      await deleteDoc(archiveRef);
     } catch (error) {
       console.error('Error deleting recording:', error);
     } finally {
       setDeletingRecording(null);
     }
-  }, [user]);
+  }, [user, db]);
 
   // Handle recording playback
   const handlePlayPauseRecording = useCallback((recordingId: string) => {

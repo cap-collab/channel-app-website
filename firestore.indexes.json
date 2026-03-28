@@ -59,6 +59,14 @@
       ]
     },
     {
+      "collectionGroup": "archives",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sourceType", "order": "ASCENDING" },
+        { "fieldPath": "uploadedBy", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "favorites",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
