@@ -778,7 +778,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
 
         {/* Tab Content */}
         {activeTab === 'chat' ? (
-          <div className="flex flex-col h-[22vh] lg:h-[18vh]">
+          <div className="flex flex-col h-[36vh] lg:h-[30vh]">
             {/* Promo bar */}
             {promoToShow && promoToShow.username && (() => {
               const hasHyperlink = !!promoToShow.hyperlink;
