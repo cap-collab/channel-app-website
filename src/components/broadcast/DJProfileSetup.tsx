@@ -119,11 +119,12 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
   const isVenueBroadcast = broadcastType === 'venue';
 
   // Pre-fill username from saved chatUsername - only for remote broadcasts
+  // Skip if defaultUsername was provided from the broadcast slot's linked DJ profile
   useEffect(() => {
-    if (savedUsername && !isVenueBroadcast) {
+    if (savedUsername && !isVenueBroadcast && !defaultUsername) {
       setUsername(savedUsername);
     }
-  }, [savedUsername, isVenueBroadcast]);
+  }, [savedUsername, isVenueBroadcast, defaultUsername]);
 
   // Sync from default props when they arrive async (e.g. from slot DJ profile fetch)
   useEffect(() => {

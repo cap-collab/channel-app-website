@@ -68,6 +68,7 @@ export function BroadcastClient() {
         const res = await fetch(`/api/broadcast/slot-dj-profile?token=${encodeURIComponent(token)}`);
         if (!res.ok) return;
         const data = await res.json();
+        if (data.chatUsername && !djUsername) setDjUsername(data.chatUsername);
         if (data.promoText && !initialPromoText) setInitialPromoText(data.promoText);
         if (data.promoHyperlink && !initialPromoHyperlink) setInitialPromoHyperlink(data.promoHyperlink);
         if (data.thankYouMessage && !initialThankYouMessage) setInitialThankYouMessage(data.thankYouMessage);
@@ -90,12 +91,14 @@ export function BroadcastClient() {
   // Track if broadcast is live (set after broadcast hook is initialized)
   const [isLiveForDjSwitch, setIsLiveForDjSwitch] = useState(false);
 
-  // Get the default DJ name for current slot (either from djSlot or single djName)
+  // Get the default DJ name for current slot
+  // Priority: active DJ slot name > fetched chatUsername > slot djName
   const getDefaultDjName = useCallback(() => {
     const activeDjSlot = getCurrentDjSlot();
     if (activeDjSlot?.djName) return activeDjSlot.djName;
+    if (djUsername) return djUsername;
     return slot?.djName;
-  }, [getCurrentDjSlot, slot?.djName]);
+  }, [getCurrentDjSlot, djUsername, slot?.djName]);
 
   // Create DJ info object for useBroadcast
   const djInfo = useMemo(() => {
