@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
       const djPromoHyperlink = currentDjSlot?.djPromoHyperlink || currentDjSlot?.promoHyperlink || (slotDjProfile as Record<string, unknown> | null)?.promoHyperlink || userData?.djProfile?.promoHyperlink || null;
       const djThankYouMessage = currentDjSlot?.djThankYouMessage || (slotDjProfile as Record<string, unknown> | null)?.thankYouMessage || userData?.djProfile?.thankYouMessage || null;
 
-      // For username: DJ slot > slot's linked DJ chatUsername > logged-in user chatUsername
+      // For username: DJ slot > slot's linked DJ chatUsername > form input (from slot-dj-profile) > logged-in user chatUsername
       const slotUsername = currentDjSlot?.djUsername || currentDjSlot?.djName;
 
       if (slotUsername) {
@@ -133,43 +133,38 @@ export async function POST(request: NextRequest) {
         // Slot's linked DJ has a chatUsername — use it
         updateData.liveDjUsername = slotDjChatUsername;
         console.log('[go-live] Using slot DJ chatUsername:', { slotDjChatUsername });
+      } else if (djUsername) {
+        // Use the DJ name from the form (pre-populated from slot-dj-profile)
+        updateData.liveDjUsername = djUsername.trim();
+        console.log('[go-live] Using form djUsername:', { djUsername: djUsername.trim() });
       } else if (existingChatUsername) {
-        // Fall back to logged-in user's chatUsername
+        // Last resort: fall back to logged-in user's chatUsername
         updateData.liveDjUsername = existingChatUsername;
         console.log('[go-live] Using logged-in user chatUsername:', { djUserId, chatUsername: existingChatUsername });
-      } else if (djUsername) {
-        // User doesn't have chatUsername - must register the one they provided
+      } else {
+        // Logged in but no username provided - use a default
+        updateData.liveDjUsername = 'DJ';
+        console.log('[go-live] No username provided, using default');
+      }
+
+      // If the logged-in user doesn't have a chatUsername yet, register the one from the form
+      if (!existingChatUsername && djUsername) {
         const normalizedHandle = djUsername.trim().replace(/\s+/g, '').toLowerCase();
         const usernameDocRef = db.collection('usernames').doc(normalizedHandle);
         const usernameDoc = await usernameDocRef.get();
 
-        if (usernameDoc.exists && usernameDoc.data()?.uid !== djUserId) {
-          // Username is taken by someone else - reject go-live
-          console.error('[go-live] Username already taken:', { normalizedHandle, requestedBy: djUserId, ownedBy: usernameDoc.data()?.uid });
-          return NextResponse.json({
-            error: 'Username is already taken. Please choose a different username.',
-            code: 'USERNAME_TAKEN'
-          }, { status: 400 });
+        if (!usernameDoc.exists || usernameDoc.data()?.uid === djUserId) {
+          await usernameDocRef.set({
+            displayName: djUsername.trim(),
+            uid: djUserId,
+            claimedAt: FieldValue.serverTimestamp(),
+          }, { merge: true });
+
+          await userRef.set({
+            chatUsername: djUsername.trim(),
+          }, { merge: true });
+          console.log('[go-live] Registered chatUsername for logged-in user:', { djUserId, chatUsername: djUsername.trim() });
         }
-
-        // Register the username for this user
-        await usernameDocRef.set({
-          displayName: djUsername.trim(),
-          uid: djUserId,
-          claimedAt: FieldValue.serverTimestamp(),
-        }, { merge: true });
-
-        // Save chatUsername to user profile
-        await userRef.set({
-          chatUsername: djUsername.trim(),
-        }, { merge: true });
-
-        updateData.liveDjUsername = djUsername.trim();
-        console.log('[go-live] Registered new chatUsername:', { djUserId, chatUsername: djUsername.trim() });
-      } else {
-        // Logged in but no username provided - use a default
-        updateData.liveDjUsername = 'DJ';
-        console.log('[go-live] No username provided for logged-in user, using default');
       }
 
       // Use the slot's linked DJ userId if available, otherwise the logged-in user
@@ -178,11 +173,10 @@ export async function POST(request: NextRequest) {
       // Set chatUsername for profile URL — prioritize slot's linked DJ
       if (slotDjChatUsername) {
         updateData.liveDjChatUsername = slotDjChatUsername;
+      } else if (djUsername) {
+        updateData.liveDjChatUsername = djUsername.trim();
       } else if (existingChatUsername) {
         updateData.liveDjChatUsername = existingChatUsername;
-      } else if (djUsername) {
-        // They just registered this username
-        updateData.liveDjChatUsername = djUsername.trim();
       }
 
       // Add DJ profile data to the slot (from DJ slot config or user profile)
