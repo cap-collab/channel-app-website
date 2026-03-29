@@ -212,6 +212,7 @@ export function DJControlCenter({
                   onChangeUsername={onChangeUsername}
                   activePromoText={promoText}
                   activePromoHyperlink={promoHyperlink}
+                  currentShowStartTime={slot.startTime}
                 />
               </div>
             )}

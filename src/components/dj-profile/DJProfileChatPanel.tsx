@@ -27,6 +27,7 @@ interface DJProfileChatPanelProps {
   onChangeUsername?: (newUsername: string) => void;
   activePromoText?: string;
   activePromoHyperlink?: string;
+  currentShowStartTime?: number;
   isChannelUser?: boolean;
 }
 
@@ -296,6 +297,7 @@ export function DJProfileChatPanel({
   onChangeUsername,
   activePromoText,
   activePromoHyperlink,
+  currentShowStartTime,
   isChannelUser = true,
 }: DJProfileChatPanelProps) {
   const isBroadcasting = !!broadcastToken;
@@ -308,6 +310,7 @@ export function DJProfileChatPanel({
     isOwner,
     broadcastToken,
     broadcastSlotId,
+    currentShowStartTime,
   });
 
   const [inputValue, setInputValue] = useState('');
