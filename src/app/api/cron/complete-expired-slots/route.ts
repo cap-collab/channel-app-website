@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { EgressClient, IngressClient, IngressInput, RoomServiceClient } from 'livekit-server-sdk';
-import { SegmentedFileOutput, SegmentedFileProtocol, S3Upload } from '@livekit/protocol';
+import { EgressClient, IngressClient, RoomServiceClient } from 'livekit-server-sdk';
 import { ROOM_NAME } from '@/types/broadcast';
 
 // LiveKit server configuration
@@ -9,12 +8,9 @@ const livekitHost = process.env.LIVEKIT_URL?.replace('wss://', 'https://') || ''
 const apiKey = process.env.LIVEKIT_API_KEY || '';
 const apiSecret = process.env.LIVEKIT_API_SECRET || '';
 
-// R2 config (S3-compatible) for HLS egress
-const r2AccountId = process.env.R2_ACCOUNT_ID || '';
-const r2AccessKey = process.env.R2_ACCESS_KEY_ID || '';
-const r2SecretKey = process.env.R2_SECRET_ACCESS_KEY || '';
-const r2Bucket = process.env.R2_BUCKET_NAME || '';
-const r2Endpoint = `https://${r2AccountId}.r2.cloudflarestorage.com`;
+// App URL for internal API calls
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
+const cronSecret = process.env.CRON_SECRET || '';
 
 // Verify request is from Vercel Cron
 function verifyCronRequest(request: NextRequest): boolean {
@@ -57,11 +53,6 @@ export async function GET(request: NextRequest) {
       .where('broadcastType', '==', 'restream')
       .get();
 
-    // Initialize IngressClient for restream URL ingress
-    const ingressClient = (livekitHost && apiKey && apiSecret)
-      ? new IngressClient(livekitHost, apiKey, apiSecret)
-      : null;
-
     for (const restreamDoc of restreamSnapshot.docs) {
       try {
         const slot = restreamDoc.data();
@@ -74,74 +65,34 @@ export async function GET(request: NextRequest) {
         // Skip if already live AND already has ingress set up
         if (slot.status === 'live' && slot.restreamIngressId) continue;
 
-          // Create a URL ingress to push the archive audio into the LiveKit room,
-          // then start an HLS egress so mobile/Safari listeners can hear it too.
-          if (ingressClient && slot.archiveRecordingUrl) {
-            try {
-              const ingress = await ingressClient.createIngress(
-                IngressInput.URL_INPUT,
-                {
-                  name: `restream-${restreamDoc.id}`,
-                  roomName: ROOM_NAME,
-                  participantIdentity: `restream-${restreamDoc.id}`,
-                  participantName: slot.showName || 'Restream',
-                  url: slot.archiveRecordingUrl,
-                }
-              );
-              console.log(`Restream ingress created: ${ingress.ingressId}`);
-
-              // Start HLS egress to write stream segments to R2
-              let hlsEgressId: string | null = null;
-              if (r2AccessKey && r2SecretKey) {
-                try {
-                  const egressClient = new EgressClient(livekitHost, apiKey, apiSecret);
-                  const s3Upload = new S3Upload({
-                    accessKey: r2AccessKey,
-                    secret: r2SecretKey,
-                    bucket: r2Bucket,
-                    region: 'auto',
-                    endpoint: r2Endpoint,
-                    forcePathStyle: true,
-                  });
-                  const segmentOutput = new SegmentedFileOutput({
-                    protocol: SegmentedFileProtocol.HLS_PROTOCOL,
-                    filenamePrefix: `${ROOM_NAME}/stream`,
-                    playlistName: 'playlist.m3u8',
-                    livePlaylistName: 'live.m3u8',
-                    segmentDuration: 2,
-                    output: { case: 's3', value: s3Upload },
-                  });
-                  const hlsEgress = await egressClient.startRoomCompositeEgress(
-                    ROOM_NAME,
-                    { segments: segmentOutput },
-                    { audioOnly: true }
-                  );
-                  hlsEgressId = hlsEgress.egressId;
-                  console.log(`Restream HLS egress started: ${hlsEgressId}`);
-                } catch (egressErr) {
-                  console.error(`Error starting HLS egress for restream ${restreamDoc.id}:`, egressErr);
-                }
-              }
-
-              // Save ingress + egress IDs so we can clean them up when the slot ends
-              await restreamDoc.ref.update({
-                status: 'live',
-                restreamIngressId: ingress.ingressId,
-                ...(hlsEgressId ? { restreamEgressId: hlsEgressId } : {}),
-              });
-              console.log(`Restream slot ${restreamDoc.id} activated with ingress ${ingress.ingressId}`);
-            } catch (ingressErr) {
-              const errMsg = ingressErr instanceof Error ? ingressErr.message : String(ingressErr);
-              console.error(`Error creating ingress for restream ${restreamDoc.id}:`, ingressErr);
-              restreamErrors.push(`ingress failed for ${restreamDoc.id}: ${errMsg}`);
+        // Call the start-restream endpoint to create ingress + egress
+        try {
+          const res = await fetch(`${appUrl}/api/broadcast/start-restream`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${cronSecret}`,
+            },
+            body: JSON.stringify({ slotId: restreamDoc.id }),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            console.log(`Restream ${restreamDoc.id} started: ingress=${data.ingressId} egress=${data.egressId}`);
+          } else {
+            restreamErrors.push(`${restreamDoc.id}: ${data.error}`);
+            // Still set to live so the player shows up (audio will be missing though)
+            if (slot.status === 'scheduled') {
               await restreamDoc.ref.update({ status: 'live' });
             }
-          } else {
-            const reason = !ingressClient ? 'no LiveKit config' : 'no archiveRecordingUrl';
-            restreamErrors.push(`skipped ${restreamDoc.id}: ${reason}`);
+          }
+        } catch (fetchErr) {
+          const errMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+          restreamErrors.push(`${restreamDoc.id}: fetch failed: ${errMsg}`);
+          if (slot.status === 'scheduled') {
             await restreamDoc.ref.update({ status: 'live' });
           }
-          restreamActivatedCount++;
+        }
+        restreamActivatedCount++;
       } catch (err) {
         console.error(`Error activating restream ${restreamDoc.id}:`, err);
       }
@@ -182,8 +133,9 @@ export async function GET(request: NextRequest) {
         // Clean up LiveKit resources when slot ends
         if (slot.status === 'live') {
           // Clean up restream ingress + egress if this was a restream
-          if (slot.restreamIngressId && ingressClient) {
+          if (slot.restreamIngressId && livekitHost && apiKey && apiSecret) {
             try {
+              const ingressClient = new IngressClient(livekitHost, apiKey, apiSecret);
               await ingressClient.deleteIngress(slot.restreamIngressId);
               console.log(`Deleted restream ingress ${slot.restreamIngressId} for slot ${doc.id}`);
             } catch (e) {
