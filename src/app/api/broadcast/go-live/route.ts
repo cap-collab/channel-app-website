@@ -74,33 +74,66 @@ export async function POST(request: NextRequest) {
     }
 
     // Determine liveDjUsername based on login status and existing chatUsername
-    // Rule: Logged-in users MUST use their chatUsername (or register a new one)
+    // Rule: Use the slot's linked DJ profile, falling back to the logged-in user
     if (djUserId) {
-      // User is logged in - check if they have an existing chatUsername
+      // User is logged in - get their profile
       const userRef = db.collection('users').doc(djUserId);
       const userDoc = await userRef.get();
       const userData = userDoc.data();
       const existingChatUsername = userData?.chatUsername;
 
-      // Extract DJ profile data - PRIORITY: DJ slot profile > logged-in user profile
-      // This ensures venue broadcasts use the pre-configured DJ info, not whoever logs in
-      const djBio = currentDjSlot?.djBio || userData?.djProfile?.bio || null;
-      const djPhotoUrl = currentDjSlot?.djPhotoUrl || userData?.djProfile?.photoUrl || null;
-      const djPromoText = currentDjSlot?.djPromoText || currentDjSlot?.promoText || userData?.djProfile?.promoText || null;
-      const djPromoHyperlink = currentDjSlot?.djPromoHyperlink || currentDjSlot?.promoHyperlink || userData?.djProfile?.promoHyperlink || null;
-      const djThankYouMessage = currentDjSlot?.djThankYouMessage || userData?.djProfile?.thankYouMessage || null;
+      // Look up the slot's linked DJ profile (may differ from the logged-in user)
+      // The slot links to a DJ by djUserId or djEmail — use that profile for broadcast info
+      let slotDjProfile: Record<string, unknown> | null = null;
+      let slotDjChatUsername: string | null = null;
+      const slotDjUserId = slot.djUserId;
+      const slotDjEmail = slot.djEmail;
 
-      // For username: use DJ slot's djUsername if available, then existingChatUsername, then djName
+      if (slotDjUserId && slotDjUserId !== djUserId) {
+        // Slot's DJ is different from the logged-in user — look up their profile
+        const slotDjDoc = await db.collection('users').doc(slotDjUserId).get();
+        if (slotDjDoc.exists) {
+          const slotDjData = slotDjDoc.data();
+          slotDjProfile = slotDjData?.djProfile || null;
+          slotDjChatUsername = slotDjData?.chatUsername || null;
+          console.log('[go-live] Found slot DJ profile by userId:', { slotDjUserId, chatUsername: slotDjChatUsername });
+        }
+      } else if (slotDjEmail && !slotDjProfile) {
+        // Try looking up by email
+        const slotDjByEmail = await db.collection('users')
+          .where('email', '==', slotDjEmail)
+          .limit(1)
+          .get();
+        if (!slotDjByEmail.empty) {
+          const slotDjData = slotDjByEmail.docs[0].data();
+          slotDjProfile = slotDjData?.djProfile || null;
+          slotDjChatUsername = slotDjData?.chatUsername || null;
+          console.log('[go-live] Found slot DJ profile by email:', { slotDjEmail, chatUsername: slotDjChatUsername });
+        }
+      }
+
+      // Extract DJ profile data - PRIORITY: DJ slot config > slot's linked DJ profile > logged-in user profile
+      const djBio = currentDjSlot?.djBio || (slotDjProfile as Record<string, unknown> | null)?.bio || userData?.djProfile?.bio || null;
+      const djPhotoUrl = currentDjSlot?.djPhotoUrl || (slotDjProfile as Record<string, unknown> | null)?.photoUrl || userData?.djProfile?.photoUrl || null;
+      const djPromoText = currentDjSlot?.djPromoText || currentDjSlot?.promoText || (slotDjProfile as Record<string, unknown> | null)?.promoText || userData?.djProfile?.promoText || null;
+      const djPromoHyperlink = currentDjSlot?.djPromoHyperlink || currentDjSlot?.promoHyperlink || (slotDjProfile as Record<string, unknown> | null)?.promoHyperlink || userData?.djProfile?.promoHyperlink || null;
+      const djThankYouMessage = currentDjSlot?.djThankYouMessage || (slotDjProfile as Record<string, unknown> | null)?.thankYouMessage || userData?.djProfile?.thankYouMessage || null;
+
+      // For username: DJ slot > slot's linked DJ chatUsername > logged-in user chatUsername
       const slotUsername = currentDjSlot?.djUsername || currentDjSlot?.djName;
 
       if (slotUsername) {
         // Venue broadcast: use the pre-configured DJ slot username
         updateData.liveDjUsername = slotUsername;
         console.log('[go-live] Using DJ slot username:', { djUserId, slotUsername });
+      } else if (slotDjChatUsername) {
+        // Slot's linked DJ has a chatUsername — use it
+        updateData.liveDjUsername = slotDjChatUsername;
+        console.log('[go-live] Using slot DJ chatUsername:', { slotDjChatUsername });
       } else if (existingChatUsername) {
-        // User already has a chatUsername - use it (ignore form input)
+        // Fall back to logged-in user's chatUsername
         updateData.liveDjUsername = existingChatUsername;
-        console.log('[go-live] Using existing chatUsername:', { djUserId, chatUsername: existingChatUsername });
+        console.log('[go-live] Using logged-in user chatUsername:', { djUserId, chatUsername: existingChatUsername });
       } else if (djUsername) {
         // User doesn't have chatUsername - must register the one they provided
         const normalizedHandle = djUsername.trim().replace(/\s+/g, '').toLowerCase();
@@ -138,8 +171,10 @@ export async function POST(request: NextRequest) {
 
       updateData.liveDjUserId = djUserId;
 
-      // Set chatUsername for profile URL (only if user has one)
-      if (existingChatUsername) {
+      // Set chatUsername for profile URL — prioritize slot's linked DJ
+      if (slotDjChatUsername) {
+        updateData.liveDjChatUsername = slotDjChatUsername;
+      } else if (existingChatUsername) {
         updateData.liveDjChatUsername = existingChatUsername;
       } else if (djUsername) {
         // They just registered this username
