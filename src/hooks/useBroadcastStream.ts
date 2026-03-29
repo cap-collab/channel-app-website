@@ -248,6 +248,9 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
           // No live slot — enter grace period if we were playing
           if (isPlayingRef.current || roomRef.current || hlsRef.current) {
             wasPlayingRef.current = true;
+            // Invalidate cached token — next play() should fetch a fresh one
+            cachedToken = null;
+            tokenFetchPromise = null;
             if (!graceTimerRef.current) {
               console.log('🔄 Show transition: entering 60s grace period (keeping connection alive)');
               graceTimerRef.current = setTimeout(() => {
@@ -383,6 +386,18 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
 
     setIsLoading(true);
     setError(null);
+
+    // Clean up any existing connections first (e.g. from a previous show during grace period)
+    if (roomRef.current) {
+      console.log('🎵 Cleaning up existing WebRTC room before reconnecting');
+      roomRef.current.disconnect();
+      roomRef.current = null;
+    }
+    if (hlsRef.current) {
+      console.log('🎵 Cleaning up existing HLS instance before reconnecting');
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
 
     const useHLS = shouldUseHLS();
     console.log('🎵 Starting playback - useHLS:', useHLS);
@@ -565,10 +580,21 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
         });
       }
 
-      // If no tracks yet, we're waiting for the DJ to start streaming
+      // If no tracks yet, we're waiting for the DJ/ingress to start streaming
+      // Retry after 5s if still no audio (e.g. restream ingress not ready yet)
       if (room.remoteParticipants.size === 0) {
         console.log('🎵 No participants yet, waiting for DJ...');
-        // Keep loading state until we get a track
+        const retryTimer = setTimeout(() => {
+          if (roomRef.current === room && !isPlayingRef.current) {
+            console.log('🎵 No tracks received after 5s, retrying connection...');
+            room.disconnect();
+            roomRef.current = null;
+            cachedToken = null;
+            tokenFetchPromise = null;
+            play();
+          }
+        }, 5000);
+        room.once(RoomEvent.Disconnected, () => clearTimeout(retryTimer));
       }
 
     } catch (err) {
@@ -627,15 +653,16 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
   // automatically call play() if the user was previously playing
   useEffect(() => {
     if (autoResumePending && isLive && !isPlaying && !isLoading) {
-      console.log('🔄 Auto-resuming playback now');
       setAutoResumePending(false);
-      // Small delay to let the new stream stabilize (e.g. restream ingress starting)
+      // Restreams need more time for the URL ingress to start publishing audio
+      const delay = currentShow?.broadcastType === 'restream' ? 5000 : 1500;
+      console.log(`🔄 Auto-resuming playback in ${delay}ms (${currentShow?.broadcastType || 'live'})`);
       const timer = setTimeout(() => {
         play();
-      }, 1500);
+      }, delay);
       return () => clearTimeout(timer);
     }
-  }, [autoResumePending, isLive, isPlaying, isLoading, play]);
+  }, [autoResumePending, isLive, isPlaying, isLoading, play, currentShow]);
 
   // Update lock screen / control center metadata via Media Session API
   useEffect(() => {
