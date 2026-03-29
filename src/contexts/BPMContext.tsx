@@ -13,7 +13,7 @@ interface BPMContextType {
   loading: boolean;
 }
 
-const BPMContext = createContext<BPMContextType>({
+export const BPMContext = createContext<BPMContextType>({
   stationBPM: {},
   loading: true,
 });

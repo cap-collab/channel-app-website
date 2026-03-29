@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect, ReactNode } from 'react';
 import { BroadcastStreamContext, BroadcastStreamContextValue } from '@/contexts/BroadcastStreamContext';
+import { BPMContext } from '@/contexts/BPMContext';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
 
 export type DemoMode = 'offline' | 'live' | 'restream';
@@ -179,11 +180,20 @@ export function DemoBroadcastStreamProvider({ children }: { children: ReactNode 
 
   const modeCtx = useMemo(() => ({ mode, setMode }), [mode]);
 
+  const demoBPM = useMemo(() => ({
+    stationBPM: {
+      broadcast: { bpm: 128, type: 'bpm' as const, genre: 'House' },
+    },
+    loading: false,
+  }), []);
+
   return (
     <DemoModeContext.Provider value={modeCtx}>
-      <BroadcastStreamContext.Provider value={value}>
-        {children}
-      </BroadcastStreamContext.Provider>
+      <BPMContext.Provider value={demoBPM}>
+        <BroadcastStreamContext.Provider value={value}>
+          {children}
+        </BroadcastStreamContext.Provider>
+      </BPMContext.Provider>
     </DemoModeContext.Provider>
   );
 }

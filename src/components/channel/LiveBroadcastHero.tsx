@@ -534,15 +534,8 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
         <div className="flex items-center justify-end gap-1.5 mb-2">
           {isRestream ? (
             <>
-              <span className="flex h-3 w-3">
-                <svg className="animate-pulse w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                  <path d="M3 3v5h5" />
-                </svg>
-              </span>
-              <span className="text-[10px] font-mono text-gray-400 uppercase tracking-tighter font-bold">Restream</span>
               {broadcastBPM && (
-                <span className="text-[10px] font-mono text-gray-400 uppercase tracking-tighter font-bold">{broadcastBPM} BPM</span>
+                <span className="text-xs font-mono text-gray-500 uppercase tracking-tighter font-bold">{broadcastBPM} BPM</span>
               )}
             </>
           ) : (
@@ -551,9 +544,9 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
               </span>
-              <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">Live</span>
+              <span className="text-xs font-mono text-red-500 uppercase tracking-tighter font-bold">Live</span>
               {broadcastBPM && (
-                <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">{broadcastBPM} BPM</span>
+                <span className="text-xs font-mono text-red-500 uppercase tracking-tighter font-bold">{broadcastBPM} BPM</span>
               )}
             </>
           )}
@@ -685,21 +678,14 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
 
             {/* Live/Restream indicator + BPM */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              {isRestream ? (
-                <span className="flex h-3 w-3">
-                  <svg className="animate-pulse w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                    <path d="M3 3v5h5" />
-                  </svg>
-                </span>
-              ) : (
+              {!isRestream && (
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
                 </span>
               )}
               {broadcastBPM && (
-                <span className={`text-[10px] font-mono uppercase tracking-tighter font-bold ${isRestream ? 'text-gray-500' : 'text-red-500'}`}>
+                <span className={`text-xs font-mono uppercase tracking-tighter font-bold ${isRestream ? 'text-gray-500' : 'text-red-500'}`}>
                   {broadcastBPM} BPM
                 </span>
               )}
@@ -787,7 +773,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
 
         {/* Tab Content */}
         {activeTab === 'chat' ? (
-          <div className={`flex flex-col ${hasRecentMessages ? 'h-[45vh] lg:h-[38vh]' : 'h-[22vh] lg:h-[18vh]'}`}>
+          <div className={`flex flex-col ${hasRecentMessages ? 'h-[45vh] lg:h-[38vh]' : 'h-[29vh] lg:h-[23vh]'}`}>
             {/* Promo bar */}
             {promoToShow && promoToShow.username && (() => {
               const hasHyperlink = !!promoToShow.hyperlink;
@@ -920,7 +906,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
             )}
           </div>
         ) : (
-          <div className="py-4 overflow-y-auto h-[22vh] lg:h-[18vh]">
+          <div className="py-4 overflow-y-auto h-[29vh] lg:h-[23vh]">
             <BroadcastSchedule
               shows={scheduleShows}
               selectedDate={selectedDate}
