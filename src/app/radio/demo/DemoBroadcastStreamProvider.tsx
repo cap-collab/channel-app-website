@@ -64,7 +64,7 @@ export function DemoBroadcastStreamProvider({ children }: { children: ReactNode 
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [heroBarVisible, setHeroBarVisible] = useState(true);
+  const [heroBarVisible, setHeroBarVisible] = useState(false);
   const [heroBarObserverReady, setHeroBarObserverReady] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -146,7 +146,7 @@ export function DemoBroadcastStreamProvider({ children }: { children: ReactNode 
     }
   }, [isPlaying, play, pause]);
 
-  const setHeroBarVisibleCb = useCallback((v: boolean) => setHeroBarVisible(v), []);
+  const setHeroBarVisibleCb = useCallback((_v: boolean) => {}, []);
   const setHeroBarObserverReadyCb = useCallback((v: boolean) => setHeroBarObserverReady(v), []);
 
   const isLive = mode !== 'offline';

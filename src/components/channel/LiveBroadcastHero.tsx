@@ -534,8 +534,15 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
         <div className="flex items-center justify-end gap-1.5 mb-2">
           {isRestream ? (
             <>
+              <span className="flex h-3 w-3">
+                <svg className="animate-pulse w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                  <path d="M3 3v5h5" />
+                </svg>
+              </span>
+              <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">Restream</span>
               {broadcastBPM && (
-                <span className="text-xs font-mono text-gray-500 uppercase tracking-tighter font-bold">{broadcastBPM} BPM</span>
+                <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">{broadcastBPM} BPM</span>
               )}
             </>
           ) : (
