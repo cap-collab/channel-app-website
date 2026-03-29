@@ -268,15 +268,17 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
     e.preventDefault();
     setError(null);
 
-    // Validate username
-    const usernameError = validateUsername(username);
-    if (usernameError) {
-      setError(usernameError);
-      return;
+    // Validate username (skip if defaultUsername is set from the broadcast slot)
+    if (!defaultUsername) {
+      const usernameError = validateUsername(username);
+      if (usernameError) {
+        setError(usernameError);
+        return;
+      }
     }
 
     // For logged-in remote DJs without chatUsername, check username availability
-    if (needsUsernameCheck) {
+    if (!defaultUsername && needsUsernameCheck) {
       if (checkingUsername) {
         setError('Please wait while we check DJ name availability');
         return;
@@ -317,7 +319,8 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
     // No API call needed - username will be saved when going live
     // This allows the flow to work without Firebase Admin SDK
     const normalizedHyperlink = promoHyperlink ? normalizeUrl(promoHyperlink) : undefined;
-    onComplete(username.trim(), promoText.trim() || undefined, normalizedHyperlink, thankYouMessage.trim() || undefined);
+    const djName = defaultUsername || username.trim();
+    onComplete(djName, promoText.trim() || undefined, normalizedHyperlink, thankYouMessage.trim() || undefined);
   };
 
   // Show loading state while fetching user profile
@@ -345,73 +348,15 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
           </div>
         )}
 
-        {/* Username - locked for logged-in remote DJs, editable for venue DJs and guests */}
-        <div>
-          <label htmlFor="username" className="block text-gray-400 text-sm mb-2">
-            DJ Name {!isUsernameLocked && <span className="text-red-400">*</span>}
-          </label>
-          {isUsernameLocked ? (
-            // Read-only for logged-in remote DJs with existing chatUsername
-            <div className="w-full bg-gray-800/50 text-white border border-gray-700 rounded-lg px-4 py-3">
-              {savedUsername}
-            </div>
-          ) : (
-            // Editable for venue DJs, guests, and logged-in DJs without chatUsername
-            <div className="relative">
-              <input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="YourDJName"
-                className={`w-full bg-gray-800 text-white border rounded-lg px-4 py-3 focus:outline-none ${
-                  needsUsernameCheck && usernameAvailable === false
-                    ? 'border-red-500 focus:border-red-500'
-                    : needsUsernameCheck && usernameAvailable === true
-                    ? 'border-green-500 focus:border-green-500'
-                    : 'border-gray-700 focus:border-gray-500'
-                }`}
-                maxLength={20}
-                required
-              />
-              {/* Username availability indicator for logged-in users */}
-              {needsUsernameCheck && username.trim().length >= 2 && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  {checkingUsername ? (
-                    <div className="w-5 h-5 border-2 border-gray-500 border-t-white rounded-full animate-spin" />
-                  ) : usernameAvailable === true ? (
-                    <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : usernameAvailable === false ? (
-                    <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  ) : null}
-                </div>
-              )}
-            </div>
-          )}
-          <p className={`text-xs mt-1 ${
-            needsUsernameCheck && usernameCheckError ? 'text-red-400' : 'text-gray-500'
-          }`}>
-            {isUsernameLocked
-              ? 'This is your Channel DJ name'
-              : needsUsernameCheck && usernameCheckError
-              ? usernameCheckError
-              : needsUsernameCheck && usernameAvailable
-              ? 'DJ name is available!'
-              : needsUsernameCheck
-              ? 'This will be your DJ name in chat'
-              : '2-20 characters, letters, numbers, and spaces'
-            }
-          </p>
-        </div>
+        {/* DJ Name - plain text title using the name from the broadcast slot */}
+        <h2 className="text-2xl font-bold text-white">
+          You are live streaming as <span className="text-accent">{defaultUsername || username.trim() || 'DJ'}</span>
+        </h2>
 
         {/* Broadcast/Recording Permissions Confirmation */}
         <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
           <p className="text-gray-300 text-sm mb-3">
-            I confirm that I am the DJ (or authorized representative) known as <span className="text-white font-medium">{username.trim() || 'DJName'}</span>, under whose name this {broadcastType === 'recording' ? 'recording' : 'broadcast'} is being made.
+            I confirm that I am the DJ (or authorized representative) known as <span className="text-white font-medium">{defaultUsername || username.trim() || 'DJName'}</span>, under whose name this {broadcastType === 'recording' ? 'recording' : 'broadcast'} is being made.
           </p>
           <p className="text-gray-300 text-sm mb-3">
             By starting this {broadcastType === 'recording' ? 'recording' : 'broadcast'}, I represent and warrant that:
@@ -468,7 +413,7 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
 
         <button
           type="submit"
-          disabled={!username.trim() || !permissionsConfirmed}
+          disabled={!(defaultUsername || username.trim()) || !permissionsConfirmed}
           className="w-full bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg transition-colors"
         >
           {broadcastType === 'recording' ? 'Continue to Record' : 'Continue to Go Live'}
