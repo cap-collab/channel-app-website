@@ -37,7 +37,7 @@ export default function About() {
       <section className="min-h-screen flex flex-col justify-center items-center px-6 pt-24 pb-20 relative bg-[#1a1a1a]">
         <div className="max-w-3xl text-center">
           <h1 className="text-2xl md:text-4xl lg:text-5xl font-black text-white mb-6 uppercase tracking-tighter leading-none">
-            Platform for electronic music communities, curated in LA.
+            Platform for electronic music communities.
           </h1>
 
           <p className="text-lg md:text-xl text-zinc-400 mb-12 max-w-xl mx-auto leading-relaxed">
@@ -45,12 +45,6 @@ export default function About() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-stretch">
-            <Link
-              href="/radio"
-              className="inline-flex items-center justify-center bg-white text-black px-10 py-4 rounded text-lg font-semibold hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(255,255,255,0.15)] transition-all"
-            >
-              Open Channel Radio
-            </Link>
             <EmailSignup />
           </div>
         </div>
@@ -71,6 +65,48 @@ export default function About() {
             />
           </svg>
         </div>
+      </section>
+
+      {/* My Purpose Section */}
+      <section id="my-purpose" className="py-24 px-6 bg-black">
+        <ScrollReveal>
+          <div className="max-w-3xl mx-auto">
+            <h2 className="text-3xl md:text-4xl font-semibold text-white mb-8 text-center">
+              My Purpose
+            </h2>
+
+            <div className="space-y-6 text-zinc-400 leading-relaxed">
+              <p>
+                My name is Cap. I&apos;m building Channel out of love for DJ culture and the communities that make it so special.
+              </p>
+
+              <p>
+                After moving from France to New York to Los Angeles, I realized how hard it can be to stay connected with DJs, producers, curators, and dancers shaping your community, on and beyond the dancefloor. This diverse and constantly evolving ecosystem deserves better tools — to support artists, strengthen communities, and make it easier to find and follow the sounds and people you care about.
+              </p>
+
+              <p>
+                I&apos;m looking to connect with music heads of all kinds. Whether you want to collaborate, give feedback, host a show, share your work, find your people, or just chat, I&apos;d love to hear from you.
+              </p>
+
+              <p>
+                Channel is growing, and I&apos;m especially interested in conversations around programming, community support, and building a healthy, sustainable ecosystem across every niche and taste.
+              </p>
+
+              <p>
+                If any of this resonates, reach out. I&apos;d love to connect.
+              </p>
+            </div>
+
+            <div className="mt-10 text-center">
+              <Link
+                href="/radio"
+                className="inline-block bg-white text-black px-10 py-4 rounded text-lg font-semibold hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(255,255,255,0.15)] transition-all"
+              >
+                Discover Channel Radio
+              </Link>
+            </div>
+          </div>
+        </ScrollReveal>
       </section>
 
       {/* Mobile mockup preview */}
@@ -171,48 +207,6 @@ export default function About() {
         </ScrollReveal>
       </section>
 
-      {/* Get Involved Section */}
-      <section id="get-involved" className="py-24 px-6 bg-black">
-        <ScrollReveal>
-          <div className="max-w-3xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-semibold text-white mb-8 text-center">
-              Get Involved
-            </h2>
-
-            <div className="space-y-6 text-zinc-400 leading-relaxed">
-              <p>
-                My name is Cap. I&apos;m building Channel out of love for DJ culture and the communities that make it so special.
-              </p>
-
-              <p>
-                After moving from France to New York to Los Angeles, I realized how hard it can be to stay connected with DJs, producers, curators, and dancers shaping your community, on and beyond the dancefloor. This diverse and constantly evolving ecosystem deserves better tools — to support artists, strengthen communities, and make it easier to find and follow the sounds and people you care about.
-              </p>
-
-              <p>
-                I&apos;m looking to connect with music heads of all kinds. Whether you want to collaborate, give feedback, host a show, share your work, find your people, or just chat, I&apos;d love to hear from you.
-              </p>
-
-              <p>
-                Channel is growing, and I&apos;m especially interested in conversations around programming, community support, and building a healthy, sustainable ecosystem across every niche and taste.
-              </p>
-
-              <p>
-                If any of this resonates, reach out. I&apos;d love to connect.
-              </p>
-            </div>
-
-            <div className="mt-10 text-center">
-              <a
-                href="mailto:info@channel-app.com"
-                className="inline-block bg-white text-black px-10 py-4 rounded text-lg font-semibold hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(255,255,255,0.15)] transition-all"
-              >
-                Contact me
-              </a>
-            </div>
-          </div>
-        </ScrollReveal>
-      </section>
-
       {/* Footer */}
       <footer className="py-24 px-6 bg-[#1a1a1a]">
         <div className="max-w-3xl mx-auto text-center">
@@ -221,7 +215,7 @@ export default function About() {
               Still have questions?
             </h3>
             <p className="text-zinc-400 mb-10">
-              Email us anytime:{" "}
+              Email me anytime:{" "}
               <a
                 href="mailto:info@channel-app.com"
                 className="text-white hover:text-gray-300 transition-colors"
