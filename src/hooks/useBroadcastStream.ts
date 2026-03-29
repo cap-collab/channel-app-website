@@ -399,8 +399,10 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
       hlsRef.current = null;
     }
 
-    const useHLS = shouldUseHLS();
-    console.log('🎵 Starting playback - useHLS:', useHLS);
+    // Restreams use URL ingress → HLS egress; the ingress participant doesn't
+    // reliably expose tracks to WebRTC subscribers, so always use HLS for restreams.
+    const useHLS = shouldUseHLS() || currentShow?.broadcastType === 'restream';
+    console.log('🎵 Starting playback - useHLS:', useHLS, 'broadcastType:', currentShow?.broadcastType || 'live');
 
     // Create audio element if needed
     if (!audioElementRef.current) {
@@ -539,9 +541,14 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
 
       room.on(RoomEvent.Disconnected, () => {
         console.log('🎵 Disconnected from LiveKit room');
-        setIsPlaying(false);
-        setIsLoading(false);
-        roomRef.current = null;
+        // Only update state if this room is still the active one.
+        // When play() cleans up an old room before reconnecting, the old
+        // room's Disconnected event should not reset playback state.
+        if (roomRef.current === room) {
+          setIsPlaying(false);
+          setIsLoading(false);
+          roomRef.current = null;
+        }
       });
 
       room.on(RoomEvent.ParticipantConnected, (participant) => {
@@ -580,21 +587,10 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
         });
       }
 
-      // If no tracks yet, we're waiting for the DJ/ingress to start streaming
-      // Retry after 5s if still no audio (e.g. restream ingress not ready yet)
+      // If no tracks yet, we're waiting for the DJ to start streaming
+      // (Restreams now use HLS, so this only applies to live broadcasts)
       if (room.remoteParticipants.size === 0) {
         console.log('🎵 No participants yet, waiting for DJ...');
-        const retryTimer = setTimeout(() => {
-          if (roomRef.current === room && !isPlayingRef.current) {
-            console.log('🎵 No tracks received after 5s, retrying connection...');
-            room.disconnect();
-            roomRef.current = null;
-            cachedToken = null;
-            tokenFetchPromise = null;
-            play();
-          }
-        }, 5000);
-        room.once(RoomEvent.Disconnected, () => clearTimeout(retryTimer));
       }
 
     } catch (err) {
