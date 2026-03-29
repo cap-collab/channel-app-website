@@ -56,7 +56,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Single-DJ show: look up profile by djUserId or djEmail
-    const djUserId = slotData.liveDjUserId || slotData.djUserId;
+    // Use the slot's configured DJ (djUserId), NOT liveDjUserId (which is whoever logged in to broadcast)
+    const djUserId = slotData.djUserId;
     const djEmail = slotData.djEmail;
 
     // Try user profile first
