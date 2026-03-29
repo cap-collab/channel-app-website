@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
     let missedCount = 0;
     let disconnectedCount = 0;
     let restreamActivatedCount = 0;
+    const restreamErrors: string[] = [];
 
     // Initialize LiveKit client if configured
     const roomService = (livekitHost && apiKey && apiSecret)
@@ -130,13 +131,15 @@ export async function GET(request: NextRequest) {
               });
               console.log(`Restream slot ${restreamDoc.id} activated with ingress ${ingress.ingressId}`);
             } catch (ingressErr) {
+              const errMsg = ingressErr instanceof Error ? ingressErr.message : String(ingressErr);
               console.error(`Error creating ingress for restream ${restreamDoc.id}:`, ingressErr);
+              restreamErrors.push(`ingress failed for ${restreamDoc.id}: ${errMsg}`);
               await restreamDoc.ref.update({ status: 'live' });
-              console.log(`Restream slot ${restreamDoc.id} activated (set to live, ingress failed)`);
             }
           } else {
+            const reason = !ingressClient ? 'no LiveKit config' : 'no archiveRecordingUrl';
+            restreamErrors.push(`skipped ${restreamDoc.id}: ${reason}`);
             await restreamDoc.ref.update({ status: 'live' });
-            console.log(`Restream slot ${restreamDoc.id} activated (set to live, no ingress client or no archive URL)`);
           }
           restreamActivatedCount++;
       } catch (err) {
@@ -226,6 +229,7 @@ export async function GET(request: NextRequest) {
       missed: missedCount,
       disconnected: disconnectedCount,
       restreamActivated: restreamActivatedCount,
+      restreamErrors: restreamErrors.length > 0 ? restreamErrors : undefined,
       totalProcessed: completedCount + missedCount,
     });
   } catch (error) {
