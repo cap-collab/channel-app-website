@@ -362,7 +362,8 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
   // Check if any message arrived in the last hour
   const hasRecentMessages = messages.length > 0 && (Date.now() - messages[messages.length - 1].timestamp) < 3600000;
 
-  // Track player bar visibility — GlobalBroadcastBar shows when this scrolls out of view
+  // Track player bar visibility — GlobalBroadcastBar shows when this scrolls out of view.
+  // Re-run when `mounted` changes so the observer attaches after the ref element renders.
   useEffect(() => {
     const el = stickyBarRef.current;
     if (!el) return;
@@ -378,7 +379,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
       setHeroBarVisible(false);
       setHeroBarObserverReady(false);
     };
-  }, [setHeroBarVisible, setHeroBarObserverReady]);
+  }, [mounted, setHeroBarVisible, setHeroBarObserverReady]);
 
   // DJ info from current show
   // For restreams, also check the primary DJ's photo from restreamDjs
@@ -525,7 +526,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
   if (!mounted || !isLive || !isStreaming || !currentShow) return null;
 
   return (
-    <section id="live" className="relative z-10 px-4 pt-6 pb-2">
+    <section id="live" className="relative z-10 px-4 pt-6 pb-8">
       <div className="max-w-3xl mx-auto">
 
         {/* Live/Restream status line above image */}
