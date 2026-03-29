@@ -538,15 +538,16 @@ export function DJPublicProfileClient({ username }: Props) {
       show.additionalDjUsernames?.includes(normalizedProfileUsername);
 
     // Use real-time broadcastIsLive from BroadcastStreamContext (Firestore onSnapshot)
-    // instead of show.type === "live" from the cached ScheduleContext, which may be stale
-    const channelShow = allShows.find(
-      (show) =>
-        show.stationId === "broadcast" &&
-        (show.type === "live" || broadcastIsLive) &&
-        new Date(show.startTime).getTime() <= now &&
-        new Date(show.endTime).getTime() > now &&
-        matchesProfile(show)
-    );
+    // as the source of truth instead of show.type from the cached ScheduleContext
+    const channelShow = broadcastIsLive
+      ? allShows.find(
+          (show) =>
+            show.stationId === "broadcast" &&
+            new Date(show.startTime).getTime() <= now &&
+            new Date(show.endTime).getTime() > now &&
+            matchesProfile(show)
+        )
+      : null;
 
     // Only show Channel live card if slot is live AND DJ is actually streaming audio
     if (channelShow && isStreaming) {
