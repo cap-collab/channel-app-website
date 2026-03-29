@@ -58,7 +58,6 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
   // Venue DJs can always change their display name (ephemeral, shared computer)
   // Recording mode behaves like remote (DJ is at home, using their own account)
   const isRemoteDj = broadcastType === 'remote' || broadcastType === 'recording';
-  const isUsernameLocked = isAuthenticated && !!savedUsername && isRemoteDj;
 
   // Logged-in users who don't have a chatUsername must pick a unique one
   // Venue DJs and guests don't need uniqueness check (ephemeral)
