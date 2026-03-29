@@ -15,7 +15,6 @@ import { AuthModal } from "@/components/AuthModal";
 import { TipButton } from "@/components/channel/TipButton";
 import { DJProfileChatPanel } from "@/components/dj-profile/DJProfileChatPanel";
 import { useBroadcastStreamContext } from "@/contexts/BroadcastStreamContext";
-import { useDJProfileChat } from "@/hooks/useDJProfileChat";
 import { Show } from "@/types";
 import { Archive } from "@/types/broadcast";
 import { getStationById, getMetadataKeyByStationId } from "@/lib/stations";
@@ -402,14 +401,6 @@ export function DJPublicProfileClient({ username }: Props) {
   // Tab state for claimed profiles (with email)
   const [activeTab, setActiveTab] = useState<'timeline' | 'chat'>('timeline');
   const [hasSetDefaultTab, setHasSetDefaultTab] = useState(false);
-
-  // Check if chat has messages to set default tab
-  const chatNormalized = djProfile ? normalizeUsername(djProfile.chatUsername) : '';
-  const { messages: chatMessages } = useDJProfileChat({
-    chatUsernameNormalized: chatNormalized || 'noop',
-    djUsername: djProfile?.chatUsername || '',
-    enabled: !!djProfile?.email,
-  });
 
   useEffect(() => {
     if (!hasSetDefaultTab && djProfile?.email && liveOnChannel) {
