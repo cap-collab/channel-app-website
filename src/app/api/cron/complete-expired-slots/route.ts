@@ -50,9 +50,9 @@ export async function GET(request: NextRequest) {
     // Auto-activate scheduled restreams whose start time has arrived,
     // AND fix any live restreams that are missing their ingress/egress
     // (e.g. activated before the ingress code was deployed)
+    // Query by broadcastType only, filter status in code to avoid composite index requirement
     const restreamSnapshot = await db
       .collection('broadcast-slots')
-      .where('status', 'in', ['scheduled', 'live'])
       .where('broadcastType', '==', 'restream')
       .get();
 
@@ -66,6 +66,8 @@ export async function GET(request: NextRequest) {
         const slot = restreamDoc.data();
         const startTime = slot.startTime?.toMillis?.() || slot.startTime;
         const endTime = slot.endTime?.toMillis?.() || slot.endTime;
+        // Only process scheduled or live (without ingress) restreams
+        if (slot.status !== 'scheduled' && slot.status !== 'live') continue;
         // Skip if not yet started or already ended
         if (!startTime || now < startTime || now >= endTime) continue;
         // Skip if already live AND already has ingress set up
