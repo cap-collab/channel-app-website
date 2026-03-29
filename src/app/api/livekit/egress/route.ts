@@ -17,7 +17,7 @@ const r2PublicUrl = process.env.R2_PUBLIC_URL || '';
 // Start HLS + MP4 egress for a room (or MP4-only for recording mode)
 export async function POST(request: NextRequest) {
   try {
-    const { room, recordingOnly } = await request.json();
+    const { room, recordingOnly, reuseHlsEgress } = await request.json();
 
     if (!room) {
       return NextResponse.json({ error: 'Room name required' }, { status: 400 });
@@ -71,18 +71,27 @@ export async function POST(request: NextRequest) {
 
     // Standard live broadcast mode: HLS + MP4
 
-    // Stop any stale egresses from a previous session (e.g. after pause/disconnect)
-    // This prevents "egress already exists" errors when resuming
+    // Check for existing egresses. When reuseHlsEgress is true (DJ transition),
+    // keep the first active egress (the HLS stream) for seamless handoff.
+    // Otherwise stop all stale egresses (original behavior).
+    let existingHlsEgressId: string | null = null;
     try {
       const existingEgresses = await egressClient.listEgress({ roomName: room });
       for (const egress of existingEgresses) {
-        // Only stop active egresses (status 0=STARTING, 1=ACTIVE)
+        // Only process active egresses (status 0=STARTING, 1=ACTIVE)
         if (egress.status === 0 || egress.status === 1) {
-          try {
-            await egressClient.stopEgress(egress.egressId);
-            console.log('Stopped stale egress before new session:', egress.egressId);
-          } catch (stopErr) {
-            console.warn('Failed to stop stale egress (may already be stopping):', egress.egressId, stopErr);
+          if (reuseHlsEgress && !existingHlsEgressId) {
+            // Keep the first active egress (the HLS stream from previous DJ)
+            existingHlsEgressId = egress.egressId;
+            console.log('Reusing existing HLS egress for DJ transition:', egress.egressId);
+          } else {
+            // Stop stale or extra egresses
+            try {
+              await egressClient.stopEgress(egress.egressId);
+              console.log('Stopped stale egress before new session:', egress.egressId);
+            } catch (stopErr) {
+              console.warn('Failed to stop stale egress (may already be stopping):', egress.egressId, stopErr);
+            }
           }
         }
       }
@@ -91,43 +100,51 @@ export async function POST(request: NextRequest) {
       console.warn('Failed to list existing egresses:', listErr);
     }
 
-    // Create S3Upload for R2
-    const s3Upload = new S3Upload({
-      accessKey: r2AccessKey,
-      secret: r2SecretKey,
-      bucket: r2Bucket,
-      region: 'auto',
-      endpoint: r2Endpoint,
-      forcePathStyle: true,
-    });
+    // Reuse existing HLS egress if available (seamless DJ transition),
+    // otherwise create a new one
+    let hlsEgressId: string;
+    if (existingHlsEgressId) {
+      hlsEgressId = existingHlsEgressId;
+      console.log('Reusing HLS egress from previous DJ:', hlsEgressId);
+    } else {
+      // Create S3Upload for R2
+      const s3Upload = new S3Upload({
+        accessKey: r2AccessKey,
+        secret: r2SecretKey,
+        bucket: r2Bucket,
+        region: 'auto',
+        endpoint: r2Endpoint,
+        forcePathStyle: true,
+      });
 
-    // Create SegmentedFileOutput with proper protobuf structure
-    // Use 2-second segments for lower latency (minimum stable duration)
-    const segmentOutput = new SegmentedFileOutput({
-      protocol: SegmentedFileProtocol.HLS_PROTOCOL,
-      filenamePrefix: `${room}/stream`,
-      playlistName: 'playlist.m3u8',
-      livePlaylistName: 'live.m3u8',
-      segmentDuration: 2,
-      output: {
-        case: 's3',
-        value: s3Upload,
-      },
-    });
+      // Create SegmentedFileOutput with proper protobuf structure
+      // Use 2-second segments for lower latency (minimum stable duration)
+      const segmentOutput = new SegmentedFileOutput({
+        protocol: SegmentedFileProtocol.HLS_PROTOCOL,
+        filenamePrefix: `${room}/stream`,
+        playlistName: 'playlist.m3u8',
+        livePlaylistName: 'live.m3u8',
+        segmentDuration: 2,
+        output: {
+          case: 's3',
+          value: s3Upload,
+        },
+      });
 
-    // Start room composite egress for HLS streaming
-    console.log('Starting HLS egress for room:', room);
-    let hlsEgress;
-    try {
-      hlsEgress = await egressClient.startRoomCompositeEgress(
-        room,
-        { segments: segmentOutput },
-        { audioOnly: true }
-      );
-      console.log('HLS egress started:', hlsEgress.egressId);
-    } catch (hlsError) {
-      console.error('Failed to start HLS egress:', hlsError);
-      throw hlsError;
+      // Start room composite egress for HLS streaming
+      console.log('Starting HLS egress for room:', room);
+      try {
+        const hlsEgress = await egressClient.startRoomCompositeEgress(
+          room,
+          { segments: segmentOutput },
+          { audioOnly: true }
+        );
+        hlsEgressId = hlsEgress.egressId;
+        console.log('HLS egress started:', hlsEgressId);
+      } catch (hlsError) {
+        console.error('Failed to start HLS egress:', hlsError);
+        throw hlsError;
+      }
     }
 
     // Start a second egress for MP4 file recording (works on iOS/Safari + SoundCloud)
@@ -167,11 +184,12 @@ export async function POST(request: NextRequest) {
     const hlsUrl = `${r2PublicUrl}/${room}/live.m3u8`;
 
     return NextResponse.json({
-      egressId: hlsEgress.egressId,
+      egressId: hlsEgressId,
       recordingEgressId,
-      status: hlsEgress.status,
+      status: existingHlsEgressId ? 1 : 0, // 1=ACTIVE (reused), 0=STARTING (new)
       room,
       hlsUrl,
+      reusedHlsEgress: !!existingHlsEgressId,
       message: recordingEgressId ? 'HLS + MP4 recording started' : 'HLS egress started (recording failed)',
     });
 

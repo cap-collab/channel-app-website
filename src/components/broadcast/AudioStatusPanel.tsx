@@ -16,6 +16,8 @@ interface AudioStatusPanelProps {
   onChangeSource?: () => void;
   audioSourceLabel?: string | null;
   isRecordingMode?: boolean; // Show "START RECORDING" instead of "GO LIVE"
+  roomOccupied?: boolean;    // Previous DJ still broadcasting
+  roomFreeAt?: number | null; // When the previous DJ's slot ends (Unix ms)
 }
 
 export function AudioStatusPanel({
@@ -31,6 +33,8 @@ export function AudioStatusPanel({
   onChangeSource,
   audioSourceLabel,
   isRecordingMode = false,
+  roomOccupied = false,
+  roomFreeAt,
 }: AudioStatusPanelProps) {
   const level = useAudioLevel(stream);
   const hasAudioLevels = level > 0.01;
@@ -211,15 +215,26 @@ export function AudioStatusPanel({
       {!isLive ? (
         <div>
           {canGoLive ? (
-            <button
-              onClick={onGoLive}
-              disabled={isGoingLive}
-              className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg text-xl transition-colors"
-            >
-              {isGoingLive
-                ? (isRecordingMode ? 'Starting recording...' : 'Going live...')
-                : (isRecordingMode ? 'START RECORDING' : 'GO LIVE')}
-            </button>
+            <>
+              <button
+                onClick={onGoLive}
+                disabled={isGoingLive || roomOccupied}
+                className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg text-xl transition-colors"
+              >
+                {isGoingLive
+                  ? (isRecordingMode ? 'Starting recording...' : 'Going live...')
+                  : roomOccupied
+                    ? 'Previous DJ still playing'
+                    : (isRecordingMode ? 'START RECORDING' : 'GO LIVE')}
+              </button>
+              {roomOccupied && (
+                <p className="text-yellow-400/80 text-sm text-center mt-2">
+                  {roomFreeAt
+                    ? `Expected to finish at ${new Date(roomFreeAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+                    : 'Waiting for the previous broadcast to end...'}
+                </p>
+              )}
+            </>
           ) : (
             <div className="text-center">
               <p className="text-gray-500 text-sm">{goLiveMessage}</p>

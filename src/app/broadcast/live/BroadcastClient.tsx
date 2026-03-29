@@ -126,6 +126,27 @@ export function BroadcastClient() {
   const [goLiveMessage, setGoLiveMessage] = useState('');
   const [initialPromoSubmitted, setInitialPromoSubmitted] = useState(false);
   const [slotEnded, setSlotEnded] = useState(false);
+  const [roomBusy, setRoomBusy] = useState(false);
+  const [roomBusyUntil, setRoomBusyUntil] = useState<number | null>(null);
+
+  // Proactively check if room is occupied before DJ clicks Go Live
+  useEffect(() => {
+    if (!slot || broadcast.isLive || slotEnded) return;
+
+    const checkRoom = async () => {
+      try {
+        const status = await broadcast.checkRoomStatus();
+        setRoomBusy(status.isLive);
+        setRoomBusyUntil(status.currentSlotEndTime || null);
+      } catch {
+        // Network error — keep previous state
+      }
+    };
+
+    checkRoom();
+    const interval = setInterval(checkRoom, 5000);
+    return () => clearInterval(interval);
+  }, [slot, broadcast.isLive, broadcast.checkRoomStatus, slotEnded]);
 
   // Sync isLiveForDjSwitch with broadcast.isLive
   useEffect(() => {
@@ -388,18 +409,19 @@ export function BroadcastClient() {
     setIsGoingLive(false);
   }, [broadcast]);
 
-  const handleEndBroadcast = useCallback(async () => {
+  const handleEndBroadcast = useCallback(async (options?: { keepHlsEgress?: boolean }) => {
     // Stop local audio stream
     if (audioStream) {
       audioStream.getTracks().forEach(t => t.stop());
       setAudioStream(null);
     }
 
-    await broadcast.endBroadcast();
+    await broadcast.endBroadcast(options);
     broadcast.setInputMethod(null);
   }, [audioStream, broadcast]);
 
   // Auto-end broadcast when slot time expires (while live)
+  // keepHlsEgress: true so the HLS stream stays alive for seamless DJ transition
   useEffect(() => {
     if (!broadcast.isLive || !slot) return;
 
@@ -407,18 +429,18 @@ export function BroadcastClient() {
 
     if (remainingMs <= 0) {
       // Slot already expired while live
-      console.log('Slot time expired, ending broadcast');
+      console.log('Slot time expired, ending broadcast (keeping HLS for transition)');
       setSlotEnded(true);
-      handleEndBroadcast();
+      handleEndBroadcast({ keepHlsEgress: true });
       return;
     }
 
     console.log(`Broadcast will auto-end in ${Math.round(remainingMs / 1000)}s`);
 
     const timer = setTimeout(() => {
-      console.log('Slot time reached, auto-ending broadcast');
+      console.log('Slot time reached, auto-ending broadcast (keeping HLS for transition)');
       setSlotEnded(true);
-      handleEndBroadcast();
+      handleEndBroadcast({ keepHlsEgress: true });
     }, remainingMs);
 
     return () => clearTimeout(timer);
@@ -499,6 +521,9 @@ export function BroadcastClient() {
           <p className="text-gray-500 text-sm mt-4">
             Please contact the station owner for a new link.
           </p>
+          <p className="text-gray-500 text-sm mt-4">
+            Have any issue? Call Cap at 415 316 3109
+          </p>
         </div>
       </div>
     );
@@ -534,6 +559,9 @@ export function BroadcastClient() {
               Resume Broadcast
             </button>
           </div>
+          <p className="text-gray-500 text-sm text-center mt-4">
+            Have any issue? Call Cap at 415 316 3109
+          </p>
         </div>
       </div>
     );
@@ -558,6 +586,9 @@ export function BroadcastClient() {
               {slot.showName || slot.djName} · {new Date(slot.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} – {new Date(slot.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
             </p>
           )}
+          <p className="text-gray-500 text-sm mt-4">
+            Have any issue? Call Cap at 415 316 3109
+          </p>
         </div>
       </div>
     );
@@ -618,6 +649,7 @@ export function BroadcastClient() {
                   defaultPromoText={activeDjSlot?.djPromoText || activeDjSlot?.promoText || initialPromoText || slot?.showPromoText}
                   defaultPromoHyperlink={activeDjSlot?.djPromoHyperlink || activeDjSlot?.promoHyperlink || initialPromoHyperlink || slot?.showPromoHyperlink}
                   defaultThankYouMessage={activeDjSlot?.djThankYouMessage || initialThankYouMessage}
+                  showName={slot?.showName}
                   broadcastType={slot?.broadcastType}
                   onComplete={handleProfileComplete}
                 />
@@ -642,6 +674,9 @@ export function BroadcastClient() {
           </h1>
           <p className="text-gray-400">
             {isRecording ? 'Setting up your recording session...' : 'Connecting to the broadcast server...'}
+          </p>
+          <p className="text-gray-500 text-sm mt-6">
+            Have any issue? Call Cap at 415 316 3109
           </p>
         </div>
       </div>
@@ -689,6 +724,9 @@ export function BroadcastClient() {
               {isEarly ? "Set Up Audio" : "Continue to Setup"}
             </button>
           </div>
+          <p className="text-gray-500 text-sm text-center mt-4">
+            Have any issue? Call Cap at 415 316 3109
+          </p>
         </div>
       </div>
     );
@@ -708,6 +746,7 @@ export function BroadcastClient() {
           defaultPromoText={activeDjSlot?.djPromoText || activeDjSlot?.promoText || initialPromoText || slot?.showPromoText}
           defaultPromoHyperlink={activeDjSlot?.djPromoHyperlink || activeDjSlot?.promoHyperlink || initialPromoHyperlink || slot?.showPromoHyperlink}
           defaultThankYouMessage={activeDjSlot?.djThankYouMessage || initialThankYouMessage}
+          showName={slot?.showName}
           broadcastType={slot?.broadcastType}
           onComplete={handleProfileComplete}
         />
@@ -749,6 +788,8 @@ export function BroadcastClient() {
         onChangeAudioSetup={handleBack}
         onChangeSource={handleChangeSource}
         audioSourceLabel={audioSourceLabel}
+        roomOccupied={roomBusy || broadcast.roomOccupied}
+        roomFreeAt={roomBusyUntil || broadcast.roomFreeAt}
       />
     );
   }
@@ -845,6 +886,9 @@ export function BroadcastClient() {
           />
         )}
 
+        <p className="text-gray-500 text-sm text-center mt-8">
+          Have any issue? Call Cap at 415 316 3109
+        </p>
       </div>
       </div>
     </div>

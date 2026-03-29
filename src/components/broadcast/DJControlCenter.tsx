@@ -39,6 +39,8 @@ interface DJControlCenterProps {
   audioSourceLabel?: string | null;
   isRecordingMode?: boolean; // Recording-only mode (no live streaming)
   djEmail?: string; // DJ's email for tips
+  roomOccupied?: boolean;    // Previous DJ still broadcasting
+  roomFreeAt?: number | null; // When the previous DJ's slot ends (Unix ms)
 }
 
 export function DJControlCenter({
@@ -70,6 +72,8 @@ export function DJControlCenter({
   audioSourceLabel,
   isRecordingMode = false,
   djEmail,
+  roomOccupied = false,
+  roomFreeAt,
 }: DJControlCenterProps) {
   const [copied, setCopied] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
@@ -131,6 +135,8 @@ export function DJControlCenter({
                 onChangeSource={onChangeSource}
                 audioSourceLabel={audioSourceLabel}
                 isRecordingMode={isRecordingMode}
+                roomOccupied={roomOccupied}
+                roomFreeAt={roomFreeAt}
               />
 
               {/* Broadcast Settings */}

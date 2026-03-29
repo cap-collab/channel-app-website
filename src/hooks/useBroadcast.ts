@@ -227,7 +227,7 @@ export function useBroadcast(
       const res = await fetch('/api/livekit/egress', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ room: currentRoomName, recordingOnly }),
+        body: JSON.stringify({ room: currentRoomName, recordingOnly, reuseHlsEgress: !recordingOnly }),
       });
 
       const data = await res.json();
@@ -317,21 +317,26 @@ export function useBroadcast(
   }, [connect, publishAudio, startEgress]);
 
   // Stop egress (both HLS and recording, or just recording in recording-only mode)
-  const stopEgress = useCallback(async () => {
+  // keepHlsEgress: when true, leave HLS egress running for seamless DJ transitions
+  const stopEgress = useCallback(async (options?: { keepHlsEgress?: boolean }) => {
     // Use ref to get latest slotId
     const currentSlotId = slotIdRef.current;
+    const keepHls = options?.keepHlsEgress || false;
 
     // In recording-only mode, we only have recordingEgressId (no HLS egressId)
     if (!state.egressId && !state.recordingEgressId) return;
 
     try {
       // Stop HLS egress if it exists (not in recording-only mode)
-      if (state.egressId) {
+      // Skip if keepHlsEgress is true (seamless DJ transition — next DJ reuses it)
+      if (state.egressId && !keepHls) {
         await fetch('/api/livekit/egress', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ egressId: state.egressId }),
         });
+      } else if (state.egressId && keepHls) {
+        console.log('📡 Keeping HLS egress alive for DJ transition:', state.egressId);
       }
 
       // Stop recording egress if it exists
@@ -410,8 +415,9 @@ export function useBroadcast(
   }, []);
 
   // End broadcast completely
-  const endBroadcast = useCallback(async () => {
-    await stopEgress();
+  // keepHlsEgress: when true, leave HLS egress running for seamless DJ transitions
+  const endBroadcast = useCallback(async (options?: { keepHlsEgress?: boolean }) => {
+    await stopEgress(options);
     await unpublishAudio();
     disconnect();
     setState(prev => ({
