@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { IngressClient, IngressInput, EgressClient } from 'livekit-server-sdk';
+import { IngressClient, IngressInput, EgressClient, RoomServiceClient } from 'livekit-server-sdk';
 import { SegmentedFileOutput, SegmentedFileProtocol, S3Upload } from '@livekit/protocol';
 import { ROOM_NAME } from '@/types/broadcast';
 
@@ -64,6 +64,30 @@ export async function POST(request: NextRequest) {
       }
     );
     console.log(`[start-restream] Ingress created: ${ingress.ingressId}`);
+
+    // Wait for the ingress participant to join the room and start publishing
+    // before starting the HLS egress, otherwise the egress composites silence.
+    const roomService = new RoomServiceClient(livekitHost, apiKey, apiSecret);
+    const ingressIdentity = `restream-${slotId}`;
+    let ingressReady = false;
+    for (let attempt = 0; attempt < 15; attempt++) {
+      await new Promise(r => setTimeout(r, 2000));
+      try {
+        const participants = await roomService.listParticipants(ROOM_NAME);
+        const ingressParticipant = participants.find(
+          p => p.identity === ingressIdentity && p.tracks.some(t => !t.muted)
+        );
+        if (ingressParticipant) {
+          console.log(`[start-restream] Ingress participant publishing after ${(attempt + 1) * 2}s`);
+          ingressReady = true;
+          break;
+        }
+        console.log(`[start-restream] Waiting for ingress participant... (attempt ${attempt + 1}/15, ${participants.length} participants)`);
+      } catch { /* room may not exist yet */ }
+    }
+    if (!ingressReady) {
+      console.warn('[start-restream] Ingress participant not found after 30s, starting egress anyway');
+    }
 
     // Start HLS egress
     let hlsEgressId: string | null = null;

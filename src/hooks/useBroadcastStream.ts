@@ -135,6 +135,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
   const hlsRef = useRef<Hls | null>(null);
 
   // Grace period + auto-resume refs for show transitions
+  const currentShowIdRef = useRef<string | null>(null);
   const graceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasPlayingRef = useRef(false);
   const isPlayingRef = useRef(false);
@@ -204,6 +205,31 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
           };
           setCurrentShow(slot);
 
+          // Detect show change (e.g. live → restream) while user is playing
+          const showChanged = currentShowIdRef.current !== null && currentShowIdRef.current !== doc.id;
+          currentShowIdRef.current = doc.id;
+
+          if (showChanged && isPlayingRef.current) {
+            console.log('🔄 Show changed while playing, reconnecting audio');
+            // Force audio element to release old HLS session (Safari caches aggressively)
+            if (audioElementRef.current) {
+              audioElementRef.current.pause();
+              audioElementRef.current.removeAttribute('src');
+              audioElementRef.current.load();
+            }
+            if (hlsRef.current) {
+              hlsRef.current.destroy();
+              hlsRef.current = null;
+            }
+            if (roomRef.current) {
+              roomRef.current.disconnect();
+              roomRef.current = null;
+            }
+            setIsPlaying(false);
+            wasPlayingRef.current = false;
+            setAutoResumePending(true);
+          }
+
           // Find current DJ name:
           // Priority: djSlot.djUsername > djSlot.liveDjUsername > djSlot.djName > slot.liveDjUsername > slot.djName
           // This ensures we use the DJ's chat username if available, not just the admin-set name
@@ -256,6 +282,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
               graceTimerRef.current = setTimeout(() => {
                 console.log('🔄 Grace period expired, disconnecting');
                 graceTimerRef.current = null;
+                currentShowIdRef.current = null;
                 setCurrentShow(null);
                 setCurrentDJ(null);
                 setIsLive(false);
@@ -650,9 +677,10 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
   useEffect(() => {
     if (autoResumePending && isLive && !isPlaying && !isLoading) {
       setAutoResumePending(false);
-      // Restreams need more time for the URL ingress to start publishing audio
-      const delay = currentShow?.broadcastType === 'restream' ? 5000 : 1500;
-      console.log(`🔄 Auto-resuming playback in ${delay}ms (${currentShow?.broadcastType || 'live'})`);
+      // Restreams need more time for the URL ingress + egress to start writing audio segments
+      const isRestream = currentShow?.archiveRecordingUrl != null;
+      const delay = isRestream ? 8000 : 1500;
+      console.log(`🔄 Auto-resuming playback in ${delay}ms (${isRestream ? 'restream' : 'live'})`);
       const timer = setTimeout(() => {
         play();
       }, delay);
