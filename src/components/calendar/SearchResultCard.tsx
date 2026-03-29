@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Show, Station } from "@/types";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
@@ -14,6 +15,7 @@ interface SearchResultCardProps {
 }
 
 function SearchResultCardComponent({ show, station }: SearchResultCardProps) {
+  const router = useRouter();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
   const { isAuthenticated } = useAuthContext();
@@ -24,7 +26,7 @@ function SearchResultCardComponent({ show, station }: SearchResultCardProps) {
     if (show.djUsername) {
       e.preventDefault();
       e.stopPropagation();
-      window.location.href = `/dj/${show.djUsername}`;
+      router.push(`/dj/${show.djUsername}`);
     }
   };
 

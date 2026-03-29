@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/AuthModal";
 import { MobileMenu, MobileMenuItem } from "@/components/MobileMenu";
@@ -55,11 +56,8 @@ export function Header({ currentPage = "home", position = "fixed", showSearch = 
         <div className="px-4 py-3 flex items-center justify-between">
           {/* Left side: Logo */}
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                console.log('[Header] Logo clicked!');
-                window.location.href = "/radio";
-              }}
+            <Link
+              href="/radio"
               className="flex-shrink-0 cursor-pointer relative z-[1000]"
               style={{ pointerEvents: 'auto' }}
             >
@@ -71,7 +69,7 @@ export function Header({ currentPage = "home", position = "fixed", showSearch = 
                 className="h-6 w-auto"
                 priority
               />
-            </button>
+            </Link>
           </div>
 
           {/* Center: Search bar - always visible, inline with logo */}

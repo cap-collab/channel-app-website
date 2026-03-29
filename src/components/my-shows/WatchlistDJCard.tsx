@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
 interface WatchlistDJCardProps {
@@ -22,15 +23,13 @@ export function WatchlistDJCard({
   onRemove,
   isRemoving,
 }: WatchlistDJCardProps) {
+  const router = useRouter();
   const [imageError, setImageError] = useState(false);
   const hasPhoto = djPhotoUrl && !imageError;
 
   const handleCardClick = () => {
-    console.log('[WatchlistDJCard] Click! djUsername:', djUsername);
     if (djUsername) {
-      const url = `/dj/${djUsername}`;
-      console.log('[WatchlistDJCard] Navigating to:', url);
-      window.location.href = url;
+      router.push(`/dj/${djUsername}`);
     }
   };
 

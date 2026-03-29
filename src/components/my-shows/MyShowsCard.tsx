@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
 interface MyShowsCardProps {
@@ -94,17 +95,15 @@ export function MyShowsCard({
   onRemove,
   isRemoving,
 }: MyShowsCardProps) {
+  const router = useRouter();
   const [imageError, setImageError] = useState(false);
   const hasPhoto = djPhotoUrl && !imageError;
 
   const handleDJClick = (e: React.MouseEvent) => {
-    console.log('[MyShowsCard] Click! djUsername:', djUsername);
     if (djUsername) {
       e.preventDefault();
       e.stopPropagation();
-      const url = `/dj/${djUsername}`;
-      console.log('[MyShowsCard] Navigating to:', url);
-      window.location.href = url;
+      router.push(`/dj/${djUsername}`);
     }
   };
 

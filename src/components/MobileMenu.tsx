@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useUserRole, isDJ } from "@/hooks/useUserRole";
 
@@ -15,6 +16,7 @@ interface MobileMenuProps {
 
 export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const router = useRouter();
   const { user, isAuthenticated, signOut, loading } = useAuthContext();
   const { role } = useUserRole(user);
 
@@ -86,9 +88,8 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                     <div key={index}>
                       <button
                         onClick={() => {
-                          console.log('[MobileMenu] My Watchlist clicked!');
                           setIsOpen(false);
-                          window.location.href = "/my-shows";
+                          router.push("/my-shows");
                         }}
                         className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                         style={{ pointerEvents: 'auto' }}
@@ -97,9 +98,8 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                       </button>
                       <button
                         onClick={() => {
-                          console.log('[MobileMenu] Inbox clicked!');
                           setIsOpen(false);
-                          window.location.href = "/inbox";
+                          router.push("/inbox");
                         }}
                         className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                         style={{ pointerEvents: 'auto' }}
@@ -109,9 +109,8 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                       {isDJ(role) && (
                         <button
                           onClick={() => {
-                            console.log('[MobileMenu] Studio clicked!');
                             setIsOpen(false);
-                            window.location.href = "/studio";
+                            router.push("/studio");
                           }}
                           className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                           style={{ pointerEvents: 'auto' }}
@@ -121,9 +120,8 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                       )}
                       <button
                         onClick={() => {
-                          console.log('[MobileMenu] Settings clicked!');
                           setIsOpen(false);
-                          window.location.href = "/settings";
+                          router.push("/settings");
                         }}
                         className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
                         style={{ pointerEvents: 'auto' }}
@@ -180,14 +178,13 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                     </a>
                   );
                 }
-                // Use button with window.location for internal links
+                // Use button with router.push for internal links
                 return (
                   <button
                     key={index}
                     onClick={() => {
-                      console.log('[MobileMenu] Item clicked:', item.label);
                       handleItemClick(item);
-                      window.location.href = item.href!;
+                      router.push(item.href!);
                     }}
                     className={`block w-full px-4 py-3 text-left text-sm ${textClass} hover:bg-[#252525] transition-colors`}
                     style={{ pointerEvents: 'auto' }}
