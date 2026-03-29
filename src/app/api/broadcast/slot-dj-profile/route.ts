@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
     // If we have DJ slot data with profile info, use it directly
     if (activeDjSlot) {
       return NextResponse.json({
+        djUserId: activeDjSlot.djUserId || null,
         chatUsername: activeDjSlot.djUsername || null,
         promoText: activeDjSlot.djPromoText || activeDjSlot.promoText || null,
         promoHyperlink: activeDjSlot.djPromoHyperlink || activeDjSlot.promoHyperlink || null,
@@ -65,6 +66,7 @@ export async function GET(request: NextRequest) {
         const userData = userDoc.data();
         const djProfile = userData?.djProfile;
         return NextResponse.json({
+          djUserId,
           chatUsername: userData?.chatUsername || null,
           promoText: djProfile?.promoText || slotData.showPromoText || null,
           promoHyperlink: djProfile?.promoHyperlink || slotData.showPromoHyperlink || null,
@@ -82,9 +84,11 @@ export async function GET(request: NextRequest) {
         .get();
 
       if (!userByEmail.empty) {
+        const foundUserId = userByEmail.docs[0].id;
         const userData = userByEmail.docs[0].data();
         const djProfile = userData?.djProfile;
         return NextResponse.json({
+          djUserId: foundUserId,
           chatUsername: userData?.chatUsername || null,
           promoText: djProfile?.promoText || slotData.showPromoText || null,
           promoHyperlink: djProfile?.promoHyperlink || slotData.showPromoHyperlink || null,
@@ -103,6 +107,7 @@ export async function GET(request: NextRequest) {
         const pendingData = pendingSnapshot.docs[0].data();
         const djProfile = pendingData?.djProfile;
         return NextResponse.json({
+          djUserId: null,
           chatUsername: pendingData?.chatUsername || null,
           promoText: djProfile?.promoText || slotData.showPromoText || null,
           promoHyperlink: djProfile?.promoHyperlink || slotData.showPromoHyperlink || null,
@@ -113,6 +118,7 @@ export async function GET(request: NextRequest) {
 
     // Fallback: show-level promo only
     return NextResponse.json({
+      djUserId: null,
       chatUsername: null,
       promoText: slotData.showPromoText || null,
       promoHyperlink: slotData.showPromoHyperlink || null,

@@ -49,6 +49,7 @@ export function BroadcastClient() {
   // Start directly at profile step (non-blocking login is inline in DJProfileSetup)
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>('profile');
   const [djUsername, setDjUsername] = useState<string>('');
+  const [slotDjUserId, setSlotDjUserId] = useState<string | undefined>(); // The slot's linked DJ userId
   const [initialPromoText, setInitialPromoText] = useState<string | undefined>();
   const [initialPromoHyperlink, setInitialPromoHyperlink] = useState<string | undefined>();
   const [initialThankYouMessage, setInitialThankYouMessage] = useState<string | undefined>();
@@ -68,6 +69,7 @@ export function BroadcastClient() {
         const res = await fetch(`/api/broadcast/slot-dj-profile?token=${encodeURIComponent(token)}`);
         if (!res.ok) return;
         const data = await res.json();
+        if (data.djUserId && !slotDjUserId) setSlotDjUserId(data.djUserId);
         if (data.chatUsername && !djUsername) setDjUsername(data.chatUsername);
         if (data.promoText && !initialPromoText) setInitialPromoText(data.promoText);
         if (data.promoHyperlink && !initialPromoHyperlink) setInitialPromoHyperlink(data.promoHyperlink);
@@ -100,15 +102,18 @@ export function BroadcastClient() {
     return slot?.djName;
   }, [getCurrentDjSlot, djUsername, slot?.djName]);
 
+  // The DJ userId for the broadcast — use the slot's linked DJ, fall back to logged-in user
+  const broadcastDjUserId = slotDjUserId || user?.uid;
+
   // Create DJ info object for useBroadcast
   const djInfo = useMemo(() => {
     if (!djUsername) return undefined;
     return {
       username: djUsername,
-      userId: user?.uid,
+      userId: broadcastDjUserId,
       thankYouMessage: initialThankYouMessage,
     };
-  }, [djUsername, user?.uid, initialThankYouMessage]);
+  }, [djUsername, broadcastDjUserId, initialThankYouMessage]);
 
   const participantIdentity = slot?.djName || 'DJ';
   const broadcast = useBroadcast(participantIdentity, slot?.id, djInfo, token || undefined);
@@ -508,7 +513,7 @@ export function BroadcastClient() {
           onEndBroadcast={handleEndBroadcast}
           broadcastToken={token || ''}
           djUsername={djUsername}
-          userId={user?.uid}
+          userId={broadcastDjUserId}
           tipTotalCents={tipTotalCents}
           tipCount={tipCount}
           promoText={initialPromoText}
@@ -657,7 +662,7 @@ export function BroadcastClient() {
         onEndBroadcast={handleEndBroadcast}
         broadcastToken={token || ''}
         djUsername={djUsername}
-        userId={user?.uid}
+        userId={broadcastDjUserId}
         tipTotalCents={tipTotalCents}
         tipCount={tipCount}
         promoText={initialPromoText}
