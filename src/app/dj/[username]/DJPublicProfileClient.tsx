@@ -1334,7 +1334,7 @@ export function DJPublicProfileClient({ username }: Props) {
   const socialLinks = profile.djProfile.socialLinks;
 
   return (
-    <div className="min-h-screen text-white relative overflow-x-hidden">
+    <div className="min-h-screen text-white relative overflow-x-clip">
       <AnimatedBackground />
       {/* Site-wide Header */}
       <Header position="sticky" showSearch />
@@ -1599,27 +1599,29 @@ export function DJPublicProfileClient({ username }: Props) {
 
         {/* STICKY TAB BAR - only if DJ has email (claimed profile) */}
         {profile.email && (
-          <div className="sticky top-[48px] z-30 bg-black -mx-6 px-6 mb-4">
-            <div className="flex max-w-5xl mx-auto bg-zinc-900/50 p-1">
+          <div className="sticky top-[48px] z-30 bg-black -mx-6 px-6">
+            <div className="flex max-w-5xl mx-auto border-b border-white/10">
               <button
                 onClick={() => setActiveTab('chat')}
-                className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest transition-colors ${
-                  activeTab === 'chat'
-                    ? 'text-white bg-white/10'
-                    : 'text-zinc-500 hover:text-zinc-300'
+                className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${
+                  activeTab === 'chat' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
                 Chat
+                {activeTab === 'chat' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
+                )}
               </button>
               <button
                 onClick={() => setActiveTab('timeline')}
-                className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest transition-colors ${
-                  activeTab === 'timeline'
-                    ? 'text-white bg-white/10'
-                    : 'text-zinc-500 hover:text-zinc-300'
+                className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${
+                  activeTab === 'timeline' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
                 Timeline
+                {activeTab === 'timeline' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
+                )}
               </button>
             </div>
           </div>

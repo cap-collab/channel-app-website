@@ -96,7 +96,7 @@ function ChatMessage({
   }
 
   return (
-    <div className={`py-2 px-4 ${isOwnMessage ? 'bg-black/30' : ''}`}>
+    <div className={`py-2 px-4 ${isOwnMessage ? 'bg-white/5' : ''}`}>
       <div className="flex items-start gap-2">
         <div className="flex-1">
           <div className="flex items-center gap-2">
@@ -395,7 +395,7 @@ export function DJProfileChatPanel({
   // Show login prompt if not authenticated
   if (!isAuthenticated) {
     return (
-      <div className="flex flex-col h-full min-h-[400px] bg-surface-card">
+      <div className="flex flex-col h-full min-h-[400px] bg-black">
         <LoginPrompt />
       </div>
     );
@@ -404,7 +404,7 @@ export function DJProfileChatPanel({
   // Show loading state while fetching profile
   if (profileLoading) {
     return (
-      <div className="flex flex-col h-full min-h-[400px] bg-surface-card">
+      <div className="flex flex-col h-full min-h-[400px] bg-black">
         <ProfileLoading />
       </div>
     );
@@ -413,14 +413,14 @@ export function DJProfileChatPanel({
   // Show username setup if authenticated but no chatUsername
   if (!username && onSetUsername) {
     return (
-      <div className="flex flex-col h-full min-h-[400px] bg-surface-card">
+      <div className="flex flex-col h-full min-h-[400px] bg-black">
         <UsernameSetup onSetUsername={onSetUsername} />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full max-h-[60vh] bg-surface-card">
+    <div className="flex flex-col h-full max-h-[60vh] bg-black">
       {/* Error display */}
       {(error || localError) && (
         <div className="bg-red-900/50 text-red-200 px-4 py-2 text-sm flex-shrink-0">
@@ -435,17 +435,17 @@ export function DJProfileChatPanel({
         if (!promo) return null;
         const hasHyperlink = !!promo.hyperlink;
         const content = (
-          <div className={`px-3 pt-3 pb-2.5 bg-accent/10 border-b border-gray-800 flex-shrink-0 ${hasHyperlink ? 'hover:bg-accent/20 cursor-pointer' : ''}`}>
+          <div className={`px-4 py-3 bg-white/5 border-b border-white/10 flex-shrink-0 ${hasHyperlink ? 'hover:bg-white/10 cursor-pointer' : ''}`}>
             <div className="flex items-center gap-2 mb-1">
               <span className="text-white font-semibold text-sm">{djUsername}</span>
               <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0" title="Live DJ" />
               {hasHyperlink && (
-                <svg className="w-4 h-4 text-accent flex-shrink-0 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-zinc-400 flex-shrink-0 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
               )}
             </div>
-            <p className={`text-sm ${hasHyperlink ? 'text-accent' : 'text-white'}`}>
+            <p className={`text-sm ${hasHyperlink ? 'text-white underline' : 'text-white'}`}>
               {promo.text}
             </p>
           </div>
@@ -477,7 +477,7 @@ export function DJProfileChatPanel({
             );
           }
           return (
-            <div className="divide-y divide-gray-800/50">
+            <div className="divide-y divide-white/5">
               {chatMessages.map((msg) => (
                 <ChatMessage
                   key={msg.id}
@@ -492,7 +492,7 @@ export function DJProfileChatPanel({
       </div>
 
       {/* Input bar */}
-      <div className="border-t border-gray-800 p-3 flex-shrink-0 bg-surface-card">
+      <div className="border-t border-white/10 p-3 flex-shrink-0 bg-black">
         <form onSubmit={handleSendMessage} className="flex items-center gap-2">
           {/* Heart button with floating hearts */}
           <div className="relative flex-shrink-0 flex items-center">
@@ -531,7 +531,7 @@ export function DJProfileChatPanel({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder="Message..."
-            className="flex-1 min-w-0 bg-black text-white text-sm border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500 disabled:text-gray-500 disabled:cursor-not-allowed"
+            className="flex-1 min-w-0 bg-black text-white text-sm border border-white/20 px-3 py-2 focus:outline-none focus:border-white/40 disabled:text-zinc-500 disabled:cursor-not-allowed"
             maxLength={280}
             disabled={isSending}
           />
@@ -540,7 +540,7 @@ export function DJProfileChatPanel({
           <button
             type="submit"
             disabled={!inputValue.trim() || isSending}
-            className="flex-shrink-0 bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white p-2 rounded-lg transition-colors"
+            className="flex-shrink-0 bg-white hover:bg-gray-200 disabled:bg-zinc-700 disabled:cursor-not-allowed text-black disabled:text-zinc-400 p-2 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -550,7 +550,7 @@ export function DJProfileChatPanel({
 
         {/* Chatting as + venue edit */}
         <div className="mt-2 flex items-center justify-between">
-          <p className="text-gray-500 text-xs">
+          <p className="text-zinc-500 text-xs">
             Chatting as <span className="text-white">{username}</span>
             {isOwner && <span className="text-accent ml-1">(DJ)</span>}
           </p>
