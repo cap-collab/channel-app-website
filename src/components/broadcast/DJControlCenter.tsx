@@ -108,6 +108,7 @@ export function DJControlCenter({
         tipCount={tipCount}
         showStartTime={slot?.startTime}
         isRecordingMode={isRecordingMode}
+        chatUsernameNormalized={chatUsernameNormalized}
       />
 
       {/* Main Content */}

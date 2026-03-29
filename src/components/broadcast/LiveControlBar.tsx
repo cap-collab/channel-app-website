@@ -29,9 +29,10 @@ interface LiveControlBarProps {
   tipCount: number;
   showStartTime?: number; // Unix timestamp ms - love count resets per show
   isRecordingMode?: boolean; // Show "RECORDING" instead of "LIVE"
+  chatUsernameNormalized: string; // DJ's chat room ID for love count subscription
 }
 
-export function LiveControlBar({ stream, isLive, tipTotalCents, tipCount, showStartTime, isRecordingMode = false }: LiveControlBarProps) {
+export function LiveControlBar({ stream, isLive, tipTotalCents, tipCount, showStartTime, isRecordingMode = false, chatUsernameNormalized }: LiveControlBarProps) {
   const level = useAudioLevel(stream);
   const [listenerCount, setListenerCount] = useState(0);
   const [loveCount, setLoveCount] = useState(0);
@@ -41,7 +42,7 @@ export function LiveControlBar({ stream, isLive, tipTotalCents, tipCount, showSt
     const app = getFirebaseApp();
     const db = getFirestore(app);
 
-    const messagesRef = collection(db, 'chats', 'broadcast', 'messages');
+    const messagesRef = collection(db, 'chats', chatUsernameNormalized, 'messages');
     // Use show start time if available, otherwise fall back to 24 hours ago
     const startTime = showStartTime || (Date.now() - 24 * 60 * 60 * 1000);
 
@@ -64,7 +65,7 @@ export function LiveControlBar({ stream, isLive, tipTotalCents, tipCount, showSt
     });
 
     return () => unsubMessages();
-  }, [showStartTime]);
+  }, [showStartTime, chatUsernameNormalized]);
 
   // Subscribe to listener count
   useEffect(() => {

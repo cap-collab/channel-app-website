@@ -129,9 +129,11 @@ async function handleTipPayment(
 
   const tipRef = await db.collection('tips').add(tipData);
 
-  // Post anonymous tip message to chat
+  // Post anonymous tip message to DJ's chat room
+  const normalizedDjUsername = (metadata.djUsername || '').replace(/[\s-]+/g, '').toLowerCase();
+  const chatDocId = normalizedDjUsername || 'broadcast';
   const chatMessage = {
-    stationId: 'broadcast',
+    stationId: chatDocId,
     username: 'Channel',
     message: `💸 Someone tipped ${metadata.djUsername}`,
     timestamp: FieldValue.serverTimestamp(),
@@ -140,7 +142,7 @@ async function handleTipPayment(
     messageType: 'tip',
   };
 
-  await db.collection('chats').doc('broadcast').collection('messages').add(chatMessage);
+  await db.collection('chats').doc(chatDocId).collection('messages').add(chatMessage);
 
   // Log status for non-destination charges
   if (!usedDestinationCharge) {
