@@ -551,37 +551,22 @@ export function BroadcastClient() {
     );
   }
 
-  // Going live transition - lock UI on pre-live control center while async goLive runs
+  // Going live transition - show full-screen loading overlay while async goLive runs
   // This prevents the render tree from falling through to schedule/profile pages
   if (isGoingLive && audioStream) {
+    const isRecording = slot?.broadcastType === 'recording';
     return (
-      <DJControlCenter
-        slot={slot}
-        audioStream={audioStream}
-        inputMethod={broadcast.inputMethod}
-        isLive={false}
-        isPublishing={broadcast.isPublishing}
-        canGoLive={false}
-        onGoLive={handleGoLive}
-        isGoingLive={true}
-        onEndBroadcast={handleEndBroadcast}
-        broadcastToken={token || ''}
-        djUsername={djUsername}
-        userId={user?.uid}
-        tipTotalCents={tipTotalCents}
-        tipCount={tipCount}
-        promoText={initialPromoText}
-        promoHyperlink={initialPromoHyperlink}
-        thankYouMessage={initialThankYouMessage}
-        onPromoChange={(text, hyperlink) => {
-          setInitialPromoText(text);
-          setInitialPromoHyperlink(hyperlink);
-        }}
-        onThankYouChange={setInitialThankYouMessage}
-        isVenue={slot?.broadcastType === 'venue'}
-        initialPromoSubmitted={initialPromoSubmitted}
-        audioSourceLabel={audioSourceLabel}
-      />
+      <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+          <h1 className="text-2xl font-bold text-white mb-2">
+            {isRecording ? 'Preparing to record' : 'Preparing to go live'}
+          </h1>
+          <p className="text-gray-400">
+            {isRecording ? 'Setting up your recording session...' : 'Connecting to the broadcast server...'}
+          </p>
+        </div>
+      </div>
     );
   }
 
