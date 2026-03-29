@@ -1,4 +1,4 @@
-import { RoomServiceClient } from 'livekit-server-sdk';
+import { RoomServiceClient, IngressClient, EgressClient } from 'livekit-server-sdk';
 import { NextRequest, NextResponse } from 'next/server';
 import { ROOM_NAME, RoomStatus } from '@/types/broadcast';
 
@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
     }
 
     const room = request.nextUrl.searchParams.get('room') || ROOM_NAME;
+    const debug = request.nextUrl.searchParams.get('debug') === 'true';
 
     const roomService = new RoomServiceClient(livekitHost, apiKey, apiSecret);
 
@@ -32,6 +33,52 @@ export async function GET(request: NextRequest) {
       const isLive = publishingParticipants.length > 0;
       const currentDJ = isLive ? publishingParticipants[0].identity : null;
 
+      // Debug mode: show full room, ingress, and egress details
+      if (debug) {
+        const ingressClient = new IngressClient(livekitHost, apiKey, apiSecret);
+        const egressClient = new EgressClient(livekitHost, apiKey, apiSecret);
+
+        let ingresses: unknown[] = [];
+        let egresses: unknown[] = [];
+        try {
+          const ingressList = await ingressClient.listIngress({ roomName: room });
+          ingresses = ingressList.map(i => ({
+            id: i.ingressId,
+            name: i.name,
+            status: i.status,
+            url: i.url,
+            participantIdentity: i.participantIdentity,
+            error: i.state?.error,
+          }));
+        } catch { /* ignore */ }
+        try {
+          const egressList = await egressClient.listEgress({ roomName: room });
+          egresses = egressList.map(e => ({
+            id: e.egressId,
+            status: e.status,
+            error: e.error,
+          }));
+        } catch { /* ignore */ }
+
+        return NextResponse.json({
+          room,
+          isLive,
+          currentDJ,
+          participants: participants.map(p => ({
+            identity: p.identity,
+            name: p.name,
+            tracks: p.tracks.map(t => ({
+              sid: t.sid,
+              type: t.type,
+              muted: t.muted,
+              source: t.source,
+            })),
+          })),
+          ingresses,
+          egresses,
+        });
+      }
+
       const status: RoomStatus = {
         isLive,
         currentDJ,
@@ -43,6 +90,9 @@ export async function GET(request: NextRequest) {
       // Room might not exist yet - that's okay, means no one is live
       const errMessage = error instanceof Error ? error.message : String(error);
       if (errMessage.includes('room not found') || errMessage.includes('not found')) {
+        if (debug) {
+          return NextResponse.json({ room, isLive: false, participants: [], ingresses: [], egresses: [], note: 'Room not found' });
+        }
         const status: RoomStatus = {
           isLive: false,
           currentDJ: null,

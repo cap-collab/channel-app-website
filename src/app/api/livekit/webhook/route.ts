@@ -87,7 +87,11 @@ export async function POST(request: NextRequest) {
     const receiver = new WebhookReceiver(apiKey, apiSecret);
     const event = await receiver.receive(body, authHeader);
 
-    console.log('LiveKit webhook event:', event.event, event.egressInfo?.egressId);
+    console.log('LiveKit webhook event:', event.event,
+      event.participant ? `participant=${event.participant.identity}` : '',
+      event.egressInfo?.egressId ? `egress=${event.egressInfo.egressId}` : '',
+      event.ingressInfo?.ingressId ? `ingress=${event.ingressInfo.ingressId} status=${event.ingressInfo.status}` : ''
+    );
 
     // Handle track_published — start HLS egress when a restream ingress publishes audio.
     // This is triggered by the URL ingress created in /api/broadcast/start-restream.

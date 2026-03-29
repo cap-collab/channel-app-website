@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
 
     // Create URL ingress — the participant will join the room and start publishing.
     // The LiveKit webhook (track_published) will then start the HLS egress.
+    console.log(`[start-restream] Creating ingress for slot ${slotId}, archiveUrl: ${slot.archiveRecordingUrl}`);
     const ingressClient = new IngressClient(livekitHost, apiKey, apiSecret);
     const ingress = await ingressClient.createIngress(
       IngressInput.URL_INPUT,
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
         url: slot.archiveRecordingUrl,
       }
     );
-    console.log(`[start-restream] Ingress created: ${ingress.ingressId} (egress will start via webhook)`);
+    console.log(`[start-restream] Ingress created: id=${ingress.ingressId} status=${ingress.status} streamKey=${ingress.streamKey || 'none'} (egress will start via webhook)`);
 
     // Set slot to live with ingress ID. Egress ID will be set by the webhook.
     await slotDoc.ref.update({
