@@ -1,4 +1,4 @@
-import { RoomServiceClient, TrackType } from 'livekit-server-sdk';
+import { RoomServiceClient } from 'livekit-server-sdk';
 import { NextRequest, NextResponse } from 'next/server';
 import { ROOM_NAME, RoomStatus } from '@/types/broadcast';
 
@@ -23,12 +23,10 @@ export async function GET(request: NextRequest) {
     try {
       const participants = await roomService.listParticipants(room);
 
-      // Check if any participant is publishing audio
+      // Check if any participant is publishing unmuted tracks
+      // TrackType enum: AUDIO=0, VIDEO=1, DATA=2
       const publishingParticipants = participants.filter(p =>
-        p.tracks.some(t =>
-          t.type === TrackType.AUDIO &&
-          !t.muted
-        )
+        p.tracks.some(t => !t.muted)
       );
 
       const isLive = publishingParticipants.length > 0;
