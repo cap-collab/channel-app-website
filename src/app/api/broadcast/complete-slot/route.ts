@@ -82,6 +82,57 @@ export async function POST(request: NextRequest) {
     await slotRef.update(updateData);
     console.log(`Slot ${slotId} marked as ${newStatus}`);
 
+    // After completing a slot, immediately activate the next scheduled show (restream or live).
+    // This ensures zero gap between shows instead of waiting for the 5-minute cron.
+    if (newStatus === 'completed') {
+      try {
+        const nextShowSnapshot = await db
+          .collection('broadcast-slots')
+          .where('status', '==', 'scheduled')
+          .get();
+
+        for (const nextDoc of nextShowSnapshot.docs) {
+          const nextSlot = nextDoc.data();
+          const startTime = nextSlot.startTime?.toMillis?.() || nextSlot.startTime;
+          const endTime = nextSlot.endTime?.toMillis?.() || nextSlot.endTime;
+          if (!startTime || now < startTime || now >= endTime) continue;
+
+          if (nextSlot.broadcastType === 'restream') {
+            // Restream: call start-restream to create ingress (egress starts via webhook)
+            console.log(`[complete-slot] Activating restream ${nextDoc.id} immediately`);
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+            const cronSecret = process.env.CRON_SECRET || '';
+            fetch(`${appUrl}/api/broadcast/start-restream`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${cronSecret}`,
+              },
+              body: JSON.stringify({ slotId: nextDoc.id }),
+            }).then(async (res) => {
+              const data = await res.json();
+              if (res.ok) {
+                console.log(`[complete-slot] Restream ${nextDoc.id} started: ingress=${data.ingressId}`);
+              } else {
+                console.error(`[complete-slot] Restream ${nextDoc.id} failed:`, data.error);
+                await nextDoc.ref.update({ status: 'live' });
+              }
+            }).catch((err) => {
+              console.error(`[complete-slot] Restream fetch failed:`, err);
+            });
+          } else {
+            // Live show: just set to live so the DJ can connect
+            // (the DJ's client handles going live and starting egress)
+            console.log(`[complete-slot] Setting next live show ${nextDoc.id} to live`);
+            await nextDoc.ref.update({ status: 'live' });
+          }
+          break; // Only activate the first matching show
+        }
+      } catch (err) {
+        console.error('[complete-slot] Error activating next show:', err);
+      }
+    }
+
     return NextResponse.json({ success: true, status: newStatus });
   } catch (error) {
     console.error('Error completing slot:', error);
