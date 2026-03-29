@@ -47,10 +47,12 @@ export async function GET(request: NextRequest) {
       ? new RoomServiceClient(livekitHost, apiKey, apiSecret)
       : null;
 
-    // Auto-activate scheduled restreams whose start time has arrived
+    // Auto-activate scheduled restreams whose start time has arrived,
+    // AND fix any live restreams that are missing their ingress/egress
+    // (e.g. activated before the ingress code was deployed)
     const restreamSnapshot = await db
       .collection('broadcast-slots')
-      .where('status', '==', 'scheduled')
+      .where('status', 'in', ['scheduled', 'live'])
       .where('broadcastType', '==', 'restream')
       .get();
 
@@ -64,7 +66,11 @@ export async function GET(request: NextRequest) {
         const slot = restreamDoc.data();
         const startTime = slot.startTime?.toMillis?.() || slot.startTime;
         const endTime = slot.endTime?.toMillis?.() || slot.endTime;
-        if (startTime && now >= startTime && now < endTime) {
+        // Skip if not yet started or already ended
+        if (!startTime || now < startTime || now >= endTime) continue;
+        // Skip if already live AND already has ingress set up
+        if (slot.status === 'live' && slot.restreamIngressId) continue;
+
           // Create a URL ingress to push the archive audio into the LiveKit room,
           // then start an HLS egress so mobile/Safari listeners can hear it too.
           if (ingressClient && slot.archiveRecordingUrl) {
@@ -131,7 +137,6 @@ export async function GET(request: NextRequest) {
             console.log(`Restream slot ${restreamDoc.id} activated (set to live, no ingress client or no archive URL)`);
           }
           restreamActivatedCount++;
-        }
       } catch (err) {
         console.error(`Error activating restream ${restreamDoc.id}:`, err);
       }
