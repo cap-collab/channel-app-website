@@ -637,6 +637,50 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
     }
   }, [autoResumePending, isLive, isPlaying, isLoading, play]);
 
+  // Update lock screen / control center metadata via Media Session API
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+
+    if (isPlaying && currentShow) {
+      // Match hero image priority: show image > DJ photo > primary restream DJ photo
+      const primaryRestreamDjPhoto = (() => {
+        if (!currentShow.restreamDjs || currentShow.restreamDjs.length === 0) return null;
+        const primary = currentShow.restreamDjs.find(dj => dj.userId)
+          || currentShow.restreamDjs.find(dj => dj.username)
+          || null;
+        return primary?.photoUrl || null;
+      })();
+      const artworkUrl = currentShow.showImageUrl || currentShow.liveDjPhotoUrl || primaryRestreamDjPhoto;
+
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentShow.showName || 'Live Broadcast',
+        artist: currentDJ || undefined,
+        album: 'channel radio',
+        ...(artworkUrl ? {
+          artwork: [{ src: artworkUrl, sizes: '512x512', type: 'image/jpeg' }],
+        } : {}),
+      });
+
+      // Show progress bar based on show start/end time, update every 2 min
+      const duration = (currentShow.endTime - currentShow.startTime) / 1000;
+
+      const updatePosition = () => {
+        if (duration > 0) {
+          const position = Math.max(0, (Date.now() - currentShow.startTime) / 1000);
+          navigator.mediaSession.setPositionState({
+            duration,
+            position: Math.min(position, duration),
+            playbackRate: 1,
+          });
+        }
+      };
+
+      updatePosition();
+      const interval = setInterval(updatePosition, 120_000);
+      return () => clearInterval(interval);
+    }
+  }, [isPlaying, currentShow, currentDJ]);
+
   // Subscribe to listener count from Firebase Realtime Database (matches iOS ListenerCountService)
   useEffect(() => {
     const app = getFirebaseApp();
