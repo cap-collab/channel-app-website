@@ -119,9 +119,10 @@ export async function POST(request: NextRequest) {
     const chatRef = await db.collection('chats').doc(chatUsernameNormalized).collection('messages').add(chatMessage);
 
     // Sync promo back to DJ profile so profile and broadcast stay in sync
-    if (slot.liveDjUserId || slot.djUserId) {
+    // Use the slot's configured DJ (djUserId), NOT liveDjUserId (whoever logged in to broadcast)
+    if (slot.djUserId) {
       // DJ is a Channel user — save to their user profile
-      const djUserId = slot.liveDjUserId || slot.djUserId;
+      const djUserId = slot.djUserId;
       try {
         const updateData: Record<string, string | FieldValue> = {
           'djProfile.promoText': promoText,

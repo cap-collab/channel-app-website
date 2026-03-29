@@ -37,7 +37,8 @@ export async function POST(request: NextRequest) {
     const slotData = slotDoc.data();
 
     // Save to the DJ profile linked to the slot (not the logged-in user)
-    const slotDjUserId = slotData.liveDjUserId || slotData.djUserId;
+    // Use djUserId (slot's configured DJ), NOT liveDjUserId (whoever logged in to broadcast)
+    const slotDjUserId = slotData.djUserId;
     if (slotDjUserId) {
       // DJ is a Channel user — save to their user profile
       const userRef = db.collection('users').doc(slotDjUserId);

@@ -90,7 +90,12 @@ export async function POST(request: NextRequest) {
       const slotDjUserId = slot.djUserId;
       const slotDjEmail = slot.djEmail;
 
-      if (slotDjUserId && slotDjUserId !== djUserId) {
+      if (slotDjUserId && slotDjUserId === djUserId) {
+        // Slot's DJ is the logged-in user — use their already-fetched profile
+        slotDjProfile = userData?.djProfile || null;
+        slotDjChatUsername = userData?.chatUsername || null;
+        resolvedSlotDjUserId = slotDjUserId;
+      } else if (slotDjUserId) {
         // Slot's DJ is different from the logged-in user — look up their profile
         const slotDjDoc = await db.collection('users').doc(slotDjUserId).get();
         if (slotDjDoc.exists) {
@@ -115,12 +120,13 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Extract DJ profile data - PRIORITY: DJ slot config > slot's linked DJ profile > logged-in user profile
-      const djBio = currentDjSlot?.djBio || (slotDjProfile as Record<string, unknown> | null)?.bio || userData?.djProfile?.bio || null;
-      const djPhotoUrl = currentDjSlot?.djPhotoUrl || (slotDjProfile as Record<string, unknown> | null)?.photoUrl || userData?.djProfile?.photoUrl || null;
-      const djPromoText = currentDjSlot?.djPromoText || currentDjSlot?.promoText || (slotDjProfile as Record<string, unknown> | null)?.promoText || userData?.djProfile?.promoText || null;
-      const djPromoHyperlink = currentDjSlot?.djPromoHyperlink || currentDjSlot?.promoHyperlink || (slotDjProfile as Record<string, unknown> | null)?.promoHyperlink || userData?.djProfile?.promoHyperlink || null;
-      const djThankYouMessage = currentDjSlot?.djThankYouMessage || (slotDjProfile as Record<string, unknown> | null)?.thankYouMessage || userData?.djProfile?.thankYouMessage || null;
+      // Extract DJ profile data - PRIORITY: DJ slot config > slot's linked DJ profile
+      // Do NOT fall back to logged-in user's profile — they may be a different person than the slot's DJ
+      const djBio = currentDjSlot?.djBio || (slotDjProfile as Record<string, unknown> | null)?.bio || null;
+      const djPhotoUrl = currentDjSlot?.djPhotoUrl || (slotDjProfile as Record<string, unknown> | null)?.photoUrl || null;
+      const djPromoText = currentDjSlot?.djPromoText || currentDjSlot?.promoText || (slotDjProfile as Record<string, unknown> | null)?.promoText || null;
+      const djPromoHyperlink = currentDjSlot?.djPromoHyperlink || currentDjSlot?.promoHyperlink || (slotDjProfile as Record<string, unknown> | null)?.promoHyperlink || null;
+      const djThankYouMessage = currentDjSlot?.djThankYouMessage || (slotDjProfile as Record<string, unknown> | null)?.thankYouMessage || null;
 
       // For username: DJ slot > slot's linked DJ chatUsername > form input (from slot-dj-profile) > logged-in user chatUsername
       const slotUsername = currentDjSlot?.djUsername || currentDjSlot?.djName;
@@ -325,17 +331,22 @@ export async function POST(request: NextRequest) {
         const userData = userDoc.data();
         const userEmail = userData?.email;
 
-        // Update lastSeenAt and optionally save thankYouMessage to djProfile
-        const userUpdate: Record<string, unknown> = {
-          lastSeenAt: FieldValue.serverTimestamp(),
-        };
+        // Update lastSeenAt for the logged-in user
+        await userRef.set({ lastSeenAt: FieldValue.serverTimestamp() }, { merge: true });
 
-        // Save thankYouMessage to djProfile if provided
+        // Save thankYouMessage to the slot's linked DJ profile (not the logged-in user)
         if (thankYouMessage && typeof thankYouMessage === 'string' && thankYouMessage.trim()) {
-          userUpdate['djProfile.thankYouMessage'] = thankYouMessage.trim().slice(0, 200);
+          const slotDjId = slot.djUserId;
+          if (slotDjId) {
+            try {
+              await db.collection('users').doc(slotDjId).set({
+                'djProfile.thankYouMessage': thankYouMessage.trim().slice(0, 200),
+              }, { merge: true });
+            } catch (err) {
+              console.error('[go-live] Failed to save thankYouMessage to slot DJ profile:', err);
+            }
+          }
         }
-
-        await userRef.set(userUpdate, { merge: true });
 
         // Reconcile any pending tips by email
         // This handles cases where tips were received before DJ logged in
