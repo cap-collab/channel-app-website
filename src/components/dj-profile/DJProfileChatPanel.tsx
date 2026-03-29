@@ -350,8 +350,6 @@ export function DJProfileChatPanel({
   };
 
   const handleSendLove = async () => {
-    if (!username) return;
-
     // Trigger floating hearts animation
     setHeartTrigger((prev) => prev + 1);
 

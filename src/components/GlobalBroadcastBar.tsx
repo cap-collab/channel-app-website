@@ -1,10 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useBPM } from '@/contexts/BPMContext';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { useUserProfile } from '@/hooks/useUserProfile';
+import { useDJProfileChat } from '@/hooks/useDJProfileChat';
+import { FloatingHearts } from '@/components/channel/FloatingHearts';
 import { ScrollingShowName, ScrollingDJName } from '@/components/channel/LiveBroadcastHero';
 
 /**
@@ -21,6 +25,38 @@ export function GlobalBroadcastBar() {
   const { stationBPM } = useBPM();
   const broadcastBPM = stationBPM['broadcast']?.bpm ?? null;
   const pathname = usePathname();
+  const { user } = useAuthContext();
+  const { chatUsername } = useUserProfile(user?.uid);
+  const [heartTrigger, setHeartTrigger] = useState(0);
+
+  // Compute current DJ chat room (same logic as LiveBroadcastHero)
+  const currentDJChatRoom = useMemo(() => {
+    if (!currentShow) return '';
+    const normalize = (u: string) => u.replace(/[\s-]+/g, '').toLowerCase();
+    if (currentShow.djSlots && currentShow.djSlots.length > 0) {
+      const now = Date.now();
+      const slot = currentShow.djSlots.find(s => s.startTime <= now && s.endTime > now);
+      if (slot) return normalize(slot.liveDjUsername || slot.djUsername || slot.djName || '');
+    }
+    const username = currentShow.liveDjUsername || currentShow.djUsername || currentShow.djName;
+    return username ? normalize(username) : '';
+  }, [currentShow]);
+
+  const { sendLove } = useDJProfileChat({
+    chatUsernameNormalized: currentDJChatRoom,
+    djUsername: djName || currentShow?.djName || '',
+    username: chatUsername || undefined,
+    enabled: false, // Don't subscribe to messages, just need sendLove
+  });
+
+  const handleSendLove = useCallback(async () => {
+    setHeartTrigger((prev) => prev + 1);
+    try {
+      await sendLove();
+    } catch (err) {
+      console.error('Failed to send love:', err);
+    }
+  }, [sendLove]);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -82,12 +118,18 @@ export function GlobalBroadcastBar() {
           )}
         </div>
 
-        {/* Love icon */}
-        <Link href="/radio#live" className="w-10 h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white flex-shrink-0">
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-          </svg>
-        </Link>
+        {/* Love button */}
+        <div className="relative flex-shrink-0">
+          <button
+            onClick={() => handleSendLove()}
+            className="w-10 h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+            </svg>
+          </button>
+          <FloatingHearts trigger={heartTrigger} />
+        </div>
 
         {/* Tip icon */}
         {tipEligible && (

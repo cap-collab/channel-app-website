@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getFirestore, collection, query, orderBy, limit, onSnapshot, addDoc, serverTimestamp, Timestamp, doc, updateDoc, increment } from 'firebase/firestore';
 import { getApps, initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 import { ChatMessageSerialized } from '@/types/broadcast';
 
 const firebaseConfig = {
@@ -189,14 +190,21 @@ export function useDJProfileChat({
 
   // Send a love reaction - increment heartCount if user already has a love message
   // If activityMessagesEnabled is false, skip posting to chat (animation still plays)
+  // Anyone can send love — if no username, post as "Someone" (no chat message username)
   const sendLove = useCallback(async () => {
-    if (!username || !chatUsernameNormalized) return;
+    if (!chatUsernameNormalized) return;
 
     // If activity messages are disabled, skip posting to chat
     if (!activityMessagesEnabled) return;
 
     const app = getFirebaseApp();
+    const auth = getAuth(app);
     const db = getFirestore(app);
+
+    // Ensure Firebase auth so Firestore writes succeed (sign in anonymously if needed)
+    if (!auth.currentUser) {
+      try { await signInAnonymously(auth); } catch { return; }
+    }
 
     try {
       // Check if we already have a love message - if so, increment heartCount
@@ -211,11 +219,12 @@ export function useDJProfileChat({
 
       // First love - create new message
       const messagesRef = collection(db, 'chats', chatUsernameNormalized, 'messages');
-      const message = `${username} is ❤️ ${djUsername}`;
+      const displayName = username || 'Someone';
+      const message = `${displayName} is ❤️ ${djUsername}`;
 
       const docRef = await addDoc(messagesRef, {
         stationId: chatUsernameNormalized,
-        username,
+        username: displayName,
         message,
         timestamp: serverTimestamp(),
         isDJ: false,

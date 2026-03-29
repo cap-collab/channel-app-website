@@ -486,14 +486,13 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
   }, [isAuthenticated, isDJInWatchlist, djWatchlistName, currentDJUserId, currentDJEmail, followDJ, removeFromWatchlist]);
 
   const handleSendLove = useCallback(async () => {
-    if (!chatUsername) return;
     setHeartTrigger((prev) => prev + 1);
     try {
       await sendLove();
     } catch (err) {
       console.error('Failed to send love:', err);
     }
-  }, [chatUsername, sendLove]);
+  }, [sendLove]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -701,11 +700,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
             {/* Love Button */}
             <div className="relative flex-shrink-0">
               <button
-                onClick={() => {
-                  if (!isAuthenticated) { setShowAuthModal(true); return; }
-                  if (!chatUsername) return;
-                  handleSendLove();
-                }}
+                onClick={() => handleSendLove()}
                 className="w-10 h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
               >
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">

@@ -744,6 +744,6 @@ export function useAuth() {
     sendPasswordReset,
     resetPasswordResetSent,
     signOut,
-    isAuthenticated: !!state.user,
+    isAuthenticated: !!state.user && !state.user.isAnonymous,
   };
 }
