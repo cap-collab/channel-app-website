@@ -37,7 +37,7 @@ export function Header({ currentPage = "home", position = "fixed", showSearch = 
     // Links only shown when signed out (signed-in users have Studio in the auth section)
     if (!isAuthenticated) {
       items.push({ label: "Studio", href: "/studio/join", active: currentPage === "studio" || currentPage === "dj-portal" });
-      items.push({ label: "About", href: "/#get-involved" });
+      items.push({ label: "About", href: "/about" });
     }
 
     // Always show auth option in menu
