@@ -9,7 +9,7 @@ const apiKey = process.env.LIVEKIT_API_KEY || '';
 const apiSecret = process.env.LIVEKIT_API_SECRET || '';
 
 // App URL for internal API calls
-const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
 const cronSecret = process.env.CRON_SECRET || '';
 
 // Verify request is from Vercel Cron
@@ -44,62 +44,8 @@ export async function GET(request: NextRequest) {
       ? new RoomServiceClient(livekitHost, apiKey, apiSecret)
       : null;
 
-    // Auto-activate scheduled restreams whose start time has arrived,
-    // AND fix any live restreams that are missing their ingress/egress
-    // (e.g. activated before the ingress code was deployed)
-    // Query by broadcastType only, filter status in code to avoid composite index requirement
-    const restreamSnapshot = await db
-      .collection('broadcast-slots')
-      .where('broadcastType', '==', 'restream')
-      .get();
-
-    for (const restreamDoc of restreamSnapshot.docs) {
-      try {
-        const slot = restreamDoc.data();
-        const startTime = slot.startTime?.toMillis?.() || slot.startTime;
-        const endTime = slot.endTime?.toMillis?.() || slot.endTime;
-        // Only process scheduled or live (without ingress) restreams
-        if (slot.status !== 'scheduled' && slot.status !== 'live') continue;
-        // Skip if not yet started or already ended
-        if (!startTime || now < startTime || now >= endTime) continue;
-        // Skip if already live AND already has ingress set up
-        if (slot.status === 'live' && slot.restreamIngressId) continue;
-
-        // Call the start-restream endpoint to create ingress + egress
-        try {
-          const res = await fetch(`${appUrl}/api/broadcast/start-restream`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${cronSecret}`,
-            },
-            body: JSON.stringify({ slotId: restreamDoc.id }),
-          });
-          const data = await res.json();
-          if (res.ok) {
-            console.log(`Restream ${restreamDoc.id} started: ingress=${data.ingressId} egress=${data.egressId}`);
-          } else {
-            restreamErrors.push(`${restreamDoc.id}: ${data.error}`);
-            // Still set to live so the player shows up (audio will be missing though)
-            if (slot.status === 'scheduled') {
-              await restreamDoc.ref.update({ status: 'live' });
-            }
-          }
-        } catch (fetchErr) {
-          const errMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
-          restreamErrors.push(`${restreamDoc.id}: fetch failed: ${errMsg}`);
-          if (slot.status === 'scheduled') {
-            await restreamDoc.ref.update({ status: 'live' });
-          }
-        }
-        restreamActivatedCount++;
-      } catch (err) {
-        console.error(`Error activating restream ${restreamDoc.id}:`, err);
-      }
-    }
-
-    // Query all slots that are still live, paused, or scheduled
-    // We'll check their end times in memory
+    // ── Step 1: Complete expired slots FIRST ──
+    // This ensures the previous live show is cleaned up before activating restreams.
     const snapshot = await db
       .collection('broadcast-slots')
       .where('status', 'in', ['live', 'paused', 'scheduled'])
@@ -172,6 +118,59 @@ export async function GET(request: NextRequest) {
       } catch (slotError) {
         // Log but continue processing remaining slots
         console.error(`Error processing slot ${doc.id}:`, slotError);
+      }
+    }
+
+    // ── Step 2: Activate scheduled restreams AFTER completing expired slots ──
+    // This ensures the previous show is cleaned up and the LiveKit room is free.
+    const restreamSnapshot = await db
+      .collection('broadcast-slots')
+      .where('broadcastType', '==', 'restream')
+      .get();
+
+    for (const restreamDoc of restreamSnapshot.docs) {
+      try {
+        const slot = restreamDoc.data();
+        const startTime = slot.startTime?.toMillis?.() || slot.startTime;
+        const endTime = slot.endTime?.toMillis?.() || slot.endTime;
+        // Only process scheduled or live (without ingress) restreams
+        if (slot.status !== 'scheduled' && slot.status !== 'live') continue;
+        // Skip if not yet started or already ended
+        if (!startTime || now < startTime || now >= endTime) continue;
+        // Skip if already live AND already has ingress set up
+        if (slot.status === 'live' && slot.restreamIngressId) continue;
+
+        // Call the start-restream endpoint to create ingress
+        // (the HLS egress is started by the LiveKit webhook when the ingress publishes audio)
+        try {
+          const res = await fetch(`${appUrl}/api/broadcast/start-restream`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${cronSecret}`,
+            },
+            body: JSON.stringify({ slotId: restreamDoc.id }),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            console.log(`Restream ${restreamDoc.id} started: ingress=${data.ingressId}`);
+          } else {
+            restreamErrors.push(`${restreamDoc.id}: ${data.error}`);
+            // Still set to live so the player shows up (audio will be missing though)
+            if (slot.status === 'scheduled') {
+              await restreamDoc.ref.update({ status: 'live' });
+            }
+          }
+        } catch (fetchErr) {
+          const errMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+          restreamErrors.push(`${restreamDoc.id}: fetch failed: ${errMsg}`);
+          if (slot.status === 'scheduled') {
+            await restreamDoc.ref.update({ status: 'live' });
+          }
+        }
+        restreamActivatedCount++;
+      } catch (err) {
+        console.error(`Error activating restream ${restreamDoc.id}:`, err);
       }
     }
 
