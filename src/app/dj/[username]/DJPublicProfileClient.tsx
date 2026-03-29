@@ -1602,17 +1602,6 @@ export function DJPublicProfileClient({ username }: Props) {
           <div className="sticky top-[48px] z-30 bg-black -mx-6 px-6">
             <div className="flex max-w-5xl mx-auto border-b border-white/10">
               <button
-                onClick={() => setActiveTab('chat')}
-                className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${
-                  activeTab === 'chat' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                Chat
-                {activeTab === 'chat' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
-                )}
-              </button>
-              <button
                 onClick={() => setActiveTab('timeline')}
                 className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${
                   activeTab === 'timeline' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
@@ -1620,6 +1609,17 @@ export function DJPublicProfileClient({ username }: Props) {
               >
                 Timeline
                 {activeTab === 'timeline' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab('chat')}
+                className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${
+                  activeTab === 'chat' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                Chat
+                {activeTab === 'chat' && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
                 )}
               </button>

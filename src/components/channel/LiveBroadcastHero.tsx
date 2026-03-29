@@ -335,7 +335,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
   const { isInWatchlist, followDJ, removeFromWatchlist } = useFavorites();
   const [isAddingToWatchlist, setIsAddingToWatchlist] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'chat' | 'schedule'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'schedule'>('schedule');
   const [heartTrigger, setHeartTrigger] = useState(0);
   const [chatInput, setChatInput] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -737,6 +737,17 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
         {/* Tab Bar */}
         <div className="flex border-b border-white/10">
           <button
+            onClick={() => setActiveTab('schedule')}
+            className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${
+              activeTab === 'schedule' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            Schedule
+            {activeTab === 'schedule' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
+            )}
+          </button>
+          <button
             onClick={() => setActiveTab('chat')}
             className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${
               activeTab === 'chat' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
@@ -762,17 +773,6 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
               )}
             </div>
             {activeTab === 'chat' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('schedule')}
-            className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${
-              activeTab === 'schedule' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            Schedule
-            {activeTab === 'schedule' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
             )}
           </button>
