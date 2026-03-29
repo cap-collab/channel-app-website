@@ -807,23 +807,26 @@ export function DJPublicProfileClient({ username }: Props) {
             // Check if this is the DJ's archive:
             // 1. For recordings (sourceType === 'recording'): match by userId or username in djs array
             // 2. For live broadcasts: match by broadcastSlotId in pastSlotsMap
-            if (archive.sourceType === 'recording') {
-              // Match recordings by DJ info
-              return archive.djs?.some((dj) => {
-                if (djUserId && dj.userId === djUserId) return true;
-                if (dj.username && normalizedUsername) {
-                  const archiveDjUsername = dj.username.toLowerCase().replace(/\s+/g, '');
-                  return archiveDjUsername === normalizedUsername;
-                }
-                if (dj.email && djEmail) {
-                  return dj.email.toLowerCase() === djEmail;
-                }
-                return false;
-              });
-            } else {
-              // Match live broadcasts by slot
+            // Match by DJ info in the archive's djs array
+            const matchesDj = archive.djs?.some((dj) => {
+              if (djUserId && dj.userId === djUserId) return true;
+              if (dj.username && normalizedUsername) {
+                const archiveDjUsername = dj.username.toLowerCase().replace(/\s+/g, '');
+                return archiveDjUsername === normalizedUsername;
+              }
+              if (dj.email && djEmail) {
+                return dj.email.toLowerCase() === djEmail;
+              }
+              return false;
+            });
+            if (matchesDj) return true;
+
+            // Also match live broadcasts by slot
+            if (archive.sourceType === 'live' && archive.broadcastSlotId) {
               return pastSlotsMap.has(archive.broadcastSlotId);
             }
+
+            return false;
           });
           setPastRecordings(djArchives);
 
