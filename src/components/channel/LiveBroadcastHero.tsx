@@ -349,13 +349,18 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
   const [usernameError, setUsernameError] = useState('');
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
 
-  // Auto-scroll chat
+  // Auto-scroll chat to latest message
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (container) {
-      container.scrollTop = container.scrollHeight;
+      requestAnimationFrame(() => {
+        container.scrollTop = container.scrollHeight;
+      });
     }
   }, [messages]);
+
+  // Check if any message arrived in the last hour
+  const hasRecentMessages = messages.length > 0 && (Date.now() - messages[messages.length - 1].timestamp) < 3600000;
 
   // Track player bar visibility — GlobalBroadcastBar shows when this scrolls out of view
   useEffect(() => {
@@ -780,7 +785,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
 
         {/* Tab Content */}
         {activeTab === 'chat' ? (
-          <div className="flex flex-col h-[45vh] lg:h-[38vh]">
+          <div className={`flex flex-col ${hasRecentMessages ? 'h-[45vh] lg:h-[38vh]' : 'h-[22vh] lg:h-[18vh]'}`}>
             {/* Promo bar */}
             {promoToShow && promoToShow.username && (() => {
               const hasHyperlink = !!promoToShow.hyperlink;
