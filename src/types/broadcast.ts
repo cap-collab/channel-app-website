@@ -211,6 +211,8 @@ export interface BroadcastState {
   hlsUrl: string | null;
   roomName: string;
   error: string | null;
+  roomOccupied?: boolean;       // Another DJ is currently broadcasting
+  roomFreeAt?: number | null;   // When the current DJ's slot ends (Unix ms)
 }
 
 // RTMP ingress info
@@ -226,6 +228,7 @@ export interface RoomStatus {
   isLive: boolean;
   currentDJ: string | null;
   participantCount: number;
+  currentSlotEndTime?: number;  // When the current live slot ends (Unix ms)
 }
 
 // Audio device for device selection

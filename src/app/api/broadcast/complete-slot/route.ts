@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { BroadcastSlot, Recording } from '@/types/broadcast';
+import { BroadcastSlot, Recording, ROOM_NAME } from '@/types/broadcast';
+import { RoomServiceClient } from 'livekit-server-sdk';
+
+const livekitHost = process.env.LIVEKIT_URL?.replace('wss://', 'https://') || '';
+const apiKey = process.env.LIVEKIT_API_KEY || '';
+const apiSecret = process.env.LIVEKIT_API_SECRET || '';
 
 // POST - Mark a slot as completed (called when slot end time passes)
 export async function POST(request: NextRequest) {
@@ -81,6 +86,21 @@ export async function POST(request: NextRequest) {
 
     await slotRef.update(updateData);
     console.log(`Slot ${slotId} marked as ${newStatus}`);
+
+    // Force-remove participant from LiveKit if slot was live (safety net if browser didn't disconnect cleanly)
+    if (slot.status === 'live' && newStatus === 'completed' && livekitHost && apiKey && apiSecret) {
+      const identity = slot.liveDjUsername || slot.liveDjUserId;
+      if (identity) {
+        try {
+          const roomService = new RoomServiceClient(livekitHost, apiKey, apiSecret);
+          await roomService.removeParticipant(ROOM_NAME, identity);
+          console.log(`Removed ${identity} from LiveKit room`);
+        } catch (e) {
+          // Participant may have already disconnected — that's fine
+          console.log(`Could not remove ${identity} from LiveKit: ${e}`);
+        }
+      }
+    }
 
     // After completing a slot, immediately activate the next scheduled show (restream or live).
     // This ensures zero gap between shows instead of waiting for the 5-minute cron.

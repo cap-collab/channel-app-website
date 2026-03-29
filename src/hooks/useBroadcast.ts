@@ -38,6 +38,8 @@ export function useBroadcast(
     hlsUrl: null,
     roomName,
     error: null,
+    roomOccupied: false,
+    roomFreeAt: null,
   });
 
   const roomRef = useRef<Room | null>(null);
@@ -110,6 +112,8 @@ export function useBroadcast(
             setState(prev => ({
               ...prev,
               error: `Another DJ (${roomStatus.currentDJ}) is currently live`,
+              roomOccupied: true,
+              roomFreeAt: roomStatus.currentSlotEndTime || null,
             }));
             return false;
           }
@@ -424,9 +428,9 @@ export function useBroadcast(
     setState(prev => ({ ...prev, inputMethod: method }));
   }, []);
 
-  // Clear error
+  // Clear error (and room-occupied state)
   const clearError = useCallback(() => {
-    setState(prev => ({ ...prev, error: null }));
+    setState(prev => ({ ...prev, error: null, roomOccupied: false, roomFreeAt: null }));
   }, []);
 
   // Handle browser close/tab close

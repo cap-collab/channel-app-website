@@ -1,6 +1,7 @@
 import { RoomServiceClient, IngressClient, EgressClient } from 'livekit-server-sdk';
 import { NextRequest, NextResponse } from 'next/server';
 import { ROOM_NAME, RoomStatus } from '@/types/broadcast';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 const livekitHost = process.env.LIVEKIT_URL?.replace('wss://', 'https://') || '';
 const apiKey = process.env.LIVEKIT_API_KEY || '';
@@ -79,10 +80,32 @@ export async function GET(request: NextRequest) {
         });
       }
 
+      // If someone is live, look up the active slot's end time so the next DJ knows when to expect the room to be free
+      let currentSlotEndTime: number | undefined;
+      if (isLive) {
+        try {
+          const db = getAdminDb();
+          if (db) {
+            const activeSlotSnapshot = await db
+              .collection('broadcast-slots')
+              .where('status', '==', 'live')
+              .limit(1)
+              .get();
+            if (!activeSlotSnapshot.empty) {
+              const activeSlot = activeSlotSnapshot.docs[0].data();
+              currentSlotEndTime = activeSlot.endTime?.toMillis?.() || activeSlot.endTime;
+            }
+          }
+        } catch (e) {
+          console.log('Could not look up active slot end time:', e);
+        }
+      }
+
       const status: RoomStatus = {
         isLive,
         currentDJ,
         participantCount: participants.length,
+        ...(currentSlotEndTime && { currentSlotEndTime }),
       };
 
       return NextResponse.json(status);

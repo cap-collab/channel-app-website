@@ -125,6 +125,7 @@ export function BroadcastClient() {
   const [canGoLive, setCanGoLive] = useState(false);
   const [goLiveMessage, setGoLiveMessage] = useState('');
   const [initialPromoSubmitted, setInitialPromoSubmitted] = useState(false);
+  const [slotEnded, setSlotEnded] = useState(false);
 
   // Sync isLiveForDjSwitch with broadcast.isLive
   useEffect(() => {
@@ -238,6 +239,25 @@ export function BroadcastClient() {
     const interval = setInterval(checkSlotCompletion, 10000);
     return () => clearInterval(interval);
   }, [slot, broadcast.isLive]);
+
+  // Auto-retry when room is occupied by previous DJ
+  useEffect(() => {
+    if (!broadcast.roomOccupied) return;
+
+    const poll = setInterval(async () => {
+      try {
+        const status = await broadcast.checkRoomStatus();
+        if (!status.isLive) {
+          console.log('Room is now free, clearing occupied state');
+          broadcast.clearError();
+        }
+      } catch (err) {
+        console.error('Failed to check room status:', err);
+      }
+    }, 5000);
+
+    return () => clearInterval(poll);
+  }, [broadcast.roomOccupied, broadcast.checkRoomStatus, broadcast.clearError]);
 
   // Update liveDjUserId on the broadcast slot when user logs in while already live
   // This enables the iOS app to recognize them as the DJ for chat
@@ -379,6 +399,31 @@ export function BroadcastClient() {
     broadcast.setInputMethod(null);
   }, [audioStream, broadcast]);
 
+  // Auto-end broadcast when slot time expires (while live)
+  useEffect(() => {
+    if (!broadcast.isLive || !slot) return;
+
+    const remainingMs = slot.endTime - Date.now();
+
+    if (remainingMs <= 0) {
+      // Slot already expired while live
+      console.log('Slot time expired, ending broadcast');
+      setSlotEnded(true);
+      handleEndBroadcast();
+      return;
+    }
+
+    console.log(`Broadcast will auto-end in ${Math.round(remainingMs / 1000)}s`);
+
+    const timer = setTimeout(() => {
+      console.log('Slot time reached, auto-ending broadcast');
+      setSlotEnded(true);
+      handleEndBroadcast();
+    }, remainingMs);
+
+    return () => clearTimeout(timer);
+  }, [broadcast.isLive, slot, handleEndBroadcast]);
+
   // Detect when audio track ends (e.g. user clicks browser's "stop sharing" button)
   useEffect(() => {
     if (!audioStream) return;
@@ -416,6 +461,7 @@ export function BroadcastClient() {
   const renderBranch = tokenLoading ? 'LOADING' :
     (tokenError || !slot) ? 'ERROR/NO_SLOT' :
     (slot.status === 'paused' && !dismissedWarning) ? 'PAUSED_WARNING' :
+    (slotEnded && !broadcast.isLive) ? 'SLOT_ENDED' :
     broadcast.isLive ? 'LIVE' :
     (isGoingLive && audioStream) ? 'GOING_LIVE' :
     ((scheduleStatus === 'early' || scheduleStatus === 'late') && !dismissedWarning && slot.status !== 'live') ? 'SCHEDULE_INFO' :
@@ -488,6 +534,30 @@ export function BroadcastClient() {
               Resume Broadcast
             </button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Slot ended - show completion message after auto-end
+  if (slotEnded && !broadcast.isLive) {
+    return (
+      <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center p-8">
+        <div className="bg-[#252525] rounded-xl p-8 max-w-md text-center">
+          <div className="w-16 h-16 bg-green-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h1 className="text-xl font-bold text-white mb-2">Your Slot Has Ended</h1>
+          <p className="text-gray-400">
+            Your broadcast has been completed. Thanks for DJing!
+          </p>
+          {slot && (
+            <p className="text-gray-500 text-sm mt-4">
+              {slot.showName || slot.djName} · {new Date(slot.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} – {new Date(slot.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -710,8 +780,24 @@ export function BroadcastClient() {
           )}
         </div>
 
-        {/* Error display */}
-        {broadcast.error && (
+        {/* Room occupied - waiting for previous DJ to finish */}
+        {broadcast.roomOccupied && (
+          <div className="bg-yellow-900/30 border border-yellow-800 rounded-lg p-4 mb-6">
+            <p className="text-yellow-400 font-medium">The previous broadcast is ending...</p>
+            <p className="text-yellow-300/80 text-sm mt-1">
+              {broadcast.roomFreeAt
+                ? `Expected to finish at ${new Date(broadcast.roomFreeAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+                : 'Please wait, this usually resolves within a few minutes.'}
+            </p>
+            <div className="flex items-center gap-2 mt-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-400"></div>
+              <span className="text-yellow-300/60 text-sm">Checking automatically...</span>
+            </div>
+          </div>
+        )}
+
+        {/* Error display (non-room-occupied errors) */}
+        {broadcast.error && !broadcast.roomOccupied && (
           <div className="bg-red-900/30 border border-red-800 rounded-lg p-4 mb-6">
             <p className="text-red-400">{broadcast.error}</p>
             <button
