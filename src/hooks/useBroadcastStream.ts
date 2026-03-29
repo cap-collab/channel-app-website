@@ -139,6 +139,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
   const graceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasPlayingRef = useRef(false);
   const isPlayingRef = useRef(false);
+  const userPausedRef = useRef(false); // Track user-initiated pauses vs browser auto-pause
   const [autoResumePending, setAutoResumePending] = useState(false);
 
   // Keep playing ref in sync
@@ -411,6 +412,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
       return;
     }
 
+    userPausedRef.current = false; // Reset — user is actively playing
     setIsLoading(true);
     setError(null);
 
@@ -628,7 +630,9 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
   }, [isLive, currentShow, handleTrackSubscribed, handleTrackUnsubscribed]);
 
   const pause = useCallback(() => {
-    // User explicitly paused — clear grace period and don't auto-resume
+    // User explicitly paused — mark so we don't auto-resume on iOS
+    userPausedRef.current = true;
+    // Clear grace period and don't auto-resume
     if (graceTimerRef.current) {
       clearTimeout(graceTimerRef.current);
       graceTimerRef.current = null;
@@ -687,6 +691,30 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
       return () => clearTimeout(timer);
     }
   }, [autoResumePending, isLive, isPlaying, isLoading, play, currentShow]);
+
+  // iOS Safari auto-pauses audio elements during silence (e.g. between DJ transitions).
+  // Detect this and auto-resume so listeners don't lose the stream during handoff.
+  useEffect(() => {
+    const audio = audioElementRef.current;
+    if (!audio || !isPlaying) return;
+
+    const handleBrowserPause = () => {
+      // Only auto-resume if this wasn't a user-initiated pause
+      if (!userPausedRef.current && isPlayingRef.current) {
+        console.log('🎵 Browser auto-paused audio (likely iOS silence), resuming in 2s...');
+        setTimeout(() => {
+          if (audioElementRef.current && isPlayingRef.current && !userPausedRef.current) {
+            audioElementRef.current.play().catch(err => {
+              console.warn('🎵 Auto-resume failed:', err);
+            });
+          }
+        }, 2000);
+      }
+    };
+
+    audio.addEventListener('pause', handleBrowserPause);
+    return () => audio.removeEventListener('pause', handleBrowserPause);
+  }, [isPlaying]);
 
   // Update lock screen / control center metadata via Media Session API
   useEffect(() => {
