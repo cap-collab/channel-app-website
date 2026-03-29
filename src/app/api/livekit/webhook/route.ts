@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { WebhookReceiver } from 'livekit-server-sdk';
+import { WebhookReceiver, EgressClient } from 'livekit-server-sdk';
+import { SegmentedFileOutput, SegmentedFileProtocol, S3Upload } from '@livekit/protocol';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { Recording, ArchiveDJ, STATION_ID } from '@/types/broadcast';
+import { Recording, ArchiveDJ, STATION_ID, ROOM_NAME } from '@/types/broadcast';
 
 // Generate URL-friendly slug from show name
 function generateSlug(showName: string): string {
@@ -67,7 +68,15 @@ function extractDJs(slotData: Record<string, unknown>): ArchiveDJ[] {
 
 const apiKey = process.env.LIVEKIT_API_KEY || '';
 const apiSecret = process.env.LIVEKIT_API_SECRET || '';
+const livekitHost = process.env.LIVEKIT_URL?.replace('wss://', 'https://') || '';
 const r2PublicUrl = process.env.R2_PUBLIC_URL || '';
+
+// R2 config for starting HLS egress on restream track_published
+const r2AccountId = process.env.R2_ACCOUNT_ID || '';
+const r2AccessKey = process.env.R2_ACCESS_KEY_ID || '';
+const r2SecretKey = process.env.R2_SECRET_ACCESS_KEY || '';
+const r2Bucket = process.env.R2_BUCKET_NAME || '';
+const r2Endpoint = `https://${r2AccountId}.r2.cloudflarestorage.com`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -79,6 +88,73 @@ export async function POST(request: NextRequest) {
     const event = await receiver.receive(body, authHeader);
 
     console.log('LiveKit webhook event:', event.event, event.egressInfo?.egressId);
+
+    // Handle track_published — start HLS egress when a restream ingress publishes audio.
+    // This is triggered by the URL ingress created in /api/broadcast/start-restream.
+    // We start the egress here (not in start-restream) because the ingress needs time
+    // to join the room and publish; doing it in start-restream caused Vercel timeouts.
+    if (event.event === 'track_published' && event.participant) {
+      const identity = event.participant.identity;
+
+      if (identity?.startsWith('restream-')) {
+        const slotId = identity.replace('restream-', '');
+        console.log(`[webhook] Restream participant ${identity} published track, starting egress for slot ${slotId}`);
+
+        const db = getAdminDb();
+        if (db && r2AccessKey && r2SecretKey) {
+          const slotRef = db.collection('broadcast-slots').doc(slotId);
+          const slotDoc = await slotRef.get();
+
+          // Only start egress if slot exists and doesn't already have one
+          if (slotDoc.exists && !slotDoc.data()?.restreamEgressId) {
+            try {
+              const egressClient = new EgressClient(livekitHost, apiKey, apiSecret);
+
+              // Stop any stale egresses first (from previous live broadcast)
+              try {
+                const existing = await egressClient.listEgress({ roomName: ROOM_NAME });
+                for (const e of existing) {
+                  if (e.status === 0 || e.status === 1) {
+                    try {
+                      await egressClient.stopEgress(e.egressId);
+                      console.log(`[webhook] Stopped stale egress: ${e.egressId}`);
+                    } catch { /* ignore */ }
+                  }
+                }
+              } catch { /* ignore */ }
+
+              // Start HLS egress now that ingress is publishing audio
+              const s3Upload = new S3Upload({
+                accessKey: r2AccessKey,
+                secret: r2SecretKey,
+                bucket: r2Bucket,
+                region: 'auto',
+                endpoint: r2Endpoint,
+                forcePathStyle: true,
+              });
+              const segmentOutput = new SegmentedFileOutput({
+                protocol: SegmentedFileProtocol.HLS_PROTOCOL,
+                filenamePrefix: `${ROOM_NAME}/stream`,
+                playlistName: 'playlist.m3u8',
+                livePlaylistName: 'live.m3u8',
+                segmentDuration: 2,
+                output: { case: 's3', value: s3Upload },
+              });
+              const hlsEgress = await egressClient.startRoomCompositeEgress(
+                ROOM_NAME,
+                { segments: segmentOutput },
+                { audioOnly: true }
+              );
+
+              await slotRef.update({ restreamEgressId: hlsEgress.egressId });
+              console.log(`[webhook] HLS egress started for restream: ${hlsEgress.egressId}`);
+            } catch (err) {
+              console.error(`[webhook] Failed to start egress for restream ${slotId}:`, err);
+            }
+          }
+        }
+      }
+    }
 
     // Handle egress ended events - save recording URL to Firestore
     if (event.event === 'egress_ended' && event.egressInfo) {

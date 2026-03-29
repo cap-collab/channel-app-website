@@ -679,7 +679,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
       setAutoResumePending(false);
       // Restreams need more time for the URL ingress + egress to start writing audio segments
       const isRestream = currentShow?.archiveRecordingUrl != null;
-      const delay = isRestream ? 8000 : 1500;
+      const delay = isRestream ? 15000 : 1500;
       console.log(`🔄 Auto-resuming playback in ${delay}ms (${isRestream ? 'restream' : 'live'})`);
       const timer = setTimeout(() => {
         play();
