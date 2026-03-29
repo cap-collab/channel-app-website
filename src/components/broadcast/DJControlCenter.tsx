@@ -216,6 +216,9 @@ export function DJControlCenter({
               </div>
             )}
           </div>
+          <p className="text-gray-500 text-sm text-center mt-4">
+            Have any issue? Call Cap at 415 316 3109
+          </p>
         </div>
       </div>
     </div>
