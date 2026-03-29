@@ -395,7 +395,7 @@ export function DJProfileChatPanel({
   // Show login prompt if not authenticated
   if (!isAuthenticated) {
     return (
-      <div className="flex flex-col h-full min-h-[400px] bg-black">
+      <div className="flex flex-col h-full min-h-[400px]">
         <LoginPrompt />
       </div>
     );
@@ -404,7 +404,7 @@ export function DJProfileChatPanel({
   // Show loading state while fetching profile
   if (profileLoading) {
     return (
-      <div className="flex flex-col h-full min-h-[400px] bg-black">
+      <div className="flex flex-col h-full min-h-[400px]">
         <ProfileLoading />
       </div>
     );
@@ -413,14 +413,14 @@ export function DJProfileChatPanel({
   // Show username setup if authenticated but no chatUsername
   if (!username && onSetUsername) {
     return (
-      <div className="flex flex-col h-full min-h-[400px] bg-black">
+      <div className="flex flex-col h-full min-h-[400px]">
         <UsernameSetup onSetUsername={onSetUsername} />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full max-h-[60vh] bg-black">
+    <div className="flex flex-col h-full max-h-[60vh]">
       {/* Error display */}
       {(error || localError) && (
         <div className="bg-red-900/50 text-red-200 px-4 py-2 text-sm flex-shrink-0">
@@ -492,7 +492,7 @@ export function DJProfileChatPanel({
       </div>
 
       {/* Input bar */}
-      <div className="border-t border-white/10 p-3 flex-shrink-0 bg-black">
+      <div className="border-t border-white/10 p-3 flex-shrink-0">
         <form onSubmit={handleSendMessage} className="flex items-center gap-2">
           {/* Heart button with floating hearts */}
           <div className="relative flex-shrink-0 flex items-center">
