@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
       // The slot links to a DJ by djUserId or djEmail — use that profile for broadcast info
       let slotDjProfile: Record<string, unknown> | null = null;
       let slotDjChatUsername: string | null = null;
+      let resolvedSlotDjUserId: string | null = null;
       const slotDjUserId = slot.djUserId;
       const slotDjEmail = slot.djEmail;
 
@@ -96,6 +97,7 @@ export async function POST(request: NextRequest) {
           const slotDjData = slotDjDoc.data();
           slotDjProfile = slotDjData?.djProfile || null;
           slotDjChatUsername = slotDjData?.chatUsername || null;
+          resolvedSlotDjUserId = slotDjUserId;
           console.log('[go-live] Found slot DJ profile by userId:', { slotDjUserId, chatUsername: slotDjChatUsername });
         }
       } else if (slotDjEmail && !slotDjProfile) {
@@ -108,7 +110,8 @@ export async function POST(request: NextRequest) {
           const slotDjData = slotDjByEmail.docs[0].data();
           slotDjProfile = slotDjData?.djProfile || null;
           slotDjChatUsername = slotDjData?.chatUsername || null;
-          console.log('[go-live] Found slot DJ profile by email:', { slotDjEmail, chatUsername: slotDjChatUsername });
+          resolvedSlotDjUserId = slotDjByEmail.docs[0].id;
+          console.log('[go-live] Found slot DJ profile by email:', { slotDjEmail, resolvedSlotDjUserId, chatUsername: slotDjChatUsername });
         }
       }
 
@@ -169,7 +172,8 @@ export async function POST(request: NextRequest) {
         console.log('[go-live] No username provided for logged-in user, using default');
       }
 
-      updateData.liveDjUserId = djUserId;
+      // Use the slot's linked DJ userId if available, otherwise the logged-in user
+      updateData.liveDjUserId = resolvedSlotDjUserId || djUserId;
 
       // Set chatUsername for profile URL — prioritize slot's linked DJ
       if (slotDjChatUsername) {
