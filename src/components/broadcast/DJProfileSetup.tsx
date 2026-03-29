@@ -32,12 +32,13 @@ interface DJProfileSetupProps {
   defaultPromoText?: string;
   defaultPromoHyperlink?: string;
   defaultThankYouMessage?: string;
+  showName?: string;
   broadcastType?: 'venue' | 'remote' | 'recording' | 'restream';
   isVenueRecording?: boolean;  // For recordings made at a venue (shows venue-specific terms)
   onComplete: (username: string, promoText?: string, promoHyperlink?: string, thankYouMessage?: string) => void;
 }
 
-export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromoHyperlink, defaultThankYouMessage, broadcastType, isVenueRecording, onComplete }: DJProfileSetupProps) {
+export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromoHyperlink, defaultThankYouMessage, showName, broadcastType, isVenueRecording, onComplete }: DJProfileSetupProps) {
   const { user, isAuthenticated, signInWithGoogle, signInWithApple, sendEmailLink, emailSent, resetEmailSent, loading: authLoading } = useAuthContext();
   const { chatUsername: savedUsername, loading: profileLoading } = useUserProfile(user?.uid);
   const [username, setUsername] = useState(defaultUsername || '');
@@ -351,6 +352,9 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
         {/* DJ Name - plain text title using the name from the broadcast slot */}
         <h2 className="text-2xl font-bold text-white">
           You are live streaming as <span className="text-accent">{defaultUsername || username.trim() || 'DJ'}</span>
+          {showName && (
+            <span className="text-gray-400 text-lg font-normal"> for {showName}</span>
+          )}
         </h2>
 
         {/* Broadcast/Recording Permissions Confirmation */}
@@ -545,6 +549,10 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
             )}
           </div>
         )}
+        {/* Support contact */}
+        <p className="text-gray-500 text-sm text-center">
+          Have any issue? Call Cap at 415 316 3109
+        </p>
       </form>
     </div>
   );
