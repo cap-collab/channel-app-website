@@ -109,7 +109,7 @@ export function DJProfileCard({
               <button
                 onClick={async () => {
                   const profileUrl = `${window.location.origin}/dj/${profile.username}`;
-                  const message = `Hey, your profile showed up on Channel, a platform built by Cap (a girl based in LA) for niche electronic music scenes. She\u2019d love to have you on board. Reach out to her at info@channel-app.com.\n${profileUrl}`;
+                  const message = `Hey, your profile showed up on Channel, a platform built for electronic music communities. A girl named Cap is building the platform, she'd love to have you on board. Reach out to her at info@channel-app.com.\n${profileUrl}`;
                   try {
                     if (navigator.share) {
                       await navigator.share({ text: message });
