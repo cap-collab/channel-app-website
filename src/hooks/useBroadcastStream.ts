@@ -134,6 +134,15 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
 
+  // Grace period + auto-resume refs for show transitions
+  const graceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wasPlayingRef = useRef(false);
+  const isPlayingRef = useRef(false);
+  const [autoResumePending, setAutoResumePending] = useState(false);
+
+  // Keep playing ref in sync
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+
   // Subscribe to current live slot from Firestore
   useEffect(() => {
     const app = getFirebaseApp();
@@ -152,6 +161,12 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
       q,
       (snapshot) => {
         if (!snapshot.empty) {
+          // Live slot found — cancel any grace period
+          if (graceTimerRef.current) {
+            clearTimeout(graceTimerRef.current);
+            graceTimerRef.current = null;
+          }
+
           const doc = snapshot.docs[0];
           const data = doc.data();
           const slot: BroadcastSlotSerialized = {
@@ -221,15 +236,47 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
           setIsLive(true);
           // Prewarm token as soon as we detect a live broadcast
           prewarmToken();
+
+          // Auto-resume: if user was playing before the transition gap, re-trigger play
+          if (wasPlayingRef.current) {
+            console.log('🔄 Auto-resume pending after show transition');
+            wasPlayingRef.current = false;
+            // Trigger auto-resume via state → effect → play()
+            setAutoResumePending(true);
+          }
         } else {
-          setCurrentShow(null);
-          setCurrentDJ(null);
-          setIsLive(false);
-          // If we were connected to LiveKit, disconnect when broadcast ends
-          if (roomRef.current) {
-            roomRef.current.disconnect();
-            roomRef.current = null;
-            setIsPlaying(false);
+          // No live slot — enter grace period if we were playing
+          if (isPlayingRef.current || roomRef.current || hlsRef.current) {
+            wasPlayingRef.current = true;
+            if (!graceTimerRef.current) {
+              console.log('🔄 Show transition: entering 60s grace period (keeping connection alive)');
+              graceTimerRef.current = setTimeout(() => {
+                console.log('🔄 Grace period expired, disconnecting');
+                graceTimerRef.current = null;
+                setCurrentShow(null);
+                setCurrentDJ(null);
+                setIsLive(false);
+                if (roomRef.current) {
+                  roomRef.current.disconnect();
+                  roomRef.current = null;
+                }
+                if (hlsRef.current) {
+                  hlsRef.current.destroy();
+                  hlsRef.current = null;
+                }
+                if (audioElementRef.current) {
+                  audioElementRef.current.pause();
+                  audioElementRef.current.src = '';
+                }
+                setIsPlaying(false);
+                wasPlayingRef.current = false;
+              }, 60_000);
+            }
+          } else {
+            // Not playing — tear down immediately
+            setCurrentShow(null);
+            setCurrentDJ(null);
+            setIsLive(false);
           }
         }
       },
@@ -244,6 +291,10 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
   // Clean up on unmount
   useEffect(() => {
     return () => {
+      if (graceTimerRef.current) {
+        clearTimeout(graceTimerRef.current);
+        graceTimerRef.current = null;
+      }
       if (roomRef.current) {
         roomRef.current.disconnect();
         roomRef.current = null;
@@ -528,6 +579,14 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
   }, [isLive, currentShow, handleTrackSubscribed, handleTrackUnsubscribed]);
 
   const pause = useCallback(() => {
+    // User explicitly paused — clear grace period and don't auto-resume
+    if (graceTimerRef.current) {
+      clearTimeout(graceTimerRef.current);
+      graceTimerRef.current = null;
+    }
+    wasPlayingRef.current = false;
+    setAutoResumePending(false);
+
     // Clean up WebRTC
     if (roomRef.current) {
       roomRef.current.disconnect();
@@ -563,6 +622,20 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
       play();
     }
   }, [isPlaying, play, pause]);
+
+  // Auto-resume effect: when a new show goes live after a transition,
+  // automatically call play() if the user was previously playing
+  useEffect(() => {
+    if (autoResumePending && isLive && !isPlaying && !isLoading) {
+      console.log('🔄 Auto-resuming playback now');
+      setAutoResumePending(false);
+      // Small delay to let the new stream stabilize (e.g. restream ingress starting)
+      const timer = setTimeout(() => {
+        play();
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [autoResumePending, isLive, isPlaying, isLoading, play]);
 
   // Subscribe to listener count from Firebase Realtime Database (matches iOS ListenerCountService)
   useEffect(() => {
