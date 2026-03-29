@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
           ingresses = ingressList.map(i => ({
             id: i.ingressId,
             name: i.name,
-            status: i.status,
+            state: i.state,
             url: i.url,
             participantIdentity: i.participantIdentity,
             error: i.state?.error,

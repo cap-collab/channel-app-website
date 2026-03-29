@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
         url: slot.archiveRecordingUrl,
       }
     );
-    console.log(`[start-restream] Ingress created: id=${ingress.ingressId} status=${ingress.status} streamKey=${ingress.streamKey || 'none'} (egress will start via webhook)`);
+    console.log(`[start-restream] Ingress created: id=${ingress.ingressId} streamKey=${ingress.streamKey || 'none'} (egress will start via webhook)`);
 
     // Set slot to live with ingress ID. Egress ID will be set by the webhook.
     await slotDoc.ref.update({
