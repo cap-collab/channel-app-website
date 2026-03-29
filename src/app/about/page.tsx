@@ -31,7 +31,7 @@ const faqItems = [
 export default function About() {
   return (
     <div className="min-h-screen">
-      <Header />
+      <Header position="sticky" showSearch />
 
       {/* Hero Section */}
       <section className="min-h-screen flex flex-col justify-center items-center px-6 pt-24 pb-20 relative bg-[#1a1a1a]">

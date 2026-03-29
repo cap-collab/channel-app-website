@@ -412,11 +412,11 @@ export function DJPublicProfileClient({ username }: Props) {
   });
 
   useEffect(() => {
-    if (!hasSetDefaultTab && djProfile?.email && chatMessages.length > 0) {
+    if (!hasSetDefaultTab && djProfile?.email && liveOnChannel) {
       setActiveTab('chat');
       setHasSetDefaultTab(true);
     }
-  }, [hasSetDefaultTab, djProfile?.email, chatMessages.length]);
+  }, [hasSetDefaultTab, djProfile?.email, liveOnChannel]);
 
   // Fetch DJ profile by username
   useEffect(() => {
