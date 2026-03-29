@@ -397,7 +397,7 @@ export function DJPublicProfileClient({ username }: Props) {
   const [djPastEvents, setDjPastEvents] = useState<ChannelEvent[]>([]);
 
   // Broadcast stream context for synced play/pause
-  const { isPlaying, isLoading: streamLoading, toggle: toggleStream, isStreaming } = useBroadcastStreamContext();
+  const { isPlaying, isLoading: streamLoading, toggle: toggleStream, isStreaming, isLive: broadcastIsLive } = useBroadcastStreamContext();
 
   // Tab state for claimed profiles (with email)
   const [activeTab, setActiveTab] = useState<'timeline' | 'chat'>('timeline');
@@ -537,16 +537,18 @@ export function DJPublicProfileClient({ username }: Props) {
       show.djUsername === normalizedProfileUsername ||
       show.additionalDjUsernames?.includes(normalizedProfileUsername);
 
+    // Use real-time broadcastIsLive from BroadcastStreamContext (Firestore onSnapshot)
+    // instead of show.type === "live" from the cached ScheduleContext, which may be stale
     const channelShow = allShows.find(
       (show) =>
         show.stationId === "broadcast" &&
-        show.type === "live" &&
+        (show.type === "live" || broadcastIsLive) &&
         new Date(show.startTime).getTime() <= now &&
         new Date(show.endTime).getTime() > now &&
         matchesProfile(show)
     );
 
-    // Only show Channel live card if slot status is 'live' AND DJ is actually streaming audio
+    // Only show Channel live card if slot is live AND DJ is actually streaming audio
     if (channelShow && isStreaming) {
       setLiveOnChannel(true);
       setLiveElsewhere(null);
@@ -577,7 +579,7 @@ export function DJPublicProfileClient({ username }: Props) {
       setLiveElsewhere(null);
       setCurrentLiveShow(null);
     }
-  }, [djProfile, allShows, isStreaming]);
+  }, [djProfile, allShows, isStreaming, broadcastIsLive]);
 
   // Update live show progress bar
   useEffect(() => {
