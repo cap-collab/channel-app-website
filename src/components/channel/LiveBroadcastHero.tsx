@@ -349,15 +349,16 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
   const [usernameError, setUsernameError] = useState('');
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
 
-  // Auto-scroll chat to latest message
+  // Auto-scroll chat to latest message (also when switching back to chat tab)
   useEffect(() => {
+    if (activeTab !== 'chat') return;
     const container = messagesContainerRef.current;
     if (container) {
       requestAnimationFrame(() => {
         container.scrollTop = container.scrollHeight;
       });
     }
-  }, [messages]);
+  }, [messages, activeTab]);
 
   // Check if any message arrived in the last hour
   const hasRecentMessages = messages.length > 0 && (Date.now() - messages[messages.length - 1].timestamp) < 3600000;
