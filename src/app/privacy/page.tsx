@@ -25,7 +25,7 @@ export default function PrivacyPage() {
         Channel Media, Inc. (&quot;Channel,&quot; &quot;we,&quot; &quot;our,&quot; or &quot;us&quot;)
         provides a platform for streaming independent radio stations, hosting live DJ broadcasts,
         discovering shows, participating in public chat communities, managing DJ profiles, and
-        optionally supporting DJs through voluntary tips.
+        sharing public content and external links chosen by DJs.
       </p>
       <p>Channel is available on both mobile and web.</p>
       <p>
@@ -98,13 +98,13 @@ export default function PrivacyPage() {
       </p>
       <p>If enabled, we store:</p>
       <ul>
-        <li>Email address</li>
-        <li>Notification preferences</li>
-        <li>Watchlist items</li>
-        <li>Favorite shows and DJs</li>
-        <li>Saved searches</li>
-        <li>Digest timestamps</li>
-        <li>Calendar sync settings</li>
+        <li>email address</li>
+        <li>notification preferences</li>
+        <li>watchlist items</li>
+        <li>favorite shows and DJs</li>
+        <li>saved searches</li>
+        <li>digest timestamps</li>
+        <li>calendar sync settings</li>
       </ul>
 
       <p>
@@ -183,10 +183,10 @@ export default function PrivacyPage() {
       </p>
       <p>Important disclosures:</p>
       <ul>
-        <li>All live audio is relayed through Channel-controlled servers</li>
-        <li>Live streams are recorded by default</li>
-        <li>Recordings are generated via HLS egress and stored as MP4 files</li>
-        <li>Recordings are retained unless removed by Channel</li>
+        <li>all live audio is relayed through Channel-controlled servers</li>
+        <li>live streams are recorded by default</li>
+        <li>recordings are generated via HLS egress and stored as MP4 files</li>
+        <li>recordings are retained unless removed by Channel</li>
       </ul>
       <p>Recordings may include:</p>
       <ul>
@@ -233,7 +233,6 @@ export default function PrivacyPage() {
       <ul>
         <li>Love reactions</li>
         <li>Locked-in messages</li>
-        <li>Tip acknowledgments</li>
       </ul>
       <p>These messages are optional, rate-limited, and configurable.</p>
 
@@ -244,37 +243,21 @@ export default function PrivacyPage() {
       </p>
       <p>These logs are not used for advertising or profiling.</p>
 
-      <h3>4.11 Payments &amp; Tips</h3>
-      <p>Channel may allow users to voluntarily support DJs through tips.</p>
+      <h3>4.11 External Links</h3>
       <p>
-        Payments are processed by Stripe. Channel does not store full payment card numbers or
-        sensitive payment credentials.
+        Channel may display or allow DJs to share external links to third-party websites or
+        services.
       </p>
-      <p>Channel may store limited transaction information, including:</p>
+      <p>If you choose to open an external link:</p>
       <ul>
-        <li>payment amount and currency</li>
-        <li>transaction identifiers</li>
-        <li>timestamp</li>
-        <li>payment status</li>
-        <li>associated DJ or show</li>
-      </ul>
-      <p>Tips may be sent with or without creating an account.</p>
-      <ul>
-        <li>
-          For logged-in users, tips are internally associated with the user&apos;s account identifier
-          and username.
-        </li>
-        <li>
-          For guest users, tips are associated with a transaction identifier without creating a user
-          profile.
-        </li>
+        <li>you may be redirected to a website or service not operated by Channel</li>
+        <li>that third party may collect information about you under its own privacy policy</li>
+        <li>Channel does not process payments or transactions on those third-party services</li>
       </ul>
       <p>
-        If a DJ does not complete payout setup within a defined period, transaction records related
-        to unclaimed tips may be associated with Channel&apos;s DJ Support Pool for internal
-        accounting purposes.
+        Channel does not control and is not responsible for the privacy practices of third-party
+        websites or services.
       </p>
-      <p>Creators receiving payouts must complete identity verification directly with Stripe.</p>
 
       <h3>4.12 DJ / Creator Applications</h3>
       <p>If you apply to become a DJ or broadcaster, we may collect:</p>
@@ -376,7 +359,6 @@ export default function PrivacyPage() {
         <li>enable following DJs and favoriting shows</li>
         <li>generate personalized recommendations based on preferences or estimated location</li>
         <li>deliver notifications and digest emails</li>
-        <li>facilitate voluntary tips and DJ payouts</li>
         <li>prevent fraud and abuse</li>
         <li>improve platform reliability</li>
       </ul>
@@ -390,7 +372,6 @@ export default function PrivacyPage() {
         <li>Cloudflare R2</li>
         <li>Vercel</li>
         <li>Resend</li>
-        <li>Stripe</li>
       </ul>
       <p>All providers act as processors and do not use data for advertising.</p>
 
@@ -403,19 +384,16 @@ export default function PrivacyPage() {
       </ul>
 
       <h2>9. Data Retention</h2>
-      <ul>
-        <li>
-          Account data: deleted upon account deletion, including favorites, watchlist, saved
-          searches, notification preferences, and username reservation
-        </li>
-        <li>Chat messages: retained after account deletion; may be removed upon request</li>
-        <li>Presence session identifiers: short-lived</li>
-        <li>Live stream recordings: retained unless removed</li>
-        <li>DJ profiles: retained until deletion or removal request</li>
-        <li>Payment transaction records: retained for accounting, compliance, and disputes</li>
-        <li>DJ application data: retained while relevant</li>
-        <li>Moderation logs: retained as necessary for safety</li>
-      </ul>
+      <p>
+        Account data: deleted upon account deletion, including favorites, watchlist, saved
+        searches, notification preferences, and username reservation.
+      </p>
+      <p>Chat messages: retained after account deletion; may be removed upon request.</p>
+      <p>Presence session identifiers: short-lived.</p>
+      <p>Live stream recordings: retained unless removed.</p>
+      <p>DJ profiles: retained until deletion or removal request.</p>
+      <p>DJ application data: retained while relevant.</p>
+      <p>Moderation logs: retained as necessary for safety.</p>
       <p>
         Favorites may be automatically removed if the associated show or event is deleted from the
         platform.

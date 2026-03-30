@@ -121,18 +121,18 @@ export default function GuidelinesPage() {
       </ul>
       <p>Channel may edit or remove content that violates these guidelines.</p>
 
-      <h2>9. Payments &amp; Tips</h2>
-      <p>Tips are intended to support DJs voluntarily.</p>
-      <p>Do not:</p>
+      <h2>9. External Links</h2>
+      <p>Channel may allow DJs and users to share external links.</p>
+      <p>You may not use Channel to promote or link to content that involves:</p>
       <ul>
-        <li>use tipping to promote illegal or prohibited content</li>
-        <li>attempt to manipulate tipping systems</li>
-        <li>request tips in connection with prohibited activity</li>
+        <li>adult content containing nudity or explicit sexual acts</li>
+        <li>copyright-infringing or unauthorized material</li>
+        <li>intellectual property violations</li>
+        <li>violent extremism or promotion of unlawful violence</li>
+        <li>hate-based content targeting protected groups</li>
       </ul>
-      <p>
-        Abuse of the tipping system may result in removal of tipping privileges or account
-        restrictions.
-      </p>
+      <p>You are responsible for the links you share.</p>
+      <p>Channel may remove links or restrict access if they violate these guidelines.</p>
 
       <h2>10. Moderation</h2>
       <p>Moderation is primarily manual.</p>
@@ -141,7 +141,7 @@ export default function GuidelinesPage() {
         <li>message removal</li>
         <li>content removal</li>
         <li>chat restrictions</li>
-        <li>suspension of tipping privileges</li>
+        <li>removal of links</li>
         <li>account suspension or bans</li>
       </ul>
       <p>Moderation decisions are made at Channel&apos;s discretion to maintain platform safety.</p>

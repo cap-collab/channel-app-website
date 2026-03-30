@@ -33,14 +33,14 @@ export default function TermsPage() {
       <h2>3. Description of the Service</h2>
       <p>Channel is a platform that enables users to:</p>
       <ul>
-        <li>Listen to live audio streams from third-party radio stations</li>
-        <li>Listen to live DJ broadcasts through Channel Radio (Channel-hosted DJ broadcasts)</li>
-        <li>View public pages for DJs, collectives, venues, and events (e.g. /dj/[username])</li>
-        <li>Interact with public chat rooms associated with DJs or radio stations</li>
-        <li>Discover show schedules, metadata, and listener indicators</li>
-        <li>Send voluntary tips to support DJs</li>
-        <li>Receive optional notifications and emails</li>
-        <li>Save favorites, watchlists, and searches</li>
+        <li>listen to live audio streams from third-party radio stations</li>
+        <li>listen to live DJ broadcasts through Channel Radio (Channel-hosted DJ broadcasts)</li>
+        <li>view public pages for DJs, collectives, venues, and events (e.g. /dj/[username])</li>
+        <li>interact with public chat rooms associated with DJs or radio stations</li>
+        <li>discover show schedules, metadata, and listener indicators</li>
+        <li>access external links shared by DJs (including promotional or support links)</li>
+        <li>receive optional notifications and emails</li>
+        <li>save favorites, watchlists, and searches</li>
       </ul>
       <p>Channel may also provide personalized recommendations based on:</p>
       <ul>
@@ -55,8 +55,8 @@ export default function TermsPage() {
       <h3>4.1 Mobile App</h3>
       <p>Use is anonymous by default. Users may optionally authenticate using:</p>
       <ul>
-        <li>Email and password</li>
-        <li>Email Magic Link</li>
+        <li>email and password</li>
+        <li>email Magic Link</li>
         <li>Google OAuth</li>
         <li>Apple Sign-In</li>
       </ul>
@@ -68,25 +68,25 @@ export default function TermsPage() {
       <p>Channel displays public DJ profiles that may include:</p>
       <ul>
         <li>DJ name or username</li>
-        <li>Biography and descriptive information</li>
-        <li>Images, artwork, or thumbnails</li>
-        <li>Location, genres, and recommendations</li>
-        <li>Social links and references</li>
-        <li>Past or upcoming broadcasts and recordings</li>
+        <li>biography and descriptive information</li>
+        <li>images, artwork, or thumbnails</li>
+        <li>location, genres, and recommendations</li>
+        <li>social links and external references</li>
+        <li>past or upcoming broadcasts and recordings</li>
       </ul>
       <p>Profile information may originate from:</p>
       <ul>
         <li>DJs themselves (after claiming a profile)</li>
         <li>Channel administrators</li>
-        <li>Publicly available information from third-party platforms</li>
+        <li>publicly available information from third-party platforms</li>
       </ul>
       <p>Channel does not guarantee the accuracy or completeness of DJ profile information.</p>
 
       <h3>5.2 Pending and Auto-Created Profiles</h3>
       <p>Some DJ profiles may exist before a DJ signs up, including profiles:</p>
       <ul>
-        <li>Created by Channel administrators</li>
-        <li>Automatically generated from publicly available sources</li>
+        <li>created by Channel administrators</li>
+        <li>automatically generated from publicly available sources</li>
       </ul>
       <p>These profiles are displayed for discovery purposes.</p>
       <p>
@@ -97,46 +97,51 @@ export default function TermsPage() {
       <p>Channel Radio displays live DJ broadcasts hosted on Channel.</p>
       <p>Broadcasts may:</p>
       <ul>
-        <li>Appear dynamically when a DJ is live</li>
-        <li>Include chat, reactions, or recordings</li>
-        <li>Be interrupted, delayed, or unavailable</li>
+        <li>appear dynamically when a DJ is live</li>
+        <li>include chat, reactions, or recordings</li>
+        <li>be interrupted, delayed, or unavailable</li>
       </ul>
       <p>Channel does not guarantee broadcast availability, quality, or continuity.</p>
 
-      <h2>7. Tips &amp; Voluntary Support</h2>
-
-      <h3>7.1 Voluntary Nature of Tips</h3>
-      <p>Users may voluntarily send tips to DJs.</p>
-      <ul>
-        <li>Tips are optional and non-refundable</li>
-        <li>Tips do not purchase goods or services</li>
-        <li>Tips do not create any contractual or employment relationship</li>
-      </ul>
-
-      <h3>7.2 Processing &amp; Fees</h3>
-      <p>Tips are processed via third-party payment providers (such as Stripe).</p>
+      <h2>7. External Links &amp; Third-Party Services</h2>
       <p>
-        Channel charges a platform fee on each tip (currently 15% or a $0.50 minimum, whichever is
-        higher).
+        Channel may allow DJs to share external links, including links for promotion, content, or
+        financial support.
       </p>
-      <p>Channel is not responsible for payment processor errors, delays, or reversals.</p>
-
-      <h3>7.3 Unclaimed Tips</h3>
-      <p>If a DJ does not complete payout setup, tips may be temporarily held.</p>
+      <p>You acknowledge that:</p>
+      <ul>
+        <li>Channel does not operate or control external websites or services</li>
+        <li>Channel does not process payments or financial transactions</li>
+        <li>any interaction with third-party services is at your own risk</li>
+      </ul>
+      <p>Channel is not responsible for:</p>
+      <ul>
+        <li>transactions conducted outside of Channel</li>
+        <li>third-party content, services, or platforms</li>
+        <li>disputes, losses, or damages resulting from external interactions</li>
+      </ul>
       <p>
-        Unclaimed tips after a defined period may be reallocated to Channel&apos;s DJ Support Pool
-        and are not refundable.
+        Channel may remove or restrict access to links that violate these Terms or Community
+        Guidelines.
       </p>
 
       <h2>8. User Conduct</h2>
-      <p>You agree not to post, transmit, or interact in a way that includes:</p>
+      <p>You agree not to post, transmit, promote, or link to content that includes:</p>
       <ul>
-        <li>Harassment, threats, or abuse</li>
-        <li>Hate speech or discriminatory content</li>
-        <li>Illegal or infringing material</li>
-        <li>Sexual or explicit content</li>
-        <li>Spam or unrelated self-promotion</li>
-        <li>Sharing personal information of others</li>
+        <li>harassment, threats, or abuse</li>
+        <li>hate speech or discriminatory content</li>
+        <li>illegal or infringing material</li>
+        <li>sexual or explicit content</li>
+        <li>spam or unrelated self-promotion</li>
+        <li>sharing personal information of others</li>
+      </ul>
+      <p>You also agree not to use Channel to promote or link to:</p>
+      <ul>
+        <li>adult content involving nudity or explicit sexual acts</li>
+        <li>copyright-infringing or unauthorized content</li>
+        <li>intellectual property violations</li>
+        <li>violent extremism or promotion of unlawful violence</li>
+        <li>hate-based content targeting protected groups</li>
       </ul>
       <p>Violations may result in content removal, account restriction, or loss of access.</p>
 
@@ -145,20 +150,20 @@ export default function TermsPage() {
       <h3>9.1 Chat Rooms</h3>
       <p>Chat rooms on Channel may be associated with either:</p>
       <ul>
-        <li>radio stations (for third-party radio streams), or</li>
+        <li>radio stations (for third-party streams), or</li>
         <li>DJ profiles (for Channel Radio DJs)</li>
       </ul>
       <p>Chat messages:</p>
       <ul>
-        <li>Are public</li>
-        <li>Are visible to other users</li>
-        <li>May persist beyond a single broadcast session depending on the chat type</li>
+        <li>are public</li>
+        <li>are visible to other users</li>
+        <li>may persist beyond a single broadcast session</li>
       </ul>
 
       <h3>9.2 Responsibility for Messages</h3>
       <p>You are responsible for any content you post.</p>
       <p>
-        Channel does not endorse or verify user-generated messages and may remove content that
+        Channel does not endorse or verify user-generated content and may remove content that
         violates these Terms or Community Guidelines.
       </p>
 
@@ -167,12 +172,11 @@ export default function TermsPage() {
       <ul>
         <li>Love reactions</li>
         <li>Locked-in listening indicators</li>
-        <li>Tip acknowledgments</li>
       </ul>
       <p>These messages may appear publicly and can be disabled in settings.</p>
       <p>
         Channel may also automatically add new shows from favorited DJs to a user&apos;s favorites
-        list in order to keep users informed about upcoming broadcasts.
+        list.
       </p>
 
       <h2>11. Notifications</h2>
@@ -180,17 +184,17 @@ export default function TermsPage() {
       <h3>11.1 Push Notifications (Mobile)</h3>
       <p>Optional notifications may include:</p>
       <ul>
-        <li>Show reminders</li>
-        <li>Go-live alerts</li>
-        <li>Mentions</li>
+        <li>show reminders</li>
+        <li>go-live alerts</li>
+        <li>mentions</li>
       </ul>
 
       <h3>11.2 Email Notifications (Web)</h3>
       <p>Optional emails may include:</p>
       <ul>
-        <li>Show reminders</li>
-        <li>Watchlist updates</li>
-        <li>Digest emails including personalized show recommendations</li>
+        <li>show reminders</li>
+        <li>watchlist updates</li>
+        <li>digest emails including personalized recommendations</li>
       </ul>
       <p>You may disable notifications at any time.</p>
 
@@ -202,7 +206,6 @@ export default function TermsPage() {
         <li>Cloudflare R2 (recording storage)</li>
         <li>Vercel (hosting)</li>
         <li>Resend (email)</li>
-        <li>Stripe (payments)</li>
       </ul>
       <p>Channel is not responsible for third-party service interruptions or failures.</p>
 
@@ -212,21 +215,21 @@ export default function TermsPage() {
       <h2>14. Limitation of Liability</h2>
       <p>To the fullest extent permitted by law, Channel Media, Inc. is not liable for:</p>
       <ul>
-        <li>Broadcast interruptions or failures</li>
-        <li>Accuracy of DJ profile information</li>
-        <li>User-generated content or chat messages</li>
-        <li>Payment processing errors or delays</li>
-        <li>Data loss or unauthorized account access</li>
-        <li>Unclaimed or reallocated tips</li>
+        <li>broadcast interruptions or failures</li>
+        <li>accuracy of DJ profile information</li>
+        <li>user-generated content or chat messages</li>
+        <li>third-party services or external links</li>
+        <li>transactions conducted outside of Channel</li>
+        <li>data loss or unauthorized account access</li>
       </ul>
       <p>Your sole remedy is to stop using Channel.</p>
 
       <h2>15. Reporting &amp; Enforcement</h2>
       <p>You may report issues via:</p>
       <ul>
-        <li>Shaking your device (mobile)</li>
-        <li>Mentioning @Channel in chat</li>
-        <li>Emailing <a href="mailto:support@channel-app.com">support@channel-app.com</a></li>
+        <li>shaking your device (mobile)</li>
+        <li>mentioning @Channel in chat</li>
+        <li>emailing <a href="mailto:support@channel-app.com">support@channel-app.com</a></li>
       </ul>
       <p>Channel may remove content or restrict access at its discretion.</p>
 
