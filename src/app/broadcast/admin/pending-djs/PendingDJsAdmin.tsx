@@ -891,7 +891,7 @@ Once you're in, you can:
 - Add your upcoming shows, on Channel, other radios, or IRL
 - Share what you're into with your followers
 - Have your followers notified when you play or release something
-- Chat with listeners and receive tips
+- Chat with listeners and let them know how they can best support you
 
 See you on Channel,
 Cap`;

@@ -996,24 +996,19 @@ ${formattedStart} – ${formattedEnd} ${djTz}
 
 1. Fine-tune your profile
 ${profileBlock}
-Sign up or log in using ${targetEmail} so everything links properly:
+Sign up or log in using ${targetEmail}:
 https://channel-app.com/studio
 
-Add your bio, links, and any upcoming shows, on other radios, or IRL. We feature these on the website and in our bi-weekly newsletter.
-
-If you haven't connected Stripe yet and want to receive tips:
-https://channel-app.com/stripe-setup
+Add bio, links, upcoming shows. We feature these on the website and newsletter.
 
 ⸻
 
 2. Your live stream link
 
-You'll go live from here (keep this link private):
+Go live from here (keep private):
 ${broadcastUrl}
 
-I recommend opening it ahead of time and doing a quick test.
-
-You can also test your audio setup by clicking on "Record a set" in the studio. You'll be able to listen back to your recording to make sure everything sounds good.
+Test ahead of time. "Record a set" in studio to test audio.
 
 Setup guide:
 https://channel-app.com/streaming-guide
@@ -1022,18 +1017,10 @@ https://channel-app.com/streaming-guide
 
 3. Day of the show
 
-Join a few minutes early. Once you go live, people can tune in, chat, and support you in real time.
+Join early. Share: ${profileUrl || 'https://channel-app.com/radio'} for people to get notified when you go live, hear you live, and access your recordings.
 
-You can share the radio here:
-https://channel-app.com/radio
-
-⸻
-
-If you want to have someone play just before or after you, they can apply here:
+Invite others to join:
 https://channel-app.com/studio/join
-or you can just put me in touch with them.
-
-⸻
 
 That's it. Excited to have you on.
 
