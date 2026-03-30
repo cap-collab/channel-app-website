@@ -235,9 +235,13 @@ export function AudioStatusPanel({
 
       {/* Action: GO LIVE / START RECORDING button (pre-live) or Troubleshoot link (live) */}
       <style>{`
-        @keyframes pump {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.05); }
+        @keyframes pump-red {
+          0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6); }
+          50% { transform: scale(1.05); box-shadow: 0 0 20px 4px rgba(220, 38, 38, 0.4); }
+        }
+        @keyframes pump-amber {
+          0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.6); }
+          50% { transform: scale(1.05); box-shadow: 0 0 20px 4px rgba(217, 119, 6, 0.4); }
         }
       `}</style>
       {!isLive ? (
@@ -249,7 +253,7 @@ export function AudioStatusPanel({
                   <button
                     onClick={onQueueGoLive}
                     className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-4 px-6 rounded-lg text-xl transition-colors"
-                    style={{ animation: 'pump 1.5s ease-in-out infinite' }}
+                    style={{ animation: 'pump-amber 1.5s ease-in-out infinite' }}
                   >
                     Queue Auto Go-Live
                   </button>
@@ -263,7 +267,7 @@ export function AudioStatusPanel({
                     onClick={onGoLive}
                     disabled={isGoingLive}
                     className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg text-xl transition-colors"
-                    style={!isGoingLive ? { animation: 'pump 1.5s ease-in-out infinite' } : undefined}
+                    style={!isGoingLive ? { animation: 'pump-red 1.5s ease-in-out infinite' } : undefined}
                   >
                     {isGoingLive
                       ? (isRecordingMode ? 'Starting recording...' : 'Going live...')
