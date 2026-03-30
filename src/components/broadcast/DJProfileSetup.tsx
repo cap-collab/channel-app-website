@@ -39,7 +39,7 @@ interface DJProfileSetupProps {
 }
 
 export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromoHyperlink, showName, broadcastType, isVenueRecording, onComplete }: DJProfileSetupProps) {
-  const { user, isAuthenticated, loading: authLoading } = useAuthContext();
+  const { user, isAuthenticated } = useAuthContext();
   const { chatUsername: savedUsername, loading: profileLoading } = useUserProfile(user?.uid);
   const [username, setUsername] = useState(defaultUsername || '');
   const [promoText, setPromoText] = useState(defaultPromoText || '');
@@ -136,21 +136,6 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
   useEffect(() => {
     if (defaultPromoHyperlink && !promoHyperlink) setPromoHyperlink(defaultPromoHyperlink);
   }, [defaultPromoHyperlink, promoHyperlink]);
-
-  // Get valid username for saving during sign-in (if valid)
-  // Must match validateUsername() validation rules
-  const getValidUsername = (): string | undefined => {
-    const trimmed = username.trim();
-    if (trimmed.length < 2 || trimmed.length > 20) return undefined;
-    // Allow alphanumeric and single spaces between words (same as validateUsername)
-    if (!/^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(trimmed)) return undefined;
-    const reserved = ['channel', 'admin', 'system', 'moderator', 'mod'];
-    // Check reserved against handle (spaces removed)
-    const handle = trimmed.replace(/\s+/g, '');
-    if (reserved.includes(handle.toLowerCase())) return undefined;
-    return trimmed;
-  };
-
 
   // Auto-fill username from user's display name or email (only if no saved username)
   useEffect(() => {

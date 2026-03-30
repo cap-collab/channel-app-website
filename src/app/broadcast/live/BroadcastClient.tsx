@@ -14,7 +14,6 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { AudioInputMethod } from '@/types/broadcast';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { QueuedWaitingScreen } from '@/components/broadcast/QueuedWaitingScreen';
-import { useTipTotal } from '@/hooks/useTipTotal';
 import { normalizeUrl } from '@/lib/url';
 
 type OnboardingStep = 'profile' | 'audio';
@@ -40,12 +39,6 @@ export function BroadcastClient() {
 
   const { slot, error: tokenError, loading: tokenLoading, scheduleStatus, message } = useBroadcastToken(token);
 
-  // Tips for current broadcast - query by slot ID only, regardless of who's logged in
-  const { totalCents: tipTotalCents, tipCount } = useTipTotal({
-    broadcastSlotId: slot?.id,
-  });
-
-
   // DJ onboarding state - declared early so djInfo can use it
   // Start directly at profile step (non-blocking login is inline in DJProfileSetup)
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>('profile');
@@ -53,7 +46,7 @@ export function BroadcastClient() {
   const [slotDjUserId, setSlotDjUserId] = useState<string | undefined>(); // The slot's linked DJ userId
   const [initialPromoText, setInitialPromoText] = useState<string | undefined>();
   const [initialPromoHyperlink, setInitialPromoHyperlink] = useState<string | undefined>();
-  const [initialThankYouMessage, setInitialThankYouMessage] = useState<string | undefined>();
+  const [initialTipButtonLink, setInitialTipButtonLink] = useState<string | undefined>();
 
   // Multi-DJ show: track current DJ slot to detect DJ changes (use ref to avoid re-render loops)
   const currentDjSlotIdRef = useRef<string | null>(null);
@@ -74,7 +67,7 @@ export function BroadcastClient() {
         if (data.chatUsername && !djUsername) setDjUsername(data.chatUsername);
         if (data.promoText && !initialPromoText) setInitialPromoText(data.promoText);
         if (data.promoHyperlink && !initialPromoHyperlink) setInitialPromoHyperlink(data.promoHyperlink);
-        if (data.thankYouMessage && !initialThankYouMessage) setInitialThankYouMessage(data.thankYouMessage);
+        if (data.tipButtonLink && !initialTipButtonLink) setInitialTipButtonLink(data.tipButtonLink);
       } catch (err) {
         console.error('Failed to fetch slot DJ profile:', err);
       }
@@ -112,9 +105,8 @@ export function BroadcastClient() {
     return {
       username: djUsername,
       userId: broadcastDjUserId,
-      thankYouMessage: initialThankYouMessage,
     };
-  }, [djUsername, broadcastDjUserId, initialThankYouMessage]);
+  }, [djUsername, broadcastDjUserId]);
 
   const participantIdentity = slot?.djName || 'DJ';
   const broadcast = useBroadcast(participantIdentity, slot?.id, djInfo, token || undefined);
@@ -172,7 +164,7 @@ export function BroadcastClient() {
           setDjUsername(username);
           setInitialPromoText(activeDjSlot.djPromoText || activeDjSlot.promoText);
           setInitialPromoHyperlink(activeDjSlot.djPromoHyperlink || activeDjSlot.promoHyperlink);
-          setInitialThankYouMessage(activeDjSlot.djThankYouMessage);
+          setInitialTipButtonLink(activeDjSlot.djTipButtonLink);
           setInitialPromoSubmitted(false);
 
           // If broadcast is live, call switch-dj API to update backend
@@ -196,7 +188,6 @@ export function BroadcastClient() {
           setDjUsername('');
           setInitialPromoText(undefined);
           setInitialPromoHyperlink(undefined);
-          setInitialThankYouMessage(undefined);
         }
 
         currentDjSlotIdRef.current = newSlotId;
@@ -495,11 +486,10 @@ export function BroadcastClient() {
   }, [audioStream, broadcast.isLive, handleEndBroadcast]);
 
   // DJ onboarding handler
-  const handleProfileComplete = useCallback((username: string, promoText?: string, promoHyperlink?: string, thankYouMessage?: string) => {
+  const handleProfileComplete = useCallback((username: string, promoText?: string, promoHyperlink?: string) => {
     setDjUsername(username);
     setInitialPromoText(promoText);
     setInitialPromoHyperlink(promoHyperlink);
-    setInitialThankYouMessage(thankYouMessage);
     setOnboardingStep('audio');
   }, []);
 
@@ -639,17 +629,15 @@ export function BroadcastClient() {
           broadcastToken={token || ''}
           djUsername={djUsername}
           userId={broadcastDjUserId}
-          tipTotalCents={tipTotalCents}
-          tipCount={tipCount}
           promoText={initialPromoText}
           promoHyperlink={initialPromoHyperlink}
-          thankYouMessage={initialThankYouMessage}
           onPromoChange={(text, hyperlink) => {
             setInitialPromoText(text);
             setInitialPromoHyperlink(hyperlink);
             setInitialPromoSubmitted(true);
           }}
-          onThankYouChange={setInitialThankYouMessage}
+          tipButtonLink={initialTipButtonLink}
+          onTipButtonLinkChange={setInitialTipButtonLink}
           isVenue={slot?.broadcastType === 'venue'}
           onChangeUsername={slot?.broadcastType === 'venue' ? setDjUsername : undefined}
           initialPromoSubmitted={initialPromoSubmitted}
@@ -672,7 +660,6 @@ export function BroadcastClient() {
                   defaultUsername={getDefaultDjName()}
                   defaultPromoText={activeDjSlot?.djPromoText || activeDjSlot?.promoText || initialPromoText || slot?.showPromoText}
                   defaultPromoHyperlink={activeDjSlot?.djPromoHyperlink || activeDjSlot?.promoHyperlink || initialPromoHyperlink || slot?.showPromoHyperlink}
-                  defaultThankYouMessage={activeDjSlot?.djThankYouMessage || initialThankYouMessage}
                   showName={slot?.showName}
                   broadcastType={slot?.broadcastType}
                   onComplete={handleProfileComplete}
@@ -777,7 +764,6 @@ export function BroadcastClient() {
           defaultUsername={getDefaultDjName()}
           defaultPromoText={activeDjSlot?.djPromoText || activeDjSlot?.promoText || initialPromoText || slot?.showPromoText}
           defaultPromoHyperlink={activeDjSlot?.djPromoHyperlink || activeDjSlot?.promoHyperlink || initialPromoHyperlink || slot?.showPromoHyperlink}
-          defaultThankYouMessage={activeDjSlot?.djThankYouMessage || initialThankYouMessage}
           showName={slot?.showName}
           broadcastType={slot?.broadcastType}
           onComplete={handleProfileComplete}
@@ -808,16 +794,14 @@ export function BroadcastClient() {
           broadcastToken={token || ''}
           djUsername={djUsername}
           userId={broadcastDjUserId}
-          tipTotalCents={tipTotalCents}
-          tipCount={tipCount}
           promoText={initialPromoText}
           promoHyperlink={initialPromoHyperlink}
-          thankYouMessage={initialThankYouMessage}
           onPromoChange={(text, hyperlink) => {
             setInitialPromoText(text);
             setInitialPromoHyperlink(hyperlink);
           }}
-          onThankYouChange={setInitialThankYouMessage}
+          tipButtonLink={initialTipButtonLink}
+          onTipButtonLinkChange={setInitialTipButtonLink}
           isVenue={slot?.broadcastType === 'venue'}
           onChangeUsername={slot?.broadcastType === 'venue' ? setDjUsername : undefined}
           initialPromoSubmitted={initialPromoSubmitted}

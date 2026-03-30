@@ -58,7 +58,6 @@ export function RecordClient() {
   const [broadcastType, setBroadcastType] = useState<'remote' | 'venue'>('remote');
   const [initialPromoText, setInitialPromoText] = useState<string | undefined>();
   const [initialPromoHyperlink, setInitialPromoHyperlink] = useState<string | undefined>();
-  const [initialThankYouMessage, setInitialThankYouMessage] = useState<string | undefined>();
   // Tagged DJs for venue recordings
   const [taggedDJs, setTaggedDJs] = useState<TaggedDJEntry[]>([]);
 
@@ -68,9 +67,8 @@ export function RecordClient() {
     return {
       username: djUsername,
       userId: user?.uid,
-      thankYouMessage: initialThankYouMessage,
     };
-  }, [djUsername, user?.uid, initialThankYouMessage]);
+  }, [djUsername, user?.uid]);
 
   // Initialize broadcast hook with recording-only mode
   const broadcast = useBroadcast(
@@ -121,12 +119,6 @@ export function RecordClient() {
     }
   }, [chatUsername]);
 
-  useEffect(() => {
-    if (djProfile?.thankYouMessage && !initialThankYouMessage) {
-      setInitialThankYouMessage(djProfile.thankYouMessage);
-    }
-  }, [djProfile?.thankYouMessage, initialThankYouMessage]);
-
   // Handle continue from quota screen
   const handleQuotaContinue = useCallback(() => {
     if (!isAuthenticated) {
@@ -137,11 +129,10 @@ export function RecordClient() {
   }, [isAuthenticated]);
 
   // Handle profile setup complete - same pattern as BroadcastClient
-  const handleProfileComplete = useCallback((username: string, promoText?: string, promoHyperlink?: string, thankYouMessage?: string) => {
+  const handleProfileComplete = useCallback((username: string, promoText?: string, promoHyperlink?: string) => {
     setDjUsername(username);
     setInitialPromoText(promoText);
     setInitialPromoHyperlink(promoHyperlink);
-    setInitialThankYouMessage(thankYouMessage);
     setSetupStep('audio');
   }, []);
 
@@ -323,16 +314,12 @@ export function RecordClient() {
         broadcastToken={session.broadcastToken}
         djUsername={djUsername}
         userId={user?.uid}
-        tipTotalCents={0}
-        tipCount={0}
         promoText={initialPromoText}
         promoHyperlink={initialPromoHyperlink}
-        thankYouMessage={initialThankYouMessage}
         onPromoChange={(text, hyperlink) => {
           setInitialPromoText(text);
           setInitialPromoHyperlink(hyperlink);
         }}
-        onThankYouChange={setInitialThankYouMessage}
         onChangeSource={handleChangeSource}
         audioSourceLabel={audioSourceLabel}
         isRecordingMode={true}
@@ -370,16 +357,12 @@ export function RecordClient() {
         broadcastToken=""
         djUsername={djUsername}
         userId={user?.uid}
-        tipTotalCents={0}
-        tipCount={0}
         promoText={initialPromoText}
         promoHyperlink={initialPromoHyperlink}
-        thankYouMessage={initialThankYouMessage}
         onPromoChange={(text, hyperlink) => {
           setInitialPromoText(text);
           setInitialPromoHyperlink(hyperlink);
         }}
-        onThankYouChange={setInitialThankYouMessage}
         onChangeAudioSetup={handleBack}
         onChangeSource={handleChangeSource}
         audioSourceLabel={audioSourceLabel}
@@ -524,12 +507,11 @@ export function RecordClient() {
               defaultUsername={chatUsername || ''}
               defaultPromoText={djProfile?.promoText || undefined}
               defaultPromoHyperlink={djProfile?.promoHyperlink || undefined}
-              defaultThankYouMessage={djProfile?.thankYouMessage || undefined}
               broadcastType="recording"
               isVenueRecording={broadcastType === 'venue'}
-              onComplete={(username, promoText, promoHyperlink, thankYouMessage) => {
+              onComplete={(username, promoText, promoHyperlink) => {
                 if (showName.trim()) {
-                  handleProfileComplete(username, promoText, promoHyperlink, thankYouMessage);
+                  handleProfileComplete(username, promoText, promoHyperlink);
                 }
               }}
             />

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useSearchParams } from "next/navigation";
+
 import { Header } from "@/components/Header";
 import { doc, onSnapshot, updateDoc, collection, query, where, orderBy, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -11,18 +11,15 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { useUserRole, isDJ } from "@/hooks/useUserRole";
 import { AuthModal } from "@/components/AuthModal";
 import { BroadcastSlotSerialized, ArchiveSerialized } from "@/types/broadcast";
-import { usePendingPayout } from "@/hooks/usePendingPayout";
 import { normalizeUrl } from "@/lib/url";
 import { uploadDJPhoto, deleteDJPhoto, validatePhoto } from "@/lib/photo-upload";
 import { useBPM } from "@/contexts/BPMContext";
-import { STRIPE_ON_HOLD } from "@/lib/constants";
+
 
 interface DJProfile {
   bio: string | null;
   promoText: string | null;
   promoHyperlink: string | null;
-  stripeAccountId: string | null;
-  thankYouMessage: string | null;
   photoUrl: string | null;
 }
 
@@ -32,7 +29,7 @@ export function DJProfileClient() {
   const { stationBPM } = useBPM();
   const broadcastBPM = stationBPM['broadcast']?.bpm ?? null;
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const searchParams = useSearchParams();
+
 
   // Profile data
   const [chatUsername, setChatUsername] = useState<string | null>(null);
@@ -40,8 +37,6 @@ export function DJProfileClient() {
     bio: null,
     promoText: null,
     promoHyperlink: null,
-    stripeAccountId: null,
-    thankYouMessage: null,
     photoUrl: null,
   });
 
@@ -49,34 +44,11 @@ export function DJProfileClient() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
 
-  // Stripe connect state
-  const [connectingStripe, setConnectingStripe] = useState(false);
-  const [stripeError, setStripeError] = useState<string | null>(null);
-
-  // Check for Stripe success redirect - no status check needed, just having stripeAccountId is enough
-  useEffect(() => {
-    const stripeParam = searchParams.get('stripe');
-    if (stripeParam === 'success') {
-      // User just returned from Stripe - the stripeAccountId will be in Firebase
-      // The onSnapshot listener will pick it up automatically
-    }
-  }, [searchParams]);
-
-  // Pending payout info
-  const { pendingCents, pendingCount, transferredCents, daysUntilExpiry, loading: payoutLoading } = usePendingPayout({
-    djUserId: user?.uid || '',
-  });
-
 
   // Form state - About section
   const [bioInput, setBioInput] = useState("");
   const [savingAbout, setSavingAbout] = useState(false);
   const [saveAboutSuccess, setSaveAboutSuccess] = useState(false);
-
-  // Form state - Thank You Message section
-  const [thankYouInput, setThankYouInput] = useState("");
-  const [savingThankYou, setSavingThankYou] = useState(false);
-  const [saveThankYouSuccess, setSaveThankYouSuccess] = useState(false);
 
   // Form state - Promo section
   const [promoTextInput, setPromoTextInput] = useState("");
@@ -100,7 +72,6 @@ export function DJProfileClient() {
 
   // Auto-save debounce refs
   const bioDebounceRef = useRef<NodeJS.Timeout | null>(null);
-  const thankYouDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const promoDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const initialLoadRef = useRef(true);
 
@@ -118,8 +89,6 @@ export function DJProfileClient() {
             bio: data.djProfile.bio || null,
             promoText: data.djProfile.promoText || null,
             promoHyperlink: data.djProfile.promoHyperlink || null,
-            stripeAccountId: data.djProfile.stripeAccountId || null,
-            thankYouMessage: data.djProfile.thankYouMessage || null,
             photoUrl: data.djProfile.photoUrl || null,
           });
           // Only set input values on initial load to avoid overwriting user edits
@@ -127,7 +96,6 @@ export function DJProfileClient() {
             setBioInput(data.djProfile.bio || "");
             setPromoTextInput(data.djProfile.promoText || "");
             setPromoHyperlinkInput(data.djProfile.promoHyperlink || "");
-            setThankYouInput(data.djProfile.thankYouMessage || "");
             initialLoadRef.current = false;
           }
         }
@@ -316,26 +284,6 @@ export function DJProfileClient() {
     }
   }, [user, syncProfileToSlots]);
 
-  const saveThankYou = useCallback(async (message: string) => {
-    if (!user || !db) return;
-
-    setSavingThankYou(true);
-    setSaveThankYouSuccess(false);
-
-    try {
-      const userRef = doc(db, "users", user.uid);
-      await updateDoc(userRef, {
-        "djProfile.thankYouMessage": message.trim() || null,
-      });
-      setSaveThankYouSuccess(true);
-      setTimeout(() => setSaveThankYouSuccess(false), 2000);
-    } catch (error) {
-      console.error("Error saving thank you message:", error);
-    } finally {
-      setSavingThankYou(false);
-    }
-  }, [user]);
-
   const savePromo = useCallback(async (text: string, hyperlink: string) => {
     if (!user || !db) return;
 
@@ -377,25 +325,6 @@ export function DJProfileClient() {
     };
   }, [bioInput, saveAbout]);
 
-  // Auto-save thank you message with debounce
-  useEffect(() => {
-    if (initialLoadRef.current) return;
-
-    if (thankYouDebounceRef.current) {
-      clearTimeout(thankYouDebounceRef.current);
-    }
-
-    thankYouDebounceRef.current = setTimeout(() => {
-      saveThankYou(thankYouInput);
-    }, 1000);
-
-    return () => {
-      if (thankYouDebounceRef.current) {
-        clearTimeout(thankYouDebounceRef.current);
-      }
-    };
-  }, [thankYouInput, saveThankYou]);
-
   // Auto-save promo with debounce
   useEffect(() => {
     if (initialLoadRef.current) return;
@@ -414,45 +343,6 @@ export function DJProfileClient() {
       }
     };
   }, [promoTextInput, promoHyperlinkInput, savePromo]);
-
-  const handleConnectStripe = async () => {
-    if (!user) return;
-
-    setConnectingStripe(true);
-    setStripeError(null);
-
-    try {
-      // Step 1: Create Connect account if needed
-      const createRes = await fetch('/api/stripe/connect/create-account', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.uid, email: user.email }),
-      });
-
-      const createData = await createRes.json();
-      if (!createRes.ok) {
-        throw new Error(createData.error || 'Failed to create account');
-      }
-
-      // Step 2: Get onboarding link
-      const linkRes = await fetch('/api/stripe/connect/account-link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.uid }),
-      });
-
-      const linkData = await linkRes.json();
-      if (!linkRes.ok) {
-        throw new Error(linkData.error || 'Failed to create onboarding link');
-      }
-
-      // Redirect to Stripe onboarding
-      window.location.href = linkData.url;
-    } catch (err) {
-      setStripeError(err instanceof Error ? err.message : 'Something went wrong');
-      setConnectingStripe(false);
-    }
-  };
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -698,36 +588,6 @@ export function DJProfileClient() {
 
       <main className="max-w-xl mx-auto p-4">
         <div className="space-y-8">
-          {/* Pending tips banner - show if DJ has pending tips and no Stripe */}
-          {!payoutLoading && !djProfile.stripeAccountId && pendingCents > 0 && (
-            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-yellow-500/20 flex-shrink-0">
-                  <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-yellow-400 font-medium">Connect Stripe to receive support</h3>
-                  <p className="text-yellow-400/80 text-sm mt-1">
-                    ${(pendingCents / 100).toFixed(2)} pending
-                    {daysUntilExpiry !== null && ` · ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''} left`}
-                  </p>
-                  <p className="text-gray-400 text-xs mt-2">
-                    Tips expire after 60 days if not claimed.
-                  </p>
-                </div>
-                <button
-                  onClick={handleConnectStripe}
-                  disabled={connectingStripe}
-                  className="px-4 py-2 bg-yellow-500 text-black rounded-lg font-medium hover:bg-yellow-400 transition-colors disabled:opacity-50 flex-shrink-0"
-                >
-                  {connectingStripe ? 'Connecting...' : 'Connect'}
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Profile section */}
           <section>
             <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
@@ -850,41 +710,6 @@ export function DJProfileClient() {
               Your bio appears on your DJ profile during broadcasts.
             </p>
           </section>
-
-          {/* Thank You Message section — STRIPE_ON_HOLD */}
-          {!STRIPE_ON_HOLD && (
-          <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-              Thank You Message
-            </h2>
-            <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
-              <div>
-                <label className="block text-gray-400 text-sm mb-2">
-                  Message for Tippers
-                </label>
-                <textarea
-                  value={thankYouInput}
-                  onChange={(e) => setThankYouInput(e.target.value)}
-                  placeholder="Thanks for the tip!"
-                  rows={2}
-                  maxLength={200}
-                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none resize-none"
-                />
-                <div className="flex justify-between items-center mt-1">
-                  <span className="text-gray-600 text-xs">
-                    {savingThankYou ? "Saving..." : saveThankYouSuccess ? "Saved" : ""}
-                  </span>
-                  <span className="text-gray-600 text-xs">
-                    {thankYouInput.length}/200
-                  </span>
-                </div>
-              </div>
-            </div>
-            <p className="text-gray-600 text-xs mt-2 px-1">
-              This message shows to listeners after they tip you.
-            </p>
-          </section>
-          )}
 
           {/* Promo section */}
           <section>
@@ -1075,109 +900,6 @@ export function DJProfileClient() {
           </section>
 
           {/* Payments section */}
-          <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-              Payments
-            </h2>
-            <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
-              {/* Error message */}
-              {stripeError && (
-                <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm">
-                  {stripeError}
-                </div>
-              )}
-
-              {/* Stripe status */}
-              {djProfile.stripeAccountId ? (
-                <>
-                  {/* Connected state */}
-                  <div className="p-3 bg-green-500/20 border border-green-500/30 rounded-lg text-green-400 text-sm">
-                    Stripe connected! Tips are automatically transferred to your bank.
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-green-500/20">
-                      <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-white font-medium">Stripe Connected</p>
-                      <p className="text-gray-500 text-sm">View payouts and manage your account</p>
-                    </div>
-                    <a
-                      href="https://dashboard.stripe.com/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors"
-                    >
-                      Manage
-                    </a>
-                  </div>
-                </>
-              ) : (
-                /* Not connected state */
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gray-800">
-                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-white font-medium">Connect Stripe</p>
-                    <p className="text-gray-500 text-sm">Set up to receive tips from listeners</p>
-                  </div>
-                  <button
-                    onClick={handleConnectStripe}
-                    disabled={connectingStripe}
-                    className="px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
-                  >
-                    {connectingStripe ? 'Connecting...' : 'Connect'}
-                  </button>
-                </div>
-              )}
-
-              {/* Earnings summary */}
-              {!payoutLoading && (pendingCents > 0 || transferredCents > 0) && (
-                <div className="border-t border-gray-800 pt-4">
-                  <h3 className="text-gray-400 text-sm mb-3">Earnings</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    {pendingCents > 0 && (
-                      <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
-                        <p className="text-yellow-400 text-lg font-medium">
-                          ${(pendingCents / 100).toFixed(2)}
-                        </p>
-                        <p className="text-gray-500 text-xs">
-                          {pendingCount} pending {pendingCount === 1 ? 'tip' : 'tips'}
-                        </p>
-                      </div>
-                    )}
-                    {transferredCents > 0 && (
-                      <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
-                        <p className="text-green-400 text-lg font-medium">
-                          ${(transferredCents / 100).toFixed(2)}
-                        </p>
-                        <p className="text-gray-500 text-xs">
-                          Transferred
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Pending tips notice */}
-              {!djProfile.stripeAccountId && pendingCents > 0 && (
-                <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                  <p className="text-yellow-400 text-sm">
-                    You have ${(pendingCents / 100).toFixed(2)} in pending tips. Connect Stripe to receive them!
-                  </p>
-                </div>
-              )}
-            </div>
-            <p className="text-gray-600 text-xs mt-2 px-1">
-              Listeners can tip you during broadcasts. Tips are transferred to your bank within 2 days.
-            </p>
-          </section>
         </div>
       </main>
 

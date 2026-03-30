@@ -10,7 +10,6 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { useDJProfileChat } from '@/hooks/useDJProfileChat';
 import { FloatingHearts } from '@/components/channel/FloatingHearts';
 import { ScrollingShowName, ScrollingDJName } from '@/components/channel/LiveBroadcastHero';
-import { STRIPE_ON_HOLD } from '@/lib/constants';
 
 /**
  * A bar shown below the header on all pages when a broadcast is live.
@@ -21,7 +20,7 @@ export function GlobalBroadcastBar() {
   const [mounted, setMounted] = useState(false);
   const {
     isLive, isStreaming, isPlaying, isLoading, toggle,
-    showName, djName, heroBarVisible, heroBarObserverReady, tipEligible, tipLink, currentShow,
+    showName, djName, heroBarVisible, heroBarObserverReady, tipLink, currentShow,
   } = useBroadcastStreamContext();
   const { stationBPM } = useBPM();
   const broadcastBPM = stationBPM['broadcast']?.bpm ?? null;
@@ -133,11 +132,11 @@ export function GlobalBroadcastBar() {
         </div>
 
         {/* Tip icon */}
-        {(tipLink || (!STRIPE_ON_HOLD && tipEligible)) && (
+        {tipLink && (
           <a
-            href={tipLink || "/radio#live"}
-            target={tipLink ? "_blank" : undefined}
-            rel={tipLink ? "noopener noreferrer" : undefined}
+            href={tipLink!}
+            target="_blank"
+            rel="noopener noreferrer"
             className="w-10 h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">

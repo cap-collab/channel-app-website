@@ -91,8 +91,6 @@ export interface UserDocument {
     promoText: string | null;
     promoHyperlink: string | null;
     tipButtonLink: string | null;
-    stripeAccountId: string | null;
-    stripeOnboarded: boolean;
     photoUrl: string | null;
   };
   // Recording quota tracking (for self-service recording feature)

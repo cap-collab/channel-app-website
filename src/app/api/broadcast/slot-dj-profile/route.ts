@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
         promoText: activeDjSlot.djPromoText || activeDjSlot.promoText || null,
         promoHyperlink: activeDjSlot.djPromoHyperlink || activeDjSlot.promoHyperlink || null,
         thankYouMessage: activeDjSlot.djThankYouMessage || null,
+        tipButtonLink: activeDjSlot.djTipButtonLink || null,
       });
     }
 
@@ -72,6 +73,7 @@ export async function GET(request: NextRequest) {
           promoText: djProfile?.promoText || slotData.showPromoText || null,
           promoHyperlink: djProfile?.promoHyperlink || slotData.showPromoHyperlink || null,
           thankYouMessage: djProfile?.thankYouMessage || null,
+          tipButtonLink: djProfile?.tipButtonLink || null,
         });
       }
     }
@@ -94,6 +96,7 @@ export async function GET(request: NextRequest) {
           promoText: djProfile?.promoText || slotData.showPromoText || null,
           promoHyperlink: djProfile?.promoHyperlink || slotData.showPromoHyperlink || null,
           thankYouMessage: djProfile?.thankYouMessage || null,
+          tipButtonLink: djProfile?.tipButtonLink || null,
         });
       }
 
@@ -113,6 +116,7 @@ export async function GET(request: NextRequest) {
           promoText: djProfile?.promoText || slotData.showPromoText || null,
           promoHyperlink: djProfile?.promoHyperlink || slotData.showPromoHyperlink || null,
           thankYouMessage: djProfile?.thankYouMessage || null,
+          tipButtonLink: djProfile?.tipButtonLink || null,
         });
       }
     }
@@ -124,6 +128,7 @@ export async function GET(request: NextRequest) {
       promoText: slotData.showPromoText || null,
       promoHyperlink: slotData.showPromoHyperlink || null,
       thankYouMessage: null,
+      tipButtonLink: null,
     });
   } catch (error) {
     console.error('[slot-dj-profile] Error:', error);

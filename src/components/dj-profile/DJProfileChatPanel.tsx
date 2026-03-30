@@ -7,7 +7,7 @@ import { AuthModal } from '@/components/AuthModal';
 import { FloatingHearts } from '@/components/channel/FloatingHearts';
 import { TipButton } from '@/components/channel/TipButton';
 import { normalizeUrl } from '@/lib/url';
-import { STRIPE_ON_HOLD } from '@/lib/constants';
+
 
 interface DJProfileChatPanelProps {
   chatUsernameNormalized: string;
@@ -283,12 +283,9 @@ function ProfileLoading() {
 
 export function DJProfileChatPanel({
   chatUsernameNormalized,
-  djUserId,
   djUsername,
-  djEmail,
   isAuthenticated,
   username,
-  userId,
   profileLoading = false,
   onSetUsername,
   isOwner = false,
@@ -300,7 +297,6 @@ export function DJProfileChatPanel({
   activePromoText,
   activePromoHyperlink,
   currentShowStartTime,
-  isChannelUser = true,
   tipLink,
 }: DJProfileChatPanelProps) {
   const isBroadcasting = !!broadcastToken;
@@ -512,18 +508,11 @@ export function DJProfileChatPanel({
             <FloatingHearts trigger={heartTrigger} />
           </div>
 
-          {/* Tip button — shown when there's a tip link (STRIPE_ON_HOLD) or for channel users */}
-          {(STRIPE_ON_HOLD ? !!tipLink : isChannelUser) && (
+          {/* Tip button — shown when there's a tip link */}
+          {tipLink && (
             <div className="flex-shrink-0 flex items-center">
               <TipButton
-                isAuthenticated={isAuthenticated}
-                tipperUserId={userId}
-                tipperUsername={username}
-                djUserId={djUserId}
-                djEmail={djEmail}
                 djUsername={djUsername}
-                broadcastSlotId=""
-                showName={`Support ${djUsername}`}
                 size="small"
                 tipLink={tipLink}
               />

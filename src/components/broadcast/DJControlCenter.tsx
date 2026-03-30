@@ -24,13 +24,11 @@ interface DJControlCenterProps {
   broadcastToken: string;
   djUsername: string;
   userId?: string;
-  tipTotalCents: number;
-  tipCount: number;
   promoText?: string;
   promoHyperlink?: string;
-  thankYouMessage?: string;
   onPromoChange?: (text: string, hyperlink: string) => void;
-  onThankYouChange?: (message: string) => void;
+  tipButtonLink?: string;
+  onTipButtonLinkChange?: (link: string) => void;
   isVenue?: boolean;
   onChangeUsername?: (newUsername: string) => void;
   initialPromoSubmitted?: boolean;
@@ -58,13 +56,11 @@ export function DJControlCenter({
   broadcastToken,
   djUsername,
   userId,
-  tipTotalCents,
-  tipCount,
   promoText,
   promoHyperlink,
-  thankYouMessage,
   onPromoChange,
-  onThankYouChange,
+  tipButtonLink,
+  onTipButtonLinkChange,
   isVenue = false,
   onChangeUsername,
   initialPromoSubmitted = false,
@@ -110,8 +106,6 @@ export function DJControlCenter({
       <LiveControlBar
         stream={audioStream}
         isLive={isLive}
-        tipTotalCents={tipTotalCents}
-        tipCount={tipCount}
         showStartTime={slot?.startTime}
         isRecordingMode={isRecordingMode}
         chatUsernameNormalized={chatUsernameNormalized}
@@ -147,12 +141,11 @@ export function DJControlCenter({
               <BroadcastSettingsPanel
                 broadcastToken={broadcastToken}
                 djUsername={djUsername}
-                userId={userId}
                 promoText={promoText}
                 promoHyperlink={promoHyperlink}
-                thankYouMessage={thankYouMessage}
                 onPromoChange={onPromoChange}
-                onThankYouChange={onThankYouChange}
+                tipButtonLink={tipButtonLink}
+                onTipButtonLinkChange={onTipButtonLinkChange}
               />
 
               {/* Share URL */}

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
-import { STRIPE_ON_HOLD } from '@/lib/constants';
+
 import { DJProfileChatPanel } from '@/components/dj-profile/DJProfileChatPanel';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { getFirestore, collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
@@ -38,8 +38,6 @@ interface LiveIndicatorProps {
   initialPromoSubmitted?: boolean;
   isVenue?: boolean;
   onChangeUsername?: (newUsername: string) => void;
-  initialThankYouMessage?: string;
-  onThankYouMessageChange?: (message: string) => void;
 }
 
 // Helper to format time
@@ -52,18 +50,12 @@ function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername, initialPromoSubmitted, isVenue = false, onChangeUsername, initialThankYouMessage, onThankYouMessageChange }: LiveIndicatorProps) {
-  const { user, isAuthenticated } = useAuthContext();
+export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername, initialPromoSubmitted, isVenue = false, onChangeUsername }: LiveIndicatorProps) {
+  const { user } = useAuthContext();
   const [copied, setCopied] = useState(false);
   const [listenerCount, setListenerCount] = useState(0);
   const [loveCount, setLoveCount] = useState(0);
   const [messageCount, setMessageCount] = useState(0);
-
-  // Thank you message state
-  const [thankYouMessage, setThankYouMessage] = useState(initialThankYouMessage || '');
-  const [thankYouSaving, setThankYouSaving] = useState(false);
-  const [thankYouSaved, setThankYouSaved] = useState(false);
-  const [thankYouError, setThankYouError] = useState<string | null>(null);
 
   // Subscribe to activity counts - filter by show start time so counts reset per show
   useEffect(() => {
@@ -152,39 +144,6 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
   const handleEndBroadcast = async () => {
     setIsEnding(true);
     onEndBroadcast();
-  };
-
-  const handleSaveThankYouMessage = async () => {
-    if (!broadcastToken) return;
-
-    setThankYouSaving(true);
-    setThankYouError(null);
-    setThankYouSaved(false);
-
-    try {
-      const response = await fetch('/api/broadcast/update-thank-you', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          broadcastToken,
-          thankYouMessage,
-          djUserId: user?.uid,
-        }),
-      });
-
-      if (response.ok) {
-        setThankYouSaved(true);
-        onThankYouMessageChange?.(thankYouMessage);
-        setTimeout(() => setThankYouSaved(false), 3000);
-      } else {
-        const data = await response.json();
-        setThankYouError(data.error || 'Failed to save');
-      }
-    } catch {
-      setThankYouError('Failed to save');
-    } finally {
-      setThankYouSaving(false);
-    }
   };
 
   // Calculate time remaining if we have a slot
@@ -354,44 +313,7 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
           </button>
         </div>
 
-        {/* Thank You Message Section — STRIPE_ON_HOLD */}
-        {!STRIPE_ON_HOLD && broadcastToken && (
-          <div className="bg-[#252525] rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <label className="text-gray-400 text-sm font-medium">Tip Thank You Message</label>
-              {thankYouSaved && (
-                <span className="text-green-500 text-xs flex items-center gap-1">
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Saved
-                </span>
-              )}
-            </div>
-            <textarea
-              value={thankYouMessage}
-              onChange={(e) => setThankYouMessage(e.target.value.slice(0, 200))}
-              placeholder="Thanks for the tip!"
-              rows={2}
-              className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 text-sm placeholder-gray-500 focus:outline-none focus:border-gray-500 resize-none"
-            />
-            <div className="flex items-center justify-between mt-2">
-              <p className="text-gray-500 text-xs">
-                {thankYouMessage.length}/200 · Shown to listeners after they tip you
-              </p>
-              <button
-                onClick={handleSaveThankYouMessage}
-                disabled={thankYouSaving || !thankYouMessage.trim()}
-                className="bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:text-gray-500 text-white text-xs font-medium py-1.5 px-3 rounded-lg transition-colors"
-              >
-                {thankYouSaving ? 'Saving...' : 'Save'}
-              </button>
-            </div>
-            {thankYouError && (
-              <p className="text-red-400 text-xs mt-2">{thankYouError}</p>
-            )}
-          </div>
-        )}
+
       </div>
 
       {/* Right Column - Chat (on desktop, takes fixed width and full height) */}

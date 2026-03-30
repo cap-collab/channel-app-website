@@ -4,9 +4,8 @@ import { createContext, useContext, useState, useCallback, useEffect, useMemo, u
 import { useBroadcastStream } from '@/hooks/useBroadcastStream';
 import { useBroadcastLiveStatus, hasScheduledSlotNow } from '@/hooks/useBroadcastLiveStatus';
 import { BroadcastSlotSerialized, ROOM_NAME } from '@/types/broadcast';
-import { doc, getDoc, collection } from 'firebase/firestore';
+import { collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { STRIPE_ON_HOLD } from '@/lib/constants';
 
 export interface BroadcastStreamContextValue {
   isPlaying: boolean;
@@ -25,9 +24,7 @@ export interface BroadcastStreamContextValue {
   // From lightweight status hook (always available)
   showName: string | null;
   djName: string | null;
-  // Whether the current DJ is eligible for tips
-  tipEligible: boolean;
-  // Resolved external tip link (tipButtonLink > promoHyperlink > bandcamp), used when STRIPE_ON_HOLD
+  // Resolved external tip link (tipButtonLink > promoHyperlink > bandcamp)
   tipLink: string | null;
   // Whether the hero sticky bar on /radio is currently visible
   heroBarVisible: boolean;
@@ -54,16 +51,6 @@ function resolveTipLink(show: BroadcastSlotSerialized | null): string | null {
   }
   // Fall back to top-level broadcast slot fields
   return show.liveDjTipButtonLink || show.liveDjPromoHyperlink || show.liveDjBandcamp || null;
-}
-
-function isTipEligible(show: BroadcastSlotSerialized | null, currentDJ: string | null): boolean {
-  if (!show || !currentDJ) return false;
-  if (show.djSlots && show.djSlots.length > 0) {
-    const now = Date.now();
-    const slot = show.djSlots.find(s => s.startTime <= now && s.endTime > now);
-    if (slot) return !!(slot.liveDjUserId || slot.djUserId || slot.djEmail);
-  }
-  return !!(show.liveDjUserId || show.djUserId || show.djEmail);
 }
 
 /**
@@ -223,38 +210,6 @@ function useIsStreaming(statusIsLive: boolean, currentShow: BroadcastSlotSeriali
   return isStreaming;
 }
 
-/** Checks if the current DJ exists in the `users` collection (i.e., is a channel user). */
-function useDjIsChannelUser(show: BroadcastSlotSerialized | null): boolean | null {
-  const [isChannelUser, setIsChannelUser] = useState<boolean | null>(null);
-
-  // Resolve the current DJ's userId from the show
-  const djUserId = useMemo(() => {
-    if (!show) return null;
-    if (show.djSlots && show.djSlots.length > 0) {
-      const now = Date.now();
-      const slot = show.djSlots.find(s => s.startTime <= now && s.endTime > now);
-      if (slot) return slot.liveDjUserId || slot.djUserId || null;
-    }
-    return show.liveDjUserId || show.djUserId || null;
-  }, [show]);
-
-  useEffect(() => {
-    if (!djUserId || !db) {
-      setIsChannelUser(null);
-      return;
-    }
-    let cancelled = false;
-    getDoc(doc(db, 'users', djUserId)).then((snap) => {
-      if (!cancelled) setIsChannelUser(snap.exists());
-    }).catch(() => {
-      if (!cancelled) setIsChannelUser(null);
-    });
-    return () => { cancelled = true; };
-  }, [djUserId]);
-
-  return isChannelUser;
-}
-
 /**
  * Provider that initializes useBroadcastStream only when a broadcast is live.
  * This shares a single stream instance across the GlobalBroadcastBar + LiveBroadcastHero.
@@ -277,14 +232,10 @@ export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
   // Check if DJ is actually publishing audio in the LiveKit room
   const isStreaming = useIsStreaming(statusIsLive, stream.currentShow);
 
-  // Check if current DJ is a channel user (exists in users collection)
-  const djIsChannelUser = useDjIsChannelUser(stream.currentShow);
-
   const value = useMemo<BroadcastStreamContextValue>(() => {
     if (statusIsLive) {
-      const tipEligible = isTipEligible(stream.currentShow, stream.currentDJ) && djIsChannelUser !== false;
-      const tipLink = STRIPE_ON_HOLD ? resolveTipLink(stream.currentShow) : null;
-      return { ...stream, isStreaming, showName, djName, tipEligible, tipLink, heroBarVisible, setHeroBarVisible: setHeroBarVisibleCb, heroBarObserverReady, setHeroBarObserverReady: setHeroBarObserverReadyCb };
+      const tipLink = resolveTipLink(stream.currentShow);
+      return { ...stream, isStreaming, showName, djName, tipLink, heroBarVisible, setHeroBarVisible: setHeroBarVisibleCb, heroBarObserverReady, setHeroBarObserverReady: setHeroBarObserverReadyCb };
     }
     return {
       isPlaying: false, isLoading: false, isLive: false, isStreaming: false,
@@ -292,10 +243,10 @@ export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
       play: noopFn, pause: noopFn, toggle: noopFn,
       listenerCount: 0, audioStream: null,
       showName: null, djName: null,
-      tipEligible: false, tipLink: null,
+      tipLink: null,
       heroBarVisible: false, setHeroBarVisible: setHeroBarVisibleCb, heroBarObserverReady: false, setHeroBarObserverReady: setHeroBarObserverReadyCb,
     };
-  }, [statusIsLive, stream, isStreaming, showName, djName, djIsChannelUser, heroBarVisible, setHeroBarVisibleCb, heroBarObserverReady, setHeroBarObserverReadyCb]);
+  }, [statusIsLive, stream, isStreaming, showName, djName, heroBarVisible, setHeroBarVisibleCb, heroBarObserverReady, setHeroBarObserverReadyCb]);
 
   return (
     <BroadcastStreamContext.Provider value={value}>

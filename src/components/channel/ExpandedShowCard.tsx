@@ -37,8 +37,6 @@ export function ExpandedShowCard({
   onToggleFavorite,
   canTip,
   isAuthenticated,
-  tipperUserId,
-  tipperUsername,
   timeDisplay,
 }: ExpandedShowCardProps) {
   const accentColor = station.accentColor || '#D94099';
@@ -293,14 +291,7 @@ export function ExpandedShowCard({
           {canTip && (
             <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-xs whitespace-nowrap flex-shrink-0">
               <TipButton
-                isAuthenticated={isAuthenticated}
-                tipperUserId={tipperUserId}
-                tipperUsername={tipperUsername}
-                djUserId={show.djUserId}
-                djEmail={show.djEmail}
                 djUsername={show.dj!}
-                broadcastSlotId={show.broadcastSlotId!}
-                showName={show.name}
                 size="medium"
               />
               <span className="text-white">Tip</span>
