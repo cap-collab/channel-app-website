@@ -270,6 +270,19 @@ a {
   animation: live-pulse 2s ease-in-out infinite;
 }
 
+/* Reduce blur on mobile to avoid GPU compositing overhead */
+@media (max-width: 767px) {
+  .animate-blob-pink {
+    filter: blur(30px);
+  }
+  .animate-blob-white {
+    filter: blur(40px);
+  }
+  .animate-blob-pink-2 {
+    filter: blur(30px);
+  }
+}
+
 /* Respect reduced motion preferences */
 @media (prefers-reduced-motion: reduce) {
   .animate-blob-pink,

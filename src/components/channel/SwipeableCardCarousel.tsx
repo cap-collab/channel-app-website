@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect, ReactNode, TouchEvent, MouseEvent } from 'react';
+import { useState, useRef, useCallback, useEffect, ReactNode, MouseEvent } from 'react';
 
 interface SwipeableCardCarouselProps {
   children: ReactNode[];
@@ -9,15 +9,26 @@ interface SwipeableCardCarouselProps {
 
 export function SwipeableCardCarousel({ children, className = '' }: SwipeableCardCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [translateX, setTranslateX] = useState(0);
   const [isDesktop, setIsDesktop] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  // Refs for touch/drag state (avoids re-renders during gestures)
+  const isDraggingRef = useRef(false);
+  const startXRef = useRef(0);
+  const startYRef = useRef(0);
+  const translateXRef = useRef(0);
+  const directionRef = useRef<'horizontal' | 'vertical' | null>(null);
+  const currentIndexRef = useRef(0);
+  const visibleCardsRef = useRef(1);
 
   // Track screen size for responsive behavior
   useEffect(() => {
-    const checkDesktop = () => setIsDesktop(window.innerWidth >= 768);
+    const checkDesktop = () => {
+      const desktop = window.innerWidth >= 768;
+      setIsDesktop(desktop);
+      visibleCardsRef.current = desktop ? 2 : 1;
+    };
     checkDesktop();
     window.addEventListener('resize', checkDesktop);
     return () => window.removeEventListener('resize', checkDesktop);
@@ -26,6 +37,11 @@ export function SwipeableCardCarousel({ children, className = '' }: SwipeableCar
   const totalCards = children.length;
   const visibleCards = isDesktop ? 2 : 1;
   const maxIndex = Math.max(0, totalCards - visibleCards);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
 
   // Clamp currentIndex when maxIndex changes (e.g., when resizing)
   useEffect(() => {
@@ -38,61 +54,134 @@ export function SwipeableCardCarousel({ children, className = '' }: SwipeableCar
   const canGoRight = currentIndex < maxIndex;
 
   const handlePrev = useCallback(() => {
-    if (canGoLeft) {
+    if (currentIndexRef.current > 0) {
       setCurrentIndex((prev) => prev - 1);
     }
-  }, [canGoLeft]);
+  }, []);
 
   const handleNext = useCallback(() => {
-    if (canGoRight) {
-      setCurrentIndex((prev) => prev + 1);
-    }
-  }, [canGoRight]);
+    setCurrentIndex((prev) => {
+      const vc = visibleCardsRef.current;
+      const mi = Math.max(0, totalCards - vc);
+      return prev < mi ? prev + 1 : prev;
+    });
+  }, [totalCards]);
 
-  const handleTouchStart = (e: TouchEvent) => {
-    setIsDragging(true);
-    setStartX(e.touches[0].clientX);
-  };
+  // Apply transform directly to DOM (no React re-render)
+  const applyTransform = useCallback((dragOffset: number, animate: boolean) => {
+    const track = trackRef.current;
+    if (!track) return;
+    const vc = visibleCardsRef.current;
+    const baseTranslate = currentIndexRef.current * (100 / vc);
+    track.style.transitionDuration = animate ? '300ms' : '0ms';
+    track.style.transform = `translateX(calc(-${baseTranslate}% + ${dragOffset}px))`;
+  }, []);
 
-  const handleMouseDown = (e: MouseEvent) => {
-    setIsDragging(true);
-    setStartX(e.clientX);
-  };
+  // Native touch handlers (attached via addEventListener for passive: false)
+  const handleTouchStart = useCallback((e: globalThis.TouchEvent) => {
+    isDraggingRef.current = true;
+    startXRef.current = e.touches[0].clientX;
+    startYRef.current = e.touches[0].clientY;
+    translateXRef.current = 0;
+    directionRef.current = null;
+  }, []);
 
-  const handleTouchMove = (e: TouchEvent) => {
-    if (!isDragging) return;
+  const handleTouchMove = useCallback((e: globalThis.TouchEvent) => {
+    if (!isDraggingRef.current) return;
+
     const currentX = e.touches[0].clientX;
-    const diff = currentX - startX;
-    setTranslateX(diff);
+    const currentY = e.touches[0].clientY;
+    const deltaX = Math.abs(currentX - startXRef.current);
+    const deltaY = Math.abs(currentY - startYRef.current);
+
+    // Determine direction on first significant movement
+    if (directionRef.current === null && deltaX + deltaY > 10) {
+      directionRef.current = deltaY > deltaX ? 'vertical' : 'horizontal';
+    }
+
+    // Vertical scroll — bail out, let browser handle it
+    if (directionRef.current === 'vertical') {
+      isDraggingRef.current = false;
+      return;
+    }
+
+    // Horizontal swipe — prevent vertical scroll and update transform
+    if (directionRef.current === 'horizontal') {
+      e.preventDefault();
+      const diff = currentX - startXRef.current;
+      translateXRef.current = diff;
+      applyTransform(diff, false);
+    }
+  }, [applyTransform]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!isDraggingRef.current && directionRef.current !== 'horizontal') return;
+    isDraggingRef.current = false;
+
+    const threshold = 50;
+    const tx = translateXRef.current;
+    translateXRef.current = 0;
+
+    if (tx > threshold) {
+      handlePrev();
+    } else if (tx < -threshold) {
+      handleNext();
+    } else {
+      // Snap back
+      applyTransform(0, true);
+    }
+  }, [handlePrev, handleNext, applyTransform]);
+
+  // Attach native touch listeners with { passive: false } so preventDefault works
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener('touchstart', handleTouchStart, { passive: true });
+    el.addEventListener('touchmove', handleTouchMove, { passive: false });
+    el.addEventListener('touchend', handleTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart);
+      el.removeEventListener('touchmove', handleTouchMove);
+      el.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
+
+  // Mouse handlers (desktop drag — kept as React events, less perf-sensitive)
+  const handleMouseDown = (e: MouseEvent) => {
+    isDraggingRef.current = true;
+    startXRef.current = e.clientX;
+    translateXRef.current = 0;
+    directionRef.current = 'horizontal'; // Mouse is always horizontal intent
   };
 
   const handleMouseMove = (e: MouseEvent) => {
-    if (!isDragging) return;
-    const currentX = e.clientX;
-    const diff = currentX - startX;
-    setTranslateX(diff);
+    if (!isDraggingRef.current) return;
+    const diff = e.clientX - startXRef.current;
+    translateXRef.current = diff;
+    applyTransform(diff, false);
   };
 
-  const handleDragEnd = () => {
-    if (!isDragging) return;
-    setIsDragging(false);
+  const handleMouseDragEnd = () => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
 
-    const threshold = 50; // Minimum swipe distance to trigger card change
+    const threshold = 50;
+    const tx = translateXRef.current;
+    translateXRef.current = 0;
 
-    if (translateX > threshold && canGoLeft) {
+    if (tx > threshold) {
       handlePrev();
-    } else if (translateX < -threshold && canGoRight) {
+    } else if (tx < -threshold) {
       handleNext();
+    } else {
+      applyTransform(0, true);
     }
-
-    setTranslateX(0);
   };
 
-  const handleTouchEnd = () => handleDragEnd();
-  const handleMouseUp = () => handleDragEnd();
-  const handleMouseLeave = () => {
-    if (isDragging) handleDragEnd();
-  };
+  // Sync transform when currentIndex changes (from dots, arrows, or swipe)
+  useEffect(() => {
+    applyTransform(0, true);
+  }, [currentIndex, applyTransform]);
 
   if (totalCards === 0) return null;
 
@@ -102,21 +191,16 @@ export function SwipeableCardCarousel({ children, className = '' }: SwipeableCar
       <div
         ref={containerRef}
         className="overflow-hidden touch-pan-y"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
+        onMouseUp={handleMouseDragEnd}
+        onMouseLeave={handleMouseDragEnd}
       >
         <div
+          ref={trackRef}
           className="flex transition-transform duration-300 ease-out"
           style={{
-            // On desktop (2 visible), each card is 50% width, so translate by 50% per index
-            // On mobile (1 visible), each card is 100% width, so translate by 100% per index
-            transform: `translateX(calc(-${currentIndex * (100 / visibleCards)}% + ${isDragging ? translateX : 0}px))`,
-            transitionDuration: isDragging ? '0ms' : '300ms',
+            transform: `translateX(-${currentIndex * (100 / visibleCards)}%)`,
           }}
         >
           {children.map((child, index) => (

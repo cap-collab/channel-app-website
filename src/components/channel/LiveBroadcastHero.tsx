@@ -881,7 +881,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
                       placeholder="Message..."
-                      className="flex-1 min-w-0 bg-black text-white text-sm border border-white/20 px-3 py-2 focus:outline-none focus:border-white/40 disabled:text-zinc-500 disabled:cursor-not-allowed"
+                      className="flex-1 min-w-0 bg-black text-white text-base border border-white/20 px-3 py-2 focus:outline-none focus:border-white/40 disabled:text-zinc-500 disabled:cursor-not-allowed"
                       maxLength={280}
                       disabled={isSending}
                     />
