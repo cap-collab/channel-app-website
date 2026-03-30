@@ -39,11 +39,11 @@ export function Header({ currentPage = "home", position = "fixed", showSearch = 
       items.push({ label: "Studio", href: "/studio/join", active: currentPage === "studio" || currentPage === "dj-portal" });
     }
 
-    // About is always shown
-    items.push({ label: "About", href: "/about" });
-
     // Always show auth option in menu
     items.push({ type: "auth" });
+
+    // About is always shown, last in menu
+    items.push({ label: "About", href: "/about" });
 
     return items;
   };
