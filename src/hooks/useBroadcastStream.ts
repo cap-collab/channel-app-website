@@ -222,7 +222,11 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
               hlsRef.current.destroy();
               hlsRef.current = null;
             }
-            if (roomRef.current) {
+            // Keep WebRTC room connected during same-room transitions (e.g. DJ handoffs
+            // on channel-radio). The new DJ's tracks arrive via TrackSubscribed automatically,
+            // so disconnecting and reconnecting just adds unnecessary delay.
+            // Only disconnect if switching to a different room (unlikely but possible).
+            if (roomRef.current && roomRef.current.name !== ROOM_NAME) {
               roomRef.current.disconnect();
               roomRef.current = null;
             }
@@ -681,9 +685,12 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
   useEffect(() => {
     if (autoResumePending && isLive && !isPlaying && !isLoading) {
       setAutoResumePending(false);
-      // Restreams need more time for the URL ingress + egress to start writing audio segments
+      // Restreams need more time for the URL ingress + egress to start writing audio segments.
+      // WebRTC (desktop) gets tracks near-instantly via TrackSubscribed, so use a shorter delay.
+      // HLS (mobile/Safari) needs time for segments to appear on CDN.
       const isRestream = currentShow?.archiveRecordingUrl != null;
-      const delay = isRestream ? 15000 : 1500;
+      const isHLS = shouldUseHLS() || isRestream;
+      const delay = isRestream ? 15000 : isHLS ? 1500 : 300;
       console.log(`🔄 Auto-resuming playback in ${delay}ms (${isRestream ? 'restream' : 'live'})`);
       const timer = setTimeout(() => {
         play();

@@ -100,33 +100,32 @@ export function useBroadcast(
     try {
       setState(prev => ({ ...prev, error: null }));
 
-      // For recording mode with custom room, skip the "someone already live" check
-      // since each user has their own isolated room
-      if (!recordingOnly) {
-        // Check if someone is already live (only for shared channel-radio room)
-        const roomStatus = await checkRoomStatus();
-        if (roomStatus.isLive) {
-          // Allow the same DJ to reconnect (e.g. after pause/disconnect)
-          // Only block if a *different* DJ is broadcasting
-          if (roomStatus.currentDJ !== participantIdentity) {
-            setState(prev => ({
-              ...prev,
-              error: `Another DJ (${roomStatus.currentDJ}) is currently live`,
-              roomOccupied: true,
-              roomFreeAt: roomStatus.currentSlotEndTime || null,
-            }));
-            return false;
-          }
-          console.log('📡 Same DJ reconnecting, allowing connection');
+      // Fetch room status and token in parallel to reduce connection time.
+      // Room status check is skipped for recording mode (each user has their own room).
+      console.log('📡 Requesting token for room:', currentRoomName, 'identity:', participantIdentity);
+      const tokenPromise = fetch(
+        `/api/livekit/token?room=${currentRoomName}&username=${encodeURIComponent(participantIdentity)}`
+      ).then(r => r.json());
+      const roomStatusPromise = !recordingOnly ? checkRoomStatus() : Promise.resolve(null);
+
+      const [data, roomStatus] = await Promise.all([tokenPromise, roomStatusPromise]);
+
+      // Check room status result (only for shared channel-radio room)
+      if (roomStatus?.isLive) {
+        // Allow the same DJ to reconnect (e.g. after pause/disconnect)
+        // Only block if a *different* DJ is broadcasting
+        if (roomStatus.currentDJ !== participantIdentity) {
+          setState(prev => ({
+            ...prev,
+            error: `Another DJ (${roomStatus.currentDJ}) is currently live`,
+            roomOccupied: true,
+            roomFreeAt: roomStatus.currentSlotEndTime || null,
+          }));
+          return false;
         }
+        console.log('📡 Same DJ reconnecting, allowing connection');
       }
 
-      // Get token for the room
-      console.log('📡 Requesting token for room:', currentRoomName, 'identity:', participantIdentity);
-      const res = await fetch(
-        `/api/livekit/token?room=${currentRoomName}&username=${encodeURIComponent(participantIdentity)}`
-      );
-      const data = await res.json();
       console.log('📡 Token response:', { room: data.room, url: data.url, hasToken: !!data.token });
 
       if (data.error) {
