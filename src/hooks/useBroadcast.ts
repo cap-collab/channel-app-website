@@ -40,10 +40,13 @@ export function useBroadcast(
     error: null,
     roomOccupied: false,
     roomFreeAt: null,
+    isQueued: false,
+    isGoingLive: false,
   });
 
   const roomRef = useRef<Room | null>(null);
   const audioTrackRef = useRef<LocalTrack | null>(null);
+  const queuePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Use refs to ensure callbacks always have latest values
   // Initialize refs AND update them synchronously on each render
@@ -84,7 +87,9 @@ export function useBroadcast(
   }, [roomName]);
 
   // Connect to the LiveKit room
-  const connect = useCallback(async () => {
+  // queueMode: when true, allows connecting even if another DJ is live (for pre-connect queue)
+  const connect = useCallback(async (options?: { queueMode?: boolean }) => {
+    const queueMode = options?.queueMode || false;
     // Use ref to get latest room name
     const currentRoomName = roomNameRef.current;
 
@@ -113,17 +118,27 @@ export function useBroadcast(
       // Check room status result (only for shared channel-radio room)
       if (roomStatus?.isLive) {
         // Allow the same DJ to reconnect (e.g. after pause/disconnect)
-        // Only block if a *different* DJ is broadcasting
+        // Only block if a *different* DJ is broadcasting (unless in queue mode)
         if (roomStatus.currentDJ !== participantIdentity) {
-          setState(prev => ({
-            ...prev,
-            error: `Another DJ (${roomStatus.currentDJ}) is currently live`,
-            roomOccupied: true,
-            roomFreeAt: roomStatus.currentSlotEndTime || null,
-          }));
-          return false;
+          if (queueMode) {
+            // Queue mode: allow connection but store roomFreeAt for the waiting screen
+            console.log('📡 Queue mode: connecting alongside current DJ:', roomStatus.currentDJ);
+            setState(prev => ({
+              ...prev,
+              roomFreeAt: roomStatus.currentSlotEndTime || null,
+            }));
+          } else {
+            setState(prev => ({
+              ...prev,
+              error: `Another DJ (${roomStatus.currentDJ}) is currently live`,
+              roomOccupied: true,
+              roomFreeAt: roomStatus.currentSlotEndTime || null,
+            }));
+            return false;
+          }
+        } else {
+          console.log('📡 Same DJ reconnecting, allowing connection');
         }
-        console.log('📡 Same DJ reconnecting, allowing connection');
       }
 
       console.log('📡 Token response:', { room: data.room, url: data.url, hasToken: !!data.token });
@@ -433,6 +448,88 @@ export function useBroadcast(
     setState(prev => ({ ...prev, inputMethod: method }));
   }, []);
 
+  // Queue to go live: pre-connect with muted audio, auto-activate when room clears
+  const queueGoLive = useCallback(async (stream: MediaStream) => {
+    console.log('📡 Queueing to go live (pre-connect with muted audio)');
+
+    // Connect in queue mode (bypasses roomOccupied block)
+    const connected = await connect({ queueMode: true });
+    if (!connected) return false;
+
+    // Publish audio then immediately mute
+    const published = await publishAudio(stream);
+    if (!published) return false;
+
+    if (roomRef.current) {
+      await roomRef.current.localParticipant.setMicrophoneEnabled(false);
+      console.log('📡 Audio published and muted (queued)');
+    }
+
+    setState(prev => ({ ...prev, isQueued: true, roomOccupied: false }));
+
+    // Poll room status every 3s to detect when room clears
+    queuePollRef.current = setInterval(async () => {
+      try {
+        const status = await checkRoomStatus();
+        if (!status.isLive) {
+          console.log('📡 Room cleared! Auto-activating queued DJ');
+
+          // Stop polling
+          if (queuePollRef.current) {
+            clearInterval(queuePollRef.current);
+            queuePollRef.current = null;
+          }
+
+          // Show "going live" screen
+          setState(prev => ({ ...prev, isQueued: false, isGoingLive: true }));
+
+          // Unmute audio
+          if (roomRef.current) {
+            await roomRef.current.localParticipant.setMicrophoneEnabled(true);
+            console.log('📡 Audio unmuted');
+          }
+
+          // Start egress and go live
+          await startEgress();
+
+          setState(prev => ({ ...prev, isGoingLive: false }));
+        }
+      } catch (err) {
+        console.error('📡 Queue poll error:', err);
+      }
+    }, 3000);
+
+    return true;
+  }, [connect, publishAudio, checkRoomStatus, startEgress]);
+
+  // Cancel queue: stop polling, disconnect from room
+  const cancelQueue = useCallback(() => {
+    console.log('📡 Cancelling queue');
+    if (queuePollRef.current) {
+      clearInterval(queuePollRef.current);
+      queuePollRef.current = null;
+    }
+    unpublishAudio();
+    disconnect();
+    setState(prev => ({
+      ...prev,
+      isQueued: false,
+      isGoingLive: false,
+      roomOccupied: false,
+      roomFreeAt: null,
+    }));
+  }, [unpublishAudio, disconnect]);
+
+  // Clean up queue poll on unmount
+  useEffect(() => {
+    return () => {
+      if (queuePollRef.current) {
+        clearInterval(queuePollRef.current);
+        queuePollRef.current = null;
+      }
+    };
+  }, []);
+
   // Clear error (and room-occupied state)
   const clearError = useCallback(() => {
     setState(prev => ({ ...prev, error: null, roomOccupied: false, roomFreeAt: null }));
@@ -476,5 +573,7 @@ export function useBroadcast(
     setInputMethod,
     clearError,
     checkRoomStatus,
+    queueGoLive,
+    cancelQueue,
   };
 }

@@ -41,6 +41,7 @@ interface DJControlCenterProps {
   djEmail?: string; // DJ's email for tips
   roomOccupied?: boolean;    // Previous DJ still broadcasting
   roomFreeAt?: number | null; // When the previous DJ's slot ends (Unix ms)
+  onQueueGoLive?: () => void; // Queue to auto go-live when room clears
 }
 
 export function DJControlCenter({
@@ -74,6 +75,7 @@ export function DJControlCenter({
   djEmail,
   roomOccupied = false,
   roomFreeAt,
+  onQueueGoLive,
 }: DJControlCenterProps) {
   const [copied, setCopied] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
@@ -137,6 +139,7 @@ export function DJControlCenter({
                 isRecordingMode={isRecordingMode}
                 roomOccupied={roomOccupied}
                 roomFreeAt={roomFreeAt}
+                onQueueGoLive={onQueueGoLive}
               />
 
               {/* Broadcast Settings */}

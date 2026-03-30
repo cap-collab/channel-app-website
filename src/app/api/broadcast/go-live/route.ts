@@ -315,7 +315,24 @@ export async function POST(request: NextRequest) {
 
     try {
       console.log('[go-live] Attempting Firestore update with data:', JSON.stringify(updateData, null, 2));
-      await doc.ref.update(updateData);
+
+      // Use a batch write to atomically: (1) complete any other live slots, (2) mark this slot as live.
+      // This prevents a gap where no slot has status='live' during DJ transitions.
+      const batch = db.batch();
+
+      const otherLiveSlots = await db.collection('broadcast-slots')
+        .where('status', '==', 'live')
+        .get();
+      for (const otherDoc of otherLiveSlots.docs) {
+        if (otherDoc.id !== doc.id) {
+          batch.update(otherDoc.ref, { status: 'completed' });
+          console.log('[go-live] Completing previous live slot in batch:', otherDoc.id);
+        }
+      }
+
+      batch.update(doc.ref, updateData);
+      await batch.commit();
+
       console.log('[go-live] ✅ Slot updated to live:', { slotId: doc.id });
     } catch (updateError) {
       console.error('[go-live] ❌ Firestore update failed:', updateError);

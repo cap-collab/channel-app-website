@@ -213,6 +213,8 @@ export interface BroadcastState {
   error: string | null;
   roomOccupied?: boolean;       // Another DJ is currently broadcasting
   roomFreeAt?: number | null;   // When the current DJ's slot ends (Unix ms)
+  isQueued?: boolean;           // DJ is pre-connected and waiting for room to clear
+  isGoingLive?: boolean;        // Go-live sequence is running (unmute → egress → Firestore)
 }
 
 // RTMP ingress info

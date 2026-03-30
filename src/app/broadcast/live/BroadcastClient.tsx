@@ -13,6 +13,7 @@ import { DJControlCenter } from '@/components/broadcast/DJControlCenter';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { AudioInputMethod } from '@/types/broadcast';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
+import { QueuedWaitingScreen } from '@/components/broadcast/QueuedWaitingScreen';
 import { useTipTotal } from '@/hooks/useTipTotal';
 import { normalizeUrl } from '@/lib/url';
 
@@ -388,6 +389,16 @@ export function BroadcastClient() {
     }
   }, [audioStream, broadcast, initialPromoText, initialPromoHyperlink, token, djUsername]);
 
+  const handleQueueGoLive = useCallback(async () => {
+    if (!audioStream) return;
+    console.log('[handleQueueGoLive] Queueing to go live');
+    await broadcast.queueGoLive(audioStream);
+  }, [audioStream, broadcast]);
+
+  const handleCancelQueue = useCallback(() => {
+    broadcast.cancelQueue();
+  }, [broadcast]);
+
   const handleRtmpReady = useCallback(async () => {
     // For RTMP, the audio comes from the ingress, not local capture
     // We just need to start egress
@@ -666,16 +677,22 @@ export function BroadcastClient() {
   if (isGoingLive && audioStream) {
     const isRecording = slot?.broadcastType === 'recording';
     return (
-      <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{
+        animation: isRecording ? 'none' : 'pulse-bg 1s ease-in-out infinite',
+        backgroundColor: '#1a1a1a',
+      }}>
+        <style>{`
+          @keyframes pulse-bg {
+            0%, 100% { background-color: #1a1a1a; }
+            50% { background-color: #2a1a1a; }
+          }
+        `}</style>
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-          <h1 className="text-2xl font-bold text-white mb-2">
-            {isRecording ? 'Preparing to record' : 'Preparing to go live'}
+          <h1 className={`text-3xl font-bold text-white mb-6 ${isRecording ? '' : 'animate-pulse'}`}>
+            {isRecording ? 'Preparing to record' : 'GOING LIVE IN LESS THAN 15 SECONDS'}
           </h1>
-          <p className="text-gray-400">
-            {isRecording ? 'Setting up your recording session...' : 'Connecting to the broadcast server...'}
-          </p>
-          <p className="text-gray-500 text-sm mt-6">
+          <div className={`w-12 h-12 border-4 ${isRecording ? 'border-white' : 'border-red-500'} border-t-transparent rounded-full animate-spin mx-auto`}></div>
+          <p className="text-gray-500 text-sm mt-8">
             Have any issue? Call Cap at 415 316 3109
           </p>
         </div>
@@ -755,6 +772,18 @@ export function BroadcastClient() {
     );
   }
 
+  // Queued state - DJ is pre-connected, waiting for room to clear or going live
+  if (broadcast.isQueued || broadcast.isGoingLive) {
+    return (
+      <QueuedWaitingScreen
+        audioStream={audioStream}
+        isGoingLive={broadcast.isGoingLive || false}
+        isQueued={broadcast.isQueued || false}
+        onCancel={handleCancelQueue}
+      />
+    );
+  }
+
   // Audio captured - show DJControlCenter in pre-live state (full screen)
   if (audioStream) {
     return (
@@ -790,6 +819,7 @@ export function BroadcastClient() {
         audioSourceLabel={audioSourceLabel}
         roomOccupied={roomBusy || broadcast.roomOccupied}
         roomFreeAt={roomBusyUntil || broadcast.roomFreeAt}
+        onQueueGoLive={handleQueueGoLive}
       />
     );
   }

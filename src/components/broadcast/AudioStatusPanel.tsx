@@ -18,6 +18,7 @@ interface AudioStatusPanelProps {
   isRecordingMode?: boolean; // Show "START RECORDING" instead of "GO LIVE"
   roomOccupied?: boolean;    // Previous DJ still broadcasting
   roomFreeAt?: number | null; // When the previous DJ's slot ends (Unix ms)
+  onQueueGoLive?: () => void; // Queue to auto go-live when room clears
 }
 
 export function AudioStatusPanel({
@@ -35,6 +36,7 @@ export function AudioStatusPanel({
   isRecordingMode = false,
   roomOccupied = false,
   roomFreeAt,
+  onQueueGoLive,
 }: AudioStatusPanelProps) {
   const level = useAudioLevel(stream);
   const hasAudioLevels = level > 0.01;
@@ -216,17 +218,24 @@ export function AudioStatusPanel({
         <div>
           {canGoLive ? (
             <>
-              <button
-                onClick={onGoLive}
-                disabled={isGoingLive || roomOccupied}
-                className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg text-xl transition-colors"
-              >
-                {isGoingLive
-                  ? (isRecordingMode ? 'Starting recording...' : 'Going live...')
-                  : roomOccupied
-                    ? 'Previous DJ still playing'
+              {roomOccupied && onQueueGoLive ? (
+                <button
+                  onClick={onQueueGoLive}
+                  className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-4 px-6 rounded-lg text-xl transition-colors"
+                >
+                  Queue Auto Go-Live
+                </button>
+              ) : (
+                <button
+                  onClick={onGoLive}
+                  disabled={isGoingLive}
+                  className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg text-xl transition-colors"
+                >
+                  {isGoingLive
+                    ? (isRecordingMode ? 'Starting recording...' : 'Going live...')
                     : (isRecordingMode ? 'START RECORDING' : 'GO LIVE')}
-              </button>
+                </button>
+              )}
               {roomOccupied && (
                 <p className="text-yellow-400/80 text-sm text-center mt-2">
                   {roomFreeAt
