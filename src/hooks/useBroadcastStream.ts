@@ -91,6 +91,11 @@ async function ensureAuthAndExecute(action: () => void): Promise<void> {
   const app = getFirebaseApp();
   const auth = getAuth(app);
 
+  // Wait for Firebase to restore the persisted session before checking currentUser.
+  // Without this, currentUser is null on page load and signInAnonymously() would
+  // replace an existing logged-in user's session with an anonymous one.
+  await auth.authStateReady();
+
   if (auth.currentUser) {
     action();
     return;

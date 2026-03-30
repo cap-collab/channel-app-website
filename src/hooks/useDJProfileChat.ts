@@ -153,15 +153,19 @@ export function useDJProfileChat({
     );
     };
 
-    // Ensure Firebase auth for Firestore security rules (sign in anonymously if needed)
-    if (!auth.currentUser) {
-      signInAnonymously(auth).then(() => subscribe()).catch((err) => {
-        console.error('Anonymous auth failed for chat subscription:', err);
-        setError('Failed to connect to chat');
-      });
-    } else {
-      subscribe();
-    }
+    // Ensure Firebase auth for Firestore security rules (sign in anonymously if needed).
+    // Wait for authStateReady() first so we don't replace a real user session with anonymous.
+    auth.authStateReady().then(() => {
+      if (cancelled) return;
+      if (!auth.currentUser) {
+        signInAnonymously(auth).then(() => subscribe()).catch((err) => {
+          console.error('Anonymous auth failed for chat subscription:', err);
+          setError('Failed to connect to chat');
+        });
+      } else {
+        subscribe();
+      }
+    });
 
     return () => {
       cancelled = true;
@@ -177,7 +181,9 @@ export function useDJProfileChat({
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // Ensure Firebase auth for Firestore security rules
+    // Ensure Firebase auth for Firestore security rules.
+    // Wait for auth to restore persisted session before falling back to anonymous.
+    await auth.authStateReady();
     if (!auth.currentUser) {
       try { await signInAnonymously(auth); } catch { return; }
     }
@@ -227,7 +233,9 @@ export function useDJProfileChat({
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // Ensure Firebase auth so Firestore writes succeed (sign in anonymously if needed)
+    // Ensure Firebase auth so Firestore writes succeed (sign in anonymously if needed).
+    // Wait for auth to restore persisted session before falling back to anonymous.
+    await auth.authStateReady();
     if (!auth.currentUser) {
       try { await signInAnonymously(auth); } catch { return; }
     }
