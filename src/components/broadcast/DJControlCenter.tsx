@@ -140,6 +140,7 @@ export function DJControlCenter({
                 roomOccupied={roomOccupied}
                 roomFreeAt={roomFreeAt}
                 onQueueGoLive={onQueueGoLive}
+                slotStartTime={slot?.startTime}
               />
 
               {/* Broadcast Settings */}
@@ -221,7 +222,7 @@ export function DJControlCenter({
             )}
           </div>
           <p className="text-gray-500 text-sm text-center mt-4">
-            Have any issue? Call Cap at 415 316 3109
+            Have any issue? Check the <a href="https://channel-app.com/streaming-guide" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-300">setup guide</a> or call Cap at 415 316 3109
           </p>
         </div>
       </div>

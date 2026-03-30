@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useAudioLevel } from '@/hooks/useAudioLevel';
 import { AudioInputMethod } from '@/types/broadcast';
 
@@ -19,6 +20,7 @@ interface AudioStatusPanelProps {
   roomOccupied?: boolean;    // Previous DJ still broadcasting
   roomFreeAt?: number | null; // When the previous DJ's slot ends (Unix ms)
   onQueueGoLive?: () => void; // Queue to auto go-live when room clears
+  slotStartTime?: number;    // Slot start time (Unix ms) for "available in X minutes" countdown
 }
 
 export function AudioStatusPanel({
@@ -37,9 +39,27 @@ export function AudioStatusPanel({
   roomOccupied = false,
   roomFreeAt,
   onQueueGoLive,
+  slotStartTime,
 }: AudioStatusPanelProps) {
   const level = useAudioLevel(stream);
   const hasAudioLevels = level > 0.01;
+
+  // Countdown for "Going live available in X minutes" when too early
+  const [minutesUntilAvailable, setMinutesUntilAvailable] = useState<number | null>(null);
+  useEffect(() => {
+    if (!slotStartTime || canGoLive) {
+      setMinutesUntilAvailable(null);
+      return;
+    }
+    const update = () => {
+      const oneMinuteBefore = slotStartTime - 60 * 1000;
+      const remaining = Math.max(Math.ceil((oneMinuteBefore - Date.now()) / 60000), 1);
+      setMinutesUntilAvailable(remaining);
+    };
+    update();
+    const interval = setInterval(update, 60000);
+    return () => clearInterval(interval);
+  }, [slotStartTime, canGoLive]);
 
   // Get display name for input method
   const getInputMethodLabel = () => {
@@ -245,8 +265,15 @@ export function AudioStatusPanel({
               )}
             </>
           ) : (
-            <div className="text-center">
-              <p className="text-gray-500 text-sm">{goLiveMessage}</p>
+            <div>
+              <button
+                disabled
+                className="w-full bg-gray-700 cursor-not-allowed text-gray-400 font-bold py-4 px-6 rounded-lg text-xl"
+              >
+                {minutesUntilAvailable !== null
+                  ? `Going live available in ${minutesUntilAvailable} minute${minutesUntilAvailable > 1 ? 's' : ''}`
+                  : goLiveMessage || 'Not available yet'}
+              </button>
             </div>
           )}
         </div>

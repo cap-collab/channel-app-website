@@ -123,6 +123,7 @@ export function BroadcastClient() {
   const [audioSourceLabel, setAudioSourceLabel] = useState<string | null>(null);
   const [dismissedWarning, setDismissedWarning] = useState(false);
   const [isGoingLive, setIsGoingLive] = useState(false);
+  const [goingLiveCountdown, setGoingLiveCountdown] = useState(15);
   const [canGoLive, setCanGoLive] = useState(false);
   const [goLiveMessage, setGoLiveMessage] = useState('');
   const [initialPromoSubmitted, setInitialPromoSubmitted] = useState(false);
@@ -206,6 +207,18 @@ export function BroadcastClient() {
     const interval = setInterval(checkDjSlotChange, 1000);
     return () => clearInterval(interval);
   }, [slot?.djSlots, slot?.id, slot?.broadcastType, getCurrentDjSlot, isLiveForDjSwitch]);
+
+  // Countdown timer for "going live" screen
+  useEffect(() => {
+    if (!isGoingLive) {
+      setGoingLiveCountdown(15);
+      return;
+    }
+    const interval = setInterval(() => {
+      setGoingLiveCountdown(prev => Math.max(prev - 1, 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isGoingLive]);
 
   // Check Go Live availability based on slot timing
   useEffect(() => {
@@ -533,7 +546,7 @@ export function BroadcastClient() {
             Please contact the station owner for a new link.
           </p>
           <p className="text-gray-500 text-sm mt-4">
-            Have any issue? Call Cap at 415 316 3109
+            Have any issue? Check the <a href="https://channel-app.com/streaming-guide" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-300">setup guide</a> or call Cap at 415 316 3109
           </p>
         </div>
       </div>
@@ -571,7 +584,7 @@ export function BroadcastClient() {
             </button>
           </div>
           <p className="text-gray-500 text-sm text-center mt-4">
-            Have any issue? Call Cap at 415 316 3109
+            Have any issue? Check the <a href="https://channel-app.com/streaming-guide" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-300">setup guide</a> or call Cap at 415 316 3109
           </p>
         </div>
       </div>
@@ -598,7 +611,7 @@ export function BroadcastClient() {
             </p>
           )}
           <p className="text-gray-500 text-sm mt-4">
-            Have any issue? Call Cap at 415 316 3109
+            Have any issue? Check the <a href="https://channel-app.com/streaming-guide" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-300">setup guide</a> or call Cap at 415 316 3109
           </p>
         </div>
       </div>
@@ -689,11 +702,13 @@ export function BroadcastClient() {
         `}</style>
         <div className="text-center">
           <h1 className={`text-3xl font-bold text-white mb-6 ${isRecording ? '' : 'animate-pulse'}`}>
-            {isRecording ? 'Preparing to record' : 'GOING LIVE IN LESS THAN 15 SECONDS'}
+            {isRecording ? 'Preparing to record' : goingLiveCountdown > 0
+              ? `GOING LIVE IN LESS THAN ${goingLiveCountdown} SECOND${goingLiveCountdown > 1 ? 'S' : ''}`
+              : 'Connecting...'}
           </h1>
           <div className={`w-12 h-12 border-4 ${isRecording ? 'border-white' : 'border-red-500'} border-t-transparent rounded-full animate-spin mx-auto`}></div>
           <p className="text-gray-500 text-sm mt-8">
-            Have any issue? Call Cap at 415 316 3109
+            Have any issue? Check the <a href="https://channel-app.com/streaming-guide" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-300">setup guide</a> or call Cap at 415 316 3109
           </p>
         </div>
       </div>
@@ -742,7 +757,7 @@ export function BroadcastClient() {
             </button>
           </div>
           <p className="text-gray-500 text-sm text-center mt-4">
-            Have any issue? Call Cap at 415 316 3109
+            Have any issue? Check the <a href="https://channel-app.com/streaming-guide" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-300">setup guide</a> or call Cap at 415 316 3109
           </p>
         </div>
       </div>
@@ -772,55 +787,56 @@ export function BroadcastClient() {
     );
   }
 
-  // Queued state - DJ is pre-connected, waiting for room to clear or going live
-  if (broadcast.isQueued || broadcast.isGoingLive) {
-    return (
-      <QueuedWaitingScreen
-        audioStream={audioStream}
-        isGoingLive={broadcast.isGoingLive || false}
-        isQueued={broadcast.isQueued || false}
-        onCancel={handleCancelQueue}
-      />
-    );
-  }
-
   // Audio captured - show DJControlCenter in pre-live state (full screen)
+  // When queued or going live, overlay the messaging on top of the existing DJControlCenter
+  // so the LiveControlBar with audio levels stays visible
   if (audioStream) {
+    const showQueueOverlay = broadcast.isQueued || broadcast.isGoingLive;
     return (
-      <DJControlCenter
-        slot={slot}
-        audioStream={audioStream}
-        inputMethod={broadcast.inputMethod}
-        isLive={false}
-        isPublishing={false}
-        canGoLive={canGoLive}
-        goLiveMessage={goLiveMessage}
-        onGoLive={handleGoLive}
-        isGoingLive={isGoingLive}
-        onEndBroadcast={handleEndBroadcast}
-        broadcastToken={token || ''}
-        djUsername={djUsername}
-        userId={broadcastDjUserId}
-        tipTotalCents={tipTotalCents}
-        tipCount={tipCount}
-        promoText={initialPromoText}
-        promoHyperlink={initialPromoHyperlink}
-        thankYouMessage={initialThankYouMessage}
-        onPromoChange={(text, hyperlink) => {
-          setInitialPromoText(text);
-          setInitialPromoHyperlink(hyperlink);
-        }}
-        onThankYouChange={setInitialThankYouMessage}
-        isVenue={slot?.broadcastType === 'venue'}
-        onChangeUsername={slot?.broadcastType === 'venue' ? setDjUsername : undefined}
-        initialPromoSubmitted={initialPromoSubmitted}
-        onChangeAudioSetup={handleBack}
-        onChangeSource={handleChangeSource}
-        audioSourceLabel={audioSourceLabel}
-        roomOccupied={roomBusy || broadcast.roomOccupied}
-        roomFreeAt={roomBusyUntil || broadcast.roomFreeAt}
-        onQueueGoLive={handleQueueGoLive}
-      />
+      <>
+        <DJControlCenter
+          slot={slot}
+          audioStream={audioStream}
+          inputMethod={broadcast.inputMethod}
+          isLive={false}
+          isPublishing={false}
+          canGoLive={canGoLive}
+          goLiveMessage={goLiveMessage}
+          onGoLive={handleGoLive}
+          isGoingLive={isGoingLive}
+          onEndBroadcast={handleEndBroadcast}
+          broadcastToken={token || ''}
+          djUsername={djUsername}
+          userId={broadcastDjUserId}
+          tipTotalCents={tipTotalCents}
+          tipCount={tipCount}
+          promoText={initialPromoText}
+          promoHyperlink={initialPromoHyperlink}
+          thankYouMessage={initialThankYouMessage}
+          onPromoChange={(text, hyperlink) => {
+            setInitialPromoText(text);
+            setInitialPromoHyperlink(hyperlink);
+          }}
+          onThankYouChange={setInitialThankYouMessage}
+          isVenue={slot?.broadcastType === 'venue'}
+          onChangeUsername={slot?.broadcastType === 'venue' ? setDjUsername : undefined}
+          initialPromoSubmitted={initialPromoSubmitted}
+          onChangeAudioSetup={handleBack}
+          onChangeSource={handleChangeSource}
+          audioSourceLabel={audioSourceLabel}
+          roomOccupied={roomBusy || broadcast.roomOccupied}
+          roomFreeAt={roomBusyUntil || broadcast.roomFreeAt}
+          onQueueGoLive={handleQueueGoLive}
+        />
+        {showQueueOverlay && (
+          <QueuedWaitingScreen
+            audioStream={audioStream}
+            isGoingLive={broadcast.isGoingLive || false}
+            isQueued={broadcast.isQueued || false}
+            onCancel={handleCancelQueue}
+          />
+        )}
+      </>
     );
   }
 
@@ -917,7 +933,7 @@ export function BroadcastClient() {
         )}
 
         <p className="text-gray-500 text-sm text-center mt-8">
-          Have any issue? Call Cap at 415 316 3109
+          Have any issue? Check the <a href="https://channel-app.com/streaming-guide" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-300">setup guide</a> or call Cap at 415 316 3109
         </p>
       </div>
       </div>
