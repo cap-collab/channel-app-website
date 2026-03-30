@@ -241,7 +241,7 @@ export function AudioStatusPanel({
         }
       `}</style>
       {!isLive ? (
-        <div>
+        <div className="overflow-hidden">
           {canGoLive ? (
             <>
               {roomOccupied && onQueueGoLive ? (
