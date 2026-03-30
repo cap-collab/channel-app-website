@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAudioLevel } from '@/hooks/useAudioLevel';
-import { STRIPE_ON_HOLD } from '@/lib/constants';
+
 import { getFirestore, collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { getDatabase, ref, onValue } from 'firebase/database';
 import { getApps, initializeApp } from 'firebase/app';
@@ -26,14 +26,12 @@ function getFirebaseApp() {
 interface LiveControlBarProps {
   stream: MediaStream | null;
   isLive: boolean;
-  tipTotalCents: number;
-  tipCount: number;
   showStartTime?: number; // Unix timestamp ms - love count resets per show
   isRecordingMode?: boolean; // Show "RECORDING" instead of "LIVE"
   chatUsernameNormalized: string; // DJ's chat room ID for love count subscription
 }
 
-export function LiveControlBar({ stream, isLive, tipTotalCents, tipCount, showStartTime, isRecordingMode = false, chatUsernameNormalized }: LiveControlBarProps) {
+export function LiveControlBar({ stream, isLive, showStartTime, isRecordingMode = false, chatUsernameNormalized }: LiveControlBarProps) {
   const level = useAudioLevel(stream);
   const [listenerCount, setListenerCount] = useState(0);
   const [loveCount, setLoveCount] = useState(0);
@@ -95,12 +93,6 @@ export function LiveControlBar({ stream, isLive, tipTotalCents, tipCount, showSt
     return 'from-green-500 to-green-500';
   };
 
-  // Format tip amount
-  const formatTips = (cents: number) => {
-    if (cents === 0) return '$0';
-    return `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
-  };
-
   return (
     <div className="bg-[#1a1a1a] border-b border-gray-800 px-4 py-3">
       <div className="max-w-6xl mx-auto flex items-center gap-4">
@@ -141,19 +133,6 @@ export function LiveControlBar({ stream, isLive, tipTotalCents, tipCount, showSt
               </svg>
               <span className="text-white font-bold text-xl tabular-nums">{listenerCount}</span>
             </div>
-          )}
-
-          {/* Tips - large and prominent — STRIPE_ON_HOLD */}
-          {!STRIPE_ON_HOLD && (
-          <div className="flex items-center gap-2" title={`${tipCount} ${tipCount === 1 ? 'tip' : 'tips'}`}>
-            <span className="text-xl">💰</span>
-            <span className={`font-bold text-xl tabular-nums ${tipTotalCents > 0 ? 'text-green-400' : 'text-gray-400'}`}>
-              {formatTips(tipTotalCents)}
-            </span>
-            {tipCount > 0 && (
-              <span className="text-gray-500 text-base">({tipCount})</span>
-            )}
-          </div>
           )}
 
           {/* Loves */}

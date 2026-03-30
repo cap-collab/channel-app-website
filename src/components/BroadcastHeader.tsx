@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/AuthModal";
 import { useUserRole, isDJ } from "@/hooks/useUserRole";
-import { STRIPE_ON_HOLD } from "@/lib/constants";
+
 
 interface BroadcastHeaderProps {
   stationName?: string;
@@ -112,19 +112,7 @@ export function BroadcastHeader({ stationName = "Channel Radio", openInNewWindow
                       >
                         My Shows
                       </a>
-                      {/* My Support — STRIPE_ON_HOLD */}
-                      {!STRIPE_ON_HOLD && (
-                      <a
-                        href="/inbox"
-                        onClick={(e) => {
-                          handleLinkClick(e, '/inbox');
-                          if (!openInNewWindow) setShowUserMenu(false);
-                        }}
-                        className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
-                      >
-                        My Support
-                      </a>
-                      )}
+
                       {isDJ(role) && (
                         <a
                           href="/studio"

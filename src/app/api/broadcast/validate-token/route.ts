@@ -56,22 +56,37 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'This broadcast slot has ended' }, { status: 410 });
     }
 
+    // Determine schedule status
+    const fifteenMinutes = 15 * 60 * 1000;
     let scheduleStatus: 'early' | 'on-time' | 'late' = 'on-time';
-    if (now < startTime) {
+    let message = 'You are on schedule';
+
+    if (now < startTime - fifteenMinutes) {
+      // More than 15 minutes before start
       scheduleStatus = 'early';
-    } else if (now > endTime) {
+      const startDate = new Date(startTime);
+      const today = new Date();
+      const isToday = startDate.getDate() === today.getDate() &&
+        startDate.getMonth() === today.getMonth() &&
+        startDate.getFullYear() === today.getFullYear();
+      const timeStr = startDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      if (isToday) {
+        message = `Your show starts at ${timeStr}`;
+      } else {
+        const dateStr = startDate.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+        message = `Your show starts ${dateStr} at ${timeStr}`;
+      }
+    } else if (now > startTime && now < endTime) {
+      // Show has started but not ended - DJ is late joining
       scheduleStatus = 'late';
+      message = `Your show started at ${new Date(startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
     }
 
     return NextResponse.json({
       valid: true,
       slot: serializeSlot(slot),
       scheduleStatus,
-      message: scheduleStatus === 'early'
-        ? `Your slot starts at ${new Date(startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
-        : scheduleStatus === 'late'
-        ? `Your slot ended at ${new Date(endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
-        : 'You are on schedule',
+      message,
     });
   } catch (error) {
     console.error('Error validating token:', error);

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useUserRole, isDJ } from "@/hooks/useUserRole";
-import { STRIPE_ON_HOLD } from "@/lib/constants";
+
 
 export type MobileMenuItem =
   | { label: string; href?: string; onClick?: () => void; type?: "link"; external?: boolean; active?: boolean }
@@ -97,19 +97,7 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                       >
                         My Watchlist
                       </button>
-                      {/* Inbox — STRIPE_ON_HOLD */}
-                      {!STRIPE_ON_HOLD && (
-                      <button
-                        onClick={() => {
-                          setIsOpen(false);
-                          router.push("/inbox");
-                        }}
-                        className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
-                        style={{ pointerEvents: 'auto' }}
-                      >
-                        Inbox
-                      </button>
-                      )}
+
                       {isDJ(role) && (
                         <button
                           onClick={() => {

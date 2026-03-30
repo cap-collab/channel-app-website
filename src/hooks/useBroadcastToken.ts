@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
-import { validateToken } from '@/lib/broadcast-slots';
 
 interface TokenValidationResult {
   slot: BroadcastSlotSerialized | null;
@@ -28,9 +27,10 @@ export function useBroadcastToken(token: string | null): TokenValidationResult {
 
     const validate = async () => {
       try {
-        const result = await validateToken(token);
+        const res = await fetch(`/api/broadcast/validate-token?token=${encodeURIComponent(token)}`);
+        const result = await res.json();
 
-        if (!result.valid) {
+        if (!res.ok || !result.valid) {
           setError(result.error || 'Invalid token');
           setSlot(null);
         } else {

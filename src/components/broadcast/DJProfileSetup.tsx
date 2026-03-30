@@ -26,26 +26,24 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useDebouncedCallback } from 'use-debounce';
 import { normalizeUrl } from '@/lib/url';
-import { STRIPE_ON_HOLD } from '@/lib/constants';
+
 
 interface DJProfileSetupProps {
   defaultUsername?: string;
   defaultPromoText?: string;
   defaultPromoHyperlink?: string;
-  defaultThankYouMessage?: string;
   showName?: string;
   broadcastType?: 'venue' | 'remote' | 'recording' | 'restream';
   isVenueRecording?: boolean;  // For recordings made at a venue (shows venue-specific terms)
-  onComplete: (username: string, promoText?: string, promoHyperlink?: string, thankYouMessage?: string) => void;
+  onComplete: (username: string, promoText?: string, promoHyperlink?: string) => void;
 }
 
-export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromoHyperlink, defaultThankYouMessage, showName, broadcastType, isVenueRecording, onComplete }: DJProfileSetupProps) {
+export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromoHyperlink, showName, broadcastType, isVenueRecording, onComplete }: DJProfileSetupProps) {
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const { chatUsername: savedUsername, loading: profileLoading } = useUserProfile(user?.uid);
   const [username, setUsername] = useState(defaultUsername || '');
   const [promoText, setPromoText] = useState(defaultPromoText || '');
   const [promoHyperlink, setPromoHyperlink] = useState(defaultPromoHyperlink || '');
-  const [thankYouMessage, setThankYouMessage] = useState(defaultThankYouMessage || '');
   const [error, setError] = useState<string | null>(null);
   const [permissionsConfirmed, setPermissionsConfirmed] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
@@ -138,10 +136,6 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
   useEffect(() => {
     if (defaultPromoHyperlink && !promoHyperlink) setPromoHyperlink(defaultPromoHyperlink);
   }, [defaultPromoHyperlink, promoHyperlink]);
-
-  useEffect(() => {
-    if (defaultThankYouMessage && !thankYouMessage) setThankYouMessage(defaultThankYouMessage);
-  }, [defaultThankYouMessage, thankYouMessage]);
 
   // Get valid username for saving during sign-in (if valid)
   // Must match validateUsername() validation rules
@@ -288,7 +282,7 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
     // This allows the flow to work without Firebase Admin SDK
     const normalizedHyperlink = promoHyperlink ? normalizeUrl(promoHyperlink) : undefined;
     const djName = defaultUsername || username.trim();
-    onComplete(djName, promoText.trim() || undefined, normalizedHyperlink, thankYouMessage.trim() || undefined);
+    onComplete(djName, promoText.trim() || undefined, normalizedHyperlink);
   };
 
   // Show loading state while fetching user profile
@@ -383,27 +377,6 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
         >
           {broadcastType === 'recording' ? 'Continue to Record' : 'Continue to Go Live'}
         </button>
-
-        {/* Thank You Message (Optional) — STRIPE_ON_HOLD */}
-        {!STRIPE_ON_HOLD && (
-        <div>
-          <label htmlFor="thankYouMessage" className="block text-gray-400 text-sm mb-2">
-            Thank you message <span className="text-gray-600">(optional)</span>
-          </label>
-          <textarea
-            id="thankYouMessage"
-            value={thankYouMessage}
-            onChange={(e) => setThankYouMessage(e.target.value)}
-            placeholder="Thanks for the tip!"
-            rows={2}
-            maxLength={200}
-            className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-gray-500 resize-none"
-          />
-          <p className="text-gray-500 text-xs mt-1">
-            Shown to listeners after they tip you ({thankYouMessage.length}/200)
-          </p>
-        </div>
-        )}
 
         {/* Support contact */}
         <p className="text-gray-500 text-sm text-center">
