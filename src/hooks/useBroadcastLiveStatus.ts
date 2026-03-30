@@ -180,7 +180,7 @@ export function useBroadcastLiveStatus(): UseBroadcastLiveStatusReturn {
  * Check if any broadcast slot's time window covers the current moment,
  * regardless of status. This tells us a show *should* be on right now.
  */
-async function hasScheduledSlotNow(
+export async function hasScheduledSlotNow(
   db: ReturnType<typeof getFirestore>,
   slotsRef: ReturnType<typeof collection>
 ): Promise<boolean> {

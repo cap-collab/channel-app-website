@@ -84,7 +84,47 @@ export async function POST(request: NextRequest) {
       updateData.recordingStatus = 'processing';
     }
 
-    await slotRef.update(updateData);
+    // When completing a slot, try to atomically activate the next scheduled show in the same
+    // batch write. This prevents a Firestore gap where no slot has status='live' during DJ
+    // transitions (same pattern as go-live/route.ts).
+    let nextShowDoc: FirebaseFirestore.QueryDocumentSnapshot | null = null;
+    let nextShowIsRestream = false;
+
+    if (newStatus === 'completed') {
+      try {
+        const nextShowSnapshot = await db
+          .collection('broadcast-slots')
+          .where('status', '==', 'scheduled')
+          .get();
+
+        for (const nextDoc of nextShowSnapshot.docs) {
+          const nextSlot = nextDoc.data();
+          const startTime = nextSlot.startTime?.toMillis?.() || nextSlot.startTime;
+          const nextEndTime = nextSlot.endTime?.toMillis?.() || nextSlot.endTime;
+          if (!startTime || now < startTime || now >= nextEndTime) continue;
+
+          nextShowDoc = nextDoc;
+          nextShowIsRestream = nextSlot.broadcastType === 'restream';
+          break;
+        }
+      } catch (err) {
+        console.error('[complete-slot] Error finding next show:', err);
+      }
+    }
+
+    // Use a batch write to atomically complete this slot + activate the next one (if found).
+    // This prevents listeners from seeing an empty "no live slot" state during transitions.
+    const batch = db.batch();
+    batch.update(slotRef, updateData);
+
+    if (nextShowDoc) {
+      batch.update(nextShowDoc.ref, { status: 'live' });
+      console.log(`[complete-slot] Batch write: ${slotId} → ${newStatus}, ${nextShowDoc.id} → live`);
+    } else {
+      console.log(`[complete-slot] Batch write: ${slotId} → ${newStatus} (no next show to activate)`);
+    }
+
+    await batch.commit();
     console.log(`Slot ${slotId} marked as ${newStatus}`);
 
     // Force-remove participant from LiveKit if slot was live (safety net if browser didn't disconnect cleanly)
@@ -102,55 +142,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // After completing a slot, immediately activate the next scheduled show (restream or live).
-    // This ensures zero gap between shows instead of waiting for the 5-minute cron.
-    if (newStatus === 'completed') {
-      try {
-        const nextShowSnapshot = await db
-          .collection('broadcast-slots')
-          .where('status', '==', 'scheduled')
-          .get();
-
-        for (const nextDoc of nextShowSnapshot.docs) {
-          const nextSlot = nextDoc.data();
-          const startTime = nextSlot.startTime?.toMillis?.() || nextSlot.startTime;
-          const endTime = nextSlot.endTime?.toMillis?.() || nextSlot.endTime;
-          if (!startTime || now < startTime || now >= endTime) continue;
-
-          if (nextSlot.broadcastType === 'restream') {
-            // Restream: call start-restream to create ingress (egress starts via webhook)
-            console.log(`[complete-slot] Activating restream ${nextDoc.id} immediately`);
-            const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-            const cronSecret = process.env.CRON_SECRET || '';
-            fetch(`${appUrl}/api/broadcast/start-restream`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${cronSecret}`,
-              },
-              body: JSON.stringify({ slotId: nextDoc.id }),
-            }).then(async (res) => {
-              const data = await res.json();
-              if (res.ok) {
-                console.log(`[complete-slot] Restream ${nextDoc.id} started: ingress=${data.ingressId}`);
-              } else {
-                console.error(`[complete-slot] Restream ${nextDoc.id} failed:`, data.error);
-                await nextDoc.ref.update({ status: 'live' });
-              }
-            }).catch((err) => {
-              console.error(`[complete-slot] Restream fetch failed:`, err);
-            });
-          } else {
-            // Live show: just set to live so the DJ can connect
-            // (the DJ's client handles going live and starting egress)
-            console.log(`[complete-slot] Setting next live show ${nextDoc.id} to live`);
-            await nextDoc.ref.update({ status: 'live' });
-          }
-          break; // Only activate the first matching show
+    // For restreams, fire off the start-restream call after the batch committed.
+    // The slot is already marked 'live' in Firestore, so listeners see continuity.
+    if (nextShowDoc && nextShowIsRestream) {
+      console.log(`[complete-slot] Starting restream for ${nextShowDoc.id}`);
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+      const cronSecret = process.env.CRON_SECRET || '';
+      fetch(`${appUrl}/api/broadcast/start-restream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${cronSecret}`,
+        },
+        body: JSON.stringify({ slotId: nextShowDoc.id }),
+      }).then(async (res) => {
+        const data = await res.json();
+        if (res.ok) {
+          console.log(`[complete-slot] Restream ${nextShowDoc!.id} started: ingress=${data.ingressId}`);
+        } else {
+          console.error(`[complete-slot] Restream ${nextShowDoc!.id} failed:`, data.error);
         }
-      } catch (err) {
-        console.error('[complete-slot] Error activating next show:', err);
-      }
+      }).catch((err) => {
+        console.error(`[complete-slot] Restream fetch failed:`, err);
+      });
     }
 
     return NextResponse.json({ success: true, status: newStatus });
