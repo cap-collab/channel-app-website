@@ -198,6 +198,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
             liveDjBio: data.liveDjBio,
             liveDjPromoText: data.liveDjPromoText,
             liveDjPromoHyperlink: data.liveDjPromoHyperlink,
+            liveDjTipButtonLink: data.liveDjTipButtonLink,
             liveDjGenres: data.liveDjGenres,
             liveDjDescription: data.liveDjDescription,
             showPromoText: data.showPromoText,

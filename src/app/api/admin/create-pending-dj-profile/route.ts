@@ -194,6 +194,8 @@ export async function POST(request: NextRequest) {
           genres: djProfile?.genres || [],
           promoText: djProfile?.promoText || null,
           promoHyperlink: djProfile?.promoHyperlink || null,
+          // Auto-populate tipButtonLink from bandcamp if not explicitly set
+          tipButtonLink: djProfile?.socialLinks?.bandcamp || null,
           socialLinks: djProfile?.socialLinks || {},
           irlShows: djProfile?.irlShows || [],
           radioShows: djProfile?.radioShows || [],
@@ -312,6 +314,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Build the djProfile update object
+    const existingTipButtonLink = existingData?.djProfile?.tipButtonLink;
     const djProfileUpdate = {
       bio: djProfile?.bio || null,
       photoUrl: djProfile?.photoUrl ?? existingData?.djProfile?.photoUrl ?? null,
@@ -319,6 +322,8 @@ export async function PATCH(request: NextRequest) {
       genres: djProfile?.genres || [],
       promoText: djProfile?.promoText || null,
       promoHyperlink: djProfile?.promoHyperlink || null,
+      // Auto-populate tipButtonLink from bandcamp if not already set
+      tipButtonLink: existingTipButtonLink || djProfile?.socialLinks?.bandcamp || null,
       socialLinks: djProfile?.socialLinks || {},
       irlShows: djProfile?.irlShows || [],
       radioShows: djProfile?.radioShows || [],

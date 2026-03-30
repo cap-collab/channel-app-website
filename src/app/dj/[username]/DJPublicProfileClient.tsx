@@ -397,7 +397,7 @@ export function DJPublicProfileClient({ username }: Props) {
   const [djPastEvents, setDjPastEvents] = useState<ChannelEvent[]>([]);
 
   // Broadcast stream context for synced play/pause
-  const { isPlaying, isLoading: streamLoading, toggle: toggleStream, isStreaming, isLive: broadcastIsLive } = useBroadcastStreamContext();
+  const { isPlaying, isLoading: streamLoading, toggle: toggleStream, isStreaming, isLive: broadcastIsLive, tipLink: liveTipLink } = useBroadcastStreamContext();
 
   // Tab state for claimed profiles (with email)
   const [activeTab, setActiveTab] = useState<'timeline' | 'chat'>('timeline');
@@ -1326,8 +1326,8 @@ export function DJPublicProfileClient({ username }: Props) {
 
   const profile = djProfile!;
   const socialLinks = profile.djProfile.socialLinks;
-  // Resolve external tip link: tipButtonLink > promoHyperlink > bandcamp
-  const resolvedTipLink = profile.djProfile.tipButtonLink || profile.djProfile.promoHyperlink || socialLinks?.bandcamp || null;
+  // Use real-time tip link from broadcast context when DJ is live, otherwise use profile value
+  const resolvedTipLink = (broadcastIsLive && liveTipLink) || profile.djProfile.tipButtonLink || null;
 
   return (
     <div className="min-h-screen text-white relative overflow-x-clip">

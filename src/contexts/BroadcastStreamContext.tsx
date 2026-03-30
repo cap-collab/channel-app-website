@@ -38,19 +38,16 @@ export const BroadcastStreamContext = createContext<BroadcastStreamContextValue 
 
 const noopFn = () => {};
 
-/** Resolve external tip link from broadcast slot data: tipButtonLink > promoHyperlink > bandcamp */
+/** Resolve external tip link from broadcast slot data (single source of truth — no fallback chain) */
 function resolveTipLink(show: BroadcastSlotSerialized | null): string | null {
   if (!show) return null;
   // Check active DJ slot first (venue/B3B shows)
   if (show.djSlots && show.djSlots.length > 0) {
     const now = Date.now();
     const slot = show.djSlots.find(s => s.startTime <= now && s.endTime > now);
-    if (slot) {
-      return slot.djTipButtonLink || slot.djPromoHyperlink || slot.djSocialLinks?.bandcamp || null;
-    }
+    if (slot) return slot.djTipButtonLink || null;
   }
-  // Fall back to top-level broadcast slot fields
-  return show.liveDjTipButtonLink || show.liveDjPromoHyperlink || show.liveDjBandcamp || null;
+  return show.liveDjTipButtonLink || null;
 }
 
 /**

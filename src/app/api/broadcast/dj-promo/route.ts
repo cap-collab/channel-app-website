@@ -124,11 +124,19 @@ export async function POST(request: NextRequest) {
       // DJ is a Channel user — save to their user profile
       const djUserId = slot.djUserId;
       try {
+        const userDoc = await db.collection('users').doc(djUserId!).get();
+        const userData = userDoc.data();
         const updateData: Record<string, string | FieldValue> = {
           'djProfile.promoText': promoText,
         };
         if (normalizedHyperlink) {
           updateData['djProfile.promoHyperlink'] = normalizedHyperlink;
+          // Auto-populate tipButtonLink from promoHyperlink if not already set
+          if (!userData?.djProfile?.tipButtonLink) {
+            updateData['djProfile.tipButtonLink'] = normalizedHyperlink;
+            // Also update the live broadcast slot so listeners see it immediately
+            await doc.ref.update({ liveDjTipButtonLink: normalizedHyperlink });
+          }
         } else {
           updateData['djProfile.promoHyperlink'] = FieldValue.delete();
         }
@@ -148,11 +156,17 @@ export async function POST(request: NextRequest) {
 
         if (!pendingSnapshot.empty) {
           const pendingDoc = pendingSnapshot.docs[0];
+          const pendingData = pendingDoc.data();
           const updateData: Record<string, string | FieldValue> = {
             'djProfile.promoText': promoText,
           };
           if (normalizedHyperlink) {
             updateData['djProfile.promoHyperlink'] = normalizedHyperlink;
+            // Auto-populate tipButtonLink from promoHyperlink if not already set
+            if (!pendingData?.djProfile?.tipButtonLink) {
+              updateData['djProfile.tipButtonLink'] = normalizedHyperlink;
+              await doc.ref.update({ liveDjTipButtonLink: normalizedHyperlink });
+            }
           } else {
             updateData['djProfile.promoHyperlink'] = FieldValue.delete();
           }

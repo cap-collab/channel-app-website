@@ -859,18 +859,25 @@ export function StudioProfileClient() {
         url: normalizeUrl(link.url.trim()),
       }));
 
-      await updateDoc(userRef, {
+      const normalizedBandcamp = bandcamp.trim() ? normalizeUrl(bandcamp.trim()) : null;
+      const updateData: Record<string, unknown> = {
         "djProfile.socialLinks": {
           instagram: instagram.trim() || null,
           soundcloud: soundcloud.trim() ? normalizeUrl(soundcloud.trim()) : null,
-          bandcamp: bandcamp.trim() ? normalizeUrl(bandcamp.trim()) : null,
+          bandcamp: normalizedBandcamp,
           youtube: youtube.trim() ? normalizeUrl(youtube.trim()) : null,
           bookingEmail: bookingEmail.trim() || null,
           mixcloud: mixcloud.trim() ? normalizeUrl(mixcloud.trim()) : null,
           residentAdvisor: residentAdvisor.trim() ? normalizeUrl(residentAdvisor.trim()) : null,
           customLinks: validCustomLinks.length > 0 ? validCustomLinks : null,
         },
-      });
+      };
+      // Auto-populate tipButtonLink from bandcamp if tipButtonLink is currently empty
+      if (normalizedBandcamp && !tipButtonLinkInput.trim()) {
+        updateData["djProfile.tipButtonLink"] = normalizedBandcamp;
+        setTipButtonLinkInput(normalizedBandcamp);
+      }
+      await updateDoc(userRef, updateData);
       setSaveSocialSuccess(true);
       setTimeout(() => setSaveSocialSuccess(false), 2000);
     } catch (error) {
