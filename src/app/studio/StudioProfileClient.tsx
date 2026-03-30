@@ -2043,6 +2043,35 @@ export function StudioProfileClient() {
             </div>
           </section>
 
+          {/* Support Button Link section */}
+          <section>
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
+              Support Button Link
+            </h2>
+            <p className="text-gray-600 text-xs mb-3 px-1">
+              Where listeners go when they click Support. Falls back to your Promo URL, then Bandcamp.
+            </p>
+            <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">
+                  Link URL
+                </label>
+                <input
+                  type="text"
+                  value={tipButtonLinkInput}
+                  onChange={(e) => setTipButtonLinkInput(e.target.value)}
+                  placeholder="https://ko-fi.com/yourname"
+                  className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                />
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-gray-600 text-xs">
+                    {savingTipButtonLink ? "Saving..." : saveTipButtonLinkSuccess ? "Saved" : ""}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </section>
+
           {/* Promo section */}
           <section>
             <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
@@ -2724,34 +2753,6 @@ export function StudioProfileClient() {
             </div>
           </section>
 
-          {/* Support Button Link section */}
-          <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
-              Support Button Link
-            </h2>
-            <p className="text-gray-600 text-xs mb-3 px-1">
-              Where listeners go when they click Support. Falls back to your Promo URL, then Bandcamp.
-            </p>
-            <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
-              <div>
-                <label className="block text-gray-400 text-sm mb-2">
-                  Link URL
-                </label>
-                <input
-                  type="text"
-                  value={tipButtonLinkInput}
-                  onChange={(e) => setTipButtonLinkInput(e.target.value)}
-                  placeholder="https://ko-fi.com/yourname"
-                  className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
-                />
-                <div className="flex justify-between items-center mt-1">
-                  <span className="text-gray-600 text-xs">
-                    {savingTipButtonLink ? "Saving..." : saveTipButtonLinkSuccess ? "Saved" : ""}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </section>
 
         </div>
       </main>
