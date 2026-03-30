@@ -173,6 +173,7 @@ export function DemoBroadcastStreamProvider({ children }: { children: ReactNode 
     showName: isLive ? showLabel : null,
     djName: isLive ? djLabel : null,
     tipEligible: isLive,
+    tipLink: null,
     heroBarVisible,
     setHeroBarVisible: setHeroBarVisibleCb,
     heroBarObserverReady,

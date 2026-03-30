@@ -37,7 +37,7 @@ export function AudioStatusPanel({
   audioSourceLabel,
   isRecordingMode = false,
   roomOccupied = false,
-  roomFreeAt,
+  // roomFreeAt — currently unused, kept in props interface for future use
   onQueueGoLive,
   slotStartTime,
 }: AudioStatusPanelProps) {
