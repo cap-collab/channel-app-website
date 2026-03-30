@@ -54,6 +54,8 @@ function serializeSlot(docId: string, data: Record<string, unknown>): BroadcastS
     liveDjPhotoUrl: data.liveDjPhotoUrl as string | undefined,
     liveDjPromoText: data.liveDjPromoText as string | undefined,
     liveDjPromoHyperlink: data.liveDjPromoHyperlink as string | undefined,
+    liveDjTipButtonLink: data.liveDjTipButtonLink as string | undefined,
+    liveDjBandcamp: data.liveDjBandcamp as string | undefined,
     currentDjSlotId: data.currentDjSlotId as string | undefined,
     // Show image
     showImageUrl: data.showImageUrl as string | undefined,

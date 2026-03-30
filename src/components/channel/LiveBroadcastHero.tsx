@@ -279,7 +279,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
   const {
     isPlaying, isLoading, isLive, isStreaming, currentShow, currentDJ,
     listenerCount, toggle, error: streamError,
-    setHeroBarVisible, setHeroBarObserverReady, tipEligible,
+    setHeroBarVisible, setHeroBarObserverReady, tipEligible, tipLink,
   } = useBroadcastStreamContext();
   const { stationBPM } = useBPM();
   const broadcastBPM = stationBPM['broadcast']?.bpm ?? null;
@@ -711,7 +711,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
             </div>
 
             {/* Tip Button */}
-            {tipEligible && currentShow && (
+            {(tipLink || tipEligible) && currentShow && (
               <TipButton
                 tipperUserId={user?.uid}
                 tipperUsername={chatUsername || undefined}
@@ -720,6 +720,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
                 djUsername={currentDJ || 'DJ'}
                 broadcastSlotId={currentShow.id}
                 showName={showName}
+                tipLink={tipLink}
                 className="w-10 h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
               />
             )}

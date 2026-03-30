@@ -22,6 +22,7 @@ import { useBPM } from "@/contexts/BPMContext";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { Venue, Collective, Event as ChannelEvent, EventDJRef, EventVenueRef, CollectiveRef } from "@/types/events";
 import { generateSlug } from "@/lib/slug";
+import { STRIPE_ON_HOLD } from "@/lib/constants";
 // Icon components (inline SVGs to avoid external dependencies)
 
 
@@ -269,6 +270,7 @@ interface DJProfile {
     genres: string[];
     promoText: string | null;
     promoHyperlink: string | null;
+    tipButtonLink: string | null;
     socialLinks: {
       instagram?: string;
       soundcloud?: string;
@@ -457,6 +459,7 @@ export function DJPublicProfileClient({ username }: Props) {
               genres: data.djProfile?.genres || [],
               promoText: data.djProfile?.promoText || null,
               promoHyperlink: data.djProfile?.promoHyperlink || null,
+              tipButtonLink: data.djProfile?.tipButtonLink || null,
               socialLinks: data.djProfile?.socialLinks || {},
               stripeAccountId: data.djProfile?.stripeAccountId || null,
               irlShows: data.djProfile?.irlShows || [],
@@ -479,6 +482,7 @@ export function DJPublicProfileClient({ username }: Props) {
               genres: pendingData.djProfile?.genres || [],
               promoText: pendingData.djProfile?.promoText || null,
               promoHyperlink: pendingData.djProfile?.promoHyperlink || null,
+              tipButtonLink: pendingData.djProfile?.tipButtonLink || null,
               socialLinks: pendingData.djProfile?.socialLinks || {},
               stripeAccountId: null,
               irlShows: pendingData.djProfile?.irlShows || [],
@@ -1323,6 +1327,8 @@ export function DJPublicProfileClient({ username }: Props) {
 
   const profile = djProfile!;
   const socialLinks = profile.djProfile.socialLinks;
+  // Resolve external tip link: tipButtonLink > promoHyperlink > bandcamp
+  const resolvedTipLink = profile.djProfile.tipButtonLink || profile.djProfile.promoHyperlink || socialLinks?.bandcamp || null;
 
   return (
     <div className="min-h-screen text-white relative overflow-x-clip">
@@ -1632,6 +1638,7 @@ export function DJPublicProfileClient({ username }: Props) {
               onSetUsername={setChatUsername}
               isOwner={user?.uid === profile.uid}
               isChannelUser={!profile.uid.startsWith("pending-")}
+              tipLink={resolvedTipLink}
             />
           </div>
         ) : (
@@ -2550,7 +2557,7 @@ export function DJPublicProfileClient({ username }: Props) {
           >
             {subscribing ? "..." : isSubscribed ? (<><svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg> Added to watchlist</>) : (<><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> Add to watchlist</>)}
           </button>
-          {!profile.uid.startsWith("pending-") && profile.email && (
+          {(STRIPE_ON_HOLD ? resolvedTipLink : (!profile.uid.startsWith("pending-") && profile.email)) && (
             <div className="flex-1 min-w-0 relative">
               <button className="w-full bg-white py-3 text-xs font-bold uppercase tracking-wider text-black flex items-center justify-center gap-1.5 hover:bg-gray-100 transition-colors">
                 <svg className="w-4 h-4 shrink-0 text-green-500" fill="currentColor" viewBox="0 0 24 24">
@@ -2566,6 +2573,7 @@ export function DJPublicProfileClient({ username }: Props) {
                 showName={`Support ${profile.chatUsername}`}
                 tipperUserId={user?.uid}
                 tipperUsername={chatUsername || undefined}
+                tipLink={resolvedTipLink}
                 className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
               />
             </div>

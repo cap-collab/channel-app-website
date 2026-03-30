@@ -126,6 +126,8 @@ export async function POST(request: NextRequest) {
       const djPhotoUrl = currentDjSlot?.djPhotoUrl || (slotDjProfile as Record<string, unknown> | null)?.photoUrl || null;
       const djPromoText = currentDjSlot?.djPromoText || currentDjSlot?.promoText || (slotDjProfile as Record<string, unknown> | null)?.promoText || null;
       const djPromoHyperlink = currentDjSlot?.djPromoHyperlink || currentDjSlot?.promoHyperlink || (slotDjProfile as Record<string, unknown> | null)?.promoHyperlink || null;
+      const djTipButtonLink = currentDjSlot?.djTipButtonLink || (slotDjProfile as Record<string, unknown> | null)?.tipButtonLink || null;
+      const djBandcamp = currentDjSlot?.djSocialLinks?.bandcamp || ((slotDjProfile as Record<string, unknown> | null)?.socialLinks as Record<string, unknown> | null)?.bandcamp || null;
       const djThankYouMessage = currentDjSlot?.djThankYouMessage || (slotDjProfile as Record<string, unknown> | null)?.thankYouMessage || null;
 
       // For username: DJ slot > slot's linked DJ chatUsername > form input (from slot-dj-profile) > logged-in user chatUsername
@@ -198,6 +200,12 @@ export async function POST(request: NextRequest) {
       if (djPromoHyperlink) {
         updateData.liveDjPromoHyperlink = djPromoHyperlink;
       }
+      if (djTipButtonLink) {
+        updateData.liveDjTipButtonLink = djTipButtonLink;
+      }
+      if (djBandcamp) {
+        updateData.liveDjBandcamp = djBandcamp;
+      }
       if (djThankYouMessage) {
         updateData.liveDjThankYouMessage = djThankYouMessage;
       }
@@ -237,6 +245,8 @@ export async function POST(request: NextRequest) {
       const djPhotoUrl = currentDjSlot?.djPhotoUrl || djProfile?.photoUrl || null;
       const djPromoText = currentDjSlot?.djPromoText || currentDjSlot?.promoText || djProfile?.promoText || null;
       const djPromoHyperlink = currentDjSlot?.djPromoHyperlink || currentDjSlot?.promoHyperlink || djProfile?.promoHyperlink || null;
+      const djTipButtonLink = currentDjSlot?.djTipButtonLink || djProfile?.tipButtonLink || null;
+      const djBandcamp = currentDjSlot?.djSocialLinks?.bandcamp || (djProfile?.socialLinks as Record<string, unknown> | undefined)?.bandcamp || null;
       const djThankYouMessage = currentDjSlot?.djThankYouMessage || djProfile?.thankYouMessage || null;
 
       if (djBio) {
@@ -250,6 +260,12 @@ export async function POST(request: NextRequest) {
       }
       if (djPromoHyperlink) {
         updateData.liveDjPromoHyperlink = djPromoHyperlink;
+      }
+      if (djTipButtonLink) {
+        updateData.liveDjTipButtonLink = djTipButtonLink;
+      }
+      if (djBandcamp) {
+        updateData.liveDjBandcamp = djBandcamp;
       }
       if (djThankYouMessage) {
         updateData.liveDjThankYouMessage = djThankYouMessage;

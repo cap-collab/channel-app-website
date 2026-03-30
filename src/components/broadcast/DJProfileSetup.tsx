@@ -26,6 +26,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useDebouncedCallback } from 'use-debounce';
 import { normalizeUrl } from '@/lib/url';
+import { STRIPE_ON_HOLD } from '@/lib/constants';
 
 interface DJProfileSetupProps {
   defaultUsername?: string;
@@ -422,7 +423,8 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
           {broadcastType === 'recording' ? 'Continue to Record' : 'Continue to Go Live'}
         </button>
 
-        {/* Thank You Message (Optional) */}
+        {/* Thank You Message (Optional) — STRIPE_ON_HOLD */}
+        {!STRIPE_ON_HOLD && (
         <div>
           <label htmlFor="thankYouMessage" className="block text-gray-400 text-sm mb-2">
             Thank you message <span className="text-gray-600">(optional)</span>
@@ -440,6 +442,7 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
             Shown to listeners after they tip you ({thankYouMessage.length}/200)
           </p>
         </div>
+        )}
 
         {/* Non-blocking login prompt for guests - below Continue button */}
         {!isAuthenticated && (

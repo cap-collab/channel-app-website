@@ -15,6 +15,7 @@ import { usePendingPayout } from "@/hooks/usePendingPayout";
 import { normalizeUrl } from "@/lib/url";
 import { uploadDJPhoto, deleteDJPhoto, validatePhoto } from "@/lib/photo-upload";
 import { useBPM } from "@/contexts/BPMContext";
+import { STRIPE_ON_HOLD } from "@/lib/constants";
 
 interface DJProfile {
   bio: string | null;
@@ -850,7 +851,8 @@ export function DJProfileClient() {
             </p>
           </section>
 
-          {/* Thank You Message section */}
+          {/* Thank You Message section — STRIPE_ON_HOLD */}
+          {!STRIPE_ON_HOLD && (
           <section>
             <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
               Thank You Message
@@ -882,6 +884,7 @@ export function DJProfileClient() {
               This message shows to listeners after they tip you.
             </p>
           </section>
+          )}
 
           {/* Promo section */}
           <section>

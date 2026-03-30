@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { STRIPE_ON_HOLD } from '@/lib/constants';
 import { TipModal } from './TipModal';
 
 interface TipButtonProps {
@@ -17,6 +18,7 @@ interface TipButtonProps {
   disabled?: boolean;
   onRequireAuth?: () => void;
   className?: string;     // Custom className to override button styling (e.g., for full-width overlays)
+  tipLink?: string | null; // External tip URL (used when STRIPE_ON_HOLD)
 }
 
 export function TipButton({
@@ -31,14 +33,23 @@ export function TipButton({
   size,
   disabled = false,
   className,
+  tipLink,
 }: TipButtonProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleClick = useCallback(() => {
     if (disabled) return;
+    // STRIPE_ON_HOLD: open external tip link instead of Stripe modal
+    if (STRIPE_ON_HOLD && tipLink) {
+      window.open(tipLink, '_blank', 'noopener,noreferrer');
+      return;
+    }
     // Allow tipping for both authenticated and guest users
     setIsModalOpen(true);
-  }, [disabled]);
+  }, [disabled, tipLink]);
+
+  // When Stripe is on hold and no external link, hide the button entirely
+  if (STRIPE_ON_HOLD && !tipLink) return null;
 
   // Determine size: explicit size prop takes precedence, then compact flag, then default to large
   const effectiveSize = size || (compact ? 'medium' : 'large');

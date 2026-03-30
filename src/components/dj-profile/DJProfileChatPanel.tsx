@@ -7,6 +7,7 @@ import { AuthModal } from '@/components/AuthModal';
 import { FloatingHearts } from '@/components/channel/FloatingHearts';
 import { TipButton } from '@/components/channel/TipButton';
 import { normalizeUrl } from '@/lib/url';
+import { STRIPE_ON_HOLD } from '@/lib/constants';
 
 interface DJProfileChatPanelProps {
   chatUsernameNormalized: string;
@@ -29,6 +30,7 @@ interface DJProfileChatPanelProps {
   activePromoHyperlink?: string;
   currentShowStartTime?: number;
   isChannelUser?: boolean;
+  tipLink?: string | null;
 }
 
 // Reserved usernames that cannot be registered (case-insensitive)
@@ -299,6 +301,7 @@ export function DJProfileChatPanel({
   activePromoHyperlink,
   currentShowStartTime,
   isChannelUser = true,
+  tipLink,
 }: DJProfileChatPanelProps) {
   const isBroadcasting = !!broadcastToken;
 
@@ -509,8 +512,8 @@ export function DJProfileChatPanel({
             <FloatingHearts trigger={heartTrigger} />
           </div>
 
-          {/* Tip button — only shown for channel users (claimed accounts) */}
-          {isChannelUser && (
+          {/* Tip button — shown when there's a tip link (STRIPE_ON_HOLD) or for channel users */}
+          {(STRIPE_ON_HOLD ? !!tipLink : isChannelUser) && (
             <div className="flex-shrink-0 flex items-center">
               <TipButton
                 isAuthenticated={isAuthenticated}
@@ -522,6 +525,7 @@ export function DJProfileChatPanel({
                 broadcastSlotId=""
                 showName={`Support ${djUsername}`}
                 size="small"
+                tipLink={tipLink}
               />
             </div>
           )}

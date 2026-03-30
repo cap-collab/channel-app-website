@@ -22,12 +22,14 @@ export interface DJProfileInfo {
   photoUrl?: string;        // Profile picture URL
   promoText?: string;       // Promo text
   promoHyperlink?: string;  // Promo link
+  tipButtonLink?: string;   // External tip/support URL
   thankYouMessage?: string; // Thank you message for tips
   hasProfile?: boolean;     // Whether the DJ has a public profile page (user exists with dj/broadcaster/admin role)
   socialLinks?: {
     soundcloud?: string;
     instagram?: string;
     youtube?: string;
+    bandcamp?: string;
   };
 }
 
@@ -54,11 +56,13 @@ export interface DJSlot {
   djPhotoUrl?: string;           // Profile picture URL
   djPromoText?: string;          // Default promo text
   djPromoHyperlink?: string;     // Default promo link
+  djTipButtonLink?: string;      // External tip/support URL
   djThankYouMessage?: string;    // Thank you message
   djSocialLinks?: {              // Social links
     soundcloud?: string;
     instagram?: string;
     youtube?: string;
+    bandcamp?: string;
   };
 
   // B3B support: multiple DJs sharing the same slot
@@ -102,6 +106,8 @@ export interface BroadcastSlot {
   liveDjPhotoUrl?: string;     // DJ profile picture URL
   liveDjPromoText?: string;    // DJ promo text (from their profile)
   liveDjPromoHyperlink?: string; // DJ promo link (from their profile)
+  liveDjTipButtonLink?: string;  // External tip/support URL (from their profile)
+  liveDjBandcamp?: string;       // DJ bandcamp URL (from their socialLinks)
   liveDjGenres?: string[];       // DJ genres (from their profile)
   liveDjDescription?: string;    // DJ description (from their profile)
   // Current DJ slot tracking (for venue multi-DJ shows)
@@ -130,6 +136,8 @@ export interface BroadcastSlot {
   archiveRecordingUrl?: string;   // Cached MP4 URL from the archive
   archiveDuration?: number;       // Duration in seconds
   restreamDjs?: ArchiveDJ[];      // All DJs from the archive (for multi-DJ restream display)
+  restreamIngressId?: string;     // LiveKit ingress ID for URL playback (set by start-restream)
+  restreamEgressId?: string;      // LiveKit HLS egress ID (set by webhook on track_published)
 }
 
 // Serialized version for API responses (timestamps as numbers)
@@ -157,6 +165,8 @@ export interface BroadcastSlotSerialized {
   liveDjPhotoUrl?: string;
   liveDjPromoText?: string;
   liveDjPromoHyperlink?: string;
+  liveDjTipButtonLink?: string;  // External tip/support URL (from their profile)
+  liveDjBandcamp?: string;       // DJ bandcamp URL (from their socialLinks)
   liveDjGenres?: string[];       // DJ genres (from their profile)
   liveDjDescription?: string;    // DJ description (from their profile)
   // Current DJ slot tracking (for venue multi-DJ shows)

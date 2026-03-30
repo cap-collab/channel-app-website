@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/AuthModal";
 import { useUserRole, isDJ } from "@/hooks/useUserRole";
+import { STRIPE_ON_HOLD } from "@/lib/constants";
 
 interface BroadcastHeaderProps {
   stationName?: string;
@@ -111,6 +112,8 @@ export function BroadcastHeader({ stationName = "Channel Radio", openInNewWindow
                       >
                         My Shows
                       </a>
+                      {/* My Support — STRIPE_ON_HOLD */}
+                      {!STRIPE_ON_HOLD && (
                       <a
                         href="/inbox"
                         onClick={(e) => {
@@ -121,6 +124,7 @@ export function BroadcastHeader({ stationName = "Channel Radio", openInNewWindow
                       >
                         My Support
                       </a>
+                      )}
                       {isDJ(role) && (
                         <a
                           href="/studio"

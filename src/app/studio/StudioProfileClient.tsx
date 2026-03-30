@@ -13,6 +13,7 @@ import { AuthModal } from "@/components/AuthModal";
 import { Header } from "@/components/Header";
 import { usePendingPayout } from "@/hooks/usePendingPayout";
 import { normalizeUrl } from "@/lib/url";
+import { STRIPE_ON_HOLD } from "@/lib/constants";
 import { uploadDJPhoto, deleteDJPhoto, validatePhoto, uploadRecImage, uploadEventPhoto } from "@/lib/photo-upload";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { getStationById } from "@/lib/stations";
@@ -69,6 +70,7 @@ interface DJProfile {
   bio: string | null;
   promoText: string | null;
   promoHyperlink: string | null;
+  tipButtonLink: string | null;
   stripeAccountId: string | null;
   thankYouMessage: string | null;
   photoUrl: string | null;
@@ -142,6 +144,7 @@ export function StudioProfileClient() {
     bio: null,
     promoText: null,
     promoHyperlink: null,
+    tipButtonLink: null,
     stripeAccountId: null,
     thankYouMessage: null,
     photoUrl: null,
@@ -231,6 +234,11 @@ export function StudioProfileClient() {
   const [promoHyperlinkInput, setPromoHyperlinkInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Form state - Support Button Link
+  const [tipButtonLinkInput, setTipButtonLinkInput] = useState("");
+  const [savingTipButtonLink, setSavingTipButtonLink] = useState(false);
+  const [saveTipButtonLinkSuccess, setSaveTipButtonLinkSuccess] = useState(false);
 
   // DJ Name setup state (for users without a chat username)
   const [djNameInput, setDjNameInput] = useState("");
@@ -482,6 +490,7 @@ export function StudioProfileClient() {
   const socialDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const radioShowsDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const myRecsDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const tipButtonLinkDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const initialLoadRef = useRef(true);
 
   // Load user profile and DJ profile data
@@ -498,6 +507,7 @@ export function StudioProfileClient() {
             bio: data.djProfile.bio || null,
             promoText: data.djProfile.promoText || null,
             promoHyperlink: data.djProfile.promoHyperlink || null,
+            tipButtonLink: data.djProfile.tipButtonLink || null,
             stripeAccountId: data.djProfile.stripeAccountId || null,
             thankYouMessage: data.djProfile.thankYouMessage || null,
             photoUrl: data.djProfile.photoUrl || null,
@@ -512,6 +522,7 @@ export function StudioProfileClient() {
             setBioInput(data.djProfile.bio || "");
             setPromoTextInput(data.djProfile.promoText || "");
             setPromoHyperlinkInput(data.djProfile.promoHyperlink || "");
+            setTipButtonLinkInput(data.djProfile.tipButtonLink || "");
             setThankYouInput(data.djProfile.thankYouMessage || "");
             setLocationInput(data.djProfile.location || "");
             setGenresInput((data.djProfile.genres || []).join(", "));
@@ -1306,6 +1317,32 @@ export function StudioProfileClient() {
     promoDebounceRef.current = setTimeout(() => savePromo(promoTextInput, promoHyperlinkInput), 1000);
     return () => { if (promoDebounceRef.current) clearTimeout(promoDebounceRef.current); };
   }, [promoTextInput, promoHyperlinkInput, savePromo]);
+
+  // Save tip button link
+  const saveTipButtonLink = useCallback(async (link: string) => {
+    if (!user || !db) return;
+    setSavingTipButtonLink(true);
+    setSaveTipButtonLinkSuccess(false);
+    try {
+      const userRef = doc(db, "users", user.uid);
+      const newLink = link.trim() ? normalizeUrl(link.trim()) : null;
+      await updateDoc(userRef, { "djProfile.tipButtonLink": newLink });
+      setSaveTipButtonLinkSuccess(true);
+      setTimeout(() => setSaveTipButtonLinkSuccess(false), 2000);
+    } catch (error) {
+      console.error("Error saving tip button link:", error);
+    } finally {
+      setSavingTipButtonLink(false);
+    }
+  }, [user]);
+
+  // Auto-save tip button link with debounce
+  useEffect(() => {
+    if (initialLoadRef.current) return;
+    if (tipButtonLinkDebounceRef.current) clearTimeout(tipButtonLinkDebounceRef.current);
+    tipButtonLinkDebounceRef.current = setTimeout(() => saveTipButtonLink(tipButtonLinkInput), 1000);
+    return () => { if (tipButtonLinkDebounceRef.current) clearTimeout(tipButtonLinkDebounceRef.current); };
+  }, [tipButtonLinkInput, saveTipButtonLink]);
 
   // Auto-save details with debounce
   useEffect(() => {
@@ -2192,7 +2229,8 @@ export function StudioProfileClient() {
             </div>
           </section>
 
-          {/* Thank You Message section */}
+          {/* Thank You Message section — STRIPE_ON_HOLD */}
+          {!STRIPE_ON_HOLD && (
           <section>
             <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
               Thank You Message
@@ -2224,6 +2262,7 @@ export function StudioProfileClient() {
               </div>
             </div>
           </section>
+          )}
 
           {/* Social Links section */}
           <section>
@@ -2821,7 +2860,37 @@ export function StudioProfileClient() {
             </div>
           </section>
 
-          {/* Payments section */}
+          {/* Support Button Link section */}
+          <section>
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
+              Support Button Link
+            </h2>
+            <p className="text-gray-600 text-xs mb-3 px-1">
+              Where listeners go when they click Support. Falls back to your Promo URL, then Bandcamp.
+            </p>
+            <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">
+                  Link URL
+                </label>
+                <input
+                  type="text"
+                  value={tipButtonLinkInput}
+                  onChange={(e) => setTipButtonLinkInput(e.target.value)}
+                  placeholder="https://ko-fi.com/yourname"
+                  className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                />
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-gray-600 text-xs">
+                    {savingTipButtonLink ? "Saving..." : saveTipButtonLinkSuccess ? "Saved" : ""}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Payments section — STRIPE_ON_HOLD */}
+          {!STRIPE_ON_HOLD && (
           <section>
             <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
               Payments
@@ -2919,6 +2988,7 @@ export function StudioProfileClient() {
               Listeners can tip you during broadcasts. Tips are transferred to your bank within 2 days.
             </p>
           </section>
+          )}
         </div>
       </main>
 

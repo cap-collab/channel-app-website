@@ -90,6 +90,7 @@ export interface UserDocument {
     bio: string | null;
     promoText: string | null;
     promoHyperlink: string | null;
+    tipButtonLink: string | null;
     stripeAccountId: string | null;
     stripeOnboarded: boolean;
     photoUrl: string | null;

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
+import { STRIPE_ON_HOLD } from '@/lib/constants';
 import { DJProfileChatPanel } from '@/components/dj-profile/DJProfileChatPanel';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { getFirestore, collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
@@ -494,8 +495,8 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
           </div>
         )}
 
-        {/* Thank You Message Section */}
-        {broadcastToken && (
+        {/* Thank You Message Section — STRIPE_ON_HOLD */}
+        {!STRIPE_ON_HOLD && broadcastToken && (
           <div className="bg-[#252525] rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
               <label className="text-gray-400 text-sm font-medium">Tip Thank You Message</label>

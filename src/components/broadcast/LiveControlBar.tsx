@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAudioLevel } from '@/hooks/useAudioLevel';
+import { STRIPE_ON_HOLD } from '@/lib/constants';
 import { getFirestore, collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { getDatabase, ref, onValue } from 'firebase/database';
 import { getApps, initializeApp } from 'firebase/app';
@@ -142,7 +143,8 @@ export function LiveControlBar({ stream, isLive, tipTotalCents, tipCount, showSt
             </div>
           )}
 
-          {/* Tips - large and prominent */}
+          {/* Tips - large and prominent — STRIPE_ON_HOLD */}
+          {!STRIPE_ON_HOLD && (
           <div className="flex items-center gap-2" title={`${tipCount} ${tipCount === 1 ? 'tip' : 'tips'}`}>
             <span className="text-xl">💰</span>
             <span className={`font-bold text-xl tabular-nums ${tipTotalCents > 0 ? 'text-green-400' : 'text-gray-400'}`}>
@@ -152,6 +154,7 @@ export function LiveControlBar({ stream, isLive, tipTotalCents, tipCount, showSt
               <span className="text-gray-500 text-base">({tipCount})</span>
             )}
           </div>
+          )}
 
           {/* Loves */}
           <div className="flex items-center gap-1.5" title="Loves">
