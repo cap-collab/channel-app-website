@@ -34,11 +34,13 @@ export function Header({ currentPage = "home", position = "fixed", showSearch = 
       items.push({ label: "Home", href: "/radio", active: currentPage === "channel" });
     }
 
-    // Links only shown when signed out (signed-in users have Studio in the auth section)
+    // Studio only shown when signed out (signed-in users have Studio in the auth section)
     if (!isAuthenticated) {
       items.push({ label: "Studio", href: "/studio/join", active: currentPage === "studio" || currentPage === "dj-portal" });
-      items.push({ label: "About", href: "/about" });
     }
+
+    // About is always shown
+    items.push({ label: "About", href: "/about" });
 
     // Always show auth option in menu
     items.push({ type: "auth" });
