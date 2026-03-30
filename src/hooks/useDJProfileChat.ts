@@ -78,18 +78,24 @@ export function useDJProfileChat({
     }
 
     const app = getFirebaseApp();
+    const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // Use chatUsernameNormalized as the stationId for per-DJ chat rooms
-    const messagesRef = collection(db, 'chats', chatUsernameNormalized, 'messages');
-    // No time filtering - just get last 100 messages
-    const q = query(
-      messagesRef,
-      orderBy('timestamp', 'desc'),
-      limit(100)
-    );
+    let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
 
-    const unsubscribe = onSnapshot(
+    const subscribe = () => {
+      if (cancelled) return;
+      // Use chatUsernameNormalized as the stationId for per-DJ chat rooms
+      const messagesRef = collection(db, 'chats', chatUsernameNormalized, 'messages');
+      // No time filtering - just get last 100 messages
+      const q = query(
+        messagesRef,
+        orderBy('timestamp', 'desc'),
+        limit(100)
+      );
+
+      unsubscribe = onSnapshot(
       q,
       (snapshot) => {
         const newMessages: ChatMessageSerialized[] = [];
@@ -145,8 +151,22 @@ export function useDJProfileChat({
         setIsConnected(false);
       }
     );
+    };
 
-    return () => unsubscribe();
+    // Ensure Firebase auth for Firestore security rules (sign in anonymously if needed)
+    if (!auth.currentUser) {
+      signInAnonymously(auth).then(() => subscribe()).catch((err) => {
+        console.error('Anonymous auth failed for chat subscription:', err);
+        setError('Failed to connect to chat');
+      });
+    } else {
+      subscribe();
+    }
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, [chatUsernameNormalized, enabled, currentShowStartTime]);
 
   // Send a regular chat message
@@ -154,7 +174,13 @@ export function useDJProfileChat({
     if (!text.trim() || !username || !chatUsernameNormalized) return;
 
     const app = getFirebaseApp();
+    const auth = getAuth(app);
     const db = getFirestore(app);
+
+    // Ensure Firebase auth for Firestore security rules
+    if (!auth.currentUser) {
+      try { await signInAnonymously(auth); } catch { return; }
+    }
 
     try {
       const messagesRef = collection(db, 'chats', chatUsernameNormalized, 'messages');

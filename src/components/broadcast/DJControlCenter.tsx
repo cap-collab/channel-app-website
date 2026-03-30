@@ -205,7 +205,7 @@ export function DJControlCenter({
                   djUserId={userId || ''}
                   djUsername={djUsername}
                   djEmail={djEmail || ''}
-                  isAuthenticated={!!userId}
+                  isAuthenticated={!!userId || !!broadcastToken}
                   username={djUsername}
                   userId={userId}
                   isOwner={true}
