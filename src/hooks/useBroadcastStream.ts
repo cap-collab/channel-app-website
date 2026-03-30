@@ -216,28 +216,30 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
           currentShowIdRef.current = doc.id;
 
           if (showChanged && isPlayingRef.current) {
-            console.log('🔄 Show changed while playing, reconnecting audio');
-            // Force audio element to release old HLS session (Safari caches aggressively)
-            if (audioElementRef.current) {
-              audioElementRef.current.pause();
-              audioElementRef.current.removeAttribute('src');
-              audioElementRef.current.load();
-            }
+            console.log('🔄 Show changed while playing');
+
+            // HLS needs to be recreated for the new show's egress
             if (hlsRef.current) {
               hlsRef.current.destroy();
               hlsRef.current = null;
             }
-            // Keep WebRTC room connected during same-room transitions (e.g. DJ handoffs
-            // on channel-radio). The new DJ's tracks arrive via TrackSubscribed automatically,
-            // so disconnecting and reconnecting just adds unnecessary delay.
-            // Only disconnect if switching to a different room (unlikely but possible).
+
+            // Only tear down audio and reset player if switching to a different room.
+            // For same-room transitions (all shows on channel-radio), the new DJ's tracks
+            // arrive via handleTrackSubscribed automatically — no need to pause/restart.
             if (roomRef.current && roomRef.current.name !== ROOM_NAME) {
+              if (audioElementRef.current) {
+                audioElementRef.current.pause();
+                audioElementRef.current.removeAttribute('src');
+                audioElementRef.current.load();
+              }
               roomRef.current.disconnect();
               roomRef.current = null;
+              setIsPlaying(false);
+              wasPlayingRef.current = false;
+              setAutoResumePending(true);
             }
-            setIsPlaying(false);
-            wasPlayingRef.current = false;
-            setAutoResumePending(true);
+            // Same-room: keep playing, tracks arrive automatically via TrackSubscribed
           }
 
           // Find current DJ name:
@@ -597,7 +599,11 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
         // When play() cleans up an old room before reconnecting, the old
         // room's Disconnected event should not reset playback state.
         if (roomRef.current === room) {
-          setIsPlaying(false);
+          // During grace period, don't reset isPlaying — we may reconnect
+          // when the next show goes live.
+          if (!graceTimerRef.current) {
+            setIsPlaying(false);
+          }
           setIsLoading(false);
           roomRef.current = null;
         }
