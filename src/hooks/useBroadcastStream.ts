@@ -404,7 +404,12 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
       console.log('🎵 Track unsubscribed:', track.kind);
       if (track.kind === Track.Kind.Audio && audioElementRef.current) {
         track.detach(audioElementRef.current);
-        setIsPlaying(false);
+        // Don't reset isPlaying during DJ transitions — keep the player
+        // in its current state so handleTrackSubscribed can resume seamlessly
+        // when the next DJ publishes. Only reset if user explicitly paused.
+        if (userPausedRef.current) {
+          setIsPlaying(false);
+        }
       }
     },
     []
@@ -420,7 +425,20 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
     setIsLoading(true);
     setError(null);
 
-    // Clean up any existing connections first (e.g. from a previous show during grace period)
+    // Restreams use URL ingress → HLS egress; the ingress participant doesn't
+    // reliably expose tracks to WebRTC subscribers, so always use HLS for restreams.
+    const useHLS = shouldUseHLS() || currentShow?.broadcastType === 'restream';
+
+    // If the WebRTC room is already connected (e.g. kept alive during DJ transition
+    // grace period), skip the disconnect/reconnect cycle. The next DJ's tracks will
+    // arrive via handleTrackSubscribed on the existing room connection.
+    if (roomRef.current && roomRef.current.name === ROOM_NAME && !useHLS) {
+      console.log('🎵 Room already connected, waiting for tracks');
+      // Tracks may already be available if DJ published while we were in grace
+      return;
+    }
+
+    // Clean up any existing connections first (e.g. stale room from a different room name)
     if (roomRef.current) {
       console.log('🎵 Cleaning up existing WebRTC room before reconnecting');
       roomRef.current.disconnect();
@@ -431,10 +449,6 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
       hlsRef.current.destroy();
       hlsRef.current = null;
     }
-
-    // Restreams use URL ingress → HLS egress; the ingress participant doesn't
-    // reliably expose tracks to WebRTC subscribers, so always use HLS for restreams.
-    const useHLS = shouldUseHLS() || currentShow?.broadcastType === 'restream';
     console.log('🎵 Starting playback - useHLS:', useHLS, 'broadcastType:', currentShow?.broadcastType || 'live');
 
     // Create audio element if needed
