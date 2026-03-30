@@ -234,41 +234,54 @@ export function AudioStatusPanel({
       )}
 
       {/* Action: GO LIVE / START RECORDING button (pre-live) or Troubleshoot link (live) */}
+      <style>{`
+        @keyframes pump {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.05); }
+        }
+      `}</style>
       {!isLive ? (
         <div>
           {canGoLive ? (
             <>
               {roomOccupied && onQueueGoLive ? (
-                <button
-                  onClick={onQueueGoLive}
-                  className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-4 px-6 rounded-lg text-xl transition-colors"
-                >
-                  Queue Auto Go-Live
-                </button>
+                <>
+                  <button
+                    onClick={onQueueGoLive}
+                    className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-4 px-6 rounded-lg text-xl transition-colors"
+                    style={{ animation: 'pump 1.5s ease-in-out infinite' }}
+                  >
+                    Queue Auto Go-Live
+                  </button>
+                  <p className="text-amber-400/80 text-sm text-center mt-2">
+                    Your live slot starts in less than a minute
+                  </p>
+                </>
               ) : (
-                <button
-                  onClick={onGoLive}
-                  disabled={isGoingLive}
-                  className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg text-xl transition-colors"
-                >
-                  {isGoingLive
-                    ? (isRecordingMode ? 'Starting recording...' : 'Going live...')
-                    : (isRecordingMode ? 'START RECORDING' : 'GO LIVE')}
-                </button>
-              )}
-              {roomOccupied && (
-                <p className="text-yellow-400/80 text-sm text-center mt-2">
-                  {roomFreeAt
-                    ? `Expected to finish at ${new Date(roomFreeAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
-                    : 'Waiting for the previous broadcast to end...'}
-                </p>
+                <>
+                  <button
+                    onClick={onGoLive}
+                    disabled={isGoingLive}
+                    className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg text-xl transition-colors"
+                    style={!isGoingLive ? { animation: 'pump 1.5s ease-in-out infinite' } : undefined}
+                  >
+                    {isGoingLive
+                      ? (isRecordingMode ? 'Starting recording...' : 'Going live...')
+                      : (isRecordingMode ? 'START RECORDING' : 'GO LIVE')}
+                  </button>
+                  {!isGoingLive && (
+                    <p className="text-red-400/80 text-sm text-center mt-2">
+                      Your live slot has started already
+                    </p>
+                  )}
+                </>
               )}
             </>
           ) : (
             <div>
               <button
                 disabled
-                className="w-full bg-gray-700 cursor-not-allowed text-gray-400 font-bold py-4 px-6 rounded-lg text-xl"
+                className="w-full bg-orange-600/30 border-2 border-orange-500 cursor-not-allowed text-orange-300 font-bold py-4 px-6 rounded-lg text-xl"
               >
                 {minutesUntilAvailable !== null
                   ? `Going live available in ${minutesUntilAvailable} minute${minutesUntilAvailable > 1 ? 's' : ''}`
