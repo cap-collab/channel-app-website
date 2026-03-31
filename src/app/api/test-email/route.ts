@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendWatchlistDigestEmail, sendShowStartingEmail, sendBroadcastReminderEmail } from "@/lib/email";
+import { sendWatchlistDigestEmail, sendShowStartingEmail, sendBroadcastReminderEmail, sendBroadcast2HourReminderEmail } from "@/lib/email";
 import { queryUsersWhere, queryCollection, getUserFavorites } from "@/lib/firebase-rest";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { matchesGenre } from "@/lib/genres";
@@ -773,6 +773,22 @@ export async function GET(request: NextRequest) {
       timeRange: "8:00 PM – 10:00 PM ET",
     });
     return NextResponse.json({ success, type: "broadcast-reminder" });
+  }
+
+  if (type === "broadcast-2h-reminder") {
+    // Generate a fake "2 hours from now" date for the test
+    const soon = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    const dateStr = soon.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+    const success = await sendBroadcast2HourReminderEmail({
+      to,
+      djName: request.nextUrl.searchParams.get("djName") || "Cap",
+      showName: request.nextUrl.searchParams.get("show") || "Late Night Sessions",
+      broadcastUrl: "https://channel-app.com/broadcast/live?token=test-token-example",
+      profileUrl: "https://channel-app.com/dj/cap",
+      startTime: dateStr,
+      timeRange: "8:00 PM – 10:00 PM ET",
+    });
+    return NextResponse.json({ success, type: "broadcast-2h-reminder" });
   }
 
   const section = request.nextUrl.searchParams.get("section") || undefined;

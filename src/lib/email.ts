@@ -943,3 +943,95 @@ export async function sendBroadcastReminderEmail({
     return false;
   }
 }
+
+export async function sendBroadcast2HourReminderEmail({
+  to,
+  djName,
+  showName,
+  broadcastUrl,
+  profileUrl,
+  startTime,
+  timeRange,
+}: BroadcastReminderEmailParams) {
+  if (!resend) {
+    console.warn("Email service not configured - skipping email");
+    return false;
+  }
+
+  const profileLine = profileUrl
+    ? `<tr>
+        <td style="padding-top: 4px;">
+          <span style="color: #a1a1aa; font-size: 14px;">Your profile to share: </span>
+          <a href="${profileUrl}" style="color: #60a5fa; font-size: 14px; text-decoration: underline;">${profileUrl}</a>
+        </td>
+      </tr>`
+    : "";
+
+  const content = `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 0; border: 1px solid #333;">
+      <tr>
+        <td style="padding: 32px;">
+          <p style="margin: 0 0 16px; font-size: 16px; color: #fff;">
+            Hi ${djName},
+          </p>
+          <p style="margin: 0 0 20px; font-size: 16px; color: #fff;">
+            Your show starts in 2 hours — time to get set up!
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #0a0a0a; border: 1px solid #333; margin-bottom: 24px;">
+            <tr>
+              <td style="padding: 16px;">
+                <p style="margin: 0 0 4px; font-size: 16px; font-weight: 700; color: #fff;">${showName}</p>
+                <p style="margin: 0 0 2px; font-size: 14px; color: #a1a1aa;">${startTime}</p>
+                <p style="margin: 0; font-size: 14px; color: #a1a1aa;">${timeRange}</p>
+              </td>
+            </tr>
+          </table>
+          <p style="margin: 0 0 4px; font-size: 14px; color: #a1a1aa;">Your live stream link (keep private):</p>
+          <p style="margin: 0 0 16px;">
+            <a href="${broadcastUrl}" style="color: #60a5fa; font-size: 14px; text-decoration: underline; word-break: break-all;">${broadcastUrl}</a>
+          </p>
+          <p style="margin: 0 0 20px; font-size: 14px; color: #fff;">
+            Open it now and do a quick test before you go live.
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="padding-top: 4px;">
+                <span style="color: #a1a1aa; font-size: 14px;">Setup guide: </span>
+                <a href="https://channel-app.com/streaming-guide" style="color: #60a5fa; font-size: 14px; text-decoration: underline;">channel-app.com/streaming-guide</a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding-top: 4px;">
+                <span style="color: #a1a1aa; font-size: 14px;">Edit your profile info: </span>
+                <a href="https://channel-app.com/studio" style="color: #60a5fa; font-size: 14px; text-decoration: underline;">channel-app.com/studio</a>
+              </td>
+            </tr>
+            ${profileLine}
+          </table>
+          <p style="margin: 24px 0 0; font-size: 14px; color: #fff;">
+            See you soon, Cap
+          </p>
+        </td>
+      </tr>
+    </table>
+  `;
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject: `2 hours before your show on Channel`,
+      html: wrapEmailContent(content, "You're receiving this because you have a scheduled show on Channel Radio."),
+    });
+
+    if (error) {
+      console.error("Error sending broadcast 2h reminder email:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error sending broadcast 2h reminder email:", error);
+    return false;
+  }
+}
