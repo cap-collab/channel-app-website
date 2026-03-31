@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { Timestamp } from 'firebase-admin/firestore';
 import { sendBroadcastReminderEmail } from '@/lib/email';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com';
@@ -72,8 +73,11 @@ export async function GET(request: NextRequest) {
     }
 
     const now = Date.now();
-    const windowStart = now + 22 * 60 * 60 * 1000; // 22 hours from now
-    const windowEnd = now + 25 * 60 * 60 * 1000;   // 25 hours from now
+    // Use Firestore Timestamps for comparison since startTime is stored as a Timestamp
+    const windowStart = Timestamp.fromMillis(now + 22 * 60 * 60 * 1000); // 22 hours from now
+    const windowEnd = Timestamp.fromMillis(now + 25 * 60 * 60 * 1000);   // 25 hours from now
+
+    console.log(`[broadcast-reminder-emails] Window: ${new Date(windowStart.toMillis()).toISOString()} to ${new Date(windowEnd.toMillis()).toISOString()}`);
 
     // Find scheduled slots starting in ~24 hours
     const snapshot = await db
@@ -82,6 +86,8 @@ export async function GET(request: NextRequest) {
       .where('startTime', '>=', windowStart)
       .where('startTime', '<=', windowEnd)
       .get();
+
+    console.log(`[broadcast-reminder-emails] Found ${snapshot.docs.length} slots in window`);
 
     let sentCount = 0;
     let skippedCount = 0;
@@ -102,6 +108,12 @@ export async function GET(request: NextRequest) {
       // Collect all DJ emails to send to (handles both single-DJ and venue multi-DJ slots)
       const emailTargets: { email: string; djName: string; startTime: number; endTime: number; djUsername?: string }[] = [];
 
+      // Helper to convert Firestore Timestamp or millis number to millis
+      const toMillis = (t: unknown): number => {
+        if (t && typeof t === 'object' && 'toMillis' in t) return (t as Timestamp).toMillis();
+        return t as number;
+      };
+
       if (slot.djSlots && Array.isArray(slot.djSlots) && slot.djSlots.length > 0) {
         // Venue slot with multiple DJs — each DJ gets their own reminder with their specific time
         for (const djSlot of slot.djSlots as DJSlot[]) {
@@ -109,8 +121,8 @@ export async function GET(request: NextRequest) {
             emailTargets.push({
               email: djSlot.djEmail,
               djName: djSlot.djName || 'there',
-              startTime: djSlot.startTime,
-              endTime: djSlot.endTime,
+              startTime: toMillis(djSlot.startTime),
+              endTime: toMillis(djSlot.endTime),
               djUsername: djSlot.djUsername,
             });
           }
@@ -120,8 +132,8 @@ export async function GET(request: NextRequest) {
         emailTargets.push({
           email: slot.djEmail,
           djName: slot.djName || 'there',
-          startTime: slot.startTime,
-          endTime: slot.endTime,
+          startTime: toMillis(slot.startTime),
+          endTime: toMillis(slot.endTime),
         });
       }
 
