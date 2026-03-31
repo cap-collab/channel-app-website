@@ -775,7 +775,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
       })();
       const artworkUrl = currentShow.showImageUrl || currentShow.liveDjPhotoUrl || primaryRestreamDjPhoto;
       // Always provide artwork — use channel logo as fallback to prevent blank/white control center
-      const fallbackArtworkUrl = `${window.location.origin}/logo-white-on-black-padded.png`;
+      const fallbackArtworkUrl = `${window.location.origin}/apple-touch-icon.png`;
 
       // Preload artwork image before updating MediaMetadata to prevent iOS showing blank
       // during the async fetch. Set metadata with fallback first, then upgrade to actual artwork.
