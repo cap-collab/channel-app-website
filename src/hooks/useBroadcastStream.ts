@@ -213,7 +213,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
           currentShowIdRef.current = doc.id;
 
           if (showChanged && isPlayingRef.current) {
-            console.log('🔄 Show changed while playing');
+            console.log('🔄 Show changed while playing, new type:', slot.broadcastType);
 
             // HLS needs to be recreated for the new show's egress
             if (hlsRef.current) {
@@ -221,22 +221,37 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
               hlsRef.current = null;
             }
 
-            // Only tear down audio and reset player if switching to a different room.
-            // For same-room transitions (all shows on channel-radio), the new DJ's tracks
-            // arrive via handleTrackSubscribed automatically — no need to pause/restart.
-            if (roomRef.current && roomRef.current.name !== ROOM_NAME) {
+            const isNewShowRestream = slot.broadcastType === 'restream';
+            const wasUsingWebRTC = !!roomRef.current;
+
+            if (isNewShowRestream) {
+              // Restreams use FFmpeg → HLS (not the LiveKit room), so we must
+              // fully reset the audio element and reconnect via HLS.
+              // The media sequence resets, so Safari needs a fresh load.
+              console.log('🔄 Switching to HLS for restream');
+              if (roomRef.current) {
+                roomRef.current.disconnect();
+                roomRef.current = null;
+              }
               if (audioElementRef.current) {
                 audioElementRef.current.pause();
                 audioElementRef.current.removeAttribute('src');
                 audioElementRef.current.load();
               }
-              roomRef.current.disconnect();
-              roomRef.current = null;
               setIsPlaying(false);
-              wasPlayingRef.current = false;
+              setAutoResumePending(true);
+            } else if (!wasUsingWebRTC) {
+              // Was on HLS (restream), now switching to live — reset audio for WebRTC
+              console.log('🔄 Switching from HLS to WebRTC for live');
+              if (audioElementRef.current) {
+                audioElementRef.current.pause();
+                audioElementRef.current.removeAttribute('src');
+                audioElementRef.current.load();
+              }
+              setIsPlaying(false);
               setAutoResumePending(true);
             }
-            // Same-room: keep playing, tracks arrive automatically via TrackSubscribed
+            // Same-room live→live: keep playing, tracks arrive automatically via TrackSubscribed
           }
 
           // Find current DJ name:
