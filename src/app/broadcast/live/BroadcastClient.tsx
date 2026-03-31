@@ -758,6 +758,7 @@ export function BroadcastClient() {
             isGoingLive={broadcast.isGoingLive || false}
             isQueued={broadcast.isQueued || false}
             onCancel={handleCancelQueue}
+            slotStartTime={slot?.startTime}
           />
         )}
       </>

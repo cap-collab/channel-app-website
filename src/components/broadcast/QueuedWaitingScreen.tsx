@@ -7,15 +7,36 @@ interface QueuedWaitingScreenProps {
   isGoingLive: boolean;        // True when go-live sequence has started
   onCancel: () => void;
   isQueued: boolean;           // True when waiting for room to clear
+  slotStartTime?: number;      // Slot start time in ms for countdown
 }
 
 export function QueuedWaitingScreen({
   isGoingLive,
   onCancel,
+  slotStartTime,
 }: QueuedWaitingScreenProps) {
-  // Track elapsed time since "going live" started for countdown
-  const [goingLiveElapsed, setGoingLiveElapsed] = useState(0);
+  const [secondsRemaining, setSecondsRemaining] = useState(0);
 
+  // Countdown to slot start time (queued state) or going-live elapsed
+  useEffect(() => {
+    const update = () => {
+      if (isGoingLive) {
+        // Going live — count down from 3
+        return;
+      }
+      if (slotStartTime) {
+        const remaining = Math.max(0, Math.ceil((slotStartTime - Date.now()) / 1000));
+        setSecondsRemaining(remaining);
+      }
+    };
+
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [isGoingLive, slotStartTime]);
+
+  // Track elapsed time for going-live countdown
+  const [goingLiveElapsed, setGoingLiveElapsed] = useState(0);
   useEffect(() => {
     if (!isGoingLive) {
       setGoingLiveElapsed(0);
@@ -53,17 +74,19 @@ export function QueuedWaitingScreen({
     );
   }
 
-  // Queued waiting state — overlay below the LiveControlBar
-  // The DJControlCenter with audio levels is rendered underneath
+  // Queued waiting state — same visual style as going-live but with countdown to start time
   return (
-    <div className="fixed inset-0 z-40 bg-[#1a1a1a] flex items-center justify-center">
+    <div className="fixed inset-0 z-40 flex items-center justify-center" style={{
+      backgroundColor: '#1a1a1a',
+    }}>
       <div className="text-center max-w-md mx-auto px-6">
-        <h1 className="text-2xl font-bold text-white mb-2">You are queued</h1>
-        <p className="text-xl text-gray-300 mb-8">
-          You will go live in less than a minute
-        </p>
+        <h1 className="text-3xl font-bold text-white mb-4 animate-pulse">
+          {secondsRemaining > 0
+            ? `GOING LIVE IN LESS THAN ${secondsRemaining} SECOND${secondsRemaining > 1 ? 'S' : ''}`
+            : 'GOING LIVE NOW...'}
+        </h1>
 
-        <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-8" />
+        <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-8" />
 
         <p className="text-gray-400 text-sm mb-6">
           Your audio is connected and ready. You&apos;ll go live automatically.
