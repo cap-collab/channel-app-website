@@ -102,7 +102,7 @@ function PasswordForm({
 export function AuthModal({
   isOpen,
   onClose,
-  message = "Sign in to save favorites and get alerts",
+  message = "",
   inline = false,
   includeDjTerms = false,
   redirectTo,
@@ -467,7 +467,7 @@ export function AuthModal({
                 </svg>
               </div>
               <span className="text-sm text-white/60 group-hover:text-white/80 transition-colors">
-                Email me when my favorite curators or shows are scheduled
+                Email me updates from artists in my community
               </span>
             </label>
           </div>

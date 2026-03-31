@@ -23,7 +23,6 @@ import { SUPPORTED_GENRES } from "@/lib/genres";
 interface NotificationSettings {
   showStarting: boolean;
   watchlistMatch: boolean;
-  popularity: boolean;
   djOnline: boolean;
 }
 
@@ -39,7 +38,6 @@ export function SettingsClient() {
   const [notifications, setNotifications] = useState<NotificationSettings>({
     showStarting: false,
     watchlistMatch: false,
-    popularity: false,
     djOnline: false,
   });
   const [activityMessages, setActivityMessages] = useState<ActivityMessageSettings>({
@@ -69,7 +67,6 @@ export function SettingsClient() {
         setNotifications({
           showStarting: data.emailNotifications.showStarting || false,
           watchlistMatch: data.emailNotifications.watchlistMatch || false,
-          popularity: data.emailNotifications.popularity || false,
           djOnline: data.emailNotifications.djOnline || false,
         });
       }
@@ -197,17 +194,7 @@ export function SettingsClient() {
         batch.delete(docSnap.ref);
       });
 
-      // 2. Delete pending popularity emails
-      const popularityQuery = query(
-        collection(db, "pendingPopularityEmails"),
-        where("userId", "==", user.uid)
-      );
-      const popularitySnapshot = await getDocs(popularityQuery);
-      popularitySnapshot.docs.forEach((docSnap) => {
-        batch.delete(docSnap.ref);
-      });
-
-      // 3. Delete username reservation
+      // 2. Delete username reservation
       const usernamesQuery = query(
         collection(db, "usernames"),
         where("uid", "==", user.uid)
@@ -497,27 +484,6 @@ export function SettingsClient() {
                     <div
                       className={`w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] rounded-full transition-transform ${
                         notifications.watchlistMatch ? "bg-black translate-x-6" : "bg-gray-400"
-                      }`}
-                    />
-                  </button>
-                </div>
-                <div className="p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-white font-medium">Popularity alerts</p>
-                    <p className="text-gray-500 text-sm">
-                      Email when shows get lots of hearts or chat activity
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => handleToggle("popularity")}
-                    disabled={saving}
-                    className={`w-14 h-8 min-w-[3.5rem] min-h-[2rem] shrink-0 rounded-full transition-colors flex items-center px-1 ${
-                      notifications.popularity ? "bg-white" : "bg-gray-700"
-                    }`}
-                  >
-                    <div
-                      className={`w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] rounded-full transition-transform ${
-                        notifications.popularity ? "bg-black translate-x-6" : "bg-gray-400"
                       }`}
                     />
                   </button>
