@@ -225,7 +225,7 @@ async function enrichBroadcastShows(shows: Show[]): Promise<Show[]> {
   if (djUserIds.size === 0) return shows;
 
   const now = Date.now();
-  const djProfiles: Record<string, { bio?: string; photoUrl?: string; promoText?: string; promoHyperlink?: string; location?: string }> = {};
+  const djProfiles: Record<string, { bio?: string; photoUrl?: string; location?: string }> = {};
 
   const toFetch: string[] = [];
 
@@ -244,13 +244,11 @@ async function enrichBroadcastShows(shows: Show[]): Promise<Show[]> {
         const userDoc = await adminDb.collection("users").doc(userId).get();
         if (userDoc.exists) {
           const userData = userDoc.data();
-          const djProfile = userData?.djProfile as { bio?: string; photoUrl?: string; promoText?: string; promoHyperlink?: string; location?: string } | undefined;
+          const djProfile = userData?.djProfile as { bio?: string; photoUrl?: string; location?: string } | undefined;
           if (djProfile) {
             const profile = {
               bio: djProfile.bio || undefined,
               photoUrl: djProfile.photoUrl || undefined,
-              promoText: djProfile.promoText || undefined,
-              promoHyperlink: djProfile.promoHyperlink || undefined,
               location: djProfile.location || undefined,
             };
             djProfiles[userId] = profile;
@@ -273,8 +271,6 @@ async function enrichBroadcastShows(shows: Show[]): Promise<Show[]> {
           ...show,
           djBio: show.djBio || profile.bio,
           djPhotoUrl: show.djPhotoUrl || profile.photoUrl,
-          promoText: show.promoText || profile.promoText,
-          promoUrl: show.promoUrl || profile.promoHyperlink,
           djLocation: profile.location,
           isChannelUser: true,
         };

@@ -6,7 +6,6 @@ import { ChatMessageSerialized } from '@/types/broadcast';
 import { AuthModal } from '@/components/AuthModal';
 import { FloatingHearts } from '@/components/channel/FloatingHearts';
 import { TipButton } from '@/components/channel/TipButton';
-import { normalizeUrl } from '@/lib/url';
 
 
 interface DJProfileChatPanelProps {
@@ -24,10 +23,7 @@ interface DJProfileChatPanelProps {
   broadcastToken?: string;
   broadcastSlotId?: string;
   isVenue?: boolean;
-  initialPromoSubmitted?: boolean;
   onChangeUsername?: (newUsername: string) => void;
-  activePromoText?: string;
-  activePromoHyperlink?: string;
   currentShowStartTime?: number;
   isChannelUser?: boolean;
   tipLink?: string | null;
@@ -292,22 +288,18 @@ export function DJProfileChatPanel({
   broadcastToken,
   broadcastSlotId,
   isVenue = false,
-  initialPromoSubmitted = false,
   onChangeUsername,
-  activePromoText,
-  activePromoHyperlink,
   currentShowStartTime,
   tipLink,
 }: DJProfileChatPanelProps) {
   const isBroadcasting = !!broadcastToken;
 
-  const { messages, error, sendMessage, sendLove, sendPromo, currentPromo, promoUsed } = useDJProfileChat({
+  const { messages, error, sendMessage, sendLove } = useDJProfileChat({
     chatUsernameNormalized,
     djUsername,
     username,
     enabled: isAuthenticated,
     isOwner,
-    broadcastToken,
     broadcastSlotId,
     currentShowStartTime,
   });
@@ -315,15 +307,9 @@ export function DJProfileChatPanel({
   const [inputValue, setInputValue] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [heartTrigger, setHeartTrigger] = useState(0);
-  const [showPromoModal, setShowPromoModal] = useState(false);
-  const [promoTextInput, setPromoTextInput] = useState('');
-  const [promoHyperlinkInput, setPromoHyperlinkInput] = useState('');
-  const [localError, setLocalError] = useState<string | null>(null);
   const [showUsernameModal, setShowUsernameModal] = useState(false);
   const [newUsernameInput, setNewUsernameInput] = useState(djUsername);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-
-  const hasPostedPromo = promoUsed || initialPromoSubmitted;
 
   // Auto-scroll to bottom within chat container only
   useEffect(() => {
@@ -359,39 +345,6 @@ export function DJProfileChatPanel({
     }
   };
 
-  const handleSendPromo = async () => {
-    if (!promoTextInput.trim()) return;
-
-    setIsSending(true);
-    setLocalError(null);
-
-    try {
-      const normalizedHyperlink = promoHyperlinkInput.trim() ? normalizeUrl(promoHyperlinkInput.trim()) : undefined;
-      await sendPromo(promoTextInput.trim(), normalizedHyperlink);
-      setShowPromoModal(false);
-      setPromoTextInput('');
-      setPromoHyperlinkInput('');
-    } catch (err) {
-      setLocalError(err instanceof Error ? err.message : 'Failed to post promo');
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  // Determine promo to display in pinned bar
-  const promoToDisplay = (() => {
-    if (!isBroadcasting) return null;
-    if (isVenue) {
-      // Venue: use pre-configured promo from current DJ slot only
-      if (activePromoText) return { text: activePromoText, hyperlink: activePromoHyperlink };
-      return null;
-    }
-    // Remote: use latest promo from chat messages, fall back to slot DJ profile promo
-    if (currentPromo?.promoText) return { text: currentPromo.promoText, hyperlink: currentPromo.promoHyperlink };
-    if (activePromoText) return { text: activePromoText, hyperlink: activePromoHyperlink };
-    return null;
-  })();
-
   // Show login prompt if not authenticated
   if (!isAuthenticated) {
     return (
@@ -422,49 +375,16 @@ export function DJProfileChatPanel({
   return (
     <div className="flex flex-col h-full max-h-[60vh]">
       {/* Error display */}
-      {(error || localError) && (
+      {error && (
         <div className="bg-red-900/50 text-red-200 px-4 py-2 text-sm flex-shrink-0">
-          {error || localError}
+          {error}
         </div>
       )}
 
-      {/* Pinned Promo Bar — show latest promo for everyone (not just broadcaster) */}
-      {(() => {
-        // Use promoToDisplay for broadcasters, or currentPromo for listeners
-        const promo = promoToDisplay || (currentPromo?.promoText ? { text: currentPromo.promoText, hyperlink: currentPromo.promoHyperlink } : null);
-        if (!promo) return null;
-        const hasHyperlink = !!promo.hyperlink;
-        const content = (
-          <div className={`px-4 py-3 bg-white/5 border-b border-white/10 flex-shrink-0 ${hasHyperlink ? 'hover:bg-white/10 cursor-pointer' : ''}`}>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-white font-semibold text-sm">{djUsername}</span>
-              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0" title="Live DJ" />
-              {hasHyperlink && (
-                <svg className="w-4 h-4 text-zinc-400 flex-shrink-0 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-              )}
-            </div>
-            <p className={`text-sm ${hasHyperlink ? 'text-white underline' : 'text-white'}`}>
-              {promo.text}
-            </p>
-          </div>
-        );
-        if (hasHyperlink) {
-          return (
-            <a href={normalizeUrl(promo.hyperlink!)} target="_blank" rel="noopener noreferrer" className="block transition-colors">
-              {content}
-            </a>
-          );
-        }
-        return content;
-      })()}
-
-      {/* Messages — filter out promo messages (they're shown in the pinned bar) */}
+      {/* Messages */}
       <div ref={messagesContainerRef} className="flex-1 overflow-y-auto">
         {(() => {
-          const chatMessages = messages.filter((msg) => msg.messageType !== 'promo');
-          if (chatMessages.length === 0) {
+          if (messages.length === 0) {
             return (
               <div className="flex items-center justify-center h-full text-gray-500">
                 <div className="text-center p-6">
@@ -478,7 +398,7 @@ export function DJProfileChatPanel({
           }
           return (
             <div className="divide-y divide-white/5">
-              {chatMessages.map((msg) => (
+              {messages.map((msg) => (
                 <ChatMessage
                   key={msg.id}
                   message={msg}
@@ -561,58 +481,6 @@ export function DJProfileChatPanel({
           )}
         </div>
       </div>
-
-      {/* Promo Modal (broadcast only) */}
-      {showPromoModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#252525] rounded-xl p-6 max-w-md w-full">
-            <h3 className="text-xl font-bold text-white mb-4">Share a promo</h3>
-            <p className="text-gray-400 text-sm mb-4">
-              This will be pinned at the top of the chat for all listeners.
-            </p>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-gray-400 text-sm mb-1">Promo Text</label>
-                <input
-                  type="text"
-                  value={promoTextInput}
-                  onChange={(e) => setPromoTextInput(e.target.value)}
-                  placeholder="New album out now!"
-                  className="w-full bg-black text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500"
-                  maxLength={200}
-                />
-                <p className="text-gray-600 text-xs mt-1">{promoTextInput.length}/200</p>
-              </div>
-              <div>
-                <label className="block text-gray-400 text-sm mb-1">Hyperlink (optional)</label>
-                <input
-                  type="text"
-                  value={promoHyperlinkInput}
-                  onChange={(e) => setPromoHyperlinkInput(e.target.value)}
-                  placeholder="bandcamp.com/your-album"
-                  className="w-full bg-black text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-gray-500"
-                />
-                <p className="text-gray-600 text-xs mt-1">Clicking the promo text will open this link</p>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => setShowPromoModal(false)}
-                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSendPromo}
-                  disabled={!promoTextInput.trim() || isSending}
-                  className="flex-1 bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white py-3 rounded-lg transition-colors"
-                >
-                  {isSending ? 'Posting...' : hasPostedPromo ? 'Update' : 'Post'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Username Edit Modal (venue broadcasts only) */}
       {showUsernameModal && onChangeUsername && (

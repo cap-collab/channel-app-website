@@ -75,7 +75,7 @@ function ShowBlockComponent({
   const isFavorited = isShowFavorited(show);
 
   // Check if show has expandable content (for chevron indicator)
-  const hasExpandableContent = !!(show.description || show.imageUrl || show.djPhotoUrl || show.djBio || show.promoText);
+  const hasExpandableContent = !!(show.description || show.imageUrl || show.djPhotoUrl || show.djBio);
 
   // Check if this show is currently playing
   const now = new Date();
@@ -451,28 +451,6 @@ function ShowBlockComponent({
                   <p className="text-gray-400 text-sm leading-relaxed mb-4">
                     {show.description}
                   </p>
-                )}
-
-                {/* Promo section (broadcast shows only) */}
-                {show.promoText && (
-                  <div className="mb-4 p-3 bg-gray-900 rounded-lg border border-gray-800">
-                    <p className="text-gray-300 text-sm">{show.promoText}</p>
-                    {show.promoUrl && (
-                      <a
-                        href={show.promoUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-2 inline-flex items-center gap-1 text-sm hover:underline"
-                        style={{ color: accentColor }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Learn more
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                      </a>
-                    )}
-                  </div>
                 )}
 
                 {/* Stream Now button - only for currently playing shows */}

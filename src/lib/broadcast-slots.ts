@@ -52,8 +52,6 @@ function serializeSlot(docId: string, data: Record<string, unknown>): BroadcastS
     liveDjUsername: data.liveDjUsername as string | undefined,
     liveDjBio: data.liveDjBio as string | undefined,
     liveDjPhotoUrl: data.liveDjPhotoUrl as string | undefined,
-    liveDjPromoText: data.liveDjPromoText as string | undefined,
-    liveDjPromoHyperlink: data.liveDjPromoHyperlink as string | undefined,
     liveDjTipButtonLink: data.liveDjTipButtonLink as string | undefined,
     liveDjBandcamp: data.liveDjBandcamp as string | undefined,
     currentDjSlotId: data.currentDjSlotId as string | undefined,
@@ -168,8 +166,6 @@ export async function createSlot(data: {
     if (slot.djUsername) cleaned.djUsername = slot.djUsername;
     if (slot.djBio) cleaned.djBio = slot.djBio;
     if (slot.djPhotoUrl) cleaned.djPhotoUrl = slot.djPhotoUrl;
-    if (slot.djPromoText) cleaned.djPromoText = slot.djPromoText;
-    if (slot.djPromoHyperlink) cleaned.djPromoHyperlink = slot.djPromoHyperlink;
     if (slot.djThankYouMessage) cleaned.djThankYouMessage = slot.djThankYouMessage;
     if (slot.djSocialLinks) cleaned.djSocialLinks = slot.djSocialLinks;
     return cleaned;
@@ -279,8 +275,6 @@ export async function updateSlot(
       if (slot.djUsername) cleaned.djUsername = slot.djUsername;
       if (slot.djBio) cleaned.djBio = slot.djBio;
       if (slot.djPhotoUrl) cleaned.djPhotoUrl = slot.djPhotoUrl;
-      if (slot.djPromoText) cleaned.djPromoText = slot.djPromoText;
-      if (slot.djPromoHyperlink) cleaned.djPromoHyperlink = slot.djPromoHyperlink;
       if (slot.djThankYouMessage) cleaned.djThankYouMessage = slot.djThankYouMessage;
       if (slot.djSocialLinks) cleaned.djSocialLinks = slot.djSocialLinks;
       return cleaned;

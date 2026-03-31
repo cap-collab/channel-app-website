@@ -134,8 +134,6 @@ export async function POST(request: NextRequest) {
       if (slot.djUsername) cleaned.djUsername = slot.djUsername;
       if (slot.djBio) cleaned.djBio = slot.djBio;
       if (slot.djPhotoUrl) cleaned.djPhotoUrl = slot.djPhotoUrl;
-      if (slot.djPromoText) cleaned.djPromoText = slot.djPromoText;
-      if (slot.djPromoHyperlink) cleaned.djPromoHyperlink = slot.djPromoHyperlink;
       if (slot.djThankYouMessage) cleaned.djThankYouMessage = slot.djThankYouMessage;
       if (slot.djSocialLinks) cleaned.djSocialLinks = slot.djSocialLinks;
       return cleaned;
@@ -248,8 +246,6 @@ export async function PATCH(request: NextRequest) {
         if (slot.djUsername) cleaned.djUsername = slot.djUsername;
         if (slot.djBio) cleaned.djBio = slot.djBio;
         if (slot.djPhotoUrl) cleaned.djPhotoUrl = slot.djPhotoUrl;
-        if (slot.djPromoText) cleaned.djPromoText = slot.djPromoText;
-        if (slot.djPromoHyperlink) cleaned.djPromoHyperlink = slot.djPromoHyperlink;
         if (slot.djThankYouMessage) cleaned.djThankYouMessage = slot.djThankYouMessage;
         if (slot.djSocialLinks) cleaned.djSocialLinks = slot.djSocialLinks;
         return cleaned;

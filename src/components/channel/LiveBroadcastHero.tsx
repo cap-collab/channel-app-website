@@ -13,7 +13,6 @@ import { FloatingHearts } from './FloatingHearts';
 import { TipButton } from './TipButton';
 import { AuthModal } from '@/components/AuthModal';
 import { ChatMessageSerialized } from '@/types/broadcast';
-import { normalizeUrl } from '@/lib/url';
 import { useBPM } from '@/contexts/BPMContext';
 import { useFavorites } from '@/hooks/useFavorites';
 
@@ -150,8 +149,6 @@ export function HeroChatMessage({
 }) {
   const timeAgo = formatTimeAgo(message.timestamp);
   const isCurrentlyLiveDJ = !!(currentLiveDjUsername && message.username.toLowerCase() === currentLiveDjUsername.toLowerCase());
-
-  if (message.messageType === 'promo') return null;
 
   if (message.messageType === 'love' || message.message?.includes(' is ❤️')) {
     const heartCount = Math.min(message.heartCount || 1, 10);
@@ -319,7 +316,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
     return () => clearInterval(interval);
   }, [computeDJChatRoom, currentShow?.djSlots]);
 
-  const { messages, sendMessage, sendLove, currentPromo, loveCount } = useDJProfileChat({
+  const { messages, sendMessage, sendLove, loveCount } = useDJProfileChat({
     chatUsernameNormalized: currentDJChatRoom,
     djUsername: currentDJ || currentShow?.djName || '',
     username: chatUsername || undefined,
@@ -436,31 +433,6 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
       if (slot) return slot.djEmail || null;
     }
     return currentShow.djEmail || null;
-  })();
-
-  // Promo display
-  const promoToShow = (() => {
-    if (currentShow?.broadcastType === 'venue') {
-      if (currentShow.djSlots && currentShow.djSlots.length > 0) {
-        const now = Date.now();
-        const slot = currentShow.djSlots.find(s => s.startTime <= now && s.endTime > now);
-        if (slot?.promoText || slot?.djPromoText) {
-          return {
-            text: slot.promoText || slot.djPromoText || '',
-            hyperlink: slot.promoHyperlink || slot.djPromoHyperlink,
-            username: slot.liveDjUsername || slot.djName || currentDJ,
-          };
-        }
-      }
-      if (currentShow.showPromoText) {
-        return { text: currentShow.showPromoText, hyperlink: currentShow.showPromoHyperlink, username: currentDJ };
-      }
-      return null;
-    }
-    if (currentPromo?.promoText) {
-      return { text: currentPromo.promoText, hyperlink: currentPromo.promoHyperlink, username: currentPromo.username };
-    }
-    return null;
   })();
 
   const djWatchlistName = currentDJ || currentShow?.djName || '';
@@ -771,35 +743,6 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
         {/* Tab Content */}
         {activeTab === 'chat' ? (
           <div className={`flex flex-col ${hasRecentMessages ? 'h-[45dvh] lg:h-[38dvh]' : 'h-[29dvh] lg:h-[23dvh]'}`}>
-            {/* Promo bar */}
-            {promoToShow && promoToShow.username && (() => {
-              const hasHyperlink = !!promoToShow.hyperlink;
-              const content = (
-                <div className={`px-4 py-3 bg-white/5 border-b border-white/10 ${hasHyperlink ? 'hover:bg-white/10 cursor-pointer' : ''}`}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-white font-semibold text-sm">{promoToShow.username}</span>
-                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title="Live DJ" />
-                    {hasHyperlink && (
-                      <svg className="w-4 h-4 text-zinc-400 flex-shrink-0 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    )}
-                  </div>
-                  <p className={`text-sm ${hasHyperlink ? 'text-white underline' : 'text-white'}`}>
-                    {promoToShow.text}
-                  </p>
-                </div>
-              );
-              if (hasHyperlink) {
-                return (
-                  <a href={normalizeUrl(promoToShow.hyperlink!)} target="_blank" rel="noopener noreferrer" className="block transition-colors">
-                    {content}
-                  </a>
-                );
-              }
-              return content;
-            })()}
-
             {/* Auth states */}
             {!isAuthenticated ? (
               <div className="flex-1 flex items-center justify-center p-6">

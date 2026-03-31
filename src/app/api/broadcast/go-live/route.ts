@@ -124,8 +124,6 @@ export async function POST(request: NextRequest) {
       // Do NOT fall back to logged-in user's profile — they may be a different person than the slot's DJ
       const djBio = currentDjSlot?.djBio || (slotDjProfile as Record<string, unknown> | null)?.bio || null;
       const djPhotoUrl = currentDjSlot?.djPhotoUrl || (slotDjProfile as Record<string, unknown> | null)?.photoUrl || null;
-      const djPromoText = currentDjSlot?.djPromoText || currentDjSlot?.promoText || (slotDjProfile as Record<string, unknown> | null)?.promoText || null;
-      const djPromoHyperlink = currentDjSlot?.djPromoHyperlink || currentDjSlot?.promoHyperlink || (slotDjProfile as Record<string, unknown> | null)?.promoHyperlink || null;
       const djTipButtonLink = currentDjSlot?.djTipButtonLink || (slotDjProfile as Record<string, unknown> | null)?.tipButtonLink || null;
       const djBandcamp = currentDjSlot?.djSocialLinks?.bandcamp || ((slotDjProfile as Record<string, unknown> | null)?.socialLinks as Record<string, unknown> | null)?.bandcamp || null;
       const djThankYouMessage = currentDjSlot?.djThankYouMessage || (slotDjProfile as Record<string, unknown> | null)?.thankYouMessage || null;
@@ -194,12 +192,6 @@ export async function POST(request: NextRequest) {
       if (djPhotoUrl) {
         updateData.liveDjPhotoUrl = djPhotoUrl;
       }
-      if (djPromoText) {
-        updateData.liveDjPromoText = djPromoText;
-      }
-      if (djPromoHyperlink) {
-        updateData.liveDjPromoHyperlink = djPromoHyperlink;
-      }
       if (djTipButtonLink) {
         updateData.liveDjTipButtonLink = djTipButtonLink;
       }
@@ -243,8 +235,6 @@ export async function POST(request: NextRequest) {
       const djProfile = userProfileData?.djProfile as Record<string, unknown> | undefined;
       const djBio = currentDjSlot?.djBio || djProfile?.bio || null;
       const djPhotoUrl = currentDjSlot?.djPhotoUrl || djProfile?.photoUrl || null;
-      const djPromoText = currentDjSlot?.djPromoText || currentDjSlot?.promoText || djProfile?.promoText || null;
-      const djPromoHyperlink = currentDjSlot?.djPromoHyperlink || currentDjSlot?.promoHyperlink || djProfile?.promoHyperlink || null;
       const djTipButtonLink = currentDjSlot?.djTipButtonLink || djProfile?.tipButtonLink || null;
       const djBandcamp = currentDjSlot?.djSocialLinks?.bandcamp || (djProfile?.socialLinks as Record<string, unknown> | undefined)?.bandcamp || null;
       const djThankYouMessage = currentDjSlot?.djThankYouMessage || djProfile?.thankYouMessage || null;
@@ -254,12 +244,6 @@ export async function POST(request: NextRequest) {
       }
       if (djPhotoUrl) {
         updateData.liveDjPhotoUrl = djPhotoUrl;
-      }
-      if (djPromoText) {
-        updateData.liveDjPromoText = djPromoText;
-      }
-      if (djPromoHyperlink) {
-        updateData.liveDjPromoHyperlink = djPromoHyperlink;
       }
       if (djTipButtonLink) {
         updateData.liveDjTipButtonLink = djTipButtonLink;

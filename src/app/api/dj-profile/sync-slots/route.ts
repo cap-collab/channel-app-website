@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { userId, bio, photoUrl, promoText, promoHyperlink, thankYouMessage, chatUsername } = body;
+    const { userId, bio, photoUrl, thankYouMessage, chatUsername } = body;
 
     if (!userId) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 });
@@ -24,12 +24,6 @@ export async function POST(request: NextRequest) {
     }
     if (photoUrl !== undefined) {
       updateData.liveDjPhotoUrl = photoUrl || null;
-    }
-    if (promoText !== undefined) {
-      updateData.liveDjPromoText = promoText || null;
-    }
-    if (promoHyperlink !== undefined) {
-      updateData.liveDjPromoHyperlink = promoHyperlink || null;
     }
     if (thankYouMessage !== undefined) {
       updateData.liveDjThankYouMessage = thankYouMessage || null;
@@ -189,8 +183,6 @@ export async function POST(request: NextRequest) {
               ...slot,
               ...(bio !== undefined && { djBio: bio || null }),
               ...(photoUrl !== undefined && { djPhotoUrl: photoUrl || null }),
-              ...(promoText !== undefined && { djPromoText: promoText || null }),
-              ...(promoHyperlink !== undefined && { djPromoHyperlink: promoHyperlink || null }),
               ...(thankYouMessage !== undefined && { djThankYouMessage: thankYouMessage || null }),
               // Always sync chatUsername from user profile for profile button URL
               ...(userChatUsername && { djChatUsername: userChatUsername }),
@@ -212,8 +204,6 @@ export async function POST(request: NextRequest) {
           if (isCurrentDj && data.status === 'live') {
             if (bio !== undefined) slotUpdate.liveDjBio = bio || null;
             if (photoUrl !== undefined) slotUpdate.liveDjPhotoUrl = photoUrl || null;
-            if (promoText !== undefined) slotUpdate.liveDjPromoText = promoText || null;
-            if (promoHyperlink !== undefined) slotUpdate.liveDjPromoHyperlink = promoHyperlink || null;
             if (thankYouMessage !== undefined) slotUpdate.liveDjThankYouMessage = thankYouMessage || null;
             // Always sync chatUsername for profile button URL
             if (userChatUsername) slotUpdate.liveDjChatUsername = userChatUsername;

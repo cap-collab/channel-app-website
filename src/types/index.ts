@@ -32,9 +32,6 @@ export interface Show {
   djUserId?: string;
   djEmail?: string;
   broadcastSlotId?: string;
-  // Promo info (broadcast shows only)
-  promoText?: string;
-  promoUrl?: string;
   // DJ genres from profile
   djGenres?: string[];
   // Whether the DJ has claimed their Channel profile (exists in users collection)
@@ -88,8 +85,6 @@ export interface UserDocument {
   lastDjOnlineEmailAt?: Record<string, number>; // { [djUserId]: timestamp }
   djProfile?: {
     bio: string | null;
-    promoText: string | null;
-    promoHyperlink: string | null;
     tipButtonLink: string | null;
     photoUrl: string | null;
   };

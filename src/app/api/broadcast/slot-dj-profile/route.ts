@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 
 // GET - Fetch DJ profile data for a broadcast slot
-// Returns promo text, promo hyperlink, and thank you message from the DJ's profile
+// Returns thank you message and tip button link from the DJ's profile
 // Priority: DJ slot data > user profile > pending DJ profile
 export async function GET(request: NextRequest) {
   try {
@@ -49,8 +49,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         djUserId: activeDjSlot.djUserId || null,
         chatUsername: activeDjSlot.djUsername || null,
-        promoText: activeDjSlot.djPromoText || activeDjSlot.promoText || null,
-        promoHyperlink: activeDjSlot.djPromoHyperlink || activeDjSlot.promoHyperlink || null,
         thankYouMessage: activeDjSlot.djThankYouMessage || null,
         tipButtonLink: activeDjSlot.djTipButtonLink || null,
       });
@@ -70,8 +68,6 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           djUserId,
           chatUsername: userData?.chatUsername || null,
-          promoText: djProfile?.promoText || slotData.showPromoText || null,
-          promoHyperlink: djProfile?.promoHyperlink || slotData.showPromoHyperlink || null,
           thankYouMessage: djProfile?.thankYouMessage || null,
           tipButtonLink: djProfile?.tipButtonLink || null,
         });
@@ -93,8 +89,6 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           djUserId: foundUserId,
           chatUsername: userData?.chatUsername || null,
-          promoText: djProfile?.promoText || slotData.showPromoText || null,
-          promoHyperlink: djProfile?.promoHyperlink || slotData.showPromoHyperlink || null,
           thankYouMessage: djProfile?.thankYouMessage || null,
           tipButtonLink: djProfile?.tipButtonLink || null,
         });
@@ -113,20 +107,16 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           djUserId: null,
           chatUsername: pendingData?.chatUsername || null,
-          promoText: djProfile?.promoText || slotData.showPromoText || null,
-          promoHyperlink: djProfile?.promoHyperlink || slotData.showPromoHyperlink || null,
           thankYouMessage: djProfile?.thankYouMessage || null,
           tipButtonLink: djProfile?.tipButtonLink || null,
         });
       }
     }
 
-    // Fallback: show-level promo only
+    // Fallback
     return NextResponse.json({
       djUserId: null,
       chatUsername: null,
-      promoText: slotData.showPromoText || null,
-      promoHyperlink: slotData.showPromoHyperlink || null,
       thankYouMessage: null,
       tipButtonLink: null,
     });

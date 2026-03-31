@@ -11,15 +11,12 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { useUserRole, isDJ } from "@/hooks/useUserRole";
 import { AuthModal } from "@/components/AuthModal";
 import { BroadcastSlotSerialized, ArchiveSerialized } from "@/types/broadcast";
-import { normalizeUrl } from "@/lib/url";
 import { uploadDJPhoto, deleteDJPhoto, validatePhoto } from "@/lib/photo-upload";
 import { useBPM } from "@/contexts/BPMContext";
 
 
 interface DJProfile {
   bio: string | null;
-  promoText: string | null;
-  promoHyperlink: string | null;
   photoUrl: string | null;
 }
 
@@ -35,8 +32,6 @@ export function DJProfileClient() {
   const [chatUsername, setChatUsername] = useState<string | null>(null);
   const [djProfile, setDjProfile] = useState<DJProfile>({
     bio: null,
-    promoText: null,
-    promoHyperlink: null,
     photoUrl: null,
   });
 
@@ -49,12 +44,6 @@ export function DJProfileClient() {
   const [bioInput, setBioInput] = useState("");
   const [savingAbout, setSavingAbout] = useState(false);
   const [saveAboutSuccess, setSaveAboutSuccess] = useState(false);
-
-  // Form state - Promo section
-  const [promoTextInput, setPromoTextInput] = useState("");
-  const [promoHyperlinkInput, setPromoHyperlinkInput] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Upcoming broadcasts
   const [upcomingBroadcasts, setUpcomingBroadcasts] = useState<BroadcastSlotSerialized[]>([]);
@@ -72,7 +61,6 @@ export function DJProfileClient() {
 
   // Auto-save debounce refs
   const bioDebounceRef = useRef<NodeJS.Timeout | null>(null);
-  const promoDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const initialLoadRef = useRef(true);
 
   // Load user profile and DJ profile data
@@ -87,15 +75,11 @@ export function DJProfileClient() {
         if (data.djProfile) {
           setDjProfile({
             bio: data.djProfile.bio || null,
-            promoText: data.djProfile.promoText || null,
-            promoHyperlink: data.djProfile.promoHyperlink || null,
             photoUrl: data.djProfile.photoUrl || null,
           });
           // Only set input values on initial load to avoid overwriting user edits
           if (initialLoadRef.current) {
             setBioInput(data.djProfile.bio || "");
-            setPromoTextInput(data.djProfile.promoText || "");
-            setPromoHyperlinkInput(data.djProfile.promoHyperlink || "");
             initialLoadRef.current = false;
           }
         }
@@ -284,28 +268,6 @@ export function DJProfileClient() {
     }
   }, [user, syncProfileToSlots]);
 
-  const savePromo = useCallback(async (text: string, hyperlink: string) => {
-    if (!user || !db) return;
-
-    setSaving(true);
-    setSaveSuccess(false);
-
-    try {
-      const userRef = doc(db, "users", user.uid);
-      const normalizedHyperlink = hyperlink.trim() ? normalizeUrl(hyperlink.trim()) : null;
-      await updateDoc(userRef, {
-        "djProfile.promoText": text.trim() || null,
-        "djProfile.promoHyperlink": normalizedHyperlink,
-      });
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2000);
-    } catch (error) {
-      console.error("Error saving promo:", error);
-    } finally {
-      setSaving(false);
-    }
-  }, [user]);
-
   // Auto-save bio with debounce
   useEffect(() => {
     if (initialLoadRef.current) return;
@@ -324,25 +286,6 @@ export function DJProfileClient() {
       }
     };
   }, [bioInput, saveAbout]);
-
-  // Auto-save promo with debounce
-  useEffect(() => {
-    if (initialLoadRef.current) return;
-
-    if (promoDebounceRef.current) {
-      clearTimeout(promoDebounceRef.current);
-    }
-
-    promoDebounceRef.current = setTimeout(() => {
-      savePromo(promoTextInput, promoHyperlinkInput);
-    }, 1000);
-
-    return () => {
-      if (promoDebounceRef.current) {
-        clearTimeout(promoDebounceRef.current);
-      }
-    };
-  }, [promoTextInput, promoHyperlinkInput, savePromo]);
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -708,49 +651,6 @@ export function DJProfileClient() {
             </div>
             <p className="text-gray-600 text-xs mt-2 px-1">
               Your bio appears on your DJ profile during broadcasts.
-            </p>
-          </section>
-
-          {/* Promo section */}
-          <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-              Promo
-            </h2>
-            <div className="bg-[#1a1a1a] rounded-lg p-4 space-y-4">
-              <div>
-                <label className="block text-gray-400 text-sm mb-2">
-                  Promo Text
-                </label>
-                <input
-                  type="text"
-                  value={promoTextInput}
-                  onChange={(e) => setPromoTextInput(e.target.value)}
-                  placeholder="e.g., New album out now!"
-                  maxLength={200}
-                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
-                />
-                <p className="text-gray-600 text-xs mt-1 text-right">
-                  {promoTextInput.length}/200
-                </p>
-              </div>
-              <div>
-                <label className="block text-gray-400 text-sm mb-2">
-                  Promo Hyperlink (optional)
-                </label>
-                <input
-                  type="text"
-                  value={promoHyperlinkInput}
-                  onChange={(e) => setPromoHyperlinkInput(e.target.value)}
-                  placeholder="bandcamp.com/your-album"
-                  className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
-                />
-                <p className="text-gray-600 text-xs mt-1">
-                  {saving ? "Saving..." : saveSuccess ? "Saved" : ""}
-                </p>
-              </div>
-            </div>
-            <p className="text-gray-600 text-xs mt-2 px-1">
-              This appears in chat when you&apos;re live on Channel Radio.
             </p>
           </section>
 

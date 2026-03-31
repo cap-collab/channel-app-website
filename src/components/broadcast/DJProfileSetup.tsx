@@ -25,25 +25,20 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useDebouncedCallback } from 'use-debounce';
-import { normalizeUrl } from '@/lib/url';
 
 
 interface DJProfileSetupProps {
   defaultUsername?: string;
-  defaultPromoText?: string;
-  defaultPromoHyperlink?: string;
   showName?: string;
   broadcastType?: 'venue' | 'remote' | 'recording' | 'restream';
   isVenueRecording?: boolean;  // For recordings made at a venue (shows venue-specific terms)
-  onComplete: (username: string, promoText?: string, promoHyperlink?: string) => void;
+  onComplete: (username: string) => void;
 }
 
-export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromoHyperlink, showName, broadcastType, isVenueRecording, onComplete }: DJProfileSetupProps) {
+export function DJProfileSetup({ defaultUsername, showName, broadcastType, isVenueRecording, onComplete }: DJProfileSetupProps) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername: savedUsername, loading: profileLoading } = useUserProfile(user?.uid);
   const [username, setUsername] = useState(defaultUsername || '');
-  const [promoText, setPromoText] = useState(defaultPromoText || '');
-  const [promoHyperlink, setPromoHyperlink] = useState(defaultPromoHyperlink || '');
   const [error, setError] = useState<string | null>(null);
   const [permissionsConfirmed, setPermissionsConfirmed] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
@@ -129,14 +124,6 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
     if (defaultUsername) setUsername(defaultUsername);
   }, [defaultUsername]);
 
-  useEffect(() => {
-    if (defaultPromoText && !promoText) setPromoText(defaultPromoText);
-  }, [defaultPromoText, promoText]);
-
-  useEffect(() => {
-    if (defaultPromoHyperlink && !promoHyperlink) setPromoHyperlink(defaultPromoHyperlink);
-  }, [defaultPromoHyperlink, promoHyperlink]);
-
   // Auto-fill username from user's display name or email (only if no saved username)
   useEffect(() => {
     // Don't auto-fill if user has a saved chatUsername or we're still loading
@@ -194,23 +181,6 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
     return null;
   };
 
-  const validateUrl = (value: string): string | null => {
-    if (!value || !value.trim()) return null; // Optional field
-    const normalized = normalizeUrl(value.trim());
-    try {
-      const url = new URL(normalized);
-      if (!['http:', 'https:'].includes(url.protocol)) {
-        return 'URL must start with http:// or https://';
-      }
-      if (normalized.length > 500) {
-        return 'URL is too long';
-      }
-    } catch {
-      return 'Invalid URL format';
-    }
-    return null;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -244,19 +214,6 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
       }
     }
 
-    // Validate promo text if provided
-    if (promoText && promoText.length > 200) {
-      setError('Promo text must be 200 characters or less');
-      return;
-    }
-
-    // Validate promo hyperlink if provided
-    const urlError = validateUrl(promoHyperlink);
-    if (urlError) {
-      setError(urlError);
-      return;
-    }
-
     // Validate permissions confirmation
     if (!permissionsConfirmed) {
       setError('You must confirm and agree to the DJ Terms');
@@ -265,9 +222,8 @@ export function DJProfileSetup({ defaultUsername, defaultPromoText, defaultPromo
 
     // No API call needed - username will be saved when going live
     // This allows the flow to work without Firebase Admin SDK
-    const normalizedHyperlink = promoHyperlink ? normalizeUrl(promoHyperlink) : undefined;
     const djName = defaultUsername || username.trim();
-    onComplete(djName, promoText.trim() || undefined, normalizedHyperlink);
+    onComplete(djName);
   };
 
   // Show loading state while fetching user profile

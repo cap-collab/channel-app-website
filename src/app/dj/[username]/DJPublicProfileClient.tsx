@@ -267,8 +267,6 @@ interface DJProfile {
     photoUrl: string | null;
     location: string | null;
     genres: string[];
-    promoText: string | null;
-    promoHyperlink: string | null;
     tipButtonLink: string | null;
     socialLinks: {
       instagram?: string;
@@ -456,8 +454,6 @@ export function DJPublicProfileClient({ username }: Props) {
               photoUrl: data.djProfile?.photoUrl || null,
               location: data.djProfile?.location || null,
               genres: data.djProfile?.genres || [],
-              promoText: data.djProfile?.promoText || null,
-              promoHyperlink: data.djProfile?.promoHyperlink || null,
               tipButtonLink: data.djProfile?.tipButtonLink || null,
               socialLinks: data.djProfile?.socialLinks || {},
               stripeAccountId: data.djProfile?.stripeAccountId || null,
@@ -479,8 +475,6 @@ export function DJPublicProfileClient({ username }: Props) {
               photoUrl: pendingData.djProfile?.photoUrl || null,
               location: pendingData.djProfile?.location || null,
               genres: pendingData.djProfile?.genres || [],
-              promoText: pendingData.djProfile?.promoText || null,
-              promoHyperlink: pendingData.djProfile?.promoHyperlink || null,
               tipButtonLink: pendingData.djProfile?.tipButtonLink || null,
               socialLinks: pendingData.djProfile?.socialLinks || {},
               stripeAccountId: null,
@@ -1379,31 +1373,8 @@ export function DJPublicProfileClient({ username }: Props) {
               )}
             </div>
 
-            {/* Medium: Promo + Bio */}
+            {/* Medium: Bio */}
             <div className="max-w-xl space-y-4">
-              {profile.djProfile.promoText && (
-                profile.djProfile.promoHyperlink ? (
-                  <a
-                    href={profile.djProfile.promoHyperlink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full bg-zinc-900/50 p-4 rounded hover:bg-zinc-800/50 transition-colors"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <p className="text-base leading-relaxed text-white">
-                        {profile.djProfile.promoText}
-                      </p>
-                      <ExternalLinkIcon size={16} />
-                    </div>
-                  </a>
-                ) : (
-                  <div className="w-full bg-zinc-900/50 p-4 rounded">
-                    <p className="text-base leading-relaxed text-white">
-                      {profile.djProfile.promoText}
-                    </p>
-                  </div>
-                )
-              )}
               {profile.djProfile.bio && (
                 <TruncatedBio bio={profile.djProfile.bio} />
               )}

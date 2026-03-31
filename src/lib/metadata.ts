@@ -281,8 +281,6 @@ async function fetchBroadcastShows(): Promise<Show[]> {
         djUsername?: string;
         djBio?: string;
         djPhotoUrl?: string;
-        djPromoText?: string;
-        djPromoHyperlink?: string;
         startTime: number;
         endTime: number;
         liveDjUserId?: string;
@@ -292,9 +290,6 @@ async function fetchBroadcastShows(): Promise<Show[]> {
       const djEmail = data.djEmail as string | undefined;
       const djUsername = data.djUsername as string | undefined;
       const liveDjUserId = data.liveDjUserId as string | undefined;
-      // Show-level promo (fallback - DJ profile promo added in API)
-      const showPromoText = data.showPromoText as string | undefined;
-      const showPromoHyperlink = data.showPromoHyperlink as string | undefined;
       // Show image
       const showImageUrl = data.showImageUrl as string | undefined;
       // Live DJ info (for single-DJ broadcasts)
@@ -321,11 +316,9 @@ async function fetchBroadcastShows(): Promise<Show[]> {
             djEmail: djSlot.djEmail || djEmail,
             djUsername: djSlot.djUsername || djUsername,
             broadcastSlotId: doc.id,
-            // Use DJ slot's pre-configured profile fields, fall back to show-level promo
+            // Use DJ slot's pre-configured profile fields
             djBio: djSlot.djBio,
             djPhotoUrl: djSlot.djPhotoUrl,
-            promoText: djSlot.djPromoText || showPromoText,
-            promoUrl: djSlot.djPromoHyperlink || showPromoHyperlink,
             imageUrl: showImageUrl,
           });
         }
@@ -346,8 +339,6 @@ async function fetchBroadcastShows(): Promise<Show[]> {
           broadcastSlotId: doc.id,
           djBio: liveDjBio,
           djPhotoUrl: liveDjPhotoUrl,
-          promoText: showPromoText,
-          promoUrl: showPromoHyperlink,
           imageUrl: showImageUrl,
         });
       }

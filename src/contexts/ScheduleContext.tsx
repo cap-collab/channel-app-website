@@ -58,7 +58,6 @@ async function fetchBroadcastShowsClient(): Promise<Show[]> {
       const djSlots = data.djSlots as Array<{
         djName?: string; djUsername?: string; djUserId?: string;
         djEmail?: string; djPhotoUrl?: string; djBio?: string;
-        djPromoText?: string; djPromoHyperlink?: string;
         startTime: number; endTime: number; liveDjUserId?: string;
       }> | undefined;
 
@@ -79,8 +78,6 @@ async function fetchBroadcastShowsClient(): Promise<Show[]> {
             broadcastSlotId: doc.id,
             djBio: slot.djBio,
             djPhotoUrl: slot.djPhotoUrl,
-            promoText: slot.djPromoText || data.showPromoText,
-            promoUrl: slot.djPromoHyperlink || data.showPromoHyperlink,
             imageUrl: data.showImageUrl,
           });
         }
@@ -100,8 +97,6 @@ async function fetchBroadcastShowsClient(): Promise<Show[]> {
           broadcastSlotId: doc.id,
           djBio: data.liveDjBio,
           djPhotoUrl: data.liveDjPhotoUrl,
-          promoText: data.showPromoText,
-          promoUrl: data.showPromoHyperlink,
           imageUrl: data.showImageUrl,
         });
       }

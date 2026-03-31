@@ -395,8 +395,6 @@ export async function GET(request: NextRequest) {
             photoUrl: profileData.photoUrl || null,
             location: profileData.location || null,
             genres: profileData.genres || [],
-            promoText: null,
-            promoHyperlink: null,
             socialLinks: profileData.socialLinks || {},
           },
           validatedFrom: profileData.validationUrl || null,

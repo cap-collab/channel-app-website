@@ -98,8 +98,6 @@ export function useBroadcastSchedule(options?: { jumpToEarliestShow?: boolean; i
             liveDjUsername: data.liveDjUsername,
             liveDjBio: data.liveDjBio,
             liveDjPhotoUrl: data.liveDjPhotoUrl,
-            showPromoText: data.showPromoText,
-            showPromoHyperlink: data.showPromoHyperlink,
             showImageUrl: data.showImageUrl,
             // Restream fields
             archiveId: data.archiveId,

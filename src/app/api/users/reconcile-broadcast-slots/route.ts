@@ -10,8 +10,6 @@ interface DJSlot {
   djUsername?: string;
   djBio?: string;
   djPhotoUrl?: string;
-  djPromoText?: string;
-  djPromoHyperlink?: string;
   djThankYouMessage?: string;
   djSocialLinks?: {
     soundcloud?: string;
@@ -90,8 +88,6 @@ export async function POST(request: NextRequest) {
             djUsername: userData?.chatUsername || dj.djUsername,
             djBio: djProfile.bio || dj.djBio,
             djPhotoUrl: djProfile.photoUrl || dj.djPhotoUrl,
-            djPromoText: djProfile.promoText || dj.djPromoText,
-            djPromoHyperlink: djProfile.promoHyperlink || dj.djPromoHyperlink,
             djThankYouMessage: djProfile.thankYouMessage || dj.djThankYouMessage,
             djSocialLinks: djProfile.socialLinks || dj.djSocialLinks,
             // Also update djName if not already set

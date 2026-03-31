@@ -75,8 +75,6 @@ interface PendingProfile {
     photoUrl?: string | null;
     location?: string | null;
     genres?: string[];
-    promoText?: string | null;
-    promoHyperlink?: string | null;
     socialLinks?: {
       instagram?: string;
       soundcloud?: string;
@@ -114,8 +112,6 @@ export function PendingDJsAdmin() {
   const [bio, setBio] = useState('');
   const [location, setLocation] = useState('');
   const [genres, setGenres] = useState('');
-  const [promoText, setPromoText] = useState('');
-  const [promoHyperlink, setPromoHyperlink] = useState('');
   const [instagram, setInstagram] = useState('');
   const [soundcloud, setSoundcloud] = useState('');
   const [bandcamp, setBandcamp] = useState('');
@@ -353,8 +349,6 @@ export function PendingDJsAdmin() {
     setBio('');
     setLocation('');
     setGenres('');
-    setPromoText('');
-    setPromoHyperlink('');
     setInstagram('');
     setSoundcloud('');
     setBandcamp('');
@@ -389,8 +383,6 @@ export function PendingDJsAdmin() {
     setBio(profile.djProfile.bio || '');
     setLocation(profile.djProfile.location || '');
     setGenres(profile.djProfile.genres?.join(', ') || '');
-    setPromoText(profile.djProfile.promoText || '');
-    setPromoHyperlink(profile.djProfile.promoHyperlink || '');
     setInstagram(profile.djProfile.socialLinks?.instagram || '');
     setSoundcloud(profile.djProfile.socialLinks?.soundcloud || '');
     setBandcamp(profile.djProfile.socialLinks?.bandcamp || '');
@@ -648,8 +640,6 @@ export function PendingDJsAdmin() {
             bio: bio.trim() || null,
             location: location.trim() || null,
             genres: genres.trim() ? genres.split(',').map((g) => g.trim()).filter(Boolean) : [],
-            promoText: promoText.trim() || null,
-            promoHyperlink: promoHyperlink.trim() ? normalizeUrl(promoHyperlink.trim()) : null,
             photoUrl: photoUrl || null,
             socialLinks: socialLinksData,
             radioShows: validRadioShows.length > 0 ? validRadioShows : undefined,
@@ -807,8 +797,6 @@ export function PendingDJsAdmin() {
               bio: bio.trim() || null,
               location: location.trim() || null,
               genres: genres.trim() ? genres.split(',').map((g) => g.trim()).filter(Boolean) : [],
-              promoText: promoText.trim() || null,
-              promoHyperlink: promoHyperlink.trim() ? normalizeUrl(promoHyperlink.trim()) : null,
               photoUrl: photoUrl || null,
               socialLinks: socialLinksData,
               myRecs: (validBandcampRecs.length > 0 || validEventRecs.length > 0) ? {
@@ -1190,36 +1178,6 @@ Cap`;
                   <p className="text-xs text-gray-500 mt-1">
                     Comma-separated
                   </p>
-                </div>
-              </div>
-
-              {/* Promo */}
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Promo Text
-                  </label>
-                  <input
-                    type="text"
-                    value={promoText}
-                    onChange={(e) => setPromoText(e.target.value)}
-                    placeholder="Check out my latest mix!"
-                    maxLength={200}
-                    className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Promo Link
-                  </label>
-                  <input
-                    type="url"
-                    value={promoHyperlink}
-                    onChange={(e) => setPromoHyperlink(e.target.value)}
-                    placeholder="https://soundcloud.com/dj/mix"
-                    className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors"
-                  />
                 </div>
               </div>
 

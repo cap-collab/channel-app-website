@@ -20,8 +20,6 @@ export interface DJProfileInfo {
   usernameNormalized?: string; // Normalized username for URL (lowercase, no spaces)
   bio?: string;             // Bio text
   photoUrl?: string;        // Profile picture URL
-  promoText?: string;       // Promo text
-  promoHyperlink?: string;  // Promo link
   tipButtonLink?: string;   // External tip/support URL
   thankYouMessage?: string; // Thank you message for tips
   hasProfile?: boolean;     // Whether the DJ has a public profile page (user exists with dj/broadcaster/admin role)
@@ -54,8 +52,6 @@ export interface DJSlot {
   djUsername?: string;           // Chat username (from chatUsername)
   djBio?: string;                // Bio text
   djPhotoUrl?: string;           // Profile picture URL
-  djPromoText?: string;          // Default promo text
-  djPromoHyperlink?: string;     // Default promo link
   djTipButtonLink?: string;      // External tip/support URL
   djThankYouMessage?: string;    // Thank you message
   djSocialLinks?: {              // Social links
@@ -71,8 +67,6 @@ export interface DJSlot {
   // Runtime fields (set when slot becomes active)
   liveDjUserId?: string;     // Firebase UID of DJ who claimed this slot
   liveDjUsername?: string;   // Their chat username (or djName if no account)
-  promoText?: string;        // Active promo text (can override default)
-  promoHyperlink?: string;   // Active promo link (can override default)
 }
 
 // Generic timestamp interface that works with both Admin and Client SDK
@@ -104,17 +98,12 @@ export interface BroadcastSlot {
   liveDjUsername?: string;     // Their chat username
   liveDjBio?: string;          // DJ bio (from their profile)
   liveDjPhotoUrl?: string;     // DJ profile picture URL
-  liveDjPromoText?: string;    // DJ promo text (from their profile)
-  liveDjPromoHyperlink?: string; // DJ promo link (from their profile)
   liveDjTipButtonLink?: string;  // External tip/support URL (from their profile)
   liveDjBandcamp?: string;       // DJ bandcamp URL (from their socialLinks)
   liveDjGenres?: string[];       // DJ genres (from their profile)
   liveDjDescription?: string;    // DJ description (from their profile)
   // Current DJ slot tracking (for venue multi-DJ shows)
   currentDjSlotId?: string;      // ID of the currently active DJ slot
-  // Show-level promo (default for all DJs)
-  showPromoText?: string;
-  showPromoHyperlink?: string;
   // Show image (used for archives)
   showImageUrl?: string;
   // Recording (for downloadable audio files)
@@ -164,17 +153,12 @@ export interface BroadcastSlotSerialized {
   liveDjUsername?: string;
   liveDjBio?: string;
   liveDjPhotoUrl?: string;
-  liveDjPromoText?: string;
-  liveDjPromoHyperlink?: string;
   liveDjTipButtonLink?: string;  // External tip/support URL (from their profile)
   liveDjBandcamp?: string;       // DJ bandcamp URL (from their socialLinks)
   liveDjGenres?: string[];       // DJ genres (from their profile)
   liveDjDescription?: string;    // DJ description (from their profile)
   // Current DJ slot tracking (for venue multi-DJ shows)
   currentDjSlotId?: string;
-  // Show-level promo
-  showPromoText?: string;
-  showPromoHyperlink?: string;
   // Show image (used for archives)
   showImageUrl?: string;
   // Recording (for downloadable audio files)
@@ -251,7 +235,7 @@ export interface AudioDevice {
 }
 
 // Chat message types for DJ chat
-export type ChatMessageType = 'chat' | 'promo' | 'love' | 'tip';
+export type ChatMessageType = 'chat' | 'love' | 'tip';
 
 export interface ChatMessage {
   id?: string;
@@ -264,8 +248,6 @@ export interface ChatMessage {
   isDJ?: boolean;              // true if sender is current DJ
   djSlotId?: string;           // broadcast-slot ID for validation
   messageType?: ChatMessageType;
-  promoText?: string;          // Promo text to display
-  promoHyperlink?: string;     // Clickable promo link (optional)
 }
 
 export interface ChatMessageSerialized {
@@ -278,8 +260,6 @@ export interface ChatMessageSerialized {
   isDJ?: boolean;
   djSlotId?: string;
   messageType?: ChatMessageType;
-  promoText?: string;
-  promoHyperlink?: string;
 }
 
 // Archive DJ info (simplified for archive display)

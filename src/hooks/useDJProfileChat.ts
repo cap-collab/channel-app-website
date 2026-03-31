@@ -30,9 +30,8 @@ interface UseDJProfileChatOptions {
   isOwner?: boolean;                // True if current user is the DJ
   activityMessagesEnabled?: boolean; // Whether to post activity messages (love, etc.) to chat
   // Broadcast-specific options:
-  broadcastToken?: string;          // For sending promos via API
   broadcastSlotId?: string;         // For tagging messages with slot ID
-  currentShowStartTime?: number;    // Unix ms — filter love counts and promos to current show only
+  currentShowStartTime?: number;    // Unix ms — filter love counts to current show only
 }
 
 interface UseDJProfileChatReturn {
@@ -40,11 +39,8 @@ interface UseDJProfileChatReturn {
   isConnected: boolean;
   error: string | null;
   loveCount: number;
-  currentPromo: ChatMessageSerialized | null;
-  promoUsed: boolean;
   sendMessage: (text: string) => Promise<void>;
   sendLove: () => Promise<void>;
-  sendPromo: (promoText: string, promoHyperlink?: string) => Promise<void>;
 }
 
 export function useDJProfileChat({
@@ -54,7 +50,6 @@ export function useDJProfileChat({
   enabled = true,
   isOwner = false,
   activityMessagesEnabled = true,
-  broadcastToken,
   broadcastSlotId,
   currentShowStartTime,
 }: UseDJProfileChatOptions): UseDJProfileChatReturn {
@@ -62,8 +57,6 @@ export function useDJProfileChat({
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loveCount, setLoveCount] = useState(0);
-  const [currentPromo, setCurrentPromo] = useState<ChatMessageSerialized | null>(null);
-  const [promoUsed, setPromoUsed] = useState(false);
 
   // Track current user's love message ID for incrementing heartCount
   const currentLoveMessageIdRef = useRef<string | null>(null);
@@ -100,7 +93,6 @@ export function useDJProfileChat({
       (snapshot) => {
         const newMessages: ChatMessageSerialized[] = [];
         let loves = 0;
-        let latestPromo: ChatMessageSerialized | null = null;
 
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
@@ -116,17 +108,8 @@ export function useDJProfileChat({
             isDJ: data.isDJ || false,
             djSlotId: data.djSlotId,
             messageType: data.messageType || 'chat',
-            promoText: data.promoText,
-            promoHyperlink: data.promoHyperlink,
           };
           newMessages.push(msg);
-
-          // Track the most recent promo — only from current show if currentShowStartTime is set
-          if (data.messageType === 'promo' && !latestPromo) {
-            if (!currentShowStartTime || msgTimestamp >= currentShowStartTime) {
-              latestPromo = msg;
-            }
-          }
 
           // Sum up hearts from love reactions — only from current show if currentShowStartTime is set
           if (data.messageType === 'love' || data.message?.includes(' is ❤️')) {
@@ -140,8 +123,6 @@ export function useDJProfileChat({
         // Reverse to show oldest first
         setMessages(newMessages.reverse());
         setLoveCount(loves);
-        setCurrentPromo(latestPromo);
-        if (latestPromo) setPromoUsed(true);
         setIsConnected(true);
         setError(null);
       },
@@ -274,43 +255,12 @@ export function useDJProfileChat({
     }
   }, [username, chatUsernameNormalized, djUsername, activityMessagesEnabled]);
 
-  // Send a promo message via API (broadcast-only feature)
-  const sendPromo = useCallback(async (promoText: string, promoHyperlink?: string) => {
-    if (!broadcastToken) return;
-
-    try {
-      const response = await fetch('/api/broadcast/dj-promo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          broadcastToken,
-          promoText,
-          promoHyperlink,
-          username: username || djUsername,
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to post promo');
-      }
-
-      setPromoUsed(true);
-    } catch (err) {
-      console.error('Failed to send promo:', err);
-      throw err;
-    }
-  }, [broadcastToken, username, djUsername]);
-
   return {
     messages,
     isConnected,
     error,
     loveCount,
-    currentPromo,
-    promoUsed,
     sendMessage,
     sendLove,
-    sendPromo,
   };
 }

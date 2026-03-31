@@ -56,8 +56,6 @@ export function RecordClient() {
   const [djUsername, setDjUsername] = useState<string>('');
   const [showName, setShowName] = useState<string>('');
   const [broadcastType, setBroadcastType] = useState<'remote' | 'venue'>('remote');
-  const [initialPromoText, setInitialPromoText] = useState<string | undefined>();
-  const [initialPromoHyperlink, setInitialPromoHyperlink] = useState<string | undefined>();
   // Tagged DJs for venue recordings
   const [taggedDJs, setTaggedDJs] = useState<TaggedDJEntry[]>([]);
 
@@ -112,7 +110,7 @@ export function RecordClient() {
     fetchQuota();
   }, [user?.uid]);
 
-  // Pre-fill username and promo from profile
+  // Pre-fill username from profile
   useEffect(() => {
     if (chatUsername) {
       setDjUsername(chatUsername);
@@ -129,10 +127,8 @@ export function RecordClient() {
   }, [isAuthenticated]);
 
   // Handle profile setup complete - same pattern as BroadcastClient
-  const handleProfileComplete = useCallback((username: string, promoText?: string, promoHyperlink?: string) => {
+  const handleProfileComplete = useCallback((username: string) => {
     setDjUsername(username);
-    setInitialPromoText(promoText);
-    setInitialPromoHyperlink(promoHyperlink);
     setSetupStep('audio');
   }, []);
 
@@ -314,12 +310,6 @@ export function RecordClient() {
         broadcastToken={session.broadcastToken}
         djUsername={djUsername}
         userId={user?.uid}
-        promoText={initialPromoText}
-        promoHyperlink={initialPromoHyperlink}
-        onPromoChange={(text, hyperlink) => {
-          setInitialPromoText(text);
-          setInitialPromoHyperlink(hyperlink);
-        }}
         onChangeSource={handleChangeSource}
         audioSourceLabel={audioSourceLabel}
         isRecordingMode={true}
@@ -357,12 +347,6 @@ export function RecordClient() {
         broadcastToken=""
         djUsername={djUsername}
         userId={user?.uid}
-        promoText={initialPromoText}
-        promoHyperlink={initialPromoHyperlink}
-        onPromoChange={(text, hyperlink) => {
-          setInitialPromoText(text);
-          setInitialPromoHyperlink(hyperlink);
-        }}
         onChangeAudioSetup={handleBack}
         onChangeSource={handleChangeSource}
         audioSourceLabel={audioSourceLabel}
@@ -505,13 +489,11 @@ export function RecordClient() {
             {/* DJ Profile setup (reused component) */}
             <DJProfileSetup
               defaultUsername={chatUsername || ''}
-              defaultPromoText={djProfile?.promoText || undefined}
-              defaultPromoHyperlink={djProfile?.promoHyperlink || undefined}
               broadcastType="recording"
               isVenueRecording={broadcastType === 'venue'}
-              onComplete={(username, promoText, promoHyperlink) => {
+              onComplete={(username) => {
                 if (showName.trim()) {
-                  handleProfileComplete(username, promoText, promoHyperlink);
+                  handleProfileComplete(username);
                 }
               }}
             />

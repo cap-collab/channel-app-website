@@ -79,8 +79,6 @@ interface DJProfileData {
   photoUrl?: string | null;
   location?: string | null;
   genres?: string[];
-  promoText?: string | null;
-  promoHyperlink?: string | null;
   socialLinks?: {
     instagram?: string;
     soundcloud?: string;
@@ -192,8 +190,6 @@ export async function POST(request: NextRequest) {
           photoUrl: djProfile?.photoUrl || null,
           location: djProfile?.location || null,
           genres: djProfile?.genres || [],
-          promoText: djProfile?.promoText || null,
-          promoHyperlink: djProfile?.promoHyperlink || null,
           // Auto-populate tipButtonLink from bandcamp if not explicitly set
           tipButtonLink: djProfile?.socialLinks?.bandcamp || null,
           socialLinks: djProfile?.socialLinks || {},
@@ -320,8 +316,6 @@ export async function PATCH(request: NextRequest) {
       photoUrl: djProfile?.photoUrl ?? existingData?.djProfile?.photoUrl ?? null,
       location: djProfile?.location || null,
       genres: djProfile?.genres || [],
-      promoText: djProfile?.promoText || null,
-      promoHyperlink: djProfile?.promoHyperlink || null,
       // Auto-populate tipButtonLink from bandcamp if not already set
       tipButtonLink: existingTipButtonLink || djProfile?.socialLinks?.bandcamp || null,
       socialLinks: djProfile?.socialLinks || {},

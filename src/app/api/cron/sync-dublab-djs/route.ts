@@ -185,8 +185,6 @@ export async function GET(request: NextRequest) {
               location: "Los Angeles",  // dublab is LA-based
               genres: [],
               socialLinks: {},
-              promoText: null,
-              promoHyperlink: null,
             },
             validatedFrom: publicUrl,
             createdAt: now,

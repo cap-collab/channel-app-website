@@ -41,8 +41,6 @@ export async function GET(request: NextRequest) {
       // DJ profile fields
       djBio: djProfile.bio || null,
       djPhotoUrl: djProfile.photoUrl || null,
-      djPromoText: djProfile.promoText || null,
-      djPromoHyperlink: djProfile.promoHyperlink || null,
       djThankYouMessage: djProfile.thankYouMessage || null,
       djSocialLinks: djProfile.socialLinks || null,
       // Legacy field names (for backwards compatibility)

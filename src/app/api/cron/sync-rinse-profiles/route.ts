@@ -376,8 +376,6 @@ export async function GET(request: NextRequest) {
               location: "London", // Rinse FM is London-based
               genres: profile.genres,
               socialLinks: {},
-              promoText: null,
-              promoHyperlink: null,
             },
             validatedFrom: profile.validationUrl,
             createdAt: now,

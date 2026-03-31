@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       liveDjTipButtonLink: normalizedLink || FieldValue.delete(),
     });
 
-    // Sync to the slot's configured DJ profile (same pattern as promo sync)
+    // Sync to the slot's configured DJ profile
     const slotDjUserId = slot.djUserId;
     if (slotDjUserId) {
       try {

@@ -79,8 +79,6 @@ export async function POST(request: NextRequest) {
     const liveDjChatUsername = userProfileData?.chatUsername || null;
     const liveDjBio = djSlot.djBio || djProfile?.bio || null;
     const liveDjPhotoUrl = djSlot.djPhotoUrl || djProfile?.photoUrl || null;
-    const liveDjPromoText = djSlot.djPromoText || djProfile?.promoText || null;
-    const liveDjPromoHyperlink = djSlot.djPromoHyperlink || djProfile?.promoHyperlink || null;
     const liveDjThankYouMessage = djSlot.djThankYouMessage || djProfile?.thankYouMessage || null;
 
     const updateData: Record<string, unknown> = {
@@ -90,8 +88,6 @@ export async function POST(request: NextRequest) {
       liveDjChatUsername,
       liveDjBio,
       liveDjPhotoUrl,
-      liveDjPromoText,
-      liveDjPromoHyperlink,
       liveDjThankYouMessage,
       djEmail: djSlot.djEmail || null,
       updatedAt: FieldValue.serverTimestamp(),
@@ -104,8 +100,6 @@ export async function POST(request: NextRequest) {
           ...dj,
           liveDjUserId: djSlot.djUserId || null,
           liveDjUsername: liveDjUsername || null,
-          promoText: djSlot.djPromoText || null,
-          promoHyperlink: djSlot.djPromoHyperlink || null,
         };
       }
       return dj;

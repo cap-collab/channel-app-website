@@ -35,7 +35,6 @@ interface LiveIndicatorProps {
   onEndBroadcast: () => void;
   broadcastToken?: string;
   djUsername?: string;
-  initialPromoSubmitted?: boolean;
   isVenue?: boolean;
   onChangeUsername?: (newUsername: string) => void;
 }
@@ -50,7 +49,7 @@ function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername, initialPromoSubmitted, isVenue = false, onChangeUsername }: LiveIndicatorProps) {
+export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername, isVenue = false, onChangeUsername }: LiveIndicatorProps) {
   const { user } = useAuthContext();
   const [copied, setCopied] = useState(false);
   const [listenerCount, setListenerCount] = useState(0);
@@ -299,7 +298,7 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
               </button>
             </div>
             <p className="text-gray-500 text-xs mt-2">
-              Share this link to provide access to your livestream, chat, and promo link
+              Share this link to provide access to your livestream and chat
             </p>
           </div>
 
@@ -331,7 +330,6 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
             broadcastToken={broadcastToken}
             broadcastSlotId={slot.id}
             isVenue={isVenue}
-            initialPromoSubmitted={initialPromoSubmitted}
             onChangeUsername={onChangeUsername}
           />
         </div>

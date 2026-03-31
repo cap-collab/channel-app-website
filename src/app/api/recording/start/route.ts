@@ -145,8 +145,6 @@ export async function POST(request: NextRequest) {
       liveDjUsername: chatUsername,
       liveDjBio: djProfile.bio || null,
       liveDjPhotoUrl: djProfile.photoUrl || null,
-      liveDjPromoText: djProfile.promoText || null,
-      liveDjPromoHyperlink: djProfile.promoHyperlink || null,
       // Tagged DJs for venue recordings
       ...(validatedTaggedDJs && { taggedDJs: validatedTaggedDJs }),
     };

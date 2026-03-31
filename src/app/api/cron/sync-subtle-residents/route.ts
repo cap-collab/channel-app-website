@@ -176,8 +176,6 @@ export async function GET(request: NextRequest) {
             location: location,
             genres: genres.length > 0 ? genres : [],
             socialLinks: Object.keys(socialLinks).length > 0 ? socialLinks : {},
-            promoText: null,
-            promoHyperlink: null,
           },
           validatedFrom: publicUrl,
           createdAt: now,

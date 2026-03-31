@@ -39,8 +39,6 @@ interface LocalDJProfile {
   usernameNormalized?: string;
   bio?: string;
   photoUrl?: string;
-  promoText?: string;
-  promoHyperlink?: string;
   thankYouMessage?: string;
   socialLinks?: {
     soundcloud?: string;
@@ -65,8 +63,6 @@ interface LocalDJSlot {
   djUsername?: string;
   djBio?: string;
   djPhotoUrl?: string;
-  djPromoText?: string;
-  djPromoHyperlink?: string;
   djThankYouMessage?: string;
   djSocialLinks?: {
     soundcloud?: string;
@@ -363,8 +359,6 @@ export function SlotModal({
           usernameNormalized: undefined,
           bio: undefined,
           photoUrl: undefined,
-          promoText: undefined,
-          promoHyperlink: undefined,
           thankYouMessage: undefined,
           socialLinks: undefined,
         };
@@ -399,8 +393,6 @@ export function SlotModal({
             usernameNormalized: data.djUsernameNormalized,
             bio: data.djBio,
             photoUrl: data.djPhotoUrl,
-            promoText: data.djPromoText,
-            promoHyperlink: data.djPromoHyperlink,
             thankYouMessage: data.djThankYouMessage,
             socialLinks: data.djSocialLinks,
           };
@@ -414,8 +406,6 @@ export function SlotModal({
             usernameNormalized: undefined,
             bio: undefined,
             photoUrl: undefined,
-            promoText: undefined,
-            promoHyperlink: undefined,
             thankYouMessage: undefined,
             socialLinks: undefined,
           };
@@ -471,8 +461,6 @@ export function SlotModal({
             usernameNormalized: data.djUsernameNormalized || undefined,
             bio: data.djBio || undefined,
             photoUrl: data.djPhotoUrl || undefined,
-            promoText: data.djPromoText || undefined,
-            promoHyperlink: data.djPromoHyperlink || undefined,
             thankYouMessage: data.djThankYouMessage || undefined,
             socialLinks: data.djSocialLinks || undefined,
           };
@@ -636,8 +624,6 @@ export function SlotModal({
                 usernameNormalized: p.usernameNormalized,
                 bio: p.bio,
                 photoUrl: p.photoUrl,
-                promoText: p.promoText,
-                promoHyperlink: p.promoHyperlink,
                 thankYouMessage: p.thankYouMessage,
                 socialLinks: p.socialLinks,
                 profileFound: !!p.userId,
@@ -650,8 +636,6 @@ export function SlotModal({
                 username: dj.djUsername,
                 bio: dj.djBio,
                 photoUrl: dj.djPhotoUrl,
-                promoText: dj.djPromoText,
-                promoHyperlink: dj.djPromoHyperlink,
                 thankYouMessage: dj.djThankYouMessage,
                 socialLinks: dj.djSocialLinks,
                 profileFound: !!dj.djUserId,
@@ -674,8 +658,6 @@ export function SlotModal({
               djUsername: dj.djUsername,
               djBio: dj.djBio,
               djPhotoUrl: dj.djPhotoUrl,
-              djPromoText: dj.djPromoText,
-              djPromoHyperlink: dj.djPromoHyperlink,
               djThankYouMessage: dj.djThankYouMessage,
               djSocialLinks: dj.djSocialLinks,
               profileFound: !!dj.djUserId,
@@ -826,8 +808,6 @@ export function SlotModal({
                 usernameNormalized: p.usernameNormalized || undefined,
                 bio: p.bio || undefined,
                 photoUrl: p.photoUrl || undefined,
-                promoText: p.promoText || undefined,
-                promoHyperlink: p.promoHyperlink || undefined,
                 thankYouMessage: p.thankYouMessage || undefined,
                 socialLinks: p.socialLinks || undefined,
               }));
@@ -843,8 +823,6 @@ export function SlotModal({
               djUsername: firstProfile?.username || undefined,
               djBio: firstProfile?.bio || undefined,
               djPhotoUrl: firstProfile?.photoUrl || undefined,
-              djPromoText: firstProfile?.promoText || undefined,
-              djPromoHyperlink: firstProfile?.promoHyperlink || undefined,
               djThankYouMessage: firstProfile?.thankYouMessage || undefined,
               djSocialLinks: firstProfile?.socialLinks || undefined,
               // B3B support: all DJ profiles

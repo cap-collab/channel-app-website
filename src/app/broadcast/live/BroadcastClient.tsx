@@ -14,7 +14,6 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { AudioInputMethod } from '@/types/broadcast';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { QueuedWaitingScreen } from '@/components/broadcast/QueuedWaitingScreen';
-import { normalizeUrl } from '@/lib/url';
 
 type OnboardingStep = 'profile' | 'audio';
 
@@ -44,15 +43,13 @@ export function BroadcastClient() {
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>('profile');
   const [djUsername, setDjUsername] = useState<string>('');
   const [slotDjUserId, setSlotDjUserId] = useState<string | undefined>(); // The slot's linked DJ userId
-  const [initialPromoText, setInitialPromoText] = useState<string | undefined>();
-  const [initialPromoHyperlink, setInitialPromoHyperlink] = useState<string | undefined>();
   const [initialTipButtonLink, setInitialTipButtonLink] = useState<string | undefined>();
 
   // Multi-DJ show: track current DJ slot to detect DJ changes (use ref to avoid re-render loops)
   const currentDjSlotIdRef = useRef<string | null>(null);
 
   // Fetch DJ profile data from the slot's linked DJ (user or pending)
-  // This pre-populates promo text, promo hyperlink, and thank you message
+  // This pre-populates tip button link and thank you message
   useEffect(() => {
     if (!token || !slot) return;
     // Don't fetch if multi-DJ slot detection will handle it
@@ -65,8 +62,6 @@ export function BroadcastClient() {
         const data = await res.json();
         if (data.djUserId && !slotDjUserId) setSlotDjUserId(data.djUserId);
         if (data.chatUsername && !djUsername) setDjUsername(data.chatUsername);
-        if (data.promoText && !initialPromoText) setInitialPromoText(data.promoText);
-        if (data.promoHyperlink && !initialPromoHyperlink) setInitialPromoHyperlink(data.promoHyperlink);
         if (data.tipButtonLink && !initialTipButtonLink) setInitialTipButtonLink(data.tipButtonLink);
       } catch (err) {
         console.error('Failed to fetch slot DJ profile:', err);
@@ -118,7 +113,6 @@ export function BroadcastClient() {
   const [goingLiveCountdown, setGoingLiveCountdown] = useState(15);
   const [canGoLive, setCanGoLive] = useState(false);
   const [goLiveMessage, setGoLiveMessage] = useState('');
-  const [initialPromoSubmitted, setInitialPromoSubmitted] = useState(false);
   const [slotEnded, setSlotEnded] = useState(false);
   const [roomBusy, setRoomBusy] = useState(false);
   const [roomBusyUntil, setRoomBusyUntil] = useState<number | null>(null);
@@ -162,10 +156,7 @@ export function BroadcastClient() {
           // Use djUsername (chat username from profile) if available, otherwise fall back to djName
           const username = activeDjSlot.djUsername || activeDjSlot.djName || '';
           setDjUsername(username);
-          setInitialPromoText(activeDjSlot.djPromoText || activeDjSlot.promoText);
-          setInitialPromoHyperlink(activeDjSlot.djPromoHyperlink || activeDjSlot.promoHyperlink);
           setInitialTipButtonLink(activeDjSlot.djTipButtonLink);
-          setInitialPromoSubmitted(false);
 
           // If broadcast is live, call switch-dj API to update backend
           if (isLiveForDjSwitch && slot.id && newSlotId) {
@@ -186,8 +177,6 @@ export function BroadcastClient() {
         } else {
           // No active slot - clear info
           setDjUsername('');
-          setInitialPromoText(undefined);
-          setInitialPromoHyperlink(undefined);
         }
 
         currentDjSlotIdRef.current = newSlotId;
@@ -360,38 +349,13 @@ export function BroadcastClient() {
       const success = await broadcast.goLive(audioStream);
       console.log('[handleGoLive] broadcast.goLive returned:', success);
 
-      // If we have an initial promo from onboarding, submit it now
-      if (success && initialPromoText && token) {
-        try {
-          const promoRes = await fetch('/api/broadcast/dj-promo', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              broadcastToken: token,
-              promoText: initialPromoText,
-              promoHyperlink: initialPromoHyperlink ? normalizeUrl(initialPromoHyperlink) : undefined,
-              username: djUsername,
-            }),
-          });
-
-          if (promoRes.ok) {
-            setInitialPromoSubmitted(true);
-          } else {
-            const errorData = await promoRes.json();
-            console.error('Failed to submit initial promo:', errorData.error);
-          }
-        } catch (err) {
-          console.error('Failed to submit initial promo:', err);
-        }
-      }
-
       if (!success) {
         console.error('Failed to go live:', broadcast.error);
       }
     } finally {
       setIsGoingLive(false);
     }
-  }, [audioStream, broadcast, initialPromoText, initialPromoHyperlink, token, djUsername]);
+  }, [audioStream, broadcast]);
 
   const handleQueueGoLive = useCallback(async () => {
     if (!audioStream) return;
@@ -486,10 +450,8 @@ export function BroadcastClient() {
   }, [audioStream, broadcast.isLive, handleEndBroadcast]);
 
   // DJ onboarding handler
-  const handleProfileComplete = useCallback((username: string, promoText?: string, promoHyperlink?: string) => {
+  const handleProfileComplete = useCallback((username: string) => {
     setDjUsername(username);
-    setInitialPromoText(promoText);
-    setInitialPromoHyperlink(promoHyperlink);
     setOnboardingStep('audio');
   }, []);
 
@@ -629,24 +591,15 @@ export function BroadcastClient() {
           broadcastToken={token || ''}
           djUsername={djUsername}
           userId={broadcastDjUserId}
-          promoText={initialPromoText}
-          promoHyperlink={initialPromoHyperlink}
-          onPromoChange={(text, hyperlink) => {
-            setInitialPromoText(text);
-            setInitialPromoHyperlink(hyperlink);
-            setInitialPromoSubmitted(true);
-          }}
           tipButtonLink={initialTipButtonLink}
           onTipButtonLinkChange={setInitialTipButtonLink}
           isVenue={slot?.broadcastType === 'venue'}
           onChangeUsername={slot?.broadcastType === 'venue' ? setDjUsername : undefined}
-          initialPromoSubmitted={initialPromoSubmitted}
           audioSourceLabel={audioSourceLabel}
         />
 
         {/* New DJ profile overlay for multi-DJ shows */}
         {needsNewDjProfile && (() => {
-          const activeDjSlot = getCurrentDjSlot();
           return (
             <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
               <div className="relative">
@@ -658,8 +611,6 @@ export function BroadcastClient() {
                 </div>
                 <DJProfileSetup
                   defaultUsername={getDefaultDjName()}
-                  defaultPromoText={activeDjSlot?.djPromoText || activeDjSlot?.promoText || initialPromoText || slot?.showPromoText}
-                  defaultPromoHyperlink={activeDjSlot?.djPromoHyperlink || activeDjSlot?.promoHyperlink || initialPromoHyperlink || slot?.showPromoHyperlink}
                   showName={slot?.showName}
                   broadcastType={slot?.broadcastType}
                   onComplete={handleProfileComplete}
@@ -754,16 +705,12 @@ export function BroadcastClient() {
   // DJ Onboarding - Profile setup (with non-blocking inline login prompt)
   // All broadcasts show the profile step so DJs can confirm their info and accept terms
   if (onboardingStep === 'profile') {
-    // Get active DJ slot for pre-filling profile data
-    const activeDjSlot = getCurrentDjSlot();
     return (
       <div className="min-h-screen bg-[#1a1a1a]">
         <BroadcastHeader />
         <div className="flex items-center justify-center p-8 min-h-[calc(100vh-60px)]">
         <DJProfileSetup
           defaultUsername={getDefaultDjName()}
-          defaultPromoText={activeDjSlot?.djPromoText || activeDjSlot?.promoText || initialPromoText || slot?.showPromoText}
-          defaultPromoHyperlink={activeDjSlot?.djPromoHyperlink || activeDjSlot?.promoHyperlink || initialPromoHyperlink || slot?.showPromoHyperlink}
           showName={slot?.showName}
           broadcastType={slot?.broadcastType}
           onComplete={handleProfileComplete}
@@ -794,17 +741,10 @@ export function BroadcastClient() {
           broadcastToken={token || ''}
           djUsername={djUsername}
           userId={broadcastDjUserId}
-          promoText={initialPromoText}
-          promoHyperlink={initialPromoHyperlink}
-          onPromoChange={(text, hyperlink) => {
-            setInitialPromoText(text);
-            setInitialPromoHyperlink(hyperlink);
-          }}
           tipButtonLink={initialTipButtonLink}
           onTipButtonLinkChange={setInitialTipButtonLink}
           isVenue={slot?.broadcastType === 'venue'}
           onChangeUsername={slot?.broadcastType === 'venue' ? setDjUsername : undefined}
-          initialPromoSubmitted={initialPromoSubmitted}
           onChangeAudioSetup={handleBack}
           onChangeSource={handleChangeSource}
           audioSourceLabel={audioSourceLabel}

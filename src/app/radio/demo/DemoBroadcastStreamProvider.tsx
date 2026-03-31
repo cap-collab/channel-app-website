@@ -36,7 +36,6 @@ const DEMO_SHOW_LIVE: BroadcastSlotSerialized = {
   createdBy: 'demo',
   status: 'live',
   broadcastType: 'remote',
-  liveDjPromoText: 'Skee\'s insight through his daily listening habits, from guilty pleasures to casual recommendations and in between…',
   liveDjGenres: ['Deep House', 'Dub Techno', 'Techno'],
   liveDjDescription: 'Skee\'s insight through his daily listening habits, from guilty pleasures to casual recommendations and in between…',
   archiveId: 'demo-archive',

@@ -24,7 +24,7 @@ export interface BroadcastStreamContextValue {
   // From lightweight status hook (always available)
   showName: string | null;
   djName: string | null;
-  // Resolved external tip link (tipButtonLink > promoHyperlink > bandcamp)
+  // Resolved external tip link (tipButtonLink > bandcamp)
   tipLink: string | null;
   // Whether the hero sticky bar on /radio is currently visible
   heroBarVisible: boolean;
