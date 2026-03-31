@@ -807,6 +807,22 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
         setMetadata(fallbackArtworkUrl);
       }
 
+      // Disable skip/seek buttons in mobile control center — not applicable for live radio
+      // Use null to remove buttons; use no-op for seekto to keep the progress bar visible
+      const disableActions: MediaSessionAction[] = ['seekforward', 'seekbackward', 'previoustrack', 'nexttrack'];
+      for (const action of disableActions) {
+        try {
+          navigator.mediaSession.setActionHandler(action, null);
+        } catch {
+          // Browser doesn't support this action
+        }
+      }
+      try {
+        navigator.mediaSession.setActionHandler('seekto', () => {});
+      } catch {
+        // Browser doesn't support seekto
+      }
+
       // Show progress bar based on show start/end time, update every 2 min
       const duration = (currentShow.endTime - currentShow.startTime) / 1000;
 
