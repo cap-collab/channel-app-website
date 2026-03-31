@@ -754,7 +754,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
     if (!('mediaSession' in navigator)) return;
 
     if (isPlaying && currentShow) {
-      // Match hero image priority: show image > DJ photo > primary restream DJ photo
+      // Match hero image priority: show image > DJ photo > primary restream DJ photo > default logo
       const primaryRestreamDjPhoto = (() => {
         if (!currentShow.restreamDjs || currentShow.restreamDjs.length === 0) return null;
         const primary = currentShow.restreamDjs.find(dj => dj.userId)
@@ -763,15 +763,31 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
         return primary?.photoUrl || null;
       })();
       const artworkUrl = currentShow.showImageUrl || currentShow.liveDjPhotoUrl || primaryRestreamDjPhoto;
+      // Always provide artwork — use channel logo as fallback to prevent blank/white control center
+      const fallbackArtworkUrl = `${window.location.origin}/logo-white-on-black-padded.png`;
 
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: currentShow.showName || 'Live Broadcast',
-        artist: currentDJ || undefined,
-        album: 'channel radio',
-        ...(artworkUrl ? {
-          artwork: [{ src: artworkUrl, sizes: '512x512', type: 'image/jpeg' }],
-        } : {}),
-      });
+      // Preload artwork image before updating MediaMetadata to prevent iOS showing blank
+      // during the async fetch. Set metadata with fallback first, then upgrade to actual artwork.
+      const setMetadata = (imgSrc: string) => {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: currentShow.showName || 'Live Broadcast',
+          artist: currentDJ || undefined,
+          album: 'channel radio',
+          artwork: [{ src: imgSrc, sizes: '512x512', type: 'image/jpeg' }],
+        });
+      };
+
+      if (artworkUrl) {
+        // Set fallback immediately so control center is never blank
+        setMetadata(fallbackArtworkUrl);
+        // Preload the actual artwork, then update once ready
+        const img = new Image();
+        img.onload = () => setMetadata(artworkUrl);
+        img.onerror = () => {}; // Keep fallback on error
+        img.src = artworkUrl;
+      } else {
+        setMetadata(fallbackArtworkUrl);
+      }
 
       // Show progress bar based on show start/end time, update every 2 min
       const duration = (currentShow.endTime - currentShow.startTime) / 1000;
