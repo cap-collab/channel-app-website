@@ -434,11 +434,18 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
     []
   );
 
+  const playingLockRef = useRef(false);
+
   const play = useCallback(async () => {
     if (!isLive) {
       setError('Stream not available');
       return;
     }
+
+    // Prevent double-calls (e.g. auto-resume effect re-running)
+    if (playingLockRef.current) return;
+    playingLockRef.current = true;
+    setTimeout(() => { playingLockRef.current = false; }, 2000);
 
     userPausedRef.current = false; // Reset — user is actively playing
     setIsLoading(true);
