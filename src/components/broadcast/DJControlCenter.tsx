@@ -7,8 +7,6 @@ import { AudioStatusPanel } from './AudioStatusPanel';
 import { BroadcastSettingsPanel } from './BroadcastSettingsPanel';
 import { DJProfileChatPanel } from '@/components/dj-profile/DJProfileChatPanel';
 
-// Channel app deep link for the broadcast station
-const CHANNEL_BROADCAST_URL = 'https://channel-app.com/radio';
 
 interface DJControlCenterProps {
   slot: BroadcastSlotSerialized | null;
@@ -24,14 +22,10 @@ interface DJControlCenterProps {
   broadcastToken: string;
   djUsername: string;
   userId?: string;
-  promoText?: string;
-  promoHyperlink?: string;
-  onPromoChange?: (text: string, hyperlink: string) => void;
   tipButtonLink?: string;
   onTipButtonLinkChange?: (link: string) => void;
   isVenue?: boolean;
   onChangeUsername?: (newUsername: string) => void;
-  initialPromoSubmitted?: boolean;
   onChangeAudioSetup?: () => void;
   onChangeSource?: () => void;
   audioSourceLabel?: string | null;
@@ -56,14 +50,10 @@ export function DJControlCenter({
   broadcastToken,
   djUsername,
   userId,
-  promoText,
-  promoHyperlink,
-  onPromoChange,
   tipButtonLink,
   onTipButtonLinkChange,
   isVenue = false,
   onChangeUsername,
-  initialPromoSubmitted = false,
   onChangeAudioSetup,
   onChangeSource,
   audioSourceLabel,
@@ -76,14 +66,11 @@ export function DJControlCenter({
   const [copied, setCopied] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
 
-  // For recording mode, use DJ profile URL instead of broadcast URL
   const chatUsernameNormalized = useMemo(() => {
     return djUsername.replace(/[\s-]+/g, '').toLowerCase();
   }, [djUsername]);
 
-  const shareUrl = isRecordingMode
-    ? `https://channel-app.com/dj/${encodeURIComponent(djUsername)}`
-    : CHANNEL_BROADCAST_URL;
+  const shareUrl = `https://channel-app.com/dj/${encodeURIComponent(djUsername)}`;
 
   const copyShareUrl = async () => {
     try {
@@ -141,9 +128,6 @@ export function DJControlCenter({
               <BroadcastSettingsPanel
                 broadcastToken={broadcastToken}
                 djUsername={djUsername}
-                promoText={promoText}
-                promoHyperlink={promoHyperlink}
-                onPromoChange={onPromoChange}
                 tipButtonLink={tipButtonLink}
                 onTipButtonLinkChange={onTipButtonLinkChange}
               />
@@ -151,7 +135,7 @@ export function DJControlCenter({
               {/* Share URL */}
               <div className="bg-[#252525] rounded-xl p-4">
                 <h3 className="text-gray-400 text-sm font-medium mb-3">
-                  {isRecordingMode ? 'Share Your DJ Profile' : 'Share Your Stream'}
+                  Share Your Profile
                 </h3>
                 <div className="flex gap-2">
                   <input
@@ -168,9 +152,7 @@ export function DJControlCenter({
                   </button>
                 </div>
                 <p className="text-gray-600 text-xs mt-2">
-                  {isRecordingMode
-                    ? 'Share your DJ profile with friends and followers'
-                    : 'Share this link for listeners to tune in via the Channel app'}
+                  Share your DJ profile with friends and followers
                 </p>
               </div>
 
@@ -205,10 +187,7 @@ export function DJControlCenter({
                   broadcastToken={isRecordingMode ? undefined : broadcastToken}
                   broadcastSlotId={slot.id}
                   isVenue={isVenue}
-                  initialPromoSubmitted={initialPromoSubmitted}
                   onChangeUsername={onChangeUsername}
-                  activePromoText={promoText}
-                  activePromoHyperlink={promoHyperlink}
                   currentShowStartTime={slot.startTime}
                 />
               </div>
