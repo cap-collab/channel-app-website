@@ -1753,7 +1753,7 @@ export function StudioProfileClient() {
                 href="/record"
                 className="flex-1 block bg-gray-800 text-white text-center py-3 rounded font-medium hover:bg-gray-700 transition-colors border border-gray-700"
               >
-                Record my live set
+                Record a set
               </Link>
               <Link
                 href="/studio/livestream"
@@ -1831,12 +1831,6 @@ export function StudioProfileClient() {
               ) : recordings.length === 0 ? (
                 <div className="p-4 text-center">
                   <p className="text-gray-500">No recordings yet</p>
-                  <Link
-                    href="/record"
-                    className="inline-block mt-2 text-blue-400 hover:text-blue-300 text-sm transition-colors"
-                  >
-                    Start recording &rarr;
-                  </Link>
                 </div>
               ) : (
                 <div className="space-y-2 p-2">

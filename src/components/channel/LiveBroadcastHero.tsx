@@ -770,7 +770,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
 
         {/* Tab Content */}
         {activeTab === 'chat' ? (
-          <div className={`flex flex-col ${hasRecentMessages ? 'h-[45vh] lg:h-[38vh]' : 'h-[29vh] lg:h-[23vh]'}`}>
+          <div className={`flex flex-col ${hasRecentMessages ? 'h-[45dvh] lg:h-[38dvh]' : 'h-[29dvh] lg:h-[23dvh]'}`}>
             {/* Promo bar */}
             {promoToShow && promoToShow.username && (() => {
               const hasHyperlink = !!promoToShow.hyperlink;
@@ -854,7 +854,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
             ) : (
               <>
                 {/* Messages */}
-                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto">
+                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto overscroll-y-contain">
                   {messages.length === 0 ? (
                     <div className="flex items-center justify-center py-12 text-zinc-500">
                       <p>No messages yet. Start the conversation!</p>
@@ -903,7 +903,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
             )}
           </div>
         ) : (
-          <div className="py-4 overflow-y-auto h-[29vh] lg:h-[23vh]">
+          <div className="py-4 overflow-y-auto overscroll-y-contain h-[29dvh] lg:h-[23dvh]">
             <BroadcastSchedule
               shows={scheduleShows}
               selectedDate={selectedDate}
