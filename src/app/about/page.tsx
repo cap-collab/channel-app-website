@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import ScrollReveal from "@/components/ScrollReveal";
 import { EmailSignup } from "@/components/EmailSignup";
 import FAQAccordion from "@/components/FAQAccordion";
@@ -24,7 +23,7 @@ const faqItems = [
   {
     question: "How much does it cost?",
     answer:
-      "Channel is free to use. No ads.\n\nThe radio runs on a revenue share model that supports the people hosting the shows.",
+      "Channel is free to use. No ads.",
   },
 ];
 
@@ -109,18 +108,7 @@ export default function About() {
         </ScrollReveal>
       </section>
 
-      {/* Mobile mockup preview */}
-      <div className="md:hidden flex justify-center bg-black pt-12 pb-4 px-6">
-        <Image
-          src="/curated.png"
-          alt="Channel app preview"
-          width={250}
-          height={500}
-          className="rounded-2xl"
-        />
-      </div>
-
-      {/* Values Section - 3 columns with mockups below */}
+      {/* Values Section - 3 columns */}
       <section className="py-24 px-6 bg-black">
         <ScrollReveal>
           <div className="max-w-6xl mx-auto">
@@ -136,15 +124,6 @@ export default function About() {
                   here is intentional, rooted in trust, taste, and local
                   scenes.
                 </p>
-                <div className="hidden md:block transform scale-[0.55] origin-top -mb-[45%]">
-                  <Image
-                    src="/CuratedFilter.png"
-                    alt="Curated"
-                    width={300}
-                    height={200}
-                    className="rounded"
-                  />
-                </div>
               </div>
 
               {/* Independent */}
@@ -158,15 +137,6 @@ export default function About() {
                   connect with others in the room through chat. No ads. No
                   feed. No algorithm deciding what you should hear.
                 </p>
-                <div className="hidden md:block transform scale-[0.55] origin-top -mb-[45%]">
-                  <Image
-                    src="/independent.png"
-                    alt="Independent"
-                    width={300}
-                    height={200}
-                    className="rounded"
-                  />
-                </div>
               </div>
 
               {/* Collaborative */}
@@ -180,15 +150,6 @@ export default function About() {
                   that. Curators host shows, share the music they care about,
                   and bring their communities together.
                 </p>
-                <div className="hidden md:block transform scale-[0.55] origin-top -mb-[45%]">
-                  <Image
-                    src="/collaborative.png"
-                    alt="Collaborative"
-                    width={300}
-                    height={200}
-                    className="rounded"
-                  />
-                </div>
               </div>
             </div>
           </div>
