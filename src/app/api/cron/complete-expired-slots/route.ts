@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { EgressClient, IngressClient, RoomServiceClient } from 'livekit-server-sdk';
+import { EgressClient, RoomServiceClient } from 'livekit-server-sdk';
 import { ROOM_NAME } from '@/types/broadcast';
 
 // LiveKit server configuration
@@ -78,14 +78,23 @@ export async function GET(request: NextRequest) {
 
         // Clean up LiveKit resources when slot ends
         if (slot.status === 'live') {
-          // Clean up restream ingress + egress if this was a restream
-          if (slot.restreamIngressId && livekitHost && apiKey && apiSecret) {
-            try {
-              const ingressClient = new IngressClient(livekitHost, apiKey, apiSecret);
-              await ingressClient.deleteIngress(slot.restreamIngressId);
-              console.log(`Deleted restream ingress ${slot.restreamIngressId} for slot ${doc.id}`);
-            } catch (e) {
-              console.log(`Could not delete restream ingress ${slot.restreamIngressId}: ${e}`);
+          // Clean up restream worker if this was a restream
+          if (slot.restreamWorkerId || slot.restreamIngressId) {
+            const restreamWorkerUrl = process.env.RESTREAM_WORKER_URL;
+            if (restreamWorkerUrl) {
+              try {
+                await fetch(`${restreamWorkerUrl}/stop`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${process.env.CRON_SECRET}`,
+                  },
+                  body: JSON.stringify({ slotId: doc.id }),
+                });
+                console.log(`Stopped restream worker for slot ${doc.id}`);
+              } catch (e) {
+                console.log(`Could not stop restream worker for slot ${doc.id}: ${e}`);
+              }
             }
           }
           if (slot.restreamEgressId) {
@@ -100,7 +109,7 @@ export async function GET(request: NextRequest) {
 
           // Disconnect DJ from LiveKit if they're still connected
           if (roomService) {
-            const djIdentity = slot.restreamIngressId
+            const djIdentity = (slot.restreamWorkerId || slot.restreamIngressId)
               ? `restream-${doc.id}`
               : (slot.liveDjUsername || slot.liveDjUserId);
             if (djIdentity) {
@@ -137,8 +146,8 @@ export async function GET(request: NextRequest) {
         if (slot.status !== 'scheduled' && slot.status !== 'live') continue;
         // Skip if not yet started or already ended
         if (!startTime || now < startTime || now >= endTime) continue;
-        // Skip if already live AND already has ingress set up
-        if (slot.status === 'live' && slot.restreamIngressId) continue;
+        // Skip if already live AND already has worker/ingress set up
+        if (slot.status === 'live' && (slot.restreamWorkerId || slot.restreamIngressId)) continue;
 
         // Call the start-restream endpoint to create ingress
         // (the HLS egress is started by the LiveKit webhook when the ingress publishes audio)

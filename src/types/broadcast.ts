@@ -136,7 +136,8 @@ export interface BroadcastSlot {
   archiveRecordingUrl?: string;   // Cached MP4 URL from the archive
   archiveDuration?: number;       // Duration in seconds
   restreamDjs?: ArchiveDJ[];      // All DJs from the archive (for multi-DJ restream display)
-  restreamIngressId?: string;     // LiveKit ingress ID for URL playback (set by start-restream)
+  restreamIngressId?: string;     // LiveKit ingress ID for URL playback (legacy)
+  restreamWorkerId?: string;      // Restream worker slot ID (set by start-restream)
   restreamEgressId?: string;      // LiveKit HLS egress ID (set by webhook on track_published)
 }
 

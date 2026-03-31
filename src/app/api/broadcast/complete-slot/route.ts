@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { BroadcastSlot, Recording, ROOM_NAME } from '@/types/broadcast';
-import { EgressClient, IngressClient, RoomServiceClient } from 'livekit-server-sdk';
+import { EgressClient, RoomServiceClient } from 'livekit-server-sdk';
 
 const livekitHost = process.env.LIVEKIT_URL?.replace('wss://', 'https://') || '';
 const apiKey = process.env.LIVEKIT_API_KEY || '';
@@ -129,14 +129,24 @@ export async function POST(request: NextRequest) {
 
     // Clean up LiveKit resources if slot was live
     if (slot.status === 'live' && newStatus === 'completed' && livekitHost && apiKey && apiSecret) {
-      // Clean up restream ingress + egress if this was a restream
-      if (slot.restreamIngressId) {
-        try {
-          const ingressClient = new IngressClient(livekitHost, apiKey, apiSecret);
-          await ingressClient.deleteIngress(slot.restreamIngressId);
-          console.log(`[complete-slot] Deleted restream ingress ${slot.restreamIngressId}`);
-        } catch (e) {
-          console.log(`[complete-slot] Could not delete restream ingress: ${e}`);
+      // Clean up restream worker + egress if this was a restream
+      if (slot.restreamWorkerId || slot.restreamIngressId) {
+        // Stop the restream worker on Hetzner
+        const restreamWorkerUrl = process.env.RESTREAM_WORKER_URL;
+        if (restreamWorkerUrl) {
+          try {
+            await fetch(`${restreamWorkerUrl}/stop`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.CRON_SECRET}`,
+              },
+              body: JSON.stringify({ slotId }),
+            });
+            console.log(`[complete-slot] Stopped restream worker for slot ${slotId}`);
+          } catch (e) {
+            console.log(`[complete-slot] Could not stop restream worker: ${e}`);
+          }
         }
       }
       if (slot.restreamEgressId) {
@@ -150,7 +160,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Remove participant from LiveKit (DJ or restream bot)
-      const identity = slot.restreamIngressId
+      const identity = (slot.restreamWorkerId || slot.restreamIngressId)
         ? `restream-${slotId}`
         : (slot.liveDjUsername || slot.liveDjUserId);
       if (identity) {

@@ -1,0 +1,10 @@
+{
+  "name": "restream-worker",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@livekit/rtc-node": "^0.13.0",
+    "express": "^4.21.0",
+    "livekit-server-sdk": "^2.15.0"
+  }
+}

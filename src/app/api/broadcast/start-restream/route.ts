@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { IngressClient, IngressInput } from 'livekit-server-sdk';
 import { ROOM_NAME } from '@/types/broadcast';
 
-const livekitHost = process.env.LIVEKIT_URL?.replace('wss://', 'https://') || '';
+const restreamWorkerUrl = process.env.RESTREAM_WORKER_URL || '';
 const apiKey = process.env.LIVEKIT_API_KEY || '';
 const apiSecret = process.env.LIVEKIT_API_SECRET || '';
+const livekitWsUrl = process.env.LIVEKIT_URL || '';
 
-// POST - Start a restream by creating a URL ingress.
-// The HLS egress is started later by the LiveKit webhook when the ingress
-// participant publishes audio (see /api/livekit/webhook track_published handler).
+// POST - Start a restream by calling the restream worker on Hetzner.
+// The worker joins the LiveKit room as a participant, decodes the MP4 with FFmpeg,
+// and publishes audio — exactly like a live DJ's browser does.
+// The HLS egress is then started by the webhook when the worker publishes audio.
 export async function POST(request: NextRequest) {
   try {
     // Verify auth (cron secret or admin)
@@ -42,36 +43,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No archiveRecordingUrl on slot' }, { status: 400 });
     }
 
-    if (!livekitHost || !apiKey || !apiSecret) {
-      return NextResponse.json({ error: 'LiveKit not configured' }, { status: 500 });
+    if (!restreamWorkerUrl) {
+      return NextResponse.json({ error: 'RESTREAM_WORKER_URL not configured' }, { status: 500 });
     }
 
-    // Create URL ingress — the participant will join the room and start publishing.
-    // The LiveKit webhook (track_published) will then start the HLS egress.
-    console.log(`[start-restream] Creating ingress for slot ${slotId}, archiveUrl: ${slot.archiveRecordingUrl}`);
-    const ingressClient = new IngressClient(livekitHost, apiKey, apiSecret);
-    const ingress = await ingressClient.createIngress(
-      IngressInput.URL_INPUT,
-      {
-        name: `restream-${slotId}`,
+    // Call the restream worker on Hetzner to join the room and publish audio
+    console.log(`[start-restream] Starting worker for slot ${slotId}, archiveUrl: ${slot.archiveRecordingUrl}`);
+    const workerResp = await fetch(`${restreamWorkerUrl}/start`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.CRON_SECRET}`,
+      },
+      body: JSON.stringify({
+        slotId,
+        archiveUrl: slot.archiveRecordingUrl,
         roomName: ROOM_NAME,
-        participantIdentity: `restream-${slotId}`,
-        participantName: slot.showName || 'Restream',
-        url: slot.archiveRecordingUrl,
-      }
-    );
-    console.log(`[start-restream] Ingress created: id=${ingress.ingressId} streamKey=${ingress.streamKey || 'none'} (egress will start via webhook)`);
+        apiKey,
+        apiSecret,
+        wsUrl: livekitWsUrl,
+      }),
+    });
 
-    // Set slot to live with ingress ID. Egress ID will be set by the webhook.
+    if (!workerResp.ok) {
+      const err = await workerResp.text();
+      throw new Error(`Worker returned ${workerResp.status}: ${err}`);
+    }
+
+    const workerData = await workerResp.json();
+    console.log(`[start-restream] Worker started: identity=${workerData.identity} (egress will start via webhook)`);
+
+    // Set slot to live. Egress ID will be set by the webhook when track_published fires.
     await slotDoc.ref.update({
       status: 'live',
-      restreamIngressId: ingress.ingressId,
+      restreamWorkerId: slotId, // Track that this slot uses the worker (not ingress)
     });
 
     return NextResponse.json({
       success: true,
       slotId,
-      ingressId: ingress.ingressId,
+      identity: workerData.identity,
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
