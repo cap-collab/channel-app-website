@@ -103,6 +103,12 @@ export async function GET(request: NextRequest) {
     for (const doc of snapshot.docs) {
       const slot = doc.data();
 
+      // Skip restreams — no DJ to remind
+      if (slot.broadcastType === 'restream') {
+        skippedCount++;
+        continue;
+      }
+
       // Skip if reminder already sent
       if (slot.reminderEmailSentAt) {
         skippedCount++;
