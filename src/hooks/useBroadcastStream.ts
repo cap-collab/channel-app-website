@@ -513,11 +513,39 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
         // Check if Safari with native HLS support
         if (audioElementRef.current.canPlayType('application/vnd.apple.mpegurl')) {
           console.log('🎵 Using native HLS (Safari)');
-          audioElementRef.current.src = HLS_URL;
-          await audioElementRef.current.play();
-          captureAudioStream();
-          setIsPlaying(true);
-          setIsLoading(false);
+
+          // For restreams, the HLS segments may not be ready yet (worker is still
+          // cleaning old files and generating new ones). Retry up to 4 times with 5s gaps.
+          const maxRetries = currentShow?.broadcastType === 'restream' ? 4 : 0;
+          let attempt = 0;
+          const tryPlay = async (): Promise<boolean> => {
+            if (userPausedRef.current) return false;
+            audioElementRef.current!.src = HLS_URL;
+            try {
+              await audioElementRef.current!.play();
+              return true;
+            } catch {
+              return false;
+            }
+          };
+
+          let success = await tryPlay();
+          while (!success && attempt < maxRetries) {
+            attempt++;
+            console.log(`🎵 HLS not ready, retrying in 5s (attempt ${attempt}/${maxRetries})`);
+            await new Promise(r => setTimeout(r, 5000));
+            success = await tryPlay();
+          }
+
+          if (success) {
+            captureAudioStream();
+            setIsPlaying(true);
+            setIsLoading(false);
+          } else {
+            console.error('🎵 HLS failed after retries');
+            setError('Tap to play');
+            setIsLoading(false);
+          }
         } else if (Hls.isSupported()) {
           console.log('🎵 Using HLS.js');
           const hls = new Hls({
