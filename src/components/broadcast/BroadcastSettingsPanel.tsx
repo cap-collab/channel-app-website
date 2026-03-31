@@ -4,14 +4,12 @@ import { useState } from 'react';
 
 interface BroadcastSettingsPanelProps {
   broadcastToken: string;
-  djUsername: string;
   tipButtonLink?: string;
   onTipButtonLinkChange?: (link: string) => void;
 }
 
 export function BroadcastSettingsPanel({
   broadcastToken,
-  djUsername,
   tipButtonLink = '',
   onTipButtonLinkChange,
 }: BroadcastSettingsPanelProps) {

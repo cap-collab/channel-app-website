@@ -35,7 +35,7 @@ interface RecordingSession {
 export function RecordClient() {
   const router = useRouter();
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
-  const { chatUsername, djProfile } = useUserProfile(user?.uid);
+  const { chatUsername } = useUserProfile(user?.uid);
 
   // Setup flow state
   const [setupStep, setSetupStep] = useState<SetupStep>('quota');

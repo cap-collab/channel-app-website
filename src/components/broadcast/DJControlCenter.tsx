@@ -127,7 +127,6 @@ export function DJControlCenter({
               {/* Broadcast Settings */}
               <BroadcastSettingsPanel
                 broadcastToken={broadcastToken}
-                djUsername={djUsername}
                 tipButtonLink={tipButtonLink}
                 onTipButtonLinkChange={onTipButtonLinkChange}
               />
