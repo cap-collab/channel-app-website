@@ -213,7 +213,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
           currentShowIdRef.current = doc.id;
 
           if (showChanged && isPlayingRef.current) {
-            console.log('🔄 Show changed while playing, new type:', slot.broadcastType);
+            console.log('🔄 Show changed while playing');
 
             // HLS needs to be recreated for the new show's egress
             if (hlsRef.current) {
@@ -221,37 +221,22 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
               hlsRef.current = null;
             }
 
-            const isNewShowRestream = slot.broadcastType === 'restream';
-            const wasUsingWebRTC = !!roomRef.current;
-
-            if (isNewShowRestream) {
-              // Restreams use FFmpeg → HLS (not the LiveKit room), so we must
-              // fully reset the audio element and reconnect via HLS.
-              // The media sequence resets, so Safari needs a fresh load.
-              console.log('🔄 Switching to HLS for restream');
-              if (roomRef.current) {
-                roomRef.current.disconnect();
-                roomRef.current = null;
-              }
+            // Only tear down audio and reset player if switching to a different room.
+            // For same-room transitions (all shows on channel-radio), the new DJ's tracks
+            // arrive via handleTrackSubscribed automatically — no need to pause/restart.
+            if (roomRef.current && roomRef.current.name !== ROOM_NAME) {
               if (audioElementRef.current) {
                 audioElementRef.current.pause();
                 audioElementRef.current.removeAttribute('src');
                 audioElementRef.current.load();
               }
+              roomRef.current.disconnect();
+              roomRef.current = null;
               setIsPlaying(false);
-              setAutoResumePending(true);
-            } else if (!wasUsingWebRTC) {
-              // Was on HLS (restream), now switching to live — reset audio for WebRTC
-              console.log('🔄 Switching from HLS to WebRTC for live');
-              if (audioElementRef.current) {
-                audioElementRef.current.pause();
-                audioElementRef.current.removeAttribute('src');
-                audioElementRef.current.load();
-              }
-              setIsPlaying(false);
+              wasPlayingRef.current = false;
               setAutoResumePending(true);
             }
-            // Same-room live→live: keep playing, tracks arrive automatically via TrackSubscribed
+            // Same-room: keep playing, tracks arrive automatically via TrackSubscribed
           }
 
           // Find current DJ name:
@@ -434,18 +419,11 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
     []
   );
 
-  const playingLockRef = useRef(false);
-
   const play = useCallback(async () => {
     if (!isLive) {
       setError('Stream not available');
       return;
     }
-
-    // Prevent double-calls (e.g. auto-resume effect re-running)
-    if (playingLockRef.current) return;
-    playingLockRef.current = true;
-    setTimeout(() => { playingLockRef.current = false; }, 2000);
 
     userPausedRef.current = false; // Reset — user is actively playing
     setIsLoading(true);
@@ -513,39 +491,11 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
         // Check if Safari with native HLS support
         if (audioElementRef.current.canPlayType('application/vnd.apple.mpegurl')) {
           console.log('🎵 Using native HLS (Safari)');
-
-          // For restreams, the HLS segments may not be ready yet (worker is still
-          // cleaning old files and generating new ones). Retry up to 4 times with 5s gaps.
-          const maxRetries = currentShow?.broadcastType === 'restream' ? 4 : 0;
-          let attempt = 0;
-          const tryPlay = async (): Promise<boolean> => {
-            if (userPausedRef.current) return false;
-            audioElementRef.current!.src = HLS_URL;
-            try {
-              await audioElementRef.current!.play();
-              return true;
-            } catch {
-              return false;
-            }
-          };
-
-          let success = await tryPlay();
-          while (!success && attempt < maxRetries) {
-            attempt++;
-            console.log(`🎵 HLS not ready, retrying in 5s (attempt ${attempt}/${maxRetries})`);
-            await new Promise(r => setTimeout(r, 5000));
-            success = await tryPlay();
-          }
-
-          if (success) {
-            captureAudioStream();
-            setIsPlaying(true);
-            setIsLoading(false);
-          } else {
-            console.error('🎵 HLS failed after retries');
-            setError('Tap to play');
-            setIsLoading(false);
-          }
+          audioElementRef.current.src = HLS_URL;
+          await audioElementRef.current.play();
+          captureAudioStream();
+          setIsPlaying(true);
+          setIsLoading(false);
         } else if (Hls.isSupported()) {
           console.log('🎵 Using HLS.js');
           const hls = new Hls({
@@ -800,7 +750,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
     if (!('mediaSession' in navigator)) return;
 
     if (isPlaying && currentShow) {
-      // Match hero image priority: show image > DJ photo > primary restream DJ photo > default logo
+      // Match hero image priority: show image > DJ photo > primary restream DJ photo
       const primaryRestreamDjPhoto = (() => {
         if (!currentShow.restreamDjs || currentShow.restreamDjs.length === 0) return null;
         const primary = currentShow.restreamDjs.find(dj => dj.userId)
@@ -809,11 +759,9 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
         return primary?.photoUrl || null;
       })();
       const artworkUrl = currentShow.showImageUrl || currentShow.liveDjPhotoUrl || primaryRestreamDjPhoto;
-      // Always provide artwork — use channel logo as fallback to prevent blank/white control center
+
       const fallbackArtworkUrl = `${window.location.origin}/apple-touch-icon.png`;
 
-      // Preload artwork image before updating MediaMetadata to prevent iOS showing blank
-      // during the async fetch. Set metadata with fallback first, then upgrade to actual artwork.
       const setMetadata = (imgSrc: string) => {
         navigator.mediaSession.metadata = new MediaMetadata({
           title: currentShow.showName || 'Live Broadcast',
@@ -824,19 +772,16 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
       };
 
       if (artworkUrl) {
-        // Set fallback immediately so control center is never blank
         setMetadata(fallbackArtworkUrl);
-        // Preload the actual artwork, then update once ready
         const img = new Image();
         img.onload = () => setMetadata(artworkUrl);
-        img.onerror = () => {}; // Keep fallback on error
+        img.onerror = () => {};
         img.src = artworkUrl;
       } else {
         setMetadata(fallbackArtworkUrl);
       }
 
-      // Disable skip/seek buttons in mobile control center — not applicable for live radio
-      // Use null to remove buttons; use no-op for seekto to keep the progress bar visible
+      // Disable skip/seek buttons in mobile control center
       const disableActions: MediaSessionAction[] = ['seekforward', 'seekbackward', 'previoustrack', 'nexttrack'];
       for (const action of disableActions) {
         try {
