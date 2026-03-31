@@ -23,41 +23,48 @@ interface DJSlot {
 }
 
 // Format a timestamp for the email
-function formatDate(timestamp: number): string {
+const DEFAULT_TIMEZONE = 'America/Los_Angeles';
+
+function formatDate(timestamp: number, timezone: string): string {
   return new Date(timestamp).toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
-    timeZone: 'America/New_York',
+    timeZone: timezone,
   });
 }
 
-function formatTimeRange(startTime: number, endTime: number): string {
-  const opts: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' };
+function formatTimeRange(startTime: number, endTime: number, timezone: string): string {
+  const opts: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', timeZone: timezone };
   const start = new Date(startTime).toLocaleTimeString('en-US', opts);
   const end = new Date(endTime).toLocaleTimeString('en-US', opts);
-  // Get timezone abbreviation
-  const tzAbbr = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', timeZoneName: 'short' })
+  const tzAbbr = new Intl.DateTimeFormat('en-US', { timeZone: timezone, timeZoneName: 'short' })
     .formatToParts(new Date(startTime))
-    .find(p => p.type === 'timeZoneName')?.value || 'ET';
+    .find(p => p.type === 'timeZoneName')?.value || timezone;
   return `${start} – ${end} ${tzAbbr}`;
 }
 
 // Look up DJ's normalized username from pending-dj-profiles or users collection
-async function lookupDjUsername(db: FirebaseFirestore.Firestore, email: string): Promise<string | null> {
+async function lookupDjInfo(db: FirebaseFirestore.Firestore, email: string): Promise<{ username: string | null; timezone: string }> {
   // Check users collection first
   const usersSnap = await db.collection('users').where('email', '==', email).limit(1).get();
   if (!usersSnap.empty) {
     const user = usersSnap.docs[0].data();
-    if (user.chatUsernameNormalized) return user.chatUsernameNormalized;
+    return {
+      username: user.chatUsernameNormalized || null,
+      timezone: user.timezone || DEFAULT_TIMEZONE,
+    };
   }
   // Check pending-dj-profiles
   const pendingSnap = await db.collection('pending-dj-profiles').where('email', '==', email).limit(1).get();
   if (!pendingSnap.empty) {
     const profile = pendingSnap.docs[0].data();
-    if (profile.chatUsernameNormalized) return profile.chatUsernameNormalized;
+    return {
+      username: profile.chatUsernameNormalized || null,
+      timezone: DEFAULT_TIMEZONE,
+    };
   }
-  return null;
+  return { username: null, timezone: DEFAULT_TIMEZONE };
 }
 
 // This cron job runs every hour to send reminder emails 24h before broadcast slots
@@ -139,11 +146,10 @@ export async function GET(request: NextRequest) {
 
       for (const target of emailTargets) {
         try {
-          // Look up DJ username for profile URL
-          let djUsername = target.djUsername;
-          if (!djUsername && target.email) {
-            djUsername = await lookupDjUsername(db, target.email) || undefined;
-          }
+          // Look up DJ username and timezone
+          const djInfo = await lookupDjInfo(db, target.email);
+          const djUsername = target.djUsername || djInfo.username;
+          const djTimezone = djInfo.timezone;
           const profileUrl = djUsername ? `${APP_URL}/dj/${djUsername}` : null;
 
           const success = await sendBroadcastReminderEmail({
@@ -152,8 +158,8 @@ export async function GET(request: NextRequest) {
             showName,
             broadcastUrl,
             profileUrl,
-            startTime: formatDate(target.startTime),
-            timeRange: formatTimeRange(target.startTime, target.endTime),
+            startTime: formatDate(target.startTime, djTimezone),
+            timeRange: formatTimeRange(target.startTime, target.endTime, djTimezone),
           });
 
           if (success) {
