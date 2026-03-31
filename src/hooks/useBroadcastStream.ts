@@ -9,8 +9,9 @@ import { getApps, initializeApp } from 'firebase/app';
 import { BroadcastSlotSerialized, ROOM_NAME } from '@/types/broadcast';
 import Hls from 'hls.js';
 
-// HLS stream URL - proxied through our API to add CORS headers
+// HLS stream URLs - proxied through our API to add CORS headers
 const HLS_URL = '/api/hls/channel-radio/live.m3u8';
+const HLS_URL_RESTREAM = '/api/hls/channel-radio-restream/live.m3u8';
 
 // Detect if browser is Safari (has native HLS support)
 function isSafariBrowser(): boolean {
@@ -429,8 +430,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
     setIsLoading(true);
     setError(null);
 
-    // Restreams use URL ingress → HLS egress; the ingress participant doesn't
-    // reliably expose tracks to WebRTC subscribers, so always use HLS for restreams.
+    // Restreams use FFmpeg → HLS → R2 (no LiveKit room), so always use HLS for restreams.
     const useHLS = shouldUseHLS() || currentShow?.broadcastType === 'restream';
 
     // If the WebRTC room is already connected (e.g. kept alive during DJ transition
@@ -486,12 +486,13 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
 
     // Use HLS for mobile/Safari - more reliable than WebRTC
     if (useHLS) {
-      console.log('🎵 Using HLS stream:', HLS_URL);
+      const hlsUrl = currentShow?.broadcastType === 'restream' ? HLS_URL_RESTREAM : HLS_URL;
+      console.log('🎵 Using HLS stream:', hlsUrl);
       try {
         // Check if Safari with native HLS support
         if (audioElementRef.current.canPlayType('application/vnd.apple.mpegurl')) {
           console.log('🎵 Using native HLS (Safari)');
-          audioElementRef.current.src = HLS_URL;
+          audioElementRef.current.src = hlsUrl;
           await audioElementRef.current.play();
           captureAudioStream();
           setIsPlaying(true);
@@ -504,7 +505,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
           });
           hlsRef.current = hls;
 
-          hls.loadSource(HLS_URL);
+          hls.loadSource(hlsUrl);
           hls.attachMedia(audioElementRef.current);
 
           hls.on(Hls.Events.MANIFEST_PARSED, async () => {
