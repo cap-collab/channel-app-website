@@ -72,8 +72,8 @@ export async function GET(request: NextRequest) {
     }
 
     const now = Date.now();
-    const windowStart = now + 23.5 * 60 * 60 * 1000; // 23.5 hours from now
-    const windowEnd = now + 24.5 * 60 * 60 * 1000;   // 24.5 hours from now
+    const windowStart = now + 22 * 60 * 60 * 1000; // 22 hours from now
+    const windowEnd = now + 25 * 60 * 60 * 1000;   // 25 hours from now
 
     // Find scheduled slots starting in ~24 hours
     const snapshot = await db
