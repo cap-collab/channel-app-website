@@ -38,13 +38,9 @@ function formatTime(seconds: number): string {
 interface ArchiveHeroProps {
   archives: ArchiveSerialized[];
   featuredArchive: ArchiveSerialized;
-  /** Optional: pre-resolved genres for demo mode (skip Firestore fetch) */
-  demoGenres?: string[];
-  /** Optional: pre-resolved tip link for demo mode */
-  demoTipLink?: string | null;
 }
 
-export function ArchiveHero({ archives, featuredArchive, demoGenres, demoTipLink }: ArchiveHeroProps) {
+export function ArchiveHero({ archives, featuredArchive }: ArchiveHeroProps) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername, loading: profileLoading, setChatUsername } = useUserProfile(user?.uid);
   const archivePlayer = useArchivePlayer();
@@ -60,10 +56,11 @@ export function ArchiveHero({ archives, featuredArchive, demoGenres, demoTipLink
   const djName = displayedArchive.djs.map((d) => d.name).join(', ');
   const djPhotoUrl = displayedArchive.showImageUrl || primaryDJ?.photoUrl;
 
-  // Fetch DJ profile for genres & tip (skipped in demo mode)
-  const djProfile = useDJProfileInfo(demoGenres ? undefined : djUsername);
-  const djGenres = demoGenres || djProfile.genres;
-  const tipLink = demoTipLink !== undefined ? demoTipLink : djProfile.tipButtonLink;
+  // Fetch DJ profile for genres, tip link, and bio
+  const djProfile = useDJProfileInfo(djUsername);
+  const djGenres = djProfile.genres;
+  const tipLink = djProfile.tipButtonLink;
+  const djDescription = djProfile.bio;
 
   // Image error state
   const [imageError, setImageError] = useState(false);
@@ -229,7 +226,7 @@ export function ArchiveHero({ archives, featuredArchive, demoGenres, demoTipLink
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
                   )}
                 </button>
-                <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={null} />
+                <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
               </>
             ) : (
               <div className="w-full h-full relative flex items-center justify-center bg-white/5">
@@ -271,7 +268,7 @@ export function ArchiveHero({ archives, featuredArchive, demoGenres, demoTipLink
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
                   )}
                 </button>
-                <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={null} />
+                <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
               </>
             ) : (
               <div className="w-full h-full relative flex items-center justify-center bg-white/5">
@@ -315,8 +312,8 @@ export function ArchiveHero({ archives, featuredArchive, demoGenres, demoTipLink
 
         {/* Player bar */}
         <div className="bg-black border-b border-white/10">
-          <div className="flex items-center gap-1 sm:gap-3 py-2 px-1">
-            {/* Play/Pause */}
+          <div className="flex gap-2 sm:gap-3 py-2 px-1">
+            {/* Play/Pause — bigger, self-centered */}
             <button
               onClick={() => {
                 if (archivePlayer.currentArchive) {
@@ -325,7 +322,7 @@ export function ArchiveHero({ archives, featuredArchive, demoGenres, demoTipLink
                   archivePlayer.play(displayedArchive);
                 }
               }}
-              className="w-8 h-8 ml-1 flex items-center justify-center bg-white transition-colors flex-shrink-0"
+              className="w-10 h-10 ml-1 flex items-center justify-center bg-white transition-colors flex-shrink-0 self-center"
             >
               {archivePlayer.isLoading ? (
                 <svg className="w-5 h-5 animate-spin text-black" fill="none" viewBox="0 0 24 24">
@@ -343,59 +340,62 @@ export function ArchiveHero({ archives, featuredArchive, demoGenres, demoTipLink
               )}
             </button>
 
-            {/* Show info */}
+            {/* Right column: show info + progress bar */}
             <div className="flex-1 min-w-0">
-              <ScrollingShowName text={showName} className="text-sm font-bold leading-tight text-white" />
+              {/* Row 1: Show name + actions */}
+              <div className="flex items-center gap-1">
+                <ScrollingShowName text={showName} className="flex-1 min-w-0 text-sm font-bold leading-tight text-white" />
+                <ArchiveIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                <div className="relative flex-shrink-0">
+                  <button
+                    onClick={handleLove}
+                    className="w-8 h-8 flex items-center justify-center hover:text-white/70 transition-colors text-white"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                    </svg>
+                  </button>
+                  <FloatingHearts trigger={heartTrigger} />
+                </div>
+                {tipLink && (
+                  <TipButton
+                    djUsername={djName || 'DJ'}
+                    tipLink={tipLink}
+                    className="w-8 h-8 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
+                  />
+                )}
+              </div>
+
+              {/* Row 2: DJ name */}
               {djName && (
                 <ScrollingDJName text={djName} className="text-[10px] text-zinc-500 uppercase mt-0.5 leading-[1.3em]" />
               )}
-            </div>
 
-            {/* Archive icon (grey, no text) */}
-            <div className="flex items-center flex-shrink-0">
-              <ArchiveIcon className="w-4 h-4 text-gray-500" />
-            </div>
-
-            {/* Love Button */}
-            <div className="relative flex-shrink-0">
-              <button
-                onClick={handleLove}
-                className="w-10 h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                </svg>
-              </button>
-              <FloatingHearts trigger={heartTrigger} />
-            </div>
-
-            {/* Tip Button */}
-            {tipLink && (
-              <TipButton
-                djUsername={djName || 'DJ'}
-                tipLink={tipLink}
-                className="w-10 h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
-              />
-            )}
-          </div>
-
-          {/* Progress bar */}
-          {archivePlayer.currentArchive?.id === displayedArchive.id && (
-            <div className="px-2 pb-2">
-              <input
-                type="range"
-                min={0}
-                max={archivePlayer.duration || displayedArchive.duration || 100}
-                value={archivePlayer.currentTime}
-                onChange={handleSeek}
-                className="w-full h-1 bg-gray-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
-              />
-              <div className="flex justify-between text-[10px] text-zinc-500 mt-0.5">
-                <span>{formatTime(archivePlayer.currentTime)}</span>
-                <span>{formatTime(archivePlayer.duration || displayedArchive.duration)}</span>
+              {/* Row 3: Progress bar — thin white fill, no dot */}
+              <div className="mt-1.5">
+                <div
+                  className="relative w-full h-[3px] bg-white/10 rounded-full cursor-pointer"
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                    const dur = archivePlayer.duration || displayedArchive.duration || 1;
+                    archivePlayer.seek(fraction * dur);
+                  }}
+                >
+                  <div
+                    className="absolute inset-y-0 left-0 bg-white rounded-full"
+                    style={{
+                      width: `${((archivePlayer.currentArchive?.id === displayedArchive.id ? archivePlayer.currentTime : 0) / (archivePlayer.duration || displayedArchive.duration || 1)) * 100}%`,
+                    }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] text-zinc-600 mt-0.5">
+                  <span>{formatTime(archivePlayer.currentArchive?.id === displayedArchive.id ? archivePlayer.currentTime : 0)}</span>
+                  <span>{formatTime(archivePlayer.duration || displayedArchive.duration)}</span>
+                </div>
               </div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Tab Bar */}

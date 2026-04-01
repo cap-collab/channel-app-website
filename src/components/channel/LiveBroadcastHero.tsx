@@ -269,6 +269,40 @@ export function DJImageOverlay({
   );
 }
 
+function formatClockTime(timestampMs: number): string {
+  const d = new Date(timestampMs);
+  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+}
+
+/** Thin progress bar showing how far into a show we are, based on start/end times. Auto-updates. */
+function ShowProgressBar({ startTime, endTime }: { startTime: number; endTime: number }) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 10000); // update every 10s
+    return () => clearInterval(interval);
+  }, []);
+
+  const totalDuration = endTime - startTime;
+  const elapsed = now - startTime;
+  const progress = totalDuration > 0 ? Math.max(0, Math.min(1, elapsed / totalDuration)) : 0;
+
+  return (
+    <div className="mt-1.5">
+      <div className="relative w-full h-[3px] bg-white/10 rounded-full">
+        <div
+          className="absolute inset-y-0 left-0 bg-white rounded-full"
+          style={{ width: `${progress * 100}%` }}
+        />
+      </div>
+      <div className="flex justify-between text-[10px] text-zinc-600 mt-0.5">
+        <span>{formatClockTime(startTime)}</span>
+        <span>{formatClockTime(endTime)}</span>
+      </div>
+    </div>
+  );
+}
+
 export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: { jumpToEarliestShow?: boolean; initialScheduleDate?: Date } = {}) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername, loading: profileLoading, setChatUsername } = useUserProfile(user?.uid);
@@ -506,14 +540,14 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
           {isRestream ? (
             <>
               <span className="flex h-3 w-3">
-                <svg className="animate-pulse w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg className="animate-pulse w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                   <path d="M3 3v5h5" />
                 </svg>
               </span>
-              <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">Restream</span>
+              <span className="text-xs font-mono text-red-500 uppercase tracking-tighter font-bold">Restream</span>
               {broadcastBPM && (
-                <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">{broadcastBPM} BPM</span>
+                <span className="text-xs font-mono text-red-500 uppercase tracking-tighter font-bold">{broadcastBPM} BPM</span>
               )}
             </>
           ) : (
@@ -621,14 +655,14 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
           </div>
         )}
 
-        {/* Player bar: Play + Show Info + Live + Love + Tip */}
+        {/* Player bar: Play + Show Info + Progress + Love + Tip */}
         <div ref={stickyBarRef} className="bg-black border-b border-white/10">
-          <div className="flex items-center gap-1 sm:gap-3 py-2 px-1">
-            {/* Play/Pause */}
+          <div className="flex gap-2 sm:gap-3 py-2 px-1">
+            {/* Play/Pause — bigger, self-centered */}
             <button
               onClick={toggle}
               disabled={!isLive}
-              className="w-8 h-8 ml-1 flex items-center justify-center bg-white disabled:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+              className="w-10 h-10 ml-1 flex items-center justify-center bg-white disabled:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0 self-center"
             >
               {isLoading ? (
                 <svg className="w-5 h-5 animate-spin text-black" fill="none" viewBox="0 0 24 24">
@@ -646,53 +680,62 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
               )}
             </button>
 
-            {/* Show info */}
+            {/* Right column: show info + progress */}
             <div className="flex-1 min-w-0">
-              <ScrollingShowName text={showName} className="text-sm font-bold leading-tight text-white" />
+              {/* Row 1: Show name + indicators + actions */}
+              <div className="flex items-center gap-1">
+                <ScrollingShowName text={showName} className="flex-1 min-w-0 text-sm font-bold leading-tight text-white" />
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {isRestream ? (
+                    <svg className="w-3 h-3 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                      <path d="M3 3v5h5" />
+                    </svg>
+                  ) : (
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                    </span>
+                  )}
+                  {broadcastBPM && (
+                    <span className="text-xs font-mono uppercase tracking-tighter font-bold text-red-500">
+                      {broadcastBPM} BPM
+                    </span>
+                  )}
+                </div>
+                <div className="relative flex-shrink-0">
+                  <button
+                    onClick={() => handleSendLove()}
+                    className="w-8 h-8 flex items-center justify-center hover:text-white/70 transition-colors text-white"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                    </svg>
+                  </button>
+                  <FloatingHearts trigger={heartTrigger} />
+                </div>
+                {tipLink && currentShow && (
+                  <TipButton
+                    djUsername={currentDJ || 'DJ'}
+                    tipLink={tipLink}
+                    className="w-8 h-8 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
+                  />
+                )}
+              </div>
+
+              {/* Row 2: DJ name */}
               {djName && (
                 <ScrollingDJName text={djName} className="text-[10px] text-zinc-500 uppercase mt-0.5 leading-[1.3em]" />
               )}
-            </div>
 
-            {/* Live/Restream indicator + BPM */}
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              {!isRestream && (
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
-                </span>
-              )}
-              {broadcastBPM && (
-                <span className={`text-xs font-mono uppercase tracking-tighter font-bold ${isRestream ? 'text-gray-500' : 'text-red-500'}`}>
-                  {broadcastBPM} BPM
-                </span>
+              {/* Row 3: Show progress bar — thin white fill */}
+              {currentShow && (
+                <ShowProgressBar startTime={currentShow.startTime} endTime={currentShow.endTime} />
               )}
             </div>
-
-            {/* Love Button */}
-            <div className="relative flex-shrink-0">
-              <button
-                onClick={() => handleSendLove()}
-                className="w-10 h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                </svg>
-              </button>
-              <FloatingHearts trigger={heartTrigger} />
-            </div>
-
-            {/* Tip Button */}
-            {tipLink && currentShow && (
-              <TipButton
-                djUsername={currentDJ || 'DJ'}
-                tipLink={tipLink}
-                className="w-10 h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
-              />
-            )}
           </div>
           {streamError && (
-            <p className="text-red-400 text-xs pb-2">{streamError}</p>
+            <p className="text-red-400 text-xs pb-2 px-2">{streamError}</p>
           )}
         </div>
 

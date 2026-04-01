@@ -5,7 +5,8 @@ import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { LiveBroadcastHero } from '@/components/channel/LiveBroadcastHero';
 import { ArchiveHero } from '@/components/channel/ArchiveHero';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
-import { DemoBroadcastStreamProvider, useDemoMode, DemoMode, DEMO_ARCHIVES, DEMO_DJ_GENRES, DEMO_TIP_LINK } from './DemoBroadcastStreamProvider';
+import { useArchives } from '@/hooks/useArchives';
+import { DemoBroadcastStreamProvider, useDemoMode, DemoMode } from './DemoBroadcastStreamProvider';
 
 const MODES: { value: DemoMode; label: string }[] = [
   { value: 'offline', label: 'Offline' },
@@ -39,17 +40,35 @@ function DemoToggle() {
 
 function DemoHero() {
   const { isLive, isStreaming } = useBroadcastStreamContext();
+  const { archives, featuredArchive, loading } = useArchives();
 
   if (isLive && isStreaming) {
     return <LiveBroadcastHero jumpToEarliestShow initialScheduleDate={new Date('2026-04-02')} />;
   }
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <svg className="animate-spin h-8 w-8 text-zinc-500" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+        </svg>
+      </div>
+    );
+  }
+
+  if (!featuredArchive) {
+    return (
+      <div className="text-center py-24 text-zinc-500">
+        <p>No archives available yet.</p>
+      </div>
+    );
+  }
+
   return (
     <ArchiveHero
-      archives={DEMO_ARCHIVES}
-      featuredArchive={DEMO_ARCHIVES[0]}
-      demoGenres={DEMO_DJ_GENRES}
-      demoTipLink={DEMO_TIP_LINK}
+      archives={archives}
+      featuredArchive={featuredArchive}
     />
   );
 }
