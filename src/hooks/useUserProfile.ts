@@ -48,7 +48,11 @@ export function useUserProfile(userId: string | undefined) {
         });
       }
     } catch (err) {
-      console.error('Failed to fetch user profile:', err);
+      // Silently ignore permission errors (e.g., anonymous users can't read user profiles)
+      const firebaseErr = err as { code?: string };
+      if (firebaseErr.code !== 'permission-denied') {
+        console.error('Failed to fetch user profile:', err);
+      }
     } finally {
       setLoading(false);
     }
