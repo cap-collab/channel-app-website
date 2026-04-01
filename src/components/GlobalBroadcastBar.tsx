@@ -97,9 +97,9 @@ export function GlobalBroadcastBar() {
   // Show bar for live broadcasts OR archive playback
   if (!isLiveReady && !isArchivePlaying) return null;
 
-  // On /radio, hide while the LiveBroadcastHero's inline player bar is in view (live only).
-  // For archive playback, always show the bar (ArchiveHero has its own player but we want sticky).
-  if (isLiveReady && !isArchivePlaying && (heroBarVisible || (pathname === '/radio' && !heroBarObserverReady))) return null;
+  // On /radio, hide while the hero's inline player bar is in view.
+  // Before the observer initializes, default to hidden to prevent a flash on load.
+  if (pathname === '/radio' && (heroBarVisible || !heroBarObserverReady)) return null;
 
   // Priority: live > archive for what the bar displays
   const showLiveBar = isLiveReady;

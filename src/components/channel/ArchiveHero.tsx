@@ -44,8 +44,27 @@ interface ArchiveHeroProps {
 export function ArchiveHero({ archives, featuredArchive }: ArchiveHeroProps) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername, loading: profileLoading, setChatUsername } = useUserProfile(user?.uid);
-  const { listenerCount } = useBroadcastStreamContext();
+  const { listenerCount, setHeroBarVisible, setHeroBarObserverReady } = useBroadcastStreamContext();
   const archivePlayer = useArchivePlayer();
+  const stickyBarRef = useRef<HTMLDivElement>(null);
+
+  // Track player bar visibility — GlobalBroadcastBar shows when this scrolls out of view
+  useEffect(() => {
+    const el = stickyBarRef.current;
+    if (!el) return;
+    setHeroBarVisible(true);
+    setHeroBarObserverReady(true);
+    const observer = new IntersectionObserver(
+      ([entry]) => setHeroBarVisible(entry.isIntersecting),
+      { threshold: 0.1 },
+    );
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      setHeroBarVisible(false);
+      setHeroBarObserverReady(false);
+    };
+  }, [setHeroBarVisible, setHeroBarObserverReady]);
   const { addToWatchlist, isInWatchlist } = useFavorites();
 
   // The currently displayed archive (either playing or featured)
@@ -271,7 +290,7 @@ export function ArchiveHero({ archives, featuredArchive }: ArchiveHeroProps) {
 
 
         {/* Player bar */}
-        <div className="bg-black relative">
+        <div ref={stickyBarRef} className="bg-black relative">
           <div className="flex items-center gap-1 sm:gap-3 py-2 px-1">
             {/* Play/Pause */}
             <button
