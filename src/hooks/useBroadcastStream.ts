@@ -146,6 +146,8 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
   const wasPlayingRef = useRef(false);
   const isPlayingRef = useRef(false);
   const userPausedRef = useRef(false); // Track user-initiated pauses vs browser auto-pause
+  const artworkPreloadRef = useRef<HTMLImageElement | null>(null);
+  const artworkRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [autoResumePending, setAutoResumePending] = useState(false);
 
   // Keep playing ref in sync
@@ -786,11 +788,53 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
         });
       };
 
+      // Cancel any in-flight preload/retry from a previous show
+      if (artworkPreloadRef.current) {
+        artworkPreloadRef.current.onload = null;
+        artworkPreloadRef.current.onerror = null;
+        artworkPreloadRef.current.src = '';
+        artworkPreloadRef.current = null;
+      }
+      if (artworkRetryTimerRef.current) {
+        clearTimeout(artworkRetryTimerRef.current);
+        artworkRetryTimerRef.current = null;
+      }
+
       if (artworkUrl) {
+        // Show fallback immediately while new image loads
         setMetadata(fallbackArtworkUrl);
+
         const img = new Image();
-        img.onload = () => setMetadata(artworkUrl);
-        img.onerror = () => {};
+        img.crossOrigin = 'anonymous';
+        artworkPreloadRef.current = img;
+
+        img.onload = () => {
+          if (artworkPreloadRef.current === img) {
+            setMetadata(artworkUrl);
+          }
+        };
+
+        img.onerror = () => {
+          if (artworkPreloadRef.current !== img) return;
+          // Retry once after 3s — image may not have propagated to CDN yet
+          artworkRetryTimerRef.current = setTimeout(() => {
+            const retryImg = new Image();
+            retryImg.crossOrigin = 'anonymous';
+            artworkPreloadRef.current = retryImg;
+            retryImg.onload = () => {
+              if (artworkPreloadRef.current === retryImg) {
+                setMetadata(artworkUrl);
+              }
+            };
+            retryImg.onerror = () => {
+              if (artworkPreloadRef.current === retryImg) {
+                setMetadata(fallbackArtworkUrl);
+              }
+            };
+            retryImg.src = artworkUrl;
+          }, 3000);
+        };
+
         img.src = artworkUrl;
       } else {
         setMetadata(fallbackArtworkUrl);
@@ -835,7 +879,19 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
 
       updatePosition();
       const interval = setInterval(updatePosition, 120_000);
-      return () => clearInterval(interval);
+      return () => {
+        clearInterval(interval);
+        if (artworkPreloadRef.current) {
+          artworkPreloadRef.current.onload = null;
+          artworkPreloadRef.current.onerror = null;
+          artworkPreloadRef.current.src = '';
+          artworkPreloadRef.current = null;
+        }
+        if (artworkRetryTimerRef.current) {
+          clearTimeout(artworkRetryTimerRef.current);
+          artworkRetryTimerRef.current = null;
+        }
+      };
     }
   }, [isPlaying, currentShow, currentDJ]);
 
