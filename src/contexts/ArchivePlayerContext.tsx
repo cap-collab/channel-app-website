@@ -100,6 +100,54 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [isPlaying, currentArchive]);
 
+  // Lock screen / Media Session metadata for archive playback
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || !currentArchive) return;
+
+    const djNames = currentArchive.djs.map(d => d.name).join(', ');
+    const artworkUrl = currentArchive.showImageUrl || currentArchive.djs[0]?.photoUrl;
+    const fallbackArtworkUrl = typeof window !== 'undefined' ? `${window.location.origin}/apple-touch-icon.png` : '';
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: currentArchive.showName || 'Archive',
+      artist: djNames || undefined,
+      artwork: artworkUrl
+        ? [{ src: artworkUrl, sizes: '512x512', type: 'image/jpeg' }]
+        : [{ src: fallbackArtworkUrl, sizes: '180x180', type: 'image/png' }],
+    });
+
+    if (isPlaying) {
+      try {
+        navigator.mediaSession.setActionHandler('pause', () => { audioRef.current?.pause(); });
+        navigator.mediaSession.setActionHandler('play', () => { audioRef.current?.play().catch(() => {}); });
+      } catch {
+        // Browser doesn't support these actions
+      }
+
+      // Disable skip/seek buttons
+      const disableActions: MediaSessionAction[] = ['seekforward', 'seekbackward', 'previoustrack', 'nexttrack'];
+      for (const action of disableActions) {
+        try { navigator.mediaSession.setActionHandler(action, null); } catch {}
+      }
+
+      // Update position state periodically for lock screen progress bar
+      const updatePosition = () => {
+        if (duration > 0 && audioRef.current) {
+          try {
+            navigator.mediaSession.setPositionState({
+              duration,
+              position: Math.min(audioRef.current.currentTime, duration),
+              playbackRate: 1,
+            });
+          } catch {}
+        }
+      };
+      updatePosition();
+      const posInterval = setInterval(updatePosition, 30_000);
+      return () => clearInterval(posInterval);
+    }
+  }, [currentArchive, isPlaying, duration]);
+
   const play = useCallback((archive: ArchiveSerialized) => {
     const audio = getAudio();
 
