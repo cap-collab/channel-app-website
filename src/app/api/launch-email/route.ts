@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
-import { queryCollection, queryUsersWhere } from "@/lib/firebase-rest";
+import { queryCollection } from "@/lib/firebase-rest";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -257,7 +257,7 @@ async function probeUserFields(): Promise<NextResponse> {
 
   return NextResponse.json({
     totalUsersProbed: users.length,
-    allFields: [...allFields].sort(),
+    allFields: Array.from(allFields).sort(),
     fieldCounts,
     pushCandidates,
     sampleUser: users[0] ? {
@@ -290,8 +290,8 @@ async function sendEmails(
   const errors: Array<{ email: string; error: string }> = [];
 
   const toSend = testEmail
-    ? [...recipients.values()].filter((r) => r.email === testEmail.toLowerCase())
-    : [...recipients.values()];
+    ? Array.from(recipients.values()).filter((r) => r.email === testEmail.toLowerCase())
+    : Array.from(recipients.values());
 
   // If test email not found in recipients, send both variants to test address
   if (testEmail && toSend.length === 0) {
@@ -355,8 +355,8 @@ export async function GET(request: NextRequest) {
   // Collect recipients
   const { recipients, stats } = await collectRecipients();
 
-  const iosList = [...recipients.values()].filter((r) => r.isIOSUser);
-  const generalList = [...recipients.values()].filter((r) => !r.isIOSUser);
+  const iosList = Array.from(recipients.values()).filter((r) => r.isIOSUser);
+  const generalList = Array.from(recipients.values()).filter((r) => !r.isIOSUser);
 
   // Dry-run mode: show stats and samples
   if (mode === "dry-run") {
