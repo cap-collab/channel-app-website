@@ -125,8 +125,8 @@ export function LiveControlBar({ stream, isLive, showStartTime, isRecordingMode 
 
         {/* Metrics - visible from afar */}
         <div className="flex items-center gap-4 flex-shrink-0">
-          {/* Listeners - large with headphone icon (hidden in recording mode) */}
-          {!isRecordingMode && (
+          {/* Listeners - large with headphone icon (hidden in recording mode or when < 5) */}
+          {!isRecordingMode && listenerCount >= 5 && (
             <div className="flex items-center gap-2" title="Listeners">
               <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 1a9 9 0 00-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7a9 9 0 00-9-9z" />
