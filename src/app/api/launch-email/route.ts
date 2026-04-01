@@ -10,7 +10,9 @@ const FROM_EMAIL = "Cap from Channel <cap@channel-app.com>";
 const LOGO_URL = "https://channel-app.com/logo-white.png";
 
 // ── Push token field name (discovered via ?mode=probe) ──────────────
-const PUSH_TOKEN_FIELD = "expoPushToken";
+// Users with platform="ios" or an fcmToken are iOS app users
+const PLATFORM_FIELD = "platform";
+const FCM_TOKEN_FIELD = "fcmToken";
 
 // ── Recipient type ──────────────────────────────────────────────────
 interface Recipient {
@@ -143,8 +145,9 @@ async function collectRecipients(): Promise<{
 
     const displayName = user.data.displayName as string | undefined;
     const chatUsername = user.data.chatUsername as string | undefined;
-    const pushToken = user.data[PUSH_TOKEN_FIELD];
-    const isIOS = !!(pushToken && String(pushToken).length > 0);
+    const platform = user.data[PLATFORM_FIELD] as string | undefined;
+    const fcmToken = user.data[FCM_TOKEN_FIELD] as string | undefined;
+    const isIOS = platform === "ios" || !!(fcmToken && fcmToken.length > 0);
 
     if (isIOS) usersIOS++;
     else usersNonIOS++;
