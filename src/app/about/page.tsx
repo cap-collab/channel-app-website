@@ -32,46 +32,12 @@ export default function About() {
     <div className="min-h-screen">
       <Header position="sticky" showSearch />
 
-      {/* Hero Section */}
-      <section className="min-h-screen flex flex-col justify-center items-center px-6 pt-24 pb-20 relative bg-[#1a1a1a]">
-        <div className="max-w-3xl text-center">
-          <h1 className="text-2xl md:text-4xl lg:text-5xl font-black text-white mb-6 uppercase tracking-tighter leading-none">
-            Platform for electronic music communities.
-          </h1>
-
-          <p className="text-lg md:text-xl text-zinc-400 mb-12 max-w-xl mx-auto leading-relaxed">
-            Bringing DJs, producers, and dancers closer together.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-stretch">
-            <EmailSignup />
-          </div>
-        </div>
-
-        {/* Scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-          <svg
-            className="w-6 h-6 text-gray-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 14l-7 7m0 0l-7-7m7 7V3"
-            />
-          </svg>
-        </div>
-      </section>
-
-      {/* My Purpose Section */}
-      <section id="my-purpose" className="py-24 px-6 bg-black">
+      {/* About Me Section */}
+      <section id="about-me" className="py-24 px-6 bg-black pt-32">
         <ScrollReveal>
           <div className="max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-semibold text-white mb-8 text-center">
-              My Purpose
+              About Me
             </h2>
 
             <div className="space-y-6 text-zinc-400 leading-relaxed">
@@ -96,13 +62,8 @@ export default function About() {
               </p>
             </div>
 
-            <div className="mt-10 text-center">
-              <Link
-                href="/radio"
-                className="inline-block bg-white text-black px-10 py-4 rounded text-lg font-semibold hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(255,255,255,0.15)] transition-all"
-              >
-                Discover Channel Radio
-              </Link>
+            <div className="mt-10 flex justify-center">
+              <EmailSignup />
             </div>
           </div>
         </ScrollReveal>
