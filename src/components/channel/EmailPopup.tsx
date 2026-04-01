@@ -11,7 +11,7 @@ const SESSION_KEY_COUNT = 'email-popup-count';
 const SESSION_KEY_LAST = 'email-popup-last-shown';
 const MAX_POPUPS_PER_SESSION = 2;
 const MIN_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
-const SITE_DELAY_MS = 5000; // 5 seconds
+const SITE_DELAY_MS = 15000; // 15 seconds
 const PLAY_DELAY_S = 10; // 10 seconds of playback
 
 function getSessionCount(): number {
