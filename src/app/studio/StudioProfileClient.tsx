@@ -223,6 +223,7 @@ export function StudioProfileClient() {
     slug: string;
     audioUrl?: string;
     sourceType?: string;
+    source?: 'archive' | 'session'; // which collection this came from
   }
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [loadingRecordings, setLoadingRecordings] = useState(true);
@@ -623,31 +624,47 @@ export function StudioProfileClient() {
     return () => unsubscribe();
   }, [user, chatUsername, allShows]);
 
-  // Load my recordings from archives collection (sourceType: 'recording')
+  // Load my recordings from archives collection + fallback to studio-sessions
+  // Studio-sessions may have recordings that never got an archive doc (e.g. webhook failed)
   useEffect(() => {
     if (!user || !db) {
       setLoadingRecordings(false);
       return;
     }
 
-    const archivesRef = collection(db, "archives");
+    let archiveRecs: Recording[] = [];
+    let sessionRecs: Recording[] = [];
+    let archiveSlotIds = new Set<string>();
+    let archivesLoaded = false;
+    let sessionsLoaded = false;
 
-    // Query for recording archives owned by this user
-    const q = query(
-      archivesRef,
+    const mergeAndSet = () => {
+      if (!archivesLoaded || !sessionsLoaded) return;
+      // Deduplicate: only include studio-sessions that don't already have an archive
+      const filtered = sessionRecs.filter(r => !archiveSlotIds.has(r.id));
+      const merged = [...archiveRecs, ...filtered];
+      merged.sort((a, b) => b.createdAt - a.createdAt);
+      setRecordings(merged);
+      setLoadingRecordings(false);
+    };
+
+    // Query 1: archives collection (primary source)
+    const archivesQ = query(
+      collection(db, "archives"),
       where("sourceType", "==", "recording"),
       where("uploadedBy", "==", user.uid)
     );
 
-    const unsubscribe = onSnapshot(
-      q,
+    const unsubArchives = onSnapshot(
+      archivesQ,
       (snapshot) => {
-        const recs: Recording[] = [];
+        archiveRecs = [];
+        archiveSlotIds = new Set();
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
-          // Skip archives still being uploaded
           if (data.uploadStatus === 'uploading') return;
-          recs.push({
+          if (data.broadcastSlotId) archiveSlotIds.add(data.broadcastSlotId);
+          archiveRecs.push({
             id: docSnap.id,
             showName: data.showName || 'Untitled Recording',
             djName: data.djs?.[0]?.name,
@@ -657,20 +674,65 @@ export function StudioProfileClient() {
             slug: data.slug || docSnap.id,
             audioUrl: data.recordingUrl,
             sourceType: data.sourceType,
+            source: 'archive',
           });
         });
-        // Sort by createdAt descending (client-side)
-        recs.sort((a, b) => b.createdAt - a.createdAt);
-        setRecordings(recs);
-        setLoadingRecordings(false);
+        archivesLoaded = true;
+        mergeAndSet();
       },
       (err) => {
-        console.error("Error loading recordings:", err);
-        setLoadingRecordings(false);
+        console.error("Error loading archives:", err);
+        archivesLoaded = true;
+        mergeAndSet();
       }
     );
 
-    return () => unsubscribe();
+    // Query 2: studio-sessions fallback (catches recordings without archive docs)
+    const sessionsQ = query(
+      collection(db, "studio-sessions"),
+      where("broadcastType", "==", "recording"),
+      where("djUserId", "==", user.uid)
+    );
+
+    const unsubSessions = onSnapshot(
+      sessionsQ,
+      (snapshot) => {
+        sessionRecs = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          // Only include sessions that have a ready recording
+          const readyRecording = data.recordings?.find((r: { status: string; url?: string }) => r.status === 'ready' && r.url);
+          const audioUrl = data.recordingUrl || readyRecording?.url;
+          if (!audioUrl) return;
+          const startTime = data.startTime;
+          const createdAt = startTime?.toMillis ? startTime.toMillis() : (startTime || Date.now());
+          sessionRecs.push({
+            id: docSnap.id,
+            showName: data.showName || 'Untitled Recording',
+            djName: data.liveDjUsername,
+            createdAt,
+            duration: data.recordingDuration || readyRecording?.duration || 0,
+            isPublic: data.isPublic !== false,
+            slug: docSnap.id,
+            audioUrl,
+            sourceType: 'recording',
+            source: 'session',
+          });
+        });
+        sessionsLoaded = true;
+        mergeAndSet();
+      },
+      (err) => {
+        console.error("Error loading studio sessions:", err);
+        sessionsLoaded = true;
+        mergeAndSet();
+      }
+    );
+
+    return () => {
+      unsubArchives();
+      unsubSessions();
+    };
   }, [user]);
 
   // Handle publish/unpublish recording
@@ -700,21 +762,29 @@ export function StudioProfileClient() {
     setDeletingRecording(recordingId);
     try {
       const { doc: firestoreDoc, deleteDoc, getDoc } = await import('firebase/firestore');
-      const archiveRef = firestoreDoc(db, 'archives', recordingId);
-      // Also delete the studio-sessions doc if it exists
-      const archiveSnap = await getDoc(archiveRef);
-      const sessionId = archiveSnap.data()?.broadcastSlotId;
-      if (sessionId) {
-        const sessionRef = firestoreDoc(db, 'studio-sessions', sessionId);
-        await deleteDoc(sessionRef).catch(() => {}); // ignore if already deleted
+      const rec = recordings.find(r => r.id === recordingId);
+
+      if (rec?.source === 'session') {
+        // This recording only exists in studio-sessions (no archive doc)
+        const sessionRef = firestoreDoc(db, 'studio-sessions', recordingId);
+        await deleteDoc(sessionRef);
+      } else {
+        // Delete from archives + associated studio-session
+        const archiveRef = firestoreDoc(db, 'archives', recordingId);
+        const archiveSnap = await getDoc(archiveRef);
+        const sessionId = archiveSnap.data()?.broadcastSlotId;
+        if (sessionId) {
+          const sessionRef = firestoreDoc(db, 'studio-sessions', sessionId);
+          await deleteDoc(sessionRef).catch(() => {}); // ignore if already deleted
+        }
+        await deleteDoc(archiveRef);
       }
-      await deleteDoc(archiveRef);
     } catch (error) {
       console.error('Error deleting recording:', error);
     } finally {
       setDeletingRecording(null);
     }
-  }, [user, db]);
+  }, [user, db, recordings]);
 
   // Handle recording playback
   const handlePlayPauseRecording = useCallback((recordingId: string) => {
