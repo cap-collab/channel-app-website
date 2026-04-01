@@ -189,16 +189,27 @@ export function ArchiveHero({ archives, featuredArchive }: ArchiveHeroProps) {
 
   const showName = displayedArchive.showName;
 
-  // Next scheduled show today
-  const { shows: scheduleShows } = useBroadcastSchedule();
-  const nextShowToday = useMemo(() => {
+  // Next scheduled show within 23 hours (check today + tomorrow)
+  const tomorrow = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+  const { shows: todayShows } = useBroadcastSchedule();
+  const { shows: tomorrowShows } = useBroadcastSchedule({ initialDate: tomorrow });
+  const nextUpcomingShow = useMemo(() => {
     const now = Date.now();
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
-    return scheduleShows.find(s => s.startTime > now && s.startTime <= endOfDay.getTime()) || null;
-  }, [scheduleShows]);
+    const cutoff = now + 23 * 60 * 60 * 1000;
+    const allShows = [...todayShows, ...tomorrowShows].sort((a, b) => a.startTime - b.startTime);
+    return allShows.find(s => s.startTime > now && s.startTime <= cutoff) || null;
+  }, [todayShows, tomorrowShows]);
 
-  const nextShowTime = nextShowToday ? new Date(nextShowToday.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null;
+  const nextShowTime = nextUpcomingShow ? new Date(nextUpcomingShow.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null;
+
+  const handleNextShowClick = useCallback(() => {
+    window.dispatchEvent(new Event('open-email-popup'));
+  }, []);
 
   return (
     <section className="relative z-10 px-4 pt-6 pb-2">
@@ -207,7 +218,12 @@ export function ArchiveHero({ archives, featuredArchive }: ArchiveHeroProps) {
         {/* Status line above image */}
         <div className="flex items-center justify-between mb-2">
           {nextShowTime ? (
-            <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">Next live at {nextShowTime}</span>
+            <button
+              onClick={handleNextShowClick}
+              className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold hover:text-white transition-colors"
+            >
+              Next live at {nextShowTime}
+            </button>
           ) : (
             <span />
           )}

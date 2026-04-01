@@ -54,6 +54,17 @@ export function EmailPopup() {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
 
+  // Allow external components to open the popup via custom event
+  useEffect(() => {
+    const handler = () => {
+      if (suppressedRef.current) return;
+      if (isAuthenticated || hasFiledEmail()) return;
+      setIsOpen(true);
+    };
+    window.addEventListener('open-email-popup', handler);
+    return () => window.removeEventListener('open-email-popup', handler);
+  }, [isAuthenticated]);
+
   const cumulativePlayRef = useRef(0);
   const siteTimerFiredRef = useRef(false);
   const playTimerFiredRef = useRef(false);
