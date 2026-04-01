@@ -237,7 +237,21 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
               wasPlayingRef.current = false;
               setAutoResumePending(true);
             }
-            // Same-room: keep playing, tracks arrive automatically via TrackSubscribed
+            // Same-room live→live: keep playing, tracks arrive automatically via TrackSubscribed
+
+            // Live→restream: need to switch from WebRTC to HLS
+            if (slot.broadcastType === 'restream' && roomRef.current) {
+              console.log('🔄 Switching from WebRTC to HLS for restream');
+              roomRef.current.disconnect();
+              roomRef.current = null;
+              if (audioElementRef.current) {
+                audioElementRef.current.pause();
+                audioElementRef.current.removeAttribute('src');
+                audioElementRef.current.load();
+              }
+              setIsPlaying(false);
+              setAutoResumePending(true);
+            }
           }
 
           // Find current DJ name:
