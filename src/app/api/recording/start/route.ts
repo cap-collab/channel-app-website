@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Create the slot
-    const slotRef = await db.collection('broadcast-slots').add(slotData);
+    const slotRef = await db.collection('studio-sessions').add(slotData);
     const slotId = slotRef.id;
 
     // Update user's quota to track this recording session

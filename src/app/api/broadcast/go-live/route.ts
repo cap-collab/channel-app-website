@@ -22,11 +22,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No broadcast token provided' }, { status: 400 });
     }
 
-    // Look up the slot by token
-    const snapshot = await db.collection('broadcast-slots')
+    // Look up the slot by token — check broadcast-slots first, then studio-sessions
+    let snapshot = await db.collection('broadcast-slots')
       .where('broadcastToken', '==', broadcastToken)
       .limit(1)
       .get();
+
+    if (snapshot.empty) {
+      snapshot = await db.collection('studio-sessions')
+        .where('broadcastToken', '==', broadcastToken)
+        .limit(1)
+        .get();
+    }
 
     if (snapshot.empty) {
       console.error('[go-live] Invalid broadcast token - no matching slot found');

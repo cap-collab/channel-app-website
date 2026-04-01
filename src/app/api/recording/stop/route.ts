@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Mark the slot as completed
-    const slotRef = db.collection('broadcast-slots').doc(slotId);
+    const slotRef = db.collection('studio-sessions').doc(slotId);
     const slotDoc = await slotRef.get();
 
     if (!slotDoc.exists) {
@@ -48,8 +48,8 @@ export async function POST(request: NextRequest) {
 
     const slotData = slotDoc.data();
 
-    // Only update if it's a recording slot that's still active
-    if (slotData?.broadcastType === 'recording' && slotData?.status !== 'completed') {
+    // Only update if the recording is still active
+    if (slotData?.status !== 'completed') {
       await slotRef.update({
         status: 'completed',
         completedAt: Timestamp.now(),

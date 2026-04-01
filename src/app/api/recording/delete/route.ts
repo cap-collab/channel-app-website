@@ -18,8 +18,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
     }
 
-    // Get the broadcast slot document (recordings are stored in broadcast-slots)
-    const slotRef = db.collection('broadcast-slots').doc(archiveId);
+    // Get the studio session document
+    const slotRef = db.collection('studio-sessions').doc(archiveId);
     const slotDoc = await slotRef.get();
 
     if (!slotDoc.exists) {
@@ -33,12 +33,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Not authorized to delete this recording' }, { status: 403 });
     }
 
-    // Only allow deleting recordings (not live broadcast slots)
-    if (slotData?.broadcastType !== 'recording') {
-      return NextResponse.json({ error: 'Only recordings can be deleted' }, { status: 400 });
-    }
-
-    // Delete the broadcast slot document
+    // Delete the studio session document
     await slotRef.delete();
 
     // Also delete the corresponding archive document if it exists

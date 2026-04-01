@@ -33,8 +33,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
     }
 
-    // Get the broadcast slot document (recordings are stored in broadcast-slots)
-    const slotRef = db.collection('broadcast-slots').doc(archiveId);
+    // Get the studio session document
+    const slotRef = db.collection('studio-sessions').doc(archiveId);
     const slotDoc = await slotRef.get();
 
     if (!slotDoc.exists) {
@@ -46,11 +46,6 @@ export async function POST(request: NextRequest) {
     // Verify ownership
     if (slotData?.djUserId !== userId && slotData?.liveDjUserId !== userId && slotData?.createdBy !== userId) {
       return NextResponse.json({ error: 'Not authorized to publish this recording' }, { status: 403 });
-    }
-
-    // Check if it's a recording type
-    if (slotData?.broadcastType !== 'recording') {
-      return NextResponse.json({ error: 'Only recordings can be published' }, { status: 400 });
     }
 
     // Check if recording is ready
@@ -142,8 +137,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
     }
 
-    // Get the broadcast slot document
-    const slotRef = db.collection('broadcast-slots').doc(archiveId);
+    // Get the studio session document
+    const slotRef = db.collection('studio-sessions').doc(archiveId);
     const slotDoc = await slotRef.get();
 
     if (!slotDoc.exists) {
@@ -155,11 +150,6 @@ export async function DELETE(request: NextRequest) {
     // Verify ownership
     if (slotData?.djUserId !== userId && slotData?.liveDjUserId !== userId && slotData?.createdBy !== userId) {
       return NextResponse.json({ error: 'Not authorized to unpublish this recording' }, { status: 403 });
-    }
-
-    // Only recordings can be unpublished
-    if (slotData?.broadcastType !== 'recording') {
-      return NextResponse.json({ error: 'Only recordings can be unpublished' }, { status: 400 });
     }
 
     // Unpublish the recording in broadcast-slots

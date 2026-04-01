@@ -22,9 +22,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing slotId' }, { status: 400 });
     }
 
-    // Get the slot
-    const slotRef = db.collection('broadcast-slots').doc(slotId);
-    const slotDoc = await slotRef.get();
+    // Get the slot — try broadcast-slots first, then studio-sessions
+    let slotRef = db.collection('broadcast-slots').doc(slotId);
+    let slotDoc = await slotRef.get();
+
+    if (!slotDoc.exists) {
+      slotRef = db.collection('studio-sessions').doc(slotId);
+      slotDoc = await slotRef.get();
+    }
 
     if (!slotDoc.exists) {
       return NextResponse.json({ error: 'Slot not found' }, { status: 404 });

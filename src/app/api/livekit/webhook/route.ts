@@ -191,19 +191,34 @@ export async function POST(request: NextRequest) {
 
         // Fallback: try legacy recordingEgressId field for backward compatibility
         if (!slotId) {
-          const slotsRef = db.collection('broadcast-slots');
-          const legacySnapshot = await slotsRef
+          // Check broadcast-slots first
+          const legacySnapshot = await db.collection('broadcast-slots')
             .where('recordingEgressId', '==', egress.egressId)
             .limit(1)
             .get();
           if (!legacySnapshot.empty) {
             slotId = legacySnapshot.docs[0].id;
+          } else {
+            // Also check studio-sessions
+            const studioSnapshot = await db.collection('studio-sessions')
+              .where('recordingEgressId', '==', egress.egressId)
+              .limit(1)
+              .get();
+            if (!studioSnapshot.empty) {
+              slotId = studioSnapshot.docs[0].id;
+            }
           }
         }
 
         if (slotId) {
-          const slotRef = db.collection('broadcast-slots').doc(slotId);
-          const slotDoc = await slotRef.get();
+          // Try broadcast-slots first, then studio-sessions
+          let slotRef = db.collection('broadcast-slots').doc(slotId);
+          let slotDoc = await slotRef.get();
+
+          if (!slotDoc.exists) {
+            slotRef = db.collection('studio-sessions').doc(slotId);
+            slotDoc = await slotRef.get();
+          }
 
           if (slotDoc.exists) {
             const slotData = slotDoc.data();

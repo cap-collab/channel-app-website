@@ -699,8 +699,15 @@ export function StudioProfileClient() {
     }
     setDeletingRecording(recordingId);
     try {
-      const { doc: firestoreDoc, deleteDoc } = await import('firebase/firestore');
+      const { doc: firestoreDoc, deleteDoc, getDoc } = await import('firebase/firestore');
       const archiveRef = firestoreDoc(db, 'archives', recordingId);
+      // Also delete the studio-sessions doc if it exists
+      const archiveSnap = await getDoc(archiveRef);
+      const sessionId = archiveSnap.data()?.broadcastSlotId;
+      if (sessionId) {
+        const sessionRef = firestoreDoc(db, 'studio-sessions', sessionId);
+        await deleteDoc(sessionRef).catch(() => {}); // ignore if already deleted
+      }
       await deleteDoc(archiveRef);
     } catch (error) {
       console.error('Error deleting recording:', error);
