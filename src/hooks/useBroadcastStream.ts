@@ -811,6 +811,14 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
         // Browser doesn't support seekto
       }
 
+      // Handle play/pause from Control Center / lock screen
+      try {
+        navigator.mediaSession.setActionHandler('pause', () => { pause(); });
+        navigator.mediaSession.setActionHandler('play', () => { play(); });
+      } catch {
+        // Browser doesn't support these actions
+      }
+
       // Show progress bar based on show start/end time, update every 2 min
       const duration = (currentShow.endTime - currentShow.startTime) / 1000;
 
