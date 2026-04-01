@@ -180,8 +180,10 @@ async function collectRecipients(): Promise<{
       deduped++;
       continue;
     }
+    const djChatUsername = dj.data.chatUsername as string | undefined;
     recipients.set(email, {
       email,
+      name: getFirstName(undefined, djChatUsername),
       isIOSUser: false,
       source: "pending-dj",
     });
@@ -377,13 +379,14 @@ export async function GET(request: NextRequest) {
       totalUniqueEmails: recipients.size,
       iosListCount: iosList.length,
       generalListCount: generalList.length,
-      iosSample: iosList.slice(0, 10).map((r) => ({
+      iosFull: iosList.map((r) => ({
         email: r.email,
-        name: r.name,
+        name: r.name || null,
         source: r.source,
       })),
-      generalSample: generalList.slice(0, 10).map((r) => ({
+      generalFull: generalList.map((r) => ({
         email: r.email,
+        name: r.name || null,
         source: r.source,
       })),
       iosEmails: iosList.map((r) => r.email),
