@@ -35,13 +35,16 @@ export function OfflineHero({ jumpToEarliestShow }: { jumpToEarliestShow?: boole
   // Schedule
   const { shows: scheduleShows, loading: scheduleLoading, selectedDate, setSelectedDate } = useBroadcastSchedule({ jumpToEarliestShow });
 
-  // Auto-scroll chat
+  // Auto-scroll chat to latest message (also when switching to chat tab)
   useEffect(() => {
+    if (activeTab !== 'chat') return;
     const container = messagesContainerRef.current;
     if (container) {
-      container.scrollTop = container.scrollHeight;
+      requestAnimationFrame(() => {
+        container.scrollTop = container.scrollHeight;
+      });
     }
-  }, [messages]);
+  }, [messages, activeTab]);
 
   // Username setup
   const handleSetUsername = useCallback(async () => {

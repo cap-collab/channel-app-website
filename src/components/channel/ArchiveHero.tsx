@@ -139,10 +139,16 @@ export function ArchiveHero({ archives, featuredArchive }: ArchiveHeroProps) {
     enabled: !!djProfileUsername,
   });
 
+  // Auto-scroll chat to latest message (also when switching to chat tab)
   useEffect(() => {
+    if (activeTab !== 'chat') return;
     const container = messagesContainerRef.current;
-    if (container) container.scrollTop = container.scrollHeight;
-  }, [messages]);
+    if (container) {
+      requestAnimationFrame(() => {
+        container.scrollTop = container.scrollHeight;
+      });
+    }
+  }, [messages, activeTab]);
 
   const handleSetUsername = useCallback(async () => {
     const trimmed = usernameInput.trim();
