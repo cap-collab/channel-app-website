@@ -85,17 +85,7 @@ export function OfflineHero({ jumpToEarliestShow }: { jumpToEarliestShow?: boole
         {/* Header */}
         <div className="text-center py-6 md:py-8">
           <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter leading-none mb-2">Channel Radio</h1>
-          <p className="text-lg text-zinc-400 mb-5">
-            Back online soon
-            {listenerCount > 0 && (
-              <span className="inline-flex items-center gap-1 ml-3 text-zinc-500 text-sm">
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 3a9 9 0 00-9 9v7c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2H5v-1a7 7 0 1114 0v1h-2c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-7a9 9 0 00-9-9z" />
-                </svg>
-                {listenerCount}
-              </span>
-            )}
-          </p>
+          <p className="text-lg text-zinc-400 mb-5">Back online soon</p>
 
           <p className="text-zinc-500 text-sm mt-4">
             DJs, producers, collectives, reach out to{' '}
@@ -125,7 +115,7 @@ export function OfflineHero({ jumpToEarliestShow }: { jumpToEarliestShow?: boole
           >
             <div className="flex items-center justify-center gap-2">
               <span>Chat</span>
-              {listenerCount > 0 && (
+              {listenerCount >= 5 && (
                 <span className="flex items-center gap-1 text-zinc-500 text-xs">
                   <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 3a9 9 0 00-9 9v7c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2H5v-1a7 7 0 1114 0v1h-2c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-7a9 9 0 00-9-9z" />

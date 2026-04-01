@@ -7,14 +7,14 @@ interface ActivityBadgesProps {
 }
 
 export function ActivityBadges({ listenerCount, loveCount, messageCount }: ActivityBadgesProps) {
-  const hasBadges = listenerCount > 0 || loveCount > 0 || messageCount > 0;
+  const hasBadges = listenerCount >= 5 || loveCount > 0 || messageCount > 0;
 
   if (!hasBadges) return null;
 
   return (
     <div className="flex flex-col items-end gap-1">
       <div className="flex items-center gap-3">
-        {listenerCount > 0 && (
+        {listenerCount >= 5 && (
           <div className="flex items-center gap-1 text-gray-400">
             {/* Headphone icon */}
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
