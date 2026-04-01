@@ -18,7 +18,7 @@ const faqItems = [
   {
     question: "How is Channel different?",
     answer:
-      "Channel is built around people and niche communities.\n\nCurators host shows.\nListeners gather.\nMusic and community spread through trust and taste.\n\nRadio becomes a shared space again.",
+      "Channel is built around people, values, and communities.\n\nCurators and producers host shows. Listeners and dancers gather.\nMusic and community spread through trust, taste and shared values.\n\nRadio becomes a shared space again.",
   },
   {
     question: "How much does it cost?",
@@ -80,10 +80,10 @@ export default function About() {
                   Curated
                 </h2>
                 <p className="text-zinc-400 leading-relaxed text-center text-sm mb-8">
-                  Channel is built around collectives and people most active in
-                  their communities, not surfaced by an algorithm. Discovery
-                  here is intentional, rooted in trust, taste, and local
-                  scenes.
+                  When someone you follow hosts a show or goes live, you hear
+                  about it directly. You can support them and connect with
+                  others in the room through chat. No ads. No feed. No
+                  algorithm deciding what you should hear.
                 </p>
               </div>
 
