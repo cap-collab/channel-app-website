@@ -242,7 +242,7 @@ export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
       listenerCount: stream.visitorCount, visitorCount: stream.visitorCount, audioStream: null,
       showName: null, djName: null,
       tipLink: null,
-      heroBarVisible: false, setHeroBarVisible: setHeroBarVisibleCb, heroBarObserverReady: false, setHeroBarObserverReady: setHeroBarObserverReadyCb,
+      heroBarVisible, setHeroBarVisible: setHeroBarVisibleCb, heroBarObserverReady, setHeroBarObserverReady: setHeroBarObserverReadyCb,
     };
   }, [statusIsLive, stream, isStreaming, showName, djName, heroBarVisible, setHeroBarVisibleCb, heroBarObserverReady, setHeroBarObserverReadyCb]);
 
