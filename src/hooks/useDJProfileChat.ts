@@ -60,6 +60,8 @@ export function useDJProfileChat({
 
   // Track current user's love message ID for incrementing heartCount
   const currentLoveMessageIdRef = useRef<string | null>(null);
+  // Track the cross-posted love message ID in channelbroadcast for incrementing
+  const currentLoveBroadcastMessageIdRef = useRef<string | null>(null);
 
   // Subscribe to chat messages
   useEffect(() => {
@@ -171,7 +173,7 @@ export function useDJProfileChat({
 
     try {
       const messagesRef = collection(db, 'chats', chatUsernameNormalized, 'messages');
-      await addDoc(messagesRef, {
+      const messageData = {
         stationId: chatUsernameNormalized,
         username,
         message: text.trim(),
@@ -179,7 +181,18 @@ export function useDJProfileChat({
         isDJ: isOwner,  // Mark as DJ message if the sender is the profile owner
         messageType: 'chat',
         ...(broadcastSlotId && { djSlotId: broadcastSlotId }),
-      });
+      };
+      await addDoc(messagesRef, messageData);
+
+      // Cross-post to channelbroadcast (fire-and-forget)
+      if (chatUsernameNormalized !== 'channelbroadcast') {
+        const broadcastRef = collection(db, 'chats', 'channelbroadcast', 'messages');
+        addDoc(broadcastRef, {
+          ...messageData,
+          stationId: 'channelbroadcast',
+          timestamp: serverTimestamp(),
+        }).catch((err) => console.error('Failed to cross-post message:', err));
+      }
 
       // If the DJ is posting, trigger DJ Online notifications for followers
       if (isOwner) {
@@ -222,6 +235,8 @@ export function useDJProfileChat({
     }
 
     try {
+      const shouldCrossPost = chatUsernameNormalized !== 'channelbroadcast';
+
       // Check if we already have a love message - if so, increment heartCount
       if (currentLoveMessageIdRef.current) {
         const messageRef = doc(db, 'chats', chatUsernameNormalized, 'messages', currentLoveMessageIdRef.current);
@@ -229,6 +244,14 @@ export function useDJProfileChat({
           heartCount: increment(1),
           timestamp: serverTimestamp(),
         });
+
+        // Also increment in channelbroadcast (fire-and-forget)
+        if (shouldCrossPost && currentLoveBroadcastMessageIdRef.current) {
+          updateDoc(
+            doc(db, 'chats', 'channelbroadcast', 'messages', currentLoveBroadcastMessageIdRef.current),
+            { heartCount: increment(1), timestamp: serverTimestamp() }
+          ).catch((err) => console.error('Failed to cross-post love increment:', err));
+        }
         return;
       }
 
@@ -237,7 +260,7 @@ export function useDJProfileChat({
       const displayName = username || 'Someone';
       const message = `${displayName} is ❤️ ${djUsername}`;
 
-      const docRef = await addDoc(messagesRef, {
+      const loveData = {
         stationId: chatUsernameNormalized,
         username: displayName,
         message,
@@ -245,10 +268,23 @@ export function useDJProfileChat({
         isDJ: false,
         messageType: 'love',
         heartCount: 1,
-      });
+      };
+
+      const docRef = await addDoc(messagesRef, loveData);
 
       // Store the document ID for future heart increments
       currentLoveMessageIdRef.current = docRef.id;
+
+      // Cross-post to channelbroadcast (fire-and-forget)
+      if (shouldCrossPost) {
+        addDoc(collection(db, 'chats', 'channelbroadcast', 'messages'), {
+          ...loveData,
+          stationId: 'channelbroadcast',
+          timestamp: serverTimestamp(),
+        }).then((broadcastDocRef) => {
+          currentLoveBroadcastMessageIdRef.current = broadcastDocRef.id;
+        }).catch((err) => console.error('Failed to cross-post love:', err));
+      }
     } catch (err) {
       console.error('Failed to send love:', err);
       throw new Error('Failed to send love');

@@ -86,7 +86,10 @@ export function ArchiveHero({ archives, featuredArchive }: ArchiveHeroProps) {
 
   // Heart / Love
   const [heartTrigger, setHeartTrigger] = useState(0);
-  const handleLove = () => setHeartTrigger((t) => t + 1);
+  const handleLove = () => {
+    setHeartTrigger((t) => t + 1);
+    sendLove();
+  };
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'archives' | 'chat'>('archives');
@@ -105,6 +108,15 @@ export function ArchiveHero({ archives, featuredArchive }: ArchiveHeroProps) {
     djUsername: 'Channel Radio',
     username: chatUsername || undefined,
     enabled: true,
+  });
+
+  // DJ-specific chat hook for sending loves to the DJ's chat room
+  // (cross-posts to channelbroadcast automatically via sendLove)
+  const { sendLove } = useDJProfileChat({
+    chatUsernameNormalized: djProfileUsername || '',
+    djUsername: djName || '',
+    username: chatUsername || undefined,
+    enabled: !!djProfileUsername,
   });
 
   useEffect(() => {
