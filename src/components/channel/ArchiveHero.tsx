@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback, FormEvent } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, FormEvent } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -10,6 +10,7 @@ import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useDJProfileInfo } from '@/hooks/useDJProfileInfo';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
+import { useBroadcastSchedule } from '@/hooks/useBroadcastSchedule';
 import { DJImageOverlay, ScrollingShowName, ScrollingDJName, HeroChatMessage } from './LiveBroadcastHero';
 import { FloatingHearts } from './FloatingHearts';
 import { TipButton } from './TipButton';
@@ -182,14 +183,32 @@ export function ArchiveHero({ archives, featuredArchive }: ArchiveHeroProps) {
 
   const showName = displayedArchive.showName;
 
+  // Next scheduled show today
+  const { shows: scheduleShows } = useBroadcastSchedule();
+  const nextShowToday = useMemo(() => {
+    const now = Date.now();
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+    return scheduleShows.find(s => s.startTime > now && s.startTime <= endOfDay.getTime()) || null;
+  }, [scheduleShows]);
+
+  const nextShowTime = nextShowToday ? new Date(nextShowToday.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null;
+
   return (
     <section className="relative z-10 px-4 pt-6 pb-2">
       <div className="max-w-3xl mx-auto">
 
-        {/* Archive status line above image */}
-        <div className="flex items-center justify-end gap-1.5 mb-2">
-          <ArchiveIcon className="w-3 h-3 text-gray-400" />
-          <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">Archive</span>
+        {/* Status line above image */}
+        <div className="flex items-center justify-between mb-2">
+          {nextShowTime ? (
+            <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">Next live at {nextShowTime}</span>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center gap-1.5">
+            <ArchiveIcon className="w-3 h-3 text-gray-400" />
+            <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">Archive</span>
+          </div>
         </div>
 
         {/* Hero Image — 16:9 mobile, 5:2 desktop */}
