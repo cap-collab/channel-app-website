@@ -175,10 +175,6 @@ export function ArchiveHero({ archives, featuredArchive }: ArchiveHeroProps) {
     }
   }, [chatInput, isSending, sendMessage]);
 
-  // Progress bar seek
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    archivePlayer.seek(parseFloat(e.target.value));
-  };
 
   const showName = displayedArchive.showName;
 
