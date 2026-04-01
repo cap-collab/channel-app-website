@@ -17,10 +17,15 @@ import { AuthModal } from '@/components/AuthModal';
 import { GenreAlertPrompt } from '@/components/channel/GenreAlertPrompt';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { LiveBroadcastHero } from '@/components/channel/LiveBroadcastHero';
+import { ArchiveHero } from '@/components/channel/ArchiveHero';
+import { OfflineHero } from '@/components/channel/OfflineHero';
+import { EmailPopup } from '@/components/channel/EmailPopup';
 import { Show, Station, IRLShowData, CuratorRec, DJProfile } from '@/types';
 import { DJProfileCard } from '@/components/channel/DJProfileCard';
 import { STATIONS, getMetadataKeyByStationId } from '@/lib/stations';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
+import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
+import { useArchives } from '@/hooks/useArchives';
 import { useBPM } from '@/contexts/BPMContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { getDefaultCity, matchesCity, SUPPORTED_CITIES } from '@/lib/city-detection';
@@ -35,10 +40,28 @@ type MatchedItem =
 
 export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
   const { user, isAuthenticated } = useAuthContext();
-  const { isLive: isBroadcastLive, isStreaming: isBroadcastStreaming } = useBroadcastStreamContext();
+  const { isLive: isBroadcastLive, isStreaming: isBroadcastStreaming, currentDJ } = useBroadcastStreamContext();
   const { stationBPM } = useBPM();
+  const archivePlayer = useArchivePlayer();
+  const { archives, featuredArchive, loading: archivesLoading } = useArchives();
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
+
+  // Switch-to-live prompt state
+  const [showLivePrompt, setShowLivePrompt] = useState(false);
+  const [dismissedLivePrompt, setDismissedLivePrompt] = useState(false);
+
+  // Show prompt when live starts while archive is playing
+  useEffect(() => {
+    if (isBroadcastLive && isBroadcastStreaming && archivePlayer.isPlaying && !dismissedLivePrompt) {
+      setShowLivePrompt(true);
+    }
+    // Reset when broadcast ends
+    if (!isBroadcastLive || !isBroadcastStreaming) {
+      setDismissedLivePrompt(false);
+      setShowLivePrompt(false);
+    }
+  }, [isBroadcastLive, isBroadcastStreaming, archivePlayer.isPlaying, dismissedLivePrompt]);
 
   // Scroll to #scene anchor after mount
   useEffect(() => {
@@ -85,30 +108,21 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
   const [showGenreAlertPrompt, setShowGenreAlertPrompt] = useState(false);
   const genreAlertShownRef = useRef(false);
 
-  // Notify email form state
-  const [notifyEmail, setNotifyEmail] = useState('');
-  const [notifyStatus, setNotifyStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  // Determine which hero to show
+  const isLiveReady = isBroadcastLive && isBroadcastStreaming;
+  const shouldShowLiveHero = isLiveReady && !archivePlayer.isPlaying;
+  const shouldShowArchiveWithPrompt = isLiveReady && archivePlayer.isPlaying;
 
-  const handleNotifySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!notifyEmail.trim()) return;
-    try {
-      setNotifyStatus('submitting');
-      const res = await fetch('/api/radio-notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: notifyEmail.trim(),
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        }),
-      });
-      if (!res.ok) throw new Error('Failed to submit');
-      setNotifyStatus('success');
-      setNotifyEmail('');
-    } catch {
-      setNotifyStatus('error');
-    }
-  };
+  const handleSwitchToLive = useCallback(() => {
+    archivePlayer.pause();
+    setShowLivePrompt(false);
+    setDismissedLivePrompt(false);
+  }, [archivePlayer]);
+
+  const handleKeepListening = useCallback(() => {
+    setShowLivePrompt(false);
+    setDismissedLivePrompt(true);
+  }, []);
 
   // Follow/remind state
   const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
@@ -833,50 +847,51 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
         <Header currentPage="channel" position="sticky" showSearch />
       </div>
 
-      {/* Hero Section — Live Broadcast or Launching Soon */}
-      {skipHero ? null : mounted && isBroadcastLive && isBroadcastStreaming ? (
+      {/* Hero Section — Live Broadcast, Archive, or Offline */}
+      {skipHero ? null : mounted && shouldShowLiveHero ? (
         <LiveBroadcastHero />
-      ) : (
-        <section className="px-4 md:px-8 py-10 md:py-16 text-center relative z-10">
-          <div className="max-w-2xl mx-auto">
-            <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter leading-none mb-4">Channel Radio</h1>
-            <p className="text-lg md:text-xl text-zinc-300 mb-8">Back online soon.</p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <div className="w-full sm:w-auto">
-                {notifyStatus === 'success' ? (
-                  <p className="text-green-400 text-sm py-3">You&apos;re on the list!</p>
-                ) : (
-                  <form onSubmit={handleNotifySubmit} className="flex">
-                    <input
-                      type="email"
-                      placeholder="Get really cool email updates"
-                      value={notifyEmail}
-                      onChange={(e) => setNotifyEmail(e.target.value)}
-                      required
-                      className="bg-white/10 border border-white/20 rounded-l px-4 py-3 text-white placeholder-gray-300 text-sm focus:outline-none focus:border-white/40 min-w-0 flex-1 sm:w-80"
-                    />
-                    <button
-                      type="submit"
-                      disabled={notifyStatus === 'submitting'}
-                      className="bg-white/20 border border-white/20 border-l-0 rounded-r px-4 py-3 text-white text-sm font-medium hover:bg-white/30 transition-colors disabled:opacity-50 shrink-0"
-                    >
-                      {notifyStatus === 'submitting' ? '...' : 'Submit'}
-                    </button>
-                  </form>
-                )}
-                {notifyStatus === 'error' && (
-                  <p className="text-red-400 text-xs mt-1">Something went wrong. Try again.</p>
-                )}
+      ) : mounted ? (
+        <div className="relative">
+          {/* Switch-to-live prompt overlay */}
+          {shouldShowArchiveWithPrompt && showLivePrompt && (
+            <div className="absolute inset-x-0 top-0 z-30 flex justify-center pt-4 px-4">
+              <div className="bg-black/95 border border-white/20 px-5 py-3 flex items-center gap-4 max-w-md w-full">
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-semibold truncate">{currentDJ || 'A DJ'} is live!</p>
+                  <p className="text-zinc-400 text-xs">Switch to the live broadcast?</p>
+                </div>
+                <button
+                  onClick={handleSwitchToLive}
+                  className="px-4 py-1.5 bg-white text-black text-sm font-semibold hover:bg-gray-200 transition-colors flex-shrink-0"
+                >
+                  Switch
+                </button>
+                <button
+                  onClick={handleKeepListening}
+                  className="text-zinc-400 text-xs hover:text-white transition-colors flex-shrink-0"
+                >
+                  Keep listening
+                </button>
               </div>
             </div>
-            <p className="text-zinc-500 text-sm mt-6">
-              DJs, producers, collectives, reach out to{' '}
-              <a href="mailto:djshows@channel-app.com" className="text-white hover:underline">djshows@channel-app.com</a>
-              {' '}to host a show or claim your profile
-            </p>
-          </div>
-        </section>
-      )}
+          )}
+
+          {archivesLoading ? (
+            <div className="flex items-center justify-center py-24">
+              <svg className="animate-spin h-8 w-8 text-zinc-500" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+            </div>
+          ) : featuredArchive ? (
+            <ArchiveHero archives={archives} featuredArchive={featuredArchive} />
+          ) : (
+            <OfflineHero />
+          )}
+        </div>
+      ) : null}
+
+      <EmailPopup />
 
       <div id="scene" />
 
