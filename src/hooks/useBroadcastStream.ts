@@ -769,7 +769,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
 
-    if (isPlaying && currentShow) {
+    if (currentShow) {
       // Match hero image priority: show image > DJ photo > primary restream DJ photo
       const primaryRestreamDjPhoto = (() => {
         if (!currentShow.restreamDjs || currentShow.restreamDjs.length === 0) return null;
@@ -841,47 +841,64 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
         setMetadata(fallbackArtworkUrl);
       }
 
-      // Disable skip/seek buttons in mobile control center
-      const disableActions: MediaSessionAction[] = ['seekforward', 'seekbackward', 'previoustrack', 'nexttrack'];
-      for (const action of disableActions) {
+      // Playback-only: action handlers and position state
+      if (isPlaying) {
+        // Disable skip/seek buttons in mobile control center
+        const disableActions: MediaSessionAction[] = ['seekforward', 'seekbackward', 'previoustrack', 'nexttrack'];
+        for (const action of disableActions) {
+          try {
+            navigator.mediaSession.setActionHandler(action, null);
+          } catch {
+            // Browser doesn't support this action
+          }
+        }
         try {
-          navigator.mediaSession.setActionHandler(action, null);
+          navigator.mediaSession.setActionHandler('seekto', () => {});
         } catch {
-          // Browser doesn't support this action
+          // Browser doesn't support seekto
         }
-      }
-      try {
-        navigator.mediaSession.setActionHandler('seekto', () => {});
-      } catch {
-        // Browser doesn't support seekto
-      }
 
-      // Handle play/pause from Control Center / lock screen
-      try {
-        navigator.mediaSession.setActionHandler('pause', () => { pause(); });
-        navigator.mediaSession.setActionHandler('play', () => { play(); });
-      } catch {
-        // Browser doesn't support these actions
-      }
-
-      // Show progress bar based on show start/end time, update every 2 min
-      const duration = (currentShow.endTime - currentShow.startTime) / 1000;
-
-      const updatePosition = () => {
-        if (duration > 0) {
-          const position = Math.max(0, (Date.now() - currentShow.startTime) / 1000);
-          navigator.mediaSession.setPositionState({
-            duration,
-            position: Math.min(position, duration),
-            playbackRate: 1,
-          });
+        // Handle play/pause from Control Center / lock screen
+        try {
+          navigator.mediaSession.setActionHandler('pause', () => { pause(); });
+          navigator.mediaSession.setActionHandler('play', () => { play(); });
+        } catch {
+          // Browser doesn't support these actions
         }
-      };
 
-      updatePosition();
-      const interval = setInterval(updatePosition, 120_000);
+        // Show progress bar based on show start/end time, update every 2 min
+        const duration = (currentShow.endTime - currentShow.startTime) / 1000;
+
+        const updatePosition = () => {
+          if (duration > 0) {
+            const position = Math.max(0, (Date.now() - currentShow.startTime) / 1000);
+            navigator.mediaSession.setPositionState({
+              duration,
+              position: Math.min(position, duration),
+              playbackRate: 1,
+            });
+          }
+        };
+
+        updatePosition();
+        const interval = setInterval(updatePosition, 120_000);
+        return () => {
+          clearInterval(interval);
+          if (artworkPreloadRef.current) {
+            artworkPreloadRef.current.onload = null;
+            artworkPreloadRef.current.onerror = null;
+            artworkPreloadRef.current.src = '';
+            artworkPreloadRef.current = null;
+          }
+          if (artworkRetryTimerRef.current) {
+            clearTimeout(artworkRetryTimerRef.current);
+            artworkRetryTimerRef.current = null;
+          }
+        };
+      }
+
+      // Cleanup preloads even when not playing
       return () => {
-        clearInterval(interval);
         if (artworkPreloadRef.current) {
           artworkPreloadRef.current.onload = null;
           artworkPreloadRef.current.onerror = null;
