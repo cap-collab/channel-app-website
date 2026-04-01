@@ -854,24 +854,30 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
         <div className="relative">
           {/* Switch-to-live prompt overlay */}
           {shouldShowArchiveWithPrompt && showLivePrompt && (
-            <div className="absolute inset-x-0 top-0 z-30 flex justify-center pt-4 px-4">
-              <div className="bg-black/95 border border-white/20 px-5 py-3 flex items-center gap-4 max-w-md w-full">
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-semibold truncate">{currentDJ || 'A DJ'} is live!</p>
-                  <p className="text-zinc-400 text-xs">Switch to the live broadcast?</p>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <div className="bg-black border border-white/20 rounded-xl px-6 py-5 max-w-sm w-full shadow-2xl">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600" />
+                  </span>
+                  <p className="text-white text-base font-bold truncate">{currentDJ || 'A DJ'} is live!</p>
                 </div>
-                <button
-                  onClick={handleSwitchToLive}
-                  className="px-4 py-1.5 bg-white text-black text-sm font-semibold hover:bg-gray-200 transition-colors flex-shrink-0"
-                >
-                  Switch
-                </button>
-                <button
-                  onClick={handleKeepListening}
-                  className="text-zinc-400 text-xs hover:text-white transition-colors flex-shrink-0"
-                >
-                  Keep listening
-                </button>
+                <p className="text-zinc-400 text-sm mb-5">Switch to the live broadcast?</p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleSwitchToLive}
+                    className="flex-1 py-2.5 bg-white text-black text-sm font-bold hover:bg-gray-200 transition-colors rounded-lg"
+                  >
+                    Switch to live
+                  </button>
+                  <button
+                    onClick={handleKeepListening}
+                    className="flex-1 py-2.5 text-zinc-400 text-sm font-medium hover:text-white transition-colors border border-white/10 rounded-lg"
+                  >
+                    Keep listening
+                  </button>
+                </div>
               </div>
             </div>
           )}
