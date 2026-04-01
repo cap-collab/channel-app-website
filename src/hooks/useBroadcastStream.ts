@@ -806,7 +806,6 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
         setMetadata(fallbackArtworkUrl);
 
         const img = new Image();
-        img.crossOrigin = 'anonymous';
         artworkPreloadRef.current = img;
 
         img.onload = () => {
@@ -820,7 +819,6 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
           // Retry once after 3s — image may not have propagated to CDN yet
           artworkRetryTimerRef.current = setTimeout(() => {
             const retryImg = new Image();
-            retryImg.crossOrigin = 'anonymous';
             artworkPreloadRef.current = retryImg;
             retryImg.onload = () => {
               if (artworkPreloadRef.current === retryImg) {
