@@ -122,6 +122,7 @@ interface UseBroadcastStreamReturn {
   pause: () => void;
   toggle: () => void;
   listenerCount: number;
+  visitorCount: number;
   audioStream: MediaStream | null;
 }
 
@@ -134,6 +135,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
   const [currentDJ, setCurrentDJ] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [listenerCount, setListenerCount] = useState(0);
+  const [visitorCount, setVisitorCount] = useState(0);
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
 
   const roomRef = useRef<Room | null>(null);
@@ -928,6 +930,49 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
     return () => unsubscribe();
   }, []);
 
+  // Register page-visit presence on mount (tracks visitors even when not playing)
+  useEffect(() => {
+    const sessionId = getSessionId();
+    if (!sessionId) return;
+
+    let presenceRefCached: ReturnType<typeof ref> | null = null;
+
+    ensureAuthAndExecute(() => {
+      const db = getDatabase(getFirebaseApp());
+      presenceRefCached = ref(db, `presence/visitors/${sessionId}`);
+      onDisconnect(presenceRefCached).remove();
+      set(presenceRefCached, true);
+    });
+
+    return () => {
+      if (presenceRefCached) {
+        remove(presenceRefCached);
+      } else {
+        // Fallback: ref wasn't cached yet (auth was still in progress)
+        const app = getFirebaseApp();
+        const auth = getAuth(app);
+        if (auth.currentUser) {
+          const db = getDatabase(app);
+          remove(ref(db, `presence/visitors/${sessionId}`));
+        }
+      }
+    };
+  }, []);
+
+  // Subscribe to visitor count from Firebase Realtime Database
+  useEffect(() => {
+    const app = getFirebaseApp();
+    const db = getDatabase(app);
+    const visitorsRef = ref(db, 'presence/visitors');
+
+    const unsubscribe = onValue(visitorsRef, (snapshot) => {
+      const count = snapshot.size || 0;
+      setVisitorCount(count);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   return {
     isPlaying,
     isLoading,
@@ -939,6 +984,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
     pause,
     toggle,
     listenerCount,
+    visitorCount,
     audioStream,
   };
 }
