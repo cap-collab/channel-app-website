@@ -252,8 +252,10 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
                 audioElementRef.current.load();
               }
               setIsPlaying(false);
-              wasPlayingRef.current = false; // Prevent duplicate auto-resume
-              setAutoResumePending(true);
+              wasPlayingRef.current = false;
+              // Don't auto-resume — let the user tap play for the restream.
+              // Auto-resume can fail silently (Safari autoplay policy) leaving
+              // the button in a "playing" state with no audio.
             }
           }
 
