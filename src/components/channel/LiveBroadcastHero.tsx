@@ -191,7 +191,7 @@ export function HeroChatMessage({
 }
 
 /** Overlay on DJ image showing name, genres, and auto-scrolling description */
-function DJImageOverlay({
+export function DJImageOverlay({
   djName,
   djGenres,
   djDescription,

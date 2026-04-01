@@ -3,7 +3,8 @@
 import { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect, ReactNode } from 'react';
 import { BroadcastStreamContext, BroadcastStreamContextValue } from '@/contexts/BroadcastStreamContext';
 import { BPMContext } from '@/contexts/BPMContext';
-import { BroadcastSlotSerialized } from '@/types/broadcast';
+import { ArchivePlayerProvider } from '@/contexts/ArchivePlayerContext';
+import { BroadcastSlotSerialized, ArchiveSerialized } from '@/types/broadcast';
 
 export type DemoMode = 'offline' | 'live' | 'restream';
 
@@ -57,6 +58,76 @@ const DEMO_SHOW_RESTREAM: BroadcastSlotSerialized = {
     { name: 'Lovefingers, Heidi Lawden & Flabbergast' },
   ],
 };
+
+// Mock archives for demo (all >45 min)
+export const DEMO_ARCHIVES: ArchiveSerialized[] = [
+  {
+    id: 'demo-archive-1',
+    slug: 'sky-rivers-radio-show-04',
+    broadcastSlotId: 'slot-1',
+    showName: 'Sky Rivers - Radio Show 04',
+    djs: [{ name: 'Skee', username: 'skee', email: 'skee@demo.com' }],
+    recordingUrl: 'https://example.com/demo-archive-1.mp4',
+    duration: 3720, // 62 min
+    recordedAt: Date.now() - 86400000, // 1 day ago
+    createdAt: Date.now() - 86400000,
+    stationId: 'channel-main',
+    showImageUrl: 'https://image.rinse.fm/_/0079_SEPT_2023_2025-06-17-154928_fccn.jpeg?w=800&h=800',
+  },
+  {
+    id: 'demo-archive-2',
+    slug: 'midnight-mix-03',
+    broadcastSlotId: 'slot-2',
+    showName: 'Midnight Mix 03',
+    djs: [{ name: 'Cron', username: 'cron' }],
+    recordingUrl: 'https://example.com/demo-archive-2.mp4',
+    duration: 2880, // 48 min
+    recordedAt: Date.now() - 172800000, // 2 days ago
+    createdAt: Date.now() - 172800000,
+    stationId: 'channel-main',
+    showImageUrl: 'https://image.rinse.fm/_/0079_SEPT_2023_2025-06-17-154928_fccn.jpeg?w=800&h=800',
+  },
+  {
+    id: 'demo-archive-3',
+    slug: 'bass-hour-sessions',
+    broadcastSlotId: 'slot-3',
+    showName: 'Bass Hour Sessions',
+    djs: [{ name: 'Bilalwood', username: 'bilalwood' }],
+    recordingUrl: 'https://example.com/demo-archive-3.mp4',
+    duration: 3300, // 55 min
+    recordedAt: Date.now() - 259200000, // 3 days ago
+    createdAt: Date.now() - 259200000,
+    stationId: 'channel-main',
+  },
+  {
+    id: 'demo-archive-4',
+    slug: 'deep-state-radio',
+    broadcastSlotId: 'slot-4',
+    showName: 'Deep State Radio',
+    djs: [{ name: 'Lovefingers', username: 'lovefingers' }],
+    recordingUrl: 'https://example.com/demo-archive-4.mp4',
+    duration: 4260, // 71 min
+    recordedAt: Date.now() - 345600000, // 4 days ago
+    createdAt: Date.now() - 345600000,
+    stationId: 'channel-main',
+  },
+  {
+    id: 'demo-archive-5',
+    slug: 'ambient-selections-12',
+    broadcastSlotId: 'slot-5',
+    showName: 'Ambient Selections 12',
+    djs: [{ name: 'Stacy Christine' }, { name: 'Heidi Lawden' }],
+    recordingUrl: 'https://example.com/demo-archive-5.mp4',
+    duration: 3600, // 60 min
+    recordedAt: Date.now() - 432000000, // 5 days ago
+    createdAt: Date.now() - 432000000,
+    stationId: 'channel-main',
+  },
+];
+
+// Demo genres for the featured archive DJ (Skee)
+export const DEMO_DJ_GENRES = ['Ambient', 'Experimental'];
+export const DEMO_TIP_LINK = 'https://example.com/tip/skee';
 
 export function DemoBroadcastStreamProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<DemoMode>('offline');
@@ -191,7 +262,9 @@ export function DemoBroadcastStreamProvider({ children }: { children: ReactNode 
     <DemoModeContext.Provider value={modeCtx}>
       <BPMContext.Provider value={demoBPM}>
         <BroadcastStreamContext.Provider value={value}>
-          {children}
+          <ArchivePlayerProvider>
+            {children}
+          </ArchivePlayerProvider>
         </BroadcastStreamContext.Provider>
       </BPMContext.Provider>
     </DemoModeContext.Provider>
