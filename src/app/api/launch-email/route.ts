@@ -111,15 +111,16 @@ function wrapEmailContent(content: string): string {
   `);
 }
 
+const BUTTON_STYLE = "display: inline-block; background-color: #2a2a2a; color: #fff !important; padding: 14px 28px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 14px;";
+
 function buildIOSEmailHtml(name: string): string {
   return wrapEmailContent(`
     <p style="margin: 0 0 16px; color: #e4e4e7;">Hi ${name},</p>
-    <p style="margin: 0 0 16px; color: #e4e4e7;">Quick update on Channel, it's evolved quite a bit since the iOS app.</p>
-    <p style="margin: 0 0 16px; color: #e4e4e7;">I'm now relaunching it as a community radio, where DJs and producers host shows and people tune in together.</p>
-    <p style="margin: 0 0 16px; color: #e4e4e7;">You can follow what they do, chat during sets, and stay connected to what's happening around them, on other radios and IRL.</p>
-    <p style="margin: 0 0 16px; color: #e4e4e7;">We're live now with the first shows coming out of LA.</p>
-    <p style="margin: 0 0 8px; color: #e4e4e7;">Tune in here:</p>
-    <p style="margin: 0 0 24px;"><a href="https://channel-app.com/" style="color: #a1a1aa; text-decoration: underline;">https://channel-app.com/</a></p>
+    <p style="margin: 0 0 16px; color: #e4e4e7;">Channel is now live as a community radio<br /><a href="https://channel-app.com/" style="color: #a1a1aa; text-decoration: underline;">https://channel-app.com/</a></p>
+    <p style="margin: 0 0 16px; color: #e4e4e7;">It has evolved quite a bit since the iOS app. It is now available on web, where DJs and producers host shows and people tune in together.</p>
+    <p style="margin: 0 0 16px; color: #e4e4e7;">You can follow what they do, chat during sets, and stay connected to what is happening around them, on other radios and IRL.</p>
+    <p style="margin: 0 0 24px; color: #e4e4e7;">We are live now with the first shows coming out of LA.</p>
+    <p style="margin: 0 0 24px;"><a href="https://channel-app.com/" style="${BUTTON_STYLE}">TUNE IN NOW</a></p>
     <p style="margin: 0 0 16px; color: #e4e4e7;">Would love to have you back on.</p>
     <p style="margin: 0; color: #e4e4e7;">Cap</p>
   `);
@@ -128,12 +129,11 @@ function buildIOSEmailHtml(name: string): string {
 function buildGeneralEmailHtml(name: string): string {
   return wrapEmailContent(`
     <p style="margin: 0 0 16px; color: #e4e4e7;">Hi ${name},</p>
-    <p style="margin: 0 0 16px; color: #e4e4e7;">Channel is now live.</p>
+    <p style="margin: 0 0 16px; color: #e4e4e7;">Channel is now live<br /><a href="https://channel-app.com/" style="color: #a1a1aa; text-decoration: underline;">https://channel-app.com/</a></p>
     <p style="margin: 0 0 16px; color: #e4e4e7;">It's a community radio where DJs and producers host shows and people tune in together.</p>
     <p style="margin: 0 0 16px; color: #e4e4e7;">You can follow what they do, chat during sets, and stay connected to what's happening around them, on other radios and IRL.</p>
-    <p style="margin: 0 0 16px; color: #e4e4e7;">We're live now with the first shows coming out of LA.</p>
-    <p style="margin: 0 0 8px; color: #e4e4e7;">Tune in here:</p>
-    <p style="margin: 0 0 24px;"><a href="https://channel-app.com/" style="color: #a1a1aa; text-decoration: underline;">https://channel-app.com/</a></p>
+    <p style="margin: 0 0 24px; color: #e4e4e7;">We're live with the first shows coming out of LA.</p>
+    <p style="margin: 0 0 24px;"><a href="https://channel-app.com/" style="${BUTTON_STYLE}">TUNE IN NOW</a></p>
     <p style="margin: 0; color: #e4e4e7;">Cap</p>
   `);
 }
@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
       await resend.emails.send({
         from: FROM_EMAIL,
         to: previewEmail,
-        subject: "Channel is live",
+        subject: "Channel is live now",
         html: buildGeneralEmailHtml("Cap"),
       });
       results.push({ variant: "general", success: true });
