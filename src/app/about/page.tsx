@@ -33,7 +33,7 @@ export default function About() {
       <Header position="sticky" showSearch />
 
       {/* About Me Section */}
-      <section id="about-me" className="py-24 px-6 bg-black pt-32">
+      <section id="about-me" className="pb-24 px-6 bg-black pt-12">
         <ScrollReveal>
           <div className="max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-semibold text-white mb-8 text-center">

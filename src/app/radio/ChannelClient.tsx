@@ -146,7 +146,7 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
         } else if (data?.preferredGenre) {
           setSelectedGenres([data.preferredGenre]);
         } else {
-          setSelectedGenres(['House']);
+          setSelectedGenres([]);
         }
       });
       return;
