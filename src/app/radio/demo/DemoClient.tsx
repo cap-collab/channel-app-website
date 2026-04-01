@@ -6,6 +6,7 @@ import { LiveBroadcastHero } from '@/components/channel/LiveBroadcastHero';
 import { ArchiveHero } from '@/components/channel/ArchiveHero';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useArchives } from '@/hooks/useArchives';
+import { EmailPopup } from '@/components/channel/EmailPopup';
 import { DemoBroadcastStreamProvider, useDemoMode, DemoMode } from './DemoBroadcastStreamProvider';
 
 const MODES: { value: DemoMode; label: string }[] = [
@@ -84,6 +85,7 @@ export function DemoClient() {
       <DemoBroadcastStreamProvider>
         <DemoHero />
         <DemoToggle />
+        <EmailPopup />
       </DemoBroadcastStreamProvider>
     </div>
   );
