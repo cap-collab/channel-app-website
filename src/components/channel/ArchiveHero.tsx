@@ -564,8 +564,9 @@ function ArchiveRow({
   onPlay: () => void;
 }) {
   const djNames = archive.djs.map((d) => d.name).join(', ');
-  // For genre display in archive list, we don't fetch per-row — just show DJ name + duration
-  // Genres would need per-DJ fetch; keep it simple for now
+  const primaryUsername = archive.djs[0]?.username;
+  const { genres } = useDJProfileInfo(primaryUsername);
+  const genreText = genres.length > 0 ? genres.join(' · ') : null;
   const displayImage = archive.showImageUrl || archive.djs[0]?.photoUrl;
 
   return (
@@ -595,7 +596,12 @@ function ArchiveRow({
 
       {/* Info — always 2 lines */}
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold text-white truncate">{archive.showName}</div>
+        <div className="text-sm font-semibold text-white truncate">
+          {archive.showName}
+          {genreText && (
+            <span className="font-normal text-zinc-400"> - {genreText}</span>
+          )}
+        </div>
         <div className="text-xs text-zinc-500 truncate">
           {djNames}
           <span className="text-zinc-600 ml-2">{formatDurationMinutes(archive.duration)}</span>
