@@ -14,6 +14,15 @@ const LOGO_URL = "https://channel-app.com/logo-white.png";
 const PLATFORM_FIELD = "platform";
 const FCM_TOKEN_FIELD = "fcmToken";
 
+// Manual overrides: iOS app users not detected by fcmToken/platform fields
+const IOS_OVERRIDE_EMAILS = new Set([
+  "omar41309@yahoo.com",
+  "jbektemba0711@gmail.com",
+  "yaldahesh@gmail.com",
+  "thomas@sidewalk-consulting.com",
+  "clindsay123@gmail.com",
+]);
+
 // ── Recipient type ──────────────────────────────────────────────────
 interface Recipient {
   email: string;
@@ -147,7 +156,7 @@ async function collectRecipients(): Promise<{
     const chatUsername = user.data.chatUsername as string | undefined;
     const platform = user.data[PLATFORM_FIELD] as string | undefined;
     const fcmToken = user.data[FCM_TOKEN_FIELD] as string | undefined;
-    const isIOS = platform === "ios" || !!(fcmToken && fcmToken.length > 0);
+    const isIOS = platform === "ios" || !!(fcmToken && fcmToken.length > 0) || IOS_OVERRIDE_EMAILS.has(email);
 
     if (isIOS) usersIOS++;
     else usersNonIOS++;
