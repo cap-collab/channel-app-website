@@ -40,7 +40,7 @@ type MatchedItem =
 
 export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
   const { user, isAuthenticated } = useAuthContext();
-  const { isLive: isBroadcastLive, isStreaming: isBroadcastStreaming, currentDJ } = useBroadcastStreamContext();
+  const { isLive: isBroadcastLive, isStreaming: isBroadcastStreaming, currentDJ, play: playLive } = useBroadcastStreamContext();
   const { stationBPM } = useBPM();
   const archivePlayer = useArchivePlayer();
   const { archives, featuredArchive, loading: archivesLoading } = useArchives();
@@ -117,7 +117,11 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
     archivePlayer.pause();
     setShowLivePrompt(false);
     setDismissedLivePrompt(false);
-  }, [archivePlayer]);
+    // Auto-play live stream — the stream hook lives in context (always mounted),
+    // so play() works immediately regardless of which hero component is rendered.
+    // This runs from a user click, so browser autoplay policy is satisfied.
+    playLive();
+  }, [archivePlayer, playLive]);
 
   const handleKeepListening = useCallback(() => {
     setShowLivePrompt(false);
