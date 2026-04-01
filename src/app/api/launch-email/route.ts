@@ -206,36 +206,53 @@ export async function GET(request: NextRequest) {
   const mode = request.nextUrl.searchParams.get("mode") || "dry-run";
   const testEmail = request.nextUrl.searchParams.get("testEmail") || undefined;
 
-  // Dry-run mode: show the hardcoded lists
-  if (mode === "dry-run") {
+  // ⚠️ PREVIEW MODE ONLY — sends both variants to cap@channel-app.com only
+  // Lists are defined above but NOT used for sending until the lock is removed.
+  if (mode === "preview") {
+    if (!resend) {
+      return NextResponse.json({ error: "Resend not configured" }, { status: 500 });
+    }
+
+    const previewEmail = "cap@channel-app.com";
+    const results: Array<{ variant: string; success: boolean; error?: string }> = [];
+
+    // Send iOS variant
+    try {
+      await resend.emails.send({
+        from: FROM_EMAIL,
+        to: previewEmail,
+        subject: "Channel is live now",
+        html: buildIOSEmailHtml("Cap"),
+      });
+      results.push({ variant: "ios", success: true });
+    } catch (e) {
+      results.push({ variant: "ios", success: false, error: String(e) });
+    }
+
+    // Send general variant
+    try {
+      await resend.emails.send({
+        from: FROM_EMAIL,
+        to: previewEmail,
+        subject: "Channel is live",
+        html: buildGeneralEmailHtml("Cap"),
+      });
+      results.push({ variant: "general", success: true });
+    } catch (e) {
+      results.push({ variant: "general", success: false, error: String(e) });
+    }
+
     return NextResponse.json({
-      totalEmails: IOS_LIST.length + GENERAL_LIST.length,
-      iosListCount: IOS_LIST.length,
-      generalListCount: GENERAL_LIST.length,
-      iosList: IOS_LIST,
-      generalList: GENERAL_LIST,
+      mode: "preview",
+      sentTo: previewEmail,
+      results,
     });
   }
 
-  // Send mode
-  if (mode === "send") {
-    const iosResult = await sendList(IOS_LIST, "ios", testEmail);
-    const generalResult = await sendList(GENERAL_LIST, "general", testEmail);
-
-    return NextResponse.json({
-      mode: testEmail ? "test-send" : "full-send",
-      testEmail,
-      totalEmails: IOS_LIST.length + GENERAL_LIST.length,
-      ios: {
-        listCount: IOS_LIST.length,
-        ...iosResult,
-      },
-      general: {
-        listCount: GENERAL_LIST.length,
-        ...generalResult,
-      },
-    });
-  }
-
-  return NextResponse.json({ error: "Invalid mode. Use: dry-run, send" }, { status: 400 });
+  // Full send is DISABLED — re-enable in code when ready
+  return NextResponse.json({
+    error: "Send is disabled. Only ?mode=preview is available. Lists are hardcoded for when send is re-enabled.",
+    iosListCount: IOS_LIST.length,
+    generalListCount: GENERAL_LIST.length,
+  }, { status: 403 });
 }
