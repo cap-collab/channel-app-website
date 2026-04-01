@@ -252,6 +252,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
                 audioElementRef.current.load();
               }
               setIsPlaying(false);
+              wasPlayingRef.current = false; // Prevent duplicate auto-resume
               setAutoResumePending(true);
             }
           }
