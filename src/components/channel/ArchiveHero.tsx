@@ -207,9 +207,12 @@ export function ArchiveHero({ archives, featuredArchive }: ArchiveHeroProps) {
 
   const nextShowTime = nextUpcomingShow ? new Date(nextUpcomingShow.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null;
 
+  const canShowEmailPopup = !isAuthenticated && (typeof window === 'undefined' || localStorage.getItem('radio-email-filed') !== 'true');
+
   const handleNextShowClick = useCallback(() => {
+    if (!canShowEmailPopup) return;
     window.dispatchEvent(new Event('open-email-popup'));
-  }, []);
+  }, [canShowEmailPopup]);
 
   return (
     <section className="relative z-10 px-4 pt-6 pb-2">
@@ -218,12 +221,18 @@ export function ArchiveHero({ archives, featuredArchive }: ArchiveHeroProps) {
         {/* Status line above image */}
         <div className="flex items-center justify-between mb-2">
           {nextShowTime ? (
-            <button
-              onClick={handleNextShowClick}
-              className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold hover:text-white transition-colors"
-            >
-              Next live at {nextShowTime}
-            </button>
+            canShowEmailPopup ? (
+              <button
+                onClick={handleNextShowClick}
+                className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold hover:text-white transition-colors"
+              >
+                Next live at {nextShowTime}
+              </button>
+            ) : (
+              <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">
+                Next live at {nextShowTime}
+              </span>
+            )
           ) : (
             <span />
           )}
