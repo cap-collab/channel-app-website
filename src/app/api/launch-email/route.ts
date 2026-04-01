@@ -138,64 +138,6 @@ function buildGeneralEmailHtml(name: string): string {
   `);
 }
 
-// ── Send emails ─────────────────────────────────────────────────────
-async function sendList(
-  list: Array<{ email: string; name: string }>,
-  variant: "ios" | "general",
-  testEmail?: string
-): Promise<{
-  sent: number;
-  failed: number;
-  errors: Array<{ email: string; error: string }>;
-}> {
-  if (!resend) {
-    return { sent: 0, failed: 0, errors: [{ email: "", error: "Resend not configured" }] };
-  }
-
-  const toSend = testEmail
-    ? list.filter((r) => r.email === testEmail.toLowerCase())
-    : list;
-
-  let sent = 0;
-  let failed = 0;
-  const errors: Array<{ email: string; error: string }> = [];
-
-  for (let i = 0; i < toSend.length; i++) {
-    const recipient = toSend[i];
-    const html = variant === "ios"
-      ? buildIOSEmailHtml(recipient.name)
-      : buildGeneralEmailHtml(recipient.name);
-    const subject = variant === "ios"
-      ? "Channel is live now"
-      : "Channel is live";
-
-    try {
-      await resend.emails.send({
-        from: FROM_EMAIL,
-        to: recipient.email,
-        subject,
-        html,
-      });
-      sent++;
-    } catch (e) {
-      failed++;
-      errors.push({ email: recipient.email, error: String(e) });
-    }
-
-    // Rate limit: ~6/sec
-    if (i < toSend.length - 1) {
-      await new Promise((r) => setTimeout(r, 150));
-    }
-
-    // Progress log every 50
-    if ((i + 1) % 50 === 0) {
-      console.log(`[launch-email] ${variant} progress: ${i + 1}/${toSend.length} (${sent} sent, ${failed} failed)`);
-    }
-  }
-
-  return { sent, failed, errors };
-}
-
 // ── Route handler ───────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
   const secret = request.nextUrl.searchParams.get("secret");
@@ -204,7 +146,6 @@ export async function GET(request: NextRequest) {
   }
 
   const mode = request.nextUrl.searchParams.get("mode") || "dry-run";
-  const testEmail = request.nextUrl.searchParams.get("testEmail") || undefined;
 
   // ⚠️ PREVIEW MODE ONLY — sends both variants to cap@channel-app.com only
   // Lists are defined above but NOT used for sending until the lock is removed.
