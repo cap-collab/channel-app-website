@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
-import { queryCollection } from "@/lib/firebase-rest";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -9,27 +8,55 @@ const resend = process.env.RESEND_API_KEY
 const FROM_EMAIL = "Cap from Channel <cap@channel-app.com>";
 const LOGO_URL = "https://channel-app.com/logo-white.png";
 
-// ── Push token field name (discovered via ?mode=probe) ──────────────
-// Users with platform="ios" or an fcmToken are iOS app users
-const PLATFORM_FIELD = "platform";
-const FCM_TOKEN_FIELD = "fcmToken";
+// ── Hardcoded recipient lists ───────────────────────────────────────
 
-// Manual overrides: iOS app users not detected by fcmToken/platform fields
-const IOS_OVERRIDE_EMAILS = new Set([
-  "omar41309@yahoo.com",
-  "jbektemba0711@gmail.com",
-  "yaldahesh@gmail.com",
-  "thomas@sidewalk-consulting.com",
-  "clindsay123@gmail.com",
-]);
+const IOS_LIST: Array<{ email: string; name: string }> = [
+  { email: "jchatard@outlook.fr", name: "JP" },
+  { email: "omar41309@yahoo.com", name: "Omar" },
+  { email: "cap@channel-app.com", name: "Cap" },
+  { email: "jbektemba0711@gmail.com", name: "Jelani" },
+  { email: "jeremieemk@gmail.com", name: "Jeremie" },
+  { email: "walidvb@gmail.com", name: "Walid" },
+  { email: "yaldahesh@gmail.com", name: "Yalda" },
+  { email: "benjaminruthven@aol.com", name: "Benji" },
+  { email: "2ty7cmd5tf@privaterelay.appleid.com", name: "Cap" },
+  { email: "ssantos2107@gmail.com", name: "Sofia" },
+  { email: "pierre.elie.fauche@gmail.com", name: "Pierre-Élie" },
+  { email: "thomas@sidewalk-consulting.com", name: "Thomas" },
+  { email: "paulanthonychin@gmail.com", name: "Paul-Anthony" },
+  { email: "emwhitenoise@gmail.com", name: "Emily" },
+  { email: "aurelien.porte@gmail.com", name: "Aurelien" },
+];
 
-// ── Recipient type ──────────────────────────────────────────────────
-interface Recipient {
-  email: string;
-  name?: string; // first name from displayName, or chatUsername
-  isIOSUser: boolean;
-  source: string;
-}
+const GENERAL_LIST: Array<{ email: string; name: string }> = [
+  { email: "maxcheney@gmail.com", name: "Max" },
+  { email: "danimunt91@gmail.com", name: "Daniela" },
+  { email: "maiii@posteo.la", name: "Maiii" },
+  { email: "j.r.colby@gmail.com", name: "Jim" },
+  { email: "2jc6y8xkc8@privaterelay.appleid.com", name: "Joey" },
+  { email: "cap@beyondalgorithms.cloud", name: "Cap" },
+  { email: "cf6nq9k22f@privaterelay.appleid.com", name: "Sam" },
+  { email: "stephan.kimbel@gmail.com", name: "Stephan" },
+  { email: "bilaliwood@gmail.com", name: "Bilal" },
+  { email: "billyboyali@gmail.com", name: "Bilal" },
+  { email: "pwbrs7rxyt@privaterelay.appleid.com", name: "Natalie" },
+  { email: "mqt85x26ms@privaterelay.appleid.com", name: "Amandine" },
+  { email: "7mpnw5xkkh@privaterelay.appleid.com", name: "Ana" },
+  { email: "bqbwvhdq7v@privaterelay.appleid.com", name: "Ana" },
+  { email: "v8yykfdgbd@privaterelay.appleid.com", name: "Christian" },
+  { email: "djfp9n86bf@privaterelay.appleid.com", name: "Eduardo" },
+  { email: "tabicat22@gmail.com", name: "Tabitha" },
+  { email: "toby.alden@gmail.com", name: "Toby" },
+  { email: "powell.oliver@me.com", name: "Oliver" },
+  { email: "clindsay123@gmail.com", name: "Christian" },
+  { email: "paulsboston@gmail.com", name: "Paul" },
+  { email: "juniorsbl@gmail.com", name: "Junior" },
+  { email: "hello@justinmiller.nyc", name: "Justin" },
+  { email: "dorwand@gmail.com", name: "Dor Wand" },
+  { email: "cesartoribio1@gmail.com", name: "Cesar" },
+  { email: "omer.almileik@gmail.com", name: "Omer" },
+  { email: "5kyriv3r5@gmail.com", name: "Sky" },
+];
 
 // ── Email HTML builders ─────────────────────────────────────────────
 
@@ -84,10 +111,9 @@ function wrapEmailContent(content: string): string {
   `);
 }
 
-function buildIOSEmailHtml(name?: string): string {
-  const greeting = name ? `Hi ${name},` : "Hi,";
+function buildIOSEmailHtml(name: string): string {
   return wrapEmailContent(`
-    <p style="margin: 0 0 16px; color: #e4e4e7;">${greeting}</p>
+    <p style="margin: 0 0 16px; color: #e4e4e7;">Hi ${name},</p>
     <p style="margin: 0 0 16px; color: #e4e4e7;">Quick update on Channel, it's evolved quite a bit since the iOS app.</p>
     <p style="margin: 0 0 16px; color: #e4e4e7;">I'm now relaunching it as a community radio, where DJs and producers host shows and people tune in together.</p>
     <p style="margin: 0 0 16px; color: #e4e4e7;">You can follow what they do, chat during sets, and stay connected to what's happening around them, on other radios and IRL.</p>
@@ -99,9 +125,9 @@ function buildIOSEmailHtml(name?: string): string {
   `);
 }
 
-function buildGeneralEmailHtml(): string {
+function buildGeneralEmailHtml(name: string): string {
   return wrapEmailContent(`
-    <p style="margin: 0 0 16px; color: #e4e4e7;">Hi,</p>
+    <p style="margin: 0 0 16px; color: #e4e4e7;">Hi ${name},</p>
     <p style="margin: 0 0 16px; color: #e4e4e7;">Channel is now live.</p>
     <p style="margin: 0 0 16px; color: #e4e4e7;">It's a community radio where DJs and producers host shows and people tune in together.</p>
     <p style="margin: 0 0 16px; color: #e4e4e7;">You can follow what they do, chat during sets, and stay connected to what's happening around them, on other radios and IRL.</p>
@@ -112,183 +138,10 @@ function buildGeneralEmailHtml(): string {
   `);
 }
 
-// ── Extract first name from displayName ─────────────────────────────
-function getFirstName(displayName?: string, chatUsername?: string): string | undefined {
-  if (displayName) {
-    const first = displayName.trim().split(/\s+/)[0];
-    if (first && first.length > 1) return first;
-  }
-  if (chatUsername) return chatUsername;
-  return undefined;
-}
-
-// ── Collect all recipients ──────────────────────────────────────────
-async function collectRecipients(): Promise<{
-  recipients: Map<string, Recipient>;
-  stats: {
-    usersTotal: number;
-    usersIOS: number;
-    usersNonIOS: number;
-    pendingDJs: number;
-    djApplications: number;
-    waitlist: number;
-    deduped: number;
-  };
-  fieldReport?: string[];
-}> {
-  const recipients = new Map<string, Recipient>();
-  let deduped = 0;
-  let usersTotal = 0;
-  let usersIOS = 0;
-  let usersNonIOS = 0;
-
-  // 1. All registered users
-  // queryCollection has a default limit of 100, we need all users
-  // Query in batches by fetching all at once with high limit
-  const allUsers = await queryCollection("users", [], 10000);
-  usersTotal = allUsers.length;
-
-  for (const user of allUsers) {
-    const email = (user.data.email as string)?.toLowerCase()?.trim();
-    if (!email || !email.includes("@")) continue;
-
-    const displayName = user.data.displayName as string | undefined;
-    const chatUsername = user.data.chatUsername as string | undefined;
-    const platform = user.data[PLATFORM_FIELD] as string | undefined;
-    const fcmToken = user.data[FCM_TOKEN_FIELD] as string | undefined;
-    const isIOS = platform === "ios" || !!(fcmToken && fcmToken.length > 0) || IOS_OVERRIDE_EMAILS.has(email);
-
-    if (isIOS) usersIOS++;
-    else usersNonIOS++;
-
-    recipients.set(email, {
-      email,
-      name: getFirstName(displayName, chatUsername),
-      isIOSUser: isIOS,
-      source: "user",
-    });
-  }
-
-  // 2. Pending DJ profiles
-  const pendingDJs = await queryCollection("pending-dj-profiles", [], 10000);
-  let pendingDJCount = 0;
-  for (const dj of pendingDJs) {
-    const email = (dj.data.email as string)?.toLowerCase()?.trim();
-    if (!email || !email.includes("@")) continue;
-    pendingDJCount++;
-    if (recipients.has(email)) {
-      deduped++;
-      continue;
-    }
-    const djChatUsername = dj.data.chatUsername as string | undefined;
-    recipients.set(email, {
-      email,
-      name: getFirstName(undefined, djChatUsername),
-      isIOSUser: false,
-      source: "pending-dj",
-    });
-  }
-
-  // 3. DJ applications
-  const djApps = await queryCollection("dj-applications", [], 10000);
-  let djAppCount = 0;
-  for (const app of djApps) {
-    const email = (app.data.email as string)?.toLowerCase()?.trim();
-    if (!email || !email.includes("@")) continue;
-    djAppCount++;
-    if (recipients.has(email)) {
-      deduped++;
-      continue;
-    }
-    recipients.set(email, {
-      email,
-      isIOSUser: false,
-      source: "dj-application",
-    });
-  }
-
-  // 4. Waitlist
-  const waitlist = await queryCollection("radio-notify-waitlist", [], 10000);
-  let waitlistCount = 0;
-  for (const entry of waitlist) {
-    const email = (entry.data.email as string)?.toLowerCase()?.trim();
-    if (!email || !email.includes("@")) continue;
-    waitlistCount++;
-    if (recipients.has(email)) {
-      deduped++;
-      continue;
-    }
-    recipients.set(email, {
-      email,
-      isIOSUser: false,
-      source: "waitlist",
-    });
-  }
-
-  return {
-    recipients,
-    stats: {
-      usersTotal,
-      usersIOS,
-      usersNonIOS,
-      pendingDJs: pendingDJCount,
-      djApplications: djAppCount,
-      waitlist: waitlistCount,
-      deduped,
-    },
-  };
-}
-
-// ── Probe mode: discover fields on user docs ────────────────────────
-async function probeUserFields(): Promise<NextResponse> {
-  const users = await queryCollection("users", [], 30);
-  const allFields = new Set<string>();
-  const fieldCounts: Record<string, number> = {};
-
-  for (const user of users) {
-    for (const key of Object.keys(user.data)) {
-      allFields.add(key);
-      fieldCounts[key] = (fieldCounts[key] || 0) + 1;
-    }
-  }
-
-  // Look for push-related fields
-  const pushCandidates: Record<string, { count: number; sample: string }> = {};
-  for (const user of users) {
-    for (const [key, value] of Object.entries(user.data)) {
-      const lk = key.toLowerCase();
-      if (lk.includes("push") || lk.includes("token") || lk.includes("fcm") || lk.includes("apns") || lk.includes("expo")) {
-        if (!pushCandidates[key]) {
-          pushCandidates[key] = { count: 0, sample: "" };
-        }
-        pushCandidates[key].count++;
-        if (!pushCandidates[key].sample && value) {
-          pushCandidates[key].sample = String(value).substring(0, 60);
-        }
-      }
-    }
-  }
-
-  return NextResponse.json({
-    totalUsersProbed: users.length,
-    allFields: Array.from(allFields).sort(),
-    fieldCounts,
-    pushCandidates,
-    sampleUser: users[0] ? {
-      id: users[0].id,
-      fields: Object.fromEntries(
-        Object.entries(users[0].data).map(([k, v]) => [
-          k,
-          typeof v === "string" ? v.substring(0, 50) : typeof v,
-        ])
-      ),
-    } : null,
-  });
-}
-
 // ── Send emails ─────────────────────────────────────────────────────
-async function sendEmails(
-  recipients: Map<string, Recipient>,
+async function sendList(
+  list: Array<{ email: string; name: string }>,
+  variant: "ios" | "general",
   testEmail?: string
 ): Promise<{
   sent: number;
@@ -299,28 +152,20 @@ async function sendEmails(
     return { sent: 0, failed: 0, errors: [{ email: "", error: "Resend not configured" }] };
   }
 
+  const toSend = testEmail
+    ? list.filter((r) => r.email === testEmail.toLowerCase())
+    : list;
+
   let sent = 0;
   let failed = 0;
   const errors: Array<{ email: string; error: string }> = [];
 
-  const toSend = testEmail
-    ? Array.from(recipients.values()).filter((r) => r.email === testEmail.toLowerCase())
-    : Array.from(recipients.values());
-
-  // If test email not found in recipients, send both variants to test address
-  if (testEmail && toSend.length === 0) {
-    toSend.push(
-      { email: testEmail.toLowerCase(), name: "Test", isIOSUser: true, source: "test" },
-      { email: testEmail.toLowerCase(), isIOSUser: false, source: "test" }
-    );
-  }
-
   for (let i = 0; i < toSend.length; i++) {
     const recipient = toSend[i];
-    const html = recipient.isIOSUser
+    const html = variant === "ios"
       ? buildIOSEmailHtml(recipient.name)
-      : buildGeneralEmailHtml();
-    const subject = recipient.isIOSUser
+      : buildGeneralEmailHtml(recipient.name);
+    const subject = variant === "ios"
       ? "Channel is live now"
       : "Channel is live";
 
@@ -344,7 +189,7 @@ async function sendEmails(
 
     // Progress log every 50
     if ((i + 1) % 50 === 0) {
-      console.log(`[launch-email] Progress: ${i + 1}/${toSend.length} (${sent} sent, ${failed} failed)`);
+      console.log(`[launch-email] ${variant} progress: ${i + 1}/${toSend.length} (${sent} sent, ${failed} failed)`);
     }
   }
 
@@ -361,52 +206,36 @@ export async function GET(request: NextRequest) {
   const mode = request.nextUrl.searchParams.get("mode") || "dry-run";
   const testEmail = request.nextUrl.searchParams.get("testEmail") || undefined;
 
-  // Probe mode: discover user doc fields
-  if (mode === "probe") {
-    return probeUserFields();
-  }
-
-  // Collect recipients
-  const { recipients, stats } = await collectRecipients();
-
-  const iosList = Array.from(recipients.values()).filter((r) => r.isIOSUser);
-  const generalList = Array.from(recipients.values()).filter((r) => !r.isIOSUser);
-
-  // Dry-run mode: show stats and samples
+  // Dry-run mode: show the hardcoded lists
   if (mode === "dry-run") {
     return NextResponse.json({
-      stats,
-      totalUniqueEmails: recipients.size,
-      iosListCount: iosList.length,
-      generalListCount: generalList.length,
-      iosFull: iosList.map((r) => ({
-        email: r.email,
-        name: r.name || null,
-        source: r.source,
-      })),
-      generalFull: generalList.map((r) => ({
-        email: r.email,
-        name: r.name || null,
-        source: r.source,
-      })),
-      iosEmails: iosList.map((r) => r.email),
-      generalEmails: generalList.map((r) => r.email),
+      totalEmails: IOS_LIST.length + GENERAL_LIST.length,
+      iosListCount: IOS_LIST.length,
+      generalListCount: GENERAL_LIST.length,
+      iosList: IOS_LIST,
+      generalList: GENERAL_LIST,
     });
   }
 
   // Send mode
   if (mode === "send") {
-    const result = await sendEmails(recipients, testEmail);
+    const iosResult = await sendList(IOS_LIST, "ios", testEmail);
+    const generalResult = await sendList(GENERAL_LIST, "general", testEmail);
+
     return NextResponse.json({
       mode: testEmail ? "test-send" : "full-send",
       testEmail,
-      stats,
-      totalUniqueEmails: recipients.size,
-      iosListCount: iosList.length,
-      generalListCount: generalList.length,
-      ...result,
+      totalEmails: IOS_LIST.length + GENERAL_LIST.length,
+      ios: {
+        listCount: IOS_LIST.length,
+        ...iosResult,
+      },
+      general: {
+        listCount: GENERAL_LIST.length,
+        ...generalResult,
+      },
     });
   }
 
-  return NextResponse.json({ error: "Invalid mode. Use: probe, dry-run, send" }, { status: 400 });
+  return NextResponse.json({ error: "Invalid mode. Use: dry-run, send" }, { status: 400 });
 }
