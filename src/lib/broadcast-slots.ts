@@ -70,7 +70,7 @@ function serializeSlot(docId: string, data: Record<string, unknown>): BroadcastS
   };
 }
 
-export async function getSlots(stationId: string = STATION_ID): Promise<BroadcastSlotSerialized[]> {
+export async function getSlots(stationId: string = STATION_ID, excludeRecordings: boolean = true): Promise<BroadcastSlotSerialized[]> {
   if (!db) throw new Error('Firestore not initialized');
 
   const q = query(
@@ -85,6 +85,10 @@ export async function getSlots(stationId: string = STATION_ID): Promise<Broadcas
   snapshot.forEach((doc) => {
     slots.push(serializeSlot(doc.id, doc.data()));
   });
+
+  if (excludeRecordings) {
+    return slots.filter(slot => slot.broadcastType !== 'recording');
+  }
 
   return slots;
 }
