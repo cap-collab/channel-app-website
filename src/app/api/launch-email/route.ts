@@ -85,7 +85,7 @@ function wrapEmailContent(content: string): string {
       <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="background-color: #ffffff;">
         <tr>
           <td align="center" style="padding: 40px 20px;" bgcolor="#ffffff">
-            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 480px;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px;">
               <tr>
                 <td align="center" style="padding-bottom: 32px;" bgcolor="#ffffff">
                   <img src="${LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" />
@@ -118,7 +118,7 @@ const BUTTON_STYLE = "display: inline-block; background-color: #0a0a0a; color: #
 function buildIOSEmailHtml(name: string): string {
   return wrapEmailContent(`
     <p style="margin: 0 0 16px; color: #1a1a1a;">Hi ${name},</p>
-    <p style="margin: 0 0 16px; color: #1a1a1a;">Channel is now live as a community radio<br /><a href="https://channel-app.com/" style="color: #555; text-decoration: underline;">https://channel-app.com/</a></p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">Channel is live as a community radio<br /><a href="https://channel-app.com/" style="color: #555; text-decoration: underline;">https://channel-app.com/</a></p>
     <p style="margin: 0 0 16px; color: #1a1a1a;">It has evolved quite a bit since the iOS app. It is now available on web, where DJs and producers host shows and people tune in together.</p>
     <p style="margin: 0 0 16px; color: #1a1a1a;">You can follow what they do, chat during sets, and stay connected to what is happening around them, on other radios and IRL.</p>
     <p style="margin: 0 0 24px; color: #1a1a1a;">We are live now with the first shows coming out of LA.</p>
