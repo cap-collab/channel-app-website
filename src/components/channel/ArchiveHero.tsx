@@ -226,11 +226,11 @@ export function ArchiveHero({ archives, featuredArchive }: ArchiveHeroProps) {
                 onClick={handleNextShowClick}
                 className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold hover:text-white transition-colors"
               >
-                Next live at {nextShowTime}
+                Next <span className="w-1.5 h-1.5 bg-red-500 rounded-full inline-block" /> live at {nextShowTime}
               </button>
             ) : (
               <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">
-                Next live at {nextShowTime}
+                Next <span className="w-1.5 h-1.5 bg-red-500 rounded-full inline-block" /> live at {nextShowTime}
               </span>
             )
           ) : (
