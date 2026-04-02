@@ -2042,8 +2042,9 @@ export function StudioProfileClient() {
           {/* Location & Genres section */}
           <section>
             <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3 flex items-center gap-1.5">
-              <svg className="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+              <svg className="w-3 h-3" viewBox="0 0 24 36" fill="none">
+                <circle cx="12" cy="12" r="10" fill="#ef4444" />
+                <line x1="12" y1="22" x2="12" y2="35" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" />
               </svg>
               Location & Genres
             </h2>
@@ -2118,7 +2119,11 @@ export function StudioProfileClient() {
 
           {/* About section */}
           <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1 flex items-center gap-1.5">
+              <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" />
+                <path strokeLinecap="round" d="M12 16v-4m0-4h.01" />
+              </svg>
               About
             </h2>
             <p className="text-gray-600 text-xs mb-3 px-1">
@@ -2604,7 +2609,10 @@ export function StudioProfileClient() {
 
           {/* My Recs section */}
           <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1 flex items-center gap-1.5">
+              <svg className="w-3 h-3 text-red-400" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+              </svg>
               My Recs
             </h2>
             <p className="text-gray-600 text-xs mb-3 px-1">
