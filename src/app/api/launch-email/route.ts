@@ -192,8 +192,8 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Send mode — sends to all hardcoded recipients
-  if (mode === "send") {
+  // Send mode — DISABLED after successful send on 2026-04-02 (43/43 sent)
+  if (mode === "send" && false) {
     if (!resend) {
       return NextResponse.json({ error: "Resend not configured" }, { status: 500 });
     }
