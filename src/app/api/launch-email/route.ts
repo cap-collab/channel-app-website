@@ -192,10 +192,59 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Full send is DISABLED — re-enable in code when ready
-  return NextResponse.json({
-    error: "Send is disabled. Only ?mode=preview is available. Lists are hardcoded for when send is re-enabled.",
-    iosListCount: IOS_LIST.length,
-    generalListCount: GENERAL_LIST.length,
-  }, { status: 403 });
+  // Send mode — sends to all hardcoded recipients
+  if (mode === "send") {
+    if (!resend) {
+      return NextResponse.json({ error: "Resend not configured" }, { status: 500 });
+    }
+
+    let sent = 0;
+    let failed = 0;
+    const errors: Array<{ email: string; error: string }> = [];
+
+    // Send iOS list
+    for (const recipient of IOS_LIST) {
+      try {
+        await resend.emails.send({
+          from: FROM_EMAIL,
+          to: recipient.email,
+          subject: SUBJECT,
+          html: buildIOSEmailHtml(recipient.name),
+        });
+        sent++;
+      } catch (e) {
+        failed++;
+        errors.push({ email: recipient.email, error: String(e) });
+      }
+      await new Promise((r) => setTimeout(r, 150));
+    }
+
+    // Send general list
+    for (const recipient of GENERAL_LIST) {
+      try {
+        await resend.emails.send({
+          from: FROM_EMAIL,
+          to: recipient.email,
+          subject: SUBJECT,
+          html: buildGeneralEmailHtml(recipient.name),
+        });
+        sent++;
+      } catch (e) {
+        failed++;
+        errors.push({ email: recipient.email, error: String(e) });
+      }
+      await new Promise((r) => setTimeout(r, 150));
+    }
+
+    return NextResponse.json({
+      mode: "full-send",
+      iosListCount: IOS_LIST.length,
+      generalListCount: GENERAL_LIST.length,
+      sent,
+      failed,
+      errors,
+    });
+  }
+
+  return NextResponse.json({ error: "Invalid mode. Use: preview, send" }, { status: 400 });
 }
