@@ -1787,7 +1787,7 @@ export function StudioProfileClient() {
                 href="/studio/livestream"
                 className="flex-1 block bg-gray-800 text-white text-center py-3 rounded font-medium hover:bg-gray-700 transition-colors border border-gray-700"
               >
-                Host a live show
+                Apply to go live
               </Link>
             </div>
           </section>
@@ -1806,7 +1806,7 @@ export function StudioProfileClient() {
               ) : (
                 <div className="divide-y divide-gray-800">
                   {upcomingShows.map((show) => (
-                    <div key={show.id} className="p-4">
+                    <div key={show.id} className={`p-4 ${!show.isExternal && show.broadcastToken && show.status !== "live" ? "bg-[#1a2a1a] border border-green-900/50 rounded-lg" : ""}`}>
                       <p className="text-white font-medium">{show.showName}</p>
                       <p className="text-gray-400 text-sm">
                         {formatBroadcastTime(show.startTime, show.endTime)}
@@ -1827,14 +1827,14 @@ export function StudioProfileClient() {
                             </Link>
                           )}
                         </div>
-                      ) : !show.isExternal && show.broadcastToken && (
+                      ) : !show.isExternal && show.broadcastToken ? (
                         <Link
                           href={`/broadcast/live?token=${show.broadcastToken}`}
-                          className="inline-flex items-center gap-1 mt-2 text-blue-400 hover:text-blue-300 text-sm transition-colors"
+                          className="inline-flex items-center gap-2 mt-3 bg-green-600 hover:bg-green-500 text-white text-sm font-medium px-4 py-2 rounded transition-colors"
                         >
-                          Go Live &rarr;
+                          Your Private Go Live Link &rarr;
                         </Link>
-                      )}
+                      ) : null}
                     </div>
                   ))}
                 </div>
