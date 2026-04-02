@@ -20,7 +20,7 @@ export interface BroadcastStreamContextValue {
   pause: () => void;
   toggle: () => void;
   listenerCount: number;
-  visitorCount: number;
+
   audioStream: MediaStream | null;
   // From lightweight status hook (always available)
   showName: string | null;
@@ -239,7 +239,7 @@ export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
       isPlaying: false, isLoading: false, isLive: false, isStreaming: false,
       currentShow: null, currentDJ: null, error: null,
       play: noopFn, pause: noopFn, toggle: noopFn,
-      listenerCount: stream.visitorCount, visitorCount: stream.visitorCount, audioStream: null,
+      listenerCount: 0, audioStream: null,
       showName: null, djName: null,
       tipLink: null,
       heroBarVisible, setHeroBarVisible: setHeroBarVisibleCb, heroBarObserverReady, setHeroBarObserverReady: setHeroBarObserverReadyCb,
