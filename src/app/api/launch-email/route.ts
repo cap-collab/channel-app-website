@@ -27,11 +27,12 @@ const IOS_LIST: Array<{ email: string; name: string }> = [
   { email: "paulanthonychin@gmail.com", name: "Paul-Anthony" },
   { email: "emwhitenoise@gmail.com", name: "Emily" },
   { email: "aurelien.porte@gmail.com", name: "Aurelien" },
+  { email: "danimunt91@gmail.com", name: "Dani" },
+  { email: "7mpnw5xkkh@privaterelay.appleid.com", name: "Marianne" },
 ];
 
 const GENERAL_LIST: Array<{ email: string; name: string }> = [
   { email: "maxcheney@gmail.com", name: "Max" },
-  { email: "danimunt91@gmail.com", name: "Daniela" },
   { email: "maiii@posteo.la", name: "Maiii" },
   { email: "j.r.colby@gmail.com", name: "Jim" },
   { email: "2jc6y8xkc8@privaterelay.appleid.com", name: "Joey" },
@@ -42,7 +43,6 @@ const GENERAL_LIST: Array<{ email: string; name: string }> = [
   { email: "billyboyali@gmail.com", name: "Bilal" },
   { email: "pwbrs7rxyt@privaterelay.appleid.com", name: "Natalie" },
   { email: "mqt85x26ms@privaterelay.appleid.com", name: "Amandine" },
-  { email: "7mpnw5xkkh@privaterelay.appleid.com", name: "Ana" },
   { email: "bqbwvhdq7v@privaterelay.appleid.com", name: "Ana" },
   { email: "v8yykfdgbd@privaterelay.appleid.com", name: "Christian" },
   { email: "djfp9n86bf@privaterelay.appleid.com", name: "Eduardo" },
