@@ -6,7 +6,8 @@ const resend = process.env.RESEND_API_KEY
   : null;
 
 const FROM_EMAIL = "Cap from Channel <cap@channel-app.com>";
-const LOGO_URL = "https://channel-app.com/logo-white.png";
+const LOGO_URL = "https://channel-app.com/logo-black.png";
+const SUBJECT = "Channel is live now \uD83D\uDD34";
 
 // ── Hardcoded recipient lists ───────────────────────────────────────
 
@@ -67,36 +68,36 @@ function minifyHtml(html: string): string {
 function wrapEmailContent(content: string): string {
   return minifyHtml(`
     <!DOCTYPE html>
-    <html style="background-color: #0a0a0a;" bgcolor="#0a0a0a">
+    <html style="background-color: #ffffff;" bgcolor="#ffffff">
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="color-scheme" content="dark only">
-      <meta name="supported-color-schemes" content="dark only">
+      <meta name="color-scheme" content="light only">
+      <meta name="supported-color-schemes" content="light only">
       <style>
-        :root { color-scheme: dark only; }
-        body, .body-bg { background-color: #0a0a0a !important; }
-        u + .body-bg { background-color: #0a0a0a !important; }
+        :root { color-scheme: light only; }
+        body, .body-bg { background-color: #ffffff !important; }
+        u + .body-bg { background-color: #ffffff !important; }
       </style>
     </head>
-    <body class="body-bg" bgcolor="#0a0a0a" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0a0a0a; color: #fff; margin: 0; padding: 0;">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0a0a0a" style="background-color: #0a0a0a;">
+    <body class="body-bg" bgcolor="#ffffff" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #ffffff; color: #1a1a1a; margin: 0; padding: 0;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="background-color: #ffffff;">
         <tr>
-          <td align="center" style="padding: 40px 20px;" bgcolor="#0a0a0a">
+          <td align="center" style="padding: 40px 20px;" bgcolor="#ffffff">
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 480px;">
               <tr>
-                <td align="center" style="padding-bottom: 32px;" bgcolor="#0a0a0a">
+                <td align="center" style="padding-bottom: 32px;" bgcolor="#ffffff">
                   <img src="${LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" />
                 </td>
               </tr>
               <tr>
-                <td bgcolor="#0a0a0a" style="font-size: 15px; line-height: 1.6; color: #e4e4e7;">
+                <td bgcolor="#ffffff" style="font-size: 15px; line-height: 1.6; color: #1a1a1a;">
                   ${content}
                 </td>
               </tr>
               <tr>
-                <td align="center" style="padding-top: 32px;" bgcolor="#0a0a0a">
-                  <p style="margin: 0; font-size: 12px; color: #52525b;">
+                <td align="center" style="padding-top: 32px;" bgcolor="#ffffff">
+                  <p style="margin: 0; font-size: 12px; color: #999;">
                     Channel · Los Angeles
                   </p>
                   <!--${Date.now()}-->
@@ -111,30 +112,30 @@ function wrapEmailContent(content: string): string {
   `);
 }
 
-const BUTTON_STYLE = "display: inline-block; background-color: #2a2a2a; color: #fff !important; padding: 14px 28px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 14px;";
+const BUTTON_STYLE = "display: inline-block; background-color: #0a0a0a; color: #fff !important; padding: 14px 28px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 14px;";
 
 function buildIOSEmailHtml(name: string): string {
   return wrapEmailContent(`
-    <p style="margin: 0 0 16px; color: #e4e4e7;">Hi ${name},</p>
-    <p style="margin: 0 0 16px; color: #e4e4e7;">Channel is now live as a community radio<br /><a href="https://channel-app.com/" style="color: #a1a1aa; text-decoration: underline;">https://channel-app.com/</a></p>
-    <p style="margin: 0 0 16px; color: #e4e4e7;">It has evolved quite a bit since the iOS app. It is now available on web, where DJs and producers host shows and people tune in together.</p>
-    <p style="margin: 0 0 16px; color: #e4e4e7;">You can follow what they do, chat during sets, and stay connected to what is happening around them, on other radios and IRL.</p>
-    <p style="margin: 0 0 24px; color: #e4e4e7;">We are live now with the first shows coming out of LA.</p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">Hi ${name},</p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">Channel is now live as a community radio<br /><a href="https://channel-app.com/" style="color: #555; text-decoration: underline;">https://channel-app.com/</a></p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">It has evolved quite a bit since the iOS app. It is now available on web, where DJs and producers host shows and people tune in together.</p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">You can follow what they do, chat during sets, and stay connected to what is happening around them, on other radios and IRL.</p>
+    <p style="margin: 0 0 24px; color: #1a1a1a;">We are live now with the first shows coming out of LA.</p>
     <p style="margin: 0 0 24px;"><a href="https://channel-app.com/" style="${BUTTON_STYLE}">TUNE IN NOW</a></p>
-    <p style="margin: 0 0 16px; color: #e4e4e7;">Would love to have you back on.</p>
-    <p style="margin: 0; color: #e4e4e7;">Cap</p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">Would love to have you back on.</p>
+    <p style="margin: 0; color: #1a1a1a;">Cap</p>
   `);
 }
 
 function buildGeneralEmailHtml(name: string): string {
   return wrapEmailContent(`
-    <p style="margin: 0 0 16px; color: #e4e4e7;">Hi ${name},</p>
-    <p style="margin: 0 0 16px; color: #e4e4e7;">Channel is now live<br /><a href="https://channel-app.com/" style="color: #a1a1aa; text-decoration: underline;">https://channel-app.com/</a></p>
-    <p style="margin: 0 0 16px; color: #e4e4e7;">It's a community radio where DJs and producers host shows and people tune in together.</p>
-    <p style="margin: 0 0 16px; color: #e4e4e7;">You can follow what they do, chat during sets, and stay connected to what's happening around them, on other radios and IRL.</p>
-    <p style="margin: 0 0 24px; color: #e4e4e7;">We're live with the first shows coming out of LA.</p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">Hi ${name},</p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">Channel is now live<br /><a href="https://channel-app.com/" style="color: #555; text-decoration: underline;">https://channel-app.com/</a></p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">It's a community radio where DJs and producers host shows and people tune in together.</p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">You can follow what they do, chat during sets, and stay connected to what's happening around them, on other radios and IRL.</p>
+    <p style="margin: 0 0 24px; color: #1a1a1a;">We're live with the first shows coming out of LA.</p>
     <p style="margin: 0 0 24px;"><a href="https://channel-app.com/" style="${BUTTON_STYLE}">TUNE IN NOW</a></p>
-    <p style="margin: 0; color: #e4e4e7;">Cap</p>
+    <p style="margin: 0; color: #1a1a1a;">Cap</p>
   `);
 }
 
@@ -162,7 +163,7 @@ export async function GET(request: NextRequest) {
       await resend.emails.send({
         from: FROM_EMAIL,
         to: previewEmail,
-        subject: "Channel is live now",
+        subject: SUBJECT,
         html: buildIOSEmailHtml("Cap"),
       });
       results.push({ variant: "ios", success: true });
@@ -175,7 +176,7 @@ export async function GET(request: NextRequest) {
       await resend.emails.send({
         from: FROM_EMAIL,
         to: previewEmail,
-        subject: "Channel is live now",
+        subject: SUBJECT,
         html: buildGeneralEmailHtml("Cap"),
       });
       results.push({ variant: "general", success: true });
