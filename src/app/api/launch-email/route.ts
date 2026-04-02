@@ -205,7 +205,7 @@ export async function GET(request: NextRequest) {
     // Send iOS list
     for (const recipient of IOS_LIST) {
       try {
-        await resend.emails.send({
+        await resend!.emails.send({
           from: FROM_EMAIL,
           to: recipient.email,
           subject: SUBJECT,
@@ -222,7 +222,7 @@ export async function GET(request: NextRequest) {
     // Send general list
     for (const recipient of GENERAL_LIST) {
       try {
-        await resend.emails.send({
+        await resend!.emails.send({
           from: FROM_EMAIL,
           to: recipient.email,
           subject: SUBJECT,
