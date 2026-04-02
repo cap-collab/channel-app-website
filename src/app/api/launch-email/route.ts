@@ -57,6 +57,7 @@ const GENERAL_LIST: Array<{ email: string; name: string }> = [
   { email: "cesartoribio1@gmail.com", name: "Cesar" },
   { email: "omer.almileik@gmail.com", name: "Omer" },
   { email: "5kyriv3r5@gmail.com", name: "Sky" },
+  { email: "prettygayfriendly@gmail.com", name: "Anthony" },
 ];
 
 // ── Email HTML builders ─────────────────────────────────────────────
