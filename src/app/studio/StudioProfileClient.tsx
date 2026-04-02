@@ -2041,7 +2041,10 @@ export function StudioProfileClient() {
 
           {/* Location & Genres section */}
           <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3 flex items-center gap-1.5">
+              <svg className="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+              </svg>
               Location & Genres
             </h2>
             <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
@@ -2081,6 +2084,38 @@ export function StudioProfileClient() {
             </div>
           </section>
 
+          {/* Support Button Link section */}
+          <section>
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1 flex items-center gap-1.5">
+              <svg className="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>
+              </svg>
+              Support Button Link
+            </h2>
+            <p className="text-gray-600 text-xs mb-3 px-1">
+              Where listeners go when they click Support. Falls back to your Bandcamp link.
+            </p>
+            <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">
+                  Link URL
+                </label>
+                <input
+                  type="text"
+                  value={tipButtonLinkInput}
+                  onChange={(e) => setTipButtonLinkInput(e.target.value)}
+                  placeholder="https://ko-fi.com/yourname"
+                  className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                />
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-gray-600 text-xs">
+                    {savingTipButtonLink ? "Saving..." : saveTipButtonLinkSuccess ? "Saved" : ""}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </section>
+
           {/* About section */}
           <section>
             <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
@@ -2108,35 +2143,6 @@ export function StudioProfileClient() {
                   </span>
                   <span className="text-gray-600 text-xs">
                     {bioInput.length}/500
-                  </span>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Support Button Link section */}
-          <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
-              Support Button Link
-            </h2>
-            <p className="text-gray-600 text-xs mb-3 px-1">
-              Where listeners go when they click Support. Falls back to your Bandcamp link.
-            </p>
-            <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
-              <div>
-                <label className="block text-gray-400 text-sm mb-2">
-                  Link URL
-                </label>
-                <input
-                  type="text"
-                  value={tipButtonLinkInput}
-                  onChange={(e) => setTipButtonLinkInput(e.target.value)}
-                  placeholder="https://ko-fi.com/yourname"
-                  className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
-                />
-                <div className="flex justify-between items-center mt-1">
-                  <span className="text-gray-600 text-xs">
-                    {savingTipButtonLink ? "Saving..." : saveTipButtonLinkSuccess ? "Saved" : ""}
                   </span>
                 </div>
               </div>
@@ -2300,7 +2306,10 @@ export function StudioProfileClient() {
 
           {/* IRL Events section */}
           <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1 flex items-center gap-1.5">
+              <svg className="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
+              </svg>
               IRL Events
             </h2>
             <p className="text-gray-600 text-xs mb-3 px-1">
@@ -2454,7 +2463,10 @@ export function StudioProfileClient() {
 
           {/* Radio Shows section */}
           <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
+            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1 flex items-center gap-1.5">
+              <svg className="w-3 h-3 text-sky-300" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
+              </svg>
               Radio Shows
             </h2>
             <p className="text-gray-600 text-xs mb-3 px-1">
