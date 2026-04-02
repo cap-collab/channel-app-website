@@ -7,31 +7,31 @@ import { ArchivePlayerContext } from '@/contexts/ArchivePlayerContext';
 import { useContext } from 'react';
 
 const STORAGE_KEY_FILED = 'radio-email-filed';
-const SESSION_KEY_COUNT = 'email-popup-count';
-const SESSION_KEY_LAST = 'email-popup-last-shown';
-const MAX_POPUPS_PER_SESSION = 2;
+const STORAGE_KEY_COUNT = 'email-popup-count';
+const STORAGE_KEY_LAST = 'email-popup-last-shown';
+const MAX_POPUPS = 2;
 const MIN_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
 const SITE_DELAY_MS = 15000; // 15 seconds
 const PLAY_DELAY_S = 10; // 10 seconds of playback
 
-function getSessionCount(): number {
+function getPopupCount(): number {
   if (typeof window === 'undefined') return 0;
-  return parseInt(sessionStorage.getItem(SESSION_KEY_COUNT) || '0', 10);
+  return parseInt(localStorage.getItem(STORAGE_KEY_COUNT) || '0', 10);
 }
 
 function getLastShown(): number {
   if (typeof window === 'undefined') return 0;
-  return parseInt(sessionStorage.getItem(SESSION_KEY_LAST) || '0', 10);
+  return parseInt(localStorage.getItem(STORAGE_KEY_LAST) || '0', 10);
 }
 
 function recordShown() {
-  const count = getSessionCount() + 1;
-  sessionStorage.setItem(SESSION_KEY_COUNT, String(count));
-  sessionStorage.setItem(SESSION_KEY_LAST, String(Date.now()));
+  const count = getPopupCount() + 1;
+  localStorage.setItem(STORAGE_KEY_COUNT, String(count));
+  localStorage.setItem(STORAGE_KEY_LAST, String(Date.now()));
 }
 
 function canShow(): boolean {
-  if (getSessionCount() >= MAX_POPUPS_PER_SESSION) return false;
+  if (getPopupCount() >= MAX_POPUPS) return false;
   const last = getLastShown();
   if (last > 0 && Date.now() - last < MIN_INTERVAL_MS) return false;
   return true;
