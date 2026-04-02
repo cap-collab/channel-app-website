@@ -866,14 +866,12 @@ export async function sendBroadcastReminderEmail({
     return false;
   }
 
-  const profileLine = profileUrl
-    ? `<tr>
+  const shareLine = `<tr>
         <td style="padding-top: 4px;">
-          <span style="color: #a1a1aa; font-size: 14px;">Your profile to share: </span>
-          <a href="${profileUrl}" style="color: #60a5fa; font-size: 14px; text-decoration: underline;">${profileUrl}</a>
+          <span style="color: #a1a1aa; font-size: 14px;">Share your stream: </span>
+          <a href="https://channel-app.com" style="color: #60a5fa; font-size: 14px; text-decoration: underline;">channel-app.com</a>
         </td>
-      </tr>`
-    : "";
+      </tr>`;
 
   const content = `
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 0; border: 1px solid #333;">
@@ -914,7 +912,7 @@ export async function sendBroadcastReminderEmail({
                 <a href="https://channel-app.com/studio" style="color: #60a5fa; font-size: 14px; text-decoration: underline;">channel-app.com/studio</a>
               </td>
             </tr>
-            ${profileLine}
+            ${shareLine}
           </table>
           <p style="margin: 24px 0 0; font-size: 14px; color: #fff;">
             See you tomorrow, Cap
@@ -958,14 +956,12 @@ export async function sendBroadcast2HourReminderEmail({
     return false;
   }
 
-  const profileLine = profileUrl
-    ? `<tr>
+  const shareLine = `<tr>
         <td style="padding-top: 4px;">
-          <span style="color: #a1a1aa; font-size: 14px;">Your profile to share: </span>
-          <a href="${profileUrl}" style="color: #60a5fa; font-size: 14px; text-decoration: underline;">${profileUrl}</a>
+          <span style="color: #a1a1aa; font-size: 14px;">Share your stream: </span>
+          <a href="https://channel-app.com" style="color: #60a5fa; font-size: 14px; text-decoration: underline;">channel-app.com</a>
         </td>
-      </tr>`
-    : "";
+      </tr>`;
 
   const content = `
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #1a1a1a; border-radius: 0; border: 1px solid #333;">
@@ -1006,7 +1002,7 @@ export async function sendBroadcast2HourReminderEmail({
                 <a href="https://channel-app.com/studio" style="color: #60a5fa; font-size: 14px; text-decoration: underline;">channel-app.com/studio</a>
               </td>
             </tr>
-            ${profileLine}
+            ${shareLine}
           </table>
           <p style="margin: 24px 0 0; font-size: 14px; color: #fff;">
             See you soon, Cap

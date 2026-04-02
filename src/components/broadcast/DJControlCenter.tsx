@@ -70,7 +70,7 @@ export function DJControlCenter({
     return djUsername.replace(/[\s-]+/g, '').toLowerCase();
   }, [djUsername]);
 
-  const shareUrl = `https://channel-app.com/dj/${encodeURIComponent(djUsername)}`;
+  const shareUrl = "https://channel-app.com";
 
   const copyShareUrl = async () => {
     try {
@@ -134,7 +134,7 @@ export function DJControlCenter({
               {/* Share URL */}
               <div className="bg-[#252525] rounded-xl p-4">
                 <h3 className="text-gray-400 text-sm font-medium mb-3">
-                  Share Your Profile
+                  Share Your Stream
                 </h3>
                 <div className="flex gap-2">
                   <input
@@ -151,7 +151,7 @@ export function DJControlCenter({
                   </button>
                 </div>
                 <p className="text-gray-600 text-xs mt-2">
-                  Share your DJ profile with friends and followers
+                  Share this with friends and followers
                 </p>
               </div>
 
