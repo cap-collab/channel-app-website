@@ -857,7 +857,6 @@ export async function sendBroadcastReminderEmail({
   djName,
   showName,
   broadcastUrl,
-  profileUrl,
   startTime,
   timeRange,
 }: BroadcastReminderEmailParams) {
@@ -947,7 +946,6 @@ export async function sendBroadcast2HourReminderEmail({
   djName,
   showName,
   broadcastUrl,
-  profileUrl,
   startTime,
   timeRange,
 }: BroadcastReminderEmailParams) {
