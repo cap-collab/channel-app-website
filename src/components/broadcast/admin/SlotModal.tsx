@@ -977,7 +977,7 @@ ${profileBlock}
 Sign up or log in using ${targetEmail}:
 https://channel-app.com/studio
 
-Add bio, links, upcoming shows. We feature these on the website and newsletter.
+Add bio, links, upcoming shows. We feature these on the website and newsletter. I'd really recommend adding your genre and a tip link to your profile. The tip link is what people land on when they click "support", and it also adds a small tip icon to your player whenever someone is listening to your live or recordings.
 
 ⸻
 
@@ -993,14 +993,11 @@ https://channel-app.com/streaming-guide
 
 ⸻
 
-3. Day of the show
+3. Leading up to your show
 
-Join early. Share: ${profileUrl || 'https://channel-app.com/radio'} for people to get notified when you go live, hear you live, and access your recordings.
+Join us early and share: https://channel-app.com${profileUrl ? ` or ${profileUrl}` : ''} for people to hear you live, engage in the conversation, and access your recordings.
 
-Invite others to join:
-https://channel-app.com/studio/join
-
-That's it. Excited to have you on.
+Excited to have you on.
 
 Cap`;
 
