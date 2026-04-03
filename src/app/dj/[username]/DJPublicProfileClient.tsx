@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
@@ -15,6 +15,7 @@ import { AuthModal } from "@/components/AuthModal";
 import { TipButton } from "@/components/channel/TipButton";
 import { DJProfileChatPanel } from "@/components/dj-profile/DJProfileChatPanel";
 import { useBroadcastStreamContext } from "@/contexts/BroadcastStreamContext";
+import { useArchivePlayer } from "@/contexts/ArchivePlayerContext";
 import { Show } from "@/types";
 import { Archive } from "@/types/broadcast";
 import { getStationById, getMetadataKeyByStationId } from "@/lib/stations";
@@ -372,10 +373,8 @@ export function DJPublicProfileClient({ username }: Props) {
   // Past Channel Radio shows (without recordings)
   const [pastBroadcastShows, setPastBroadcastShows] = useState<PastShow[]>([]);
 
-  // Audio player state for recordings
-  const [playingId, setPlayingId] = useState<string | null>(null);
-  const [currentTimes, setCurrentTimes] = useState<Record<string, number>>({});
-  const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
+  // Archive player (global context — triggers sticky header)
+  const archivePlayer = useArchivePlayer();
 
   // Subscribe state
   const [subscribing, setSubscribing] = useState(false);
@@ -1072,47 +1071,18 @@ export function DJPublicProfileClient({ username }: Props) {
   // Format date for activity feed
   // Convert UpcomingShow to Show type for favorites compatibility
 
-  // Audio player handlers for past recordings
-  const handlePlayPause = (archiveId: string) => {
-    const audio = audioRefs.current[archiveId];
-    if (!audio) return;
-
-    // Pause any currently playing audio
-    if (playingId && playingId !== archiveId) {
-      const currentAudio = audioRefs.current[playingId];
-      if (currentAudio) {
-        currentAudio.pause();
-      }
-    }
-
-    if (playingId === archiveId) {
-      audio.pause();
-      setPlayingId(null);
+  // Audio player handlers — delegate to global ArchivePlayerContext
+  const handlePlayPause = useCallback((archive: Archive) => {
+    if (archivePlayer.currentArchive?.id === archive.id && archivePlayer.isPlaying) {
+      archivePlayer.pause();
     } else {
-      audio.play();
-      setPlayingId(archiveId);
+      archivePlayer.play(archive);
     }
-  };
+  }, [archivePlayer]);
 
-  const handleSeek = (archiveId: string, time: number) => {
-    const audio = audioRefs.current[archiveId];
-    if (audio) {
-      audio.currentTime = time;
-      setCurrentTimes(prev => ({ ...prev, [archiveId]: time }));
-    }
-  };
-
-  const handleTimeUpdate = (archiveId: string) => {
-    const audio = audioRefs.current[archiveId];
-    if (audio) {
-      setCurrentTimes(prev => ({ ...prev, [archiveId]: audio.currentTime }));
-    }
-  };
-
-  const handleEnded = (archiveId: string) => {
-    setPlayingId(null);
-    setCurrentTimes(prev => ({ ...prev, [archiveId]: 0 }));
-  };
+  const handleSeek = useCallback((_archiveId: string, time: number) => {
+    archivePlayer.seek(time);
+  }, [archivePlayer]);
 
   // Create unified Activity Feed
   const { upcomingShows, pastActivities } = useMemo(() => {
@@ -2182,8 +2152,9 @@ export function DJPublicProfileClient({ username }: Props) {
 
                 if (item.feedType === "recording") {
                   const archive = item as Archive & { feedType: "recording"; feedStatus: "past" };
-                  const isPlaying = playingId === archive.id;
-                  const currentTime = currentTimes[archive.id] || 0;
+                  const isThisArchive = archivePlayer.currentArchive?.id === archive.id;
+                  const isPlaying = isThisArchive && archivePlayer.isPlaying;
+                  const currentTime = isThisArchive ? archivePlayer.currentTime : 0;
                   const showImage = archive.showImageUrl;
                   const recordingDate = new Date(archive.recordedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
                   const stationName = getStationById(archive.stationId)?.name || "Channel Radio";
@@ -2249,7 +2220,7 @@ export function DJPublicProfileClient({ username }: Props) {
                             {/* Player — aligned with bottom of image */}
                             <div className="flex items-center gap-2 mt-1">
                               <button
-                                onClick={() => handlePlayPause(archive.id)}
+                                onClick={() => handlePlayPause(archive)}
                                 className="w-7 h-7 rounded bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0 text-black"
                               >
                                 {isPlaying ? (
@@ -2279,13 +2250,6 @@ export function DJPublicProfileClient({ username }: Props) {
                         </div>
                       </div>
 
-                      <audio
-                        ref={(el) => { audioRefs.current[archive.id] = el; }}
-                        src={archive.recordingUrl}
-                        preload="none"
-                        onTimeUpdate={() => handleTimeUpdate(archive.id)}
-                        onEnded={() => handleEnded(archive.id)}
-                      />
                     </div>
                   );
                 }
