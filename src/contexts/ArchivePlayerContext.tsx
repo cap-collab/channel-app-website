@@ -1,7 +1,34 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect, ReactNode } from 'react';
+import { getDatabase, ref, set, remove, onValue, onDisconnect } from 'firebase/database';
+import { getAuth, signInAnonymously } from 'firebase/auth';
+import { getApps, initializeApp } from 'firebase/app';
 import { ArchiveSerialized } from '@/types/broadcast';
+
+function getFirebaseApp() {
+  if (getApps().length === 0) {
+    return initializeApp({
+      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+      authDomain: `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.firebaseapp.com`,
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      storageBucket: `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.firebasestorage.app`,
+      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    });
+  }
+  return getApps()[0];
+}
+
+function getSessionId(): string | null {
+  if (typeof window === 'undefined') return null;
+  let sessionId = sessionStorage.getItem('channelSessionId');
+  if (!sessionId) {
+    sessionId = crypto.randomUUID();
+    sessionStorage.setItem('channelSessionId', sessionId);
+  }
+  return sessionId;
+}
 
 interface ArchivePlayerContextValue {
   currentArchive: ArchiveSerialized | null;
@@ -9,6 +36,7 @@ interface ArchivePlayerContextValue {
   isLoading: boolean;
   currentTime: number;
   duration: number;
+  listenerCount: number;
   play: (archive: ArchiveSerialized) => void;
   pause: () => void;
   toggle: () => void;
@@ -31,6 +59,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [listenerCount, setListenerCount] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const cumulativeTimeRef = useRef(0);
   const streamCountedRef = useRef<string | null>(null);
@@ -148,6 +177,66 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [currentArchive, isPlaying, duration]);
 
+  // Firebase presence for archive listeners — same .info/connected pattern as broadcast
+  useEffect(() => {
+    const sessionId = getSessionId();
+    if (!sessionId) return;
+
+    const app = getFirebaseApp();
+    const rtdb = getDatabase(app);
+    const presenceRef = ref(rtdb, `presence/archive/${sessionId}`);
+    const connectedRef = ref(rtdb, '.info/connected');
+
+    let authed = false;
+    let unsubConnected: (() => void) | null = null;
+
+    const setupPresence = () => {
+      unsubConnected = onValue(connectedRef, (snap) => {
+        if (!snap.val()) return;
+
+        if (isPlaying) {
+          onDisconnect(presenceRef).remove().then(() => {
+            set(presenceRef, true);
+          });
+        } else {
+          remove(presenceRef);
+        }
+      });
+    };
+
+    const auth = getAuth(app);
+    auth.authStateReady().then(() => {
+      if (!auth.currentUser) {
+        return signInAnonymously(auth).catch((err) => {
+          console.error('Firebase anonymous auth failed:', err);
+        });
+      }
+    }).then(() => {
+      authed = true;
+      setupPresence();
+    });
+
+    return () => {
+      if (unsubConnected) unsubConnected();
+      if (authed) {
+        remove(presenceRef);
+      }
+    };
+  }, [isPlaying]);
+
+  // Subscribe to archive listener count
+  useEffect(() => {
+    const app = getFirebaseApp();
+    const rtdb = getDatabase(app);
+    const presenceRef = ref(rtdb, 'presence/archive');
+
+    const unsubscribe = onValue(presenceRef, (snapshot) => {
+      setListenerCount(snapshot.size || 0);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   const play = useCallback((archive: ArchiveSerialized) => {
     const audio = getAudio();
 
@@ -197,11 +286,12 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     isLoading,
     currentTime,
     duration,
+    listenerCount,
     play,
     pause,
     toggle,
     seek,
-  }), [currentArchive, isPlaying, isLoading, currentTime, duration, play, pause, toggle, seek]);
+  }), [currentArchive, isPlaying, isLoading, currentTime, duration, listenerCount, play, pause, toggle, seek]);
 
   return (
     <ArchivePlayerContext.Provider value={value}>
