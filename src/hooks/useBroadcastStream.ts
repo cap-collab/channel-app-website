@@ -87,30 +87,6 @@ function getSessionId(): string | null {
   return sessionId;
 }
 
-// Ensure user is signed in (anonymously if needed) before writing to Firebase
-// Matches iOS ListenerCountService.ensureAuthAndExecute()
-async function ensureAuthAndExecute(action: () => void): Promise<void> {
-  const app = getFirebaseApp();
-  const auth = getAuth(app);
-
-  // Wait for Firebase to restore the persisted session before checking currentUser.
-  // Without this, currentUser is null on page load and signInAnonymously() would
-  // replace an existing logged-in user's session with an anonymous one.
-  await auth.authStateReady();
-
-  if (auth.currentUser) {
-    action();
-    return;
-  }
-
-  try {
-    await signInAnonymously(auth);
-    action();
-  } catch (err) {
-    console.error('Firebase anonymous auth failed:', err);
-    // Graceful degradation - don't write presence if auth fails
-  }
-}
 
 interface UseBroadcastStreamReturn {
   isPlaying: boolean;
@@ -369,17 +345,6 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
         audioElementRef.current.pause();
         audioElementRef.current.srcObject = null;
       }
-      // Clean up presence on unmount
-      const sessionId = getSessionId();
-      if (sessionId) {
-        const app = getFirebaseApp();
-        const auth = getAuth(app);
-        if (auth.currentUser) {
-          const db = getDatabase(app);
-          const presenceRef = ref(db, `presence/broadcast/${sessionId}`);
-          remove(presenceRef);
-        }
-      }
     };
   }, []);
 
@@ -556,16 +521,6 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
           setIsLoading(false);
         }
 
-        // Register presence
-        const sessionId = getSessionId();
-        if (sessionId) {
-          ensureAuthAndExecute(() => {
-            const db = getDatabase(getFirebaseApp());
-            const presenceRef = ref(db, `presence/broadcast/${sessionId}`);
-            onDisconnect(presenceRef).remove();
-            set(presenceRef, true);
-          });
-        }
       } catch (err) {
         console.error('🎵 HLS error:', err);
         setError('Failed to play');
@@ -654,17 +609,6 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
         });
       });
 
-      // Register presence in Firebase
-      const sessionId = getSessionId();
-      if (sessionId) {
-        ensureAuthAndExecute(() => {
-          const db = getDatabase(getFirebaseApp());
-          const presenceRef = ref(db, `presence/broadcast/${sessionId}`);
-          onDisconnect(presenceRef).remove();
-          set(presenceRef, true);
-        });
-      }
-
       // If no tracks yet, we're waiting for the DJ to start streaming
       // (Restreams now use HLS, so this only applies to live broadcasts)
       if (room.remoteParticipants.size === 0) {
@@ -705,16 +649,6 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
       audioElementRef.current.src = '';
     }
     setIsPlaying(false);
-
-    // Remove presence from Firebase
-    const sessionId = getSessionId();
-    if (sessionId) {
-      ensureAuthAndExecute(() => {
-        const db = getDatabase(getFirebaseApp());
-        const presenceRef = ref(db, `presence/broadcast/${sessionId}`);
-        remove(presenceRef);
-      });
-    }
   }, []);
 
   const toggle = useCallback(() => {
@@ -916,11 +850,64 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
     }
   }, [isPlaying, currentShow, currentDJ]);
 
+  // Firebase presence — uses .info/connected so presence survives reconnects.
+  // When isPlaying is true we write presence on every (re)connect; when false we remove it.
+  useEffect(() => {
+    const sessionId = getSessionId();
+    if (!sessionId) return;
+
+    const app = getFirebaseApp();
+    const rtdb = getDatabase(app);
+    const presenceRef = ref(rtdb, `presence/broadcast/${sessionId}`);
+    const connectedRef = ref(rtdb, '.info/connected');
+
+    let authed = false;
+    let unsubConnected: (() => void) | null = null;
+
+    const setupPresence = () => {
+      // Listen for connection state — re-registers onDisconnect + presence on every reconnect
+      unsubConnected = onValue(connectedRef, (snap) => {
+        if (!snap.val()) return; // not connected
+
+        if (isPlaying) {
+          // Set onDisconnect FIRST, then write presence — atomic pair
+          onDisconnect(presenceRef).remove().then(() => {
+            set(presenceRef, true);
+          });
+        } else {
+          // Not playing — make sure we're removed
+          remove(presenceRef);
+        }
+      });
+    };
+
+    // Ensure auth before writing to RTDB
+    const auth = getAuth(app);
+    auth.authStateReady().then(() => {
+      if (!auth.currentUser) {
+        return signInAnonymously(auth).catch((err) => {
+          console.error('Firebase anonymous auth failed:', err);
+        });
+      }
+    }).then(() => {
+      authed = true;
+      setupPresence();
+    });
+
+    return () => {
+      if (unsubConnected) unsubConnected();
+      // Synchronously remove presence on cleanup (unmount or isPlaying change)
+      if (authed) {
+        remove(presenceRef);
+      }
+    };
+  }, [isPlaying]);
+
   // Subscribe to listener count from Firebase Realtime Database (matches iOS ListenerCountService)
   useEffect(() => {
     const app = getFirebaseApp();
-    const db = getDatabase(app);
-    const presenceRef = ref(db, 'presence/broadcast');
+    const rtdb = getDatabase(app);
+    const presenceRef = ref(rtdb, 'presence/broadcast');
 
     const unsubscribe = onValue(presenceRef, (snapshot) => {
       // Count children = number of active listeners (matches iOS exactly)
