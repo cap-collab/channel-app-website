@@ -1,7 +1,9 @@
 import express from 'express';
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
+import { writeFileSync, readFileSync, unlinkSync } from 'fs';
 import { Room, RoomEvent, LocalAudioTrack, AudioSource, AudioFrame } from '@livekit/rtc-node';
 import { AccessToken } from 'livekit-server-sdk';
+import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 
 const app = express();
 app.use(express.json());
@@ -186,10 +188,6 @@ app.post('/faststart', authenticate, async (req, res) => {
   }
 
   console.log(`[faststart] Processing: ${r2Key}`);
-
-  const { S3Client, GetObjectCommand, PutObjectCommand } = await import('@aws-sdk/client-s3');
-  const { execSync } = await import('child_process');
-  const { writeFileSync, readFileSync, unlinkSync } = await import('fs');
 
   const s3 = new S3Client({
     region: 'auto',
