@@ -253,6 +253,28 @@ export async function POST(request: NextRequest) {
             await slotRef.update(updateData);
             console.log(`Recording saved for slot ${slotId}: ${recordingUrl} (${durationSec}s)`);
 
+            // Run faststart on the recording (moves moov atom to front for mobile streaming)
+            try {
+              const restreamWorkerUrl = process.env.RESTREAM_WORKER_URL;
+              const cronSecret = process.env.CRON_SECRET;
+              if (restreamWorkerUrl && mp4File.filename) {
+                fetch(`${restreamWorkerUrl}/faststart`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${cronSecret}`,
+                  },
+                  body: JSON.stringify({ r2Key: mp4File.filename }),
+                }).then(r => r.json()).then(result => {
+                  console.log(`[webhook] Faststart result for ${mp4File.filename}:`, result);
+                }).catch(err => {
+                  console.error(`[webhook] Faststart failed for ${mp4File.filename}:`, err.message);
+                });
+              }
+            } catch (faststartError) {
+              console.error('Failed to trigger faststart:', faststartError);
+            }
+
             // Create archive for the recording
             try {
               const showName = (slotData?.showName as string) || 'Untitled Show';

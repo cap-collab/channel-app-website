@@ -177,6 +177,94 @@ async function stopStream(slotId) {
   return true;
 }
 
+// POST /faststart - Move moov atom to front of MP4 for mobile streaming
+// Called by webhook after recording egress completes
+app.post('/faststart', authenticate, async (req, res) => {
+  const { r2Key } = req.body;
+  if (!r2Key) {
+    return res.status(400).json({ error: 'r2Key required' });
+  }
+
+  console.log(`[faststart] Processing: ${r2Key}`);
+
+  const { S3Client, GetObjectCommand, PutObjectCommand } = await import('@aws-sdk/client-s3');
+  const { execSync } = await import('child_process');
+  const { writeFileSync, readFileSync, unlinkSync } = await import('fs');
+
+  const s3 = new S3Client({
+    region: 'auto',
+    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    },
+  });
+  const bucket = process.env.R2_BUCKET_NAME;
+
+  try {
+    // Download
+    const resp = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: r2Key }));
+    const body = Buffer.from(await resp.Body.transformToByteArray());
+    console.log(`[faststart] Downloaded ${(body.length / 1024 / 1024).toFixed(1)}MB`);
+
+    // Check if already faststart (moov before mdat)
+    let offset = 0;
+    while (offset < Math.min(body.length, 4096) - 8) {
+      const size = body.readUInt32BE(offset);
+      const type = body.slice(offset + 4, offset + 8).toString('ascii');
+      if (type === 'moov') {
+        console.log(`[faststart] Already has faststart, skipping`);
+        return res.json({ success: true, skipped: true });
+      }
+      if (type === 'mdat') break;
+      if (size < 8) break;
+      offset += size;
+    }
+
+    // Process with ffmpeg
+    const tmpIn = `/tmp/faststart-in.mp4`;
+    const tmpOut = `/tmp/faststart-out.mp4`;
+    writeFileSync(tmpIn, body);
+    execSync(`ffmpeg -y -i ${tmpIn} -c copy -movflags +faststart ${tmpOut} 2>&1`);
+
+    const outBuf = readFileSync(tmpOut);
+
+    // Verify moov is now at front
+    offset = 0;
+    let verified = false;
+    while (offset < Math.min(outBuf.length, 4096) - 8) {
+      const size = outBuf.readUInt32BE(offset);
+      const type = outBuf.slice(offset + 4, offset + 8).toString('ascii');
+      if (type === 'moov') { verified = true; break; }
+      if (type === 'mdat') break;
+      if (size < 8) break;
+      offset += size;
+    }
+
+    if (!verified) {
+      unlinkSync(tmpIn);
+      unlinkSync(tmpOut);
+      return res.status(500).json({ error: 'moov not at front after processing' });
+    }
+
+    // Upload fixed file
+    await s3.send(new PutObjectCommand({
+      Bucket: bucket,
+      Key: r2Key,
+      Body: outBuf,
+      ContentType: 'video/mp4',
+    }));
+
+    unlinkSync(tmpIn);
+    unlinkSync(tmpOut);
+    console.log(`[faststart] Done: ${r2Key}`);
+    res.json({ success: true, size: outBuf.length });
+  } catch (err) {
+    console.error(`[faststart] Failed:`, err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`[restream-worker] Listening on port ${PORT}`);
 });
