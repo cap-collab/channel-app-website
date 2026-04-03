@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
           photoUrl: djProfile?.photoUrl || null,
           location: djProfile?.location || null,
           genres: djProfile?.genres || [],
-          tipButtonLink: djProfile?.tipButtonLink || null,
+          tipButtonLink: null,
           socialLinks: djProfile?.socialLinks || {},
           irlShows: djProfile?.irlShows || [],
           radioShows: djProfile?.radioShows || [],
