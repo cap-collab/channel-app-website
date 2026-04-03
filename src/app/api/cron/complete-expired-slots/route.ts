@@ -97,6 +97,28 @@ export async function GET(request: NextRequest) {
               }
             }
           }
+          // Stop recording egress if still running (e.g. DJ closed browser without ending broadcast)
+          if (slot.recordingEgressId) {
+            try {
+              const egressClient = new EgressClient(livekitHost, apiKey, apiSecret);
+              await egressClient.stopEgress(slot.recordingEgressId);
+              console.log(`Stopped recording egress ${slot.recordingEgressId} for slot ${doc.id}`);
+            } catch (e) {
+              console.log(`Could not stop recording egress ${slot.recordingEgressId}: ${e}`);
+            }
+          }
+
+          // Stop HLS egress if still running
+          if (slot.egressId) {
+            try {
+              const egressClient = new EgressClient(livekitHost, apiKey, apiSecret);
+              await egressClient.stopEgress(slot.egressId);
+              console.log(`Stopped HLS egress ${slot.egressId} for slot ${doc.id}`);
+            } catch (e) {
+              console.log(`Could not stop HLS egress ${slot.egressId}: ${e}`);
+            }
+          }
+
           if (slot.restreamEgressId) {
             try {
               const egressClient = new EgressClient(livekitHost, apiKey, apiSecret);
