@@ -190,8 +190,7 @@ export async function POST(request: NextRequest) {
           photoUrl: djProfile?.photoUrl || null,
           location: djProfile?.location || null,
           genres: djProfile?.genres || [],
-          // Auto-populate tipButtonLink from bandcamp if not explicitly set
-          tipButtonLink: djProfile?.socialLinks?.bandcamp || null,
+          tipButtonLink: djProfile?.tipButtonLink || null,
           socialLinks: djProfile?.socialLinks || {},
           irlShows: djProfile?.irlShows || [],
           radioShows: djProfile?.radioShows || [],

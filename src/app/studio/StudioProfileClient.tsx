@@ -932,11 +932,6 @@ export function StudioProfileClient() {
           customLinks: validCustomLinks.length > 0 ? validCustomLinks : null,
         },
       };
-      // Auto-populate tipButtonLink from bandcamp if tipButtonLink is currently empty
-      if (normalizedBandcamp && !tipButtonLinkInput.trim()) {
-        updateData["djProfile.tipButtonLink"] = normalizedBandcamp;
-        setTipButtonLinkInput(normalizedBandcamp);
-      }
       await updateDoc(userRef, updateData);
       setSaveSocialSuccess(true);
       setTimeout(() => setSaveSocialSuccess(false), 2000);
@@ -1777,12 +1772,14 @@ export function StudioProfileClient() {
               >
                 Upload a pre-recording
               </button>
-              <Link
-                href="/record"
-                className="flex-1 block bg-gray-800 text-white text-center py-3 rounded font-medium hover:bg-gray-700 transition-colors border border-gray-700"
-              >
-                Record a set
-              </Link>
+              {!upcomingShows.some(s => !s.isExternal && s.status === 'live') && (
+                <Link
+                  href="/record"
+                  className="flex-1 block bg-gray-800 text-white text-center py-3 rounded font-medium hover:bg-gray-700 transition-colors border border-gray-700"
+                >
+                  Record a set
+                </Link>
+              )}
               <Link
                 href="/studio/livestream"
                 className="flex-1 block bg-gray-800 text-white text-center py-3 rounded font-medium hover:bg-gray-700 transition-colors border border-gray-700"
