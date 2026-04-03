@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Room, RoomEvent, Track, LocalTrack, DisconnectReason } from 'livekit-client';
+import { Room, RoomEvent, Track, LocalTrack, DisconnectReason, TrackEvent } from 'livekit-client';
 import { BroadcastState, ROOM_NAME, RoomStatus } from '@/types/broadcast';
 
 const r2PublicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
@@ -190,6 +190,27 @@ export function useBroadcast(
 
       console.log('📡 Connecting to LiveKit URL:', data.url);
       await room.connect(data.url, data.token);
+
+      // Wait for RoomEvent.Connected to fire (room.connect resolves on WebSocket open,
+      // but track publishing requires the fully-connected state)
+      if (room.state !== 'connected') {
+        console.log('📡 Waiting for room to reach connected state...');
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Room connection timed out'));
+          }, 10000);
+          room.once(RoomEvent.Connected, () => {
+            clearTimeout(timeout);
+            resolve();
+          });
+          // Also resolve if already connected (race with event)
+          if (room.state === 'connected') {
+            clearTimeout(timeout);
+            resolve();
+          }
+        });
+      }
+
       console.log('📡 ✅ Successfully connected to room:', currentRoomName);
       return true;
     } catch (error) {
@@ -214,12 +235,31 @@ export function useBroadcast(
         return false;
       }
 
-      await roomRef.current.localParticipant.publishTrack(audioTrack, {
+      const publication = await roomRef.current.localParticipant.publishTrack(audioTrack, {
         name: 'dj-audio',
         source: Track.Source.Microphone,
       });
 
       audioTrackRef.current = audioTrack as unknown as LocalTrack;
+
+      // Monitor published track health — detect when audio silently dies
+      const publishedTrack = publication?.track;
+      if (publishedTrack) {
+        publishedTrack.on(TrackEvent.Muted, () => {
+          console.warn('📡 ⚠️ Published audio track was muted unexpectedly');
+        });
+        publishedTrack.on(TrackEvent.Ended, () => {
+          console.error('📡 ❌ Published audio track ended unexpectedly');
+          setState(prev => prev.isPublishing ? { ...prev, isPublishing: false, error: 'Audio track ended — click GO LIVE to restart' } : prev);
+        });
+      }
+
+      // Also monitor the underlying MediaStreamTrack for 'ended' (device disconnect, browser stop)
+      audioTrack.addEventListener('ended', () => {
+        console.error('📡 ❌ Source audio track ended (device disconnected or browser stopped sharing)');
+        setState(prev => prev.isPublishing ? { ...prev, isPublishing: false, error: 'Audio source disconnected — click GO LIVE to restart' } : prev);
+      });
+
       setState(prev => ({ ...prev, isPublishing: true }));
       return true;
     } catch (error) {
@@ -320,9 +360,35 @@ export function useBroadcast(
       if (!connected) return false;
     }
 
+    // Verify the room is actually in connected state before publishing
+    if (!roomRef.current || roomRef.current.state !== 'connected') {
+      console.error('📡 ❌ Room not in connected state after connect():', roomRef.current?.state);
+      setState(prev => ({ ...prev, error: 'Room connection not ready — please try again' }));
+      return false;
+    }
+
+    // Verify the audio stream still has live tracks (can die between capture and go-live)
+    const liveTracks = stream.getAudioTracks().filter(t => t.readyState === 'live');
+    if (liveTracks.length === 0) {
+      console.error('📡 ❌ Audio stream has no live tracks — source may have been disconnected');
+      setState(prev => ({ ...prev, error: 'Audio source disconnected — please recapture audio' }));
+      return false;
+    }
+
     // Publish audio
     const published = await publishAudio(stream);
     if (!published) return false;
+
+    // Brief pause to let the SFU acknowledge the published track
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Verify track was actually published to the room
+    const publications = roomRef.current?.localParticipant?.audioTrackPublications;
+    if (!publications || publications.size === 0) {
+      console.error('📡 ❌ Track publish succeeded locally but no publications found on participant');
+      setState(prev => ({ ...prev, error: 'Audio publish failed — please try again' }));
+      return false;
+    }
 
     // Start egress
     const started = await startEgress();
