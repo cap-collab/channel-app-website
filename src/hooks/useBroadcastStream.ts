@@ -9,9 +9,10 @@ import { getApps, initializeApp } from 'firebase/app';
 import { BroadcastSlotSerialized, ROOM_NAME } from '@/types/broadcast';
 import Hls from 'hls.js';
 
-// HLS stream URLs - proxied through our API to add CORS headers
-const HLS_URL = '/api/hls/channel-radio/live.m3u8';
-const HLS_URL_RESTREAM = '/api/hls/channel-radio-restream/live.m3u8';
+// HLS stream URLs - direct from R2 (bypasses Vercel serverless proxy)
+const R2_PUBLIC_URL = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
+const HLS_URL = R2_PUBLIC_URL ? `${R2_PUBLIC_URL}/channel-radio/live.m3u8` : '/api/hls/channel-radio/live.m3u8';
+const HLS_URL_RESTREAM = R2_PUBLIC_URL ? `${R2_PUBLIC_URL}/channel-radio-restream/live.m3u8` : '/api/hls/channel-radio-restream/live.m3u8';
 
 // Detect if browser is Safari (has native HLS support)
 function isSafariBrowser(): boolean {
