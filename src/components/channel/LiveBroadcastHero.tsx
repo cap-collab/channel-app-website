@@ -172,20 +172,18 @@ export function HeroChatMessage({
   }
 
   return (
-    <div className={`py-2 px-4 ${isOwnMessage ? 'bg-white/5' : ''}`}>
-      <div className="flex items-start gap-2">
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <span className={`font-medium ${isCurrentlyLiveDJ ? 'text-white' : 'text-gray-400'}`}>
-              {message.username}
-            </span>
-            {isCurrentlyLiveDJ && (
-              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title="Live DJ" />
-            )}
-            <span className="text-gray-600 text-xs">{timeAgo}</span>
-          </div>
-          <p className="text-white mt-1">{message.message}</p>
-        </div>
+    <div className={`py-1.5 px-4 ${isOwnMessage ? 'bg-white/5' : ''}`}>
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="flex-1 min-w-0">
+          <span className={`font-medium ${isCurrentlyLiveDJ ? 'text-white' : 'text-gray-400'}`}>
+            {message.username}
+          </span>
+          {isCurrentlyLiveDJ && (
+            <span className="inline-block w-2 h-2 bg-red-500 rounded-full ml-1 animate-pulse align-middle" title="Live DJ" />
+          )}
+          <span className="text-white ml-1.5">{message.message}</span>
+        </p>
+        <span className="text-gray-600 text-xs flex-shrink-0">{timeAgo}</span>
       </div>
     </div>
   );
