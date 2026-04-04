@@ -66,7 +66,7 @@ export function ArchiveHero({ archives, featuredArchive }: ArchiveHeroProps) {
       setHeroBarObserverReady(false);
     };
   }, [setHeroBarVisible, setHeroBarObserverReady]);
-  const { addToWatchlist, isInWatchlist } = useFavorites();
+  const { addToWatchlist, isInWatchlist, removeFromWatchlist } = useFavorites();
 
   // The currently displayed archive (either playing or featured)
   const displayedArchive = archivePlayer.currentArchive || featuredArchive;
@@ -96,13 +96,21 @@ export function ArchiveHero({ archives, featuredArchive }: ArchiveHeroProps) {
 
   const handleToggleWatchlist = useCallback(async () => {
     if (!djUsername) return;
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
     setIsAddingToWatchlist(true);
     try {
-      await addToWatchlist(djUsername, primaryDJ?.userId, primaryDJ?.email);
+      if (isDJInWatchlist) {
+        await removeFromWatchlist(djUsername);
+      } else {
+        await addToWatchlist(djUsername, primaryDJ?.userId, primaryDJ?.email);
+      }
     } finally {
       setIsAddingToWatchlist(false);
     }
-  }, [djUsername, primaryDJ, addToWatchlist]);
+  }, [djUsername, primaryDJ, addToWatchlist, removeFromWatchlist, isDJInWatchlist, isAuthenticated]);
 
   // Heart / Love
   const [heartTrigger, setHeartTrigger] = useState(0);
