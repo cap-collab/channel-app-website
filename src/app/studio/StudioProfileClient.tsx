@@ -1619,7 +1619,7 @@ export function StudioProfileClient() {
               You&apos;re logged in as {user?.email}. Accept the DJ Terms to unlock your DJ profile and start broadcasting on Channel.
             </p>
 
-            <div className="bg-[#1a1a1a] rounded-lg p-6">
+            <div className="bg-[#1e1e1e] rounded-lg p-6">
               <label className="flex items-start gap-3 cursor-pointer mb-4">
                 <input
                   type="checkbox"
@@ -1739,10 +1739,10 @@ export function StudioProfileClient() {
         <div className="space-y-8">
           {/* Profile section */}
           <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+            <h2 className="text-gray-400 text-xs uppercase tracking-wide mb-3">
               Profile
             </h2>
-            <div className="bg-[#1a1a1a] rounded divide-y divide-gray-800">
+            <div className="bg-[#1e1e1e] rounded divide-y divide-gray-700/50">
               <div className="p-4 flex items-center justify-between">
                 <span className="text-gray-400">Curator Name</span>
                 <span className="text-white">
@@ -1768,7 +1768,7 @@ export function StudioProfileClient() {
             <div className="mt-4 flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => setShowUploadModal(true)}
-                className="flex-1 block bg-white text-black text-center py-3 rounded font-medium hover:bg-gray-100 transition-colors"
+                className="flex-1 block bg-gray-800 text-white text-center py-3 rounded font-medium hover:bg-gray-700 transition-colors border border-gray-700"
               >
                 Upload a pre-recording
               </button>
@@ -1792,16 +1792,16 @@ export function StudioProfileClient() {
           {/* Upcoming shows on Channel */}
           {(loadingBroadcasts || upcomingShows.length > 0) && (
           <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+            <h2 className="text-gray-400 text-xs uppercase tracking-wide mb-3">
               Upcoming Shows on Channel
             </h2>
-            <div className="bg-[#1a1a1a] rounded">
+            <div className="bg-[#1e1e1e] rounded">
               {loadingBroadcasts ? (
                 <div className="p-4 flex items-center justify-center">
                   <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
                 </div>
               ) : (
-                <div className="divide-y divide-gray-800">
+                <div className="divide-y divide-gray-700/50">
                   {upcomingShows.map((show) => (
                     <div key={show.id} className={`p-4 ${!show.isExternal && show.broadcastToken && show.status !== "live" ? "bg-[#1a2a1a] border border-green-900/50 rounded-lg" : ""}`}>
                       <p className="text-white font-medium">{show.showName}</p>
@@ -1842,13 +1842,13 @@ export function StudioProfileClient() {
 
           {/* My Recordings section */}
           <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
+            <h2 className="text-gray-400 text-xs uppercase tracking-wide mb-1">
               My Recordings
             </h2>
-            <p className="text-gray-600 text-xs mb-3 px-1">
+            <p className="text-gray-500 text-xs mb-3 px-1">
               Manage your recorded sets. Publish them to your profile or delete them.
             </p>
-            <div className="bg-[#1a1a1a] rounded">
+            <div className="bg-[#1e1e1e] rounded">
               {loadingRecordings ? (
                 <div className="p-4 flex items-center justify-center">
                   <div className="w-5 h-5 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
@@ -1970,10 +1970,10 @@ export function StudioProfileClient() {
 
           {/* Profile Photo section */}
           <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+            <h2 className="text-gray-400 text-xs uppercase tracking-wide mb-3">
               Profile Photo
             </h2>
-            <div className="bg-[#1a1a1a] rounded p-4">
+            <div className="bg-[#1e1e1e] rounded p-4">
               <div className="flex items-center gap-4">
                 <div className="relative w-20 h-20 flex-shrink-0">
                   {djProfile.photoUrl ? (
@@ -2031,21 +2031,21 @@ export function StudioProfileClient() {
                 <p className="text-red-400 text-sm mt-3">{photoError}</p>
               )}
             </div>
-            <p className="text-gray-600 text-xs mt-2 px-1">
+            <p className="text-gray-500 text-xs mt-2 px-1">
               JPG, PNG, GIF, or WebP. Max 5MB. Appears during your live broadcasts and on your public profile.
             </p>
           </section>
 
           {/* Location & Genres section */}
           <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3 flex items-center gap-1.5">
+            <h2 className="text-gray-400 text-xs uppercase tracking-wide mb-3 flex items-center gap-1.5">
               <svg className="w-3 h-3" viewBox="0 0 24 36" fill="none">
                 <circle cx="12" cy="12" r="10" fill="#ef4444" />
                 <line x1="12" y1="22" x2="12" y2="35" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" />
               </svg>
               Location & Genres
             </h2>
-            <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
+            <div className="bg-[#1e1e1e] rounded p-4 space-y-4">
               <div>
                 <label className="block text-gray-400 text-sm mb-2">
                   Location (City)
@@ -2071,10 +2071,10 @@ export function StudioProfileClient() {
                   className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
                 <div className="flex justify-between items-center mt-1">
-                  <span className="text-gray-600 text-xs">
+                  <span className="text-gray-500 text-xs">
                     {savingDetails ? "Saving..." : saveDetailsSuccess ? "Saved" : ""}
                   </span>
-                  <span className="text-gray-600 text-xs">
+                  <span className="text-gray-500 text-xs">
                     Separate genres with commas
                   </span>
                 </div>
@@ -2084,16 +2084,16 @@ export function StudioProfileClient() {
 
           {/* Support Button Link section */}
           <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1 flex items-center gap-1.5">
+            <h2 className="text-gray-400 text-xs uppercase tracking-wide mb-1 flex items-center gap-1.5">
               <svg className="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>
               </svg>
               Support Button Link
             </h2>
-            <p className="text-gray-600 text-xs mb-3 px-1">
+            <p className="text-gray-500 text-xs mb-3 px-1">
               Where listeners go when they click Support. Falls back to your Bandcamp link.
             </p>
-            <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
+            <div className="bg-[#1e1e1e] rounded p-4 space-y-4">
               <div>
                 <label className="block text-gray-400 text-sm mb-2">
                   Link URL
@@ -2106,7 +2106,7 @@ export function StudioProfileClient() {
                   className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
                 <div className="flex justify-between items-center mt-1">
-                  <span className="text-gray-600 text-xs">
+                  <span className="text-gray-500 text-xs">
                     {savingTipButtonLink ? "Saving..." : saveTipButtonLinkSuccess ? "Saved" : ""}
                   </span>
                 </div>
@@ -2116,17 +2116,17 @@ export function StudioProfileClient() {
 
           {/* About section */}
           <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1 flex items-center gap-1.5">
+            <h2 className="text-gray-400 text-xs uppercase tracking-wide mb-1 flex items-center gap-1.5">
               <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="10" />
                 <path strokeLinecap="round" d="M12 16v-4m0-4h.01" />
               </svg>
               About
             </h2>
-            <p className="text-gray-600 text-xs mb-3 px-1">
+            <p className="text-gray-500 text-xs mb-3 px-1">
               Your bio appears on your public DJ profile and during broadcasts.
             </p>
-            <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
+            <div className="bg-[#1e1e1e] rounded p-4 space-y-4">
               <div>
                 <label className="block text-gray-400 text-sm mb-2">
                   Bio
@@ -2140,10 +2140,10 @@ export function StudioProfileClient() {
                   className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none resize-none"
                 />
                 <div className="flex justify-between items-center mt-1">
-                  <span className="text-gray-600 text-xs">
+                  <span className="text-gray-500 text-xs">
                     {savingAbout ? "Saving..." : saveAboutSuccess ? "Saved" : ""}
                   </span>
-                  <span className="text-gray-600 text-xs">
+                  <span className="text-gray-500 text-xs">
                     {bioInput.length}/500
                   </span>
                 </div>
@@ -2153,13 +2153,13 @@ export function StudioProfileClient() {
 
           {/* Social Links section */}
           <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1">
+            <h2 className="text-gray-400 text-xs uppercase tracking-wide mb-1">
               Social Links
             </h2>
-            <p className="text-gray-600 text-xs mb-3 px-1">
+            <p className="text-gray-500 text-xs mb-3 px-1">
               These links appear on your public DJ profile.
             </p>
-            <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
+            <div className="bg-[#1e1e1e] rounded p-4 space-y-4">
               <div>
                 <label className="block text-gray-400 text-sm mb-2">
                   Instagram
@@ -2299,7 +2299,7 @@ export function StudioProfileClient() {
                     Add Link
                   </button>
                 </div>
-                <p className="text-gray-600 text-xs mt-2">
+                <p className="text-gray-500 text-xs mt-2">
                   {savingSocial ? "Saving..." : saveSocialSuccess ? "Saved" : ""}
                 </p>
               </div>
@@ -2308,16 +2308,16 @@ export function StudioProfileClient() {
 
           {/* IRL Events section */}
           <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1 flex items-center gap-1.5">
+            <h2 className="text-gray-400 text-xs uppercase tracking-wide mb-1 flex items-center gap-1.5">
               <svg className="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
               </svg>
               IRL Events
             </h2>
-            <p className="text-gray-600 text-xs mb-3 px-1">
+            <p className="text-gray-500 text-xs mb-3 px-1">
               Promote your upcoming in-person gigs. Events appear on your profile, /radio, and linked venue/collective pages.
             </p>
-            <div className="bg-[#1a1a1a] rounded p-4 space-y-3">
+            <div className="bg-[#1e1e1e] rounded p-4 space-y-3">
               {/* Existing events */}
               {loadingDjEvents ? (
                 <div className="flex items-center justify-center py-4">
@@ -2343,7 +2343,7 @@ export function StudioProfileClient() {
                         {event.linkedVenues.length > 0 && ` · ${event.linkedVenues.map(v => v.venueName).join(", ")}`}
                       </p>
                       {event.djs.length > 0 && (
-                        <p className="text-gray-600 text-xs mt-0.5">
+                        <p className="text-gray-500 text-xs mt-0.5">
                           with {event.djs.map(d => d.djName).join(", ")}
                         </p>
                       )}
@@ -2357,7 +2357,7 @@ export function StudioProfileClient() {
                   </div>
                 ))
               ) : !showNewEventForm ? (
-                <p className="text-gray-600 text-xs text-center py-2">No events yet.</p>
+                <p className="text-gray-500 text-xs text-center py-2">No events yet.</p>
               ) : null}
 
               {/* New event form */}
@@ -2392,15 +2392,15 @@ export function StudioProfileClient() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <input type="text" value={newEvent.name} onChange={(e) => setNewEvent(prev => ({ ...prev, name: e.target.value }))} placeholder="Event Name" className="flex-1 bg-[#1a1a1a] border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none" />
-                    <input type="text" value={newEvent.location} onChange={(e) => setNewEvent(prev => ({ ...prev, location: e.target.value }))} placeholder="City" className="w-32 bg-[#1a1a1a] border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none" />
+                    <input type="text" value={newEvent.name} onChange={(e) => setNewEvent(prev => ({ ...prev, name: e.target.value }))} placeholder="Event Name" className="flex-1 bg-[#1e1e1e] border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none" />
+                    <input type="text" value={newEvent.location} onChange={(e) => setNewEvent(prev => ({ ...prev, location: e.target.value }))} placeholder="City" className="w-32 bg-[#1e1e1e] border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none" />
                   </div>
                   <div className="flex gap-2">
-                    <input type="text" value={newEvent.ticketLink} onChange={(e) => setNewEvent(prev => ({ ...prev, ticketLink: e.target.value }))} placeholder="Ticket URL (e.g., ra.co/events/...)" className="flex-1 bg-[#1a1a1a] border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none" />
-                    <input type="date" value={newEvent.date} onChange={(e) => setNewEvent(prev => ({ ...prev, date: e.target.value }))} className="w-36 bg-[#1a1a1a] border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none [color-scheme:dark]" />
+                    <input type="text" value={newEvent.ticketLink} onChange={(e) => setNewEvent(prev => ({ ...prev, ticketLink: e.target.value }))} placeholder="Ticket URL (e.g., ra.co/events/...)" className="flex-1 bg-[#1e1e1e] border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none" />
+                    <input type="date" value={newEvent.date} onChange={(e) => setNewEvent(prev => ({ ...prev, date: e.target.value }))} className="w-36 bg-[#1e1e1e] border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none [color-scheme:dark]" />
                   </div>
                   {/* Venue selector */}
-                  <select value={newEvent.linkedVenues[0]?.venueId || ""} onChange={(e) => { const vId = e.target.value; if (!vId) { setNewEvent(prev => ({ ...prev, linkedVenues: [] })); return; } const venue = venueOptions.find(v => v.id === vId); if (venue) setNewEvent(prev => ({ ...prev, linkedVenues: [{ venueId: venue.id, venueName: venue.name }] })); }} className="w-full bg-[#1a1a1a] border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none">
+                  <select value={newEvent.linkedVenues[0]?.venueId || ""} onChange={(e) => { const vId = e.target.value; if (!vId) { setNewEvent(prev => ({ ...prev, linkedVenues: [] })); return; } const venue = venueOptions.find(v => v.id === vId); if (venue) setNewEvent(prev => ({ ...prev, linkedVenues: [{ venueId: venue.id, venueName: venue.name }] })); }} className="w-full bg-[#1e1e1e] border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none">
                     <option value="">Select a venue...</option>
                     {venueOptions.map((venue) => (<option key={venue.id} value={venue.id}>{venue.name}</option>))}
                   </select>
@@ -2409,14 +2409,14 @@ export function StudioProfileClient() {
                     {newEvent.linkedCollectives.length > 0 && (
                       <div className="flex flex-wrap gap-1 mb-1">
                         {newEvent.linkedCollectives.map((lc) => (
-                          <span key={lc.collectiveId} className="inline-flex items-center gap-1 bg-[#1a1a1a] rounded px-2 py-1 text-xs text-white">
+                          <span key={lc.collectiveId} className="inline-flex items-center gap-1 bg-[#1e1e1e] rounded px-2 py-1 text-xs text-white">
                             {lc.collectiveName}
                             <button type="button" onClick={() => setNewEvent(prev => ({ ...prev, linkedCollectives: prev.linkedCollectives.filter(c => c.collectiveId !== lc.collectiveId) }))} className="text-red-400 hover:text-red-300">&times;</button>
                           </span>
                         ))}
                       </div>
                     )}
-                    <select value="" onChange={(e) => { const cId = e.target.value; if (!cId) return; const coll = collectiveOptions.find(c => c.id === cId); if (!coll || newEvent.linkedCollectives.some(lc => lc.collectiveId === cId)) return; setNewEvent(prev => ({ ...prev, linkedCollectives: [...prev.linkedCollectives, { collectiveId: coll.id, collectiveName: coll.name }] })); }} className="w-full bg-[#1a1a1a] border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none">
+                    <select value="" onChange={(e) => { const cId = e.target.value; if (!cId) return; const coll = collectiveOptions.find(c => c.id === cId); if (!coll || newEvent.linkedCollectives.some(lc => lc.collectiveId === cId)) return; setNewEvent(prev => ({ ...prev, linkedCollectives: [...prev.linkedCollectives, { collectiveId: coll.id, collectiveName: coll.name }] })); }} className="w-full bg-[#1e1e1e] border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none">
                       <option value="">Add a collective...</option>
                       {collectiveOptions.filter(c => !newEvent.linkedCollectives.some(lc => lc.collectiveId === c.id)).map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
                     </select>
@@ -2426,14 +2426,14 @@ export function StudioProfileClient() {
                     {newEvent.djs.length > 0 && (
                       <div className="flex flex-wrap gap-1 mb-1">
                         {newEvent.djs.map((dj, djIdx) => (
-                          <span key={djIdx} className="inline-flex items-center gap-1 bg-[#1a1a1a] rounded px-2 py-1 text-xs text-white">
+                          <span key={djIdx} className="inline-flex items-center gap-1 bg-[#1e1e1e] rounded px-2 py-1 text-xs text-white">
                             {dj.djName}{dj.djUsername ? ` @${dj.djUsername}` : ""}
                             <button type="button" onClick={() => setNewEvent(prev => ({ ...prev, djs: prev.djs.filter((_, j) => j !== djIdx) }))} className="text-red-400 hover:text-red-300">&times;</button>
                           </span>
                         ))}
                       </div>
                     )}
-                    <select value="" onChange={(e) => { const val = e.target.value; if (!val) return; if (val === "__manual__") { setNewEvent(prev => ({ ...prev, djs: [...prev.djs, { djName: "" }] })); return; } const option = djOptions.find(o => (o.djUsername || o.djName) === val); if (!option || newEvent.djs.some(d => (d.djUsername || d.djName) === (option.djUsername || option.djName))) return; setNewEvent(prev => ({ ...prev, djs: [...prev.djs, { djName: option.djName, djUserId: option.djUserId, djUsername: option.djUsername, djPhotoUrl: option.djPhotoUrl }] })); }} className="w-full bg-[#1a1a1a] border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none">
+                    <select value="" onChange={(e) => { const val = e.target.value; if (!val) return; if (val === "__manual__") { setNewEvent(prev => ({ ...prev, djs: [...prev.djs, { djName: "" }] })); return; } const option = djOptions.find(o => (o.djUsername || o.djName) === val); if (!option || newEvent.djs.some(d => (d.djUsername || d.djName) === (option.djUsername || option.djName))) return; setNewEvent(prev => ({ ...prev, djs: [...prev.djs, { djName: option.djName, djUserId: option.djUserId, djUsername: option.djUsername, djPhotoUrl: option.djPhotoUrl }] })); }} className="w-full bg-[#1e1e1e] border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none">
                       <option value="">Tag a DJ...</option>
                       {djOptions.filter(o => !newEvent.djs.some(d => (d.djUsername || d.djName) === (o.djUsername || o.djName))).map((o) => (<option key={o.djUsername || o.djName} value={o.djUsername || o.djName}>{o.label}</option>))}
                       <option value="__manual__">Other (type name)</option>
@@ -2465,16 +2465,16 @@ export function StudioProfileClient() {
 
           {/* Radio Shows section */}
           <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1 flex items-center gap-1.5">
+            <h2 className="text-gray-400 text-xs uppercase tracking-wide mb-1 flex items-center gap-1.5">
               <svg className="w-3 h-3 text-sky-300" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
               </svg>
               Radio Shows
             </h2>
-            <p className="text-gray-600 text-xs mb-3 px-1">
+            <p className="text-gray-500 text-xs mb-3 px-1">
               Promote your upcoming radio appearances on other stations.
             </p>
-            <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
+            <div className="bg-[#1e1e1e] rounded p-4 space-y-4">
               {radioShowsInput.map((show, index) => (
                 <div key={index} className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -2598,7 +2598,7 @@ export function StudioProfileClient() {
               >
                 + Add another show
               </button>
-              <p className="text-gray-600 text-xs">
+              <p className="text-gray-500 text-xs">
                 {savingRadioShows ? "Saving..." : saveRadioShowsSuccess ? "Saved" : ""}
               </p>
             </div>
@@ -2606,16 +2606,16 @@ export function StudioProfileClient() {
 
           {/* My Recs section */}
           <section>
-            <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-1 flex items-center gap-1.5">
+            <h2 className="text-gray-400 text-xs uppercase tracking-wide mb-1 flex items-center gap-1.5">
               <svg className="w-3 h-3 text-red-400" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
               </svg>
               My Recs
             </h2>
-            <p className="text-gray-600 text-xs mb-3 px-1">
+            <p className="text-gray-500 text-xs mb-3 px-1">
               Share music, IRL shows, and online shows you recommend with your listeners.
             </p>
-            <div className="bg-[#1a1a1a] rounded p-4 space-y-4">
+            <div className="bg-[#1e1e1e] rounded p-4 space-y-4">
               {recsInput.map((rec, index) => (
                 <div key={index} className={`space-y-3 ${index > 0 ? "border-t border-gray-800 pt-4" : ""}`}>
                   <div className="flex items-center justify-between">
@@ -2750,7 +2750,7 @@ export function StudioProfileClient() {
                 </svg>
                 Add Recommendation
               </button>
-              <p className="text-gray-600 text-xs">
+              <p className="text-gray-500 text-xs">
                 {savingMyRecs ? "Saving..." : saveMyRecsSuccess ? "Saved" : ""}
               </p>
             </div>
@@ -2776,7 +2776,7 @@ export function StudioProfileClient() {
           />
 
           {/* Modal */}
-          <div className="relative bg-[#1a1a1a] rounded-xl w-full max-w-md p-6 border border-gray-800">
+          <div className="relative bg-[#1e1e1e] rounded-xl w-full max-w-md p-6 border border-gray-800">
             <h2 className="text-white text-lg font-semibold mb-4">Upload a pre-recording</h2>
 
             {/* Show name input */}
