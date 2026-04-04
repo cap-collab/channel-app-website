@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendWatchlistDigestEmail, sendShowStartingEmail, sendBroadcastReminderEmail, sendBroadcast2HourReminderEmail } from "@/lib/email";
+import { sendWatchlistDigestEmail, sendShowStartingEmail, sendBroadcastReminderEmail, sendBroadcast2HourReminderEmail, sendPostBroadcastEmail } from "@/lib/email";
 import { queryUsersWhere, queryCollection, getUserFavorites } from "@/lib/firebase-rest";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { matchesGenre } from "@/lib/genres";
@@ -789,6 +789,93 @@ export async function GET(request: NextRequest) {
       timeRange: "8:00 PM – 10:00 PM ET",
     });
     return NextResponse.json({ success, type: "broadcast-2h-reminder" });
+  }
+
+  if (type === "post-broadcast") {
+    const success = await sendPostBroadcastEmail({
+      to,
+      djName: request.nextUrl.searchParams.get("djName") || "Cap",
+      username: request.nextUrl.searchParams.get("username") || "cap",
+      missingItems: "your location, genre, and a tip link",
+      showTipParagraph: true,
+    });
+    return NextResponse.json({ success, type: "post-broadcast" });
+  }
+
+  if (type === "all") {
+    const results: Record<string, boolean> = {};
+
+    // 1. Show starting
+    results["show-starting"] = await sendShowStartingEmail({
+      to,
+      showName: "Deep House Sessions",
+      djName: "TestDJ",
+      djUsername: "testdj",
+      stationName: "Channel Radio",
+      stationId: "broadcast",
+    });
+
+    // 2. Watchlist digest (with minimal test data)
+    results["watchlist-digest"] = await sendWatchlistDigestEmail({
+      to,
+      userTimezone: "America/Los_Angeles",
+      favoriteShows: [{
+        showName: "Morning Beats",
+        djName: "DJ Test",
+        djUsername: "djtest",
+        stationName: "Channel Radio",
+        stationId: "broadcast",
+        startTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      }],
+      curatorRecs: [],
+      preferenceShows: [{
+        showName: "Ambient Waves",
+        djName: "AmbientDJ",
+        djUsername: "ambientdj",
+        stationName: "NTS 1",
+        stationId: "nts1",
+        startTime: new Date(Date.now() + 48 * 60 * 60 * 1000),
+        matchLabel: "AMBIENT",
+      }],
+      preferredGenres: ["ambient"],
+    });
+
+    // 3. Broadcast reminder (24h)
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const dateStr = tomorrow.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+    results["broadcast-reminder"] = await sendBroadcastReminderEmail({
+      to,
+      djName: "Cap",
+      showName: "Late Night Sessions",
+      broadcastUrl: "https://channel-app.com/broadcast/live?token=test-token-example",
+      profileUrl: "https://channel-app.com/dj/cap",
+      startTime: dateStr,
+      timeRange: "8:00 PM – 10:00 PM PT",
+    });
+
+    // 4. Broadcast 2h reminder
+    const soon = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    const soonDateStr = soon.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+    results["broadcast-2h-reminder"] = await sendBroadcast2HourReminderEmail({
+      to,
+      djName: "Cap",
+      showName: "Late Night Sessions",
+      broadcastUrl: "https://channel-app.com/broadcast/live?token=test-token-example",
+      profileUrl: "https://channel-app.com/dj/cap",
+      startTime: soonDateStr,
+      timeRange: "8:00 PM – 10:00 PM PT",
+    });
+
+    // 5. Post-broadcast (with all items missing)
+    results["post-broadcast"] = await sendPostBroadcastEmail({
+      to,
+      djName: "Cap",
+      username: "cap",
+      missingItems: "your location, genre, and a tip link",
+      showTipParagraph: true,
+    });
+
+    return NextResponse.json({ success: true, type: "all", results });
   }
 
   const section = request.nextUrl.searchParams.get("section") || undefined;

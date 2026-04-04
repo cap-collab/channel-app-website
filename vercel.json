@@ -25,12 +25,8 @@
       "schedule": "*/30 * * * *"
     },
     {
-      "path": "/api/cron/broadcast-reminder-emails",
-      "schedule": "0 * * * *"
-    },
-    {
-      "path": "/api/cron/broadcast-2h-reminder-emails",
-      "schedule": "*/30 * * * *"
+      "path": "/api/cron/broadcast-emails",
+      "schedule": "0 */2 * * *"
     }
   ]
 }
