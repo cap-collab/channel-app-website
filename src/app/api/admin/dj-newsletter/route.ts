@@ -125,11 +125,15 @@ export async function GET(request: NextRequest) {
     .where("role", "==", "dj")
     .get();
 
+  // Exclude specific emails from this send
+  const EXCLUDE_EMAILS = new Set(["maiii@posteo.la"]);
+
   const djRecipients: Array<{ email: string; name: string; id: string }> = [];
   const debug: Array<{ email: string; djInsiders: unknown; notifs: unknown }> = [];
   for (const doc of usersSnap.docs) {
     const data = doc.data();
     if (!data.email) continue;
+    if (EXCLUDE_EMAILS.has(data.email)) continue;
     debug.push({
       email: data.email,
       djInsiders: data.emailNotifications?.djInsiders,
