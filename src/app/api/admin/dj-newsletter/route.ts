@@ -14,10 +14,10 @@ const SUBJECT = "Week 2 on Channel";
 
 // ── This week's DJ lineup ──────────────────────────────────────────
 const THIS_WEEK_DJS = [
-  { name: "shroomie", profileUrl: null },
+  { name: "shroomie", profileUrl: `${APP_URL}/dj/shroomie` },
   { name: "SPF 50", profileUrl: `${APP_URL}/dj/spf50` },
-  { name: "Spillman", profileUrl: null },
-  { name: "Celebrity Bitcrush", profileUrl: null },
+  { name: "Spillman", profileUrl: `${APP_URL}/dj/spillman` },
+  { name: "Celebrity Bitcrush", profileUrl: `${APP_URL}/dj/celebritybitcrush` },
   { name: "Pretty Gay Friendly", profileUrl: `${APP_URL}/dj/prettygayfriendly` },
   { name: "Dani Moon", profileUrl: `${APP_URL}/dj/danimoon` },
 ];
@@ -118,17 +118,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Database not configured" }, { status: 500 });
   }
 
-  // Get all DJ users with djInsiders enabled
+  // Get all DJ users, then filter for djInsiders in code
+  // (avoids needing a composite Firestore index on role + emailNotifications.djInsiders)
   const usersSnap = await db
     .collection("users")
     .where("role", "==", "dj")
-    .where("emailNotifications.djInsiders", "==", true)
     .get();
 
   const djRecipients: Array<{ email: string; name: string; id: string }> = [];
   for (const doc of usersSnap.docs) {
     const data = doc.data();
     if (!data.email) continue;
+    if (!data.emailNotifications?.djInsiders) continue;
     // Use DJ internal name, displayName, or fallback
     const name = data.djProfile?.name || data.displayName || "there";
     djRecipients.push({ email: data.email, name, id: doc.id });
