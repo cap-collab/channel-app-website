@@ -8,6 +8,7 @@ import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getApps, initializeApp } from 'firebase/app';
 import { BroadcastSlotSerialized, ROOM_NAME } from '@/types/broadcast';
 import Hls from 'hls.js';
+import { captureEvent } from '@/lib/posthog';
 
 // HLS stream URLs - direct from R2 (bypasses Vercel serverless proxy)
 const R2_PUBLIC_URL = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
@@ -130,6 +131,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
   const broadcastCumulativeTimeRef = useRef(0);
   const broadcastStreamCountedRef = useRef<string | null>(null);
   const [autoResumePending, setAutoResumePending] = useState(false);
+  const playbackStartedAtRef = useRef<number | null>(null); // For posthog session_duration
 
   // Keep playing ref in sync
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
@@ -382,11 +384,14 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
             setIsPlaying(true);
             setIsLoading(false);
             setError(null);
+            playbackStartedAtRef.current = Date.now();
+            captureEvent('playback_started', { type: 'live', protocol: 'webrtc' });
           })
           .catch((err) => {
             console.error('🎵 Audio play error:', err);
             setError('Failed to play audio. Click to try again.');
             setIsLoading(false);
+            captureEvent('playback_error', { type: 'live', protocol: 'webrtc', message: String(err) });
           });
       }
     },
@@ -486,6 +491,8 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
           captureAudioStream();
           setIsPlaying(true);
           setIsLoading(false);
+          playbackStartedAtRef.current = Date.now();
+          captureEvent('playback_started', { type: 'live', protocol: 'native' });
         } else if (Hls.isSupported()) {
           console.log('🎵 Using HLS.js');
           const hls = new Hls({
@@ -504,10 +511,13 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
               captureAudioStream();
               setIsPlaying(true);
               setIsLoading(false);
+              playbackStartedAtRef.current = Date.now();
+              captureEvent('playback_started', { type: 'live', protocol: 'hls' });
             } catch (err) {
               console.error('🎵 HLS play error:', err);
               setError('Tap to play');
               setIsLoading(false);
+              captureEvent('playback_error', { type: 'live', protocol: 'hls', message: String(err) });
             }
           });
 
@@ -516,6 +526,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
             if (data.fatal) {
               setError('Stream error');
               setIsLoading(false);
+              captureEvent('playback_error', { type: 'live', protocol: 'hls', message: `${data.type}: ${data.details}` });
             }
           });
         } else {
@@ -621,12 +632,21 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
       console.error('🎵 LiveKit connection error:', err);
       setError('Failed to connect to stream');
       setIsLoading(false);
+      captureEvent('playback_error', { type: 'live', protocol: 'webrtc', message: String(err) });
     }
   }, [isLive, currentShow, handleTrackSubscribed, handleTrackUnsubscribed]);
 
   const pause = useCallback(() => {
     // User explicitly paused — mark so we don't auto-resume on iOS
     userPausedRef.current = true;
+
+    // Track playback_ended
+    if (playbackStartedAtRef.current) {
+      const sessionDuration = Math.round((Date.now() - playbackStartedAtRef.current) / 1000);
+      captureEvent('playback_ended', { type: 'live', session_duration: sessionDuration });
+      playbackStartedAtRef.current = null;
+    }
+
     // Clear grace period and don't auto-resume
     if (graceTimerRef.current) {
       clearTimeout(graceTimerRef.current);

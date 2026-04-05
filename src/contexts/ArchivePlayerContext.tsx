@@ -6,6 +6,7 @@ import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getApps, initializeApp } from 'firebase/app';
 import { ArchiveSerialized } from '@/types/broadcast';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { captureEvent } from '@/lib/posthog';
 
 function getFirebaseApp() {
   if (getApps().length === 0) {
@@ -76,6 +77,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   const streamCountedRef = useRef<string | null>(null);
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playbackStartedAtRef = useRef<number | null>(null);
 
   // Clean up on unmount
   useEffect(() => {
@@ -107,7 +109,11 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       audio.addEventListener('playing', () => {
         setIsPlaying(true);
         setIsLoading(false);
-        retryCountRef.current = 0; // Reset retries on successful playback
+        retryCountRef.current = 0;
+        if (!playbackStartedAtRef.current) {
+          playbackStartedAtRef.current = Date.now();
+          captureEvent('playback_started', { type: 'archive', protocol: 'native' });
+        }
       });
       audio.addEventListener('pause', () => {
         setIsPlaying(false);
@@ -118,6 +124,11 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       audio.addEventListener('ended', () => {
         setIsPlaying(false);
         setCurrentTime(0);
+        if (playbackStartedAtRef.current) {
+          const sessionDuration = Math.round((Date.now() - playbackStartedAtRef.current) / 1000);
+          captureEvent('playback_ended', { type: 'archive', session_duration: sessionDuration });
+          playbackStartedAtRef.current = null;
+        }
       });
       audio.addEventListener('error', () => {
         const MAX_RETRIES = 3;
@@ -142,6 +153,12 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
           console.error('🔄 Archive playback failed after retries');
           setIsPlaying(false);
           setIsLoading(false);
+          captureEvent('playback_error', { type: 'archive', message: `Error after ${MAX_RETRIES} retries` });
+          if (playbackStartedAtRef.current) {
+            const sessionDuration = Math.round((Date.now() - playbackStartedAtRef.current) / 1000);
+            captureEvent('playback_ended', { type: 'archive', session_duration: sessionDuration });
+            playbackStartedAtRef.current = null;
+          }
         }
       });
 
@@ -333,7 +350,12 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     const audio = getAudio();
 
     if (currentArchive?.id !== archive.id) {
-      // Switching to a new archive
+      // Switching to a new archive — end previous session
+      if (playbackStartedAtRef.current) {
+        const sessionDuration = Math.round((Date.now() - playbackStartedAtRef.current) / 1000);
+        captureEvent('playback_ended', { type: 'archive', session_duration: sessionDuration });
+        playbackStartedAtRef.current = null;
+      }
       audio.pause();
       audio.src = archive.recordingUrl;
       audio.currentTime = 0;
@@ -352,6 +374,11 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   }, [currentArchive, isPlaying, getAudio, isGated, isAuthenticated]);
 
   const pause = useCallback(() => {
+    if (playbackStartedAtRef.current) {
+      const sessionDuration = Math.round((Date.now() - playbackStartedAtRef.current) / 1000);
+      captureEvent('playback_ended', { type: 'archive', session_duration: sessionDuration });
+      playbackStartedAtRef.current = null;
+    }
     audioRef.current?.pause();
   }, []);
 
