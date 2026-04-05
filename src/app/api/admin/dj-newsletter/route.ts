@@ -145,6 +145,16 @@ export async function GET(request: NextRequest) {
     djRecipients.push({ email: data.email, name, id: doc.id });
   }
 
+  // Add pending DJs who have scheduled slots but no account yet
+  const EXTRA_PENDING_DJS = [
+    { email: "paulsboston@gmail.com", name: "Paul", id: "pending-spillman" },
+  ];
+  for (const pending of EXTRA_PENDING_DJS) {
+    if (EXCLUDE_EMAILS.has(pending.email)) continue;
+    if (djRecipients.some((r) => r.email === pending.email)) continue;
+    djRecipients.push(pending);
+  }
+
   // ── Preview mode: send test to cap@channel-app.com ──
   if (mode === "preview") {
     if (!resend) {
