@@ -52,7 +52,7 @@ function getUnsubscribeUrl(category: EmailCategory): string {
   return `${SETTINGS_DEEP_LINK}?unsubscribe=${category}`;
 }
 
-function getUnsubscribeHeaders(category: EmailCategory) {
+export function getUnsubscribeHeaders(category: EmailCategory) {
   const url = getUnsubscribeUrl(category);
   return {
     "List-Unsubscribe": `<${url}>`,
