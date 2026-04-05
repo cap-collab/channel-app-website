@@ -10,7 +10,7 @@ const resend = process.env.RESEND_API_KEY
 const FROM_EMAIL = "Cap from Channel <cap@channel-app.com>";
 const LOGO_URL = "https://channel-app.com/logo-black.png";
 const APP_URL = "https://channel-app.com";
-const SUBJECT = "Week 2 on Channel";
+const SUBJECT = "Starting week 2";
 
 // ── This week's DJ lineup ──────────────────────────────────────────
 const THIS_WEEK_DJS = [
