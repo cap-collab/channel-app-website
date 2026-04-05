@@ -271,6 +271,7 @@ export interface ArchiveDJ {
   userId?: string;             // Firebase UID
   email?: string;              // DJ email (for watchlist matching)
   photoUrl?: string;           // Profile photo
+  genres?: string[];           // DJ genres (for genre matching)
 }
 
 // Archive stored in Firestore

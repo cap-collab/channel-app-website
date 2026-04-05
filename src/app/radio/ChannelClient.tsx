@@ -219,21 +219,11 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
       return { archives: rawArchives, featuredArchive: rawFeaturedArchive };
     }
 
-    // Build DJ username → genres map from schedule DJ profiles
-    const djGenreMap = new Map<string, string[]>();
-    for (const profile of djProfiles) {
-      if (profile.username && profile.genres) {
-        djGenreMap.set(profile.username.toLowerCase(), profile.genres);
-      }
-    }
-
     const scored = rawArchives.map((archive) => {
       let genreScore = 0;
       for (const dj of archive.djs) {
-        const username = dj.username?.toLowerCase();
-        if (!username) continue;
-        const genres = djGenreMap.get(username);
-        if (genres) {
+        const genres = dj.genres;
+        if (genres && genres.length > 0) {
           genreScore += selectedGenres.filter((g) => matchesGenreLib(genres, g)).length;
         }
       }
@@ -243,7 +233,7 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
     scored.sort((a, b) => b.score - a.score);
     const sorted = scored.map((s) => s.archive);
     return { archives: sorted, featuredArchive: sorted[0] };
-  }, [rawArchives, rawFeaturedArchive, selectedGenres, djProfiles]);
+  }, [rawArchives, rawFeaturedArchive, selectedGenres]);
 
   // Helper: check if a show is currently live
   const isShowLive = useCallback((show: Show): boolean => {
@@ -805,7 +795,7 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
                     }
                   }}
                   className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-mono uppercase tracking-tighter font-bold transition-colors ${
-                    heroMode === 'live' ? 'bg-black text-red-500 border border-white/40' : 'bg-transparent text-zinc-600 hover:text-zinc-400'
+                    heroMode === 'live' ? 'bg-black text-red-500 border border-white' : 'bg-transparent text-zinc-600 hover:text-zinc-400'
                   }`}
                 >
                   {isRestream ? (
@@ -825,7 +815,7 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
                 <button
                   onClick={() => setHeroMode('archive')}
                   className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-mono uppercase tracking-tighter font-bold transition-colors ${
-                    heroMode === 'archive' ? 'bg-black text-gray-300 border border-white/40' : 'bg-transparent text-zinc-600 hover:text-zinc-400'
+                    heroMode === 'archive' ? 'bg-black text-gray-300 border border-white' : 'bg-transparent text-zinc-600 hover:text-zinc-400'
                   }`}
                 >
                   <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

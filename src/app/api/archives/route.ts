@@ -10,6 +10,7 @@ interface DJInfo {
   photoUrl?: string;
   userId?: string;
   email?: string;
+  genres?: string[];
 }
 
 export async function GET(request: Request) {
@@ -150,17 +151,73 @@ export async function GET(request: Request) {
       });
     }
 
+    // Look up DJ genres by userId and username
+    const userIdsForGenres = new Set<string>();
+    const usernamesForGenres = new Set<string>();
+    for (const { djs } of enrichedRawArchives) {
+      for (const dj of djs) {
+        if (dj.userId) userIdsForGenres.add(dj.userId);
+        if (dj.username) usernamesForGenres.add(dj.username.replace(/\s+/g, '').toLowerCase());
+      }
+    }
+
+    const djGenresByUserId = new Map<string, string[]>();
+    const djGenresByUsername = new Map<string, string[]>();
+
+    // Batch fetch by userId
+    if (userIdsForGenres.size > 0) {
+      const userIds = Array.from(userIdsForGenres);
+      const batchSize = 30;
+      for (let i = 0; i < userIds.length; i += batchSize) {
+        const batch = userIds.slice(i, i + batchSize);
+        const snap = await db.collection('users').where('__name__', 'in', batch).get();
+        for (const doc of snap.docs) {
+          const genres = doc.data()?.djProfile?.genres;
+          if (Array.isArray(genres) && genres.length > 0) {
+            djGenresByUserId.set(doc.id, genres);
+          }
+        }
+      }
+    }
+
+    // Batch fetch by chatUsernameNormalized
+    if (usernamesForGenres.size > 0) {
+      const usernames = Array.from(usernamesForGenres);
+      const batchSize = 30;
+      for (let i = 0; i < usernames.length; i += batchSize) {
+        const batch = usernames.slice(i, i + batchSize);
+        const snap = await db.collection('users').where('chatUsernameNormalized', 'in', batch).get();
+        for (const doc of snap.docs) {
+          const genres = doc.data()?.djProfile?.genres;
+          const normalized = doc.data()?.chatUsernameNormalized;
+          if (Array.isArray(genres) && genres.length > 0 && normalized) {
+            djGenresByUsername.set(normalized, genres);
+          }
+        }
+      }
+    }
+
     // Build final archives with enriched DJ data
     const archives: ArchiveSerialized[] = enrichedRawArchives.map(({ id, data, djs }) => {
-      // Enrich DJs with pending profile usernames
+      // Enrich DJs with pending profile usernames and genres
       const enrichedDjs = djs.map((dj) => {
+        let enriched = dj;
         if (!dj.username && dj.email) {
           const username = emailToUsername.get(dj.email.toLowerCase());
           if (username) {
-            return { ...dj, username };
+            enriched = { ...enriched, username };
           }
         }
-        return dj;
+        // Add genres from profile lookup
+        if (!enriched.genres) {
+          const genres = (dj.userId && djGenresByUserId.get(dj.userId))
+            || (dj.username && djGenresByUsername.get(dj.username.replace(/\s+/g, '').toLowerCase()))
+            || (enriched.username && djGenresByUsername.get(enriched.username.replace(/\s+/g, '').toLowerCase()));
+          if (genres) {
+            enriched = { ...enriched, genres };
+          }
+        }
+        return enriched;
       });
 
       return {
