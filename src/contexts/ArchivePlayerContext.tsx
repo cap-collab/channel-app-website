@@ -5,6 +5,7 @@ import { getDatabase, ref, set, remove, onValue, onDisconnect } from 'firebase/d
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getApps, initializeApp } from 'firebase/app';
 import { ArchiveSerialized } from '@/types/broadcast';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 function getFirebaseApp() {
   if (getApps().length === 0) {
@@ -37,6 +38,8 @@ interface ArchivePlayerContextValue {
   currentTime: number;
   duration: number;
   listenerCount: number;
+  isGated: boolean;
+  clearGate: () => void;
   play: (archive: ArchiveSerialized) => void;
   pause: () => void;
   toggle: () => void;
@@ -53,15 +56,21 @@ export function useArchivePlayer() {
 
 export { ArchivePlayerContext };
 
+const GATE_STORAGE_KEY = 'archive_cumulative_seconds';
+const GATE_THRESHOLD_SECONDS = 600;
+
 export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuthContext();
   const [currentArchive, setCurrentArchive] = useState<ArchiveSerialized | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [listenerCount, setListenerCount] = useState(0);
+  const [isGated, setIsGated] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const cumulativeTimeRef = useRef(0);
+  const gateSecondsRef = useRef(0);
   const streamCountedRef = useRef<string | null>(null);
 
   // Clean up on unmount
@@ -128,6 +137,48 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
 
     return () => clearInterval(interval);
   }, [isPlaying, currentArchive]);
+
+  // Initialize gate counter from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(GATE_STORAGE_KEY);
+      if (stored) gateSecondsRef.current = parseInt(stored, 10) || 0;
+    } catch {}
+  }, []);
+
+  // Archive gate: track cumulative listening for unauthenticated users
+  useEffect(() => {
+    if (isAuthenticated) return;
+    if (!isPlaying) return;
+    if (gateSecondsRef.current >= GATE_THRESHOLD_SECONDS) {
+      audioRef.current?.pause();
+      setIsGated(true);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      gateSecondsRef.current += 1;
+
+      if (gateSecondsRef.current % 5 === 0) {
+        try { localStorage.setItem(GATE_STORAGE_KEY, String(gateSecondsRef.current)); } catch {}
+      }
+
+      if (gateSecondsRef.current >= GATE_THRESHOLD_SECONDS) {
+        try { localStorage.setItem(GATE_STORAGE_KEY, String(gateSecondsRef.current)); } catch {}
+        audioRef.current?.pause();
+        setIsGated(true);
+      }
+    }, 1000);
+
+    return () => {
+      clearInterval(interval);
+      try { localStorage.setItem(GATE_STORAGE_KEY, String(gateSecondsRef.current)); } catch {}
+    };
+  }, [isPlaying, isAuthenticated]);
+
+  const clearGate = useCallback(() => {
+    setIsGated(false);
+  }, []);
 
   // Lock screen / Media Session metadata for archive playback
   useEffect(() => {
@@ -238,6 +289,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const play = useCallback((archive: ArchiveSerialized) => {
+    if (isGated && !isAuthenticated) return;
     const audio = getAudio();
 
     if (currentArchive?.id !== archive.id) {
@@ -257,7 +309,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       // Resume same archive
       audio.play().catch(() => {});
     }
-  }, [currentArchive, isPlaying, getAudio]);
+  }, [currentArchive, isPlaying, getAudio, isGated, isAuthenticated]);
 
   const pause = useCallback(() => {
     audioRef.current?.pause();
@@ -265,12 +317,13 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
 
   const toggle = useCallback(() => {
     if (!currentArchive) return;
+    if (isGated && !isAuthenticated) return;
     if (isPlaying) {
       pause();
     } else {
       play(currentArchive);
     }
-  }, [currentArchive, isPlaying, pause, play]);
+  }, [currentArchive, isPlaying, pause, play, isGated, isAuthenticated]);
 
   const seek = useCallback((time: number) => {
     const audio = audioRef.current;
@@ -287,11 +340,13 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     currentTime,
     duration,
     listenerCount,
+    isGated,
+    clearGate,
     play,
     pause,
     toggle,
     seek,
-  }), [currentArchive, isPlaying, isLoading, currentTime, duration, listenerCount, play, pause, toggle, seek]);
+  }), [currentArchive, isPlaying, isLoading, currentTime, duration, listenerCount, isGated, clearGate, play, pause, toggle, seek]);
 
   return (
     <ArchivePlayerContext.Provider value={value}>

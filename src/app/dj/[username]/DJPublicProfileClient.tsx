@@ -354,6 +354,7 @@ export function DJPublicProfileClient({ username }: Props) {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
 
   // Live status
   const [liveOnChannel, setLiveOnChannel] = useState(false);
@@ -374,6 +375,15 @@ export function DJPublicProfileClient({ username }: Props) {
 
   // Archive player (global context — triggers sticky header)
   const archivePlayer = useArchivePlayer();
+  const { isGated, clearGate } = archivePlayer;
+
+  // Show auth modal when archive gate triggers
+  useEffect(() => {
+    if (isGated) {
+      setAuthModalMessage('Sign up to keep listening to all our archive for free.');
+      setShowAuthModal(true);
+    }
+  }, [isGated]);
 
   // Subscribe state
   const [subscribing, setSubscribing] = useState(false);
@@ -2513,7 +2523,16 @@ export function DJPublicProfileClient({ username }: Props) {
 
       <AuthModal
         isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
+        onClose={() => {
+          setShowAuthModal(false);
+          setAuthModalMessage(undefined);
+        }}
+        message={authModalMessage}
+        onSignInComplete={() => {
+          if (isGated) {
+            clearGate();
+          }
+        }}
       />
     </div>
   );

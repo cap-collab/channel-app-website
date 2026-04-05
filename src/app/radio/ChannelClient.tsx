@@ -43,6 +43,7 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
   const { isLive: isBroadcastLive, isStreaming: isBroadcastStreaming, currentDJ, play: playLive } = useBroadcastStreamContext();
   const { stationBPM } = useBPM();
   const archivePlayer = useArchivePlayer();
+  const { isGated, clearGate } = archivePlayer;
   const { archives, featuredArchive, loading: archivesLoading } = useArchives();
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -80,6 +81,14 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
   // Auth modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
+
+  // Show auth modal when archive gate triggers
+  useEffect(() => {
+    if (isGated) {
+      setAuthModalMessage('Sign up to keep listening to all our archive for free.');
+      setShowAuthModal(true);
+    }
+  }, [isGated]);
 
   // Track whether user has seen curator recs before (move to bottom after first view)
   const [hasSeenCuratorRecs, setHasSeenCuratorRecs] = useState(false);
@@ -1059,6 +1068,11 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
           setAuthModalMessage(undefined);
         }}
         message={authModalMessage}
+        onSignInComplete={() => {
+          if (isGated) {
+            clearGate();
+          }
+        }}
       />
     </div>
   );
