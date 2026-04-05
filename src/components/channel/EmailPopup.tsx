@@ -6,43 +6,25 @@ import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { ArchivePlayerContext } from '@/contexts/ArchivePlayerContext';
 import { useContext } from 'react';
 
-const STORAGE_KEY_FILED = 'radio-email-filed';
-const STORAGE_KEY_COUNT = 'email-popup-count';
-const STORAGE_KEY_LAST = 'email-popup-last-shown';
-const MAX_POPUPS = 2;
-const MIN_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
-const SITE_DELAY_MS = 15000; // 15 seconds
-const PLAY_DELAY_S = 10; // 10 seconds of playback
-
-function getPopupCount(): number {
-  if (typeof window === 'undefined') return 0;
-  return parseInt(localStorage.getItem(STORAGE_KEY_COUNT) || '0', 10);
-}
-
-function getLastShown(): number {
-  if (typeof window === 'undefined') return 0;
-  return parseInt(localStorage.getItem(STORAGE_KEY_LAST) || '0', 10);
-}
-
-function recordShown() {
-  const count = getPopupCount() + 1;
-  localStorage.setItem(STORAGE_KEY_COUNT, String(count));
-  localStorage.setItem(STORAGE_KEY_LAST, String(Date.now()));
-}
-
-function canShow(): boolean {
-  if (getPopupCount() >= MAX_POPUPS) return false;
-  const last = getLastShown();
-  if (last > 0 && Date.now() - last < MIN_INTERVAL_MS) return false;
-  return true;
-}
+const STORAGE_KEY_FILED = 'radio-email-filed';       // localStorage — persists forever after submit
+const SESSION_KEY_SHOWN = 'email-popup-shown';         // sessionStorage — once per session
+const PLAY_DELAY_S = 30; // 30 seconds of playback
 
 function hasFiledEmail(): boolean {
   if (typeof window === 'undefined') return false;
   return localStorage.getItem(STORAGE_KEY_FILED) === 'true';
 }
 
-export function EmailPopup() {
+function hasShownThisSession(): boolean {
+  if (typeof window === 'undefined') return false;
+  return sessionStorage.getItem(SESSION_KEY_SHOWN) === 'true';
+}
+
+function recordShown() {
+  sessionStorage.setItem(SESSION_KEY_SHOWN, 'true');
+}
+
+export function EmailPopup({ siteDelayMs }: { siteDelayMs?: number } = {}) {
   const { isAuthenticated } = useAuthContext();
   const { isPlaying: liveIsPlaying } = useBroadcastStreamContext();
   const archiveCtx = useContext(ArchivePlayerContext);
@@ -58,7 +40,9 @@ export function EmailPopup() {
   useEffect(() => {
     const handler = () => {
       if (suppressedRef.current) return;
-      if (isAuthenticated || hasFiledEmail()) return;
+      if (isAuthenticated || hasFiledEmail() || hasShownThisSession()) return;
+      recordShown();
+      suppressedRef.current = true;
       setIsOpen(true);
     };
     window.addEventListener('open-email-popup', handler);
@@ -70,30 +54,30 @@ export function EmailPopup() {
   const playTimerFiredRef = useRef(false);
   const suppressedRef = useRef(false);
 
-  // Suppress entirely if authenticated or already filed
+  // Suppress entirely if authenticated, already filed, or already shown this session
   useEffect(() => {
-    if (isAuthenticated || hasFiledEmail()) {
+    if (isAuthenticated || hasFiledEmail() || hasShownThisSession()) {
       suppressedRef.current = true;
     }
   }, [isAuthenticated]);
 
   const maybeShow = useCallback(() => {
     if (suppressedRef.current || isOpen) return;
-    if (isAuthenticated || hasFiledEmail()) return;
-    if (!canShow()) return;
+    if (isAuthenticated || hasFiledEmail() || hasShownThisSession()) return;
     recordShown();
+    suppressedRef.current = true;
     setIsOpen(true);
   }, [isAuthenticated, isOpen]);
 
-  // Trigger A: 5 seconds on site
+  // Trigger A: time-on-page (only if siteDelayMs is provided, e.g. DJ profile pages)
   useEffect(() => {
-    if (suppressedRef.current || siteTimerFiredRef.current) return;
+    if (!siteDelayMs || suppressedRef.current || siteTimerFiredRef.current) return;
     const timer = setTimeout(() => {
       siteTimerFiredRef.current = true;
       maybeShow();
-    }, SITE_DELAY_MS);
+    }, siteDelayMs);
     return () => clearTimeout(timer);
-  }, [maybeShow]);
+  }, [siteDelayMs, maybeShow]);
 
   // Trigger B: 10 seconds of cumulative playback
   useEffect(() => {
