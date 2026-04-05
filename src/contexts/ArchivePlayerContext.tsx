@@ -148,6 +148,13 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, []);
 
+  // Clear gate when user becomes authenticated
+  useEffect(() => {
+    if (isAuthenticated && isGated) {
+      setIsGated(false);
+    }
+  }, [isAuthenticated, isGated]);
+
   // Archive gate: track cumulative listening for unauthenticated users
   useEffect(() => {
     if (isAuthenticated) return;

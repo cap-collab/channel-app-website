@@ -84,11 +84,11 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
 
   // Show auth modal when archive gate triggers or user tries to play while gated
   useEffect(() => {
-    if (isGated) {
+    if (isGated && !isAuthenticated) {
       setAuthModalMessage('Sign up to keep listening to all our archive for free.');
       setShowAuthModal(true);
     }
-  }, [isGated, gateAttempt]);
+  }, [isGated, gateAttempt, isAuthenticated]);
 
   // Track whether user has seen curator recs before (move to bottom after first view)
   const [hasSeenCuratorRecs, setHasSeenCuratorRecs] = useState(false);
