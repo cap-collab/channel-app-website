@@ -90,7 +90,7 @@ async function lookupDjInfo(db: FirebaseFirestore.Firestore, email: string): Pro
     const djProfile = user.djProfile || {};
     return {
       username: user.chatUsernameNormalized || null,
-      name: djProfile.name || null,
+      name: user.name || djProfile.name || null,
       timezone: user.timezone || DEFAULT_TIMEZONE,
       hasTipLink: !!djProfile.tipButtonLink,
       hasLocation: !!djProfile.location,
