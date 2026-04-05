@@ -9,6 +9,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isDJ } from '@/hooks/useUserRole';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { extractInstagramHandle } from '@/lib/genres';
 
 type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
 
@@ -195,7 +196,7 @@ export function StudioJoinClient() {
           socialLinksUpdates.soundcloud = formData.soundcloud.trim();
         }
         if (!profileFields.instagram && formData.instagram?.trim()) {
-          socialLinksUpdates.instagram = formData.instagram.trim();
+          socialLinksUpdates.instagram = extractInstagramHandle(formData.instagram);
         }
         if (!profileFields.youtube && formData.youtube?.trim()) {
           socialLinksUpdates.youtube = formData.youtube.trim();
@@ -505,7 +506,7 @@ export function StudioJoinClient() {
                   className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
                 />
                 <p className="text-sm text-gray-600 mt-1">
-                  Separate genres with commas
+                  Separate genres with commas or spaces
                 </p>
               </div>
 
@@ -545,7 +546,7 @@ export function StudioJoinClient() {
                     name="instagram"
                     value={formData.instagram}
                     onChange={handleInputChange}
-                    placeholder="@yourhandle"
+                    placeholder="@yourhandle or instagram.com/yourhandle"
                     disabled={profileFields.instagram}
                     className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   />

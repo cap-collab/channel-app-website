@@ -14,6 +14,7 @@ import { normalizeUrl } from "@/lib/url";
 import { uploadDJPhoto, deleteDJPhoto, validatePhoto, uploadRecImage, uploadEventPhoto } from "@/lib/photo-upload";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { getStationById } from "@/lib/stations";
+import { parseGenresInput, extractInstagramHandle } from "@/lib/genres";
 
 // Word boundary matching for DJ/show names
 // e.g. "PAC" matches "PAC" or "Night PAC" but NOT "pace" or "space"
@@ -876,10 +877,7 @@ export function StudioProfileClient() {
 
     try {
       const userRef = doc(db, "users", user.uid);
-      const genresArray = genres
-        .split(",")
-        .map((g) => g.trim())
-        .filter((g) => g.length > 0);
+      const genresArray = parseGenresInput(genres);
 
       await updateDoc(userRef, {
         "djProfile.location": location.trim() || null,
@@ -922,7 +920,7 @@ export function StudioProfileClient() {
       const normalizedBandcamp = bandcamp.trim() ? normalizeUrl(bandcamp.trim()) : null;
       const updateData: Record<string, unknown> = {
         "djProfile.socialLinks": {
-          instagram: instagram.trim() || null,
+          instagram: instagram.trim() ? extractInstagramHandle(instagram) : null,
           soundcloud: soundcloud.trim() ? normalizeUrl(soundcloud.trim()) : null,
           bandcamp: normalizedBandcamp,
           youtube: youtube.trim() ? normalizeUrl(youtube.trim()) : null,
@@ -2168,7 +2166,7 @@ export function StudioProfileClient() {
                   type="text"
                   value={instagramInput}
                   onChange={(e) => setInstagramInput(e.target.value)}
-                  placeholder="@yourhandle"
+                  placeholder="@yourhandle or instagram.com/yourhandle"
                   className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
               </div>

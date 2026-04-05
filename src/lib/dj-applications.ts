@@ -1,6 +1,7 @@
 import { getAdminDb } from './firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { DJApplicationSerialized, DJApplicationFormData, DJApplicationStatus } from '@/types/dj-application';
+import { extractInstagramHandle, parseGenresInput } from './genres';
 
 const COLLECTION = 'dj-applications';
 
@@ -72,14 +73,14 @@ export async function createApplication(data: DJApplicationFormData): Promise<DJ
     locationType: data.locationType || null,
     venueName: data.venueName?.trim() || null,
     soundcloud: data.soundcloud?.trim() || null,
-    instagram: data.instagram?.trim() || null,
+    instagram: data.instagram?.trim() ? extractInstagramHandle(data.instagram) : null,
     youtube: data.youtube?.trim() || null,
     preferredSlots: data.preferredSlots || null,
     timezone: data.timezone || null,
     comments: data.comments?.trim() || null,
     needsSetupSupport: data.needsSetupSupport || false,
     city: data.city?.trim() || null,
-    genre: data.genre?.trim() || null,
+    genre: data.genre?.trim() ? parseGenresInput(data.genre).join(', ') : null,
     onlineRadioShow: data.onlineRadioShow?.trim() || null,
     djTermsAcceptedAt: data.djTermsAccepted ? Timestamp.now() : null,
     status: 'pending' as DJApplicationStatus,
