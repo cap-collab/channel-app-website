@@ -794,8 +794,8 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
 
           {/* Live/Archive toggle — only shown when live */}
           {isLiveReady && (
-            <div className="flex justify-center px-4 pt-4 pb-1">
-              <div className="inline-flex border border-white/10 bg-white/5">
+            <div className="px-4 pt-4 pb-1">
+              <div className="flex w-full max-w-3xl mx-auto border border-white/20">
                 <button
                   onClick={() => {
                     setHeroMode('live');
@@ -804,8 +804,8 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
                       playLive();
                     }
                   }}
-                  className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono uppercase tracking-tighter font-bold transition-colors ${
-                    heroMode === 'live' ? 'bg-white/10 text-red-500' : 'text-zinc-600 hover:text-zinc-400'
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-mono uppercase tracking-tighter font-bold transition-colors ${
+                    heroMode === 'live' ? 'bg-black text-red-500 border border-white/40' : 'bg-transparent text-zinc-600 hover:text-zinc-400'
                   }`}
                 >
                   {isRestream ? (
@@ -824,8 +824,8 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
                 </button>
                 <button
                   onClick={() => setHeroMode('archive')}
-                  className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono uppercase tracking-tighter font-bold transition-colors border-l border-white/10 ${
-                    heroMode === 'archive' ? 'bg-white/10 text-gray-300' : 'text-zinc-600 hover:text-zinc-400'
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-mono uppercase tracking-tighter font-bold transition-colors ${
+                    heroMode === 'archive' ? 'bg-black text-gray-300 border border-white/40' : 'bg-transparent text-zinc-600 hover:text-zinc-400'
                   }`}
                 >
                   <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
