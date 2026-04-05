@@ -434,16 +434,6 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
         const item = makeRadioItem(show, label, live || undefined);
         if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), startMs: new Date(show.startTime).getTime(), sortGroup: live ? 0 : 3, isChannelUser: show.isChannelUser ?? false });
       }
-      // DJ profiles matching city + genre (skip already-followed)
-      for (const profile of djProfiles) {
-        if (isInWatchlist(profile.displayName) || isInWatchlist(profile.username)) continue;
-        if (!profile.location || !matchesCity(profile.location, selectedCity)) continue;
-        if (!matchesAnyGenre(profile.genres)) continue;
-        const id = `profile-${profile.username}`;
-        const genreLabel = genreLabelFor(profile.genres);
-        const label = `${selectedCity.toUpperCase()} + ${genreLabel}`;
-        candidates.push({ item: { type: 'profile', data: profile, matchLabel: label }, id, djName: profile.displayName, matchCount: genreMatchCount(profile.genres), startMs: 0, sortGroup: profile.isChannelUser ? 1 : 2, isChannelUser: profile.isChannelUser });
-      }
       s1 = takeSorted(candidates, 4);
     }
 
@@ -479,14 +469,6 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
         const live = isShowLive(show);
         const item = makeRadioItem(show, genreLabelFor(show.djGenres), live || undefined);
         if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), startMs: new Date(show.startTime).getTime(), sortGroup: live ? 0 : 3, isChannelUser: show.isChannelUser ?? false });
-      }
-      // DJ profiles matching genre (skip already-followed)
-      for (const profile of djProfiles) {
-        if (isInWatchlist(profile.displayName) || isInWatchlist(profile.username)) continue;
-        if (!matchesAnyGenre(profile.genres)) continue;
-        const id = `profile-${profile.username}`;
-        const genreLabel = genreLabelFor(profile.genres);
-        candidates.push({ item: { type: 'profile', data: profile, matchLabel: genreLabel }, id, djName: profile.displayName, matchCount: genreMatchCount(profile.genres), startMs: 0, sortGroup: profile.isChannelUser ? 1 : 2, isChannelUser: profile.isChannelUser });
       }
       s4 = takeSorted(candidates, 5);
     }
