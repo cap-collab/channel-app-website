@@ -630,7 +630,7 @@ function ArchiveRow({
   const djNames = archive.djs.map((d) => d.name).join(', ');
   const primaryUsername = archive.djs[0]?.username;
   const { genres } = useDJProfileInfo(primaryUsername);
-  const genreText = genres.length > 0 ? genres.join(' · ') : null;
+  const genreText = genres.length > 0 ? genres.map((g) => g.toUpperCase()).join(' · ') : null;
   const displayImage = archive.showImageUrl || archive.djs[0]?.photoUrl;
 
   return (
