@@ -421,7 +421,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
   const djName = currentDJ || currentShow?.djName || null;
   const hasPhoto = djPhotoUrl && !imageError;
   const djGenres = currentShow?.liveDjGenres || [];
-  const djDescription = currentShow?.liveDjDescription || null;
+  const djDescription = currentShow?.liveDjDescription || currentShow?.liveDjBio || null;
   const isRestream = currentShow?.broadcastType === 'restream';
 
   // DJ profile username for linking
@@ -529,34 +529,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
     <section id="live" className="relative z-10 px-4 pt-6 pb-8">
       <div className="max-w-3xl mx-auto">
 
-        {/* Live/Restream status line above image */}
-        <div className="flex items-center justify-end gap-1.5 mb-2">
-          {isRestream ? (
-            <>
-              <span className="flex h-3 w-3">
-                <svg className="animate-pulse w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                  <path d="M3 3v5h5" />
-                </svg>
-              </span>
-              <span className="text-xs font-mono text-red-500 uppercase tracking-tighter font-bold">Restream</span>
-              {broadcastBPM && (
-                <span className="text-xs font-mono text-red-500 uppercase tracking-tighter font-bold">{broadcastBPM} BPM</span>
-              )}
-            </>
-          ) : (
-            <>
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
-              </span>
-              <span className="text-xs font-mono text-red-500 uppercase tracking-tighter font-bold">Live</span>
-              {broadcastBPM && (
-                <span className="text-xs font-mono text-red-500 uppercase tracking-tighter font-bold">{broadcastBPM} BPM</span>
-              )}
-            </>
-          )}
-        </div>
+        {/* Status line removed — toggle above hero already shows live/restream status */}
 
         {/* DJ Image — 16:9 with overlays */}
         {djProfileUsername ? (

@@ -794,47 +794,48 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
 
           {/* Live/Archive toggle — only shown when live */}
           {isLiveReady && (
-            <div className="flex items-center justify-center gap-0 px-4 pt-4 pb-1">
-              <button
-                onClick={() => {
-                  setHeroMode('live');
-                  if (archivePlayer.isPlaying) {
-                    archivePlayer.pause();
-                    playLive();
-                  }
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-tighter font-bold transition-colors ${
-                  heroMode === 'live' ? 'text-red-500' : 'text-zinc-600 hover:text-zinc-400'
-                }`}
-              >
-                {isRestream ? (
-                  <svg className={`w-3 h-3 ${heroMode === 'live' ? 'animate-pulse' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                    <path d="M3 3v5h5" />
+            <div className="flex justify-center px-4 pt-4 pb-1">
+              <div className="inline-flex border border-white/10 bg-white/5">
+                <button
+                  onClick={() => {
+                    setHeroMode('live');
+                    if (archivePlayer.isPlaying) {
+                      archivePlayer.pause();
+                      playLive();
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono uppercase tracking-tighter font-bold transition-colors ${
+                    heroMode === 'live' ? 'bg-white/10 text-red-500' : 'text-zinc-600 hover:text-zinc-400'
+                  }`}
+                >
+                  {isRestream ? (
+                    <svg className={`w-3 h-3 ${heroMode === 'live' ? 'animate-pulse' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                      <path d="M3 3v5h5" />
+                    </svg>
+                  ) : (
+                    <span className="relative flex h-2 w-2">
+                      {heroMode === 'live' && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />}
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                    </span>
+                  )}
+                  {isRestream ? 'Restream' : 'Live'}
+                  {stationBPM['broadcast']?.bpm && ` ${stationBPM['broadcast'].bpm} BPM`}
+                </button>
+                <button
+                  onClick={() => setHeroMode('archive')}
+                  className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono uppercase tracking-tighter font-bold transition-colors border-l border-white/10 ${
+                    heroMode === 'archive' ? 'bg-white/10 text-gray-300' : 'text-zinc-600 hover:text-zinc-400'
+                  }`}
+                >
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="3" width="20" height="5" rx="1" />
+                    <path d="M4 8v11a2 2 0 002 2h12a2 2 0 002-2V8" />
+                    <path d="M10 12h4" />
                   </svg>
-                ) : (
-                  <span className="relative flex h-2 w-2">
-                    {heroMode === 'live' && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />}
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
-                  </span>
-                )}
-                {isRestream ? 'Restream' : 'Live'}
-                {stationBPM['broadcast']?.bpm && ` ${stationBPM['broadcast'].bpm} BPM`}
-              </button>
-              <span className="text-zinc-700 text-xs mx-1">|</span>
-              <button
-                onClick={() => setHeroMode('archive')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-tighter font-bold transition-colors ${
-                  heroMode === 'archive' ? 'text-gray-400' : 'text-zinc-600 hover:text-zinc-400'
-                }`}
-              >
-                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="3" width="20" height="5" rx="1" />
-                  <path d="M4 8v11a2 2 0 002 2h12a2 2 0 002-2V8" />
-                  <path d="M10 12h4" />
-                </svg>
-                Archive
-              </button>
+                  Archive
+                </button>
+              </div>
             </div>
           )}
 
@@ -879,7 +880,7 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
               </svg>
             </div>
           ) : featuredArchive ? (
-            <ArchiveHero archives={archives} featuredArchive={featuredArchive} />
+            <ArchiveHero archives={archives} featuredArchive={featuredArchive} hideStatusLine={isLiveReady} />
           ) : (
             <OfflineHero />
           )}

@@ -40,9 +40,10 @@ function formatTime(seconds: number): string {
 interface ArchiveHeroProps {
   archives: ArchiveSerialized[];
   featuredArchive: ArchiveSerialized;
+  hideStatusLine?: boolean;
 }
 
-export function ArchiveHero({ archives, featuredArchive }: ArchiveHeroProps) {
+export function ArchiveHero({ archives, featuredArchive, hideStatusLine }: ArchiveHeroProps) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername, loading: profileLoading, setChatUsername } = useUserProfile(user?.uid);
   const { listenerCount, setHeroBarVisible, setHeroBarObserverReady } = useBroadcastStreamContext();
@@ -226,29 +227,31 @@ export function ArchiveHero({ archives, featuredArchive }: ArchiveHeroProps) {
     <section className="relative z-10 px-4 pt-6 pb-2">
       <div className="max-w-3xl mx-auto">
 
-        {/* Status line above image */}
-        <div className="flex items-center justify-between mb-2">
-          {nextShowTime ? (
-            canShowEmailPopup ? (
-              <button
-                onClick={handleNextShowClick}
-                className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold hover:text-white transition-colors"
-              >
-                Next <span className="w-1.5 h-1.5 bg-red-500 rounded-full inline-block" /> live at {nextShowTime}
-              </button>
+        {/* Status line above image — hidden when toggle is shown */}
+        {!hideStatusLine && (
+          <div className="flex items-center justify-between mb-2">
+            {nextShowTime ? (
+              canShowEmailPopup ? (
+                <button
+                  onClick={handleNextShowClick}
+                  className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold hover:text-white transition-colors"
+                >
+                  Next <span className="w-1.5 h-1.5 bg-red-500 rounded-full inline-block" /> live at {nextShowTime}
+                </button>
+              ) : (
+                <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">
+                  Next <span className="w-1.5 h-1.5 bg-red-500 rounded-full inline-block" /> live at {nextShowTime}
+                </span>
+              )
             ) : (
-              <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">
-                Next <span className="w-1.5 h-1.5 bg-red-500 rounded-full inline-block" /> live at {nextShowTime}
-              </span>
-            )
-          ) : (
-            <span />
-          )}
-          <div className="flex items-center gap-1.5">
-            <ArchiveIcon className="w-3 h-3 text-gray-400" />
-            <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">Archive</span>
+              <span />
+            )}
+            <div className="flex items-center gap-1.5">
+              <ArchiveIcon className="w-3 h-3 text-gray-400" />
+              <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">Archive</span>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Hero Image — 16:9 mobile, 5:2 desktop */}
         {djProfileUsername ? (
