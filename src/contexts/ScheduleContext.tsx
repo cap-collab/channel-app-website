@@ -151,8 +151,8 @@ async function enrichBroadcastShowsClient(shows: Show[]): Promise<Show[]> {
               if (profile.username) profileByName.set(profile.username, profile);
             }
           }
-        } catch (err) {
-          console.error(`[ScheduleContext] Failed to fetch DJ profile for userId ${userId}:`, err);
+        } catch {
+          // Expected when logged out — Firestore rules restrict user doc reads
         }
       })
     );
@@ -185,8 +185,8 @@ async function enrichBroadcastShowsClient(shows: Show[]): Promise<Show[]> {
               profileByUserId.set(userDoc.id, profile);
             }
           });
-        } catch (err) {
-          console.error(`[ScheduleContext] Failed to fetch DJ profile for name ${djName}:`, err);
+        } catch {
+          // Expected when logged out — Firestore rules restrict user doc reads
         }
       })
     );
@@ -216,14 +216,13 @@ async function enrichBroadcastShowsClient(shows: Show[]): Promise<Show[]> {
               profileByName.set(djName.toLowerCase(), profile);
             }
           });
-        } catch (err) {
-          console.error(`[ScheduleContext] Failed to fetch pending DJ profile for ${djName}:`, err);
+        } catch {
+          // Expected when logged out — Firestore rules restrict user doc reads
         }
       })
     );
   }
 
-  console.log('[ScheduleContext] Enriched', profileByUserId.size + profileByName.size, 'broadcast DJ profiles');
 
   // Apply profiles to shows
   for (const show of shows) {
