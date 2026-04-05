@@ -39,6 +39,7 @@ interface ArchivePlayerContextValue {
   duration: number;
   listenerCount: number;
   isGated: boolean;
+  gateAttempt: number;
   clearGate: () => void;
   play: (archive: ArchiveSerialized) => void;
   pause: () => void;
@@ -68,6 +69,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   const [duration, setDuration] = useState(0);
   const [listenerCount, setListenerCount] = useState(0);
   const [isGated, setIsGated] = useState(false);
+  const [gateAttempt, setGateAttempt] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const cumulativeTimeRef = useRef(0);
   const gateSecondsRef = useRef(0);
@@ -289,7 +291,10 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const play = useCallback((archive: ArchiveSerialized) => {
-    if (isGated && !isAuthenticated) return;
+    if (isGated && !isAuthenticated) {
+      setGateAttempt(prev => prev + 1);
+      return;
+    }
     const audio = getAudio();
 
     if (currentArchive?.id !== archive.id) {
@@ -317,7 +322,10 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
 
   const toggle = useCallback(() => {
     if (!currentArchive) return;
-    if (isGated && !isAuthenticated) return;
+    if (isGated && !isAuthenticated) {
+      setGateAttempt(prev => prev + 1);
+      return;
+    }
     if (isPlaying) {
       pause();
     } else {
@@ -341,12 +349,13 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     duration,
     listenerCount,
     isGated,
+    gateAttempt,
     clearGate,
     play,
     pause,
     toggle,
     seek,
-  }), [currentArchive, isPlaying, isLoading, currentTime, duration, listenerCount, isGated, clearGate, play, pause, toggle, seek]);
+  }), [currentArchive, isPlaying, isLoading, currentTime, duration, listenerCount, isGated, gateAttempt, clearGate, play, pause, toggle, seek]);
 
   return (
     <ArchivePlayerContext.Provider value={value}>

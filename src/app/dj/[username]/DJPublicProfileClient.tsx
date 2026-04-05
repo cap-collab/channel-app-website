@@ -375,15 +375,15 @@ export function DJPublicProfileClient({ username }: Props) {
 
   // Archive player (global context — triggers sticky header)
   const archivePlayer = useArchivePlayer();
-  const { isGated, clearGate } = archivePlayer;
+  const { isGated, gateAttempt, clearGate } = archivePlayer;
 
-  // Show auth modal when archive gate triggers
+  // Show auth modal when archive gate triggers or user tries to play while gated
   useEffect(() => {
     if (isGated) {
       setAuthModalMessage('Sign up to keep listening to all our archive for free.');
       setShowAuthModal(true);
     }
-  }, [isGated]);
+  }, [isGated, gateAttempt]);
 
   // Subscribe state
   const [subscribing, setSubscribing] = useState(false);

@@ -377,7 +377,7 @@ export function AuthModal({
             {view === "forgotPassword" ? "Reset Password" : "Sign In"}
           </h2>
         )}
-        {view === "main" && !inline && <p className="text-white/50 text-sm mb-6">{message}</p>}
+        {view === "main" && !inline && message && <p className="text-white text-base mb-6">{message}</p>}
 
         {error && (
           <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
