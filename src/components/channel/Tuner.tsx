@@ -5,6 +5,26 @@ import { createPortal } from 'react-dom';
 import { SUPPORTED_CITIES } from '@/lib/city-detection';
 import { SUPPORTED_GENRES } from '@/lib/genres';
 
+// Short labels for compact (header) display on mobile
+const COMPACT_CITY_LABELS: Record<string, string> = {
+  'Los Angeles': 'LA',
+  'New York': 'NY',
+  'Buenos Aires': 'BA',
+  'Hong Kong': 'HK',
+  'Mexico City': 'CDMX',
+  'Rio de Janeiro': 'Rio',
+  'San Francisco': 'SF',
+  'São Paulo': 'SP',
+  'Washington DC': 'DC',
+  'Philadelphia': 'Philly',
+};
+
+const COMPACT_GENRE_LABELS: Record<string, string> = {
+  'Drum and Bass': 'D&B',
+  'Electronic': 'Electro',
+  'Experimental': 'Exp.',
+};
+
 interface TunerProps {
   selectedCity: string;
   onCityChange: (city: string) => void;
@@ -107,11 +127,13 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
     onGenreDropdownClose?.();
   };
 
+  const getGenreDisplay = (genre: string) => compact ? (COMPACT_GENRE_LABELS[genre] || genre) : genre;
+
   const genreLabel = selectedGenres.length === 0
     ? 'Genre'
     : selectedGenres.length === 1
-      ? selectedGenres[0]
-      : `${selectedGenres[0]} +${selectedGenres.length - 1}`;
+      ? getGenreDisplay(selectedGenres[0])
+      : `${getGenreDisplay(selectedGenres[0])} +${selectedGenres.length - 1}`;
 
   return (
     <div className={compact ? '' : 'z-[90] bg-black/90 backdrop-blur-sm border-b border-white/5'}>
@@ -127,7 +149,7 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
             }}
             className={`h-6 px-2.5 font-mono text-[11px] uppercase tracking-tight flex items-center gap-1 transition-colors rounded-sm bg-white/5 hover:bg-white/10 ${cityResultCount === 0 ? 'text-zinc-600' : 'text-zinc-400 hover:text-white'}`}
           >
-            <span className="truncate max-w-[120px]">{selectedCity || 'City'}</span>
+            <span className="truncate max-w-[120px]">{compact && selectedCity ? (COMPACT_CITY_LABELS[selectedCity] || selectedCity) : (selectedCity || 'City')}</span>
             {cityResultCount === 0 && <span className="text-zinc-600 text-[9px]">(0)</span>}
             <svg
               className={`w-2.5 h-2.5 flex-shrink-0 transition-transform ${cityDropdownOpen ? 'rotate-180' : ''}`}
