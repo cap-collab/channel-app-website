@@ -212,46 +212,38 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
     return matching.map((g) => g.toUpperCase()).join(' + ');
   }, [getMatchingGenres]);
 
-  // Sort archives by genre/city match (genre prioritized over city)
+  // Sort archives by genre match count (more matching genres = higher in the list)
   const { archives, featuredArchive } = useMemo(() => {
     if (rawArchives.length === 0) return { archives: rawArchives, featuredArchive: rawFeaturedArchive };
-    if (selectedGenres.length === 0 && selectedCity === 'Anywhere') {
+    if (selectedGenres.length === 0) {
       return { archives: rawArchives, featuredArchive: rawFeaturedArchive };
     }
 
     // Build DJ username → genres map from schedule DJ profiles
     const djGenreMap = new Map<string, string[]>();
-    const djLocationMap = new Map<string, string>();
     for (const profile of djProfiles) {
-      if (profile.username) {
-        if (profile.genres) djGenreMap.set(profile.username.toLowerCase(), profile.genres);
-        if (profile.location) djLocationMap.set(profile.username.toLowerCase(), profile.location);
+      if (profile.username && profile.genres) {
+        djGenreMap.set(profile.username.toLowerCase(), profile.genres);
       }
     }
 
     const scored = rawArchives.map((archive) => {
       let genreScore = 0;
-      let cityScore = 0;
       for (const dj of archive.djs) {
         const username = dj.username?.toLowerCase();
         if (!username) continue;
         const genres = djGenreMap.get(username);
-        if (genres && selectedGenres.length > 0) {
+        if (genres) {
           genreScore += selectedGenres.filter((g) => matchesGenreLib(genres, g)).length;
         }
-        const location = djLocationMap.get(username);
-        if (location && selectedCity !== 'Anywhere' && matchesCity(location, selectedCity)) {
-          cityScore += 1;
-        }
       }
-      // Genre weight 3x city weight
-      return { archive, score: genreScore * 3 + cityScore };
+      return { archive, score: genreScore };
     });
 
     scored.sort((a, b) => b.score - a.score);
     const sorted = scored.map((s) => s.archive);
     return { archives: sorted, featuredArchive: sorted[0] };
-  }, [rawArchives, rawFeaturedArchive, selectedGenres, selectedCity, djProfiles]);
+  }, [rawArchives, rawFeaturedArchive, selectedGenres, djProfiles]);
 
   // Helper: check if a show is currently live
   const isShowLive = useCallback((show: Show): boolean => {
