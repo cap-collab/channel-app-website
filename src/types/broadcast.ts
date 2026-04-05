@@ -128,6 +128,7 @@ export interface BroadcastSlot {
   restreamIngressId?: string;     // LiveKit ingress ID for URL playback (legacy)
   restreamWorkerId?: string;      // Restream worker slot ID (set by start-restream)
   restreamEgressId?: string;      // LiveKit HLS egress ID (set by webhook on track_published)
+  streamCount?: number;            // Number of streams (counted after 5+ min playback)
 }
 
 // Serialized version for API responses (timestamps as numbers)
@@ -180,6 +181,7 @@ export interface BroadcastSlotSerialized {
   archiveRecordingUrl?: string;   // Cached MP4 URL from the archive
   archiveDuration?: number;       // Duration in seconds
   restreamDjs?: ArchiveDJ[];      // All DJs from the archive (for multi-DJ restream display)
+  streamCount?: number;            // Number of streams (counted after 5+ min playback)
 }
 
 // Recording status type

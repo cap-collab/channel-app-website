@@ -127,6 +127,8 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
   const userPausedRef = useRef(false); // Track user-initiated pauses vs browser auto-pause
   const artworkPreloadRef = useRef<HTMLImageElement | null>(null);
   const artworkRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const broadcastCumulativeTimeRef = useRef(0);
+  const broadcastStreamCountedRef = useRef<string | null>(null);
   const [autoResumePending, setAutoResumePending] = useState(false);
 
   // Keep playing ref in sync
@@ -917,6 +919,29 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
 
     return () => unsubscribe();
   }, []);
+
+  // Track cumulative playback for broadcast stream count (300s threshold, same as archives)
+  useEffect(() => {
+    if (!isPlaying || !currentShow) return;
+
+    // Reset cumulative time when show changes
+    if (broadcastStreamCountedRef.current !== null && broadcastStreamCountedRef.current !== currentShow.id) {
+      broadcastCumulativeTimeRef.current = 0;
+    }
+
+    const interval = setInterval(() => {
+      broadcastCumulativeTimeRef.current += 1;
+      if (
+        broadcastCumulativeTimeRef.current >= 300 &&
+        broadcastStreamCountedRef.current !== currentShow.id
+      ) {
+        broadcastStreamCountedRef.current = currentShow.id;
+        fetch(`/api/broadcast/${currentShow.id}/stream`, { method: 'POST' }).catch(() => {});
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isPlaying, currentShow]);
 
 
   return {
