@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import ScrollReveal from "@/components/ScrollReveal";
 import { EmailSignup } from "@/components/EmailSignup";
@@ -27,13 +28,19 @@ export default function About() {
     <div className="min-h-screen">
       <Header position="sticky" />
 
-      {/* About Me Section */}
+      {/* About Section */}
       <section id="about-me" className="pb-24 px-6 bg-black pt-12">
         <ScrollReveal>
           <div className="max-w-3xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-semibold text-white mb-8 text-center">
-              About Me
-            </h2>
+            <div className="flex justify-center mb-8">
+              <Image
+                src="/logo-white.svg"
+                alt="Channel"
+                width={120}
+                height={24}
+                priority
+              />
+            </div>
 
             <div className="space-y-6 text-zinc-400 leading-relaxed">
               <p>
@@ -41,19 +48,15 @@ export default function About() {
               </p>
 
               <p>
-                After moving from France to New York to Los Angeles, I realized how hard it can be to stay connected with DJs, producers, curators, and dancers shaping your community, on and beyond the dancefloor. This diverse and constantly evolving ecosystem deserves better tools — to support artists, strengthen communities, and make it easier to find and follow the sounds and people you care about.
+                After moving from France to New York to Los Angeles, I realized how hard it is to stay connected to the people shaping a scene, on and beyond the dancefloor. This culture deserves better tools to find and follow the sounds and people you care about.
               </p>
 
               <p>
-                I&apos;m looking to connect with music heads of all kinds. Whether you want to collaborate, give feedback, host a show, share your work, find your people, or just chat, I&apos;d love to hear from you.
+                Channel is built with the same values that shape the spaces we love. On the dancefloor, that often means no recording, no yapping, no staring, and a shared focus on the music. Channel extends that culture beyond the dancefloor — a place to have conversations, dive deeper into music, strengthen communities, and support the artists shaping our world.
               </p>
 
               <p>
-                Channel is growing, and I&apos;m especially interested in conversations around programming, community support, and building a healthy, sustainable ecosystem across every niche and taste.
-              </p>
-
-              <p>
-                If any of this resonates, reach out. I&apos;d love to connect.
+                Channel is a space for conversation and community, grounded in respect. No harassment, no discrimination, no abusive behavior.
               </p>
             </div>
 
