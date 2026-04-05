@@ -125,7 +125,7 @@ export function parseGenresInput(input: string): string[] {
     const extracted: string[] = [];
 
     // Sort multi-word genres by length (longest first) to match greedily
-    const sortedMultiWord = [...MULTI_WORD_GENRES].sort((a, b) => b.length - a.length);
+    const sortedMultiWord = Array.from(MULTI_WORD_GENRES).sort((a, b) => b.length - a.length);
     for (const mw of sortedMultiWord) {
       const idx = remaining.indexOf(mw);
       if (idx !== -1) {
@@ -151,7 +151,7 @@ export function parseGenresInput(input: string): string[] {
   }
 
   // Deduplicate while preserving order
-  return [...new Set(result)];
+  return Array.from(new Set(result));
 }
 
 /**

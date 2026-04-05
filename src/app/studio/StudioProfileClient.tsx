@@ -2073,7 +2073,7 @@ export function StudioProfileClient() {
                     {savingDetails ? "Saving..." : saveDetailsSuccess ? "Saved" : ""}
                   </span>
                   <span className="text-gray-500 text-xs">
-                    Separate genres with commas
+                    Separate genres with commas or spaces
                   </span>
                 </div>
               </div>
