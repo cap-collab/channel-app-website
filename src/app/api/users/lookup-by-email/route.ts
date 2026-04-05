@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
       djUsername: userData.chatUsername || null,
       djUsernameNormalized: userData.chatUsernameNormalized || null,
       djName: userData.chatUsername || userData.displayName || null,
+      name: djProfile.name || null,
       // DJ profile fields
       djBio: djProfile.bio || null,
       djPhotoUrl: djProfile.photoUrl || null,

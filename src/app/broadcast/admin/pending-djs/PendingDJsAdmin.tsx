@@ -70,6 +70,7 @@ interface PendingProfile {
   email: string;
   chatUsername: string;
   chatUsernameNormalized: string;
+  name?: string;
   djProfile: {
     bio?: string | null;
     photoUrl?: string | null;
@@ -109,6 +110,7 @@ export function PendingDJsAdmin() {
   // Form state
   const [email, setEmail] = useState('');
   const [djName, setDjName] = useState('');
+  const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [location, setLocation] = useState('');
   const [genres, setGenres] = useState('');
@@ -191,6 +193,7 @@ export function PendingDJsAdmin() {
             email: data.email,
             chatUsername: data.chatUsername,
             chatUsernameNormalized: data.chatUsernameNormalized,
+            name: data.name || undefined,
             djProfile: data.djProfile || {},
             status: data.status,
             createdAt: data.createdAt?.toDate() || new Date(),
@@ -346,6 +349,7 @@ export function PendingDJsAdmin() {
   const resetForm = () => {
     setEmail('');
     setDjName('');
+    setName('');
     setBio('');
     setLocation('');
     setGenres('');
@@ -380,6 +384,7 @@ export function PendingDJsAdmin() {
     setEditingProfile(profile);
     setEmail(profile.email || '');
     setDjName(profile.chatUsername);
+    setName(profile.name || '');
     setBio(profile.djProfile.bio || '');
     setLocation(profile.djProfile.location || '');
     setGenres(profile.djProfile.genres?.join(', ') || '');
@@ -636,6 +641,7 @@ export function PendingDJsAdmin() {
         // Build request body
         const requestBody: Record<string, unknown> = {
           profileId: editingProfile.id,
+          name: name.trim() || null,
           djProfile: {
             bio: bio.trim() || null,
             location: location.trim() || null,
@@ -793,6 +799,7 @@ export function PendingDJsAdmin() {
           body: JSON.stringify({
             ...(email.trim() ? { email: email.trim().toLowerCase() } : {}),
             username: djName.trim(),
+            ...(name.trim() ? { name: name.trim() } : {}),
             djProfile: {
               bio: bio.trim() || null,
               location: location.trim() || null,
@@ -861,7 +868,7 @@ export function PendingDJsAdmin() {
     const profileUrl = `${window.location.origin}/dj/${profile.chatUsernameNormalized}`;
 
     const subject = `Claim your DJ profile on Channel`;
-    const body = `Hi ${profile.chatUsername},
+    const body = `Hi ${profile.name || profile.chatUsername},
 
 Your DJ profile is ready on Channel.
 
@@ -1067,6 +1074,24 @@ Cap`;
                       : `Profile URL: /dj/${djName.trim().replace(/[\s-]+/g, '').toLowerCase() || 'djname'}`}
                   </p>
                 </div>
+              </div>
+
+              {/* Name (internal) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Real name"
+                  maxLength={100}
+                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  For internal purposes only. Used in emails.
+                </p>
               </div>
 
               {/* Profile Photo */}

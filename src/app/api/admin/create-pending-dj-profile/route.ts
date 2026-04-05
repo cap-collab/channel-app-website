@@ -112,9 +112,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { email, username, djProfile } = body as {
+    const { email, username, name, djProfile } = body as {
       email?: string;
       username: string;
+      name?: string;
       djProfile?: DJProfileData;
     };
 
@@ -185,6 +186,7 @@ export async function POST(request: NextRequest) {
         ...(normalizedEmail ? { email: normalizedEmail } : {}),
         chatUsername: trimmedUsername,
         chatUsernameNormalized: normalizedUsername,
+        ...(name ? { name: name.trim() } : {}),
         djProfile: {
           bio: djProfile?.bio || null,
           photoUrl: djProfile?.photoUrl || null,
@@ -285,10 +287,11 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { profileId, djProfile, email } = body as {
+    const { profileId, djProfile, email, name } = body as {
       profileId: string;
       djProfile: DJProfileData;
       email?: string; // Optional - only for adding email to profiles without one
+      name?: string | null;
     };
 
     if (!profileId) {
@@ -360,6 +363,7 @@ export async function PATCH(request: NextRequest) {
         transaction.update(profileRef, {
           email: normalizedEmail,
           djProfile: djProfileUpdate,
+          ...(name !== undefined ? { name: name || null } : {}),
         });
 
         // Create pending DJ role entry so they get DJ role on signup
@@ -376,6 +380,7 @@ export async function PATCH(request: NextRequest) {
       // Update only the djProfile field
       await profileRef.update({
         djProfile: djProfileUpdate,
+        ...(name !== undefined ? { name: name || null } : {}),
       });
 
       console.log(`[create-pending-dj-profile] Updated pending profile ${profileId}`);

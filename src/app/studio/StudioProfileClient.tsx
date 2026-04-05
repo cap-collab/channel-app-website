@@ -201,6 +201,11 @@ export function StudioProfileClient() {
   const [savingTipButtonLink, setSavingTipButtonLink] = useState(false);
   const [saveTipButtonLinkSuccess, setSaveTipButtonLinkSuccess] = useState(false);
 
+  // Form state - Name (internal)
+  const [nameInput, setNameInput] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  const [saveNameSuccess, setSaveNameSuccess] = useState(false);
+
   // DJ Name setup state (for users without a chat username)
   const [djNameInput, setDjNameInput] = useState("");
   const [djNameAvailable, setDjNameAvailable] = useState<boolean | null>(null);
@@ -451,6 +456,7 @@ export function StudioProfileClient() {
   const radioShowsDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const myRecsDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const tipButtonLinkDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const nameDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const initialLoadRef = useRef(true);
 
   // Load user profile and DJ profile data
@@ -477,6 +483,7 @@ export function StudioProfileClient() {
           if (initialLoadRef.current) {
             setBioInput(data.djProfile.bio || "");
             setTipButtonLinkInput(data.djProfile.tipButtonLink || "");
+            setNameInput(data.djProfile.name || "");
             setLocationInput(data.djProfile.location || "");
             setGenresInput((data.djProfile.genres || []).join(", "));
             setInstagramInput(data.djProfile.socialLinks?.instagram || "");
@@ -1314,6 +1321,31 @@ export function StudioProfileClient() {
     tipButtonLinkDebounceRef.current = setTimeout(() => saveTipButtonLink(tipButtonLinkInput), 1000);
     return () => { if (tipButtonLinkDebounceRef.current) clearTimeout(tipButtonLinkDebounceRef.current); };
   }, [tipButtonLinkInput, saveTipButtonLink]);
+
+  // Save name (internal)
+  const saveName = useCallback(async (name: string) => {
+    if (!user || !db) return;
+    setSavingName(true);
+    setSaveNameSuccess(false);
+    try {
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, { "djProfile.name": name.trim() || null });
+      setSaveNameSuccess(true);
+      setTimeout(() => setSaveNameSuccess(false), 2000);
+    } catch (error) {
+      console.error("Error saving name:", error);
+    } finally {
+      setSavingName(false);
+    }
+  }, [user]);
+
+  // Auto-save name with debounce
+  useEffect(() => {
+    if (initialLoadRef.current) return;
+    if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
+    nameDebounceRef.current = setTimeout(() => saveName(nameInput), 1000);
+    return () => { if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current); };
+  }, [nameInput, saveName]);
 
   // Auto-save details with debounce
   useEffect(() => {
@@ -2750,6 +2782,29 @@ export function StudioProfileClient() {
               </button>
               <p className="text-gray-500 text-xs">
                 {savingMyRecs ? "Saving..." : saveMyRecsSuccess ? "Saved" : ""}
+              </p>
+            </div>
+          </section>
+
+          {/* Name (internal) section */}
+          <section>
+            <h2 className="text-gray-400 text-xs uppercase tracking-wide mb-1">
+              Name
+            </h2>
+            <p className="text-gray-500 text-xs mb-3 px-1">
+              For internal purposes only. Not displayed on your profile.
+            </p>
+            <div className="bg-[#1e1e1e] rounded p-4">
+              <input
+                type="text"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                placeholder="Your name"
+                maxLength={100}
+                className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+              />
+              <p className="text-gray-500 text-xs mt-1">
+                {savingName ? "Saving..." : saveNameSuccess ? "Saved" : ""}
               </p>
             </div>
           </section>

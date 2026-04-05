@@ -920,11 +920,15 @@ export function SlotModal({
     // Fresh lookup to get the DJ's username for the profile URL
     // Try by email first, then fall back to name lookup (which also checks pending-dj-profiles)
     let djUsernameNormalized: string | undefined;
+    let djRealName: string | undefined;
     try {
       const res = await fetch(`/api/users/lookup-by-email?email=${encodeURIComponent(targetEmail)}`);
       const data = await res.json();
       if (data.found && data.djUsernameNormalized) {
         djUsernameNormalized = data.djUsernameNormalized;
+      }
+      if (data.name) {
+        djRealName = data.name;
       }
     } catch (error) {
       console.error('Failed to lookup DJ for email template:', error);
@@ -936,6 +940,9 @@ export function SlotModal({
         const data = await res.json();
         if (data.found && data.djUsernameNormalized) {
           djUsernameNormalized = data.djUsernameNormalized;
+        }
+        if (data.name && !djRealName) {
+          djRealName = data.name;
         }
       } catch (error) {
         console.error('Failed to lookup DJ by name for email template:', error);
@@ -962,7 +969,7 @@ export function SlotModal({
       : '';
 
     const subject = `Your show on Channel: ${showName}`;
-    const body = `Hi ${targetDjName},
+    const body = `Hi ${djRealName || targetDjName},
 
 You're all set to go live on Channel.
 

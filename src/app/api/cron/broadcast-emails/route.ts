@@ -72,6 +72,7 @@ function getDjEmailTargets(slot: FirebaseFirestore.DocumentData): EmailTarget[] 
 
 interface DjInfo {
   username: string | null;
+  name: string | null;
   timezone: string;
   hasTipLink: boolean;
   hasLocation: boolean;
@@ -89,6 +90,7 @@ async function lookupDjInfo(db: FirebaseFirestore.Firestore, email: string): Pro
     const djProfile = user.djProfile || {};
     return {
       username: user.chatUsernameNormalized || null,
+      name: djProfile.name || null,
       timezone: user.timezone || DEFAULT_TIMEZONE,
       hasTipLink: !!djProfile.tipButtonLink,
       hasLocation: !!djProfile.location,
@@ -101,13 +103,14 @@ async function lookupDjInfo(db: FirebaseFirestore.Firestore, email: string): Pro
     const profile = pendingSnap.docs[0].data();
     return {
       username: profile.chatUsernameNormalized || null,
+      name: profile.name || null,
       timezone: DEFAULT_TIMEZONE,
       hasTipLink: false,
       hasLocation: false,
       hasGenres: false,
     };
   }
-  return { username: null, timezone: DEFAULT_TIMEZONE, hasTipLink: false, hasLocation: false, hasGenres: false };
+  return { username: null, name: null, timezone: DEFAULT_TIMEZONE, hasTipLink: false, hasLocation: false, hasGenres: false };
 }
 
 // Build a natural-language string of missing profile items
@@ -230,7 +233,7 @@ async function run24hReminders(db: FirebaseFirestore.Firestore, now: number): Pr
 
         const success = await sendBroadcastReminderEmail({
           to: target.email,
-          djName: target.djName,
+          djName: djInfo.name || target.djName,
           showName,
           broadcastUrl,
           profileUrl: djUsername ? `${APP_URL}/dj/${djUsername}` : null,
@@ -283,7 +286,7 @@ async function run2hReminders(db: FirebaseFirestore.Firestore, now: number): Pro
 
         const success = await sendBroadcast2HourReminderEmail({
           to: target.email,
-          djName: target.djName,
+          djName: djInfo.name || target.djName,
           showName,
           broadcastUrl,
           profileUrl: null,
@@ -341,7 +344,7 @@ async function runPostBroadcast(db: FirebaseFirestore.Firestore, now: number): P
 
         const success = await sendPostBroadcastEmail({
           to: target.email,
-          djName: target.djName,
+          djName: djInfo.name || target.djName,
           username,
           missingItems,
           showTipParagraph: !djInfo.hasTipLink,
