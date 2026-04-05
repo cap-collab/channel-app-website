@@ -1803,7 +1803,7 @@ export function StudioProfileClient() {
               ) : (
                 <div className="divide-y divide-gray-700/50">
                   {upcomingShows.map((show) => (
-                    <div key={show.id} className={`p-4 ${!show.isExternal && show.broadcastToken && show.status !== "live" ? "bg-[#1a2a1a] border border-green-900/50 rounded-lg" : ""}`}>
+                    <div key={show.id} className={`p-4 ${!show.isExternal && show.broadcastToken ? "bg-[#1a2a1a] border border-green-900/50 rounded-lg" : ""}`}>
                       <p className="text-white font-medium">{show.showName}</p>
                       <p className="text-gray-400 text-sm">
                         {formatBroadcastTime(show.startTime, show.endTime)}
@@ -1818,9 +1818,9 @@ export function StudioProfileClient() {
                           {!show.isExternal && show.broadcastToken && (
                             <Link
                               href={`/broadcast/live?token=${show.broadcastToken}`}
-                              className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 text-sm transition-colors"
+                              className="inline-flex items-center gap-1 bg-green-600 hover:bg-green-500 text-white text-sm font-medium px-3 py-1 rounded transition-colors"
                             >
-                              Go to Studio &rarr;
+                              Go Live &rarr;
                             </Link>
                           )}
                         </div>
@@ -1829,7 +1829,7 @@ export function StudioProfileClient() {
                           href={`/broadcast/live?token=${show.broadcastToken}`}
                           className="inline-flex items-center gap-2 mt-3 bg-green-600 hover:bg-green-500 text-white text-sm font-medium px-4 py-2 rounded transition-colors"
                         >
-                          Your Private Go Live Link &rarr;
+                          {Date.now() >= show.startTime ? "Go Live" : "Prepare to Go Live"} &rarr;
                         </Link>
                       ) : null}
                     </div>
