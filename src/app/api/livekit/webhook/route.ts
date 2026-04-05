@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { WebhookReceiver, EgressClient } from 'livekit-server-sdk';
 import { SegmentedFileOutput, SegmentedFileProtocol, S3Upload } from '@livekit/protocol';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { getAdminDb, getAdminRtdb } from '@/lib/firebase-admin';
 import { Recording, ArchiveDJ, STATION_ID, ROOM_NAME } from '@/types/broadcast';
 
 // Generate URL-friendly slug from show name
@@ -69,6 +69,23 @@ function extractDJs(slotData: Record<string, unknown>): ArchiveDJ[] {
 const apiKey = process.env.LIVEKIT_API_KEY || '';
 const apiSecret = process.env.LIVEKIT_API_SECRET || '';
 const livekitHost = process.env.LIVEKIT_URL?.replace('wss://', 'https://') || '';
+
+/** Write isStreaming status to Firebase RTDB so clients can subscribe in real time (no polling). */
+async function updateStreamingStatus(isStreaming: boolean, djIdentity?: string) {
+  try {
+    const rtdb = getAdminRtdb();
+    if (!rtdb) return;
+    const statusRef = rtdb.ref('status/broadcast');
+    await statusRef.set({
+      isStreaming,
+      dj: djIdentity || null,
+      updatedAt: Date.now(),
+    });
+    console.log(`[webhook] RTDB isStreaming=${isStreaming} dj=${djIdentity || 'none'}`);
+  } catch (err) {
+    console.error('[webhook] Failed to update RTDB streaming status:', err);
+  }
+}
 const r2PublicUrl = process.env.R2_PUBLIC_URL || '';
 
 // R2 config for starting HLS egress on restream track_published
@@ -158,6 +175,47 @@ export async function POST(request: NextRequest) {
           }
         }
       }
+    }
+
+    // Update RTDB streaming status on track events (drives real-time isStreaming for clients).
+    //
+    // Guarding against stuck isStreaming=true:
+    // 1. track_published → set true (straightforward)
+    // 2. track_unpublished / participant_left → authoritative listParticipants check before clearing
+    // 3. room_finished → unconditionally clear (room is gone, no one can be publishing)
+    // 4. complete-expired-slots cron → also clears RTDB as a periodic safety net
+    if (event.event === 'track_published' && event.participant && event.track) {
+      if (event.track.type === 1 /* AUDIO */) {
+        await updateStreamingStatus(true, event.participant.identity);
+      }
+    }
+
+    if (
+      event.event === 'track_unpublished' ||
+      event.event === 'participant_left'
+    ) {
+      // Always do an authoritative room check -- event payload's room snapshot
+      // may be stale and cannot be trusted for "is anyone still publishing?"
+      try {
+        const { RoomServiceClient } = await import('livekit-server-sdk');
+        const roomService = new RoomServiceClient(livekitHost, apiKey, apiSecret);
+        const participants = await roomService.listParticipants(ROOM_NAME);
+        const publishing = participants.some(p =>
+          p.tracks.some(t => t.type === 1 /* AUDIO */ && !t.muted)
+        );
+        if (!publishing) {
+          await updateStreamingStatus(false);
+        }
+      } catch {
+        // Room doesn't exist or LiveKit unreachable — no one is publishing
+        await updateStreamingStatus(false);
+      }
+    }
+
+    // Room fully closed — unconditionally clear streaming status.
+    // This catches edge cases where track_unpublished/participant_left were missed.
+    if (event.event === 'room_finished') {
+      await updateStreamingStatus(false);
     }
 
     // Handle egress ended events - save recording URL to Firestore

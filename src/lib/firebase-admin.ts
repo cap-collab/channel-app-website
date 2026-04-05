@@ -1,10 +1,12 @@
 import { initializeApp, getApps, cert, App, applicationDefault } from "firebase-admin/app";
 import { getFirestore, Firestore } from "firebase-admin/firestore";
 import { getAuth, Auth } from "firebase-admin/auth";
+import { getDatabase as getAdminDatabase, Database } from "firebase-admin/database";
 
 let adminApp: App | null = null;
 let adminDb: Firestore | null = null;
 let adminAuth: Auth | null = null;
+let adminRtdb: Database | null = null;
 
 function initializeAdminApp() {
   if (adminApp) return adminApp;
@@ -21,6 +23,8 @@ function initializeAdminApp() {
   // Try service account credentials first
   // Only use if privateKey actually looks like a real PEM key
   const hasValidKey = privateKey && privateKey.includes('BEGIN PRIVATE KEY');
+  const databaseURL = projectId ? `https://${projectId}-default-rtdb.firebaseio.com` : undefined;
+
   if (hasValidKey && projectId && clientEmail) {
     adminApp = initializeApp({
       credential: cert({
@@ -31,6 +35,7 @@ function initializeAdminApp() {
           ? privateKey.replace(/\\n/g, "\n")
           : privateKey,
       }),
+      databaseURL,
     });
     return adminApp;
   }
@@ -43,6 +48,7 @@ function initializeAdminApp() {
       adminApp = initializeApp({
         credential: applicationDefault(),
         projectId,
+        databaseURL: databaseURL,
       });
       return adminApp;
     } catch (e) {
@@ -68,4 +74,12 @@ export function getAdminAuth(): Auth | null {
   if (!app) return null;
   adminAuth = getAuth(app);
   return adminAuth;
+}
+
+export function getAdminRtdb(): Database | null {
+  if (adminRtdb) return adminRtdb;
+  const app = initializeAdminApp();
+  if (!app) return null;
+  adminRtdb = getAdminDatabase(app);
+  return adminRtdb;
 }

@@ -20,7 +20,19 @@ export async function GET(
     }
 
     const contentType = response.headers.get('content-type') || 'application/octet-stream';
-    const body = await response.arrayBuffer();
+    const isManifest = path.endsWith('.m3u8');
+
+    // Stream the response body instead of buffering the entire segment in memory
+    const body = response.body;
+    if (!body) {
+      return NextResponse.json({ error: 'Empty response from origin' }, { status: 502 });
+    }
+
+    // Manifests: short cache so players get fresh segment lists quickly
+    // Segments (.ts): cache longer since segment content is immutable once written
+    const cacheControl = isManifest
+      ? 'public, max-age=1, stale-while-revalidate=2'
+      : 'public, max-age=60, stale-while-revalidate=120';
 
     return new NextResponse(body, {
       status: 200,
@@ -28,7 +40,8 @@ export async function GET(
         'Content-Type': contentType,
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Cache-Control': cacheControl,
+        'CDN-Cache-Control': cacheControl,
       },
     });
   } catch (error) {

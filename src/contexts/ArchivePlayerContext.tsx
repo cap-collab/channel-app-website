@@ -74,10 +74,16 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   const cumulativeTimeRef = useRef(0);
   const gateSecondsRef = useRef(0);
   const streamCountedRef = useRef<string | null>(null);
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Clean up on unmount
   useEffect(() => {
     return () => {
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = '';
@@ -89,7 +95,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   const getAudio = useCallback(() => {
     if (!audioRef.current) {
       const audio = new Audio();
-      audio.preload = 'none';
+      audio.preload = 'metadata';
 
       audio.addEventListener('timeupdate', () => {
         setCurrentTime(audio.currentTime);
@@ -101,6 +107,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       audio.addEventListener('playing', () => {
         setIsPlaying(true);
         setIsLoading(false);
+        retryCountRef.current = 0; // Reset retries on successful playback
       });
       audio.addEventListener('pause', () => {
         setIsPlaying(false);
@@ -113,8 +120,29 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
         setCurrentTime(0);
       });
       audio.addEventListener('error', () => {
-        setIsPlaying(false);
-        setIsLoading(false);
+        const MAX_RETRIES = 3;
+        if (retryCountRef.current < MAX_RETRIES && audio.src) {
+          retryCountRef.current += 1;
+          const delay = Math.min(1000 * Math.pow(2, retryCountRef.current - 1), 4000);
+          console.warn(`🔄 Archive playback error, retrying in ${delay}ms (attempt ${retryCountRef.current}/${MAX_RETRIES})`);
+          setIsLoading(true);
+          retryTimerRef.current = setTimeout(() => {
+            retryTimerRef.current = null;
+            const savedTime = audio.currentTime;
+            const src = audio.src;
+            audio.src = '';
+            audio.src = src;
+            audio.currentTime = savedTime;
+            audio.play().catch(() => {
+              setIsPlaying(false);
+              setIsLoading(false);
+            });
+          }, delay);
+        } else {
+          console.error('🔄 Archive playback failed after retries');
+          setIsPlaying(false);
+          setIsLoading(false);
+        }
       });
 
       audioRef.current = audio;

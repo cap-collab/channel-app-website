@@ -2,10 +2,10 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, ReactNode } from 'react';
 import { useBroadcastStream } from '@/hooks/useBroadcastStream';
-import { useBroadcastLiveStatus, hasScheduledSlotNow } from '@/hooks/useBroadcastLiveStatus';
-import { BroadcastSlotSerialized, ROOM_NAME } from '@/types/broadcast';
-import { collection } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useBroadcastLiveStatus } from '@/hooks/useBroadcastLiveStatus';
+import { BroadcastSlotSerialized } from '@/types/broadcast';
+import { getDatabase, ref, onValue } from 'firebase/database';
+import { getApps, initializeApp } from 'firebase/app';
 
 export interface BroadcastStreamContextValue {
   isPlaying: boolean;
@@ -51,28 +51,39 @@ function resolveTipLink(show: BroadcastSlotSerialized | null): string | null {
   return show.liveDjTipButtonLink || null;
 }
 
+function getFirebaseApp() {
+  if (getApps().length === 0) {
+    return initializeApp({
+      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+      authDomain: `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.firebaseapp.com`,
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      storageBucket: `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.firebasestorage.app`,
+      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    });
+  }
+  return getApps()[0];
+}
+
 /**
- * Polls /api/livekit/room-status to check if a DJ is actually publishing audio.
- * Only polls when a broadcast slot is live (statusIsLive). For restream broadcasts,
- * audio comes from an archive URL (not LiveKit), so isStreaming is always true.
+ * Subscribes to RTDB `status/broadcast` for real-time isStreaming updates.
+ * The LiveKit webhook writes to this path when a DJ publishes or unpublishes audio.
  *
- * Includes a schedule-aware grace period: when the DJ stops publishing but a show is
- * scheduled for now, keeps isStreaming=true for up to 60s (matching the grace period
- * in useBroadcastLiveStatus). This prevents both players from vanishing during DJ transitions.
+ * Includes a 60-second grace period: when isStreaming drops to false while a show
+ * is live (statusIsLive), keeps returning true for up to 60s to handle DJ transitions
+ * without the player disappearing.
+ *
+ * For restream broadcasts, always returns true (audio comes from archive URL, not LiveKit).
  */
 function useIsStreaming(statusIsLive: boolean, currentShow: BroadcastSlotSerialized | null): boolean {
   const [isStreaming, setIsStreaming] = useState(false);
-  const isStreamingRef = useRef(false);
-  const graceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Keep ref in sync with state
-  useEffect(() => { isStreamingRef.current = isStreaming; }, [isStreaming]);
+  const graceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Clean up grace timer on unmount
   useEffect(() => {
     return () => {
       if (graceTimerRef.current) {
-        clearInterval(graceTimerRef.current);
+        clearTimeout(graceTimerRef.current);
         graceTimerRef.current = null;
       }
     };
@@ -81,7 +92,7 @@ function useIsStreaming(statusIsLive: boolean, currentShow: BroadcastSlotSeriali
   useEffect(() => {
     if (!statusIsLive) {
       if (graceTimerRef.current) {
-        clearInterval(graceTimerRef.current);
+        clearTimeout(graceTimerRef.current);
         graceTimerRef.current = null;
       }
       setIsStreaming(false);
@@ -94,114 +105,40 @@ function useIsStreaming(statusIsLive: boolean, currentShow: BroadcastSlotSeriali
       return;
     }
 
-    let cancelled = false;
-    let graceElapsed = 0;
-    const MAX_GRACE_MS = 60_000;
-    const GRACE_POLL_MS = 5_000;
-    const NORMAL_POLL_MS = 10_000;
+    const app = getFirebaseApp();
+    const rtdb = getDatabase(app);
+    const statusRef = ref(rtdb, 'status/broadcast');
 
-    function clearGrace() {
-      if (graceTimerRef.current) {
-        clearInterval(graceTimerRef.current);
-        graceTimerRef.current = null;
-      }
-      graceElapsed = 0;
-    }
+    const unsubscribe = onValue(statusRef, (snapshot) => {
+      const data = snapshot.val();
+      const live = data?.isStreaming === true;
 
-    async function startScheduleAwareGrace() {
-      if (graceTimerRef.current) return; // already in grace
-
-      // Check if a show is scheduled for now
-      if (!db) {
-        setIsStreaming(false);
-        return;
-      }
-      const slotsRef = collection(db, 'broadcast-slots');
-      const shouldGrace = await hasScheduledSlotNow(db, slotsRef);
-      if (cancelled) return;
-
-      if (!shouldGrace) {
-        // No show scheduled for now — drop immediately
-        setIsStreaming(false);
-        return;
-      }
-
-      // A show is scheduled — keep isStreaming=true and poll faster
-      console.log('🔄 isStreaming grace period: show scheduled, keeping player visible');
-      graceTimerRef.current = setInterval(async () => {
-        if (cancelled) { clearGrace(); return; }
-        graceElapsed += GRACE_POLL_MS;
-
-        if (graceElapsed >= MAX_GRACE_MS) {
-          console.log('🔄 isStreaming grace period expired after 60s');
-          clearGrace();
-          if (!cancelled) setIsStreaming(false);
-          return;
+      if (live) {
+        // DJ is publishing — clear any grace timer and set streaming
+        if (graceTimerRef.current) {
+          clearTimeout(graceTimerRef.current);
+          graceTimerRef.current = null;
         }
-
-        // Check if DJ is back
-        try {
-          const res = await fetch(`/api/livekit/room-status?room=${ROOM_NAME}`);
-          if (!res.ok || cancelled) return;
-          const data = await res.json();
-          if (data.isLive === true) {
-            console.log('🔄 isStreaming grace: DJ is back, exiting grace');
-            clearGrace();
-            if (!cancelled) setIsStreaming(true);
-          } else {
-            // Still no DJ — check if show is still scheduled
-            if (db) {
-              const stillScheduled = await hasScheduledSlotNow(db, slotsRef);
-              if (!stillScheduled && !cancelled) {
-                console.log('🔄 isStreaming grace: no show scheduled, ending grace');
-                clearGrace();
-                setIsStreaming(false);
-              }
-            }
-          }
-        } catch {
-          // Network error — keep previous state
+        setIsStreaming(true);
+      } else {
+        // DJ stopped publishing — start grace period if we were streaming
+        if (!graceTimerRef.current) {
+          console.log('🔄 isStreaming: DJ stopped, entering 60s grace period');
+          graceTimerRef.current = setTimeout(() => {
+            console.log('🔄 isStreaming: grace period expired');
+            graceTimerRef.current = null;
+            setIsStreaming(false);
+          }, 60_000);
         }
-      }, GRACE_POLL_MS);
-    }
-
-    async function checkRoomStatus() {
-      try {
-        const res = await fetch(`/api/livekit/room-status?room=${ROOM_NAME}`);
-        if (!res.ok || cancelled) return;
-        const data = await res.json();
-        if (cancelled) return;
-
-        if (data.isLive === true) {
-          // DJ is publishing — clear any grace and set streaming
-          clearGrace();
-          setIsStreaming(true);
-        } else if (isStreamingRef.current && !graceTimerRef.current) {
-          // Was streaming, now not — enter schedule-aware grace
-          startScheduleAwareGrace();
-        } else if (!isStreamingRef.current && !graceTimerRef.current) {
-          // Not streaming and not in grace — stay false
-          setIsStreaming(false);
-        }
-        // If in grace, the grace timer handles polling — don't interfere
-      } catch {
-        // Network error — keep previous state
       }
-    }
-
-    // Check immediately, then poll every 10s
-    checkRoomStatus();
-    const interval = setInterval(() => {
-      // Don't run normal poll while grace timer is active (grace polls faster)
-      if (!graceTimerRef.current) {
-        checkRoomStatus();
-      }
-    }, NORMAL_POLL_MS);
+    });
 
     return () => {
-      cancelled = true;
-      clearGrace();
-      clearInterval(interval);
+      unsubscribe();
+      if (graceTimerRef.current) {
+        clearTimeout(graceTimerRef.current);
+        graceTimerRef.current = null;
+      }
     };
   }, [statusIsLive, currentShow?.broadcastType]);
 

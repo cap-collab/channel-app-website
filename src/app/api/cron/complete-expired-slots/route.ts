@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { getAdminDb, getAdminRtdb } from '@/lib/firebase-admin';
 import { EgressClient, RoomServiceClient } from 'livekit-server-sdk';
 import { ROOM_NAME } from '@/types/broadcast';
 
@@ -149,6 +149,31 @@ export async function GET(request: NextRequest) {
       } catch (slotError) {
         // Log but continue processing remaining slots
         console.error(`Error processing slot ${doc.id}:`, slotError);
+      }
+    }
+
+    // ── Safety net: clear RTDB isStreaming if no live slots remain ──
+    // This prevents stuck isStreaming=true if a webhook was missed or failed.
+    if (completedCount > 0) {
+      try {
+        const liveCheck = await db
+          .collection('broadcast-slots')
+          .where('status', '==', 'live')
+          .limit(1)
+          .get();
+        if (liveCheck.empty) {
+          const rtdb = getAdminRtdb();
+          if (rtdb) {
+            await rtdb.ref('status/broadcast').set({
+              isStreaming: false,
+              dj: null,
+              updatedAt: Date.now(),
+            });
+            console.log('Cleared RTDB isStreaming (no live slots remain)');
+          }
+        }
+      } catch (e) {
+        console.error('Failed to clear RTDB streaming status:', e);
       }
     }
 
