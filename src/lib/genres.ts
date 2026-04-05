@@ -37,20 +37,25 @@ export const GENRE_ALIASES: Record<string, string[]> = {
   'reggae': ['roots', 'dancehall'],
 };
 
+// Strip quotes, special characters, and extra whitespace for genre comparison
+function normalizeGenre(s: string): string {
+  return s.toLowerCase().replace(/["""''`]/g, '').replace(/[^\w\s&]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 // Check if a show's genres match a single target genre (with alias support)
 export function matchesGenre(showGenres: string[], genre: string): boolean {
   if (showGenres.length === 0 || !genre) return false;
-  const genreLower = genre.toLowerCase();
+  const genreLower = normalizeGenre(genre);
   const aliases = GENRE_ALIASES[genreLower] || [];
-  const allTerms = [genreLower, ...aliases];
+  const allTerms = [genreLower, ...aliases.map(normalizeGenre)];
   for (const [canonical, aliasList] of Object.entries(GENRE_ALIASES)) {
-    if (aliasList.includes(genreLower)) {
-      allTerms.push(canonical, ...aliasList);
+    if (aliasList.some((a) => normalizeGenre(a) === genreLower)) {
+      allTerms.push(normalizeGenre(canonical), ...aliasList.map(normalizeGenre));
       break;
     }
   }
   return showGenres.some((g) => {
-    const gLower = g.toLowerCase();
-    return allTerms.some((term) => gLower.includes(term) || term.includes(gLower));
+    const gNorm = normalizeGenre(g);
+    return allTerms.some((term) => gNorm.includes(term) || term.includes(gNorm));
   });
 }
