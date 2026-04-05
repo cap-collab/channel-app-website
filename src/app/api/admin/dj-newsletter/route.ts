@@ -126,9 +126,15 @@ export async function GET(request: NextRequest) {
     .get();
 
   const djRecipients: Array<{ email: string; name: string; id: string }> = [];
+  const debug: Array<{ email: string; djInsiders: unknown; notifs: unknown }> = [];
   for (const doc of usersSnap.docs) {
     const data = doc.data();
     if (!data.email) continue;
+    debug.push({
+      email: data.email,
+      djInsiders: data.emailNotifications?.djInsiders,
+      notifs: data.emailNotifications ? Object.keys(data.emailNotifications) : null,
+    });
     if (!data.emailNotifications?.djInsiders) continue;
     // Use DJ internal name, displayName, or fallback
     const name = data.djProfile?.name || data.displayName || "there";
@@ -166,8 +172,10 @@ export async function GET(request: NextRequest) {
   if (mode === "dry-run") {
     return NextResponse.json({
       mode: "dry-run",
+      totalDJs: usersSnap.docs.length,
       totalDjRecipients: djRecipients.length,
       recipients: djRecipients.map((r) => ({ email: r.email, name: r.name })),
+      debug,
     });
   }
 
