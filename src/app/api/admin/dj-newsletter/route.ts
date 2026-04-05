@@ -137,10 +137,7 @@ export async function GET(request: NextRequest) {
     });
     if (!data.emailNotifications?.djInsiders) continue;
     // Use DJ internal name, displayName, or fallback
-    // Use first name only: djProfile.name → first word, then displayName → first word, then "there"
-    const fullName = data.djProfile?.name || data.displayName || "";
-    const firstName = fullName.split(" ")[0];
-    const name = firstName && firstName.length > 1 && !firstName.includes("@") ? firstName : "there";
+    const name = data.name || "there";
     djRecipients.push({ email: data.email, name, id: doc.id });
   }
 
