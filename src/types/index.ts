@@ -80,6 +80,7 @@ export interface UserDocument {
     mentions?: boolean;
     popularity?: boolean;
     djOnline?: boolean;
+    djInsiders?: boolean;
   };
   lastWatchlistEmailAt?: Date;
   lastDjOnlineEmailAt?: Record<string, number>; // { [djUserId]: timestamp }

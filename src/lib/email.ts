@@ -45,6 +45,89 @@ function getStationWebsiteUrl(metadataStationId: string): string {
 // Settings deep link (opens app settings if installed, falls back to website)
 const SETTINGS_DEEP_LINK = "https://channel-app.com/settings";
 
+// Email categories for List-Unsubscribe headers
+type EmailCategory = "alerts" | "marketing" | "dj";
+
+function getUnsubscribeUrl(category: EmailCategory): string {
+  return `${SETTINGS_DEEP_LINK}?unsubscribe=${category}`;
+}
+
+function getUnsubscribeHeaders(category: EmailCategory) {
+  const url = getUnsubscribeUrl(category);
+  return {
+    "List-Unsubscribe": `<${url}>`,
+    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+  };
+}
+
+// Token-based unsubscribe URL for non-account users (waitlist etc.)
+export function getWaitlistUnsubscribeUrl(email: string): string {
+  const token = Buffer.from(email.trim().toLowerCase()).toString("base64");
+  return `https://channel-app.com/api/unsubscribe?token=${encodeURIComponent(token)}&list=waitlist`;
+}
+
+// Wrap email content with waitlist-specific unsubscribe footer (no account needed)
+export function wrapWaitlistEmailContent(content: string, footerText: string, email: string): string {
+  const unsubscribeUrl = getWaitlistUnsubscribeUrl(email);
+  return wrapEmailContentWithUnsubscribeUrl(content, footerText, unsubscribeUrl);
+}
+
+// Internal: wrap email with a custom unsubscribe URL
+function wrapEmailContentWithUnsubscribeUrl(content: string, footerText: string, unsubscribeUrl: string): string {
+  return minifyHtml(`
+    <!DOCTYPE html>
+    <html style="background-color: #ffffff;" bgcolor="#ffffff">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="color-scheme" content="light only">
+      <meta name="supported-color-schemes" content="light only">
+      <style>
+        :root { color-scheme: light only; }
+        body, .body-bg { background-color: #ffffff !important; }
+        u + .body-bg { background-color: #ffffff !important; }
+        @media only screen and (max-width: 480px) {
+          .card-row { display: block !important; }
+          .card-content { display: block !important; width: 100% !important; }
+          .card-btn { display: block !important; width: 100% !important; text-align: center !important; padding-top: 12px !important; padding-left: 0 !important; }
+        }
+      </style>
+    </head>
+    <body class="body-bg" bgcolor="#ffffff" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #ffffff; color: #1a1a1a; margin: 0; padding: 0;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="background-color: #ffffff;">
+        <tr>
+          <td align="center" style="padding: 40px 20px;" bgcolor="#ffffff">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px;">
+              <tr>
+                <td align="center" style="padding-bottom: 32px;" bgcolor="#ffffff">
+                  <img src="${LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" />
+                </td>
+              </tr>
+              <tr>
+                <td bgcolor="#ffffff" style="font-size: 15px; line-height: 1.6; color: #1a1a1a;">
+                  ${content}
+                </td>
+              </tr>
+              <tr>
+                <td align="center" style="padding-top: 32px; border-top: 1px solid #e5e5e5;" bgcolor="#ffffff">
+                  <p style="margin: 0 0 12px; font-size: 13px; color: #999;">
+                    ${footerText}
+                  </p>
+                  <a href="${unsubscribeUrl}" style="font-size: 12px; color: #999; text-decoration: underline;">
+                    Unsubscribe
+                  </a>
+                  <!--${Date.now()}-->
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `);
+}
+
 // Channel logo URL
 const LOGO_URL = "https://channel-app.com/logo-black.png";
 
@@ -215,6 +298,7 @@ export async function sendShowStartingEmail({
       to,
       subject: `${djUsername || djName ? djDisplayName : displayName} is live on ${stationName}`,
       html: wrapEmailContent(content, "You're receiving this because you saved this show."),
+      headers: getUnsubscribeHeaders("alerts"),
     });
 
     if (error) {
@@ -639,6 +723,7 @@ export async function sendWatchlistDigestEmail({
       to,
       subject,
       html: wrapEmailContent(content, "Based on your preferences and favorites."),
+      headers: getUnsubscribeHeaders("marketing"),
     });
 
     if (error) {
@@ -740,6 +825,7 @@ export async function sendBroadcastReminderEmail({
       to,
       subject: `Reminder: ${showName} tomorrow on Channel`,
       html: wrapEmailContent(content, "You're receiving this because you have a scheduled show on Channel Radio."),
+      headers: getUnsubscribeHeaders("dj"),
     });
 
     if (error) {
@@ -829,6 +915,7 @@ export async function sendBroadcast2HourReminderEmail({
       to,
       subject: `You're live soon on Channel`,
       html: wrapEmailContent(content, "You're receiving this because you have a scheduled show on Channel Radio."),
+      headers: getUnsubscribeHeaders("dj"),
     });
 
     if (error) {
@@ -917,6 +1004,7 @@ export async function sendPostBroadcastEmail({
       to,
       subject: "Your recording is available on Channel",
       html: wrapEmailContent(content, "You're receiving this because you recently broadcast on Channel Radio."),
+      headers: getUnsubscribeHeaders("dj"),
     });
 
     if (error) {

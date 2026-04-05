@@ -24,6 +24,7 @@ interface NotificationSettings {
   showStarting: boolean;
   watchlistMatch: boolean;
   djOnline: boolean;
+  djInsiders: boolean;
 }
 
 interface ActivityMessageSettings {
@@ -39,6 +40,7 @@ export function SettingsClient() {
     showStarting: false,
     watchlistMatch: false,
     djOnline: false,
+    djInsiders: false,
   });
   const [activityMessages, setActivityMessages] = useState<ActivityMessageSettings>({
     showLoveMessages: true,
@@ -68,6 +70,7 @@ export function SettingsClient() {
           showStarting: data.emailNotifications.showStarting || false,
           watchlistMatch: data.emailNotifications.watchlistMatch || false,
           djOnline: data.emailNotifications.djOnline || false,
+          djInsiders: data.emailNotifications.djInsiders || false,
         });
       }
       // Activity messages default to true if not set
@@ -440,10 +443,10 @@ export function SettingsClient() {
               </section>
             )}
 
-            {/* Email notifications section */}
+            {/* Live Alerts section (transactional) */}
             <section>
               <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
-                Email Notifications
+                Live Alerts
               </h2>
               <div className="bg-[#1a1a1a] rounded divide-y divide-gray-800">
                 <div className="p-4 flex items-center justify-between">
@@ -467,6 +470,19 @@ export function SettingsClient() {
                     />
                   </button>
                 </div>
+                {/* DJ online toggle hidden — feature is paused */}
+              </div>
+              <p className="text-gray-600 text-xs mt-2 px-1">
+                These alerts are triggered by your favorites and follows
+              </p>
+            </section>
+
+            {/* Newsletter & Updates section (marketing) */}
+            <section>
+              <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+                Newsletter & Updates
+              </h2>
+              <div className="bg-[#1a1a1a] rounded divide-y divide-gray-800">
                 <div className="p-4 flex items-center justify-between">
                   <div>
                     <p className="text-white font-medium">Curated for you</p>
@@ -488,30 +504,32 @@ export function SettingsClient() {
                     />
                   </button>
                 </div>
-                <div className="p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-white font-medium">DJ online</p>
-                    <p className="text-gray-500 text-sm">
-                      Email when DJs you follow are active in chat
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => handleToggle("djOnline")}
-                    disabled={saving}
-                    className={`w-14 h-8 min-w-[3.5rem] min-h-[2rem] shrink-0 rounded-full transition-colors flex items-center px-1 ${
-                      notifications.djOnline ? "bg-white" : "bg-gray-700"
-                    }`}
-                  >
-                    <div
-                      className={`w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] rounded-full transition-transform ${
-                        notifications.djOnline ? "bg-black translate-x-6" : "bg-gray-400"
+                {isDJ(role) && (
+                  <div className="p-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-white font-medium">DJ Insiders</p>
+                      <p className="text-gray-500 text-sm">
+                        Product and marketing updates for DJs
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleToggle("djInsiders")}
+                      disabled={saving}
+                      className={`w-14 h-8 min-w-[3.5rem] min-h-[2rem] shrink-0 rounded-full transition-colors flex items-center px-1 ${
+                        notifications.djInsiders ? "bg-white" : "bg-gray-700"
                       }`}
-                    />
-                  </button>
-                </div>
+                    >
+                      <div
+                        className={`w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] rounded-full transition-transform ${
+                          notifications.djInsiders ? "bg-black translate-x-6" : "bg-gray-400"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                )}
               </div>
               <p className="text-gray-600 text-xs mt-2 px-1">
-                Push notifications can be managed in the Channel app
+                You can unsubscribe from these emails at any time
               </p>
             </section>
 

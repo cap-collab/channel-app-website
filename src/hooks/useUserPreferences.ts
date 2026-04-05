@@ -9,6 +9,7 @@ interface UserPreferences {
   emailNotifications: {
     showStarting: boolean;
     watchlistMatch: boolean;
+    djInsiders: boolean;
   };
 }
 
@@ -16,6 +17,7 @@ const defaultPreferences: UserPreferences = {
   emailNotifications: {
     showStarting: false,
     watchlistMatch: false,
+    djInsiders: false,
   },
 };
 
@@ -39,7 +41,10 @@ export function useUserPreferences() {
         if (snapshot.exists()) {
           const data = snapshot.data();
           setPreferences({
-            emailNotifications: data.emailNotifications || defaultPreferences.emailNotifications,
+            emailNotifications: {
+              ...defaultPreferences.emailNotifications,
+              ...data.emailNotifications,
+            },
           });
         }
         setLoading(false);
@@ -60,6 +65,7 @@ export function useUserPreferences() {
   // Check individual notification toggles
   const hasFavoriteNotificationsEnabled = preferences.emailNotifications.showStarting;
   const hasWatchlistNotificationsEnabled = preferences.emailNotifications.watchlistMatch;
+  const hasDjInsidersEnabled = preferences.emailNotifications.djInsiders;
 
   // Enable email notifications
   const enableNotifications = useCallback(async (): Promise<boolean> => {
@@ -113,6 +119,7 @@ export function useUserPreferences() {
     hasNotificationsEnabled,
     hasFavoriteNotificationsEnabled,
     hasWatchlistNotificationsEnabled,
+    hasDjInsidersEnabled,
     enableNotifications,
     disableNotifications,
   };

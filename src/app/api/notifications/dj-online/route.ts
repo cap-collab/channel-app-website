@@ -22,6 +22,9 @@ interface DjOnlineRequest {
  */
 export async function POST(request: NextRequest) {
   try {
+    // PAUSED: DJ online notifications are temporarily disabled
+    return NextResponse.json({ paused: true, message: "DJ online notifications are temporarily paused" });
+
     if (!isRestApiConfigured()) {
       console.log("[dj-online] Firebase REST API not configured, skipping");
       return NextResponse.json({ success: true, skipped: true });

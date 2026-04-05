@@ -28,6 +28,7 @@ export async function POST(request: Request) {
       email: email.trim().toLowerCase(),
       ...(geoCity && { city: decodeURIComponent(geoCity) }),
       ...(timezone && { timezone }),
+      marketingOptIn: true,
       submittedAt: FieldValue.serverTimestamp(),
     });
 
