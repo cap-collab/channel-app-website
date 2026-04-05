@@ -129,11 +129,14 @@ export async function POST(request: NextRequest) {
 
       // Extract DJ profile data - PRIORITY: DJ slot config > slot's linked DJ profile
       // Do NOT fall back to logged-in user's profile — they may be a different person than the slot's DJ
-      const djBio = currentDjSlot?.djBio || (slotDjProfile as Record<string, unknown> | null)?.bio || null;
-      const djPhotoUrl = currentDjSlot?.djPhotoUrl || (slotDjProfile as Record<string, unknown> | null)?.photoUrl || null;
-      const djTipButtonLink = currentDjSlot?.djTipButtonLink || (slotDjProfile as Record<string, unknown> | null)?.tipButtonLink || null;
-      const djBandcamp = currentDjSlot?.djSocialLinks?.bandcamp || ((slotDjProfile as Record<string, unknown> | null)?.socialLinks as Record<string, unknown> | null)?.bandcamp || null;
-      const djThankYouMessage = currentDjSlot?.djThankYouMessage || (slotDjProfile as Record<string, unknown> | null)?.thankYouMessage || null;
+      const profileData = slotDjProfile as Record<string, unknown> | null;
+      const djBio = currentDjSlot?.djBio || profileData?.bio || null;
+      const djPhotoUrl = currentDjSlot?.djPhotoUrl || profileData?.photoUrl || null;
+      const djTipButtonLink = currentDjSlot?.djTipButtonLink || profileData?.tipButtonLink || null;
+      const djBandcamp = currentDjSlot?.djSocialLinks?.bandcamp || (profileData?.socialLinks as Record<string, unknown> | null)?.bandcamp || null;
+      const djThankYouMessage = currentDjSlot?.djThankYouMessage || profileData?.thankYouMessage || null;
+      const djGenres = (profileData?.genres as string[] | undefined) || null;
+      const djShowImageUrl = profileData?.photoUrl || null;
 
       // For username: DJ slot > slot's linked DJ chatUsername > form input (from slot-dj-profile) > logged-in user chatUsername
       const slotUsername = currentDjSlot?.djUsername || currentDjSlot?.djName;
@@ -208,6 +211,12 @@ export async function POST(request: NextRequest) {
       if (djThankYouMessage) {
         updateData.liveDjThankYouMessage = djThankYouMessage;
       }
+      if (djGenres && djGenres.length > 0) {
+        updateData.liveDjGenres = djGenres;
+      }
+      if (djShowImageUrl && !slot.showImageUrl) {
+        updateData.showImageUrl = djShowImageUrl;
+      }
     } else {
       // Guest/venue DJ - not logged in, but may have a profile via email
       // Try to look up user by DJ slot email or root slot email
@@ -245,6 +254,8 @@ export async function POST(request: NextRequest) {
       const djTipButtonLink = currentDjSlot?.djTipButtonLink || djProfile?.tipButtonLink || null;
       const djBandcamp = currentDjSlot?.djSocialLinks?.bandcamp || (djProfile?.socialLinks as Record<string, unknown> | undefined)?.bandcamp || null;
       const djThankYouMessage = currentDjSlot?.djThankYouMessage || djProfile?.thankYouMessage || null;
+      const djGenresGuest = (djProfile?.genres as string[] | undefined) || null;
+      const djShowImageUrlGuest = djProfile?.photoUrl || null;
 
       if (djBio) {
         updateData.liveDjBio = djBio;
@@ -260,6 +271,12 @@ export async function POST(request: NextRequest) {
       }
       if (djThankYouMessage) {
         updateData.liveDjThankYouMessage = djThankYouMessage;
+      }
+      if (djGenresGuest && djGenresGuest.length > 0) {
+        updateData.liveDjGenres = djGenresGuest;
+      }
+      if (djShowImageUrlGuest && !slot.showImageUrl) {
+        updateData.showImageUrl = djShowImageUrlGuest;
       }
 
       // Also set liveDjUserId and chatUsername if we found a user by email (for profile button linking)
