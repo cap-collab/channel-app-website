@@ -117,7 +117,7 @@ export function ArchivesClient() {
   return (
     <div className="min-h-[100dvh] text-white relative flex flex-col">
       <AnimatedBackground />
-      <Header currentPage="archives" position="sticky" showSearch />
+      <Header currentPage="archives" position="sticky" />
 
       <main className="max-w-4xl mx-auto flex-1 w-full px-4 py-6">
         {/* Search bar - mobile only (hidden, will be relocated) */}

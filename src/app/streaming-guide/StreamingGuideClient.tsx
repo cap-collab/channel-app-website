@@ -87,7 +87,7 @@ export function StreamingGuideClient() {
 
   return (
     <div className="min-h-screen bg-black">
-      <Header currentPage="streaming-guide" position="sticky" showSearch />
+      <Header currentPage="streaming-guide" position="sticky" />
 
       <main className="p-4 md:p-8">
         <div className="max-w-2xl mx-auto">

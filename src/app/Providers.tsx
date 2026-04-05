@@ -6,6 +6,7 @@ import { BPMProvider } from "@/contexts/BPMContext";
 import { ScheduleProvider } from "@/contexts/ScheduleContext";
 import { BroadcastStreamProvider } from "@/contexts/BroadcastStreamContext";
 import { ArchivePlayerProvider } from "@/contexts/ArchivePlayerContext";
+import { FilterProvider } from "@/contexts/FilterContext";
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
@@ -14,7 +15,9 @@ export function Providers({ children }: { children: ReactNode }) {
         <ScheduleProvider>
           <BroadcastStreamProvider>
             <ArchivePlayerProvider>
-              {children}
+              <FilterProvider>
+                {children}
+              </FilterProvider>
             </ArchivePlayerProvider>
           </BroadcastStreamProvider>
         </ScheduleProvider>

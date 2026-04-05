@@ -76,7 +76,7 @@ export function ArchiveClient({ slug }: Props) {
     return (
       <div className="min-h-[100dvh] text-white relative flex flex-col">
         <AnimatedBackground />
-        <Header currentPage="archives" position="sticky" showSearch />
+        <Header currentPage="archives" position="sticky" />
         <main className="flex-1 flex items-center justify-center">
           <div className="w-6 h-6 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
         </main>
@@ -88,7 +88,7 @@ export function ArchiveClient({ slug }: Props) {
     return (
       <div className="min-h-[100dvh] text-white relative flex flex-col">
         <AnimatedBackground />
-        <Header currentPage="archives" position="sticky" showSearch />
+        <Header currentPage="archives" position="sticky" />
         <main className="flex-1 flex flex-col items-center justify-center px-4">
           <p className="text-red-400 mb-4">{error || 'Archive not found'}</p>
           <Link href="/archives" className="text-gray-400 hover:text-white transition-colors">
@@ -102,7 +102,7 @@ export function ArchiveClient({ slug }: Props) {
   return (
     <div className="min-h-[100dvh] text-white relative flex flex-col">
       <AnimatedBackground />
-      <Header currentPage="archives" position="sticky" showSearch />
+      <Header currentPage="archives" position="sticky" />
 
       <main className="max-w-4xl mx-auto flex-1 w-full px-4 py-6">
         {/* Back link */}

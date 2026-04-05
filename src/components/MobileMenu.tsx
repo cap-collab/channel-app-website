@@ -87,17 +87,6 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                 if (isAuthenticated && user) {
                   return (
                     <div key={index}>
-                      <button
-                        onClick={() => {
-                          setIsOpen(false);
-                          router.push("/my-shows");
-                        }}
-                        className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
-                        style={{ pointerEvents: 'auto' }}
-                      >
-                        My Watchlist
-                      </button>
-
                       {isDJ(role) && (
                         <button
                           onClick={() => {

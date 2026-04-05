@@ -16,11 +16,6 @@ const faqItems = [
       "For DJs and show hosts\nHost shows, share music, connect directly with the people who care about your craft, and notify your followers when something new happens.\n\nNo more depending on Instagram to reach your audience.\n\nFor listeners\nFollow the DJs and curators you care about. Get notified when something new happens. Tune in when they host shows and connect with them and their community, live.\n\nNo more chasing stories to catch what's next.",
   },
   {
-    question: "How is Channel different?",
-    answer:
-      "Channel is built around people, values, and communities.\n\nCurators and producers host shows. Listeners and dancers gather.\nMusic and community spread through trust, taste and shared values.\n\nRadio becomes a shared space again.",
-  },
-  {
     question: "How much does it cost?",
     answer:
       "Channel is free to use. No ads.",
@@ -30,7 +25,7 @@ const faqItems = [
 export default function About() {
   return (
     <div className="min-h-screen">
-      <Header position="sticky" showSearch />
+      <Header position="sticky" />
 
       {/* About Me Section */}
       <section id="about-me" className="pb-24 px-6 bg-black pt-12">
@@ -64,54 +59,6 @@ export default function About() {
 
             <div className="mt-10 flex justify-center">
               <EmailSignup />
-            </div>
-          </div>
-        </ScrollReveal>
-      </section>
-
-      {/* Values Section - 3 columns */}
-      <section className="py-24 px-6 bg-black">
-        <ScrollReveal>
-          <div className="max-w-6xl mx-auto">
-            <div className="flex flex-col md:flex-row md:divide-x divide-gray-800">
-              {/* Curated */}
-              <div className="flex-1 py-8 md:py-0 md:px-8 first:md:pl-0 last:md:pr-0 border-b md:border-b-0 border-gray-800 last:border-b-0 flex flex-col items-center">
-                <h2 className="text-xl md:text-2xl font-bold text-white mb-4 text-center">
-                  Curated
-                </h2>
-                <p className="text-zinc-400 leading-relaxed text-center text-sm mb-8">
-                  When someone you follow hosts a show or goes live, you hear
-                  about it directly. You can support them and connect with
-                  others in the room through chat. No ads. No feed. No
-                  algorithm deciding what you should hear.
-                </p>
-              </div>
-
-              {/* Independent */}
-              <div className="flex-1 py-8 md:py-0 md:px-8 first:md:pl-0 last:md:pr-0 border-b md:border-b-0 border-gray-800 last:border-b-0 flex flex-col items-center">
-                <h2 className="text-xl md:text-2xl font-bold text-white mb-4 text-center">
-                  Independent
-                </h2>
-                <p className="text-zinc-400 leading-relaxed text-center text-sm mb-8">
-                  When someone you follow hosts a show or goes live, you hear
-                  about it directly. You can support them through tips and
-                  connect with others in the room through chat. No ads. No
-                  feed. No algorithm deciding what you should hear.
-                </p>
-              </div>
-
-              {/* Collaborative */}
-              <div className="flex-1 py-8 md:py-0 md:px-8 first:md:pl-0 last:md:pr-0 border-b md:border-b-0 border-gray-800 last:border-b-0 flex flex-col items-center">
-                <h2 className="text-xl md:text-2xl font-bold text-white mb-4 text-center">
-                  Collective
-                </h2>
-                <p className="text-zinc-400 leading-relaxed text-center text-sm mb-8">
-                  Culture is collective. DJs, producers, venues, promoters,
-                  listeners, and dancers shape it together. Channel reflects
-                  that. Curators host shows, share the music they care about,
-                  and bring their communities together.
-                </p>
-              </div>
             </div>
           </div>
         </ScrollReveal>

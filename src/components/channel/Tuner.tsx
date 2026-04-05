@@ -15,9 +15,10 @@ interface TunerProps {
   onGenreDropdownClose?: () => void;
   citiesWithMatches?: Set<string>;
   genresWithMatches?: Set<string>;
+  compact?: boolean;
 }
 
-export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChange, cityResultCount, genreResultCount, onGenreDropdownClose, citiesWithMatches, genresWithMatches }: TunerProps) {
+export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChange, cityResultCount, genreResultCount, onGenreDropdownClose, citiesWithMatches, genresWithMatches, compact }: TunerProps) {
   // City dropdown state
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
   const [cityCustomMode, setCityCustomMode] = useState(false);
@@ -113,7 +114,7 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
       : `${selectedGenres[0]} +${selectedGenres.length - 1}`;
 
   return (
-    <div className="z-[90] bg-black/90 backdrop-blur-sm border-b border-white/5">
+    <div className={compact ? '' : 'z-[90] bg-black/90 backdrop-blur-sm border-b border-white/5'}>
       <div className="flex items-center h-8">
         {/* City selector - left column */}
         <div className="relative flex-1 flex justify-center">

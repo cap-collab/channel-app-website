@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useSchedule } from '@/contexts/ScheduleContext';
 import { Header } from '@/components/Header';
-import { Tuner } from '@/components/channel/Tuner';
+import { useFilterContext } from '@/contexts/FilterContext';
 import { SwipeableCardCarousel } from '@/components/channel/SwipeableCardCarousel';
 import { TicketCard } from '@/components/channel/TicketCard';
 import { LiveShowCard } from '@/components/channel/LiveShowCard';
@@ -28,23 +27,21 @@ import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { useArchives } from '@/hooks/useArchives';
 import { useBPM } from '@/contexts/BPMContext';
 import { useFavorites } from '@/hooks/useFavorites';
-import { getDefaultCity, matchesCity, SUPPORTED_CITIES } from '@/lib/city-detection';
+import { matchesCity, SUPPORTED_CITIES } from '@/lib/city-detection';
 import { GENRE_ALIASES, SUPPORTED_GENRES, matchesGenre as matchesGenreLib } from '@/lib/genres';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 
 type MatchedItem =
   | { type: 'irl'; data: IRLShowData; matchLabel: string | undefined }
   | { type: 'radio'; data: Show; station: Station; matchLabel: string | undefined; live?: boolean }
   | { type: 'profile'; data: DJProfile; matchLabel: string | undefined };
 
-export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
+export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boolean; exploreSearchBar?: React.ReactNode } = {}) {
   const { user, isAuthenticated } = useAuthContext();
-  const { isLive: isBroadcastLive, isStreaming: isBroadcastStreaming, currentDJ, play: playLive } = useBroadcastStreamContext();
+  const { isLive: isBroadcastLive, isStreaming: isBroadcastStreaming, currentDJ, currentShow, play: playLive } = useBroadcastStreamContext();
   const { stationBPM } = useBPM();
   const archivePlayer = useArchivePlayer();
   const { isGated, gateAttempt, clearGate } = archivePlayer;
-  const { archives, featuredArchive, loading: archivesLoading } = useArchives();
+  const { archives: rawArchives, featuredArchive: rawFeaturedArchive, loading: archivesLoading } = useArchives();
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
@@ -76,8 +73,6 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
   }, [mounted]);
   const { favorites, isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
   const { shows: scheduleShows, irlShows: scheduleIrlShows, curatorRecs: scheduleCuratorRecs, djProfiles: scheduleDjProfiles, loading: scheduleLoading } = useSchedule();
-  const router = useRouter();
-
   // Auth modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
@@ -109,26 +104,57 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
   const djProfiles = scheduleDjProfiles;
   const isLoading = scheduleLoading;
 
-  // Selected city and genres
-  const [selectedCity, setSelectedCity] = useState<string>(getDefaultCity());
-  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  // Selected city and genres (from global FilterContext)
+  const { selectedCity, selectedGenres, setTunerHints } = useFilterContext();
 
   // Genre alert prompt state (for logged-out users)
   const [showGenreAlertPrompt, setShowGenreAlertPrompt] = useState(false);
-  const genreAlertShownRef = useRef(false);
 
   // Determine which hero to show
   const isLiveReady = isBroadcastLive && isBroadcastStreaming;
-  const shouldShowLiveHero = isLiveReady && !archivePlayer.isPlaying;
   const shouldShowArchiveWithPrompt = isLiveReady && archivePlayer.isPlaying;
+
+  // Hero mode toggle: 'live' or 'archive' — only matters when live
+  const [heroMode, setHeroMode] = useState<'live' | 'archive'>('live');
+
+  // Auto-set hero mode when live status changes
+  useEffect(() => {
+    if (isLiveReady) {
+      setHeroMode(archivePlayer.isPlaying ? 'archive' : 'live');
+    }
+  }, [isLiveReady, archivePlayer.isPlaying]);
+
+  const isRestream = currentShow?.broadcastType === 'restream';
+
+  // Swipe handling for hero section
+  const heroSwipeRef = useRef<{ startX: number; startY: number } | null>(null);
+  const handleHeroTouchStart = useCallback((e: React.TouchEvent) => {
+    heroSwipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY };
+  }, []);
+  const handleHeroTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!heroSwipeRef.current || !isLiveReady) return;
+    const dx = e.changedTouches[0].clientX - heroSwipeRef.current.startX;
+    const dy = e.changedTouches[0].clientY - heroSwipeRef.current.startY;
+    heroSwipeRef.current = null;
+    // Only trigger on horizontal swipes (dx > dy and minimum distance)
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx < 0 && heroMode === 'live') {
+        setHeroMode('archive');
+      } else if (dx > 0 && heroMode === 'archive') {
+        setHeroMode('live');
+        if (archivePlayer.isPlaying) {
+          archivePlayer.pause();
+          playLive();
+        }
+      }
+    }
+  }, [isLiveReady, heroMode, archivePlayer, playLive]);
 
   const handleSwitchToLive = useCallback(() => {
     archivePlayer.pause();
     setShowLivePrompt(false);
     setDismissedLivePrompt(false);
-    // Auto-play live stream — the stream hook lives in context (always mounted),
-    // so play() works immediately regardless of which hero component is rendered.
-    // This runs from a user click, so browser autoplay policy is satisfied.
+    setHeroMode('live');
     playLive();
   }, [archivePlayer, playLive]);
 
@@ -140,124 +166,6 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
   // Follow/remind state
   const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
   const [addingReminderShowId, setAddingReminderShowId] = useState<string | null>(null);
-
-  // Load city/genre preferences: Firebase (one-time read) for auth users, localStorage for unauth
-  useEffect(() => {
-    if (user?.uid && db) {
-      const userRef = doc(db, 'users', user.uid);
-      getDoc(userRef).then((snapshot) => {
-        const data = snapshot.data();
-        setSelectedCity(data?.irlCity || getDefaultCity());
-        // Support both old string and new array format
-        const genres = data?.preferredGenres;
-        if (Array.isArray(genres)) {
-          setSelectedGenres(genres);
-        } else if (data?.preferredGenre) {
-          setSelectedGenres([data.preferredGenre]);
-        } else {
-          setSelectedGenres([]);
-        }
-      });
-      return;
-    }
-
-    try {
-      const localCity = localStorage.getItem('channel-selected-city');
-      setSelectedCity(localCity || getDefaultCity());
-    } catch {
-      setSelectedCity(getDefaultCity());
-    }
-    try {
-      const stored = localStorage.getItem('channel-selected-genres');
-      if (stored) {
-        setSelectedGenres(JSON.parse(stored));
-      } else {
-        // Migrate old single genre
-        const localGenre = localStorage.getItem('channel-selected-genre');
-        if (localGenre) setSelectedGenres([localGenre]);
-      }
-    } catch {
-      // localStorage not available
-    }
-  }, [user?.uid]);
-
-  // Migrate localStorage preferences to Firestore when user signs up/in
-  const prevUserRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (user?.uid && prevUserRef.current === null && db) {
-      try {
-        const storedGenres = localStorage.getItem('channel-selected-genres');
-        const storedCity = localStorage.getItem('channel-selected-city');
-        const storedGenreLegacy = localStorage.getItem('channel-selected-genre');
-
-        if (storedGenres || storedCity || storedGenreLegacy) {
-          const userDocRef = doc(db, 'users', user.uid);
-          getDoc(userDocRef).then((snap) => {
-            const data = snap.data();
-            const update: Record<string, unknown> = {};
-
-            // Only write genres if the user doesn't already have them in Firestore
-            if (!data?.preferredGenres || data.preferredGenres.length === 0) {
-              if (storedGenres) {
-                const genres = JSON.parse(storedGenres);
-                if (Array.isArray(genres) && genres.length > 0) {
-                  update.preferredGenres = genres;
-                }
-              } else if (storedGenreLegacy) {
-                update.preferredGenres = [storedGenreLegacy];
-              }
-            }
-
-            // Only write city if the user doesn't already have one
-            if (!data?.irlCity && storedCity && storedCity !== 'Anywhere') {
-              update.irlCity = storedCity;
-            }
-
-            if (Object.keys(update).length > 0) {
-              updateDoc(userDocRef, update).then(() => {
-                localStorage.removeItem('channel-selected-genres');
-                localStorage.removeItem('channel-selected-city');
-                localStorage.removeItem('channel-selected-genre');
-              }).catch(console.error);
-            }
-          }).catch(console.error);
-        }
-      } catch (e) {
-        console.error('Preference migration error:', e);
-      }
-    }
-    prevUserRef.current = user?.uid ?? null;
-  }, [user?.uid]);
-
-  const handleCityChange = useCallback(async (city: string) => {
-    setSelectedCity(city);
-    if (user?.uid && db) {
-      try {
-        const userRef = doc(db, 'users', user.uid);
-        await updateDoc(userRef, { irlCity: city });
-      } catch (error) {
-        console.error('Error saving city preference:', error);
-      }
-    } else {
-      try { localStorage.setItem('channel-selected-city', city); } catch {}
-    }
-    router.refresh();
-  }, [user?.uid, router]);
-
-  const handleGenresChange = useCallback(async (genres: string[]) => {
-    setSelectedGenres(genres);
-    if (user?.uid && db) {
-      try {
-        const userRef = doc(db, 'users', user.uid);
-        await updateDoc(userRef, { preferredGenres: genres });
-      } catch (error) {
-        console.error('Error saving genre preferences:', error);
-      }
-    } else {
-      try { localStorage.setItem('channel-selected-genres', JSON.stringify(genres)); } catch {}
-    }
-    router.refresh();
-  }, [user?.uid, router]);
 
   // Stations map for quick lookup
   const stationsMap = useMemo(() => {
@@ -303,6 +211,47 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
     if (matching.length === 0) return '';
     return matching.map((g) => g.toUpperCase()).join(' + ');
   }, [getMatchingGenres]);
+
+  // Sort archives by genre/city match (genre prioritized over city)
+  const { archives, featuredArchive } = useMemo(() => {
+    if (rawArchives.length === 0) return { archives: rawArchives, featuredArchive: rawFeaturedArchive };
+    if (selectedGenres.length === 0 && selectedCity === 'Anywhere') {
+      return { archives: rawArchives, featuredArchive: rawFeaturedArchive };
+    }
+
+    // Build DJ username → genres map from schedule DJ profiles
+    const djGenreMap = new Map<string, string[]>();
+    const djLocationMap = new Map<string, string>();
+    for (const profile of djProfiles) {
+      if (profile.username) {
+        if (profile.genres) djGenreMap.set(profile.username.toLowerCase(), profile.genres);
+        if (profile.location) djLocationMap.set(profile.username.toLowerCase(), profile.location);
+      }
+    }
+
+    const scored = rawArchives.map((archive) => {
+      let genreScore = 0;
+      let cityScore = 0;
+      for (const dj of archive.djs) {
+        const username = dj.username?.toLowerCase();
+        if (!username) continue;
+        const genres = djGenreMap.get(username);
+        if (genres && selectedGenres.length > 0) {
+          genreScore += selectedGenres.filter((g) => matchesGenreLib(genres, g)).length;
+        }
+        const location = djLocationMap.get(username);
+        if (location && selectedCity !== 'Anywhere' && matchesCity(location, selectedCity)) {
+          cityScore += 1;
+        }
+      }
+      // Genre weight 3x city weight
+      return { archive, score: genreScore * 3 + cityScore };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    const sorted = scored.map((s) => s.archive);
+    return { archives: sorted, featuredArchive: sorted[0] };
+  }, [rawArchives, rawFeaturedArchive, selectedGenres, selectedCity, djProfiles]);
 
   // Helper: check if a show is currently live
   const isShowLive = useCallback((show: Show): boolean => {
@@ -635,11 +584,9 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
     return locationGenreCards.length + genreCards.length;
   }, [selectedGenres, locationGenreCards, genreCards]);
 
-
   const missingGenres = useMemo(() => {
     if (selectedGenres.length === 0) return [];
     if (locationGenreCards.length === 0 && genreCards.length === 0) return selectedGenres;
-    // Check each genre individually — a genre is "missing" if no card across S1/S4 matches it
     const allGenreCards = [...locationGenreCards, ...genreCards];
     return selectedGenres.filter((genre) => {
       return !allGenreCards.some((item) => {
@@ -649,12 +596,10 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
     });
   }, [selectedGenres, locationGenreCards, genreCards, matchesGenre]);
 
-  // Compute which cities and genres have at least one matching show (for hiding empty options in dropdown)
-  // Mirror the actual section logic: radio shows need isValidShow + not ended + valid station
+  // Compute which cities and genres have at least one matching show
   const citiesWithMatches = useMemo(() => {
     const now = new Date();
     const set = new Set<string>();
-    // Collect all valid locations from displayable shows
     const radioLocations: string[] = [];
     for (const show of allShows) {
       if (!isValidShow(show) || new Date(show.endTime) <= now || !stationsMap.has(show.stationId)) continue;
@@ -674,7 +619,6 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
   const genresWithMatches = useMemo(() => {
     const now = new Date();
     const set = new Set<string>();
-    // Collect all DJ genres from displayable shows (valid + not ended + valid station) and IRL shows
     const allDjGenres: string[][] = [];
     for (const show of allShows) {
       if (!isValidShow(show) || new Date(show.endTime) <= now || !stationsMap.has(show.stationId)) continue;
@@ -700,13 +644,23 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
     return set;
   }, [allShows, irlShows, djProfiles, isValidShow, stationsMap]);
 
-  // Genre alert prompt handlers
+  // Genre alert prompt handler for logged-out users
   const handleGenreDropdownClose = useCallback(() => {
-    if (!isAuthenticated && selectedGenres.length > 0 && !genreAlertShownRef.current) {
-      genreAlertShownRef.current = true;
+    if (!isAuthenticated && selectedGenres.length > 0) {
       setShowGenreAlertPrompt(true);
     }
   }, [isAuthenticated, selectedGenres]);
+
+  // Push computed Tuner hints into FilterContext for HeaderTuner
+  useEffect(() => {
+    setTunerHints({
+      cityResultCount,
+      genreResultCount,
+      citiesWithMatches,
+      genresWithMatches,
+      onGenreDropdownClose: handleGenreDropdownClose,
+    });
+  }, [cityResultCount, genreResultCount, citiesWithMatches, genresWithMatches, handleGenreDropdownClose, setTunerHints]);
 
   const handleGenreAlertSignUp = useCallback(() => {
     setShowGenreAlertPrompt(false);
@@ -857,14 +811,59 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
     <div className="min-h-[100dvh] text-white relative flex flex-col">
       <AnimatedBackground />
       <div className="sticky top-0 z-[100]">
-        <Header currentPage="channel" position="sticky" showSearch />
+        <Header currentPage="channel" position="sticky" />
       </div>
 
       {/* Hero Section — Live Broadcast, Archive, or Offline */}
-      {skipHero ? null : mounted && shouldShowLiveHero ? (
-        <LiveBroadcastHero />
-      ) : mounted ? (
-        <div className="relative">
+      {skipHero ? null : mounted ? (
+        <div className="relative" onTouchStart={isLiveReady ? handleHeroTouchStart : undefined} onTouchEnd={isLiveReady ? handleHeroTouchEnd : undefined}>
+
+          {/* Live/Archive toggle — only shown when live */}
+          {isLiveReady && (
+            <div className="flex items-center justify-center gap-0 px-4 pt-4 pb-1">
+              <button
+                onClick={() => {
+                  setHeroMode('live');
+                  if (archivePlayer.isPlaying) {
+                    archivePlayer.pause();
+                    playLive();
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-tighter font-bold transition-colors ${
+                  heroMode === 'live' ? 'text-red-500' : 'text-zinc-600 hover:text-zinc-400'
+                }`}
+              >
+                {isRestream ? (
+                  <svg className={`w-3 h-3 ${heroMode === 'live' ? 'animate-pulse' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                    <path d="M3 3v5h5" />
+                  </svg>
+                ) : (
+                  <span className="relative flex h-2 w-2">
+                    {heroMode === 'live' && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />}
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                  </span>
+                )}
+                {isRestream ? 'Restream' : 'Live'}
+                {stationBPM['broadcast']?.bpm && ` ${stationBPM['broadcast'].bpm} BPM`}
+              </button>
+              <span className="text-zinc-700 text-xs mx-1">|</span>
+              <button
+                onClick={() => setHeroMode('archive')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-tighter font-bold transition-colors ${
+                  heroMode === 'archive' ? 'text-gray-400' : 'text-zinc-600 hover:text-zinc-400'
+                }`}
+              >
+                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="3" width="20" height="5" rx="1" />
+                  <path d="M4 8v11a2 2 0 002 2h12a2 2 0 002-2V8" />
+                  <path d="M10 12h4" />
+                </svg>
+                Archive
+              </button>
+            </div>
+          )}
+
           {/* Switch-to-live prompt overlay */}
           {shouldShowArchiveWithPrompt && showLivePrompt && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -895,7 +894,10 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
             </div>
           )}
 
-          {archivesLoading ? (
+          {/* Hero content based on mode */}
+          {isLiveReady && heroMode === 'live' ? (
+            <LiveBroadcastHero />
+          ) : archivesLoading ? (
             <div className="flex items-center justify-center py-24">
               <svg className="animate-spin h-8 w-8 text-zinc-500" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
@@ -914,6 +916,9 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
 
       <div id="scene" />
 
+      {/* Explore search bar (only rendered on /explore) */}
+      {exploreSearchBar}
+
       {/* Favorites — followed DJs & favorited shows in next 7 days, only when NOT on Channel Radio */}
       {mounted && !(isBroadcastLive && isBroadcastStreaming) && favoritesNowLive.length > 0 && (
         <section className="px-4 md:px-8 pt-4 pb-6 relative z-10">
@@ -930,19 +935,6 @@ export function ChannelClient({ skipHero }: { skipHero?: boolean } = {}) {
       <section className="px-4 md:px-8 pb-0 relative z-10">
         <div className="max-w-7xl mx-auto">
           <h2 className="text-2xl md:text-3xl font-semibold mb-2">Meanwhile in the scene</h2>
-          <div className="flex flex-col sm:flex-row gap-3 mb-1">
-            <Tuner
-              selectedCity={selectedCity}
-              onCityChange={handleCityChange}
-              selectedGenres={selectedGenres}
-              onGenresChange={handleGenresChange}
-              cityResultCount={cityResultCount}
-              genreResultCount={genreResultCount}
-              onGenreDropdownClose={handleGenreDropdownClose}
-              citiesWithMatches={citiesWithMatches}
-              genresWithMatches={genresWithMatches}
-            />
-          </div>
         </div>
       </section>
 

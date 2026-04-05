@@ -135,7 +135,7 @@ export function DJPortalClient() {
   if (status === 'success') {
     return (
       <div className="min-h-screen bg-black">
-        <Header currentPage="dj-portal" position="sticky" showSearch />
+        <Header currentPage="dj-portal" position="sticky" />
 
         <div className="p-4 md:p-8">
           <div className="max-w-2xl mx-auto text-center py-20">
@@ -172,7 +172,7 @@ export function DJPortalClient() {
 
   return (
     <div className="min-h-screen bg-black">
-      <Header currentPage="dj-portal" position="sticky" showSearch />
+      <Header currentPage="dj-portal" position="sticky" />
 
       <main className="p-4 md:p-8">
         <div className="max-w-2xl mx-auto">

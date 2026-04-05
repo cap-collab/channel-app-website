@@ -445,7 +445,7 @@ export function DJProfileClient() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-black">
-        <Header position="sticky" showSearch />
+        <Header position="sticky" />
         <main className="max-w-xl mx-auto p-4">
           <div className="text-center py-12">
             <p className="text-gray-500 mb-6">
@@ -472,7 +472,7 @@ export function DJProfileClient() {
   if (!isDJ(role)) {
     return (
       <div className="min-h-screen bg-black">
-        <Header position="sticky" showSearch />
+        <Header position="sticky" />
         <main className="max-w-xl mx-auto p-4">
           <div className="py-8">
             <h1 className="text-2xl font-semibold text-white mb-2">Upgrade to DJ Profile</h1>
@@ -527,7 +527,7 @@ export function DJProfileClient() {
 
   return (
     <div className="min-h-screen bg-black">
-      <Header position="sticky" showSearch />
+      <Header position="sticky" />
 
       <main className="max-w-xl mx-auto p-4">
         <div className="space-y-8">

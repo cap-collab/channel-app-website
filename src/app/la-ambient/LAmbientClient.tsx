@@ -246,7 +246,7 @@ export function LAmbientClient() {
   return (
     <div className="min-h-screen text-white relative">
       <AnimatedBackground />
-      <Header position="sticky" showSearch />
+      <Header position="sticky" />
 
       <main className="max-w-5xl mx-auto px-6 py-4 pb-24">
         {/* Page Header */}

@@ -593,6 +593,10 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
                   )}
                 </button>
+                {/* Show name — top left */}
+                <div className="absolute top-2 left-2 drop-shadow-lg">
+                  <span className="text-sm font-bold text-white uppercase tracking-wide">{showName}</span>
+                </div>
                 {/* DJ info overlay — bottom left */}
                 <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
               </>
@@ -637,6 +641,10 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
                   )}
                 </button>
+                {/* Show name — top left */}
+                <div className="absolute top-2 left-2 drop-shadow-lg">
+                  <span className="text-sm font-bold text-white uppercase tracking-wide">{showName}</span>
+                </div>
                 <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
               </>
             ) : (

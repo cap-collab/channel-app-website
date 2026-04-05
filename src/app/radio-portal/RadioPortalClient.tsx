@@ -205,7 +205,7 @@ export function RadioPortalClient() {
   if (authLoading || roleLoading) {
     return (
       <div className="min-h-screen bg-black">
-        <Header currentPage="radio-portal" position="sticky" showSearch />
+        <Header currentPage="radio-portal" position="sticky" />
         <div className="flex items-center justify-center" style={{ minHeight: 'calc(100vh - 60px)' }}>
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
         </div>
@@ -217,7 +217,7 @@ export function RadioPortalClient() {
   if (isAuthenticated && isBroadcaster(role)) {
     return (
       <div className="min-h-screen bg-black">
-        <Header currentPage="radio-portal" position="sticky" showSearch />
+        <Header currentPage="radio-portal" position="sticky" />
         <div className="flex items-center justify-center" style={{ minHeight: 'calc(100vh - 60px)' }}>
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
         </div>
@@ -230,7 +230,7 @@ export function RadioPortalClient() {
     const submittedName = submittedFormType === 'feature' ? featureFormData.name : launchFormData.name;
     return (
       <div className="min-h-screen bg-black">
-        <Header currentPage="radio-portal" position="sticky" showSearch />
+        <Header currentPage="radio-portal" position="sticky" />
         <div className="flex flex-col items-center justify-center p-8" style={{ minHeight: 'calc(100vh - 60px)' }}>
           <div className="max-w-md text-center">
             <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -266,7 +266,7 @@ export function RadioPortalClient() {
 
   return (
     <div className="min-h-screen bg-black">
-      <Header currentPage="radio-portal" position="sticky" showSearch />
+      <Header currentPage="radio-portal" position="sticky" />
 
       <main className="p-8">
         {/* Intro Section */}

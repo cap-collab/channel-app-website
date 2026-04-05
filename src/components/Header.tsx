@@ -6,33 +6,29 @@ import Link from "next/link";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/AuthModal";
 import { MobileMenu, MobileMenuItem } from "@/components/MobileMenu";
-import { HeaderSearch } from "@/components/HeaderSearch";
-import { useBroadcastLiveStatus } from "@/hooks/useBroadcastLiveStatus";
+import { HeaderTuner } from "@/components/HeaderTuner";
 import { GlobalBroadcastBar } from "@/components/GlobalBroadcastBar";
 
-type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal" | "radio-portal" | "my-shows" | "streaming-guide" | "stripe-setup" | "studio" | "archives";
+type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal" | "radio-portal" | "my-shows" | "streaming-guide" | "stripe-setup" | "studio" | "archives" | "explore";
 
 interface HeaderProps {
   currentPage?: CurrentPage;
   position?: "fixed" | "sticky";
-  showSearch?: boolean;
 }
 
-export function Header({ currentPage = "home", position = "fixed", showSearch = false }: HeaderProps) {
+export function Header({ currentPage = "home", position = "fixed" }: HeaderProps) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { isAuthenticated } = useAuthContext();
-  const { isLive } = useBroadcastLiveStatus();
 
   // Build menu items - now used for both mobile hamburger and desktop dropdown
   const getMenuItems = (): MobileMenuItem[] => {
     const items: MobileMenuItem[] = [];
 
-    // Home/Live Now - always first
-    if (isLive) {
-      items.push({ label: "🔴 Live Now", href: "/radio", active: currentPage === "channel" });
-    } else {
-      items.push({ label: "Home", href: "/radio", active: currentPage === "channel" });
-    }
+    // Home - always first
+    items.push({ label: "Home", href: "/radio", active: currentPage === "channel" });
+
+    // Explore - always shown
+    items.push({ label: "Explore", href: "/explore", active: currentPage === "explore" });
 
     // Studio only shown when signed out (signed-in users have Studio in the auth section)
     if (!isAuthenticated) {
@@ -74,12 +70,10 @@ export function Header({ currentPage = "home", position = "fixed", showSearch = 
             </Link>
           </div>
 
-          {/* Center: Search bar - always visible, inline with logo */}
-          {showSearch && (
-            <div className="flex-1 mx-3 max-w-md">
-              <HeaderSearch onAuthRequired={() => setShowAuthModal(true)} />
-            </div>
-          )}
+          {/* Center: City/Genre filters */}
+          <div className="flex-1 mx-3 max-w-md">
+            <HeaderTuner />
+          </div>
 
           {/* Right side: Menu button */}
           <div className="flex items-center">
