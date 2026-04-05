@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { queryUsersWhere, queryCollection, updateUser } from "@/lib/firebase-rest";
+import { getAdminDb } from "@/lib/firebase-admin";
 
 // One-time migration:
 // 1. Opt all DJ users into djInsiders marketing emails
@@ -14,76 +14,78 @@ export async function GET(request: NextRequest) {
 
   const dryRun = request.nextUrl.searchParams.get("dryRun") === "true";
 
+  const db = getAdminDb();
+  if (!db) {
+    return NextResponse.json({ error: "Database not configured" }, { status: 500 });
+  }
+
   try {
     // --- DJ Insiders: all users with role=dj ---
-    const djUsers = await queryUsersWhere("role", "EQUAL", "dj");
+    const djSnap = await db.collection("users").where("role", "==", "dj").get();
 
     let djUpdated = 0;
     let djSkipped = 0;
     const djResults: Array<{ id: string; email?: string; action: string }> = [];
 
-    for (const user of djUsers) {
-      const data = user.data;
-      const notifs = data.emailNotifications as Record<string, unknown> | undefined;
+    for (const doc of djSnap.docs) {
+      const data = doc.data();
+      const notifs = data.emailNotifications;
 
       if (notifs?.djInsiders === true) {
         djSkipped++;
-        djResults.push({ id: user.id, email: data.email as string, action: "already_enabled" });
+        djResults.push({ id: doc.id, email: data.email, action: "already_enabled" });
         continue;
       }
 
       if (!dryRun) {
-        await updateUser(user.id, { "emailNotifications.djInsiders": true });
+        await doc.ref.update({ "emailNotifications.djInsiders": true });
       }
 
       djUpdated++;
-      djResults.push({ id: user.id, email: data.email as string, action: dryRun ? "would_enable" : "enabled" });
+      djResults.push({ id: doc.id, email: data.email, action: dryRun ? "would_enable" : "enabled" });
     }
 
     // --- Listener marketing: all users, enable watchlistMatch unless explicitly false ---
-    const allUsers = await queryCollection("users", [], 10000);
+    const allSnap = await db.collection("users").get();
 
     let listenerUpdated = 0;
     let listenerSkipped = 0;
     const listenerResults: Array<{ id: string; email?: string; action: string }> = [];
 
-    for (const user of allUsers) {
-      const data = user.data;
-      const notifs = data.emailNotifications as Record<string, unknown> | undefined;
+    for (const doc of allSnap.docs) {
+      const data = doc.data();
+      const notifs = data.emailNotifications;
 
-      // Already opted in
       if (notifs?.watchlistMatch === true) {
         listenerSkipped++;
-        listenerResults.push({ id: user.id, email: data.email as string, action: "already_enabled" });
+        listenerResults.push({ id: doc.id, email: data.email, action: "already_enabled" });
         continue;
       }
 
-      // Explicitly opted out — respect that
       if (notifs?.watchlistMatch === false) {
         listenerSkipped++;
-        listenerResults.push({ id: user.id, email: data.email as string, action: "explicitly_off" });
+        listenerResults.push({ id: doc.id, email: data.email, action: "explicitly_off" });
         continue;
       }
 
-      // Not set yet (undefined/null) — opt them in
       if (!dryRun) {
-        await updateUser(user.id, { "emailNotifications.watchlistMatch": true });
+        await doc.ref.update({ "emailNotifications.watchlistMatch": true });
       }
 
       listenerUpdated++;
-      listenerResults.push({ id: user.id, email: data.email as string, action: dryRun ? "would_enable" : "enabled" });
+      listenerResults.push({ id: doc.id, email: data.email, action: dryRun ? "would_enable" : "enabled" });
     }
 
     return NextResponse.json({
       dryRun,
       djInsiders: {
-        totalDJs: djUsers.length,
+        totalDJs: djSnap.docs.length,
         updated: djUpdated,
         skipped: djSkipped,
         results: djResults,
       },
       listenerMarketing: {
-        totalUsers: allUsers.length,
+        totalUsers: allSnap.docs.length,
         updated: listenerUpdated,
         skipped: listenerSkipped,
         results: listenerResults,
