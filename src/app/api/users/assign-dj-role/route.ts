@@ -59,6 +59,11 @@ export async function POST(request: NextRequest) {
         updateData.djTermsAcceptedAt = Timestamp.now();
       }
 
+      // Auto opt-in to DJ marketing emails
+      if (!userData.emailNotifications?.djInsiders) {
+        updateData['emailNotifications.djInsiders'] = true;
+      }
+
       // Check for pending DJ profiles and claim them
       // First try with normalized email
       let pendingProfilesSnapshot = await db.collection('pending-dj-profiles')

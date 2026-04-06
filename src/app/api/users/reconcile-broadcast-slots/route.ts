@@ -107,7 +107,10 @@ export async function POST(request: NextRequest) {
     if (slotsSnapshot.size > 0 || djSlotsUpdated > 0) {
       const currentRole = userData?.role;
       if (!currentRole || currentRole === 'user') {
-        await db.collection('users').doc(userId).update({ role: 'dj' });
+        await db.collection('users').doc(userId).update({
+          role: 'dj',
+          'emailNotifications.djInsiders': true,
+        });
         djRoleAssigned = true;
         console.log(`[reconcile] Assigned DJ role to user ${userId}`);
       }
@@ -139,7 +142,10 @@ export async function POST(request: NextRequest) {
       if (!currentRole || currentRole === 'user') {
         // Get the djTermsAcceptedAt from the pending record
         const pendingData = pendingDJRoleSnapshot.docs[0].data();
-        const updateData: { role: string; djTermsAcceptedAt?: FirebaseFirestore.Timestamp } = { role: 'dj' };
+        const updateData: Record<string, unknown> = {
+          role: 'dj',
+          'emailNotifications.djInsiders': true,
+        };
         if (pendingData.djTermsAcceptedAt) {
           updateData.djTermsAcceptedAt = pendingData.djTermsAcceptedAt;
         }
@@ -176,6 +182,7 @@ export async function POST(request: NextRequest) {
         chatUsername: pendingData.chatUsername,
         chatUsernameNormalized: pendingData.chatUsernameNormalized,
         role: 'dj',
+        'emailNotifications.djInsiders': true,
       };
 
       if (pendingData.djProfile) {
