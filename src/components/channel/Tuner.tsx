@@ -30,15 +30,15 @@ interface TunerProps {
   onCityChange: (city: string) => void;
   selectedGenres: string[];
   onGenresChange: (genres: string[]) => void;
-  cityResultCount?: number;
-  genreResultCount?: number;
+  cityResultCount?: number; // unused but kept for interface compat
+  genreResultCount?: number; // unused but kept for interface compat
   onGenreDropdownClose?: () => void;
   citiesWithMatches?: Set<string>;
   genresWithMatches?: Set<string>;
   compact?: boolean;
 }
 
-export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChange, cityResultCount, genreResultCount, onGenreDropdownClose, citiesWithMatches, genresWithMatches, compact }: TunerProps) {
+export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChange, onGenreDropdownClose, citiesWithMatches, genresWithMatches, compact }: TunerProps) {
   // City dropdown state
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
   const [cityCustomMode, setCityCustomMode] = useState(false);
@@ -147,10 +147,9 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
               setCityDropdownOpen(!cityDropdownOpen);
               closeGenreDropdown();
             }}
-            className={`h-6 px-2.5 font-mono text-[11px] uppercase tracking-tight flex items-center gap-1 transition-colors rounded-sm bg-white/5 hover:bg-white/10 ${cityResultCount === 0 ? 'text-zinc-600' : 'text-zinc-400 hover:text-white'}`}
+            className="h-6 px-2.5 font-mono text-[11px] uppercase tracking-tight flex items-center gap-1 transition-colors rounded-sm bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white"
           >
             <span className="truncate max-w-[120px]">{compact && selectedCity ? (COMPACT_CITY_LABELS[selectedCity] || selectedCity) : (selectedCity || 'City')}</span>
-            {cityResultCount === 0 && <span className="text-zinc-600 text-[9px]">(0)</span>}
             <svg
               className={`w-2.5 h-2.5 flex-shrink-0 transition-transform ${cityDropdownOpen ? 'rotate-180' : ''}`}
               fill="none"
@@ -255,10 +254,9 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
                 closeCityDropdown();
               }
             }}
-            className={`h-6 px-2.5 font-mono text-[11px] uppercase tracking-tight flex items-center gap-1 transition-colors rounded-sm bg-white/5 hover:bg-white/10 ${genreResultCount === 0 ? 'text-zinc-600' : 'text-zinc-400 hover:text-white'}`}
+            className="h-6 px-2.5 font-mono text-[11px] uppercase tracking-tight flex items-center gap-1 transition-colors rounded-sm bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white"
           >
             <span className="truncate max-w-[120px]">{genreLabel}</span>
-            {genreResultCount === 0 && <span className="text-zinc-600 text-[9px]">(0)</span>}
             <svg
               className={`w-2.5 h-2.5 flex-shrink-0 transition-transform ${genreDropdownOpen ? 'rotate-180' : ''}`}
               fill="none"
