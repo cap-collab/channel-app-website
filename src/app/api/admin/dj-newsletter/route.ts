@@ -126,6 +126,7 @@ export async function GET(request: NextRequest) {
     { email: "cesartoribio1@gmail.com", name: "Cesar", id: "pending-toribio" },
     { email: "celebritybitcrush@gmail.com", name: "Keigo", id: "pending-celebritybitcrush" },
     { email: "dorwand@gmail.com", name: "Dor", id: "pending-dorwand" },
+    { email: "omer.almileik@gmail.com", name: "Omer", id: "pending-omer" },
   ];
   for (const pending of EXTRA_PENDING_DJS) {
     if (EXCLUDE_EMAILS.has(pending.email)) continue;
