@@ -12,7 +12,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { email, timezone } = await request.json();
+    const { email, timezone, city, genres } = await request.json();
 
     if (!email || typeof email !== 'string') {
       return NextResponse.json(
@@ -21,13 +21,15 @@ export async function POST(request: Request) {
       );
     }
 
-    // City from Vercel IP geolocation (most granular available)
+    // City from client filter selection / device timezone, with Vercel IP geolocation as fallback
     const geoCity = request.headers.get('x-vercel-ip-city');
+    const resolvedCity = city || (geoCity ? decodeURIComponent(geoCity) : undefined);
 
     await db.collection('radio-notify-waitlist').add({
       email: email.trim().toLowerCase(),
-      ...(geoCity && { city: decodeURIComponent(geoCity) }),
+      ...(resolvedCity && { city: resolvedCity }),
       ...(timezone && { timezone }),
+      ...(Array.isArray(genres) && genres.length > 0 && { genres }),
       marketingOptIn: true,
       submittedAt: FieldValue.serverTimestamp(),
     });

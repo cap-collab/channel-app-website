@@ -4,11 +4,13 @@ import { useState, useEffect, useRef, useCallback, FormEvent } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { ArchivePlayerContext } from '@/contexts/ArchivePlayerContext';
+import { useFilterContext } from '@/contexts/FilterContext';
+import { getDefaultCity } from '@/lib/city-detection';
 import { useContext } from 'react';
 
 const STORAGE_KEY_FILED = 'radio-email-filed';       // localStorage — persists forever after submit
 const SESSION_KEY_SHOWN = 'email-popup-shown';         // sessionStorage — once per session
-const PLAY_DELAY_S = 30; // 30 seconds of playback
+const PLAY_DELAY_S = 60; // 60 seconds of playback
 
 function hasFiledEmail(): boolean {
   if (typeof window === 'undefined') return false;
@@ -24,11 +26,12 @@ function recordShown() {
   sessionStorage.setItem(SESSION_KEY_SHOWN, 'true');
 }
 
-export function EmailPopup({ siteDelayMs, suppress }: { siteDelayMs?: number; suppress?: boolean } = {}) {
+export function EmailPopup({ siteDelayMs }: { siteDelayMs?: number } = {}) {
   const { isAuthenticated } = useAuthContext();
   const { isPlaying: liveIsPlaying } = useBroadcastStreamContext();
   const archiveCtx = useContext(ArchivePlayerContext);
   const archiveIsPlaying = archiveCtx?.isPlaying ?? false;
+  const { selectedCity, selectedGenres } = useFilterContext();
 
   const isPlaying = liveIsPlaying || archiveIsPlaying;
 
@@ -56,12 +59,12 @@ export function EmailPopup({ siteDelayMs, suppress }: { siteDelayMs?: number; su
 
   // Suppress entirely if authenticated, already filed, already shown this session, or externally suppressed
   useEffect(() => {
-    if (isAuthenticated || hasFiledEmail() || hasShownThisSession() || suppress) {
+    if (isAuthenticated || hasFiledEmail() || hasShownThisSession()) {
       suppressedRef.current = true;
     } else {
       suppressedRef.current = false;
     }
-  }, [isAuthenticated, suppress]);
+  }, [isAuthenticated]);
 
   const maybeShow = useCallback(() => {
     if (suppressedRef.current || isOpen) return;
@@ -111,6 +114,8 @@ export function EmailPopup({ siteDelayMs, suppress }: { siteDelayMs?: number; su
         body: JSON.stringify({
           email: email.trim(),
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          city: (selectedCity && selectedCity !== 'Anywhere') ? selectedCity : getDefaultCity(),
+          ...(selectedGenres.length > 0 && { genres: selectedGenres }),
         }),
       });
       if (!res.ok) throw new Error('Failed');

@@ -13,7 +13,6 @@ import { CuratorRecCard } from '@/components/channel/CuratorRecCard';
 import { InviteCard } from '@/components/channel/InviteCard';
 import { SkeletonCard } from '@/components/channel/SkeletonCard';
 import { AuthModal } from '@/components/AuthModal';
-import { GenreAlertPrompt } from '@/components/channel/GenreAlertPrompt';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { ArchiveHero } from '@/components/channel/ArchiveHero';
 import { computeDJChatRoom } from '@/lib/broadcast-utils';
@@ -83,9 +82,6 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
 
   // Selected city and genres (from global FilterContext)
   const { selectedCity, selectedGenres, setTunerHints } = useFilterContext();
-
-  // Genre alert prompt state (for logged-out users)
-  const [showGenreAlertPrompt, setShowGenreAlertPrompt] = useState(false);
 
   // Determine which hero to show
   const isLiveReady = isBroadcastLive && isBroadcastStreaming;
@@ -582,10 +578,10 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
     return set;
   }, [allShows, irlShows, djProfiles, isValidShow, stationsMap]);
 
-  // Genre alert prompt handler for logged-out users
+  // Genre filter triggers email popup for logged-out users
   const handleGenreDropdownClose = useCallback(() => {
     if (!isAuthenticated && selectedGenres.length > 0) {
-      setShowGenreAlertPrompt(true);
+      window.dispatchEvent(new Event('open-email-popup'));
     }
   }, [isAuthenticated, selectedGenres]);
 
@@ -599,12 +595,6 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
       onGenreDropdownClose: handleGenreDropdownClose,
     });
   }, [cityResultCount, genreResultCount, citiesWithMatches, genresWithMatches, handleGenreDropdownClose, setTunerHints]);
-
-  const handleGenreAlertSignUp = useCallback(() => {
-    setShowGenreAlertPrompt(false);
-    setAuthModalMessage('Sign up to receive alerts for shows matching your genre preferences');
-    setShowAuthModal(true);
-  }, []);
 
   // Auth handlers
   const handleRemindMe = useCallback((show: Show) => {
@@ -775,7 +765,7 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
         </div>
       ) : null}
 
-      <EmailPopup suppress={isLiveReady} />
+      <EmailPopup />
 
       <div id="scene" />
 
@@ -884,12 +874,6 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
         </div>
       </main>
       </div>
-
-      <GenreAlertPrompt
-        isOpen={showGenreAlertPrompt}
-        onClose={() => setShowGenreAlertPrompt(false)}
-        onSignUp={handleGenreAlertSignUp}
-      />
 
       <AuthModal
         isOpen={showAuthModal}
