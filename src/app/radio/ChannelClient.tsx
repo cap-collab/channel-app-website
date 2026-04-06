@@ -35,6 +35,10 @@ type MatchedItem =
   | { type: 'radio'; data: Show; station: Station; matchLabel: string | undefined; live?: boolean }
   | { type: 'profile'; data: DJProfile; matchLabel: string | undefined };
 
+type RecommendedItem =
+  | MatchedItem
+  | { type: 'curator'; data: CuratorRec };
+
 export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boolean; exploreSearchBar?: React.ReactNode } = {}) {
   const { user, isAuthenticated } = useAuthContext();
   const { isLive: isBroadcastLive, isStreaming: isBroadcastStreaming, currentDJ, currentShow, play: playLive } = useBroadcastStreamContext();
@@ -85,17 +89,6 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
     }
   }, [isGated, gateAttempt, isAuthenticated]);
 
-  // Track whether user has seen curator recs before (move to bottom after first view)
-  const [hasSeenCuratorRecs, setHasSeenCuratorRecs] = useState(false);
-
-  // Read localStorage after mount to avoid hydration mismatch
-  useEffect(() => {
-    try {
-      if (localStorage.getItem('channel-seen-curator-recs') === '1') {
-        setHasSeenCuratorRecs(true);
-      }
-    } catch {}
-  }, []);
 
   // All shows data (from shared ScheduleContext)
   const allShows = scheduleShows;
@@ -257,11 +250,10 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
   // Compute all sections with deduplication
   const {
     favoritesNowLive,
-    locationGenreCards,
-    filteredCuratorRecs,
-    genreCards,
-    locationCards,
-    radioCards,
+    todayTomorrowCards,
+    nextWeekCards,
+    genreOnlineCards,
+    recommendedByCards,
   } = useMemo(() => {
     const isAnywhere = !selectedCity || selectedCity === 'Anywhere';
     const hasGenreFilter = selectedGenres.length > 0;
@@ -319,9 +311,6 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
     const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
     const twoWeeksDateStr = twoWeeksFromNow.toLocaleDateString('en-CA'); // YYYY-MM-DD
     const nowDateStr = now.toLocaleDateString('en-CA'); // YYYY-MM-DD
-    // IRL shows in the scene section: only today, tomorrow, or day after tomorrow
-    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
-    const sceneCutoffDateStr = threeDaysFromNow.toLocaleDateString('en-CA'); // YYYY-MM-DD
     const s0Candidates: { item: MatchedItem; id: string; djName: string | undefined; startMs: number; live: boolean }[] = [];
     // Radio shows from followed DJs / favorited shows in next 2 weeks
     for (const show of allShows) {
@@ -397,61 +386,105 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
       s0.push({ type: 'profile', data: profile, matchLabel: undefined });
     }
 
-    // Section 1: Location + Genre (grid, max 4) — sorted by match count > sortGroup > time > isChannelUser
-    // Only show when a specific city is selected (not "Anywhere")
-    let s1: MatchedItem[] = [];
-    if (hasGenreFilter && !isAnywhere) {
-      const candidates: Candidate[] = [];
-      // IRL shows (always from Channel users) — city + genre match, within 3 days
-      for (const show of irlShows) {
-        if (show.date >= sceneCutoffDateStr) continue;
-        if (!matchesCity(show.location, selectedCity)) continue;
-        if (!matchesAnyGenre(show.djGenres)) continue;
-        const id = `irl-${show.djUsername}-${show.date}`;
-        const genreLabel = genreLabelFor(show.djGenres);
-        const label = `${selectedCity.toUpperCase()} + ${genreLabel}`;
-        candidates.push({ item: makeIRLItem(show, label), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres), startMs: new Date(show.date + 'T00:00:00').getTime(), sortGroup: 1, isChannelUser: true });
-      }
-      // Radio shows (live and upcoming)
-      for (const show of allShows) {
-        if (!isValidShow(show)) continue;
-        if (new Date(show.endTime) <= now) continue;
-        const cityMatch = show.djLocation ? matchesCity(show.djLocation, selectedCity) : false;
-        if (!cityMatch) continue;
-        if (!matchesAnyGenre(show.djGenres)) continue;
-        const live = isShowLive(show);
-        const label = `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`;
-        const item = makeRadioItem(show, label, live || undefined);
-        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), startMs: new Date(show.startTime).getTime(), sortGroup: live ? 0 : 3, isChannelUser: show.isChannelUser ?? false });
-      }
-      s1 = takeSorted(candidates, 4);
-    }
+    // Date boundaries for time-windowed sections
+    const tomorrowEnd = new Date(now);
+    tomorrowEnd.setDate(tomorrowEnd.getDate() + 2);
+    tomorrowEnd.setHours(0, 0, 0, 0);
+    const tomorrowCutoffDateStr = tomorrowEnd.toLocaleDateString('en-CA'); // exclusive upper bound for IRL dates
 
-    // Section 3: Curator recs from followed DJs (grid, max 4)
-    const s3: CuratorRec[] = [];
-    if (followedDJNames.length > 0) {
-      for (const rec of curatorRecs) {
-        if (s3.length >= 4) break;
-        if (followedDJNames.includes(rec.djUsername.toLowerCase()) ||
-            followedDJNames.includes(rec.djName.toLowerCase())) {
-          s3.push(rec);
-        }
-      }
-    }
+    const weekStart = new Date(now);
+    weekStart.setDate(weekStart.getDate() + 2); // day after tomorrow
+    weekStart.setHours(0, 0, 0, 0);
+    const s2StartDateStr = weekStart.toLocaleDateString('en-CA');
 
-    // Section 4: Genre matching (swipe, max 5) — sorted by match count > sortGroup > time > isChannelUser
-    let s4: MatchedItem[] = [];
+    const weekEnd = new Date(now);
+    weekEnd.setDate(weekEnd.getDate() + 8);
+    weekEnd.setHours(0, 0, 0, 0);
+    const s2EndDateStr = weekEnd.toLocaleDateString('en-CA');
+
+    // New Section 1: Location + Genre — today/tomorrow (max 5, overflow spills to S2)
+    let newS1: MatchedItem[] = [];
+    let s1Overflow: MatchedItem[] = [];
     if (hasGenreFilter) {
       const candidates: Candidate[] = [];
-      // IRL shows — genre match, within 3 days
-      for (const show of irlShows) {
-        if (show.date >= sceneCutoffDateStr) continue;
-        if (!matchesAnyGenre(show.djGenres)) continue;
-        const id = `irl-${show.djUsername}-${show.date}`;
-        const genreLabel = genreLabelFor(show.djGenres);
-        candidates.push({ item: makeIRLItem(show, genreLabel || show.location.toUpperCase()), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres), startMs: new Date(show.date + 'T00:00:00').getTime(), sortGroup: 1, isChannelUser: true });
+      // IRL shows — BOTH city + genre match, today/tomorrow (only when city is set)
+      if (!isAnywhere) {
+        for (const show of irlShows) {
+          if (show.date < nowDateStr || show.date >= tomorrowCutoffDateStr) continue;
+          if (!matchesCity(show.location, selectedCity)) continue;
+          if (!matchesAnyGenre(show.djGenres)) continue;
+          const id = `irl-${show.djUsername}-${show.date}`;
+          const genreLabel = genreLabelFor(show.djGenres);
+          const label = `${selectedCity.toUpperCase()} + ${genreLabel}`;
+          candidates.push({ item: makeIRLItem(show, label), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres), startMs: new Date(show.date + 'T00:00:00').getTime(), sortGroup: 1, isChannelUser: true });
+        }
       }
-      // Radio shows (live and upcoming)
+      // Radio/online shows — genre match required, today/tomorrow window
+      for (const show of allShows) {
+        if (!isValidShow(show)) continue;
+        const endTime = new Date(show.endTime);
+        const startTime = new Date(show.startTime);
+        if (endTime <= now) continue;
+        if (startTime >= tomorrowEnd) continue;
+        if (!matchesAnyGenre(show.djGenres)) continue;
+        const live = isShowLive(show);
+        const cityMatch = !isAnywhere && show.djLocation ? matchesCity(show.djLocation, selectedCity) : false;
+        const label = cityMatch
+          ? `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`
+          : genreLabelFor(show.djGenres);
+        const item = makeRadioItem(show, label, live || undefined);
+        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), startMs: startTime.getTime(), sortGroup: live ? 0 : 3, isChannelUser: show.isChannelUser ?? false });
+      }
+      // Sort all candidates, take first 5 for S1, rest overflow to S2
+      const allS1 = takeSorted(candidates, candidates.length); // take all, deduped & sorted
+      newS1 = allS1.slice(0, 5);
+      s1Overflow = allS1.slice(5);
+    }
+
+    // New Section 2: Overflow from S1 + days 3–7 (max 5)
+    let newS2: MatchedItem[] = [];
+    if (hasGenreFilter) {
+      // Start with S1 overflow
+      const s2Items = s1Overflow.slice(0, 5);
+      const remaining = 5 - s2Items.length;
+      if (remaining > 0) {
+        const candidates: Candidate[] = [];
+        // IRL shows — city + genre, days 3–7 (only when city is set)
+        if (!isAnywhere) {
+          for (const show of irlShows) {
+            if (show.date < s2StartDateStr || show.date >= s2EndDateStr) continue;
+            if (!matchesCity(show.location, selectedCity)) continue;
+            if (!matchesAnyGenre(show.djGenres)) continue;
+            const id = `irl-${show.djUsername}-${show.date}`;
+            const genreLabel = genreLabelFor(show.djGenres);
+            const label = `${selectedCity.toUpperCase()} + ${genreLabel}`;
+            candidates.push({ item: makeIRLItem(show, label), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres), startMs: new Date(show.date + 'T00:00:00').getTime(), sortGroup: 1, isChannelUser: true });
+          }
+        }
+        // Radio/online shows — genre match, days 3–7 window
+        for (const show of allShows) {
+          if (!isValidShow(show)) continue;
+          const endTime = new Date(show.endTime);
+          const startTime = new Date(show.startTime);
+          if (endTime <= now) continue;
+          if (startTime < weekStart || startTime >= weekEnd) continue;
+          if (!matchesAnyGenre(show.djGenres)) continue;
+          const cityMatch = !isAnywhere && show.djLocation ? matchesCity(show.djLocation, selectedCity) : false;
+          const label = cityMatch
+            ? `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`
+            : genreLabelFor(show.djGenres);
+          const item = makeRadioItem(show, label);
+          if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), startMs: startTime.getTime(), sortGroup: 3, isChannelUser: show.isChannelUser ?? false });
+        }
+        s2Items.push(...takeSorted(candidates, remaining));
+      }
+      newS2 = s2Items;
+    }
+
+    // New Section 3: Genre-only online (no IRL, no location filter, max 5)
+    let newS3: MatchedItem[] = [];
+    if (hasGenreFilter) {
+      const candidates: Candidate[] = [];
       for (const show of allShows) {
         if (!isValidShow(show)) continue;
         if (new Date(show.endTime) <= now) continue;
@@ -460,34 +493,23 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
         const item = makeRadioItem(show, genreLabelFor(show.djGenres), live || undefined);
         if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), startMs: new Date(show.startTime).getTime(), sortGroup: live ? 0 : 3, isChannelUser: show.isChannelUser ?? false });
       }
-      s4 = takeSorted(candidates, 5);
+      newS3 = takeSorted(candidates, 5);
     }
 
-    // Section 6: Location matching (swipe, max 5) — sorted by sortGroup > time > isChannelUser
-    let s6: MatchedItem[] = [];
-    if (!isAnywhere) {
-      const candidates: Candidate[] = [];
-      // IRL shows (always from Channel users), within 3 days
-      for (const show of irlShows) {
-        if (show.date >= sceneCutoffDateStr) continue;
-        if (!matchesCity(show.location, selectedCity)) continue;
-        const id = `irl-${show.djUsername}-${show.date}`;
-        candidates.push({ item: makeIRLItem(show, selectedCity.toUpperCase()), id, djName: show.djName, matchCount: 0, startMs: new Date(show.date + 'T00:00:00').getTime(), sortGroup: 1, isChannelUser: true });
+    // New Section 4: Recommended by — curator recs + external station picks (combined carousel)
+    const newS4: RecommendedItem[] = [];
+    // Curator recs from followed DJs (max 4)
+    if (followedDJNames.length > 0) {
+      for (const rec of curatorRecs) {
+        if (newS4.length >= 4) break;
+        if (followedDJNames.includes(rec.djUsername.toLowerCase()) ||
+            followedDJNames.includes(rec.djName.toLowerCase())) {
+          newS4.push({ type: 'curator', data: rec });
+        }
       }
-      // Radio shows
-      for (const show of allShows) {
-        if (!isValidShow(show)) continue;
-        if (new Date(show.endTime) <= now) continue;
-        if (!show.djLocation || !matchesCity(show.djLocation, selectedCity)) continue;
-        const live = isShowLive(show);
-        const item = makeRadioItem(show, selectedCity.toUpperCase(), live || undefined);
-        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: 0, startMs: new Date(show.startTime).getTime(), sortGroup: live ? 0 : 3, isChannelUser: show.isChannelUser ?? false });
-      }
-      s6 = takeSorted(candidates, 5);
     }
-
-    // Section 7: Selected by Radio (swipe, max 5) — external station shows, sorted by live > isChannelUser
-    const s7Candidates: { item: MatchedItem; id: string; djName: string | undefined; live: boolean; isChannelUser: boolean }[] = [];
+    // External station picks (max 5)
+    const stationCandidates: { item: MatchedItem; id: string; djName: string | undefined; live: boolean; isChannelUser: boolean }[] = [];
     for (const show of allShows) {
       if (!isValidShow(show)) continue;
       if (new Date(show.endTime) <= now) continue;
@@ -495,70 +517,58 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
       const station = stationsMap.get(show.stationId);
       if (!station) continue;
       const live = isShowLive(show);
-      s7Candidates.push({
+      stationCandidates.push({
         item: { type: 'radio', data: show, station, matchLabel: `SELECTED BY ${station.name.toUpperCase()}`, live: live || undefined },
-        id: show.id,
-        djName: show.dj,
-        live,
-        isChannelUser: show.isChannelUser ?? false,
+        id: show.id, djName: show.dj, live, isChannelUser: show.isChannelUser ?? false,
       });
     }
-    // Sort: live first, then Channel users first
-    s7Candidates.sort((a, b) => {
+    stationCandidates.sort((a, b) => {
       if (a.live !== b.live) return a.live ? -1 : 1;
       if (a.isChannelUser !== b.isChannelUser) return a.isChannelUser ? -1 : 1;
       return 0;
     });
-    const s7: MatchedItem[] = [];
-    for (const c of s7Candidates) {
-      if (s7.length >= 5) break;
+    let stationCount = 0;
+    for (const c of stationCandidates) {
+      if (stationCount >= 5) break;
       if (!tryAddShow(c.id, c.djName)) continue;
-      s7.push(c.item);
+      newS4.push(c.item);
+      stationCount++;
     }
 
     return {
       favoritesNowLive: s0,
-      locationGenreCards: s1,
-      filteredCuratorRecs: s3,
-      genreCards: s4,
-      locationCards: s6,
-      radioCards: s7,
+      todayTomorrowCards: newS1,
+      nextWeekCards: newS2,
+      genreOnlineCards: newS3,
+      recommendedByCards: newS4,
     };
   }, [allShows, irlShows, curatorRecs, djProfiles, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, getMatchingGenres, genreLabelFor, isShowLive, isValidShow, followedDJNames, isInWatchlist, isShowFavorited, favorites, user]);
 
-  // Mark curator recs as seen once they render at the top for the first time
-  useEffect(() => {
-    if (!hasSeenCuratorRecs && filteredCuratorRecs.length > 0) {
-      try { localStorage.setItem('channel-seen-curator-recs', '1'); } catch {}
-      setHasSeenCuratorRecs(true);
-    }
-  }, [hasSeenCuratorRecs, filteredCuratorRecs]);
-
   // Compute result counts for Tuner bar
-  const allCardCount = locationGenreCards.length +
-    genreCards.length + locationCards.length + radioCards.length;
+  const allCardCount = todayTomorrowCards.length +
+    nextWeekCards.length + genreOnlineCards.length + recommendedByCards.length;
 
   const cityResultCount = useMemo(() => {
     if (!selectedCity || selectedCity === 'Anywhere') return undefined;
-    return locationGenreCards.length + locationCards.length;
-  }, [selectedCity, locationGenreCards, locationCards]);
+    return todayTomorrowCards.length + nextWeekCards.length;
+  }, [selectedCity, todayTomorrowCards, nextWeekCards]);
 
   const genreResultCount = useMemo(() => {
     if (selectedGenres.length === 0) return undefined;
-    return locationGenreCards.length + genreCards.length;
-  }, [selectedGenres, locationGenreCards, genreCards]);
+    return todayTomorrowCards.length + nextWeekCards.length + genreOnlineCards.length;
+  }, [selectedGenres, todayTomorrowCards, nextWeekCards, genreOnlineCards]);
 
   const missingGenres = useMemo(() => {
     if (selectedGenres.length === 0) return [];
-    if (locationGenreCards.length === 0 && genreCards.length === 0) return selectedGenres;
-    const allGenreCards = [...locationGenreCards, ...genreCards];
+    const allGenreCards = [...todayTomorrowCards, ...nextWeekCards, ...genreOnlineCards];
+    if (allGenreCards.length === 0) return selectedGenres;
     return selectedGenres.filter((genre) => {
       return !allGenreCards.some((item) => {
         const showGenres = item.type === 'profile' ? item.data.genres : item.data.djGenres;
         return showGenres ? matchesGenre(showGenres, genre) : false;
       });
     });
-  }, [selectedGenres, locationGenreCards, genreCards, matchesGenre]);
+  }, [selectedGenres, todayTomorrowCards, nextWeekCards, genreOnlineCards, matchesGenre]);
 
   // Compute which cities and genres have at least one matching show
   const citiesWithMatches = useMemo(() => {
@@ -933,67 +943,42 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
           ) : (
           <>
 
-          {/* Section 1: Location + Genre (carousel, max 4) */}
-          {locationGenreCards.length > 0 && (
+          {/* Section 1: Location + Genre — today/tomorrow */}
+          {todayTomorrowCards.length > 0 && (
             <div className="flex-shrink-0 pt-3 md:pt-4 pb-3 md:pb-4">
               <SwipeableCardCarousel>
-                {locationGenreCards.map((item, index) => renderCard(item, index))}
+                {todayTomorrowCards.map((item, index) => renderCard(item, index))}
               </SwipeableCardCarousel>
             </div>
           )}
 
-
-          {/* Section 3: Selected by your favorite curators (carousel, max 4) — shown here on first visit, at the bottom after */}
-          {!hasSeenCuratorRecs && filteredCuratorRecs.length > 0 && (
+          {/* Section 2: Overflow + this week */}
+          {nextWeekCards.length > 0 && (
             <div className="flex-shrink-0 pb-3 md:pb-4">
               <SwipeableCardCarousel>
-                {filteredCuratorRecs.map((rec, index) => (
-                  <CuratorRecCard
-                    key={`rec-${rec.djUsername}-${index}`}
-                    rec={rec}
-                  />
-                ))}
+                {nextWeekCards.map((item, index) => renderCard(item, index))}
               </SwipeableCardCarousel>
             </div>
           )}
 
-          {/* Section 4: Genre matching (swipe, max 5) */}
-          {genreCards.length > 0 && (
+          {/* Section 3: Genre-only online */}
+          {genreOnlineCards.length > 0 && (
             <div className="flex-shrink-0 pb-3 md:pb-4">
               <SwipeableCardCarousel>
-                {genreCards.map((item, index) => renderCard(item, index))}
+                {genreOnlineCards.map((item, index) => renderCard(item, index))}
               </SwipeableCardCarousel>
             </div>
           )}
 
-          {/* Section 6: Location matching (swipe, max 5) */}
-          {locationCards.length > 0 && (
+          {/* Section 4: Recommended by (curator recs + station picks) */}
+          {recommendedByCards.length > 0 && (
             <div className="flex-shrink-0 pb-3 md:pb-4">
               <SwipeableCardCarousel>
-                {locationCards.map((item, index) => renderCard(item, index))}
-              </SwipeableCardCarousel>
-            </div>
-          )}
-
-          {/* Section 7: Selected by Radio (swipe, max 5) */}
-          {radioCards.length > 0 && (
-            <div className="flex-shrink-0 pb-3 md:pb-4">
-              <SwipeableCardCarousel>
-                {radioCards.map((item, index) => renderCard(item, index))}
-              </SwipeableCardCarousel>
-            </div>
-          )}
-
-          {/* Section 3 (bottom): Curator recs moved here after user has seen them once */}
-          {hasSeenCuratorRecs && filteredCuratorRecs.length > 0 && (
-            <div className="flex-shrink-0 pb-3 md:pb-4">
-              <SwipeableCardCarousel>
-                {filteredCuratorRecs.map((rec, index) => (
-                  <CuratorRecCard
-                    key={`rec-${rec.djUsername}-${index}`}
-                    rec={rec}
-                  />
-                ))}
+                {recommendedByCards.map((item, index) =>
+                  item.type === 'curator'
+                    ? <CuratorRecCard key={`rec-${item.data.djUsername}-${index}`} rec={item.data} />
+                    : renderCard(item as MatchedItem, index)
+                )}
               </SwipeableCardCarousel>
             </div>
           )}
