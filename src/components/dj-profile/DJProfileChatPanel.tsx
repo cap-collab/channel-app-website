@@ -27,6 +27,7 @@ interface DJProfileChatPanelProps {
   currentShowStartTime?: number;
   isChannelUser?: boolean;
   tipLink?: string | null;
+  onLoveCountChange?: (count: number) => void;
 }
 
 // Reserved usernames that cannot be registered (case-insensitive)
@@ -299,10 +300,11 @@ export function DJProfileChatPanel({
   onChangeUsername,
   currentShowStartTime,
   tipLink,
+  onLoveCountChange,
 }: DJProfileChatPanelProps) {
   const isBroadcasting = !!broadcastToken;
 
-  const { messages, error, sendMessage, sendLove } = useDJProfileChat({
+  const { messages, error, sendMessage, sendLove, loveCount } = useDJProfileChat({
     chatUsernameNormalized,
     djUsername,
     username,
@@ -311,6 +313,10 @@ export function DJProfileChatPanel({
     broadcastSlotId,
     currentShowStartTime,
   });
+
+  useEffect(() => {
+    onLoveCountChange?.(loveCount);
+  }, [loveCount, onLoveCountChange]);
 
   const [inputValue, setInputValue] = useState('');
   const [isSending, setIsSending] = useState(false);
