@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { Timestamp } from "firebase-admin/firestore";
 import { getUnsubscribeHeaders } from "@/lib/email";
 
 const resend = process.env.RESEND_API_KEY
@@ -12,32 +13,44 @@ const LOGO_URL = "https://channel-app.com/logo-black.png";
 const APP_URL = "https://channel-app.com";
 const SUBJECT = "Starting week 2";
 
-// ── This week's DJ lineup ──────────────────────────────────────────
-const THIS_WEEK_DJS = [
-  { name: "shroomie", profileUrl: `${APP_URL}/dj/shroomie` },
-  { name: "SPF 50", profileUrl: `${APP_URL}/dj/spf50` },
-  { name: "Spillman", profileUrl: `${APP_URL}/dj/spillman` },
-  { name: "Celebrity Bitcrush", profileUrl: `${APP_URL}/dj/celebritybitcrush` },
-  { name: "Pretty Gay Friendly", profileUrl: `${APP_URL}/dj/prettygayfriendly` },
-  { name: "Dani Moon", profileUrl: `${APP_URL}/dj/danimoon` },
-];
-
 // ── Email HTML builder ─────────────────────────────────────────────
 
 function minifyHtml(html: string): string {
   return html.replace(/\n\s+/g, "\n").replace(/\n+/g, "\n").trim();
 }
 
-function buildDjLineup(): string {
-  return THIS_WEEK_DJS.map((dj) => {
-    if (dj.profileUrl) {
-      return `<a href="${dj.profileUrl}" style="color: #1a1a1a; text-decoration: underline;">${dj.name}</a>`;
-    }
-    return dj.name;
-  }).join(", ");
+interface ShowReminder {
+  showName: string;
+  date: string;       // e.g. "Friday, April 10"
+  timeRange: string;  // e.g. "7:00 PM – 8:00 PM PT"
+  duration: string;   // e.g. "1 hour"
 }
 
-function buildEmailHtml(name: string): string {
+function formatDuration(startMs: number, endMs: number): string {
+  const mins = Math.round((endMs - startMs) / (60 * 1000));
+  if (mins < 60) return `${mins} min`;
+  const hours = Math.floor(mins / 60);
+  const remaining = mins % 60;
+  if (remaining === 0) return hours === 1 ? "1 hour" : `${hours} hours`;
+  return `${hours}h ${remaining}min`;
+}
+
+function buildShowReminderHtml(shows: ShowReminder[]): string {
+  if (shows.length === 0) return "";
+
+  const showLines = shows.map((s) =>
+    `<li style="margin: 0 0 4px; color: #1a1a1a;"><strong>${s.showName}</strong><br />${s.date} · ${s.timeRange}<br />${s.duration}</li>`
+  ).join("");
+
+  return `
+    <p style="margin: 24px 0 8px; color: #1a1a1a;">As a reminder, your set is planned as:</p>
+    <ul style="margin: 0 0 16px; padding-left: 20px; color: #1a1a1a;">
+      ${showLines}
+    </ul>
+  `;
+}
+
+function buildEmailHtml(name: string, showReminder: string): string {
   const settingsUrl = `${APP_URL}/settings?unsubscribe=dj`;
 
   return minifyHtml(`
@@ -69,12 +82,11 @@ function buildEmailHtml(name: string): string {
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Hi ${name},</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Quick note to start the week :)</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Last week was honestly so much fun. Really grateful for all of you — the music, the energy, the vote of confidence, and everything I learned from it.</p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;"><strong>We had 280 new streams on launch day</strong>, which was amazing to see. It also pushed the setup a bit, so I've since improved the streaming capacity to make things smoother and support more listeners.</p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;">I've also made a few improvements on the product — improved the live player design, enabled a filter on the archives so people can find sets by genre, cleaned up the menu for easier navigation.</p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;">This week is shaping up nicely, with a few new shows coming in:<br />${buildDjLineup()}</p>
+                  <p style="margin: 0 0 16px; color: #1a1a1a;"><strong>We had 280 new streams on launch day</strong>, which was amazing to see. It also pushed the setup a bit, so I've since improved the streaming capacity to make things smoother and support more listeners. I've also made a few improvements across the website.</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Also, I'm always looking for new people to invite. If there are DJs, producers, or friends you think would be a good fit, I would love an intro.</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">And more specifically, <strong>I'd really like to bring more women into the lineup</strong>, so if anyone comes to mind, please send them my way.</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">As always, if you have any feedback, ideas, or things you'd want to see, I'm all ears.</p>
+                  ${showReminder}
                   <p style="margin: 0 0 4px; color: #1a1a1a;">Thanks again for being part of this 🖤</p>
                   <p style="margin: 0; color: #1a1a1a;">Cap</p>
                 </td>
@@ -101,7 +113,7 @@ function buildEmailHtml(name: string): string {
 
 // ── Route handler ───────────────────────────────────────────────────
 // Modes:
-//   ?mode=preview  → send test to cap@channel-app.com
+//   ?mode=preview  → send test to cap@channel-app.com (with sample show reminder)
 //   ?mode=dry-run  → list who would receive (default)
 //   ?mode=send     → send to all DJs with djInsiders=true (LOCKED until ready)
 
@@ -118,31 +130,90 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Database not configured" }, { status: 500 });
   }
 
-  // Get all DJ users, then filter for djInsiders in code
-  // (avoids needing a composite Firestore index on role + emailNotifications.djInsiders)
+  // ── Fetch this week's broadcast slots (April 6-12) ──
+  const weekStart = Timestamp.fromMillis(new Date("2026-04-06T00:00:00Z").getTime());
+  const weekEnd = Timestamp.fromMillis(new Date("2026-04-13T00:00:00Z").getTime());
+
+  const slotsSnap = await db
+    .collection("broadcast-slots")
+    .where("status", "==", "scheduled")
+    .where("startTime", ">=", weekStart)
+    .where("startTime", "<=", weekEnd)
+    .get();
+
+  // Build a map of email → their scheduled shows this week
+  const djShowsMap = new Map<string, ShowReminder[]>();
+
+  for (const doc of slotsSnap.docs) {
+    const slot = doc.data();
+    if (slot.broadcastType === "restream") continue;
+
+    const emails: string[] = [];
+    if (slot.djSlots && Array.isArray(slot.djSlots)) {
+      for (const djSlot of slot.djSlots) {
+        if (djSlot.djEmail) emails.push(djSlot.djEmail);
+      }
+    } else if (slot.djEmail) {
+      emails.push(slot.djEmail);
+    }
+
+    const startMs = slot.startTime?.toMillis ? slot.startTime.toMillis() : slot.startTime;
+    const endMs = slot.endTime?.toMillis ? slot.endTime.toMillis() : slot.endTime;
+
+    // Look up DJ timezone from users collection
+    let djTimezone = "America/Los_Angeles";
+    if (slot.djUserId) {
+      const userDoc = await db.collection("users").doc(slot.djUserId).get();
+      if (userDoc.exists) {
+        djTimezone = userDoc.data()?.timezone || djTimezone;
+      }
+    }
+
+    const dateStr = new Date(startMs).toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      timeZone: djTimezone,
+    });
+
+    const timeOpts: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit", timeZone: djTimezone };
+    const startTimeStr = new Date(startMs).toLocaleTimeString("en-US", timeOpts);
+    const endTimeStr = new Date(endMs).toLocaleTimeString("en-US", timeOpts);
+    const tzAbbr = new Intl.DateTimeFormat("en-US", { timeZone: djTimezone, timeZoneName: "short" })
+      .formatToParts(new Date(startMs))
+      .find((p) => p.type === "timeZoneName")?.value || djTimezone;
+
+    const reminder: ShowReminder = {
+      showName: slot.showName || "Your show",
+      date: dateStr,
+      timeRange: `${startTimeStr} – ${endTimeStr} ${tzAbbr}`,
+      duration: formatDuration(startMs, endMs),
+    };
+
+    for (const email of emails) {
+      const existing = djShowsMap.get(email) || [];
+      existing.push(reminder);
+      djShowsMap.set(email, existing);
+    }
+  }
+
+  // ── Get DJ recipients ──
   const usersSnap = await db
     .collection("users")
     .where("role", "==", "dj")
     .get();
 
-  // Exclude specific emails from this send
   const EXCLUDE_EMAILS = new Set(["maiii@posteo.la"]);
 
-  const djRecipients: Array<{ email: string; name: string; id: string }> = [];
-  const debug: Array<{ email: string; djInsiders: unknown; notifs: unknown }> = [];
+  const djRecipients: Array<{ email: string; name: string; id: string; shows: ShowReminder[] }> = [];
   for (const doc of usersSnap.docs) {
     const data = doc.data();
     if (!data.email) continue;
     if (EXCLUDE_EMAILS.has(data.email)) continue;
-    debug.push({
-      email: data.email,
-      djInsiders: data.emailNotifications?.djInsiders,
-      notifs: data.emailNotifications ? Object.keys(data.emailNotifications) : null,
-    });
     if (!data.emailNotifications?.djInsiders) continue;
-    // Use DJ internal name, displayName, or fallback
     const name = data.name || "there";
-    djRecipients.push({ email: data.email, name, id: doc.id });
+    const shows = djShowsMap.get(data.email) || [];
+    djRecipients.push({ email: data.email, name, id: doc.id, shows });
   }
 
   // Add pending DJs who have scheduled slots but no account yet
@@ -152,7 +223,8 @@ export async function GET(request: NextRequest) {
   for (const pending of EXTRA_PENDING_DJS) {
     if (EXCLUDE_EMAILS.has(pending.email)) continue;
     if (djRecipients.some((r) => r.email === pending.email)) continue;
-    djRecipients.push(pending);
+    const shows = djShowsMap.get(pending.email) || [];
+    djRecipients.push({ ...pending, shows });
   }
 
   // ── Preview mode: send test to cap@channel-app.com ──
@@ -161,12 +233,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Resend not configured" }, { status: 500 });
     }
 
+    // For preview, include a sample show reminder so you can see the formatting
+    const sampleShows: ShowReminder[] = [{
+      showName: "Beat therapy",
+      date: "Friday, April 10",
+      timeRange: "7:00 PM – 8:00 PM PT",
+      duration: "1 hour",
+    }];
+
     try {
       await resend.emails.send({
         from: FROM_EMAIL,
         to: "cap@channel-app.com",
         subject: SUBJECT,
-        html: buildEmailHtml("Cap"),
+        html: buildEmailHtml("Cap", buildShowReminderHtml(sampleShows)),
         headers: getUnsubscribeHeaders("dj"),
       });
 
@@ -175,7 +255,7 @@ export async function GET(request: NextRequest) {
         sentTo: "cap@channel-app.com",
         success: true,
         totalDjRecipients: djRecipients.length,
-        recipients: djRecipients.map((r) => ({ email: r.email, name: r.name })),
+        recipients: djRecipients.map((r) => ({ email: r.email, name: r.name, shows: r.shows })),
       });
     } catch (e) {
       return NextResponse.json({ error: String(e) }, { status: 500 });
@@ -188,8 +268,7 @@ export async function GET(request: NextRequest) {
       mode: "dry-run",
       totalDJs: usersSnap.docs.length,
       totalDjRecipients: djRecipients.length,
-      recipients: djRecipients.map((r) => ({ email: r.email, name: r.name })),
-      debug,
+      recipients: djRecipients.map((r) => ({ email: r.email, name: r.name, shows: r.shows })),
     });
   }
 
@@ -213,11 +292,12 @@ export async function GET(request: NextRequest) {
 
     for (const recipient of djRecipients) {
       try {
+        const showReminderHtml = buildShowReminderHtml(recipient.shows);
         await resend.emails.send({
           from: FROM_EMAIL,
           to: recipient.email,
           subject: SUBJECT,
-          html: buildEmailHtml(recipient.name),
+          html: buildEmailHtml(recipient.name, showReminderHtml),
           headers: getUnsubscribeHeaders("dj"),
         });
         sent++;
@@ -225,7 +305,6 @@ export async function GET(request: NextRequest) {
         failed++;
         errors.push({ email: recipient.email, error: String(e) });
       }
-      // Rate limit: 150ms between sends
       await new Promise((r) => setTimeout(r, 150));
     }
 
