@@ -202,7 +202,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const djUsername = showLiveInHero ? (liveDjProfileUsername || primaryDJ?.username) : primaryDJ?.username;
   const djProfileUsername = showLiveInHero ? liveDjProfileUsername : djUsername?.replace(/\s+/g, '').toLowerCase();
   const djName = showLiveInHero ? (liveDjName || displayedArchive.djs.map((d) => d.name).join(', ')) : displayedArchive.djs.map((d) => d.name).join(', ');
-  const djPhotoUrl = showLiveInHero ? (liveDjPhotoUrl || displayedArchive.showImageUrl || primaryDJ?.photoUrl) : (displayedArchive.showImageUrl || primaryDJ?.photoUrl);
+  const djPhotoUrl = showLiveInHero ? liveDjPhotoUrl : (displayedArchive.showImageUrl || primaryDJ?.photoUrl);
 
   // Fetch DJ profile for genres, tip link, and bio
   const djProfile = useDJProfileInfo(djUsername);
