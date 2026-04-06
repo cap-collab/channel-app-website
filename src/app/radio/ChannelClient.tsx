@@ -402,38 +402,43 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
     weekEnd.setHours(0, 0, 0, 0);
     const s2EndDateStr = weekEnd.toLocaleDateString('en-CA');
 
-    // New Section 1: Location + Genre — today/tomorrow (max 5, overflow spills to S2)
+    // New Section 1: today/tomorrow (max 5, overflow spills to S2)
+    // City match adds +1 to matchCount for priority. IRL requires city; genre only when filter active.
     let newS1: MatchedItem[] = [];
     let s1Overflow: MatchedItem[] = [];
-    if (hasGenreFilter) {
+    {
       const candidates: Candidate[] = [];
-      // IRL shows — BOTH city + genre match, today/tomorrow (only when city is set)
+      // IRL shows — city required, genre required only when filter active
       if (!isAnywhere) {
         for (const show of irlShows) {
           if (show.date < nowDateStr || show.date >= tomorrowCutoffDateStr) continue;
           if (!matchesCity(show.location, selectedCity)) continue;
-          if (!matchesAnyGenre(show.djGenres)) continue;
+          if (hasGenreFilter && !matchesAnyGenre(show.djGenres)) continue;
           const id = `irl-${show.djUsername}-${show.date}`;
           const genreLabel = genreLabelFor(show.djGenres);
-          const label = `${selectedCity.toUpperCase()} + ${genreLabel}`;
-          candidates.push({ item: makeIRLItem(show, label), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres), startMs: new Date(show.date + 'T00:00:00').getTime(), sortGroup: 1, isChannelUser: true });
+          const label = genreLabel
+            ? `${selectedCity.toUpperCase()} + ${genreLabel}`
+            : selectedCity.toUpperCase();
+          candidates.push({ item: makeIRLItem(show, label), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres) + 1, startMs: new Date(show.date + 'T00:00:00').getTime(), sortGroup: 1, isChannelUser: true });
         }
       }
-      // Radio/online shows — genre match required, today/tomorrow window
+      // Radio/online shows — genre required only when filter active, city boosts priority
       for (const show of allShows) {
         if (!isValidShow(show)) continue;
         const endTime = new Date(show.endTime);
         const startTime = new Date(show.startTime);
         if (endTime <= now) continue;
         if (startTime >= tomorrowEnd) continue;
-        if (!matchesAnyGenre(show.djGenres)) continue;
+        if (hasGenreFilter && !matchesAnyGenre(show.djGenres)) continue;
         const live = isShowLive(show);
         const cityMatch = !isAnywhere && show.djLocation ? matchesCity(show.djLocation, selectedCity) : false;
-        const label = cityMatch
-          ? `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`
-          : genreLabelFor(show.djGenres);
+        const genreLabel = genreLabelFor(show.djGenres);
+        const label = cityMatch && genreLabel
+          ? `${selectedCity.toUpperCase()} + ${genreLabel}`
+          : cityMatch ? selectedCity.toUpperCase()
+          : genreLabel || undefined;
         const item = makeRadioItem(show, label, live || undefined);
-        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), startMs: startTime.getTime(), sortGroup: live ? 0 : 3, isChannelUser: show.isChannelUser ?? false });
+        if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres) + (cityMatch ? 1 : 0), startMs: startTime.getTime(), sortGroup: live ? 0 : 3, isChannelUser: show.isChannelUser ?? false });
       }
       // Sort all candidates, take first 5 for S1, rest overflow to S2
       const allS1 = takeSorted(candidates, candidates.length); // take all, deduped & sorted
@@ -443,38 +448,42 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
 
     // New Section 2: Overflow from S1 + days 3–7 (max 5)
     let newS2: MatchedItem[] = [];
-    if (hasGenreFilter) {
+    {
       // Start with S1 overflow
       const s2Items = s1Overflow.slice(0, 5);
       const remaining = 5 - s2Items.length;
       if (remaining > 0) {
         const candidates: Candidate[] = [];
-        // IRL shows — city + genre, days 3–7 (only when city is set)
+        // IRL shows — city required, genre required only when filter active, days 3–7
         if (!isAnywhere) {
           for (const show of irlShows) {
             if (show.date < s2StartDateStr || show.date >= s2EndDateStr) continue;
             if (!matchesCity(show.location, selectedCity)) continue;
-            if (!matchesAnyGenre(show.djGenres)) continue;
+            if (hasGenreFilter && !matchesAnyGenre(show.djGenres)) continue;
             const id = `irl-${show.djUsername}-${show.date}`;
             const genreLabel = genreLabelFor(show.djGenres);
-            const label = `${selectedCity.toUpperCase()} + ${genreLabel}`;
-            candidates.push({ item: makeIRLItem(show, label), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres), startMs: new Date(show.date + 'T00:00:00').getTime(), sortGroup: 1, isChannelUser: true });
+            const label = genreLabel
+              ? `${selectedCity.toUpperCase()} + ${genreLabel}`
+              : selectedCity.toUpperCase();
+            candidates.push({ item: makeIRLItem(show, label), id, djName: show.djName, matchCount: genreMatchCount(show.djGenres) + 1, startMs: new Date(show.date + 'T00:00:00').getTime(), sortGroup: 1, isChannelUser: true });
           }
         }
-        // Radio/online shows — genre match, days 3–7 window
+        // Radio/online shows — genre required only when filter active, city boosts priority
         for (const show of allShows) {
           if (!isValidShow(show)) continue;
           const endTime = new Date(show.endTime);
           const startTime = new Date(show.startTime);
           if (endTime <= now) continue;
           if (startTime < weekStart || startTime >= weekEnd) continue;
-          if (!matchesAnyGenre(show.djGenres)) continue;
+          if (hasGenreFilter && !matchesAnyGenre(show.djGenres)) continue;
           const cityMatch = !isAnywhere && show.djLocation ? matchesCity(show.djLocation, selectedCity) : false;
-          const label = cityMatch
-            ? `${selectedCity.toUpperCase()} + ${genreLabelFor(show.djGenres)}`
-            : genreLabelFor(show.djGenres);
+          const genreLabel = genreLabelFor(show.djGenres);
+          const label = cityMatch && genreLabel
+            ? `${selectedCity.toUpperCase()} + ${genreLabel}`
+            : cityMatch ? selectedCity.toUpperCase()
+            : genreLabel || undefined;
           const item = makeRadioItem(show, label);
-          if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres), startMs: startTime.getTime(), sortGroup: 3, isChannelUser: show.isChannelUser ?? false });
+          if (item) candidates.push({ item, id: show.id, djName: show.dj, matchCount: genreMatchCount(show.djGenres) + (cityMatch ? 1 : 0), startMs: startTime.getTime(), sortGroup: 3, isChannelUser: show.isChannelUser ?? false });
         }
         s2Items.push(...takeSorted(candidates, remaining));
       }
