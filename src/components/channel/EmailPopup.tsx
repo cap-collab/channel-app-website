@@ -24,7 +24,7 @@ function recordShown() {
   sessionStorage.setItem(SESSION_KEY_SHOWN, 'true');
 }
 
-export function EmailPopup({ siteDelayMs }: { siteDelayMs?: number } = {}) {
+export function EmailPopup({ siteDelayMs, suppress }: { siteDelayMs?: number; suppress?: boolean } = {}) {
   const { isAuthenticated } = useAuthContext();
   const { isPlaying: liveIsPlaying } = useBroadcastStreamContext();
   const archiveCtx = useContext(ArchivePlayerContext);
@@ -54,12 +54,14 @@ export function EmailPopup({ siteDelayMs }: { siteDelayMs?: number } = {}) {
   const playTimerFiredRef = useRef(false);
   const suppressedRef = useRef(false);
 
-  // Suppress entirely if authenticated, already filed, or already shown this session
+  // Suppress entirely if authenticated, already filed, already shown this session, or externally suppressed
   useEffect(() => {
-    if (isAuthenticated || hasFiledEmail() || hasShownThisSession()) {
+    if (isAuthenticated || hasFiledEmail() || hasShownThisSession() || suppress) {
       suppressedRef.current = true;
+    } else {
+      suppressedRef.current = false;
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, suppress]);
 
   const maybeShow = useCallback(() => {
     if (suppressedRef.current || isOpen) return;

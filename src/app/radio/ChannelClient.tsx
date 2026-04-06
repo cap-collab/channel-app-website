@@ -775,7 +775,7 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
         </div>
       ) : null}
 
-      <EmailPopup />
+      <EmailPopup suppress={isLiveReady} />
 
       <div id="scene" />
 

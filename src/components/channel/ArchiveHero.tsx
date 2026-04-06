@@ -260,10 +260,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     currentShowStartTime: isLive ? currentShow?.startTime : undefined,
   });
 
-  // DJ-specific chat hook for sending loves to the DJ's chat room
-  // (cross-posts to channelbroadcast automatically via sendLove)
-  const loveChatRoom = isLive && liveDJChatRoom ? liveDJChatRoom : (djProfileUsername || '');
-  const loveDJLabel = isLive && liveDjName ? liveDjName : (djName || '');
+  // DJ-specific chat hook for sending loves to the DJ currently shown in the player
+  // When showing live hero → love goes to live DJ; when showing archive → love goes to archive DJ
+  const archiveDjProfileUsername = (archivePlayer.currentArchive || featuredArchive).djs[0]?.username?.replace(/\s+/g, '').toLowerCase() || '';
+  const archiveDjName = (archivePlayer.currentArchive || featuredArchive).djs.map((d) => d.name).join(', ');
+  const loveChatRoom = showLiveInHero && liveDJChatRoom ? liveDJChatRoom : (archiveDjProfileUsername || '');
+  const loveDJLabel = showLiveInHero && liveDjName ? liveDjName : (archiveDjName || '');
   const { sendLove } = useDJProfileChat({
     chatUsernameNormalized: loveChatRoom,
     djUsername: loveDJLabel,
@@ -381,9 +383,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     <section className="relative z-10 px-4 pt-6 pb-2">
       <div className="max-w-3xl mx-auto">
 
-        {/* Status line above image */}
+        {/* Status line above image — reflects what the hero is showing */}
         <div className="flex items-center justify-between mb-2">
-          {isLive ? (
+          {showLiveInHero ? (
             <span />
           ) : nextShowTime ? (
             canShowEmailPopup ? (
@@ -402,7 +404,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             <span />
           )}
           <div className="flex items-center gap-1.5">
-            {isLive ? (
+            {showLiveInHero ? (
               <>
                 {isRestream ? (
                   <svg className="w-3 h-3 text-red-500 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
