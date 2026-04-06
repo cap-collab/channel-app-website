@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { TimeSlotPicker } from '@/components/dj-portal/TimeSlotPicker';
-import { DJApplicationFormData, TimeSlot, LocationType } from '@/types/dj-application';
+import { DJApplicationFormData, TimeSlot } from '@/types/dj-application';
 
 type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
 
@@ -35,9 +35,6 @@ export function DJPortalClient() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleLocationChange = (locationType: LocationType) => {
-    setFormData((prev) => ({ ...prev, locationType, venueName: '' }));
-  };
 
   const handleSlotsChange = (slots: TimeSlot[]) => {
     setFormData((prev) => ({ ...prev, preferredSlots: slots }));
@@ -83,10 +80,6 @@ export function DJPortalClient() {
     }
     if ((formData.setDuration * 2) % 1 !== 0) {
       setErrorMessage('Set duration must be in 0.5 hour increments (e.g., 2 or 2.5, not 2.3)');
-      return false;
-    }
-    if (formData.locationType === 'venue' && !formData.venueName?.trim()) {
-      setErrorMessage('Please enter the venue name');
       return false;
     }
     if (!formData.preferredSlots || formData.preferredSlots.length === 0) {
@@ -189,7 +182,7 @@ export function DJPortalClient() {
                 respect for the moment.
               </p>
               <p>
-                A live set can be streamed from home or from a venue. If your DJ setup connects to a
+                A live set is streamed from home. If your DJ setup connects to a
                 computer, you already have what you need. Check our{' '}
                 <Link href="/streaming-guide" className="text-white underline hover:text-gray-300 transition-colors">
                   streaming setup guide
@@ -288,57 +281,6 @@ export function DJPortalClient() {
                 </div>
               </div>
 
-              {/* Location Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-3">
-                  Where will you be streaming from? *
-                </label>
-                <div className="flex gap-4">
-                  <button
-                    type="button"
-                    onClick={() => handleLocationChange('home')}
-                    className={`flex-1 py-3 px-4 rounded-xl border transition-colors ${
-                      formData.locationType === 'home'
-                        ? 'bg-white text-black border-white'
-                        : 'bg-[#1a1a1a] text-gray-300 border-gray-800 hover:border-gray-600'
-                    }`}
-                  >
-                    Home
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleLocationChange('venue')}
-                    className={`flex-1 py-3 px-4 rounded-xl border transition-colors ${
-                      formData.locationType === 'venue'
-                        ? 'bg-white text-black border-white'
-                        : 'bg-[#1a1a1a] text-gray-300 border-gray-800 hover:border-gray-600'
-                    }`}
-                  >
-                    Venue
-                  </button>
-                </div>
-              </div>
-
-              {/* Venue Name (conditional) */}
-              {formData.locationType === 'venue' && (
-                <div>
-                  <label
-                    htmlFor="venueName"
-                    className="block text-sm font-medium text-gray-300 mb-2"
-                  >
-                    Venue Name *
-                  </label>
-                  <input
-                    type="text"
-                    id="venueName"
-                    name="venueName"
-                    value={formData.venueName}
-                    onChange={handleInputChange}
-                    placeholder="Name of the venue"
-                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
-                  />
-                </div>
-              )}
 
               {/* Setup Support Checkbox */}
               <div className="pt-4">

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
-import { DJApplicationFormData, TimeSlot, LocationType } from '@/types/dj-application';
+import { DJApplicationFormData, TimeSlot } from '@/types/dj-application';
 import { TimeSlotPicker } from '@/components/dj-portal/TimeSlotPicker';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isDJ } from '@/hooks/useUserRole';
@@ -103,10 +103,6 @@ export function StudioJoinClient() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleLocationChange = (locationType: LocationType) => {
-    setFormData((prev) => ({ ...prev, locationType, venueName: '' }));
-  };
-
   const handleSlotsChange = (slots: TimeSlot[]) => {
     setFormData((prev) => ({ ...prev, preferredSlots: slots }));
   };
@@ -144,10 +140,6 @@ export function StudioJoinClient() {
     }
     if ((formData.setDuration * 2) % 1 !== 0) {
       setErrorMessage('Set duration must be in 0.5 hour increments');
-      return false;
-    }
-    if (formData.locationType === 'venue' && !formData.venueName?.trim()) {
-      setErrorMessage('Please enter the venue name');
       return false;
     }
     if (!formData.preferredSlots || formData.preferredSlots.length === 0) {
@@ -364,57 +356,6 @@ export function StudioJoinClient() {
                 </div>
               </div>
 
-              {/* Location Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-3">
-                  Where will you be streaming from? *
-                </label>
-                <div className="flex gap-4">
-                  <button
-                    type="button"
-                    onClick={() => handleLocationChange('home')}
-                    className={`flex-1 py-3 px-4 rounded border transition-colors ${
-                      formData.locationType === 'home'
-                        ? 'bg-white text-black border-white'
-                        : 'bg-[#1a1a1a] text-gray-300 border-gray-800 hover:border-gray-600'
-                    }`}
-                  >
-                    Home
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleLocationChange('venue')}
-                    className={`flex-1 py-3 px-4 rounded border transition-colors ${
-                      formData.locationType === 'venue'
-                        ? 'bg-white text-black border-white'
-                        : 'bg-[#1a1a1a] text-gray-300 border-gray-800 hover:border-gray-600'
-                    }`}
-                  >
-                    Venue
-                  </button>
-                </div>
-              </div>
-
-              {/* Venue Name (conditional) */}
-              {formData.locationType === 'venue' && (
-                <div>
-                  <label
-                    htmlFor="venueName"
-                    className="block text-sm font-medium text-gray-300 mb-2"
-                  >
-                    Venue Name *
-                  </label>
-                  <input
-                    type="text"
-                    id="venueName"
-                    name="venueName"
-                    value={formData.venueName}
-                    onChange={handleInputChange}
-                    placeholder="Name of the venue"
-                    className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
-                  />
-                </div>
-              )}
 
               {/* Setup Support Checkbox */}
               <div className="pt-4">
