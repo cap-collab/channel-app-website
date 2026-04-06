@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect, ReactNode, type MutableRefObject } from 'react';
 import { getDatabase, ref, set, remove, onValue, onDisconnect } from 'firebase/database';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getApps, initializeApp } from 'firebase/app';
@@ -46,6 +46,8 @@ interface ArchivePlayerContextValue {
   pause: () => void;
   toggle: () => void;
   seek: (time: number) => void;
+  // Ref callback for "locked in" message — set by consuming component (GlobalBroadcastBar)
+  onLockedInRef: MutableRefObject<(() => void) | null>;
 }
 
 const ArchivePlayerContext = createContext<ArchivePlayerContextValue | null>(null);
@@ -78,6 +80,8 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playbackStartedAtRef = useRef<number | null>(null);
+  const archiveLockedInFiredRef = useRef<string | null>(null);
+  const onLockedInRef = useRef<(() => void) | null>(null);
 
   // Clean up on unmount
   useEffect(() => {
@@ -179,6 +183,14 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       ) {
         streamCountedRef.current = currentArchive.id;
         fetch(`/api/archives/${currentArchive.slug}/stream`, { method: 'POST' }).catch(() => {});
+      }
+      // Fire "locked in" message at 900s (15 min)
+      if (
+        cumulativeTimeRef.current >= 900 &&
+        archiveLockedInFiredRef.current !== currentArchive.id
+      ) {
+        archiveLockedInFiredRef.current = currentArchive.id;
+        onLockedInRef.current?.();
       }
     }, 1000);
 
@@ -363,6 +375,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       setCurrentTime(0);
       setDuration(archive.duration || 0);
       cumulativeTimeRef.current = 0;
+      archiveLockedInFiredRef.current = null;
       setIsLoading(true);
       audio.play().catch(() => {
         setIsLoading(false);
@@ -417,6 +430,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     pause,
     toggle,
     seek,
+    onLockedInRef,
   }), [currentArchive, isPlaying, isLoading, currentTime, duration, listenerCount, isGated, gateAttempt, clearGate, play, pause, toggle, seek]);
 
   return (

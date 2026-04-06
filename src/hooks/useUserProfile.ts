@@ -13,6 +13,7 @@ interface UserProfile {
   chatUsername: string | null;
   displayName: string | null;
   djProfile: DJProfile | null;
+  showLockedInMessages: boolean;
 }
 
 interface SetUsernameResult {
@@ -25,7 +26,7 @@ interface SetUsernameResult {
  * Used to get saved chatUsername for DJ profile setup and chat
  */
 export function useUserProfile(userId: string | undefined) {
-  const [profile, setProfile] = useState<UserProfile>({ chatUsername: null, displayName: null, djProfile: null });
+  const [profile, setProfile] = useState<UserProfile>({ chatUsername: null, displayName: null, djProfile: null, showLockedInMessages: true });
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = useCallback(async () => {
@@ -45,6 +46,7 @@ export function useUserProfile(userId: string | undefined) {
             bio: data.djProfile.bio || null,
             thankYouMessage: data.djProfile.thankYouMessage || null,
           } : null,
+          showLockedInMessages: data.activityMessages?.showLockedInMessages ?? true,
         });
       }
     } catch (err) {

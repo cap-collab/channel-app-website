@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, type MutableRefObject } from 'react';
 import { Room, RoomEvent, Track, RemoteTrack, RemoteTrackPublication, RemoteParticipant } from 'livekit-client';
 import { getFirestore, collection, query, where, limit, onSnapshot, Timestamp } from 'firebase/firestore';
 import { getDatabase, ref, set, remove, onValue, onDisconnect } from 'firebase/database';
@@ -105,7 +105,7 @@ interface UseBroadcastStreamReturn {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamReturn {
+export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: MutableRefObject<(() => void) | null>): UseBroadcastStreamReturn {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLive, setIsLive] = useState(false);
@@ -130,6 +130,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
   const artworkRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const broadcastCumulativeTimeRef = useRef(0);
   const broadcastStreamCountedRef = useRef<string | null>(null);
+  const broadcastLockedInFiredRef = useRef<string | null>(null);
   const [autoResumePending, setAutoResumePending] = useState(false);
   const playbackStartedAtRef = useRef<number | null>(null); // For posthog session_duration
 
@@ -947,6 +948,7 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
     // Reset cumulative time when show changes
     if (broadcastStreamCountedRef.current !== null && broadcastStreamCountedRef.current !== currentShow.id) {
       broadcastCumulativeTimeRef.current = 0;
+      broadcastLockedInFiredRef.current = null;
     }
 
     const interval = setInterval(() => {
@@ -958,10 +960,18 @@ export function useBroadcastStream(statusIsLive?: boolean): UseBroadcastStreamRe
         broadcastStreamCountedRef.current = currentShow.id;
         fetch(`/api/broadcast/${currentShow.id}/stream`, { method: 'POST' }).catch(() => {});
       }
+      // Fire "locked in" message at 900s (15 min)
+      if (
+        broadcastCumulativeTimeRef.current >= 900 &&
+        broadcastLockedInFiredRef.current !== currentShow.id
+      ) {
+        broadcastLockedInFiredRef.current = currentShow.id;
+        onLockedInRef?.current?.();
+      }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isPlaying, currentShow]);
+  }, [isPlaying, currentShow, onLockedInRef]);
 
 
   return {

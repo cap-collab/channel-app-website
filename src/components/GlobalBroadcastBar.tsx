@@ -23,13 +23,14 @@ export function GlobalBroadcastBar() {
   const {
     isLive, isStreaming, isPlaying, isLoading, toggle,
     showName, djName, heroBarVisible, heroBarObserverReady, tipLink, currentShow,
+    onLockedInRef: broadcastLockedInRef,
   } = useBroadcastStreamContext();
   const archivePlayer = useArchivePlayer();
   const { stationBPM } = useBPM();
   const broadcastBPM = stationBPM['broadcast']?.bpm ?? null;
   const pathname = usePathname();
   const { user } = useAuthContext();
-  const { chatUsername } = useUserProfile(user?.uid);
+  const { chatUsername, showLockedInMessages } = useUserProfile(user?.uid);
   const [heartTrigger, setHeartTrigger] = useState(0);
 
   // Compute current DJ chat room (same logic as LiveBroadcastHero)
@@ -45,11 +46,12 @@ export function GlobalBroadcastBar() {
     return username ? normalize(username) : '';
   }, [currentShow]);
 
-  const { sendLove } = useDJProfileChat({
+  const { sendLove, sendLockedIn } = useDJProfileChat({
     chatUsernameNormalized: currentDJChatRoom,
     djUsername: djName || currentShow?.djName || '',
     username: chatUsername || undefined,
     enabled: false, // Don't subscribe to messages, just need sendLove
+    lockedInMessagesEnabled: showLockedInMessages,
   });
 
   const handleSendLove = useCallback(async () => {
@@ -67,11 +69,12 @@ export function GlobalBroadcastBar() {
   const archiveDjProfile = useDJProfileInfo(archivePrimaryDj?.username);
   const archiveTipLink = archiveDjProfile.tipButtonLink;
 
-  const { sendLove: archiveSendLove } = useDJProfileChat({
+  const { sendLove: archiveSendLove, sendLockedIn: archiveSendLockedIn } = useDJProfileChat({
     chatUsernameNormalized: archiveDjProfileUsername,
     djUsername: archivePlayer.currentArchive?.djs.map(d => d.name).join(', ') || '',
     username: chatUsername || undefined,
     enabled: false,
+    lockedInMessagesEnabled: showLockedInMessages,
   });
 
   const [archiveHeartTrigger, setArchiveHeartTrigger] = useState(0);
@@ -83,6 +86,17 @@ export function GlobalBroadcastBar() {
       console.error('Failed to send archive love:', err);
     }
   }, [archiveSendLove]);
+
+  // Wire "locked in" callbacks to the timer refs in stream contexts
+  useEffect(() => {
+    broadcastLockedInRef.current = sendLockedIn;
+    return () => { broadcastLockedInRef.current = null; };
+  }, [sendLockedIn, broadcastLockedInRef]);
+
+  useEffect(() => {
+    archivePlayer.onLockedInRef.current = archiveSendLockedIn;
+    return () => { archivePlayer.onLockedInRef.current = null; };
+  }, [archiveSendLockedIn, archivePlayer.onLockedInRef]);
 
   useEffect(() => { setMounted(true); }, []);
 

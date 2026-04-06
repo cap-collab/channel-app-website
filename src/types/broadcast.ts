@@ -237,7 +237,7 @@ export interface AudioDevice {
 }
 
 // Chat message types for DJ chat
-export type ChatMessageType = 'chat' | 'love' | 'tip';
+export type ChatMessageType = 'chat' | 'love' | 'tip' | 'lockedin';
 
 export interface ChatMessage {
   id?: string;

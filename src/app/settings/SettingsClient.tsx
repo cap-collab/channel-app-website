@@ -28,7 +28,6 @@ interface NotificationSettings {
 }
 
 interface ActivityMessageSettings {
-  showLoveMessages: boolean;
   showLockedInMessages: boolean;
 }
 
@@ -43,7 +42,6 @@ export function SettingsClient() {
     djInsiders: false,
   });
   const [activityMessages, setActivityMessages] = useState<ActivityMessageSettings>({
-    showLoveMessages: true,
     showLockedInMessages: true,
   });
   const [saving, setSaving] = useState(false);
@@ -76,7 +74,6 @@ export function SettingsClient() {
       // Activity messages default to true if not set
       if (data?.activityMessages !== undefined) {
         setActivityMessages({
-          showLoveMessages: data.activityMessages.showLoveMessages ?? true,
           showLockedInMessages: data.activityMessages.showLockedInMessages ?? true,
         });
       }
@@ -538,28 +535,7 @@ export function SettingsClient() {
               <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
                 Chat Activity Messages
               </h2>
-              <div className="bg-[#1a1a1a] rounded divide-y divide-gray-800">
-                <div className="p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-white font-medium">Love reactions</p>
-                    <p className="text-gray-500 text-sm">
-                      Post a message in chat when you send love
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => handleActivityToggle("showLoveMessages")}
-                    disabled={saving}
-                    className={`w-14 h-8 min-w-[3.5rem] min-h-[2rem] shrink-0 rounded-full transition-colors flex items-center px-1 ${
-                      activityMessages.showLoveMessages ? "bg-white" : "bg-gray-700"
-                    }`}
-                  >
-                    <div
-                      className={`w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] rounded-full transition-transform ${
-                        activityMessages.showLoveMessages ? "bg-black translate-x-6" : "bg-gray-400"
-                      }`}
-                    />
-                  </button>
-                </div>
+              <div className="bg-[#1a1a1a] rounded">
                 <div className="p-4 flex items-center justify-between">
                   <div>
                     <p className="text-white font-medium">Locked in</p>

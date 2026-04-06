@@ -28,7 +28,7 @@ interface UseDJProfileChatOptions {
   username?: string;
   enabled?: boolean;                // Only subscribe when authenticated
   isOwner?: boolean;                // True if current user is the DJ
-  activityMessagesEnabled?: boolean; // Whether to post activity messages (love, etc.) to chat
+  lockedInMessagesEnabled?: boolean; // Whether to post "locked in" messages to chat
   // Broadcast-specific options:
   broadcastSlotId?: string;         // For tagging messages with slot ID
   currentShowStartTime?: number;    // Unix ms — filter love counts to current show only
@@ -41,6 +41,7 @@ interface UseDJProfileChatReturn {
   loveCount: number;
   sendMessage: (text: string) => Promise<void>;
   sendLove: () => Promise<void>;
+  sendLockedIn: () => Promise<void>;
 }
 
 export function useDJProfileChat({
@@ -49,7 +50,7 @@ export function useDJProfileChat({
   username,
   enabled = true,
   isOwner = false,
-  activityMessagesEnabled = true,
+  lockedInMessagesEnabled = true,
   broadcastSlotId,
   currentShowStartTime,
 }: UseDJProfileChatOptions): UseDJProfileChatReturn {
@@ -215,13 +216,9 @@ export function useDJProfileChat({
   }, [username, chatUsernameNormalized, isOwner, broadcastSlotId]);
 
   // Send a love reaction - increment heartCount if user already has a love message
-  // If activityMessagesEnabled is false, skip posting to chat (animation still plays)
   // Anyone can send love — if no username, post as "Someone" (no chat message username)
   const sendLove = useCallback(async () => {
     if (!chatUsernameNormalized) return;
-
-    // If activity messages are disabled, skip posting to chat
-    if (!activityMessagesEnabled) return;
 
     const app = getFirebaseApp();
     const auth = getAuth(app);
@@ -289,7 +286,54 @@ export function useDJProfileChat({
       console.error('Failed to send love:', err);
       throw new Error('Failed to send love');
     }
-  }, [username, chatUsernameNormalized, djUsername, activityMessagesEnabled]);
+  }, [username, chatUsernameNormalized, djUsername]);
+
+  // Send a "locked in" message after sustained listening
+  // Posts to DJ chat + channelbroadcast, then increments love count by 1
+  const sendLockedIn = useCallback(async () => {
+    if (!chatUsernameNormalized) return;
+    if (!lockedInMessagesEnabled) return;
+
+    const app = getFirebaseApp();
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    await auth.authStateReady();
+    if (!auth.currentUser) {
+      try { await signInAnonymously(auth); } catch { return; }
+    }
+
+    try {
+      const shouldCrossPost = chatUsernameNormalized !== 'channelbroadcast';
+      const displayName = username || 'Someone';
+      const message = `${displayName} is locked in 🔐 with ${djUsername}`;
+
+      const lockedInData = {
+        stationId: chatUsernameNormalized,
+        username: displayName,
+        message,
+        timestamp: serverTimestamp(),
+        isDJ: false,
+        messageType: 'lockedin',
+      };
+
+      await addDoc(collection(db, 'chats', chatUsernameNormalized, 'messages'), lockedInData);
+
+      // Cross-post to channelbroadcast (fire-and-forget)
+      if (shouldCrossPost) {
+        addDoc(collection(db, 'chats', 'channelbroadcast', 'messages'), {
+          ...lockedInData,
+          stationId: 'channelbroadcast',
+          timestamp: serverTimestamp(),
+        }).catch((err) => console.error('Failed to cross-post locked in:', err));
+      }
+
+      // Increment love count by 1
+      await sendLove();
+    } catch (err) {
+      console.error('Failed to send locked in:', err);
+    }
+  }, [username, chatUsernameNormalized, djUsername, lockedInMessagesEnabled, sendLove]);
 
   return {
     messages,
@@ -298,5 +342,6 @@ export function useDJProfileChat({
     loveCount,
     sendMessage,
     sendLove,
+    sendLockedIn,
   };
 }

@@ -85,6 +85,16 @@ function ChatMessage({
     );
   }
 
+  // Locked in message
+  if (message.messageType === 'lockedin') {
+    return (
+      <div className="py-2 px-4 flex items-center justify-between">
+        <span className="text-white">{message.message}</span>
+        <span className="text-gray-600 text-xs">{timeAgo}</span>
+      </div>
+    );
+  }
+
   // Tip message
   if (message.messageType === 'tip') {
     return (

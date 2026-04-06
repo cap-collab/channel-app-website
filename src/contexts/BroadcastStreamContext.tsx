@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, ReactNode, type MutableRefObject } from 'react';
 import { useBroadcastStream } from '@/hooks/useBroadcastStream';
 import { useBroadcastLiveStatus } from '@/hooks/useBroadcastLiveStatus';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
@@ -33,11 +33,14 @@ export interface BroadcastStreamContextValue {
   // Whether the IntersectionObserver for the hero bar has initialized
   heroBarObserverReady: boolean;
   setHeroBarObserverReady: (ready: boolean) => void;
+  // Ref callback for "locked in" message — set by consuming component (GlobalBroadcastBar)
+  onLockedInRef: MutableRefObject<(() => void) | null>;
 }
 
 export const BroadcastStreamContext = createContext<BroadcastStreamContextValue | null>(null);
 
 const noopFn = () => {};
+const noopRef = { current: null } as MutableRefObject<(() => void) | null>;
 
 /** Resolve external tip link from broadcast slot data (single source of truth — no fallback chain) */
 function resolveTipLink(show: BroadcastSlotSerialized | null): string | null {
@@ -159,10 +162,11 @@ export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
   const setHeroBarVisibleCb = useCallback((v: boolean) => setHeroBarVisible(v), []);
   const [heroBarObserverReady, setHeroBarObserverReady] = useState(false);
   const setHeroBarObserverReadyCb = useCallback((v: boolean) => setHeroBarObserverReady(v), []);
+  const onLockedInRef = useRef<(() => void) | null>(null);
 
   // useBroadcastStream is always called (hooks can't be conditional),
   // but it should be a no-op internally when not live
-  const stream = useBroadcastStream(statusIsLive);
+  const stream = useBroadcastStream(statusIsLive, onLockedInRef);
 
   // Check if DJ is actually publishing audio in the LiveKit room
   const isStreaming = useIsStreaming(statusIsLive, stream.currentShow);
@@ -170,7 +174,7 @@ export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
   const value = useMemo<BroadcastStreamContextValue>(() => {
     if (statusIsLive) {
       const tipLink = resolveTipLink(stream.currentShow);
-      return { ...stream, isStreaming, showName, djName, tipLink, heroBarVisible, setHeroBarVisible: setHeroBarVisibleCb, heroBarObserverReady, setHeroBarObserverReady: setHeroBarObserverReadyCb };
+      return { ...stream, isStreaming, showName, djName, tipLink, heroBarVisible, setHeroBarVisible: setHeroBarVisibleCb, heroBarObserverReady, setHeroBarObserverReady: setHeroBarObserverReadyCb, onLockedInRef };
     }
     return {
       isPlaying: false, isLoading: false, isLive: false, isStreaming: false,
@@ -180,6 +184,7 @@ export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
       showName: null, djName: null,
       tipLink: null,
       heroBarVisible, setHeroBarVisible: setHeroBarVisibleCb, heroBarObserverReady, setHeroBarObserverReady: setHeroBarObserverReadyCb,
+      onLockedInRef: noopRef,
     };
   }, [statusIsLive, stream, isStreaming, showName, djName, heroBarVisible, setHeroBarVisibleCb, heroBarObserverReady, setHeroBarObserverReadyCb]);
 

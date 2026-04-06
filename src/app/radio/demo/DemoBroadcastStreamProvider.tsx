@@ -247,6 +247,7 @@ export function DemoBroadcastStreamProvider({ children }: { children: ReactNode 
     setHeroBarVisible: setHeroBarVisibleCb,
     heroBarObserverReady,
     setHeroBarObserverReady: setHeroBarObserverReadyCb,
+    onLockedInRef: { current: null },
   }), [isPlaying, isLoading, isLive, currentShow, djLabel, showLabel, error, play, pause, toggle, heroBarVisible, setHeroBarVisibleCb, heroBarObserverReady, setHeroBarObserverReadyCb]);
 
   const modeCtx = useMemo(() => ({ mode, setMode }), [mode]);
