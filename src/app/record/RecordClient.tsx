@@ -15,7 +15,6 @@ import { AuthModal } from '@/components/AuthModal';
 import { AudioInputMethod } from '@/types/broadcast';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { useUserProfile } from '@/hooks/useUserProfile';
-import { TaggedDJInput, TaggedDJEntry } from '@/components/recording/TaggedDJInput';
 import { useBroadcastLiveStatus } from '@/hooks/useBroadcastLiveStatus';
 
 type SetupStep = 'quota' | 'profile' | 'audio';
@@ -58,9 +57,6 @@ export function RecordClient() {
   // DJ profile state
   const [djUsername, setDjUsername] = useState<string>('');
   const [showName, setShowName] = useState<string>('');
-  const [broadcastType, setBroadcastType] = useState<'remote' | 'venue'>('remote');
-  // Tagged DJs for venue recordings
-  const [taggedDJs, setTaggedDJs] = useState<TaggedDJEntry[]>([]);
 
   // DJ Info for broadcast hook
   const djInfo = useMemo(() => {
@@ -180,17 +176,6 @@ export function RecordClient() {
     setIsGoingLive(true);
 
     try {
-      // Prepare tagged DJs for API (only include valid entries with names)
-      const validTaggedDJs = broadcastType === 'venue'
-        ? taggedDJs
-            .filter(dj => dj.djName.trim())
-            .map(dj => ({
-              djName: dj.djName.trim(),
-              email: dj.email.trim() || undefined,
-              userId: dj.userId || undefined,
-              username: dj.username || undefined,
-            }))
-        : undefined;
 
       // Create recording session via API
       const res = await fetch('/api/recording/start', {
@@ -199,8 +184,7 @@ export function RecordClient() {
         body: JSON.stringify({
           userId: user.uid,
           showName: showName.trim(),
-          broadcastType,
-          taggedDJs: validTaggedDJs,
+          broadcastType: 'remote',
         }),
       });
 
@@ -229,7 +213,7 @@ export function RecordClient() {
       console.error('Failed to start recording:', error);
       setIsGoingLive(false);
     }
-  }, [audioStream, user?.uid, showName, broadcastType]);
+  }, [audioStream, user?.uid, showName]);
 
   // Go live after session is created
   // Wait for the broadcast hook's roomName to be updated before starting
@@ -472,48 +456,13 @@ export function RecordClient() {
               <label className="block text-gray-400 text-sm mb-2">
                 Where are you recording from?
               </label>
-              <div className="flex gap-3 mb-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBroadcastType('remote');
-                    setTaggedDJs([]); // Clear tagged DJs when switching to remote
-                  }}
-                  className={`flex-1 py-3 px-4 rounded-lg border transition-colors ${
-                    broadcastType === 'remote'
-                      ? 'bg-accent border-accent text-white'
-                      : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600'
-                  }`}
-                >
-                  From Home
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBroadcastType('venue')}
-                  className={`flex-1 py-3 px-4 rounded-lg border transition-colors ${
-                    broadcastType === 'venue'
-                      ? 'bg-accent border-accent text-white'
-                      : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600'
-                  }`}
-                >
-                  From a Venue
-                </button>
-              </div>
-
-              {/* Tagged DJs (only for venue recordings) */}
-              {broadcastType === 'venue' && (
-                <TaggedDJInput
-                  taggedDJs={taggedDJs}
-                  onChange={setTaggedDJs}
-                />
-              )}
             </div>
 
             {/* DJ Profile setup (reused component) */}
             <DJProfileSetup
               defaultUsername={chatUsername || ''}
               broadcastType="recording"
-              isVenueRecording={broadcastType === 'venue'}
+              isVenueRecording={false}
               onComplete={(username) => {
                 if (showName.trim()) {
                   handleProfileComplete(username);
