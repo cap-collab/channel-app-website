@@ -98,8 +98,22 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   }, [setHeroBarVisible, setHeroBarObserverReady]);
   const { addToWatchlist, isInWatchlist, removeFromWatchlist } = useFavorites();
 
-  // When live and archive is not actively playing, show live DJ in the hero & player bar
-  const showLiveInHero = isLive && !archivePlayer.isPlaying;
+  // Track what the user last chose: 'live' or 'archive'
+  // Defaults to 'live' when live, 'archive' otherwise
+  const [userSelectedMode, setUserSelectedMode] = useState<'live' | 'archive'>(isLive ? 'live' : 'archive');
+
+  // Auto-switch to live when broadcast starts (only if user hasn't picked an archive)
+  useEffect(() => {
+    if (isLive && !archivePlayer.currentArchive) {
+      setUserSelectedMode('live');
+    }
+    if (!isLive) {
+      setUserSelectedMode('archive');
+    }
+  }, [isLive, archivePlayer.currentArchive]);
+
+  // Show live in hero when user chose live and broadcast is actually live
+  const showLiveInHero = isLive && userSelectedMode === 'live';
 
   // The currently displayed archive (either playing or featured)
   const displayedArchive = archivePlayer.currentArchive || featuredArchive;
@@ -664,6 +678,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   isActive={isLivePlaying}
                   onPlay={() => {
                     if (archivePlayer.isPlaying) archivePlayer.pause();
+                    setUserSelectedMode('live');
                     playLive();
                   }}
                 />
@@ -674,7 +689,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   archive={archive}
                   isActive={archivePlayer.currentArchive?.id === archive.id}
                   isPlaying={archivePlayer.isPlaying && archivePlayer.currentArchive?.id === archive.id}
-                  onPlay={() => { pauseLive(); archivePlayer.play(archive); }}
+                  onPlay={() => { setUserSelectedMode('archive'); pauseLive(); archivePlayer.play(archive); }}
                 />
               ))}
             </div>
