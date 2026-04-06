@@ -99,15 +99,24 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const { addToWatchlist, isInWatchlist, removeFromWatchlist } = useFavorites();
 
   // Track what the user last chose: 'live' or 'archive'
-  // Defaults to 'live' when live, 'archive' otherwise
-  const [userSelectedMode, setUserSelectedMode] = useState<'live' | 'archive'>(isLive ? 'live' : 'archive');
+  // If an archive is loaded (playing or paused), stay in archive mode even if live is on
+  const [userSelectedMode, setUserSelectedMode] = useState<'live' | 'archive'>(
+    archivePlayer.currentArchive ? 'archive' : isLive ? 'live' : 'archive'
+  );
 
-  // Auto-switch to live when broadcast starts (only if user hasn't picked an archive)
+  // Auto-switch to live only when a NEW broadcast starts and no archive is loaded
+  // Auto-switch to archive when broadcast ends
+  const prevIsLiveRef = useRef(isLive);
   useEffect(() => {
-    if (isLive && !archivePlayer.currentArchive) {
+    const wasLive = prevIsLiveRef.current;
+    prevIsLiveRef.current = isLive;
+
+    // Broadcast just started — only switch to live if no archive is loaded
+    if (isLive && !wasLive && !archivePlayer.currentArchive) {
       setUserSelectedMode('live');
     }
-    if (!isLive) {
+    // Broadcast ended
+    if (!isLive && wasLive) {
       setUserSelectedMode('archive');
     }
   }, [isLive, archivePlayer.currentArchive]);
