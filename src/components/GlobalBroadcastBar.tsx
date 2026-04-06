@@ -63,15 +63,16 @@ export function GlobalBroadcastBar() {
     }
   }, [sendLove]);
 
-  // Archive DJ info for love + tip in archive bar
-  const archivePrimaryDj = archivePlayer.currentArchive?.djs[0];
+  // Archive DJ info for love + tip in archive bar (fall back to featured archive)
+  const archiveForBar = archivePlayer.currentArchive || archivePlayer.featuredArchive;
+  const archivePrimaryDj = archiveForBar?.djs[0];
   const archiveDjProfileUsername = archivePrimaryDj?.username?.replace(/\s+/g, '').toLowerCase() || '';
   const archiveDjProfile = useDJProfileInfo(archivePrimaryDj?.username);
   const archiveTipLink = archiveDjProfile.tipButtonLink;
 
   const { sendLove: archiveSendLove, sendLockedIn: archiveSendLockedIn } = useDJProfileChat({
     chatUsernameNormalized: archiveDjProfileUsername,
-    djUsername: archivePlayer.currentArchive?.djs.map(d => d.name).join(', ') || '',
+    djUsername: archiveForBar?.djs.map(d => d.name).join(', ') || '',
     username: chatUsername || undefined,
     enabled: false,
     lockedInMessagesEnabled: showLockedInMessages,
@@ -107,21 +108,29 @@ export function GlobalBroadcastBar() {
 
   const isLiveReady = isLive && isStreaming;
   const isArchivePlaying = archivePlayer.isPlaying || archivePlayer.isLoading;
+  const isLivePlaying = isLiveReady && isPlaying;
+  const displayArchive = archivePlayer.currentArchive || archivePlayer.featuredArchive;
 
-  // Show bar for live broadcasts OR archive playback
-  if (!isLiveReady && !isArchivePlaying) return null;
+  // Unified priority: 1) what's playing, 2) what's live, 3) top archive
+  let barMode: 'live' | 'archive' | null;
+  if (isLivePlaying) barMode = 'live';
+  else if (isArchivePlaying) barMode = 'archive';
+  else if (isLiveReady) barMode = 'live';
+  else if (displayArchive) barMode = 'archive';
+  else barMode = null;
+
+  if (!barMode) return null;
 
   // On /radio, hide while the hero's inline player bar is in view.
   // Before the observer initializes, default to hidden to prevent a flash on load.
   if (pathname === '/radio' && (heroBarVisible || !heroBarObserverReady)) return null;
 
-  // Priority: live > archive for what the bar displays
-  const showLiveBar = isLiveReady;
+  const showLiveBar = barMode === 'live';
   const isRestream = currentShow?.broadcastType === 'restream';
 
-  // Archive info
-  const archiveShowName = archivePlayer.currentArchive?.showName;
-  const archiveDjName = archivePlayer.currentArchive?.djs.map(d => d.name).join(', ');
+  // Archive info — fall back to featured archive
+  const archiveShowName = (archivePlayer.currentArchive || displayArchive)?.showName;
+  const archiveDjName = (archivePlayer.currentArchive || displayArchive)?.djs.map(d => d.name).join(', ');
 
   if (showLiveBar) {
     return (
@@ -213,7 +222,13 @@ export function GlobalBroadcastBar() {
       <div className="flex items-center gap-1 sm:gap-3 py-2 px-1">
         {/* Play/Pause — archive player */}
         <button
-          onClick={() => archivePlayer.toggle()}
+          onClick={() => {
+            if (archivePlayer.currentArchive) {
+              archivePlayer.toggle();
+            } else if (displayArchive) {
+              archivePlayer.play(displayArchive);
+            }
+          }}
           className="w-8 h-8 ml-1 flex items-center justify-center bg-white transition-colors flex-shrink-0"
         >
           {archivePlayer.isLoading ? (

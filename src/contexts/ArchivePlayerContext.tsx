@@ -46,6 +46,9 @@ interface ArchivePlayerContextValue {
   pause: () => void;
   toggle: () => void;
   seek: (time: number) => void;
+  /** The top/featured archive — always available for the GlobalBroadcastBar fallback */
+  featuredArchive: ArchiveSerialized | null;
+  setFeaturedArchive: (archive: ArchiveSerialized | null) => void;
   // Ref callback for "locked in" message — set by consuming component (GlobalBroadcastBar)
   onLockedInRef: MutableRefObject<(() => void) | null>;
 }
@@ -73,6 +76,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   const [listenerCount, setListenerCount] = useState(0);
   const [isGated, setIsGated] = useState(false);
   const [gateAttempt, setGateAttempt] = useState(0);
+  const [featuredArchive, setFeaturedArchive] = useState<ArchiveSerialized | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const cumulativeTimeRef = useRef(0);
   const gateSecondsRef = useRef(0);
@@ -430,8 +434,10 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     pause,
     toggle,
     seek,
+    featuredArchive,
+    setFeaturedArchive,
     onLockedInRef,
-  }), [currentArchive, isPlaying, isLoading, currentTime, duration, listenerCount, isGated, gateAttempt, clearGate, play, pause, toggle, seek]);
+  }), [currentArchive, isPlaying, isLoading, currentTime, duration, listenerCount, isGated, gateAttempt, clearGate, play, pause, toggle, seek, featuredArchive]);
 
   return (
     <ArchivePlayerContext.Provider value={value}>
