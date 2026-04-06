@@ -293,12 +293,15 @@ async function extractAdminEvents(): Promise<IRLShowData[]> {
   const db = getAdminDb();
   if (!db) return [];
   const now = Date.now();
+  // Use start of today so events happening later today aren't excluded by their stored timestamp
+  const startOfToday = new Date();
+  startOfToday.setUTCHours(0, 0, 0, 0);
   const twoWeeksMs = 14 * 24 * 60 * 60 * 1000;
   const cutoff = now + twoWeeksMs;
 
   const snapshot = await db
     .collection("events")
-    .where("date", ">=", now)
+    .where("date", ">=", startOfToday.getTime())
     .where("date", "<=", cutoff)
     .get();
 
