@@ -240,8 +240,13 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
     type Candidate = { item: MatchedItem; id: string; djName: string | undefined; matchCount: number; startMs: number; sortGroup: number; isChannelUser?: boolean };
     const takeSorted = (candidates: Candidate[], max: number): MatchedItem[] => {
       candidates.sort((a, b) => {
+        // Live shows always come first (sortGroup 0 = live)
+        const aLive = a.sortGroup === 0 ? 1 : 0;
+        const bLive = b.sortGroup === 0 ? 1 : 0;
+        if (aLive !== bLive) return bLive - aLive;
+        // Then by match count (city + genre relevance)
         if (b.matchCount !== a.matchCount) return b.matchCount - a.matchCount;
-        // Sort group: live > IRL > profile > upcoming
+        // Sort group: IRL > profile > upcoming
         if (a.sortGroup !== b.sortGroup) return a.sortGroup - b.sortGroup;
         // Then sooner shows first
         if (a.startMs !== b.startMs) return a.startMs - b.startMs;
@@ -784,12 +789,14 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
         </section>
       )}
 
-      {/* Meanwhile in the Scene */}
-      <section className="px-4 md:px-8 pt-4 pb-0 relative z-10">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-2xl md:text-3xl font-semibold mb-2">Meanwhile in the scene</h2>
-        </div>
-      </section>
+      {/* Meanwhile in the Scene — hidden on /explore */}
+      {!skipHero ? (
+        <section className="px-4 md:px-8 pt-4 pb-0 relative z-10">
+          <div className="max-w-7xl mx-auto">
+            <h2 className="text-2xl md:text-3xl font-semibold mb-2">Meanwhile in the scene</h2>
+          </div>
+        </section>
+      ) : null}
 
       <div className="px-4 md:px-8 flex-1 w-full flex flex-col">
       <main className="max-w-7xl mx-auto flex-1 w-full flex flex-col">
