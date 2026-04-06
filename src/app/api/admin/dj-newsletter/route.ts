@@ -186,7 +186,7 @@ export async function GET(request: NextRequest) {
 
   // ── Send mode: LOCKED — flip to true when ready ──
   if (mode === "send") {
-    const SEND_ENABLED = false; // ← flip to true when ready to send
+    const SEND_ENABLED = true; // ← flip to true when ready to send
     if (!SEND_ENABLED) {
       return NextResponse.json({
         error: "Send mode is locked. Set SEND_ENABLED = true in code when ready.",
