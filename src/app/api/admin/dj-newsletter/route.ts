@@ -50,7 +50,7 @@ function buildEmailHtml(name: string): string {
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Hi ${name},</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Quick note to start the week :)</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Last week was honestly so much fun. Really grateful for all of you — the music, the energy, the vote of confidence, and everything I learned from it.</p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;"><strong>We had 280 new streams on launch day</strong>, which was amazing to see. It also pushed the setup a bit, so I've since improved the streaming capacity to make things smoother and support more listeners. I've also made a few improvements across the website.</p>
+                  <p style="margin: 0 0 16px; color: #1a1a1a;"><strong>We had 280 streamers on launch day</strong>, which was amazing to see. It also pushed the setup a bit, so I've since improved the streaming capacity to make things smoother and support more listeners. I've also made a few improvements across the website.</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Also, I'm always looking for new people to invite. If there are DJs, producers, or friends you think would be a good fit, I would love an intro.</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">And more specifically, <strong>I'd really like to bring more women into the lineup</strong>, so if anyone comes to mind, please send them my way.</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">As always, if you have any feedback, ideas, or things you'd want to see, I'm all ears.</p>
