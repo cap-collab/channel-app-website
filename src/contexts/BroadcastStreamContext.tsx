@@ -114,6 +114,15 @@ function useIsStreaming(statusIsLive: boolean, currentShow: BroadcastSlotSeriali
 
     const unsubscribe = onValue(statusRef, (snapshot) => {
       const data = snapshot.val();
+
+      // If RTDB has never been written to (null), assume streaming is true
+      // when a slot is live. The webhook will write the real value on the
+      // next track_published/unpublished event.
+      if (data === null) {
+        setIsStreaming(true);
+        return;
+      }
+
       const live = data?.isStreaming === true;
 
       if (live) {
