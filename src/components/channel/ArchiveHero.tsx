@@ -46,7 +46,7 @@ interface ArchiveHeroProps {
 export function ArchiveHero({ archives, featuredArchive, hideStatusLine }: ArchiveHeroProps) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername, loading: profileLoading, setChatUsername } = useUserProfile(user?.uid);
-  const { listenerCount, setHeroBarVisible, setHeroBarObserverReady } = useBroadcastStreamContext();
+  const { listenerCount, setHeroBarVisible, setHeroBarObserverReady, pause: pauseLive } = useBroadcastStreamContext();
   const archivePlayer = useArchivePlayer();
   const stickyBarRef = useRef<HTMLDivElement>(null);
 
@@ -352,13 +352,15 @@ export function ArchiveHero({ archives, featuredArchive, hideStatusLine }: Archi
 
         {/* Player bar */}
         <div ref={stickyBarRef} className="bg-black relative">
-          <div className="flex items-center gap-1 sm:gap-3 py-2 px-1">
+          <div className="flex items-center gap-2 sm:gap-3 py-2 px-1">
             {/* Play/Pause */}
             <button
               onClick={() => {
                 if (archivePlayer.currentArchive) {
+                  if (!archivePlayer.isPlaying) pauseLive();
                   archivePlayer.toggle();
                 } else {
+                  pauseLive();
                   archivePlayer.play(displayedArchive);
                 }
               }}
@@ -498,7 +500,7 @@ export function ArchiveHero({ archives, featuredArchive, hideStatusLine }: Archi
                     archive={archive}
                     isActive={archivePlayer.currentArchive?.id === archive.id}
                     isPlaying={archivePlayer.isPlaying && archivePlayer.currentArchive?.id === archive.id}
-                    onPlay={() => archivePlayer.play(archive)}
+                    onPlay={() => { pauseLive(); archivePlayer.play(archive); }}
                   />
                 ))}
               </div>

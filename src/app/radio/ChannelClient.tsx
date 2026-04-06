@@ -52,18 +52,7 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
   // Switch-to-live prompt state
   const [showLivePrompt, setShowLivePrompt] = useState(false);
   const [dismissedLivePrompt, setDismissedLivePrompt] = useState(false);
-
-  // Show prompt when live starts while archive is playing
-  useEffect(() => {
-    if (isBroadcastLive && isBroadcastStreaming && archivePlayer.isPlaying && !dismissedLivePrompt) {
-      setShowLivePrompt(true);
-    }
-    // Reset when broadcast ends
-    if (!isBroadcastLive || !isBroadcastStreaming) {
-      setDismissedLivePrompt(false);
-      setShowLivePrompt(false);
-    }
-  }, [isBroadcastLive, isBroadcastStreaming, archivePlayer.isPlaying, dismissedLivePrompt]);
+  const acknowledgedLiveRef = useRef(false);
 
   // Scroll to #scene anchor after mount
   useEffect(() => {
@@ -116,6 +105,26 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
       setHeroMode(archivePlayer.isPlaying ? 'archive' : 'live');
     }
   }, [isLiveReady, archivePlayer.isPlaying]);
+
+  // Track when user has seen/acknowledged the current live broadcast
+  useEffect(() => {
+    if (isLiveReady && heroMode === 'live') {
+      acknowledgedLiveRef.current = true;
+    }
+  }, [isLiveReady, heroMode]);
+
+  // Show prompt only when a NEW broadcast goes live while archive is playing
+  useEffect(() => {
+    if (isBroadcastLive && isBroadcastStreaming && archivePlayer.isPlaying && !dismissedLivePrompt && !acknowledgedLiveRef.current) {
+      setShowLivePrompt(true);
+    }
+    // Reset when broadcast ends
+    if (!isBroadcastLive || !isBroadcastStreaming) {
+      acknowledgedLiveRef.current = false;
+      setDismissedLivePrompt(false);
+      setShowLivePrompt(false);
+    }
+  }, [isBroadcastLive, isBroadcastStreaming, archivePlayer.isPlaying, dismissedLivePrompt]);
 
   const isRestream = currentShow?.broadcastType === 'restream';
 
@@ -227,6 +236,11 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
     const sorted = scored.map((s) => s.archive);
     return { archives: sorted, featuredArchive: sorted[0] };
   }, [rawArchives, rawFeaturedArchive, selectedGenres]);
+
+  // Sync featured archive into context so GlobalBroadcastBar can access it
+  useEffect(() => {
+    archivePlayer.setFeaturedArchive(featuredArchive);
+  }, [featuredArchive, archivePlayer.setFeaturedArchive]);
 
   // Helper: check if a show is currently live
   const isShowLive = useCallback((show: Show): boolean => {
@@ -916,7 +930,7 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
       )}
 
       {/* Meanwhile in the Scene */}
-      <section className="px-4 md:px-8 pb-0 relative z-10">
+      <section className="px-4 md:px-8 pt-4 pb-0 relative z-10">
         <div className="max-w-7xl mx-auto">
           <h2 className="text-2xl md:text-3xl font-semibold mb-2">Meanwhile in the scene</h2>
         </div>
