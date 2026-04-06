@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { getAdminDb } from "@/lib/firebase-admin";
-import { Timestamp } from "firebase-admin/firestore";
 import { getUnsubscribeHeaders } from "@/lib/email";
 
 const resend = process.env.RESEND_API_KEY
@@ -19,38 +18,7 @@ function minifyHtml(html: string): string {
   return html.replace(/\n\s+/g, "\n").replace(/\n+/g, "\n").trim();
 }
 
-interface ShowReminder {
-  showName: string;
-  date: string;       // e.g. "Friday, April 10"
-  timeRange: string;  // e.g. "7:00 PM – 8:00 PM PT"
-  duration: string;   // e.g. "1 hour"
-}
-
-function formatDuration(startMs: number, endMs: number): string {
-  const mins = Math.round((endMs - startMs) / (60 * 1000));
-  if (mins < 60) return `${mins} min`;
-  const hours = Math.floor(mins / 60);
-  const remaining = mins % 60;
-  if (remaining === 0) return hours === 1 ? "1 hour" : `${hours} hours`;
-  return `${hours}h ${remaining}min`;
-}
-
-function buildShowReminderHtml(shows: ShowReminder[]): string {
-  if (shows.length === 0) return "";
-
-  const showLines = shows.map((s) =>
-    `<li style="margin: 0 0 4px; color: #1a1a1a;"><strong>${s.showName}</strong><br />${s.date} · ${s.timeRange}<br />${s.duration}</li>`
-  ).join("");
-
-  return `
-    <p style="margin: 24px 0 8px; color: #1a1a1a;">As a reminder, your set is planned as:</p>
-    <ul style="margin: 0 0 16px; padding-left: 20px; color: #1a1a1a;">
-      ${showLines}
-    </ul>
-  `;
-}
-
-function buildEmailHtml(name: string, showReminder: string): string {
+function buildEmailHtml(name: string): string {
   const settingsUrl = `${APP_URL}/settings?unsubscribe=dj`;
 
   return minifyHtml(`
@@ -86,7 +54,6 @@ function buildEmailHtml(name: string, showReminder: string): string {
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Also, I'm always looking for new people to invite. If there are DJs, producers, or friends you think would be a good fit, I would love an intro.</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">And more specifically, <strong>I'd really like to bring more women into the lineup</strong>, so if anyone comes to mind, please send them my way.</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">As always, if you have any feedback, ideas, or things you'd want to see, I'm all ears.</p>
-                  ${showReminder}
                   <p style="margin: 0 0 4px; color: #1a1a1a;">Thanks again for being part of this 🖤</p>
                   <p style="margin: 0; color: #1a1a1a;">Cap</p>
                 </td>
@@ -113,7 +80,7 @@ function buildEmailHtml(name: string, showReminder: string): string {
 
 // ── Route handler ───────────────────────────────────────────────────
 // Modes:
-//   ?mode=preview  → send test to cap@channel-app.com (with sample show reminder)
+//   ?mode=preview  → send test to cap@channel-app.com
 //   ?mode=dry-run  → list who would receive (default)
 //   ?mode=send     → send to all DJs with djInsiders=true (LOCKED until ready)
 
@@ -130,73 +97,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Database not configured" }, { status: 500 });
   }
 
-  // ── Fetch this week's broadcast slots (April 6-12) ──
-  const weekStart = Timestamp.fromMillis(new Date("2026-04-06T00:00:00Z").getTime());
-  const weekEnd = Timestamp.fromMillis(new Date("2026-04-13T00:00:00Z").getTime());
-
-  const slotsSnap = await db
-    .collection("broadcast-slots")
-    .where("status", "==", "scheduled")
-    .where("startTime", ">=", weekStart)
-    .where("startTime", "<=", weekEnd)
-    .get();
-
-  // Build a map of email → their scheduled shows this week
-  const djShowsMap = new Map<string, ShowReminder[]>();
-
-  for (const doc of slotsSnap.docs) {
-    const slot = doc.data();
-    if (slot.broadcastType === "restream") continue;
-
-    const emails: string[] = [];
-    if (slot.djSlots && Array.isArray(slot.djSlots)) {
-      for (const djSlot of slot.djSlots) {
-        if (djSlot.djEmail) emails.push(djSlot.djEmail);
-      }
-    } else if (slot.djEmail) {
-      emails.push(slot.djEmail);
-    }
-
-    const startMs = slot.startTime?.toMillis ? slot.startTime.toMillis() : slot.startTime;
-    const endMs = slot.endTime?.toMillis ? slot.endTime.toMillis() : slot.endTime;
-
-    // Look up DJ timezone from users collection
-    let djTimezone = "America/Los_Angeles";
-    if (slot.djUserId) {
-      const userDoc = await db.collection("users").doc(slot.djUserId).get();
-      if (userDoc.exists) {
-        djTimezone = userDoc.data()?.timezone || djTimezone;
-      }
-    }
-
-    const dateStr = new Date(startMs).toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-      timeZone: djTimezone,
-    });
-
-    const timeOpts: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit", timeZone: djTimezone };
-    const startTimeStr = new Date(startMs).toLocaleTimeString("en-US", timeOpts);
-    const endTimeStr = new Date(endMs).toLocaleTimeString("en-US", timeOpts);
-    const tzAbbr = new Intl.DateTimeFormat("en-US", { timeZone: djTimezone, timeZoneName: "short" })
-      .formatToParts(new Date(startMs))
-      .find((p) => p.type === "timeZoneName")?.value || djTimezone;
-
-    const reminder: ShowReminder = {
-      showName: slot.showName || "Your show",
-      date: dateStr,
-      timeRange: `${startTimeStr} – ${endTimeStr} ${tzAbbr}`,
-      duration: formatDuration(startMs, endMs),
-    };
-
-    for (const email of emails) {
-      const existing = djShowsMap.get(email) || [];
-      existing.push(reminder);
-      djShowsMap.set(email, existing);
-    }
-  }
-
   // ── Get DJ recipients ──
   const usersSnap = await db
     .collection("users")
@@ -208,27 +108,28 @@ export async function GET(request: NextRequest) {
     "64j87qk747@privaterelay.appleid.com", // not a Channel DJ
   ]);
 
-  const djRecipients: Array<{ email: string; name: string; id: string; shows: ShowReminder[] }> = [];
+  const djRecipients: Array<{ email: string; name: string; id: string }> = [];
   for (const doc of usersSnap.docs) {
     const data = doc.data();
     if (!data.email) continue;
     if (EXCLUDE_EMAILS.has(data.email)) continue;
     if (!data.emailNotifications?.djInsiders) continue;
     const name = data.name || "there";
-    const shows = djShowsMap.get(data.email) || [];
-    djRecipients.push({ email: data.email, name, id: doc.id, shows });
+    djRecipients.push({ email: data.email, name, id: doc.id });
   }
 
   // Add pending DJs who have scheduled slots but no account yet
   const EXTRA_PENDING_DJS = [
     { email: "paulsboston@gmail.com", name: "Paul", id: "pending-spillman" },
     { email: "juniorsbl@gmail.com", name: "Junior", id: "pending-junior" },
+    { email: "hello@justinmiller.nyc", name: "Justin", id: "pending-justin" },
+    { email: "cesartoribio1@gmail.com", name: "Cesar", id: "pending-toribio" },
+    { email: "celebritybitcrush@gmail.com", name: "Keigo", id: "pending-celebritybitcrush" },
   ];
   for (const pending of EXTRA_PENDING_DJS) {
     if (EXCLUDE_EMAILS.has(pending.email)) continue;
     if (djRecipients.some((r) => r.email === pending.email)) continue;
-    const shows = djShowsMap.get(pending.email) || [];
-    djRecipients.push({ ...pending, shows });
+    djRecipients.push(pending);
   }
 
   // ── Preview mode: send test to cap@channel-app.com ──
@@ -237,20 +138,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Resend not configured" }, { status: 500 });
     }
 
-    // For preview, include a sample show reminder so you can see the formatting
-    const sampleShows: ShowReminder[] = [{
-      showName: "Beat therapy",
-      date: "Friday, April 10",
-      timeRange: "7:00 PM – 8:00 PM PT",
-      duration: "1 hour",
-    }];
-
     try {
       await resend.emails.send({
         from: FROM_EMAIL,
         to: "cap@channel-app.com",
         subject: SUBJECT,
-        html: buildEmailHtml("Cap", buildShowReminderHtml(sampleShows)),
+        html: buildEmailHtml("Cap"),
         headers: getUnsubscribeHeaders("dj"),
       });
 
@@ -259,7 +152,7 @@ export async function GET(request: NextRequest) {
         sentTo: "cap@channel-app.com",
         success: true,
         totalDjRecipients: djRecipients.length,
-        recipients: djRecipients.map((r) => ({ email: r.email, name: r.name, shows: r.shows })),
+        recipients: djRecipients.map((r) => ({ email: r.email, name: r.name })),
       });
     } catch (e) {
       return NextResponse.json({ error: String(e) }, { status: 500 });
@@ -270,9 +163,8 @@ export async function GET(request: NextRequest) {
   if (mode === "dry-run") {
     return NextResponse.json({
       mode: "dry-run",
-      totalDJs: usersSnap.docs.length,
       totalDjRecipients: djRecipients.length,
-      recipients: djRecipients.map((r) => ({ email: r.email, name: r.name, shows: r.shows })),
+      recipients: djRecipients.map((r) => ({ email: r.email, name: r.name })),
     });
   }
 
@@ -296,12 +188,11 @@ export async function GET(request: NextRequest) {
 
     for (const recipient of djRecipients) {
       try {
-        const showReminderHtml = buildShowReminderHtml(recipient.shows);
         await resend.emails.send({
           from: FROM_EMAIL,
           to: recipient.email,
           subject: SUBJECT,
-          html: buildEmailHtml(recipient.name, showReminderHtml),
+          html: buildEmailHtml(recipient.name),
           headers: getUnsubscribeHeaders("dj"),
         });
         sent++;
