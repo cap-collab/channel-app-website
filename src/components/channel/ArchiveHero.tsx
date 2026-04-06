@@ -115,6 +115,45 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   // Show live in hero when user chose live and broadcast is actually live
   const showLiveInHero = isLive && userSelectedMode === 'live';
 
+  // Switch-to-live prompt: show when live starts and user is in archive mode
+  // and hasn't already seen/acknowledged this live broadcast
+  const [showLivePrompt, setShowLivePrompt] = useState(false);
+  const [dismissedLivePrompt, setDismissedLivePrompt] = useState(false);
+  const acknowledgedLiveRef = useRef(false);
+
+  // Mark acknowledged when user is viewing live
+  useEffect(() => {
+    if (isLive && userSelectedMode === 'live') {
+      acknowledgedLiveRef.current = true;
+    }
+  }, [isLive, userSelectedMode]);
+
+  // Show prompt when live starts while user is in archive mode and hasn't acknowledged
+  useEffect(() => {
+    if (isLive && userSelectedMode === 'archive' && !dismissedLivePrompt && !acknowledgedLiveRef.current) {
+      setShowLivePrompt(true);
+    }
+    // Reset when broadcast ends
+    if (!isLive) {
+      acknowledgedLiveRef.current = false;
+      setDismissedLivePrompt(false);
+      setShowLivePrompt(false);
+    }
+  }, [isLive, userSelectedMode, dismissedLivePrompt]);
+
+  const handleSwitchToLive = useCallback(() => {
+    if (archivePlayer.isPlaying) archivePlayer.pause();
+    setShowLivePrompt(false);
+    setDismissedLivePrompt(false);
+    setUserSelectedMode('live');
+    playLive();
+  }, [archivePlayer, playLive]);
+
+  const handleKeepListening = useCallback(() => {
+    setShowLivePrompt(false);
+    setDismissedLivePrompt(true);
+  }, []);
+
   // The currently displayed archive (either playing or featured)
   const displayedArchive = archivePlayer.currentArchive || featuredArchive;
 
@@ -308,6 +347,37 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   }, [canShowEmailPopup]);
 
   return (
+    <>
+      {/* Switch-to-live prompt overlay */}
+      {showLivePrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-black border border-white/20 rounded-xl px-6 py-5 max-w-sm w-full shadow-2xl">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600" />
+              </span>
+              <p className="text-white text-base font-bold truncate">{currentDJ || 'A DJ'} is live!</p>
+            </div>
+            <p className="text-zinc-400 text-sm mb-5">Switch to the live broadcast?</p>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSwitchToLive}
+                className="flex-1 py-2.5 bg-white text-black text-sm font-bold hover:bg-gray-200 transition-colors rounded-lg"
+              >
+                Switch to live
+              </button>
+              <button
+                onClick={handleKeepListening}
+                className="flex-1 py-2.5 text-zinc-400 text-sm font-medium hover:text-white transition-colors border border-white/10 rounded-lg"
+              >
+                Keep listening
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     <section className="relative z-10 px-4 pt-6 pb-2">
       <div className="max-w-3xl mx-auto">
 
@@ -804,6 +874,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       />
 
     </section>
+    </>
   );
 }
 
