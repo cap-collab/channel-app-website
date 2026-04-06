@@ -64,7 +64,7 @@ export function useArchivePlayer() {
 export { ArchivePlayerContext };
 
 const GATE_STORAGE_KEY = 'archive_cumulative_seconds';
-const GATE_THRESHOLD_SECONDS = 600;
+const GATE_THRESHOLD_SECONDS = 960;
 
 export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuthContext();
