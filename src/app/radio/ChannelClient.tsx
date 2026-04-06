@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useSchedule } from '@/contexts/ScheduleContext';
 import { Header } from '@/components/Header';
@@ -15,9 +15,8 @@ import { SkeletonCard } from '@/components/channel/SkeletonCard';
 import { AuthModal } from '@/components/AuthModal';
 import { GenreAlertPrompt } from '@/components/channel/GenreAlertPrompt';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
-import { LiveBroadcastHero } from '@/components/channel/LiveBroadcastHero';
 import { ArchiveHero } from '@/components/channel/ArchiveHero';
-import { OfflineHero } from '@/components/channel/OfflineHero';
+import { computeDJChatRoom } from '@/lib/broadcast-utils';
 import { EmailPopup } from '@/components/channel/EmailPopup';
 import { Show, Station, IRLShowData, CuratorRec, DJProfile } from '@/types';
 import { DJProfileCard } from '@/components/channel/DJProfileCard';
@@ -41,7 +40,7 @@ type RecommendedItem =
 
 export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boolean; exploreSearchBar?: React.ReactNode } = {}) {
   const { user, isAuthenticated } = useAuthContext();
-  const { isLive: isBroadcastLive, isStreaming: isBroadcastStreaming, currentDJ, currentShow, play: playLive } = useBroadcastStreamContext();
+  const { isLive: isBroadcastLive, isStreaming: isBroadcastStreaming, currentShow } = useBroadcastStreamContext();
   const { stationBPM } = useBPM();
   const archivePlayer = useArchivePlayer();
   const { isGated, gateAttempt, clearGate } = archivePlayer;
@@ -49,10 +48,6 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  // Switch-to-live prompt state
-  const [showLivePrompt, setShowLivePrompt] = useState(false);
-  const [dismissedLivePrompt, setDismissedLivePrompt] = useState(false);
-  const acknowledgedLiveRef = useRef(false);
 
   // Scroll to #scene anchor after mount
   useEffect(() => {
@@ -94,76 +89,22 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
 
   // Determine which hero to show
   const isLiveReady = isBroadcastLive && isBroadcastStreaming;
-  const shouldShowArchiveWithPrompt = isLiveReady && archivePlayer.isPlaying;
-
-  // Hero mode toggle: 'live' or 'archive' — only matters when live
-  const [heroMode, setHeroMode] = useState<'live' | 'archive'>('live');
-
-  // Auto-set hero mode when live status changes
-  useEffect(() => {
-    if (isLiveReady) {
-      setHeroMode(archivePlayer.isPlaying ? 'archive' : 'live');
-    }
-  }, [isLiveReady, archivePlayer.isPlaying]);
-
-  // Track when user has seen/acknowledged the current live broadcast
-  useEffect(() => {
-    if (isLiveReady && heroMode === 'live') {
-      acknowledgedLiveRef.current = true;
-    }
-  }, [isLiveReady, heroMode]);
-
-  // Show prompt only when a NEW broadcast goes live while archive is playing
-  useEffect(() => {
-    if (isBroadcastLive && isBroadcastStreaming && archivePlayer.isPlaying && !dismissedLivePrompt && !acknowledgedLiveRef.current) {
-      setShowLivePrompt(true);
-    }
-    // Reset when broadcast ends
-    if (!isBroadcastLive || !isBroadcastStreaming) {
-      acknowledgedLiveRef.current = false;
-      setDismissedLivePrompt(false);
-      setShowLivePrompt(false);
-    }
-  }, [isBroadcastLive, isBroadcastStreaming, archivePlayer.isPlaying, dismissedLivePrompt]);
 
   const isRestream = currentShow?.broadcastType === 'restream';
 
-  // Swipe handling for hero section
-  const heroSwipeRef = useRef<{ startX: number; startY: number } | null>(null);
-  const handleHeroTouchStart = useCallback((e: React.TouchEvent) => {
-    heroSwipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY };
-  }, []);
-  const handleHeroTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (!heroSwipeRef.current || !isLiveReady) return;
-    const dx = e.changedTouches[0].clientX - heroSwipeRef.current.startX;
-    const dy = e.changedTouches[0].clientY - heroSwipeRef.current.startY;
-    heroSwipeRef.current = null;
-    // Only trigger on horizontal swipes (dx > dy and minimum distance)
-    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      if (dx < 0 && heroMode === 'live') {
-        setHeroMode('archive');
-      } else if (dx > 0 && heroMode === 'archive') {
-        setHeroMode('live');
-        if (archivePlayer.isPlaying) {
-          archivePlayer.pause();
-          playLive();
-        }
-      }
-    }
-  }, [isLiveReady, heroMode, archivePlayer, playLive]);
+  // Compute live DJ chat room for passing to ArchiveHero
+  const [currentDJChatRoom, setCurrentDJChatRoom] = useState(() => computeDJChatRoom(currentShow ?? null));
 
-  const handleSwitchToLive = useCallback(() => {
-    archivePlayer.pause();
-    setShowLivePrompt(false);
-    setDismissedLivePrompt(false);
-    setHeroMode('live');
-    playLive();
-  }, [archivePlayer, playLive]);
-
-  const handleKeepListening = useCallback(() => {
-    setShowLivePrompt(false);
-    setDismissedLivePrompt(true);
-  }, []);
+  useEffect(() => {
+    setCurrentDJChatRoom(computeDJChatRoom(currentShow ?? null));
+    // For venue broadcasts with multiple DJs, poll every 30s to detect DJ transitions
+    const isVenue = currentShow?.djSlots && currentShow.djSlots.length > 1;
+    if (!isVenue) return;
+    const interval = setInterval(() => {
+      setCurrentDJChatRoom(computeDJChatRoom(currentShow ?? null));
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [currentShow]);
 
   // Follow/remind state
   const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
@@ -811,91 +752,10 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
         <Header currentPage="channel" position="sticky" />
       </div>
 
-      {/* Hero Section — Live Broadcast, Archive, or Offline */}
+      {/* Hero Section — unified ArchiveHero for all states */}
       {skipHero ? null : mounted ? (
-        <div className="relative" onTouchStart={isLiveReady ? handleHeroTouchStart : undefined} onTouchEnd={isLiveReady ? handleHeroTouchEnd : undefined}>
-
-          {/* Live/Archive toggle — only shown when live */}
-          {isLiveReady && (
-            <div className="px-4 pt-4 pb-1">
-              <div className="flex w-full max-w-3xl mx-auto border border-white/20">
-                <button
-                  onClick={() => {
-                    setHeroMode('live');
-                    if (archivePlayer.isPlaying) {
-                      archivePlayer.pause();
-                      playLive();
-                    }
-                  }}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-mono uppercase tracking-tighter font-bold transition-colors ${
-                    heroMode === 'live' ? 'bg-black text-red-500 border border-white' : 'bg-transparent text-zinc-600 hover:text-zinc-400'
-                  }`}
-                >
-                  {isRestream ? (
-                    <svg className={`w-3 h-3 ${heroMode === 'live' ? 'animate-pulse' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                      <path d="M3 3v5h5" />
-                    </svg>
-                  ) : (
-                    <span className="relative flex h-2 w-2">
-                      {heroMode === 'live' && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />}
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
-                    </span>
-                  )}
-                  {isRestream ? 'Restream' : 'Live'}
-                  {stationBPM['broadcast']?.bpm && ` ${stationBPM['broadcast'].bpm} BPM`}
-                </button>
-                <button
-                  onClick={() => setHeroMode('archive')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-mono uppercase tracking-tighter font-bold transition-colors ${
-                    heroMode === 'archive' ? 'bg-black text-gray-300 border border-white' : 'bg-transparent text-zinc-600 hover:text-zinc-400'
-                  }`}
-                >
-                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="2" y="3" width="20" height="5" rx="1" />
-                    <path d="M4 8v11a2 2 0 002 2h12a2 2 0 002-2V8" />
-                    <path d="M10 12h4" />
-                  </svg>
-                  Archive
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Switch-to-live prompt overlay */}
-          {shouldShowArchiveWithPrompt && showLivePrompt && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-              <div className="bg-black border border-white/20 rounded-xl px-6 py-5 max-w-sm w-full shadow-2xl">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600" />
-                  </span>
-                  <p className="text-white text-base font-bold truncate">{currentDJ || 'A DJ'} is live!</p>
-                </div>
-                <p className="text-zinc-400 text-sm mb-5">Switch to the live broadcast?</p>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={handleSwitchToLive}
-                    className="flex-1 py-2.5 bg-white text-black text-sm font-bold hover:bg-gray-200 transition-colors rounded-lg"
-                  >
-                    Switch to live
-                  </button>
-                  <button
-                    onClick={handleKeepListening}
-                    className="flex-1 py-2.5 text-zinc-400 text-sm font-medium hover:text-white transition-colors border border-white/10 rounded-lg"
-                  >
-                    Keep listening
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Hero content based on mode */}
-          {isLiveReady && heroMode === 'live' ? (
-            <LiveBroadcastHero />
-          ) : archivesLoading ? (
+        <div className="relative">
+          {archivesLoading && !isLiveReady ? (
             <div className="flex items-center justify-center py-24">
               <svg className="animate-spin h-8 w-8 text-zinc-500" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
@@ -903,10 +763,15 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
               </svg>
             </div>
           ) : featuredArchive ? (
-            <ArchiveHero archives={archives} featuredArchive={featuredArchive} hideStatusLine={isLiveReady} />
-          ) : (
-            <OfflineHero />
-          )}
+            <ArchiveHero
+              archives={archives}
+              featuredArchive={featuredArchive}
+              isLive={isLiveReady}
+              isRestream={isRestream}
+              liveBPM={stationBPM['broadcast']?.bpm ?? null}
+              liveDJChatRoom={currentDJChatRoom}
+            />
+          ) : null}
         </div>
       ) : null}
 

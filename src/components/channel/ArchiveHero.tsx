@@ -40,13 +40,42 @@ function formatTime(seconds: number): string {
 interface ArchiveHeroProps {
   archives: ArchiveSerialized[];
   featuredArchive: ArchiveSerialized;
-  hideStatusLine?: boolean;
+  isLive?: boolean;
+  isRestream?: boolean;
+  liveBPM?: number | null;
+  liveDJChatRoom?: string;
 }
 
-export function ArchiveHero({ archives, featuredArchive, hideStatusLine }: ArchiveHeroProps) {
+function formatClockTime(timestampMs: number): string {
+  const d = new Date(timestampMs);
+  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+}
+
+function ShowProgressBar({ startTime, endTime }: { startTime: number; endTime: number }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 10000);
+    return () => clearInterval(interval);
+  }, []);
+  const totalDuration = endTime - startTime;
+  const elapsed = now - startTime;
+  const progress = totalDuration > 0 ? Math.max(0, Math.min(1, elapsed / totalDuration)) : 0;
+  return (
+    <div className="relative w-full h-[3px] bg-white/10">
+      <div className="absolute inset-y-0 left-0 bg-white" style={{ width: `${progress * 100}%` }} />
+    </div>
+  );
+}
+
+export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liveBPM, liveDJChatRoom }: ArchiveHeroProps) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername, loading: profileLoading, setChatUsername } = useUserProfile(user?.uid);
-  const { listenerCount, setHeroBarVisible, setHeroBarObserverReady, pause: pauseLive } = useBroadcastStreamContext();
+  const {
+    isPlaying: isLivePlaying, isLoading: isLiveLoading, currentShow, currentDJ,
+    listenerCount, toggle: toggleLive, play: playLive,
+    setHeroBarVisible, setHeroBarObserverReady, pause: pauseLive, tipLink: liveTipLink,
+    error: streamError,
+  } = useBroadcastStreamContext();
   const archivePlayer = useArchivePlayer();
   const stickyBarRef = useRef<HTMLDivElement>(null);
 
@@ -69,21 +98,55 @@ export function ArchiveHero({ archives, featuredArchive, hideStatusLine }: Archi
   }, [setHeroBarVisible, setHeroBarObserverReady]);
   const { addToWatchlist, isInWatchlist, removeFromWatchlist } = useFavorites();
 
+  // When live and no archive is playing, show live DJ in the hero
+  const showLiveInHero = isLive && !archivePlayer.currentArchive;
+
   // The currently displayed archive (either playing or featured)
   const displayedArchive = archivePlayer.currentArchive || featuredArchive;
 
-  // Primary DJ info
+  // Live DJ info (computed from currentShow, similar to LiveBroadcastHero)
+  const liveDjPhotoUrl = (() => {
+    if (!currentShow) return null;
+    if (currentShow.restreamDjs && currentShow.restreamDjs.length > 0) {
+      const primary = currentShow.restreamDjs.find(dj => dj.userId)
+        || currentShow.restreamDjs.find(dj => dj.username)
+        || null;
+      if (primary?.photoUrl) return primary.photoUrl;
+    }
+    return currentShow.showImageUrl || currentShow.liveDjPhotoUrl || null;
+  })();
+  const liveDjName = currentDJ || currentShow?.djName || null;
+  const liveShowName = currentShow?.showName || 'Live Now';
+  const liveDjGenres = currentShow?.liveDjGenres || [];
+  const liveDjDescription = currentShow?.liveDjDescription || currentShow?.liveDjBio || null;
+  const liveDjProfileUsername = (() => {
+    if (!currentShow) return null;
+    if (currentShow.restreamDjs && currentShow.restreamDjs.length > 0) {
+      const primary = currentShow.restreamDjs.find(dj => dj.userId)
+        || currentShow.restreamDjs.find(dj => dj.username)
+        || null;
+      if (primary?.username) return primary.username;
+    }
+    if (currentShow.djSlots && currentShow.djSlots.length > 0) {
+      const now = Date.now();
+      const slot = currentShow.djSlots.find(s => s.startTime <= now && s.endTime > now);
+      if (slot) return slot.liveDjUsername || slot.djUsername || null;
+    }
+    return currentShow.liveDjUsername || currentShow.djUsername || null;
+  })();
+
+  // Primary DJ info — live or archive based
   const primaryDJ = displayedArchive.djs[0];
-  const djUsername = primaryDJ?.username;
-  const djProfileUsername = djUsername?.replace(/\s+/g, '').toLowerCase();
-  const djName = displayedArchive.djs.map((d) => d.name).join(', ');
-  const djPhotoUrl = displayedArchive.showImageUrl || primaryDJ?.photoUrl;
+  const djUsername = showLiveInHero ? (liveDjProfileUsername || primaryDJ?.username) : primaryDJ?.username;
+  const djProfileUsername = showLiveInHero ? liveDjProfileUsername : djUsername?.replace(/\s+/g, '').toLowerCase();
+  const djName = showLiveInHero ? (liveDjName || displayedArchive.djs.map((d) => d.name).join(', ')) : displayedArchive.djs.map((d) => d.name).join(', ');
+  const djPhotoUrl = showLiveInHero ? (liveDjPhotoUrl || displayedArchive.showImageUrl || primaryDJ?.photoUrl) : (displayedArchive.showImageUrl || primaryDJ?.photoUrl);
 
   // Fetch DJ profile for genres, tip link, and bio
   const djProfile = useDJProfileInfo(djUsername);
-  const djGenres = djProfile.genres;
-  const tipLink = djProfile.tipButtonLink;
-  const djDescription = djProfile.bio;
+  const djGenres = showLiveInHero ? liveDjGenres : djProfile.genres;
+  const tipLink = showLiveInHero ? liveTipLink : djProfile.tipButtonLink;
+  const djDescription = showLiveInHero ? liveDjDescription : djProfile.bio;
 
   // Image error state
   const [imageError, setImageError] = useState(false);
@@ -132,20 +195,27 @@ export function ArchiveHero({ archives, featuredArchive, hideStatusLine }: Archi
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
+  // When live, chat targets the live DJ's room; otherwise channelbroadcast
+  const chatRoom = isLive && liveDJChatRoom ? liveDJChatRoom : 'channelbroadcast';
+  const chatDJLabel = isLive && liveDjName ? liveDjName : 'Channel Radio';
+
   const { messages, sendMessage, loveCount } = useDJProfileChat({
-    chatUsernameNormalized: 'channelbroadcast',
-    djUsername: 'Channel Radio',
+    chatUsernameNormalized: chatRoom,
+    djUsername: chatDJLabel,
     username: chatUsername || undefined,
     enabled: true,
+    currentShowStartTime: isLive ? currentShow?.startTime : undefined,
   });
 
   // DJ-specific chat hook for sending loves to the DJ's chat room
   // (cross-posts to channelbroadcast automatically via sendLove)
+  const loveChatRoom = isLive && liveDJChatRoom ? liveDJChatRoom : (djProfileUsername || '');
+  const loveDJLabel = isLive && liveDjName ? liveDjName : (djName || '');
   const { sendLove } = useDJProfileChat({
-    chatUsernameNormalized: djProfileUsername || '',
-    djUsername: djName || '',
+    chatUsernameNormalized: loveChatRoom,
+    djUsername: loveDJLabel,
     username: chatUsername || undefined,
-    enabled: !!djProfileUsername,
+    enabled: !!loveChatRoom,
   });
 
   // Auto-scroll chat to latest message (also when switching to chat tab)
@@ -196,7 +266,7 @@ export function ArchiveHero({ archives, featuredArchive, hideStatusLine }: Archi
   }, [chatInput, isSending, sendMessage]);
 
 
-  const showName = displayedArchive.showName;
+  const showName = showLiveInHero ? liveShowName : displayedArchive.showName;
 
   // Next scheduled show within 23 hours (check today + tomorrow)
   const tomorrow = useMemo(() => {
@@ -227,31 +297,52 @@ export function ArchiveHero({ archives, featuredArchive, hideStatusLine }: Archi
     <section className="relative z-10 px-4 pt-6 pb-2">
       <div className="max-w-3xl mx-auto">
 
-        {/* Status line above image — hidden when toggle is shown */}
-        {!hideStatusLine && (
-          <div className="flex items-center justify-between mb-2">
-            {nextShowTime ? (
-              canShowEmailPopup ? (
-                <button
-                  onClick={handleNextShowClick}
-                  className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold hover:text-white transition-colors"
-                >
-                  Next <span className="w-1.5 h-1.5 bg-red-500 rounded-full inline-block" /> live at {nextShowTime}
-                </button>
-              ) : (
-                <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">
-                  Next <span className="w-1.5 h-1.5 bg-red-500 rounded-full inline-block" /> live at {nextShowTime}
-                </span>
-              )
+        {/* Status line above image */}
+        <div className="flex items-center justify-between mb-2">
+          {isLive ? (
+            <span />
+          ) : nextShowTime ? (
+            canShowEmailPopup ? (
+              <button
+                onClick={handleNextShowClick}
+                className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold hover:text-white transition-colors"
+              >
+                Next <span className="w-1.5 h-1.5 bg-red-500 rounded-full inline-block" /> live at {nextShowTime}
+              </button>
             ) : (
-              <span />
+              <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">
+                Next <span className="w-1.5 h-1.5 bg-red-500 rounded-full inline-block" /> live at {nextShowTime}
+              </span>
+            )
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center gap-1.5">
+            {isLive ? (
+              <>
+                {isRestream ? (
+                  <svg className="w-3 h-3 text-red-500 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                    <path d="M3 3v5h5" />
+                  </svg>
+                ) : (
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                  </span>
+                )}
+                <span className="text-xs font-mono text-red-500 uppercase tracking-tighter font-bold">
+                  {liveBPM ? `${liveBPM} BPM ` : ''}{isRestream ? 'Restream' : 'Live'}
+                </span>
+              </>
+            ) : (
+              <>
+                <ArchiveIcon className="w-3 h-3 text-gray-400" />
+                <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">Archive</span>
+              </>
             )}
-            <div className="flex items-center gap-1.5">
-              <ArchiveIcon className="w-3 h-3 text-gray-400" />
-              <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">Archive</span>
-            </div>
           </div>
-        )}
+        </div>
 
         {/* Hero Image — 16:9 mobile, 5:2 desktop */}
         {djProfileUsername ? (
@@ -350,95 +441,169 @@ export function ArchiveHero({ archives, featuredArchive, hideStatusLine }: Archi
         )}
 
 
-        {/* Player bar */}
+        {/* Player bar — live mode when showing live hero, archive mode otherwise */}
         <div ref={stickyBarRef} className="bg-black relative">
-          <div className="flex items-center gap-2 sm:gap-3 py-2 px-1">
-            {/* Play/Pause */}
-            <button
-              onClick={() => {
-                if (archivePlayer.currentArchive) {
-                  if (!archivePlayer.isPlaying) pauseLive();
-                  archivePlayer.toggle();
-                } else {
-                  pauseLive();
-                  archivePlayer.play(displayedArchive);
-                }
-              }}
-              className="w-8 h-8 ml-1 flex items-center justify-center bg-white transition-colors flex-shrink-0"
-            >
-              {archivePlayer.isLoading ? (
-                <svg className="w-5 h-5 animate-spin text-black" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-              ) : archivePlayer.isPlaying && archivePlayer.currentArchive?.id === displayedArchive.id ? (
-                <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
+          {showLiveInHero && !archivePlayer.isPlaying ? (
+            <>
+              {/* Live player bar */}
+              <div className="flex items-center gap-2 sm:gap-3 py-2 px-1">
+                <button
+                  onClick={toggleLive}
+                  className="w-8 h-8 ml-1 flex items-center justify-center bg-white transition-colors flex-shrink-0"
+                >
+                  {isLiveLoading ? (
+                    <svg className="w-5 h-5 animate-spin text-black" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                  ) : isLivePlaying ? (
+                    <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  )}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <ScrollingShowName text={showName} className="text-sm font-bold leading-tight text-white" />
+                  {djName && (
+                    <ScrollingDJName text={djName} className="text-[10px] text-zinc-500 uppercase mt-0.5 leading-[1.3em]" />
+                  )}
+                </div>
+                {/* Live/Restream indicator + BPM */}
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {isRestream ? (
+                    <svg className="w-3 h-3 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                      <path d="M3 3v5h5" />
+                    </svg>
+                  ) : (
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                    </span>
+                  )}
+                  {liveBPM && (
+                    <span className="text-xs font-mono uppercase tracking-tighter font-bold text-red-500">
+                      {liveBPM} BPM
+                    </span>
+                  )}
+                </div>
+                <div className="relative flex-shrink-0">
+                  <button
+                    onClick={handleLove}
+                    className="w-10 h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                    </svg>
+                  </button>
+                  <FloatingHearts trigger={heartTrigger} />
+                </div>
+                {tipLink && (
+                  <TipButton
+                    djUsername={djName || 'DJ'}
+                    tipLink={tipLink}
+                    className="w-10 h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
+                  />
+                )}
+              </div>
+              {streamError && (
+                <p className="text-red-400 text-xs pb-2 px-2">{streamError}</p>
               )}
-            </button>
-
-            {/* Show info */}
-            <div className="flex-1 min-w-0">
-              <ScrollingShowName text={showName} className="text-sm font-bold leading-tight text-white" />
-              {djName && (
-                <ScrollingDJName text={djName} className="text-[10px] text-zinc-500 uppercase mt-0.5 leading-[1.3em]" />
+              {currentShow && (
+                <>
+                  <div className="flex justify-between text-[10px] text-zinc-600 px-2 pb-0.5">
+                    <span>{formatClockTime(currentShow.startTime)}</span>
+                    <span>{formatClockTime(currentShow.endTime)}</span>
+                  </div>
+                  <ShowProgressBar startTime={currentShow.startTime} endTime={currentShow.endTime} />
+                </>
               )}
-            </div>
-
-            {/* Archive icon */}
-            <div className="flex items-center flex-shrink-0">
-              <ArchiveIcon className="w-4 h-4 text-gray-500" />
-            </div>
-
-            {/* Love Button */}
-            <div className="relative flex-shrink-0">
-              <button
-                onClick={handleLove}
-                className="w-10 h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
+            </>
+          ) : (
+            <>
+              {/* Archive player bar */}
+              <div className="flex items-center gap-2 sm:gap-3 py-2 px-1">
+                <button
+                  onClick={() => {
+                    if (archivePlayer.currentArchive) {
+                      if (!archivePlayer.isPlaying) pauseLive();
+                      archivePlayer.toggle();
+                    } else {
+                      pauseLive();
+                      archivePlayer.play(displayedArchive);
+                    }
+                  }}
+                  className="w-8 h-8 ml-1 flex items-center justify-center bg-white transition-colors flex-shrink-0"
+                >
+                  {archivePlayer.isLoading ? (
+                    <svg className="w-5 h-5 animate-spin text-black" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                  ) : archivePlayer.isPlaying && archivePlayer.currentArchive?.id === displayedArchive.id ? (
+                    <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  )}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <ScrollingShowName text={archivePlayer.currentArchive?.showName || featuredArchive.showName} className="text-sm font-bold leading-tight text-white" />
+                  {(archivePlayer.currentArchive?.djs || featuredArchive.djs) && (
+                    <ScrollingDJName text={(archivePlayer.currentArchive?.djs || featuredArchive.djs).map((d) => d.name).join(', ')} className="text-[10px] text-zinc-500 uppercase mt-0.5 leading-[1.3em]" />
+                  )}
+                </div>
+                <div className="flex items-center flex-shrink-0">
+                  <ArchiveIcon className="w-4 h-4 text-gray-500" />
+                </div>
+                <div className="relative flex-shrink-0">
+                  <button
+                    onClick={handleLove}
+                    className="w-10 h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                    </svg>
+                  </button>
+                  <FloatingHearts trigger={heartTrigger} />
+                </div>
+                {tipLink && (
+                  <TipButton
+                    djUsername={djName || 'DJ'}
+                    tipLink={tipLink}
+                    className="w-10 h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
+                  />
+                )}
+              </div>
+              <div className="flex justify-between text-[10px] text-zinc-600 px-2 pb-0.5">
+                <span>{formatTime(archivePlayer.currentArchive?.id === displayedArchive.id ? archivePlayer.currentTime : 0)}</span>
+                <span>{formatTime(archivePlayer.duration || displayedArchive.duration)}</span>
+              </div>
+              <div
+                className="relative w-full h-[3px] bg-white/10 cursor-pointer"
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                  const dur = archivePlayer.duration || displayedArchive.duration || 1;
+                  archivePlayer.seek(fraction * dur);
+                }}
               >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                </svg>
-              </button>
-              <FloatingHearts trigger={heartTrigger} />
-            </div>
-
-            {/* Tip Button */}
-            {tipLink && (
-              <TipButton
-                djUsername={djName || 'DJ'}
-                tipLink={tipLink}
-                className="w-10 h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
-              />
-            )}
-          </div>
-
-          {/* Times + progress bar on bottom border */}
-          <div className="flex justify-between text-[10px] text-zinc-600 px-2 pb-0.5">
-            <span>{formatTime(archivePlayer.currentArchive?.id === displayedArchive.id ? archivePlayer.currentTime : 0)}</span>
-            <span>{formatTime(archivePlayer.duration || displayedArchive.duration)}</span>
-          </div>
-          <div
-            className="relative w-full h-[3px] bg-white/10 cursor-pointer"
-            onClick={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-              const dur = archivePlayer.duration || displayedArchive.duration || 1;
-              archivePlayer.seek(fraction * dur);
-            }}
-          >
-            <div
-              className="absolute inset-y-0 left-0 bg-white"
-              style={{
-                width: `${((archivePlayer.currentArchive?.id === displayedArchive.id ? archivePlayer.currentTime : 0) / (archivePlayer.duration || displayedArchive.duration || 1)) * 100}%`,
-              }}
-            />
-          </div>
+                <div
+                  className="absolute inset-y-0 left-0 bg-white"
+                  style={{
+                    width: `${((archivePlayer.currentArchive?.id === displayedArchive.id ? archivePlayer.currentTime : 0) / (archivePlayer.duration || displayedArchive.duration || 1)) * 100}%`,
+                  }}
+                />
+              </div>
+            </>
+          )}
         </div>
 
         {/* Tab Bar */}
@@ -488,23 +653,31 @@ export function ArchiveHero({ archives, featuredArchive, hideStatusLine }: Archi
         {/* Tab Content */}
         {activeTab === 'archives' ? (
           <div className="py-2 overflow-y-auto h-[30vh] lg:h-[25vh]">
-            {archives.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-zinc-500">
-                <p>No archives yet.</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-white/5">
-                {archives.map((archive) => (
-                  <ArchiveRow
-                    key={archive.id}
-                    archive={archive}
-                    isActive={archivePlayer.currentArchive?.id === archive.id}
-                    isPlaying={archivePlayer.isPlaying && archivePlayer.currentArchive?.id === archive.id}
-                    onPlay={() => { pauseLive(); archivePlayer.play(archive); }}
-                  />
-                ))}
-              </div>
-            )}
+            <div className="divide-y divide-white/5">
+              {/* Live broadcast pinned at top when live */}
+              {isLive && currentShow && (
+                <LiveBroadcastRow
+                  showName={liveShowName}
+                  djName={liveDjName}
+                  djPhotoUrl={liveDjPhotoUrl}
+                  isRestream={isRestream}
+                  isActive={isLivePlaying}
+                  onPlay={() => {
+                    if (archivePlayer.isPlaying) archivePlayer.pause();
+                    playLive();
+                  }}
+                />
+              )}
+              {archives.map((archive) => (
+                <ArchiveRow
+                  key={archive.id}
+                  archive={archive}
+                  isActive={archivePlayer.currentArchive?.id === archive.id}
+                  isPlaying={archivePlayer.isPlaying && archivePlayer.currentArchive?.id === archive.id}
+                  onPlay={() => { pauseLive(); archivePlayer.play(archive); }}
+                />
+              ))}
+            </div>
           </div>
         ) : (
           <div className="flex flex-col h-[30vh] lg:h-[25vh]">
@@ -572,6 +745,7 @@ export function ArchiveHero({ archives, featuredArchive, hideStatusLine }: Archi
                           key={msg.id}
                           message={msg}
                           isOwnMessage={msg.username === chatUsername}
+                          currentLiveDjUsername={isLive ? (currentDJ || currentShow?.djName) : undefined}
                         />
                       ))}
                     </div>
@@ -615,6 +789,82 @@ export function ArchiveHero({ archives, featuredArchive, hideStatusLine }: Archi
       />
 
     </section>
+  );
+}
+
+function LiveBroadcastRow({
+  showName,
+  djName,
+  djPhotoUrl,
+  isRestream,
+  isActive,
+  onPlay,
+}: {
+  showName: string;
+  djName: string | null;
+  djPhotoUrl: string | null;
+  isRestream?: boolean;
+  isActive: boolean;
+  onPlay: () => void;
+}) {
+  return (
+    <button
+      onClick={onPlay}
+      className={`w-full flex items-center gap-3 py-3 px-2 text-left transition-colors hover:bg-white/5 ${
+        isActive ? 'bg-white/5' : ''
+      }`}
+    >
+      {djPhotoUrl ? (
+        <div className="w-12 h-12 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
+          <Image
+            src={djPhotoUrl}
+            alt={showName}
+            width={48}
+            height={48}
+            className="w-full h-full object-cover"
+            unoptimized
+          />
+        </div>
+      ) : (
+        <div className="w-12 h-12 rounded-lg bg-white/5 flex-shrink-0 flex items-center justify-center">
+          <span className="relative flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600" />
+          </span>
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-semibold text-white truncate">{showName}</div>
+        <div className="text-xs text-zinc-500 truncate">
+          {djName || 'Live'}
+          <span className="ml-2 inline-flex items-center gap-1 text-red-500 font-bold uppercase text-[10px]">
+            {isRestream ? (
+              <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+            ) : (
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-600" />
+              </span>
+            )}
+            {isRestream ? 'Restream' : 'Live'}
+          </span>
+        </div>
+      </div>
+      <div className="flex-shrink-0">
+        {isActive ? (
+          <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+          </svg>
+        ) : (
+          <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        )}
+      </div>
+    </button>
   );
 }
 
