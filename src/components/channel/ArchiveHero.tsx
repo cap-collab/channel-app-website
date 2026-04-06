@@ -98,8 +98,8 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   }, [setHeroBarVisible, setHeroBarObserverReady]);
   const { addToWatchlist, isInWatchlist, removeFromWatchlist } = useFavorites();
 
-  // When live and no archive is playing, show live DJ in the hero
-  const showLiveInHero = isLive && !archivePlayer.currentArchive;
+  // When live and archive is not actively playing, show live DJ in the hero & player bar
+  const showLiveInHero = isLive && !archivePlayer.isPlaying;
 
   // The currently displayed archive (either playing or featured)
   const displayedArchive = archivePlayer.currentArchive || featuredArchive;
@@ -441,9 +441,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         )}
 
 
-        {/* Player bar — live mode when showing live hero, archive mode otherwise */}
+        {/* Player bar — live mode when live and not playing archive, archive mode otherwise */}
         <div ref={stickyBarRef} className="bg-black relative">
-          {showLiveInHero && !archivePlayer.isPlaying ? (
+          {showLiveInHero ? (
             <>
               {/* Live player bar */}
               <div className="flex items-center gap-2 sm:gap-3 py-2 px-1">
