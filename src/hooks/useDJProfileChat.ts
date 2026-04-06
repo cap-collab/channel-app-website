@@ -328,12 +328,42 @@ export function useDJProfileChat({
         }).catch((err) => console.error('Failed to cross-post locked in:', err));
       }
 
-      // Increment love count by 1
-      await sendLove();
+      // Increment love count by 1 (without posting a separate love message)
+      if (currentLoveMessageIdRef.current) {
+        // User already has a love message — increment its heartCount
+        await updateDoc(
+          doc(db, 'chats', chatUsernameNormalized, 'messages', currentLoveMessageIdRef.current),
+          { heartCount: increment(1), timestamp: serverTimestamp() }
+        );
+        if (shouldCrossPost && currentLoveBroadcastMessageIdRef.current) {
+          updateDoc(
+            doc(db, 'chats', 'channelbroadcast', 'messages', currentLoveBroadcastMessageIdRef.current),
+            { heartCount: increment(1), timestamp: serverTimestamp() }
+          ).catch(() => {});
+        }
+      } else {
+        // No existing love message — create a hidden one (heartCount: 1)
+        const loveData = {
+          stationId: chatUsernameNormalized,
+          username: displayName,
+          message: `${displayName} is ❤️ ${djUsername}`,
+          timestamp: serverTimestamp(),
+          isDJ: false,
+          messageType: 'love',
+          heartCount: 1,
+        };
+        const loveRef = await addDoc(collection(db, 'chats', chatUsernameNormalized, 'messages'), loveData);
+        currentLoveMessageIdRef.current = loveRef.id;
+        if (shouldCrossPost) {
+          addDoc(collection(db, 'chats', 'channelbroadcast', 'messages'), {
+            ...loveData, stationId: 'channelbroadcast', timestamp: serverTimestamp(),
+          }).then((ref) => { currentLoveBroadcastMessageIdRef.current = ref.id; }).catch(() => {});
+        }
+      }
     } catch (err) {
       console.error('Failed to send locked in:', err);
     }
-  }, [username, chatUsernameNormalized, djUsername, lockedInMessagesEnabled, sendLove]);
+  }, [username, chatUsernameNormalized, djUsername, lockedInMessagesEnabled]);
 
   return {
     messages,
