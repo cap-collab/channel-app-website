@@ -203,7 +203,10 @@ export async function GET(request: NextRequest) {
     .where("role", "==", "dj")
     .get();
 
-  const EXCLUDE_EMAILS = new Set(["maiii@posteo.la"]);
+  const EXCLUDE_EMAILS = new Set([
+    "maiii@posteo.la",
+    "64j87qk747@privaterelay.appleid.com", // not a Channel DJ
+  ]);
 
   const djRecipients: Array<{ email: string; name: string; id: string; shows: ShowReminder[] }> = [];
   for (const doc of usersSnap.docs) {
@@ -219,6 +222,7 @@ export async function GET(request: NextRequest) {
   // Add pending DJs who have scheduled slots but no account yet
   const EXTRA_PENDING_DJS = [
     { email: "paulsboston@gmail.com", name: "Paul", id: "pending-spillman" },
+    { email: "juniorsbl@gmail.com", name: "Junior", id: "pending-junior" },
   ];
   for (const pending of EXTRA_PENDING_DJS) {
     if (EXCLUDE_EMAILS.has(pending.email)) continue;
