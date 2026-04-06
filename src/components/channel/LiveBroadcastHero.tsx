@@ -163,6 +163,15 @@ export function HeroChatMessage({
     );
   }
 
+  if (message.messageType === 'lockedin') {
+    return (
+      <div className="py-2 px-4 flex items-center justify-between">
+        <span className="text-white">{message.message}</span>
+        <span className="text-gray-600 text-xs">{timeAgo}</span>
+      </div>
+    );
+  }
+
   if (message.messageType === 'tip') {
     return (
       <div className="py-2 px-4 text-green-400 font-medium">
