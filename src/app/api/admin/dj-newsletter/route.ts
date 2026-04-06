@@ -161,10 +161,24 @@ export async function GET(request: NextRequest) {
 
   // ── Dry-run mode: just list recipients ──
   if (mode === "dry-run") {
+    // Also list all pending-dj-profiles with emails
+    const pendingSnap = await db.collection("pending-dj-profiles").get();
+    const pendingProfiles: Array<{ email: string; name: string }> = [];
+    for (const doc of pendingSnap.docs) {
+      const data = doc.data();
+      if (data.email) {
+        pendingProfiles.push({
+          email: data.email,
+          name: data.chatUsername || data.chatUsernameNormalized || "unknown",
+        });
+      }
+    }
+
     return NextResponse.json({
       mode: "dry-run",
       totalDjRecipients: djRecipients.length,
       recipients: djRecipients.map((r) => ({ email: r.email, name: r.name })),
+      pendingDjProfiles: pendingProfiles,
     });
   }
 
