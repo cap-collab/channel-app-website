@@ -100,7 +100,7 @@ function wrapEmailContentWithUnsubscribeUrl(content: string, footerText: string,
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px;">
               <tr>
                 <td align="center" style="padding-bottom: 32px;" bgcolor="#ffffff">
-                  <img src="${LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" />
+                  <a href="https://channel-app.com" style="text-decoration: none;"><img src="${LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" /></a>
                 </td>
               </tr>
               <tr>
@@ -163,7 +163,7 @@ function wrapEmailContent(content: string, footerText: string): string {
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px;">
               <tr>
                 <td align="center" style="padding-bottom: 32px;" bgcolor="#ffffff">
-                  <img src="${LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" />
+                  <a href="https://channel-app.com" style="text-decoration: none;"><img src="${LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" /></a>
                 </td>
               </tr>
               <tr>
