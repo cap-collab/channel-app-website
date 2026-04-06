@@ -406,7 +406,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
     setHeroBarObserverReady(true);
     const observer = new IntersectionObserver(
       ([entry]) => setHeroBarVisible(entry.isIntersecting),
-      { threshold: 0.1 },
+      { threshold: 0, rootMargin: '100px 0px 0px 0px' },
     );
     observer.observe(el);
     return () => {
