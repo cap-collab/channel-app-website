@@ -202,10 +202,26 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
           if (showChanged && isPlayingRef.current) {
             console.log('🔄 Show changed while playing');
 
-            // HLS needs to be recreated for the new show's egress
-            if (hlsRef.current) {
-              hlsRef.current.destroy();
-              hlsRef.current = null;
+            // HLS needs to be recreated for the new show's egress.
+            // The server-side egress continues writing to the same live.m3u8 path
+            // (reuseHlsEgress), but the client-side HLS.js instance must be
+            // destroyed and recreated so it refetches the playlist and picks up
+            // the new DJ's audio segments instead of playing stale buffered audio.
+            if (hlsRef.current || (!roomRef.current && audioElementRef.current)) {
+              if (hlsRef.current) {
+                hlsRef.current.destroy();
+                hlsRef.current = null;
+              }
+              // Clear the audio element so it doesn't keep playing cached segments
+              if (audioElementRef.current) {
+                audioElementRef.current.pause();
+                audioElementRef.current.removeAttribute('src');
+                audioElementRef.current.load();
+              }
+              console.log('🔄 HLS show transition — will auto-resume with fresh HLS stream');
+              wasPlayingRef.current = true;
+              setIsPlaying(false);
+              setAutoResumePending(true);
             }
 
             // Only tear down audio and reset player if switching to a different room.
@@ -223,7 +239,7 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
               wasPlayingRef.current = false;
               setAutoResumePending(true);
             }
-            // Same-room live→live: keep playing, tracks arrive automatically via TrackSubscribed
+            // Same-room live→live WebRTC: keep playing, tracks arrive automatically via TrackSubscribed
 
             // Live→restream: need to switch from WebRTC to HLS
             if (slot.broadcastType === 'restream' && roomRef.current) {
