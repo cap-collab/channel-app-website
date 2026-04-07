@@ -746,6 +746,8 @@ interface BroadcastReminderEmailParams {
   showName: string;
   broadcastUrl: string;
   profileUrl: string | null;
+  socialCardUrl?: string;
+  hasDjPhoto?: boolean;
   startTime: string; // e.g. "Tuesday, March 31"
   timeRange: string; // e.g. "8:00 PM – 10:00 PM EST"
 }
@@ -757,6 +759,8 @@ export async function sendBroadcastReminderEmail({
   broadcastUrl,
   startTime,
   timeRange,
+  socialCardUrl,
+  hasDjPhoto,
 }: BroadcastReminderEmailParams) {
   if (!resend) {
     console.warn("Email service not configured - skipping email");
@@ -811,6 +815,20 @@ export async function sendBroadcastReminderEmail({
             </tr>
             ${shareLine}
           </table>
+          ${socialCardUrl ? (hasDjPhoto ? `
+          <p style="margin: 20px 0 8px; font-size: 14px; color: #1a1a1a;">
+            This is what the player will look like when you're live — save it and share on your socials:
+          </p>
+          <img src="${socialCardUrl}" alt="${showName} on Channel" width="540" style="width: 100%; max-width: 540px; height: auto; border: 1px solid #e5e5e5; display: block;" />
+          ` : `
+          <p style="margin: 20px 0 8px; font-size: 14px; color: #1a1a1a;">
+            This is what the player will look like when you're live:
+          </p>
+          <img src="${socialCardUrl}" alt="${showName} on Channel" width="540" style="width: 100%; max-width: 540px; height: auto; border: 1px solid #e5e5e5; display: block;" />
+          <p style="margin: 8px 0 0; font-size: 14px; color: #666;">
+            Upload a photo in your <a href="https://channel-app.com/studio" style="color: #555; text-decoration: underline;">studio</a> so the player looks great while you play.
+          </p>
+          `) : ''}
           <p style="margin: 24px 0 0; font-size: 14px; color: #1a1a1a;">
             See you tomorrow, Cap
           </p>
@@ -847,6 +865,8 @@ export async function sendBroadcast2HourReminderEmail({
   broadcastUrl,
   startTime,
   timeRange,
+  socialCardUrl,
+  hasDjPhoto,
 }: BroadcastReminderEmailParams) {
   if (!resend) {
     console.warn("Email service not configured - skipping email");
@@ -901,6 +921,20 @@ export async function sendBroadcast2HourReminderEmail({
             </tr>
             ${shareLine}
           </table>
+          ${socialCardUrl ? (hasDjPhoto ? `
+          <p style="margin: 20px 0 8px; font-size: 14px; color: #1a1a1a;">
+            This is what the player will look like when you're live — save it and share on your socials:
+          </p>
+          <img src="${socialCardUrl}" alt="${showName} on Channel" width="540" style="width: 100%; max-width: 540px; height: auto; border: 1px solid #e5e5e5; display: block;" />
+          ` : `
+          <p style="margin: 20px 0 8px; font-size: 14px; color: #1a1a1a;">
+            This is what the player will look like when you're live:
+          </p>
+          <img src="${socialCardUrl}" alt="${showName} on Channel" width="540" style="width: 100%; max-width: 540px; height: auto; border: 1px solid #e5e5e5; display: block;" />
+          <p style="margin: 8px 0 0; font-size: 14px; color: #666;">
+            Upload a photo in your <a href="https://channel-app.com/studio" style="color: #555; text-decoration: underline;">studio</a> so the player looks great while you play.
+          </p>
+          `) : ''}
           <p style="margin: 24px 0 0; font-size: 14px; color: #1a1a1a;">
             See you soon, Cap
           </p>
