@@ -359,6 +359,8 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
     username: chatUsername || undefined,
     enabled: !!currentDJChatRoom,
     currentShowStartTime: currentShow?.startTime,
+    userId: user?.uid,
+    isArchivePlayback: false,
   });
 
   const { shows: scheduleShows, loading: scheduleLoading, selectedDate, setSelectedDate } = useBroadcastSchedule({

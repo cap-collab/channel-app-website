@@ -291,6 +291,7 @@ export function DJProfileChatPanel({
   djUsername,
   isAuthenticated,
   username,
+  userId,
   profileLoading = false,
   onSetUsername,
   isOwner = false,
@@ -312,6 +313,7 @@ export function DJProfileChatPanel({
     isOwner,
     broadcastSlotId,
     currentShowStartTime,
+    userId,
   });
 
   useEffect(() => {

@@ -237,11 +237,16 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const archiveDjName = (archivePlayer.currentArchive || featuredArchive).djs.map((d) => d.name).join(', ');
   const loveChatRoom = showLiveInHero && liveDJChatRoom ? liveDJChatRoom : (archiveDjProfileUsername || '');
   const loveDJLabel = showLiveInHero && liveDjName ? liveDjName : (archiveDjName || '');
+  const archivePrimaryDj = (archivePlayer.currentArchive || featuredArchive).djs[0];
+  const isArchiveLove = !(showLiveInHero && liveDJChatRoom);
   const { sendLove } = useDJProfileChat({
     chatUsernameNormalized: loveChatRoom,
     djUsername: loveDJLabel,
     username: chatUsername || undefined,
     enabled: !!loveChatRoom,
+    userId: user?.uid,
+    djPhotoUrl: isArchiveLove ? archivePrimaryDj?.photoUrl : undefined,
+    isArchivePlayback: isArchiveLove,
   });
 
   // Auto-scroll chat to latest message (also when switching to chat tab)

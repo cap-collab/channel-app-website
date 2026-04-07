@@ -70,6 +70,16 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == userId;
         allow read, write: if request.auth != null && request.auth.token.email == 'cron@channel-app.com';
       }
+
+      // Stream history (written by admin SDK, read-only for owner)
+      match /streamHistory/{archiveId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Love history (written and read by owner)
+      match /loveHistory/{djId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
     // Broadcast slots

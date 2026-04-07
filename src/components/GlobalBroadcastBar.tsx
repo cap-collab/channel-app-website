@@ -52,6 +52,8 @@ export function GlobalBroadcastBar() {
     username: chatUsername || undefined,
     enabled: false, // Don't subscribe to messages, just need sendLove
     lockedInMessagesEnabled: showLockedInMessages,
+    userId: user?.uid,
+    isArchivePlayback: false,
   });
 
   const handleSendLove = useCallback(async () => {
@@ -76,6 +78,9 @@ export function GlobalBroadcastBar() {
     username: chatUsername || undefined,
     enabled: false,
     lockedInMessagesEnabled: showLockedInMessages,
+    userId: user?.uid,
+    djPhotoUrl: archivePrimaryDj?.photoUrl,
+    isArchivePlayback: true,
   });
 
   const [archiveHeartTrigger, setArchiveHeartTrigger] = useState(0);
