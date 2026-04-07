@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import {
+  sendBroadcast48HourReminderEmail,
   sendBroadcastReminderEmail,
   sendBroadcast2HourReminderEmail,
   sendPostBroadcastEmail,
@@ -171,6 +172,9 @@ export async function GET(request: NextRequest) {
 
     const now = Date.now();
 
+    // ── Phase 0: 48h reminders ────────────────────────────────────
+    const phase0 = await run48hReminders(db, now);
+
     // ── Phase 1: 24h reminders ────────────────────────────────────
     const phase1 = await run24hReminders(db, now);
 
@@ -180,14 +184,16 @@ export async function GET(request: NextRequest) {
     // ── Phase 3: Post-broadcast thank you ─────────────────────────
     const phase3 = await runPostBroadcast(db, now);
 
-    const allErrors = [...phase1.errors, ...phase2.errors, ...phase3.errors];
+    const allErrors = [...phase0.errors, ...phase1.errors, ...phase2.errors, ...phase3.errors];
 
+    console.log(`[broadcast-emails] Phase 0 (48h): sent=${phase0.sent}, skipped=${phase0.skipped}`);
     console.log(`[broadcast-emails] Phase 1 (24h): sent=${phase1.sent}, skipped=${phase1.skipped}`);
     console.log(`[broadcast-emails] Phase 2 (2h): sent=${phase2.sent}, skipped=${phase2.skipped}`);
     console.log(`[broadcast-emails] Phase 3 (post): sent=${phase3.sent}, skipped=${phase3.skipped}`);
 
     return NextResponse.json({
       success: true,
+      phase0: { sent: phase0.sent, skipped: phase0.skipped },
       phase1: { sent: phase1.sent, skipped: phase1.skipped },
       phase2: { sent: phase2.sent, skipped: phase2.skipped },
       phase3: { sent: phase3.sent, skipped: phase3.skipped },
@@ -197,6 +203,58 @@ export async function GET(request: NextRequest) {
     console.error('Error in broadcast-emails cron:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+// ── Phase 0: 48h reminders ──────────────────────────────────────────
+
+async function run48hReminders(db: FirebaseFirestore.Firestore, now: number): Promise<PhaseResult> {
+  const result: PhaseResult = { sent: 0, skipped: 0, errors: [] };
+
+  // Window: 46-50h from now (wide enough for 2h cron cycle)
+  const windowStart = Timestamp.fromMillis(now + 46 * 60 * 60 * 1000);
+  const windowEnd = Timestamp.fromMillis(now + 50 * 60 * 60 * 1000);
+
+  const snapshot = await db
+    .collection('broadcast-slots')
+    .where('status', '==', 'scheduled')
+    .where('startTime', '>=', windowStart)
+    .where('startTime', '<=', windowEnd)
+    .get();
+
+  for (const doc of snapshot.docs) {
+    const slot = doc.data();
+
+    if (slot.broadcastType === 'restream') { result.skipped++; continue; }
+    if (slot.reminder48hEmailSentAt) { result.skipped++; continue; }
+
+    const showName = slot.showName || 'Your show';
+    const targets = getDjEmailTargets(slot);
+
+    for (const target of targets) {
+      try {
+        const djInfo = await lookupDjInfo(db, target.email);
+        const djTimezone = djInfo.timezone;
+
+        const success = await sendBroadcast48HourReminderEmail({
+          to: target.email,
+          djName: djInfo.name || target.djName,
+          showName,
+          broadcastUrl: '',
+          profileUrl: null,
+          startTime: formatDate(target.startTime, djTimezone),
+          timeRange: formatTimeRange(target.startTime, target.endTime, djTimezone),
+        });
+
+        if (success) { result.sent++; } else { result.errors.push(`Failed to send 48h reminder to ${target.email}`); }
+      } catch (error) {
+        result.errors.push(`Error sending 48h reminder to ${target.email}: ${error}`);
+      }
+    }
+
+    await doc.ref.update({ reminder48hEmailSentAt: now });
+  }
+
+  return result;
 }
 
 // ── Phase 1: 24h reminders ──────────────────────────────────────────

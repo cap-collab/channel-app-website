@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendWatchlistDigestEmail, sendShowStartingEmail, sendBroadcastReminderEmail, sendBroadcast2HourReminderEmail, sendPostBroadcastEmail } from "@/lib/email";
+import { sendWatchlistDigestEmail, sendShowStartingEmail, sendBroadcast48HourReminderEmail, sendBroadcastReminderEmail, sendBroadcast2HourReminderEmail, sendPostBroadcastEmail } from "@/lib/email";
 import { queryUsersWhere, queryCollection, getUserFavorites } from "@/lib/firebase-rest";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { matchesGenre } from "@/lib/genres";
@@ -759,6 +759,21 @@ export async function GET(request: NextRequest) {
     return sendTestShowStartingEmail(to, showName, stationId);
   }
 
+  if (type === "broadcast-48h-reminder") {
+    const inTwoDays = new Date(Date.now() + 48 * 60 * 60 * 1000);
+    const dateStr = inTwoDays.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+    const success = await sendBroadcast48HourReminderEmail({
+      to,
+      djName: request.nextUrl.searchParams.get("djName") || "Cap",
+      showName: request.nextUrl.searchParams.get("show") || "Late Night Sessions",
+      broadcastUrl: "",
+      profileUrl: null,
+      startTime: dateStr,
+      timeRange: "8:00 PM – 10:00 PM ET",
+    });
+    return NextResponse.json({ success, type: "broadcast-48h-reminder" });
+  }
+
   if (type === "broadcast-reminder") {
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const dateStr = tomorrow.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
@@ -838,7 +853,20 @@ export async function GET(request: NextRequest) {
       preferredGenres: ["ambient"],
     });
 
-    // 3. Broadcast reminder (24h)
+    // 3a. Broadcast reminder (48h)
+    const inTwoDays = new Date(Date.now() + 48 * 60 * 60 * 1000);
+    const twoDaysDateStr = inTwoDays.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+    results["broadcast-48h-reminder"] = await sendBroadcast48HourReminderEmail({
+      to,
+      djName: "Cap",
+      showName: "Late Night Sessions",
+      broadcastUrl: "",
+      profileUrl: null,
+      startTime: twoDaysDateStr,
+      timeRange: "8:00 PM – 10:00 PM PT",
+    });
+
+    // 3b. Broadcast reminder (24h)
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const dateStr = tomorrow.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
     results["broadcast-reminder"] = await sendBroadcastReminderEmail({
