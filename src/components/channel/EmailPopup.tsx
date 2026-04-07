@@ -42,10 +42,8 @@ export function EmailPopup({ siteDelayMs }: { siteDelayMs?: number } = {}) {
   // Allow external components to open the popup via custom event
   useEffect(() => {
     const handler = () => {
-      if (suppressedRef.current) return;
-      if (isAuthenticated || hasFiledEmail() || hasShownThisSession()) return;
+      if (isAuthenticated || hasFiledEmail()) return;
       recordShown();
-      suppressedRef.current = true;
       setIsOpen(true);
     };
     window.addEventListener('open-email-popup', handler);
