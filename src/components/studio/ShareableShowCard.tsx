@@ -30,7 +30,7 @@ function getOverlayInfo(startTime: number): { text: string; color: string } | nu
     const d = new Date(startTime);
     const day = d.toLocaleDateString('en-US', { weekday: 'long' });
     const hour = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    return { text: `LIVE ON ${day} ${hour}`, color: '#ffffff' };
+    return { text: `LIVE on ${day} ${hour}`, color: '#ffffff' };
   }
   return null;
 }
@@ -133,29 +133,6 @@ function drawCanvas(
   ctx.letterSpacing = '0.025em';
   ctx.fillText(showName.toUpperCase(), pad, pad);
 
-  // Time overlay badge — top-right
-  const overlay = getOverlayInfo(startTime);
-  if (overlay) {
-    const badgeFontSize = Math.round(11 * S);
-    ctx.font = `bold ${badgeFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-    const textW = ctx.measureText(overlay.text).width;
-    const badgePadX = Math.round(10 * S);
-    const badgePadY = Math.round(6 * S);
-    const badgeW = textW + badgePadX * 2;
-    const badgeH = badgeFontSize + badgePadY * 2;
-    const badgeX = CANVAS_W - pad - badgeW;
-    const badgeY = pad;
-
-    ctx.fillStyle = overlay.color;
-    ctx.beginPath();
-    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, Math.round(4 * S));
-    ctx.fill();
-
-    ctx.fillStyle = overlay.color === '#ffffff' ? '#000000' : '#ffffff';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(overlay.text, badgeX + badgePadX, badgeY + badgeH / 2);
-  }
-
   // DJ info overlay — bottom-2 left-2 right-2 (matching DJImageOverlay exactly)
   const overlayBottom = IMAGE_H - pad;
   let cursorY = overlayBottom;
@@ -199,12 +176,40 @@ function drawCanvas(
   }
   ctx.letterSpacing = '0';
 
-  // "channel-app.com" — flush below image, no gap
-  ctx.fillStyle = '#ffffff';
-  ctx.font = `500 ${Math.round(12 * S)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-  ctx.textBaseline = 'middle';
-  ctx.textAlign = 'center';
-  ctx.fillText('channel-app.com', CANVAS_W / 2, IMAGE_H + URL_STRIP_H / 2);
+  // Bottom strip: overlay text (with red dot) + channel-app.com, flush below image
+  const overlay = getOverlayInfo(startTime);
+  const stripCenterY = IMAGE_H + URL_STRIP_H / 2;
+  const fontSize = Math.round(12 * S);
+  const dotRadius = Math.round(4 * S);
+
+  if (overlay) {
+    // Draw: red dot + overlay text on the left, channel-app.com on the right
+    ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    ctx.textBaseline = 'middle';
+
+    // Red dot
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.arc(pad + dotRadius, stripCenterY, dotRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Overlay text
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'left';
+    ctx.fillText(overlay.text, pad + dotRadius * 2 + Math.round(6 * S), stripCenterY);
+
+    // channel-app.com on the right
+    ctx.font = `500 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.fillText('channel-app.com', CANVAS_W - pad, stripCenterY);
+  } else {
+    // No overlay — just channel-app.com centered
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `500 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText('channel-app.com', CANVAS_W / 2, stripCenterY);
+  }
   ctx.textAlign = 'left';
 }
 
