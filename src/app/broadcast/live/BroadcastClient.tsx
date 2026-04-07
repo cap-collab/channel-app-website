@@ -36,7 +36,7 @@ export function BroadcastClient() {
   const token = useToken();
   const { user } = useAuthContext();
 
-  const { slot, error: tokenError, loading: tokenLoading, scheduleStatus, message } = useBroadcastToken(token);
+  const { slot, error: tokenError, loading: tokenLoading, scheduleStatus } = useBroadcastToken(token);
 
   // DJ onboarding state - declared early so djInfo can use it
   // Start directly at profile step (non-blocking login is inline in DJProfileSetup)
