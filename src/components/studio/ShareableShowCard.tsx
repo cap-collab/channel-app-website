@@ -227,14 +227,28 @@ export function ShareableShowCard(props: ShareableShowCardProps) {
 
     let cancelled = false;
 
-    const loadImage = (src: string): Promise<HTMLImageElement | null> =>
-      new Promise((resolve) => {
-        const img = new window.Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => resolve(img);
-        img.onerror = () => resolve(null);
-        img.src = src;
-      });
+    const loadImage = async (src: string): Promise<HTMLImageElement | null> => {
+      try {
+        // Fetch as blob to bypass CORS restrictions on Firebase Storage URLs
+        const res = await fetch(src);
+        const blob = await res.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        return new Promise((resolve) => {
+          const img = new window.Image();
+          img.onload = () => {
+            URL.revokeObjectURL(objectUrl);
+            resolve(img);
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            resolve(null);
+          };
+          img.src = objectUrl;
+        });
+      } catch {
+        return null;
+      }
+    };
 
     (async () => {
       const [showImg, logoImg] = await Promise.all([
