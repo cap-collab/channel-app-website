@@ -678,7 +678,9 @@ export function BroadcastClient() {
             {isEarly ? "Your Show Time" : "Your Show Has Started"}
           </h1>
           <p className="text-gray-400 text-center mb-2">
-            {message}
+            {isEarly
+              ? `Your show starts at ${formatTimeWithDate(new Date(slot.startTime))}`
+              : `Your show started at ${formatTimeWithDate(new Date(slot.startTime))}`}
           </p>
           <div className="text-center mb-6">
             <p className="text-white font-medium">{slot.showName || slot.djName}</p>
