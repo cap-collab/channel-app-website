@@ -375,13 +375,18 @@ export function ShareableShowCard(props: ShareableShowCardProps) {
   return (
     <div className="mt-4">
       <p className="text-gray-500 text-xs mb-2">Share on your socials</p>
-      <div className="bg-black rounded-lg overflow-hidden border border-gray-800">
+      <div className="bg-black rounded-lg overflow-hidden border border-gray-800 relative" style={{ aspectRatio: `${CANVAS_W}/${CANVAS_H}` }}>
+        {!ready && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-6 h-6 border-2 border-zinc-600 border-t-white rounded-full animate-spin" />
+          </div>
+        )}
         <canvas
           ref={canvasRef}
           width={CANVAS_W}
           height={CANVAS_H}
           className="w-full h-auto"
-          style={{ opacity: ready ? 1 : 0.3 }}
+          style={{ opacity: ready ? 1 : 0 }}
         />
       </div>
       <button
