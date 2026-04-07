@@ -15,6 +15,7 @@ import { uploadDJPhoto, deleteDJPhoto, validatePhoto, uploadRecImage, uploadEven
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { getStationById } from "@/lib/stations";
 import { parseGenresInput, extractInstagramHandle } from "@/lib/genres";
+import { ShareableShowCard } from "@/components/studio/ShareableShowCard";
 
 // Word boundary matching for DJ/show names
 // e.g. "PAC" matches "PAC" or "Night PAC" but NOT "pace" or "space"
@@ -33,6 +34,10 @@ interface UpcomingShow {
   stationName: string;
   isExternal: boolean;
   broadcastToken?: string;
+  showImageUrl?: string;
+  djPhotoUrl?: string;
+  djGenres?: string[];
+  djDescription?: string;
 }
 
 interface CustomLink {
@@ -572,6 +577,10 @@ export function StudioProfileClient() {
               status: data.status,
               isExternal: false,
               broadcastToken: data.broadcastToken,
+              showImageUrl: data.showImageUrl || data.liveDjPhotoUrl || undefined,
+              djPhotoUrl: data.liveDjPhotoUrl || data.showImageUrl || undefined,
+              djGenres: data.liveDjGenres || undefined,
+              djDescription: data.liveDjDescription || data.liveDjBio || undefined,
             });
           }
         });
@@ -1862,6 +1871,16 @@ export function StudioProfileClient() {
                           {Date.now() >= show.startTime ? "Go Live" : "Prepare to Go Live"} &rarr;
                         </Link>
                       ) : null}
+                      {!show.isExternal && show.broadcastToken && (
+                        <ShareableShowCard
+                          showName={show.showName}
+                          djName={show.djName || chatUsername || "DJ"}
+                          startTime={show.startTime}
+                          imageUrl={show.showImageUrl || show.djPhotoUrl || djProfile.photoUrl || undefined}
+                          genres={show.djGenres?.length ? show.djGenres : djProfile.genres.length ? djProfile.genres : undefined}
+                          description={show.djDescription || djProfile.bio || undefined}
+                        />
+                      )}
                     </div>
                   ))}
                 </div>
