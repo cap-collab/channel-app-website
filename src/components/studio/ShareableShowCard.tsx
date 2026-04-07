@@ -323,19 +323,39 @@ export function ShareableShowCard(props: ShareableShowCardProps) {
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file] });
       } else {
-        // Desktop: copy image to clipboard
+        // Desktop: copy to clipboard + save file
+        // 1. Copy image to clipboard
         try {
           await navigator.clipboard.write([
             new ClipboardItem({ 'image/png': blob }),
           ]);
         } catch {
-          // Clipboard API not supported — fall back to download
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = file.name;
-          a.click();
-          URL.revokeObjectURL(url);
+          // Clipboard not supported, continue to save
+        }
+
+        // 2. Save file — use File System Access API (Save As dialog) or fallback to download
+        try {
+          if ('showSaveFilePicker' in window) {
+            const handle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
+              suggestedName: file.name,
+              types: [{ description: 'PNG Image', accept: { 'image/png': ['.png'] } }],
+            });
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+          } else {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = file.name;
+            a.click();
+            URL.revokeObjectURL(url);
+          }
+        } catch (saveErr) {
+          // User cancelled save dialog — that's fine, image is still copied
+          if ((saveErr as DOMException)?.name !== 'AbortError') {
+            console.error('Save failed:', saveErr);
+          }
         }
       }
       setShared(true);
@@ -369,7 +389,7 @@ export function ShareableShowCard(props: ShareableShowCardProps) {
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
         </svg>
-        {shared ? 'Copied!' : sharing ? 'Copying...' : 'Copy Image'}
+        {shared ? 'Copied & Saved!' : sharing ? 'Saving...' : 'Copy & Save Image'}
       </button>
     </div>
   );
