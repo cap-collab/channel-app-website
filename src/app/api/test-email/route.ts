@@ -904,6 +904,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, type: "all", results });
   }
 
+  if (type) {
+    return NextResponse.json({ error: `Unknown email type: ${type}` }, { status: 400 });
+  }
+
   const section = request.nextUrl.searchParams.get("section") || undefined;
   return sendTestEmail(to, section);
 }
