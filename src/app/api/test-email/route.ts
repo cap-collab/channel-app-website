@@ -763,14 +763,20 @@ export async function GET(request: NextRequest) {
     // Generate a fake "tomorrow" date for the test
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const dateStr = tomorrow.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+    const testShowName = request.nextUrl.searchParams.get("show") || "Late Night Sessions";
+    const testDjName = request.nextUrl.searchParams.get("djName") || "Cap";
+    const testStartTime = Date.now() + 24 * 60 * 60 * 1000;
+    const socialCardUrl = `https://channel-app.com/api/social-card?showName=${encodeURIComponent(testShowName)}&djName=${encodeURIComponent(testDjName)}&startTime=${testStartTime}&imageUrl=${encodeURIComponent("https://channel-app.com/api/dj-photo/cap")}&genres=${encodeURIComponent("House,Techno")}`;
     const success = await sendBroadcastReminderEmail({
       to,
-      djName: request.nextUrl.searchParams.get("djName") || "Cap",
-      showName: request.nextUrl.searchParams.get("show") || "Late Night Sessions",
+      djName: testDjName,
+      showName: testShowName,
       broadcastUrl: "https://channel-app.com/broadcast/live?token=test-token-example",
       profileUrl: "https://channel-app.com/dj/cap",
       startTime: dateStr,
       timeRange: "8:00 PM – 10:00 PM ET",
+      socialCardUrl,
+      hasDjPhoto: true,
     });
     return NextResponse.json({ success, type: "broadcast-reminder" });
   }
@@ -779,14 +785,20 @@ export async function GET(request: NextRequest) {
     // Generate a fake "2 hours from now" date for the test
     const soon = new Date(Date.now() + 2 * 60 * 60 * 1000);
     const dateStr = soon.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+    const testShowName = request.nextUrl.searchParams.get("show") || "Late Night Sessions";
+    const testDjName = request.nextUrl.searchParams.get("djName") || "Cap";
+    const testStartTime = Date.now() + 2 * 60 * 60 * 1000;
+    const socialCardUrl = `https://channel-app.com/api/social-card?showName=${encodeURIComponent(testShowName)}&djName=${encodeURIComponent(testDjName)}&startTime=${testStartTime}&imageUrl=${encodeURIComponent("https://channel-app.com/api/dj-photo/cap")}&genres=${encodeURIComponent("House,Techno")}`;
     const success = await sendBroadcast2HourReminderEmail({
       to,
-      djName: request.nextUrl.searchParams.get("djName") || "Cap",
-      showName: request.nextUrl.searchParams.get("show") || "Late Night Sessions",
+      djName: testDjName,
+      showName: testShowName,
       broadcastUrl: "https://channel-app.com/broadcast/live?token=test-token-example",
       profileUrl: "https://channel-app.com/dj/cap",
       startTime: dateStr,
       timeRange: "8:00 PM – 10:00 PM ET",
+      socialCardUrl,
+      hasDjPhoto: true,
     });
     return NextResponse.json({ success, type: "broadcast-2h-reminder" });
   }
@@ -843,6 +855,8 @@ export async function GET(request: NextRequest) {
     // 3. Broadcast reminder (24h)
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const dateStr = tomorrow.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+    const testStartTime24h = Date.now() + 24 * 60 * 60 * 1000;
+    const socialCard24h = `https://channel-app.com/api/social-card?showName=${encodeURIComponent("Late Night Sessions")}&djName=${encodeURIComponent("Cap")}&startTime=${testStartTime24h}&imageUrl=${encodeURIComponent("https://channel-app.com/api/dj-photo/cap")}&genres=${encodeURIComponent("House,Techno")}`;
     results["broadcast-reminder"] = await sendBroadcastReminderEmail({
       to,
       djName: "Cap",
@@ -851,11 +865,15 @@ export async function GET(request: NextRequest) {
       profileUrl: "https://channel-app.com/dj/cap",
       startTime: dateStr,
       timeRange: "8:00 PM – 10:00 PM PT",
+      socialCardUrl: socialCard24h,
+      hasDjPhoto: true,
     });
 
     // 4. Broadcast 2h reminder
     const soon = new Date(Date.now() + 2 * 60 * 60 * 1000);
     const soonDateStr = soon.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+    const testStartTime2h = Date.now() + 2 * 60 * 60 * 1000;
+    const socialCard2h = `https://channel-app.com/api/social-card?showName=${encodeURIComponent("Late Night Sessions")}&djName=${encodeURIComponent("Cap")}&startTime=${testStartTime2h}&imageUrl=${encodeURIComponent("https://channel-app.com/api/dj-photo/cap")}&genres=${encodeURIComponent("House,Techno")}`;
     results["broadcast-2h-reminder"] = await sendBroadcast2HourReminderEmail({
       to,
       djName: "Cap",
@@ -864,6 +882,8 @@ export async function GET(request: NextRequest) {
       profileUrl: "https://channel-app.com/dj/cap",
       startTime: soonDateStr,
       timeRange: "8:00 PM – 10:00 PM PT",
+      socialCardUrl: socialCard2h,
+      hasDjPhoto: true,
     });
 
     // 5. Post-broadcast (with all items missing)
