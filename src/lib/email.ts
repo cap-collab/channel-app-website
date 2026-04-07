@@ -866,9 +866,6 @@ export async function sendBroadcast2HourReminderEmail({
           </p>
           <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 12px 0 0;">
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Edit your profile info if you want to update anything</td>
-            </tr>
-            <tr>
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Do a short recording to test your audio capture</td>
             </tr>
             <tr>
