@@ -196,6 +196,7 @@ export async function POST(request: NextRequest) {
       isPublic: true,
       sourceType: 'recording',
       publishedAt: timestamp,
+      priority: 'medium',
       // Upload tracking fields
       uploadStatus: 'uploading',
       uploadFilePath: r2Key,

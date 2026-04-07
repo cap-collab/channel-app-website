@@ -274,6 +274,9 @@ export interface ArchiveDJ {
   genres?: string[];           // DJ genres (for genre matching)
 }
 
+// Archive priority (admin-only field, not exposed in public API)
+export type ArchivePriority = 'high' | 'medium' | 'low';
+
 // Archive stored in Firestore
 export interface Archive {
   id: string;                    // Firestore doc ID (auto-generated)
@@ -292,6 +295,7 @@ export interface Archive {
   isPublic?: boolean;            // Default true for live broadcasts, false for recordings until published
   sourceType?: 'live' | 'recording';  // Distinguish live broadcast recordings from private recordings
   publishedAt?: number;          // When recording was published (Unix ms)
+  priority?: ArchivePriority;    // Admin-only: high, medium, or low (default medium)
 }
 
 // Serialized version for API responses (same as Archive since all fields are already serialized)

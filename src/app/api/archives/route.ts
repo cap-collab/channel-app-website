@@ -237,6 +237,8 @@ export async function GET(request: Request) {
         isPublic: data.isPublic,
         sourceType: data.sourceType,
         publishedAt: data.publishedAt,
+        // Admin-only field (only included when includePrivate is true)
+        ...(includePrivate ? { priority: data.priority || 'medium' } : {}),
       };
     });
 

@@ -1,14 +1,23 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ArchiveSerialized } from '@/types/broadcast';
+import { ArchiveSerialized, ArchivePriority } from '@/types/broadcast';
 
 interface ArchivesTabProps {
   onArchiveCountChange: (count: number) => void;
 }
 
 type FilterSource = 'all' | 'live' | 'recording';
-type SortBy = 'date' | 'duration' | 'streams';
+type FilterPriority = 'all' | ArchivePriority;
+type SortBy = 'date' | 'duration' | 'streams' | 'priority';
+
+const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
+const PRIORITY_COLORS: Record<string, string> = {
+  high: 'bg-red-900/40 text-red-400 border-red-800',
+  medium: 'bg-yellow-900/30 text-yellow-400 border-yellow-800',
+  low: 'bg-gray-800/50 text-gray-500 border-gray-700',
+};
+const PRIORITY_CYCLE: ArchivePriority[] = ['low', 'medium', 'high'];
 
 function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -39,6 +48,7 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterSource, setFilterSource] = useState<FilterSource>('all');
+  const [filterPriority, setFilterPriority] = useState<FilterPriority>('all');
   const [sortBy, setSortBy] = useState<SortBy>('date');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [passwordModal, setPasswordModal] = useState<{
@@ -137,10 +147,32 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
     }
   };
 
+  const handlePriorityChange = async (archiveId: string, newPriority: ArchivePriority) => {
+    // Optimistic update
+    setArchives(prev => prev.map(a =>
+      a.id === archiveId ? { ...a, priority: newPriority } : a
+    ));
+
+    try {
+      const response = await fetch('/api/admin/archives/priority', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archiveId, priority: newPriority }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to update priority');
+      }
+    } catch {
+      // Revert on failure
+      await fetchArchives();
+    }
+  };
+
   // Filter
   const filtered = archives.filter((a) => {
-    if (filterSource === 'all') return true;
-    return a.sourceType === filterSource;
+    if (filterSource !== 'all' && a.sourceType !== filterSource) return false;
+    if (filterPriority !== 'all' && (a.priority || 'medium') !== filterPriority) return false;
+    return true;
   });
 
   // Sort
@@ -150,6 +182,8 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
         return (b.duration || 0) - (a.duration || 0);
       case 'streams':
         return (b.streamCount || 0) - (a.streamCount || 0);
+      case 'priority':
+        return (PRIORITY_ORDER[a.priority || 'medium'] ?? 1) - (PRIORITY_ORDER[b.priority || 'medium'] ?? 1);
       case 'date':
       default:
         return (b.recordedAt || 0) - (a.recordedAt || 0);
@@ -224,6 +258,22 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
               )}
             </button>
           ))}
+
+          <span className="text-gray-700 mx-1">|</span>
+
+          {(['all', 'high', 'medium', 'low'] as FilterPriority[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => setFilterPriority(p)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                filterPriority === p
+                  ? 'bg-gray-700 text-white'
+                  : 'bg-gray-800/50 text-gray-400 hover:bg-gray-800'
+              }`}
+            >
+              {p === 'all' ? 'Any Priority' : p.charAt(0).toUpperCase() + p.slice(1)}
+            </button>
+          ))}
         </div>
 
         <select
@@ -234,6 +284,7 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
           <option value="date">Sort by Date</option>
           <option value="duration">Sort by Duration</option>
           <option value="streams">Sort by Streams</option>
+          <option value="priority">Sort by Priority</option>
         </select>
       </div>
 
@@ -249,6 +300,7 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
               key={archive.id}
               archive={archive}
               onDelete={() => initiateDelete(archive)}
+              onPriorityChange={handlePriorityChange}
               isDeleting={deletingId === archive.id}
             />
           ))}
@@ -346,15 +398,24 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
 function ArchiveCard({
   archive,
   onDelete,
+  onPriorityChange,
   isDeleting,
 }: {
   archive: ArchiveSerialized;
   onDelete: () => void;
+  onPriorityChange: (archiveId: string, priority: ArchivePriority) => void;
   isDeleting: boolean;
 }) {
   const djNames = archive.djs?.map(dj => dj.name).join(', ') || 'Unknown DJ';
   const isLive = archive.sourceType === 'live';
   const isPublic = archive.isPublic !== false;
+  const currentPriority = archive.priority || 'medium';
+
+  const cyclePriority = () => {
+    const currentIdx = PRIORITY_CYCLE.indexOf(currentPriority);
+    const nextIdx = (currentIdx + 1) % PRIORITY_CYCLE.length;
+    onPriorityChange(archive.id, PRIORITY_CYCLE[nextIdx]);
+  };
 
   return (
     <div className="p-4 bg-[#1a1a1a] border border-gray-800 rounded-xl hover:border-gray-700 transition-colors">
@@ -374,6 +435,13 @@ function ArchiveCard({
                 Private
               </span>
             )}
+            <button
+              onClick={cyclePriority}
+              title={`Priority: ${currentPriority} (click to change)`}
+              className={`px-2 py-0.5 text-xs rounded border cursor-pointer transition-colors hover:opacity-80 ${PRIORITY_COLORS[currentPriority]}`}
+            >
+              {currentPriority.charAt(0).toUpperCase() + currentPriority.slice(1)}
+            </button>
           </div>
           <p className="text-sm text-gray-400 truncate mb-2">{djNames}</p>
           <div className="flex items-center gap-4 text-xs text-gray-500">

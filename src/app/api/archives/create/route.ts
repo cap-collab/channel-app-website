@@ -174,6 +174,7 @@ export async function POST(request: NextRequest) {
       recordedAt,
       createdAt: Date.now(),
       stationId: slotData.stationId || STATION_ID,
+      priority: 'medium',
     });
 
     return NextResponse.json({
