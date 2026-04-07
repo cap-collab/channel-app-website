@@ -14,7 +14,7 @@ interface ShareableShowCardProps {
 // Layout: logo (top) + info strip (LIVE on... | channel-app.com) + 16:9 hero image
 const CANVAS_W = 1080;
 const LOGO_STRIP_H = 64;
-const INFO_STRIP_H = 48;
+const INFO_STRIP_H = 72;
 const IMAGE_H = 608; // 16:9
 const CANVAS_H = LOGO_STRIP_H + INFO_STRIP_H + IMAGE_H;
 
@@ -93,48 +93,68 @@ function drawCanvas(
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-  // === Logo strip (top) ===
+  // === Line 1: logo left + channel-app.com right ===
+  const line1CenterY = LOGO_STRIP_H / 2;
+  const fontSize = Math.round(11 * S);
+
   if (logoImg) {
     const logoH = Math.round(24 * S / 2);
     const logoW = logoImg.naturalWidth * (logoH / logoImg.naturalHeight);
-    ctx.drawImage(logoImg, (CANVAS_W - logoW) / 2, (LOGO_STRIP_H - logoH) / 2, logoW, logoH);
+    ctx.drawImage(logoImg, pad, line1CenterY - logoH / 2, logoW, logoH);
   }
 
-  // === Info strip: red dot + "LIVE on..." left, "channel-app.com" right ===
-  const stripCenterY = LOGO_STRIP_H + INFO_STRIP_H / 2;
-  const fontSize = Math.round(11 * S);
-  const dotRadius = Math.round(3.5 * S);
+  ctx.fillStyle = '#a1a1aa'; // zinc-400
+  ctx.font = `500 ${fontSize}px ${F}`;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'right';
+  ctx.fillText('channel-app.com', CANVAS_W - pad, line1CenterY);
+  ctx.textAlign = 'left';
+
+  // === Line 2: "LIVE on..." centered with red dot ===
   const overlay = getOverlayInfo(startTime);
+  const dotRadius = Math.round(3.5 * S);
 
   if (overlay) {
-    ctx.font = `700 ${fontSize}px ${F}`;
+    const line2CenterY = LOGO_STRIP_H + INFO_STRIP_H / 2;
     ctx.textBaseline = 'middle';
+
+    // Split into "LIVE" (red, bold) + rest (white, normal weight)
+    // For "LIVE NOW": liveWord = "LIVE NOW" all red
+    // For "LIVE on ...": liveWord = "LIVE" red, rest = " on Tuesday 2 PM" white
+    const isLiveNow = overlay.text === 'LIVE NOW';
+    const liveWord = isLiveNow ? 'LIVE NOW' : 'LIVE';
+    const restText = isLiveNow ? '' : overlay.text.slice(4); // " on Tuesday 2 PM"
+
+    // Measure both parts to center everything
+    ctx.font = `700 ${fontSize}px ${F}`;
+    const liveW = ctx.measureText(liveWord).width;
+    ctx.font = `400 ${fontSize}px ${F}`;
+    const restW = restText ? ctx.measureText(restText).width : 0;
+
+    const dotSpace = dotRadius * 2 + Math.round(5 * S);
+    const totalW = dotSpace + liveW + restW;
+    const startX = (CANVAS_W - totalW) / 2;
 
     // Red dot
     ctx.fillStyle = '#ef4444';
     ctx.beginPath();
-    ctx.arc(pad + dotRadius, stripCenterY, dotRadius, 0, Math.PI * 2);
+    ctx.arc(startX + dotRadius, line2CenterY, dotRadius, 0, Math.PI * 2);
     ctx.fill();
 
-    // Overlay text
-    ctx.fillStyle = '#ffffff';
+    // "LIVE" or "LIVE NOW" in red, bold
+    ctx.fillStyle = '#ef4444';
+    ctx.font = `700 ${fontSize}px ${F}`;
     ctx.textAlign = 'left';
-    ctx.fillText(overlay.text, pad + dotRadius * 2 + Math.round(5 * S), stripCenterY);
+    ctx.fillText(liveWord, startX + dotSpace, line2CenterY);
 
-    // channel-app.com right
-    ctx.font = `500 ${fontSize}px ${F}`;
-    ctx.textAlign = 'right';
-    ctx.fillStyle = '#a1a1aa'; // zinc-400
-    ctx.fillText('channel-app.com', CANVAS_W - pad, stripCenterY);
-  } else {
-    // No overlay — channel-app.com centered
-    ctx.fillStyle = '#a1a1aa';
-    ctx.font = `500 ${fontSize}px ${F}`;
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
-    ctx.fillText('channel-app.com', CANVAS_W / 2, stripCenterY);
+    // Rest of text in white, normal weight
+    if (restText) {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `400 ${fontSize}px ${F}`;
+      ctx.fillText(restText, startX + dotSpace + liveW, line2CenterY);
+    }
+    ctx.textAlign = 'left';
   }
-  ctx.textAlign = 'left';
 
   // === 16:9 hero image ===
   const imgTop = LOGO_STRIP_H + INFO_STRIP_H;
