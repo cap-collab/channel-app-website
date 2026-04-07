@@ -108,6 +108,30 @@ export interface FavoriteDocument {
   createdBy: "web" | "ios";
 }
 
+// Stream history document in Firestore (users/{userId}/streamHistory/{archiveId})
+export interface StreamHistoryDoc {
+  archiveId: string;
+  slug: string;
+  showName: string;
+  djs: { name: string; username?: string; photoUrl?: string }[];
+  stationId: string;
+  showImageUrl?: string;
+  streamCount: number;
+  firstStreamedAt: Date;
+  lastStreamedAt: Date;
+}
+
+// Love history document in Firestore (users/{userId}/loveHistory/{djUsername})
+export interface LoveHistoryDoc {
+  djUsername: string;
+  djDisplayName: string;
+  djPhotoUrl?: string;
+  loveCount: number;
+  contexts: ('live' | 'archive')[];
+  firstLovedAt: Date;
+  lastLovedAt: Date;
+}
+
 // IRL Show data for "IRL near you" section
 export interface IRLShowData {
   djUsername: string;

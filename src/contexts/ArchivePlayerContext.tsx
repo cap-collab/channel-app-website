@@ -67,7 +67,7 @@ const GATE_STORAGE_KEY = 'archive_cumulative_seconds';
 const GATE_THRESHOLD_SECONDS = 960;
 
 export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuthContext();
+  const { isAuthenticated, user } = useAuthContext();
   const [currentArchive, setCurrentArchive] = useState<ArchiveSerialized | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -186,7 +186,11 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
         streamCountedRef.current !== currentArchive.id
       ) {
         streamCountedRef.current = currentArchive.id;
-        fetch(`/api/archives/${currentArchive.slug}/stream`, { method: 'POST' }).catch(() => {});
+        fetch(`/api/archives/${currentArchive.slug}/stream`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user?.uid || null }),
+        }).catch(() => {});
       }
       // Fire "locked in" message at 900s (15 min)
       if (

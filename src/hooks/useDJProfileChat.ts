@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getFirestore, collection, query, orderBy, limit, onSnapshot, addDoc, serverTimestamp, Timestamp, doc, updateDoc, increment } from 'firebase/firestore';
+import { getFirestore, collection, query, orderBy, limit, onSnapshot, addDoc, serverTimestamp, Timestamp, doc, updateDoc, increment, setDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { getApps, initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { ChatMessageSerialized } from '@/types/broadcast';
@@ -32,6 +32,10 @@ interface UseDJProfileChatOptions {
   // Broadcast-specific options:
   broadcastSlotId?: string;         // For tagging messages with slot ID
   currentShowStartTime?: number;    // Unix ms — filter love counts to current show only
+  // User behavior tracking options:
+  userId?: string;                  // Firebase UID — when set, love history is recorded
+  djPhotoUrl?: string;              // DJ photo for love history denormalization
+  isArchivePlayback?: boolean;      // Whether love is sent during archive (vs live) playback
 }
 
 interface UseDJProfileChatReturn {
@@ -53,6 +57,9 @@ export function useDJProfileChat({
   lockedInMessagesEnabled = true,
   broadcastSlotId,
   currentShowStartTime,
+  userId,
+  djPhotoUrl,
+  isArchivePlayback = false,
 }: UseDJProfileChatOptions): UseDJProfileChatReturn {
   const [messages, setMessages] = useState<ChatMessageSerialized[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -234,6 +241,27 @@ export function useDJProfileChat({
     try {
       const shouldCrossPost = chatUsernameNormalized !== 'channelbroadcast';
 
+      // Helper: record love in user's loveHistory (fire-and-forget)
+      const recordLoveHistory = () => {
+        if (!userId || !djUsername) return;
+        const loveHistoryRef = doc(db, 'users', userId, 'loveHistory', djUsername);
+        (async () => {
+          const existing = await getDoc(loveHistoryRef);
+          const data: Record<string, unknown> = {
+            djUsername,
+            djDisplayName: djUsername,
+            djPhotoUrl: djPhotoUrl || null,
+            loveCount: increment(1),
+            contexts: arrayUnion(isArchivePlayback ? 'archive' : 'live'),
+            lastLovedAt: serverTimestamp(),
+          };
+          if (!existing.exists()) {
+            data.firstLovedAt = serverTimestamp();
+          }
+          await setDoc(loveHistoryRef, data, { merge: true });
+        })().catch(() => {});
+      };
+
       // Check if we already have a love message - if so, increment heartCount
       if (currentLoveMessageIdRef.current) {
         const messageRef = doc(db, 'chats', chatUsernameNormalized, 'messages', currentLoveMessageIdRef.current);
@@ -249,6 +277,7 @@ export function useDJProfileChat({
             { heartCount: increment(1), timestamp: serverTimestamp() }
           ).catch((err) => console.error('Failed to cross-post love increment:', err));
         }
+        recordLoveHistory();
         return;
       }
 
@@ -282,11 +311,13 @@ export function useDJProfileChat({
           currentLoveBroadcastMessageIdRef.current = broadcastDocRef.id;
         }).catch((err) => console.error('Failed to cross-post love:', err));
       }
+
+      recordLoveHistory();
     } catch (err) {
       console.error('Failed to send love:', err);
       throw new Error('Failed to send love');
     }
-  }, [username, chatUsernameNormalized, djUsername]);
+  }, [username, chatUsernameNormalized, djUsername, userId, djPhotoUrl, isArchivePlayback]);
 
   // Send a "locked in" message after sustained listening
   // Posts to DJ chat + channelbroadcast, then increments love count by 1

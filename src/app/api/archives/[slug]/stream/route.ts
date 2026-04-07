@@ -13,6 +13,15 @@ export async function POST(
       return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
     }
 
+    // Parse optional userId from body
+    let userId: string | null = null;
+    try {
+      const body = await request.json();
+      userId = body.userId || null;
+    } catch {
+      // No body or invalid JSON — that's fine, just skip user tracking
+    }
+
     // Find archive by slug
     const archivesRef = db.collection('archives');
     const snapshot = await archivesRef
@@ -24,12 +33,45 @@ export async function POST(
       return NextResponse.json({ error: 'Archive not found' }, { status: 404 });
     }
 
-    const archiveRef = snapshot.docs[0].ref;
+    const archiveDoc = snapshot.docs[0];
+    const archiveRef = archiveDoc.ref;
+    const archiveData = archiveDoc.data();
 
-    // Increment the stream count
+    // Increment the global stream count
     await archiveRef.update({
       streamCount: FieldValue.increment(1),
     });
+
+    // Write per-user stream history if authenticated
+    if (userId) {
+      const streamHistoryRef = db
+        .collection('users')
+        .doc(userId)
+        .collection('streamHistory')
+        .doc(archiveDoc.id);
+
+      const existing = await streamHistoryRef.get();
+      const historyData: Record<string, unknown> = {
+        archiveId: archiveDoc.id,
+        slug,
+        showName: archiveData.showName || '',
+        djs: (archiveData.djs || []).map((d: { name?: string; username?: string; photoUrl?: string }) => ({
+          name: d.name || '',
+          username: d.username || null,
+          photoUrl: d.photoUrl || null,
+        })),
+        stationId: archiveData.stationId || '',
+        showImageUrl: archiveData.showImageUrl || null,
+        streamCount: FieldValue.increment(1),
+        lastStreamedAt: FieldValue.serverTimestamp(),
+      };
+
+      if (!existing.exists) {
+        historyData.firstStreamedAt = FieldValue.serverTimestamp();
+      }
+
+      await streamHistoryRef.set(historyData, { merge: true });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

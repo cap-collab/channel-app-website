@@ -746,8 +746,6 @@ interface BroadcastReminderEmailParams {
   showName: string;
   broadcastUrl: string;
   profileUrl: string | null;
-  socialCardUrl?: string;
-  hasDjPhoto?: boolean;
   startTime: string; // e.g. "Tuesday, March 31"
   timeRange: string; // e.g. "8:00 PM – 10:00 PM EST"
 }
@@ -756,23 +754,13 @@ export async function sendBroadcastReminderEmail({
   to,
   djName,
   showName,
-  broadcastUrl,
   startTime,
   timeRange,
-  socialCardUrl,
-  hasDjPhoto,
 }: BroadcastReminderEmailParams) {
   if (!resend) {
     console.warn("Email service not configured - skipping email");
     return false;
   }
-
-  const shareLine = `<tr>
-        <td style="padding-top: 4px;">
-          <span style="color: #666; font-size: 14px;">Share your stream: </span>
-          <a href="https://channel-app.com" style="color: #555; font-size: 14px; text-decoration: underline;">channel-app.com</a>
-        </td>
-      </tr>`;
 
   const content = `
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f5f5; border-radius: 0; border: 1px solid #e5e5e5;">
@@ -793,42 +781,26 @@ export async function sendBroadcastReminderEmail({
               </td>
             </tr>
           </table>
-          <p style="margin: 0 0 4px; font-size: 14px; color: #666;">Your live stream link (keep private):</p>
-          <p style="margin: 0 0 16px;">
-            <a href="${broadcastUrl}" style="color: #555; font-size: 14px; text-decoration: underline; word-break: break-all;">${broadcastUrl}</a>
+          <p style="margin: 0 0 4px; font-size: 14px; color: #1a1a1a;">
+            Use the studio to get set up: <a href="https://channel-app.com/studio" style="color: #555; font-size: 14px; text-decoration: underline;">channel-app.com/studio</a>
           </p>
-          <p style="margin: 0 0 20px; font-size: 14px; color: #1a1a1a;">
-            I recommend opening it ahead of time and doing a quick test.
-          </p>
-          <table width="100%" cellpadding="0" cellspacing="0" border="0">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 12px 0 0;">
             <tr>
-              <td style="padding-top: 4px;">
-                <span style="color: #666; font-size: 14px;">Setup guide: </span>
-                <a href="https://channel-app.com/streaming-guide" style="color: #555; font-size: 14px; text-decoration: underline;">channel-app.com/streaming-guide</a>
-              </td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Edit your profile info if you want to update anything</td>
             </tr>
             <tr>
-              <td style="padding-top: 4px;">
-                <span style="color: #666; font-size: 14px;">Edit your profile info: </span>
-                <a href="https://channel-app.com/studio" style="color: #555; font-size: 14px; text-decoration: underline;">channel-app.com/studio</a>
-              </td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Do a short recording to test your audio capture</td>
             </tr>
-            ${shareLine}
+            <tr>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Click "Prepare to go live" ahead of time to avoid any surprises</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Preview what your show will look like</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Share it on IG</td>
+            </tr>
           </table>
-          ${socialCardUrl ? (hasDjPhoto ? `
-          <p style="margin: 20px 0 8px; font-size: 14px; color: #1a1a1a;">
-            This is what the player will look like when you're live — save it and share on your socials:
-          </p>
-          <img src="${socialCardUrl}" alt="${showName} on Channel" width="540" style="width: 100%; max-width: 540px; height: auto; border: 1px solid #e5e5e5; display: block;" />
-          ` : `
-          <p style="margin: 20px 0 8px; font-size: 14px; color: #1a1a1a;">
-            This is what the player will look like when you're live:
-          </p>
-          <img src="${socialCardUrl}" alt="${showName} on Channel" width="540" style="width: 100%; max-width: 540px; height: auto; border: 1px solid #e5e5e5; display: block;" />
-          <p style="margin: 8px 0 0; font-size: 14px; color: #666;">
-            Upload a photo in your <a href="https://channel-app.com/studio" style="color: #555; text-decoration: underline;">studio</a> so the player looks great while you play.
-          </p>
-          `) : ''}
           <p style="margin: 24px 0 0; font-size: 14px; color: #1a1a1a;">
             See you tomorrow, Cap
           </p>
@@ -862,23 +834,13 @@ export async function sendBroadcast2HourReminderEmail({
   to,
   djName,
   showName,
-  broadcastUrl,
   startTime,
   timeRange,
-  socialCardUrl,
-  hasDjPhoto,
 }: BroadcastReminderEmailParams) {
   if (!resend) {
     console.warn("Email service not configured - skipping email");
     return false;
   }
-
-  const shareLine = `<tr>
-        <td style="padding-top: 4px;">
-          <span style="color: #666; font-size: 14px;">Share your stream: </span>
-          <a href="https://channel-app.com" style="color: #555; font-size: 14px; text-decoration: underline;">channel-app.com</a>
-        </td>
-      </tr>`;
 
   const content = `
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f5f5; border-radius: 0; border: 1px solid #e5e5e5;">
@@ -899,42 +861,26 @@ export async function sendBroadcast2HourReminderEmail({
               </td>
             </tr>
           </table>
-          <p style="margin: 0 0 4px; font-size: 14px; color: #666;">Your live stream link (keep private):</p>
-          <p style="margin: 0 0 16px;">
-            <a href="${broadcastUrl}" style="color: #555; font-size: 14px; text-decoration: underline; word-break: break-all;">${broadcastUrl}</a>
+          <p style="margin: 0 0 4px; font-size: 14px; color: #1a1a1a;">
+            Use the studio to get set up: <a href="https://channel-app.com/studio" style="color: #555; font-size: 14px; text-decoration: underline;">channel-app.com/studio</a>
           </p>
-          <p style="margin: 0 0 20px; font-size: 14px; color: #1a1a1a;">
-            Open it now and do a quick test before you go live.
-          </p>
-          <table width="100%" cellpadding="0" cellspacing="0" border="0">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 12px 0 0;">
             <tr>
-              <td style="padding-top: 4px;">
-                <span style="color: #666; font-size: 14px;">Setup guide: </span>
-                <a href="https://channel-app.com/streaming-guide" style="color: #555; font-size: 14px; text-decoration: underline;">channel-app.com/streaming-guide</a>
-              </td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Edit your profile info if you want to update anything</td>
             </tr>
             <tr>
-              <td style="padding-top: 4px;">
-                <span style="color: #666; font-size: 14px;">Edit your profile info: </span>
-                <a href="https://channel-app.com/studio" style="color: #555; font-size: 14px; text-decoration: underline;">channel-app.com/studio</a>
-              </td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Do a short recording to test your audio capture</td>
             </tr>
-            ${shareLine}
+            <tr>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Click "Prepare to go live" ahead of time to avoid any surprises</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Preview what your show will look like</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Share it on IG</td>
+            </tr>
           </table>
-          ${socialCardUrl ? (hasDjPhoto ? `
-          <p style="margin: 20px 0 8px; font-size: 14px; color: #1a1a1a;">
-            This is what the player will look like when you're live — save it and share on your socials:
-          </p>
-          <img src="${socialCardUrl}" alt="${showName} on Channel" width="540" style="width: 100%; max-width: 540px; height: auto; border: 1px solid #e5e5e5; display: block;" />
-          ` : `
-          <p style="margin: 20px 0 8px; font-size: 14px; color: #1a1a1a;">
-            This is what the player will look like when you're live:
-          </p>
-          <img src="${socialCardUrl}" alt="${showName} on Channel" width="540" style="width: 100%; max-width: 540px; height: auto; border: 1px solid #e5e5e5; display: block;" />
-          <p style="margin: 8px 0 0; font-size: 14px; color: #666;">
-            Upload a photo in your <a href="https://channel-app.com/studio" style="color: #555; text-decoration: underline;">studio</a> so the player looks great while you play.
-          </p>
-          `) : ''}
           <p style="margin: 24px 0 0; font-size: 14px; color: #1a1a1a;">
             See you soon, Cap
           </p>

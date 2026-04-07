@@ -77,9 +77,6 @@ interface DjInfo {
   hasTipLink: boolean;
   hasLocation: boolean;
   hasGenres: boolean;
-  photoUrl: string | null;
-  genres: string[];
-  bio: string | null;
 }
 
 const DEFAULT_TIMEZONE = 'America/Los_Angeles';
@@ -98,9 +95,6 @@ async function lookupDjInfo(db: FirebaseFirestore.Firestore, email: string): Pro
       hasTipLink: !!djProfile.tipButtonLink,
       hasLocation: !!djProfile.location,
       hasGenres: Array.isArray(djProfile.genres) && djProfile.genres.length > 0,
-      photoUrl: djProfile.photoUrl || null,
-      genres: Array.isArray(djProfile.genres) ? djProfile.genres : [],
-      bio: djProfile.bio || null,
     };
   }
   // Check pending-dj-profiles
@@ -114,12 +108,9 @@ async function lookupDjInfo(db: FirebaseFirestore.Firestore, email: string): Pro
       hasTipLink: false,
       hasLocation: false,
       hasGenres: false,
-      photoUrl: profile.photoUrl || null,
-      genres: Array.isArray(profile.genres) ? profile.genres : [],
-      bio: profile.bio || null,
     };
   }
-  return { username: null, name: null, timezone: DEFAULT_TIMEZONE, hasTipLink: false, hasLocation: false, hasGenres: false, photoUrl: null, genres: [], bio: null };
+  return { username: null, name: null, timezone: DEFAULT_TIMEZONE, hasTipLink: false, hasLocation: false, hasGenres: false };
 }
 
 // Build a natural-language string of missing profile items
@@ -154,25 +145,6 @@ function formatTimeRange(startTime: number, endTime: number, timezone: string): 
     .formatToParts(new Date(startTime))
     .find(p => p.type === 'timeZoneName')?.value || timezone;
   return `${start} – ${end} ${tzAbbr}`;
-}
-
-// Build social card image URL for email embedding
-function buildSocialCardUrl(params: {
-  showName: string;
-  djName: string;
-  startTime: number;
-  imageUrl?: string | null;
-  genres?: string[];
-  description?: string | null;
-}): string {
-  const url = new URL(`${APP_URL}/api/social-card`);
-  url.searchParams.set('showName', params.showName);
-  url.searchParams.set('djName', params.djName);
-  url.searchParams.set('startTime', String(params.startTime));
-  if (params.imageUrl) url.searchParams.set('imageUrl', params.imageUrl);
-  if (params.genres && params.genres.length > 0) url.searchParams.set('genres', params.genres.join(','));
-  if (params.description) url.searchParams.set('description', params.description);
-  return url.toString();
 }
 
 // ── Phase results ─────────────────────────────────────────���─────────
@@ -259,16 +231,6 @@ async function run24hReminders(db: FirebaseFirestore.Firestore, now: number): Pr
         const djUsername = target.djUsername || djInfo.username;
         const djTimezone = djInfo.timezone;
 
-        const djImageUrl = slot.showImageUrl || slot.liveDjPhotoUrl || djInfo.photoUrl;
-        const socialCardUrl = buildSocialCardUrl({
-          showName,
-          djName: djInfo.name || target.djName,
-          startTime: target.startTime,
-          imageUrl: djImageUrl,
-          genres: djInfo.genres,
-          description: djInfo.bio,
-        });
-
         const success = await sendBroadcastReminderEmail({
           to: target.email,
           djName: djInfo.name || target.djName,
@@ -277,8 +239,6 @@ async function run24hReminders(db: FirebaseFirestore.Firestore, now: number): Pr
           profileUrl: djUsername ? `${APP_URL}/dj/${djUsername}` : null,
           startTime: formatDate(target.startTime, djTimezone),
           timeRange: formatTimeRange(target.startTime, target.endTime, djTimezone),
-          socialCardUrl,
-          hasDjPhoto: !!djImageUrl,
         });
 
         if (success) { result.sent++; } else { result.errors.push(`Failed to send 24h reminder to ${target.email}`); }
@@ -324,16 +284,6 @@ async function run2hReminders(db: FirebaseFirestore.Firestore, now: number): Pro
         const djInfo = await lookupDjInfo(db, target.email);
         const djTimezone = djInfo.timezone;
 
-        const djImageUrl = slot.showImageUrl || slot.liveDjPhotoUrl || djInfo.photoUrl;
-        const socialCardUrl = buildSocialCardUrl({
-          showName,
-          djName: djInfo.name || target.djName,
-          startTime: target.startTime,
-          imageUrl: djImageUrl,
-          genres: djInfo.genres,
-          description: djInfo.bio,
-        });
-
         const success = await sendBroadcast2HourReminderEmail({
           to: target.email,
           djName: djInfo.name || target.djName,
@@ -342,8 +292,6 @@ async function run2hReminders(db: FirebaseFirestore.Firestore, now: number): Pro
           profileUrl: null,
           startTime: formatDate(target.startTime, djTimezone),
           timeRange: formatTimeRange(target.startTime, target.endTime, djTimezone),
-          socialCardUrl,
-          hasDjPhoto: !!djImageUrl,
         });
 
         if (success) { result.sent++; } else { result.errors.push(`Failed to send 2h reminder to ${target.email}`); }
