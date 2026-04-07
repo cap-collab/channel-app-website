@@ -151,13 +151,26 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
     return matching.map((g) => g.toUpperCase()).join(' + ');
   }, [getMatchingGenres]);
 
-  // Sort archives by genre match count (more matching genres = higher in the list)
+  // Sort archives by priority and genre match
+  // - No genre filter: high priority first, low priority last, medium in the middle (original date order)
+  // - Genre filter: high+genre match first, then medium+genre match, then medium no match, then low always last
   const { archives, featuredArchive } = useMemo(() => {
     if (rawArchives.length === 0) return { archives: rawArchives, featuredArchive: rawFeaturedArchive };
+
+    const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
+
     if (selectedGenres.length === 0) {
-      return { archives: rawArchives, featuredArchive: rawFeaturedArchive };
+      // No genre filter: sort by priority tier, preserve date order within each tier
+      const sorted = [...rawArchives].sort((a, b) => {
+        const pa = PRIORITY_RANK[a.priority || 'medium'] ?? 1;
+        const pb = PRIORITY_RANK[b.priority || 'medium'] ?? 1;
+        if (pa !== pb) return pa - pb;
+        return (b.recordedAt || 0) - (a.recordedAt || 0);
+      });
+      return { archives: sorted, featuredArchive: sorted[0] };
     }
 
+    // Genre filter active: score each archive
     const scored = rawArchives.map((archive) => {
       let genreScore = 0;
       for (const dj of archive.djs) {
@@ -166,10 +179,30 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
           genreScore += selectedGenres.filter((g) => matchesGenreLib(genres, g)).length;
         }
       }
-      return { archive, score: genreScore };
+      const priority = archive.priority || 'medium';
+      // Sorting bucket:
+      // 0 = high priority + genre match
+      // 1 = medium priority + genre match
+      // 2 = high priority + no genre match
+      // 3 = medium priority + no genre match
+      // 4 = low priority (always last regardless of genre)
+      let bucket: number;
+      if (priority === 'low') {
+        bucket = 4;
+      } else if (genreScore > 0) {
+        bucket = priority === 'high' ? 0 : 1;
+      } else {
+        bucket = priority === 'high' ? 2 : 3;
+      }
+      return { archive, genreScore, bucket };
     });
 
-    scored.sort((a, b) => b.score - a.score);
+    scored.sort((a, b) => {
+      if (a.bucket !== b.bucket) return a.bucket - b.bucket;
+      if (a.genreScore !== b.genreScore) return b.genreScore - a.genreScore;
+      return (b.archive.recordedAt || 0) - (a.archive.recordedAt || 0);
+    });
+
     const sorted = scored.map((s) => s.archive);
     return { archives: sorted, featuredArchive: sorted[0] };
   }, [rawArchives, rawFeaturedArchive, selectedGenres]);

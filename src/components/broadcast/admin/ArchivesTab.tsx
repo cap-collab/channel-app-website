@@ -411,12 +411,6 @@ function ArchiveCard({
   const isPublic = archive.isPublic !== false;
   const currentPriority = archive.priority || 'medium';
 
-  const cyclePriority = () => {
-    const currentIdx = PRIORITY_CYCLE.indexOf(currentPriority);
-    const nextIdx = (currentIdx + 1) % PRIORITY_CYCLE.length;
-    onPriorityChange(archive.id, PRIORITY_CYCLE[nextIdx]);
-  };
-
   return (
     <div className="p-4 bg-[#1a1a1a] border border-gray-800 rounded-xl hover:border-gray-700 transition-colors">
       <div className="flex items-start justify-between gap-4">
@@ -435,13 +429,15 @@ function ArchiveCard({
                 Private
               </span>
             )}
-            <button
-              onClick={cyclePriority}
-              title={`Priority: ${currentPriority} (click to change)`}
-              className={`px-2 py-0.5 text-xs rounded border cursor-pointer transition-colors hover:opacity-80 ${PRIORITY_COLORS[currentPriority]}`}
+            <select
+              value={currentPriority}
+              onChange={(e) => onPriorityChange(archive.id, e.target.value as ArchivePriority)}
+              className={`px-2 py-0.5 text-xs rounded border cursor-pointer appearance-none bg-transparent transition-colors ${PRIORITY_COLORS[currentPriority]}`}
             >
-              {currentPriority.charAt(0).toUpperCase() + currentPriority.slice(1)}
-            </button>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
           </div>
           <p className="text-sm text-gray-400 truncate mb-2">{djNames}</p>
           <div className="flex items-center gap-4 text-xs text-gray-500">
