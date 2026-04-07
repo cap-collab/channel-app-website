@@ -238,25 +238,37 @@ export function ShareableShowCard(props: ShareableShowCardProps) {
     const computedFont = getComputedStyle(document.body).fontFamily || FONT;
 
     const loadImage = async (src: string): Promise<HTMLImageElement | null> => {
-      try {
-        const res = await fetch(src);
-        const blob = await res.blob();
-        const objectUrl = URL.createObjectURL(blob);
-        return new Promise((resolve) => {
-          const img = new window.Image();
-          img.onload = () => {
-            URL.revokeObjectURL(objectUrl);
-            resolve(img);
-          };
-          img.onerror = () => {
-            URL.revokeObjectURL(objectUrl);
-            resolve(null);
-          };
-          img.src = objectUrl;
-        });
-      } catch {
-        return null;
+      // Try multiple strategies to load the image for canvas use:
+      // 1. Fetch as blob (bypasses CORS, works for most URLs)
+      // 2. Next.js image proxy (handles Firebase Storage CORS)
+      // 3. Direct load without crossOrigin (last resort, may taint canvas)
+      const strategies = [
+        () => fetch(src).then(r => r.blob()).then(b => URL.createObjectURL(b)),
+        () => fetch(`/_next/image?url=${encodeURIComponent(src)}&w=1080&q=90`).then(r => r.blob()).then(b => URL.createObjectURL(b)),
+      ];
+
+      for (const strategy of strategies) {
+        try {
+          const objectUrl = await strategy();
+          const result = await new Promise<HTMLImageElement | null>((resolve) => {
+            const img = new window.Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => resolve(null);
+            img.src = objectUrl;
+          });
+          if (result) return result;
+        } catch {
+          continue;
+        }
       }
+
+      // Final fallback: load directly (may not be exportable but at least shows)
+      return new Promise((resolve) => {
+        const img = new window.Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = src;
+      });
     };
 
     (async () => {
