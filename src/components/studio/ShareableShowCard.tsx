@@ -11,15 +11,18 @@ interface ShareableShowCardProps {
   description?: string;
 }
 
-// 16:9 hero rectangle + thin URL strip flush below
+// Layout: logo (top) + info strip (LIVE on... | channel-app.com) + 16:9 hero image
 const CANVAS_W = 1080;
-const IMAGE_H = 608; // 1080 / 16 * 9 ≈ 608
-const URL_STRIP_H = 56;
-const CANVAS_H = IMAGE_H + URL_STRIP_H;
+const LOGO_STRIP_H = 64;
+const INFO_STRIP_H = 48;
+const IMAGE_H = 608; // 16:9
+const CANVAS_H = LOGO_STRIP_H + INFO_STRIP_H + IMAGE_H;
 
-// Scale factor: hero uses Tailwind rem-based sizes at ~375px mobile width
-// Canvas is 1080px wide, so scale ~2.88x from Tailwind px values
+// Scale factor from Tailwind's 375px base to 1080px canvas
 const S = CANVAS_W / 375;
+
+// Font stack: Geist Sans (loaded on page) with system fallbacks
+const FONT = '"Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
 function getOverlayInfo(startTime: number): { text: string; color: string } | null {
   const diff = startTime - Date.now();
@@ -35,7 +38,7 @@ function getOverlayInfo(startTime: number): { text: string; color: string } | nu
   return null;
 }
 
-function drawCoverImage(ctx: CanvasRenderingContext2D, img: HTMLImageElement) {
+function drawCoverImage(ctx: CanvasRenderingContext2D, img: HTMLImageElement, yOffset: number) {
   const imgRatio = img.naturalWidth / img.naturalHeight;
   const targetRatio = CANVAS_W / IMAGE_H;
   let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
@@ -46,7 +49,7 @@ function drawCoverImage(ctx: CanvasRenderingContext2D, img: HTMLImageElement) {
     sh = img.naturalWidth / targetRatio;
     sy = (img.naturalHeight - sh) / 2;
   }
-  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, CANVAS_W, IMAGE_H);
+  ctx.drawImage(img, sx, sy, sw, sh, 0, yOffset, CANVAS_W, IMAGE_H);
 }
 
 function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number): string[] {
@@ -80,111 +83,31 @@ function drawCanvas(
   props: ShareableShowCardProps,
   showImg: HTMLImageElement | null,
   logoImg: HTMLImageElement | null,
+  fontFamily: string,
 ) {
   const { showName, djName, startTime, genres, description } = props;
+  const F = fontFamily;
+  const pad = Math.round(8 * S);
 
   // Black background
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-  // DJ/show image (cover-cropped into 16:9)
-  if (showImg) {
-    drawCoverImage(ctx, showImg);
-  } else {
-    // No image fallback: dark bg with large DJ name centered (matches hero no-photo state)
-    ctx.fillStyle = 'rgba(255,255,255,0.05)';
-    ctx.fillRect(0, 0, CANVAS_W, IMAGE_H);
-    ctx.fillStyle = '#ffffff';
-    ctx.font = `900 ${Math.round(48 * S / 2)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText((djName || showName).toUpperCase(), CANVAS_W / 2, IMAGE_H / 2);
-    ctx.textAlign = 'left';
-  }
-
-  // Gradient scrims (matching hero: from-black/60 top, to-black/80 bottom)
-  const topGrad = ctx.createLinearGradient(0, 0, 0, IMAGE_H);
-  topGrad.addColorStop(0, 'rgba(0,0,0,0.6)');
-  topGrad.addColorStop(0.4, 'rgba(0,0,0,0)');
-  topGrad.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = topGrad;
-  ctx.fillRect(0, 0, CANVAS_W, IMAGE_H);
-
-  const botGrad = ctx.createLinearGradient(0, 0, 0, IMAGE_H);
-  botGrad.addColorStop(0, 'rgba(0,0,0,0)');
-  botGrad.addColorStop(0.5, 'rgba(0,0,0,0)');
-  botGrad.addColorStop(1, 'rgba(0,0,0,0.8)');
-  ctx.fillStyle = botGrad;
-  ctx.fillRect(0, 0, CANVAS_W, IMAGE_H);
-
-  // Channel logo — top center
+  // === Logo strip (top) ===
   if (logoImg) {
-    const logoH = Math.round(28 * S / 2); // scale from hero's h-7 (28px)
+    const logoH = Math.round(24 * S / 2);
     const logoW = logoImg.naturalWidth * (logoH / logoImg.naturalHeight);
-    ctx.drawImage(logoImg, (CANVAS_W - logoW) / 2, Math.round(8 * S), logoW, logoH);
+    ctx.drawImage(logoImg, (CANVAS_W - logoW) / 2, (LOGO_STRIP_H - logoH) / 2, logoW, logoH);
   }
 
-  // Show name — top-2 left-2 = 8px * S
-  // Hero: text-sm (14px) font-bold uppercase tracking-wide
-  const pad = Math.round(8 * S); // matches top-2 left-2 (0.5rem = 8px)
-  ctx.fillStyle = '#ffffff';
-  ctx.font = `bold ${Math.round(14 * S)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-  ctx.textBaseline = 'top';
-  ctx.letterSpacing = '0.025em';
-  ctx.fillText(showName.toUpperCase(), pad, pad);
-
-  // DJ info overlay — bottom-2 left-2 right-2 (matching DJImageOverlay exactly)
-  const overlayBottom = IMAGE_H - pad;
-  let cursorY = overlayBottom;
-
-  // Description: text-[11px] leading-[1.3em] text-zinc-300 font-light, max 2 lines
-  if (description) {
-    const descFontSize = Math.round(11 * S);
-    const descLineH = Math.round(descFontSize * 1.3);
-    ctx.font = `300 ${descFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-    ctx.fillStyle = '#d4d4d8'; // zinc-300
-    ctx.textBaseline = 'bottom';
-    const descLines = wrapText(ctx, description, CANVAS_W - pad * 2, 2);
-    // Draw from bottom up
-    for (let i = descLines.length - 1; i >= 0; i--) {
-      ctx.fillText(descLines[i], pad, cursorY);
-      cursorY -= descLineH;
-    }
-    cursorY -= Math.round(4 * S); // mt-1 gap
-  }
-
-  // DJ Name + Genres: text-xs (12px) font-black uppercase tracking-wider
-  // Genres: font-medium tracking-[0.15em] text-zinc-300
-  const djFontSize = Math.round(12 * S);
-  ctx.textBaseline = 'bottom';
-
-  // Draw DJ name
-  ctx.fillStyle = '#ffffff';
-  ctx.font = `900 ${djFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-  ctx.letterSpacing = '0.05em';
-  const djNameText = (djName || '').toUpperCase();
-  ctx.fillText(djNameText, pad, cursorY);
-
-  // Draw genres after DJ name
-  if (genres && genres.length > 0) {
-    const djNameWidth = ctx.measureText(djNameText).width;
-    const genreStr = ' - ' + genres.join(' \u00B7 ');
-    ctx.fillStyle = '#d4d4d8'; // zinc-300
-    ctx.font = `500 ${djFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-    ctx.letterSpacing = '0.15em';
-    ctx.fillText(genreStr, pad + djNameWidth, cursorY, CANVAS_W - pad * 2 - djNameWidth);
-  }
-  ctx.letterSpacing = '0';
-
-  // Bottom strip: overlay text (with red dot) + channel-app.com, flush below image
+  // === Info strip: red dot + "LIVE on..." left, "channel-app.com" right ===
+  const stripCenterY = LOGO_STRIP_H + INFO_STRIP_H / 2;
+  const fontSize = Math.round(11 * S);
+  const dotRadius = Math.round(3.5 * S);
   const overlay = getOverlayInfo(startTime);
-  const stripCenterY = IMAGE_H + URL_STRIP_H / 2;
-  const fontSize = Math.round(12 * S);
-  const dotRadius = Math.round(4 * S);
 
   if (overlay) {
-    // Draw: red dot + overlay text on the left, channel-app.com on the right
-    ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    ctx.font = `700 ${fontSize}px ${F}`;
     ctx.textBaseline = 'middle';
 
     // Red dot
@@ -196,21 +119,105 @@ function drawCanvas(
     // Overlay text
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'left';
-    ctx.fillText(overlay.text, pad + dotRadius * 2 + Math.round(6 * S), stripCenterY);
+    ctx.fillText(overlay.text, pad + dotRadius * 2 + Math.round(5 * S), stripCenterY);
 
-    // channel-app.com on the right
-    ctx.font = `500 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    // channel-app.com right
+    ctx.font = `500 ${fontSize}px ${F}`;
     ctx.textAlign = 'right';
+    ctx.fillStyle = '#a1a1aa'; // zinc-400
     ctx.fillText('channel-app.com', CANVAS_W - pad, stripCenterY);
   } else {
-    // No overlay — just channel-app.com centered
-    ctx.fillStyle = '#ffffff';
-    ctx.font = `500 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    // No overlay — channel-app.com centered
+    ctx.fillStyle = '#a1a1aa';
+    ctx.font = `500 ${fontSize}px ${F}`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
     ctx.fillText('channel-app.com', CANVAS_W / 2, stripCenterY);
   }
   ctx.textAlign = 'left';
+
+  // === 16:9 hero image ===
+  const imgTop = LOGO_STRIP_H + INFO_STRIP_H;
+  if (showImg) {
+    drawCoverImage(ctx, showImg, imgTop);
+  } else {
+    // No image fallback
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.fillRect(0, imgTop, CANVAS_W, IMAGE_H);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `900 ${Math.round(48 * S / 2)}px ${F}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText((djName || showName).toUpperCase(), CANVAS_W / 2, imgTop + IMAGE_H / 2);
+    ctx.textAlign = 'left';
+  }
+
+  // Gradient scrims (matching hero: from-black/60 top, to-black/80 bottom)
+  const topGrad = ctx.createLinearGradient(0, imgTop, 0, imgTop + IMAGE_H);
+  topGrad.addColorStop(0, 'rgba(0,0,0,0.6)');
+  topGrad.addColorStop(0.4, 'rgba(0,0,0,0)');
+  topGrad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = topGrad;
+  ctx.fillRect(0, imgTop, CANVAS_W, IMAGE_H);
+
+  const botGrad = ctx.createLinearGradient(0, imgTop, 0, imgTop + IMAGE_H);
+  botGrad.addColorStop(0, 'rgba(0,0,0,0)');
+  botGrad.addColorStop(0.5, 'rgba(0,0,0,0)');
+  botGrad.addColorStop(1, 'rgba(0,0,0,0.8)');
+  ctx.fillStyle = botGrad;
+  ctx.fillRect(0, imgTop, CANVAS_W, IMAGE_H);
+
+  // === Text overlays on image (matching hero exactly) ===
+
+  // Show name — top-left of image
+  // Hero: text-sm (14px) font-bold uppercase tracking-wide
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `700 ${Math.round(14 * S)}px ${F}`;
+  ctx.textBaseline = 'top';
+  ctx.letterSpacing = '0.025em';
+  ctx.fillText(showName.toUpperCase(), pad, imgTop + pad);
+
+  // DJ info overlay — bottom of image (matching DJImageOverlay)
+  const overlayBottom = imgTop + IMAGE_H - pad;
+  let cursorY = overlayBottom;
+
+  // Description: text-[11px] leading-[1.3em] text-zinc-300 font-light, max 2 lines
+  if (description) {
+    const descFontSize = Math.round(11 * S);
+    const descLineH = Math.round(descFontSize * 1.3);
+    ctx.font = `300 ${descFontSize}px ${F}`;
+    ctx.fillStyle = '#d4d4d8';
+    ctx.textBaseline = 'bottom';
+    ctx.letterSpacing = '0';
+    const descLines = wrapText(ctx, description, CANVAS_W - pad * 2, 2);
+    for (let i = descLines.length - 1; i >= 0; i--) {
+      ctx.fillText(descLines[i], pad, cursorY);
+      cursorY -= descLineH;
+    }
+    cursorY -= Math.round(4 * S);
+  }
+
+  // DJ Name + Genres: text-xs (12px) font-black uppercase tracking-wider
+  const djFontSize = Math.round(12 * S);
+  ctx.textBaseline = 'bottom';
+
+  // DJ name — font-black (900) uppercase
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `900 ${djFontSize}px ${F}`;
+  ctx.letterSpacing = '0.05em';
+  const djNameText = (djName || '').toUpperCase();
+  ctx.fillText(djNameText, pad, cursorY);
+
+  // Genres — font-medium (500) tracking-[0.15em] text-zinc-300, UPPERCASE
+  if (genres && genres.length > 0) {
+    const djNameWidth = ctx.measureText(djNameText).width;
+    const genreStr = ' - ' + genres.map(g => g.toUpperCase()).join(' \u00B7 ');
+    ctx.fillStyle = '#d4d4d8';
+    ctx.font = `500 ${djFontSize}px ${F}`;
+    ctx.letterSpacing = '0.15em';
+    ctx.fillText(genreStr, pad + djNameWidth, cursorY, CANVAS_W - pad * 2 - djNameWidth);
+  }
+  ctx.letterSpacing = '0';
 }
 
 export function ShareableShowCard(props: ShareableShowCardProps) {
@@ -227,9 +234,11 @@ export function ShareableShowCard(props: ShareableShowCardProps) {
 
     let cancelled = false;
 
+    // Read the actual font-family from the page (Geist Sans loaded via Next.js)
+    const computedFont = getComputedStyle(document.body).fontFamily || FONT;
+
     const loadImage = async (src: string): Promise<HTMLImageElement | null> => {
       try {
-        // Fetch as blob to bypass CORS restrictions on Firebase Storage URLs
         const res = await fetch(src);
         const blob = await res.blob();
         const objectUrl = URL.createObjectURL(blob);
@@ -256,7 +265,7 @@ export function ShareableShowCard(props: ShareableShowCardProps) {
         loadImage('/logo-white.png'),
       ]);
       if (cancelled) return;
-      drawCanvas(ctx, props, showImg, logoImg);
+      drawCanvas(ctx, props, showImg, logoImg, computedFont);
       setReady(true);
     })();
 
