@@ -1876,7 +1876,7 @@ export function StudioProfileClient() {
                           showName={show.showName}
                           djName={show.djName || chatUsername || "DJ"}
                           startTime={show.startTime}
-                          imageUrl={show.showImageUrl || show.djPhotoUrl || djProfile.photoUrl || undefined}
+                          imageUrl={djProfile.photoUrl || show.showImageUrl || show.djPhotoUrl || undefined}
                           genres={show.djGenres?.length ? show.djGenres : djProfile.genres.length ? djProfile.genres : undefined}
                           description={show.djDescription || djProfile.bio || undefined}
                         />

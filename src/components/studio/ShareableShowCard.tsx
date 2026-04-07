@@ -11,10 +11,15 @@ interface ShareableShowCardProps {
   description?: string;
 }
 
+// 16:9 hero rectangle + thin URL strip flush below
 const CANVAS_W = 1080;
-const CANVAS_H = 1350;
-const PADDING = 60;
-const IMAGE_BOTTOM = 810; // ~60% of height for the photo area
+const IMAGE_H = 608; // 1080 / 16 * 9 ≈ 608
+const URL_STRIP_H = 56;
+const CANVAS_H = IMAGE_H + URL_STRIP_H;
+
+// Scale factor: hero uses Tailwind rem-based sizes at ~375px mobile width
+// Canvas is 1080px wide, so scale ~2.88x from Tailwind px values
+const S = CANVAS_W / 375;
 
 function getOverlayInfo(startTime: number): { text: string; color: string } | null {
   const diff = startTime - Date.now();
@@ -31,11 +36,8 @@ function getOverlayInfo(startTime: number): { text: string; color: string } | nu
 }
 
 function drawCoverImage(ctx: CanvasRenderingContext2D, img: HTMLImageElement) {
-  const targetW = CANVAS_W;
-  const targetH = IMAGE_BOTTOM;
   const imgRatio = img.naturalWidth / img.naturalHeight;
-  const targetRatio = targetW / targetH;
-
+  const targetRatio = CANVAS_W / IMAGE_H;
   let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
   if (imgRatio > targetRatio) {
     sw = img.naturalHeight * targetRatio;
@@ -44,14 +46,13 @@ function drawCoverImage(ctx: CanvasRenderingContext2D, img: HTMLImageElement) {
     sh = img.naturalWidth / targetRatio;
     sy = (img.naturalHeight - sh) / 2;
   }
-  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, CANVAS_W, IMAGE_H);
 }
 
 function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number): string[] {
   const words = text.split(' ');
   const lines: string[] = [];
   let current = '';
-
   for (const word of words) {
     const test = current ? `${current} ${word}` : word;
     if (ctx.measureText(test).width > maxWidth && current) {
@@ -62,18 +63,13 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number,
       current = test;
     }
   }
-  if (current && lines.length < maxLines) {
-    lines.push(current);
-  }
-  // Truncate last line if needed
+  if (current && lines.length < maxLines) lines.push(current);
   if (lines.length === maxLines) {
     const last = lines[maxLines - 1];
     if (ctx.measureText(last).width > maxWidth) {
-      let truncated = last;
-      while (ctx.measureText(truncated + '...').width > maxWidth && truncated.length > 0) {
-        truncated = truncated.slice(0, -1);
-      }
-      lines[maxLines - 1] = truncated + '...';
+      let t = last;
+      while (ctx.measureText(t + '...').width > maxWidth && t.length > 0) t = t.slice(0, -1);
+      lines[maxLines - 1] = t + '...';
     }
   }
   return lines;
@@ -87,99 +83,129 @@ function drawCanvas(
 ) {
   const { showName, djName, startTime, genres, description } = props;
 
-  // 1. Black background
+  // Black background
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-  // 2. Show image (cover-cropped)
+  // DJ/show image (cover-cropped into 16:9)
   if (showImg) {
     drawCoverImage(ctx, showImg);
+  } else {
+    // No image fallback: dark bg with large DJ name centered (matches hero no-photo state)
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.fillRect(0, 0, CANVAS_W, IMAGE_H);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `900 ${Math.round(48 * S / 2)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText((djName || showName).toUpperCase(), CANVAS_W / 2, IMAGE_H / 2);
+    ctx.textAlign = 'left';
   }
 
-  // 3. Gradient scrims
-  // Top scrim
-  const topGrad = ctx.createLinearGradient(0, 0, 0, IMAGE_BOTTOM * 0.5);
-  topGrad.addColorStop(0, 'rgba(0,0,0,0.7)');
+  // Gradient scrims (matching hero: from-black/60 top, to-black/80 bottom)
+  const topGrad = ctx.createLinearGradient(0, 0, 0, IMAGE_H);
+  topGrad.addColorStop(0, 'rgba(0,0,0,0.6)');
+  topGrad.addColorStop(0.4, 'rgba(0,0,0,0)');
   topGrad.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = topGrad;
-  ctx.fillRect(0, 0, CANVAS_W, IMAGE_BOTTOM);
+  ctx.fillRect(0, 0, CANVAS_W, IMAGE_H);
 
-  // Bottom scrim
-  const botGrad = ctx.createLinearGradient(0, IMAGE_BOTTOM * 0.5, 0, IMAGE_BOTTOM);
+  const botGrad = ctx.createLinearGradient(0, 0, 0, IMAGE_H);
   botGrad.addColorStop(0, 'rgba(0,0,0,0)');
-  botGrad.addColorStop(1, 'rgba(0,0,0,0.85)');
+  botGrad.addColorStop(0.5, 'rgba(0,0,0,0)');
+  botGrad.addColorStop(1, 'rgba(0,0,0,0.8)');
   ctx.fillStyle = botGrad;
-  ctx.fillRect(0, 0, CANVAS_W, IMAGE_BOTTOM);
+  ctx.fillRect(0, 0, CANVAS_W, IMAGE_H);
 
-  // 4. Channel logo (top center)
+  // Channel logo — top center
   if (logoImg) {
-    const logoH = 40;
+    const logoH = Math.round(28 * S / 2); // scale from hero's h-7 (28px)
     const logoW = logoImg.naturalWidth * (logoH / logoImg.naturalHeight);
-    ctx.drawImage(logoImg, (CANVAS_W - logoW) / 2, PADDING, logoW, logoH);
+    ctx.drawImage(logoImg, (CANVAS_W - logoW) / 2, Math.round(8 * S), logoW, logoH);
   }
 
-  // 5. Show name (below logo, left-aligned)
+  // Show name — top-2 left-2 = 8px * S
+  // Hero: text-sm (14px) font-bold uppercase tracking-wide
+  const pad = Math.round(8 * S); // matches top-2 left-2 (0.5rem = 8px)
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 52px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.font = `bold ${Math.round(14 * S)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
   ctx.textBaseline = 'top';
-  const showNameLines = wrapText(ctx, showName.toUpperCase(), CANVAS_W - PADDING * 2, 3);
-  let nameY = PADDING + 60;
-  for (const line of showNameLines) {
-    ctx.fillText(line, PADDING, nameY);
-    nameY += 62;
-  }
+  ctx.letterSpacing = '0.025em';
+  ctx.fillText(showName.toUpperCase(), pad, pad);
 
-  // 6. Time overlay badge (top-right)
+  // Time overlay badge — top-right
   const overlay = getOverlayInfo(startTime);
   if (overlay) {
-    ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    const badgeFontSize = Math.round(11 * S);
+    ctx.font = `bold ${badgeFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
     const textW = ctx.measureText(overlay.text).width;
-    const badgeW = textW + 40;
-    const badgeH = 52;
-    const badgeX = CANVAS_W - PADDING - badgeW;
-    const badgeY = PADDING;
+    const badgePadX = Math.round(10 * S);
+    const badgePadY = Math.round(6 * S);
+    const badgeW = textW + badgePadX * 2;
+    const badgeH = badgeFontSize + badgePadY * 2;
+    const badgeX = CANVAS_W - pad - badgeW;
+    const badgeY = pad;
 
     ctx.fillStyle = overlay.color;
     ctx.beginPath();
-    const r = 8;
-    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, r);
+    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, Math.round(4 * S));
     ctx.fill();
 
     ctx.fillStyle = overlay.color === '#ffffff' ? '#000000' : '#ffffff';
     ctx.textBaseline = 'middle';
-    ctx.fillText(overlay.text, badgeX + 20, badgeY + badgeH / 2);
+    ctx.fillText(overlay.text, badgeX + badgePadX, badgeY + badgeH / 2);
   }
 
-  // 7. DJ name + genres (bottom of image area)
-  const genreText = genres && genres.length > 0 ? genres.join(' \u00B7 ') : null;
-  const djLine = genreText ? `${djName.toUpperCase()} - ${genreText}` : djName.toUpperCase();
+  // DJ info overlay — bottom-2 left-2 right-2 (matching DJImageOverlay exactly)
+  const overlayBottom = IMAGE_H - pad;
+  let cursorY = overlayBottom;
 
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 30px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  ctx.textBaseline = 'bottom';
-  const djY = IMAGE_BOTTOM - PADDING;
-  ctx.fillText(djLine, PADDING, djY, CANVAS_W - PADDING * 2);
-
-  // 8. Description (below image area)
+  // Description: text-[11px] leading-[1.3em] text-zinc-300 font-light, max 2 lines
   if (description) {
+    const descFontSize = Math.round(11 * S);
+    const descLineH = Math.round(descFontSize * 1.3);
+    ctx.font = `300 ${descFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
     ctx.fillStyle = '#d4d4d8'; // zinc-300
-    ctx.font = '300 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.textBaseline = 'top';
-    const descLines = wrapText(ctx, description, CANVAS_W - PADDING * 2, 4);
-    let descY = IMAGE_BOTTOM + 40;
-    for (const line of descLines) {
-      ctx.fillText(line, PADDING, descY);
-      descY += 38;
+    ctx.textBaseline = 'bottom';
+    const descLines = wrapText(ctx, description, CANVAS_W - pad * 2, 2);
+    // Draw from bottom up
+    for (let i = descLines.length - 1; i >= 0; i--) {
+      ctx.fillText(descLines[i], pad, cursorY);
+      cursorY -= descLineH;
     }
+    cursorY -= Math.round(4 * S); // mt-1 gap
   }
 
-  // 9. "channel-app.com" at bottom
-  ctx.fillStyle = '#ffffff';
-  ctx.font = '500 34px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  // DJ Name + Genres: text-xs (12px) font-black uppercase tracking-wider
+  // Genres: font-medium tracking-[0.15em] text-zinc-300
+  const djFontSize = Math.round(12 * S);
   ctx.textBaseline = 'bottom';
+
+  // Draw DJ name
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `900 ${djFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+  ctx.letterSpacing = '0.05em';
+  const djNameText = (djName || '').toUpperCase();
+  ctx.fillText(djNameText, pad, cursorY);
+
+  // Draw genres after DJ name
+  if (genres && genres.length > 0) {
+    const djNameWidth = ctx.measureText(djNameText).width;
+    const genreStr = ' - ' + genres.join(' \u00B7 ');
+    ctx.fillStyle = '#d4d4d8'; // zinc-300
+    ctx.font = `500 ${djFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    ctx.letterSpacing = '0.15em';
+    ctx.fillText(genreStr, pad + djNameWidth, cursorY, CANVAS_W - pad * 2 - djNameWidth);
+  }
+  ctx.letterSpacing = '0';
+
+  // "channel-app.com" — flush below image, no gap
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `500 ${Math.round(12 * S)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+  ctx.textBaseline = 'middle';
   ctx.textAlign = 'center';
-  ctx.fillText('channel-app.com', CANVAS_W / 2, CANVAS_H - PADDING);
-  ctx.textAlign = 'left'; // reset
+  ctx.fillText('channel-app.com', CANVAS_W / 2, IMAGE_H + URL_STRIP_H / 2);
+  ctx.textAlign = 'left';
 }
 
 export function ShareableShowCard(props: ShareableShowCardProps) {
@@ -188,7 +214,6 @@ export function ShareableShowCard(props: ShareableShowCardProps) {
   const [sharing, setSharing] = useState(false);
   const [shared, setShared] = useState(false);
 
-  // Load images and draw
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -234,11 +259,9 @@ export function ShareableShowCard(props: ShareableShowCardProps) {
         type: 'image/png',
       });
 
-      // Try native share (mobile)
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file] });
       } else {
-        // Fallback: download
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -249,7 +272,6 @@ export function ShareableShowCard(props: ShareableShowCardProps) {
       setShared(true);
       setTimeout(() => setShared(false), 2000);
     } catch (err) {
-      // User cancelled share or error
       if ((err as DOMException)?.name !== 'AbortError') {
         console.error('Share failed:', err);
       }
