@@ -319,11 +319,14 @@ export function ShareableShowCard(props: ShareableShowCardProps) {
         type: 'image/png',
       });
 
-      // Mobile: native share sheet with image file
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      // Detect mobile (touch device without mouse) vs desktop
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+      if (isMobile && navigator.share && navigator.canShare?.({ files: [file] })) {
+        // Mobile: native share sheet with image file
         await navigator.share({ files: [file] });
       } else {
-        // Desktop: copy to clipboard + save file
+        // Desktop: copy to clipboard + Save As dialog
         // 1. Copy image to clipboard
         try {
           await navigator.clipboard.write([
