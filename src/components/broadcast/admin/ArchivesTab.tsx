@@ -17,7 +17,6 @@ const PRIORITY_COLORS: Record<string, string> = {
   medium: 'bg-yellow-900/30 text-yellow-400 border-yellow-800',
   low: 'bg-gray-800/50 text-gray-500 border-gray-700',
 };
-const PRIORITY_CYCLE: ArchivePriority[] = ['low', 'medium', 'high'];
 
 function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
