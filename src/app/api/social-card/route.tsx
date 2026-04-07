@@ -35,8 +35,8 @@ export async function GET(request: NextRequest) {
   const genres = params.get('genres')?.split(',').filter(Boolean) || [];
   const description = params.get('description') || '';
 
-  // Load Geist variable font — same woff used for all weights (Satori handles via fontWeight)
-  const fontData = await fetch(new URL('../../../fonts/GeistVF.woff', import.meta.url)).then(r => r.arrayBuffer());
+  // Load Geist variable font from public directory
+  const fontData = await fetch(`${APP_URL}/GeistVF.woff`).then(r => r.arrayBuffer());
 
   const overlay = startTime ? getOverlayText(startTime) : null;
 
