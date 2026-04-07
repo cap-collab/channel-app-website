@@ -11,8 +11,9 @@ import { SlotModal } from '@/components/broadcast/admin/SlotModal';
 import { getSlots, createSlot, deleteSlot as deleteSlotFromDb, updateSlot } from '@/lib/broadcast-slots';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { DJApplicationsTab } from '@/components/broadcast/admin/DJApplicationsTab';
+import { ArchivesTab } from '@/components/broadcast/admin/ArchivesTab';
 
-type AdminTab = 'schedule' | 'applications';
+type AdminTab = 'schedule' | 'applications' | 'archives';
 
 // Get start of current week (Sunday)
 function getWeekStart(date: Date = new Date()): Date {
@@ -44,6 +45,7 @@ export function AdminDashboard() {
   // Tab state
   const [activeTab, setActiveTab] = useState<AdminTab>('schedule');
   const [applicationCount, setApplicationCount] = useState(0);
+  const [archiveCount, setArchiveCount] = useState(0);
 
   // Check if user has broadcaster access
   const hasBroadcasterAccess = isBroadcaster(role);
@@ -288,6 +290,25 @@ export function AdminDashboard() {
                 </span>
               )}
             </button>
+            <button
+              onClick={() => setActiveTab('archives')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                activeTab === 'archives'
+                  ? 'bg-white text-black'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+            >
+              Archives
+              {archiveCount > 0 && (
+                <span className={`px-2 py-0.5 text-xs rounded-full ${
+                  activeTab === 'archives'
+                    ? 'bg-black text-white'
+                    : 'bg-gray-600 text-gray-200'
+                }`}>
+                  {archiveCount}
+                </span>
+              )}
+            </button>
             <Link
               href="/broadcast/admin/pending-djs"
               className="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-800 text-gray-300 hover:bg-gray-700"
@@ -339,10 +360,14 @@ export function AdminDashboard() {
                 Tip: Click to edit, right-click to copy link. Drag edges to resize.
               </div>
             </>
-          ) : (
+          ) : activeTab === 'applications' ? (
             <DJApplicationsTab
               userId={user?.uid || ''}
               onPendingCountChange={setApplicationCount}
+            />
+          ) : (
+            <ArchivesTab
+              onArchiveCountChange={setArchiveCount}
             />
           )}
         </div>
