@@ -974,7 +974,12 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
         broadcastStreamCountedRef.current !== currentShow.id
       ) {
         broadcastStreamCountedRef.current = currentShow.id;
-        fetch(`/api/broadcast/${currentShow.id}/stream`, { method: 'POST' }).catch(() => {});
+        const uid = getAuth(getFirebaseApp()).currentUser?.uid || null;
+        fetch(`/api/broadcast/${currentShow.id}/stream`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: uid }),
+        }).catch(() => {});
       }
       // Fire "locked in" message at 900s (15 min)
       if (

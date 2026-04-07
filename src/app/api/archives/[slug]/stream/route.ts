@@ -62,6 +62,7 @@ export async function POST(
         })),
         stationId: archiveData.stationId || '',
         showImageUrl: archiveData.showImageUrl || null,
+        sourceType: 'archive',
         streamCount: FieldValue.increment(1),
         lastStreamedAt: FieldValue.serverTimestamp(),
       };

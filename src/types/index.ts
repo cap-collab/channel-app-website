@@ -108,14 +108,15 @@ export interface FavoriteDocument {
   createdBy: "web" | "ios";
 }
 
-// Stream history document in Firestore (users/{userId}/streamHistory/{archiveId})
+// Stream history document in Firestore (users/{userId}/streamHistory/{archiveId|slotId})
 export interface StreamHistoryDoc {
   archiveId: string;
-  slug: string;
+  slug?: string;
   showName: string;
   djs: { name: string; username?: string; photoUrl?: string }[];
   stationId: string;
   showImageUrl?: string;
+  sourceType: 'live' | 'archive';
   streamCount: number;
   firstStreamedAt: Date;
   lastStreamedAt: Date;
