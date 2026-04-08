@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { BroadcastSlot, Recording, ROOM_NAME } from '@/types/broadcast';
 import { EgressClient, RoomServiceClient } from 'livekit-server-sdk';
+import { S3Client, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 
 const livekitHost = process.env.LIVEKIT_URL?.replace('wss://', 'https://') || '';
 const apiKey = process.env.LIVEKIT_API_KEY || '';
@@ -203,6 +204,53 @@ export async function POST(request: NextRequest) {
       }).catch((err) => {
         console.error(`[complete-slot] Restream fetch failed:`, err);
       });
+    }
+
+    // Clean up old HLS segments from R2 if no next show is taking over.
+    // This prevents thousands of stale .ts files from accumulating and
+    // causing egress manifest write stalls on R2.
+    if (!nextShowDoc && newStatus === 'completed') {
+      try {
+        const r2AccountId = process.env.R2_ACCOUNT_ID?.replace(/\\n/g, '').trim() || '';
+        const r2AccessKey = process.env.R2_ACCESS_KEY_ID?.replace(/\\n/g, '').trim() || '';
+        const r2SecretKey = process.env.R2_SECRET_ACCESS_KEY?.replace(/\\n/g, '').trim() || '';
+        const r2Bucket = process.env.R2_BUCKET_NAME?.replace(/\\n/g, '').trim() || '';
+
+        if (r2AccountId && r2AccessKey && r2SecretKey && r2Bucket) {
+          const s3 = new S3Client({
+            region: 'auto',
+            endpoint: `https://${r2AccountId}.r2.cloudflarestorage.com`,
+            credentials: { accessKeyId: r2AccessKey, secretAccessKey: r2SecretKey },
+          });
+
+          const prefix = `${ROOM_NAME}/`;
+          let allKeys: string[] = [];
+          let continuationToken: string | undefined;
+          do {
+            const res = await s3.send(new ListObjectsV2Command({
+              Bucket: r2Bucket, Prefix: prefix, MaxKeys: 1000, ContinuationToken: continuationToken,
+            }));
+            const keys = (res.Contents || [])
+              .map(o => o.Key!)
+              .filter(k => k.endsWith('.ts') || k.endsWith('.m3u8') || k.endsWith('.json'));
+            allKeys.push(...keys);
+            continuationToken = res.NextContinuationToken;
+          } while (continuationToken);
+
+          if (allKeys.length > 0) {
+            for (let i = 0; i < allKeys.length; i += 1000) {
+              const batch = allKeys.slice(i, i + 1000);
+              await s3.send(new DeleteObjectsCommand({
+                Bucket: r2Bucket, Delete: { Objects: batch.map(Key => ({ Key })) },
+              }));
+            }
+            console.log(`[complete-slot] Cleaned up ${allKeys.length} HLS files from R2 (${prefix})`);
+          }
+        }
+      } catch (cleanupErr) {
+        // Non-fatal — don't fail the slot completion
+        console.error('[complete-slot] R2 cleanup error (non-fatal):', cleanupErr);
+      }
     }
 
     return NextResponse.json({ success: true, status: newStatus });
