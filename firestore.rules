@@ -9,20 +9,10 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['broadcaster', 'admin'];
     }
 
-    // Chat messages (mobile app) - requires auth
+    // Chat messages — public read/write for broadcast rooms, auth required for DJ rooms
     match /chats/{stationId}/messages/{messageId} {
-      // Allow public read/write for broadcast chat (DJs don't need to log in)
       allow read, write: if stationId == 'broadcast' || stationId == 'channelbroadcast';
-
-      // Other station chats require authentication
-      allow read: if stationId != 'broadcast' && request.auth != null;
-      allow create: if stationId != 'broadcast' && request.auth != null
-        && request.resource.data.message is string
-        && request.resource.data.message.size() <= 280
-        && request.resource.data.username is string
-        && request.resource.data.username.size() <= 20;
-      allow update: if stationId != 'broadcast' && request.auth != null
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['heartCount', 'timestamp']);
+      allow read, create, update: if request.auth != null;
       allow delete: if false;
     }
 
