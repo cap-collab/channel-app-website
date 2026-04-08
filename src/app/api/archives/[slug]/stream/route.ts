@@ -18,8 +18,9 @@ export async function POST(
     try {
       const body = await request.json();
       userId = body.userId || null;
+      console.log('[archive/stream] userId from body:', userId);
     } catch {
-      // No body or invalid JSON — that's fine, just skip user tracking
+      console.log('[archive/stream] No body or invalid JSON, skipping user tracking');
     }
 
     // Find archive by slug

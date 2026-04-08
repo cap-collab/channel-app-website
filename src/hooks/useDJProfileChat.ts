@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getFirestore, collection, query, orderBy, limit, onSnapshot, addDoc, serverTimestamp, Timestamp, doc, updateDoc, increment, setDoc, arrayUnion, getDoc, where, getDocs } from 'firebase/firestore';
+import { getFirestore, collection, query, orderBy, limit, onSnapshot, addDoc, serverTimestamp, Timestamp, doc, updateDoc, increment, setDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { getApps, initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { ChatMessageSerialized } from '@/types/broadcast';
@@ -69,8 +69,6 @@ export function useDJProfileChat({
   const currentLoveMessageIdRef = useRef<string | null>(null);
   // Track the cross-posted love message ID in channelbroadcast for incrementing
   const currentLoveBroadcastMessageIdRef = useRef<string | null>(null);
-  // Track whether we already ensured DJ is in favorites this session
-  const djFavoriteEnsuredRef = useRef<string | null>(null);
 
   // Subscribe to chat messages
   useEffect(() => {
@@ -238,30 +236,6 @@ export function useDJProfileChat({
     }
   }, [username, chatUsernameNormalized, isOwner, broadcastSlotId]);
 
-  // Helper: ensure DJ is added to user's favorites/watchlist (fire-and-forget, once per session)
-  const ensureDJFavorite = useCallback(() => {
-    if (!userId || !djUsername || djFavoriteEnsuredRef.current === djUsername) return;
-    djFavoriteEnsuredRef.current = djUsername;
-    const app = getFirebaseApp();
-    const db = getFirestore(app);
-    (async () => {
-      const favoritesRef = collection(db, 'users', userId, 'favorites');
-      const q = query(favoritesRef, where('term', '==', djUsername.toLowerCase()));
-      const existing = await getDocs(q);
-      if (!existing.empty) return;
-      await addDoc(favoritesRef, {
-        term: djUsername.toLowerCase(),
-        type: 'search',
-        showName: null,
-        djName: djUsername,
-        djUsername: chatUsernameNormalized || null,
-        djPhotoUrl: djPhotoUrl || null,
-        stationId: null,
-        createdAt: serverTimestamp(),
-        createdBy: 'web',
-      });
-    })().catch(() => {});
-  }, [userId, djUsername, chatUsernameNormalized, djPhotoUrl]);
 
   // Send a love reaction - increment heartCount if user already has a love message
   // Anyone can send love — if no username, post as "Someone" (no chat message username)
@@ -284,6 +258,7 @@ export function useDJProfileChat({
 
       // Helper: record love in user's loveHistory (fire-and-forget)
       const recordLoveHistory = () => {
+        console.log('[recordLoveHistory] called', { userId, djUsername, isArchivePlayback });
         if (!userId || !djUsername) return;
         const loveHistoryRef = doc(db, 'users', userId, 'loveHistory', djUsername);
         (async () => {
@@ -300,7 +275,8 @@ export function useDJProfileChat({
             data.firstLovedAt = serverTimestamp();
           }
           await setDoc(loveHistoryRef, data, { merge: true });
-        })().catch(() => {});
+          console.log('[recordLoveHistory] Wrote loveHistory for', djUsername);
+        })().catch((err) => console.error('[recordLoveHistory] Failed:', err));
       };
 
       // Check if we already have a love message - if so, increment heartCount
@@ -319,7 +295,6 @@ export function useDJProfileChat({
           ).catch((err) => console.error('Failed to cross-post love increment:', err));
         }
         recordLoveHistory();
-        ensureDJFavorite();
         return;
       }
 
@@ -355,7 +330,6 @@ export function useDJProfileChat({
       }
 
       recordLoveHistory();
-      ensureDJFavorite();
     } catch (err) {
       console.error('Failed to send love:', err);
       throw new Error('Failed to send love');
@@ -416,11 +390,10 @@ export function useDJProfileChat({
         }
       }
 
-      ensureDJFavorite();
     } catch (err) {
       console.error('Failed to send locked in:', err);
     }
-  }, [username, chatUsernameNormalized, djUsername, lockedInMessagesEnabled, ensureDJFavorite]);
+  }, [username, chatUsernameNormalized, djUsername, lockedInMessagesEnabled]);
 
   return {
     messages,
