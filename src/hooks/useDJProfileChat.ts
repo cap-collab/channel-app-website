@@ -224,6 +224,31 @@ export function useDJProfileChat({
     }
   }, [username, chatUsernameNormalized, isOwner, broadcastSlotId]);
 
+  // Helper: ensure DJ is added to user's favorites/watchlist (fire-and-forget, once per session)
+  const ensureDJFavorite = useCallback(() => {
+    if (!userId || !djUsername || djFavoriteEnsuredRef.current === djUsername) return;
+    djFavoriteEnsuredRef.current = djUsername;
+    const app = getFirebaseApp();
+    const db = getFirestore(app);
+    (async () => {
+      const favoritesRef = collection(db, 'users', userId, 'favorites');
+      const q = query(favoritesRef, where('term', '==', djUsername.toLowerCase()));
+      const existing = await getDocs(q);
+      if (!existing.empty) return;
+      await addDoc(favoritesRef, {
+        term: djUsername.toLowerCase(),
+        type: 'search',
+        showName: null,
+        djName: djUsername,
+        djUsername: chatUsernameNormalized || null,
+        djPhotoUrl: djPhotoUrl || null,
+        stationId: null,
+        createdAt: serverTimestamp(),
+        createdBy: 'web',
+      });
+    })().catch(() => {});
+  }, [userId, djUsername, chatUsernameNormalized, djPhotoUrl]);
+
   // Send a love reaction - increment heartCount if user already has a love message
   // Anyone can send love — if no username, post as "Someone" (no chat message username)
   const sendLove = useCallback(async () => {
@@ -242,29 +267,6 @@ export function useDJProfileChat({
 
     try {
       const shouldCrossPost = chatUsernameNormalized !== 'channelbroadcast';
-
-      // Helper: ensure DJ is added to user's favorites/watchlist (fire-and-forget, once per session)
-      const ensureDJFavorite = () => {
-        if (!userId || !djUsername || djFavoriteEnsuredRef.current === djUsername) return;
-        djFavoriteEnsuredRef.current = djUsername;
-        (async () => {
-          const favoritesRef = collection(db, 'users', userId, 'favorites');
-          const q = query(favoritesRef, where('term', '==', djUsername.toLowerCase()));
-          const existing = await getDocs(q);
-          if (!existing.empty) return; // Already a favorite
-          await addDoc(favoritesRef, {
-            term: djUsername.toLowerCase(),
-            type: 'search',
-            showName: null,
-            djName: djUsername,
-            djUsername: chatUsernameNormalized || null,
-            djPhotoUrl: djPhotoUrl || null,
-            stationId: null,
-            createdAt: serverTimestamp(),
-            createdBy: 'web',
-          });
-        })().catch(() => {});
-      };
 
       // Helper: record love in user's loveHistory (fire-and-forget)
       const recordLoveHistory = () => {
@@ -399,10 +401,12 @@ export function useDJProfileChat({
           ).catch(() => {});
         }
       }
+
+      ensureDJFavorite();
     } catch (err) {
       console.error('Failed to send locked in:', err);
     }
-  }, [username, chatUsernameNormalized, djUsername, lockedInMessagesEnabled]);
+  }, [username, chatUsernameNormalized, djUsername, lockedInMessagesEnabled, ensureDJFavorite]);
 
   return {
     messages,
