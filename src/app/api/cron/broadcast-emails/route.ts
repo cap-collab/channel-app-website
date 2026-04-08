@@ -75,6 +75,7 @@ interface DjInfo {
   username: string | null;
   name: string | null;
   timezone: string;
+  hasPhoto: boolean;
   hasTipLink: boolean;
   hasLocation: boolean;
   hasGenres: boolean;
@@ -93,6 +94,7 @@ async function lookupDjInfo(db: FirebaseFirestore.Firestore, email: string): Pro
       username: user.chatUsernameNormalized || null,
       name: user.name || djProfile.name || null,
       timezone: user.timezone || DEFAULT_TIMEZONE,
+      hasPhoto: !!djProfile.photoUrl,
       hasTipLink: !!djProfile.tipButtonLink,
       hasLocation: !!djProfile.location,
       hasGenres: Array.isArray(djProfile.genres) && djProfile.genres.length > 0,
@@ -106,12 +108,13 @@ async function lookupDjInfo(db: FirebaseFirestore.Firestore, email: string): Pro
       username: profile.chatUsernameNormalized || null,
       name: profile.name || null,
       timezone: DEFAULT_TIMEZONE,
+      hasPhoto: false,
       hasTipLink: false,
       hasLocation: false,
       hasGenres: false,
     };
   }
-  return { username: null, name: null, timezone: DEFAULT_TIMEZONE, hasTipLink: false, hasLocation: false, hasGenres: false };
+  return { username: null, name: null, timezone: DEFAULT_TIMEZONE, hasPhoto: false, hasTipLink: false, hasLocation: false, hasGenres: false };
 }
 
 // Build a natural-language string of missing profile items
@@ -125,6 +128,20 @@ function buildMissingItems(info: DjInfo): string | null {
   if (items.length === 1) return items[0];
   if (items.length === 2) return `${items[0]} and ${items[1]}`;
   return `${items[0]}, ${items[1]}, and ${items[2]}`;
+}
+
+// Build profile setup bullet for 48h reminder (only lists what's missing)
+function buildProfileSetupBullet(info: DjInfo): string | null {
+  const missing: string[] = [];
+  if (!info.hasPhoto) missing.push('a picture');
+  if (!info.hasGenres) missing.push('music genres');
+  if (!info.hasTipLink) missing.push('how people can support you');
+
+  if (missing.length === 0) return null;
+  const list = missing.length === 1 ? missing[0]
+    : missing.length === 2 ? `${missing[0]} and ${missing[1]}`
+    : `${missing[0]}, ${missing[1]}, and ${missing[2]}`;
+  return `Update your profile — add ${list}`;
 }
 
 // Format date for email display
@@ -243,6 +260,7 @@ async function run48hReminders(db: FirebaseFirestore.Firestore, now: number): Pr
           profileUrl: null,
           startTime: formatDate(target.startTime, djTimezone),
           timeRange: formatTimeRange(target.startTime, target.endTime, djTimezone),
+          profileSetupHint: buildProfileSetupBullet(djInfo),
         });
 
         if (success) { result.sent++; } else { result.errors.push(`Failed to send 48h reminder to ${target.email}`); }

@@ -756,7 +756,8 @@ export async function sendBroadcast48HourReminderEmail({
   showName,
   startTime,
   timeRange,
-}: BroadcastReminderEmailParams) {
+  profileSetupHint,
+}: BroadcastReminderEmailParams & { profileSetupHint?: string | null }) {
   if (!resend) {
     console.warn("Email service not configured - skipping email");
     return false;
@@ -782,9 +783,9 @@ export async function sendBroadcast48HourReminderEmail({
             Use the studio to get set up: <a href="https://channel-app.com/studio" style="color: #555; font-size: 14px; text-decoration: underline;">channel-app.com/studio</a>
           </p>
           <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 12px 0 0;">
-            <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Edit your profile info if you want to update anything</td>
-            </tr>
+            ${profileSetupHint ? `<tr>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; ${profileSetupHint}</td>
+            </tr>` : ''}
             <tr>
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Do a short recording to test your audio capture</td>
             </tr>
@@ -810,7 +811,7 @@ export async function sendBroadcast48HourReminderEmail({
     const { error } = await resend.emails.send({
       from: FROM_EMAIL_DJ,
       to,
-      subject: `Set up your audio`,
+      subject: `Test your audio set up, please`,
       html: wrapEmailContent(content, "You're receiving this because you have a scheduled show on Channel Radio."),
       headers: getUnsubscribeHeaders("dj"),
     });
@@ -943,9 +944,6 @@ export async function sendBroadcast2HourReminderEmail({
           </p>
           <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 12px 0 0;">
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Do a short recording to test your audio capture</td>
-            </tr>
-            <tr>
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Click "Prepare to go live" ahead of time to avoid any surprises</td>
             </tr>
             <tr>
@@ -953,6 +951,9 @@ export async function sendBroadcast2HourReminderEmail({
             </tr>
             <tr>
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Share it on IG</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Click "Auto go live" 1 minute before your start time</td>
             </tr>
           </table>
           <p style="margin: 24px 0 0; font-size: 14px; color: #1a1a1a;">
