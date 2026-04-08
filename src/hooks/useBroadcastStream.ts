@@ -203,7 +203,11 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
           currentShowIdRef.current = doc.id;
 
           if (showChanged && isPlayingRef.current) {
-            console.log('🔄 Show changed while playing');
+            console.log('🔄 Show changed while playing', {
+              hasHls: !!hlsRef.current, hasRoom: !!roomRef.current, roomName: roomRef.current?.name,
+              roomState: roomRef.current?.state, audioPaused: audioElementRef.current?.paused,
+              broadcastType: slot.broadcastType, useHLS: shouldUseHLS(),
+            });
 
             // HLS needs to be recreated for the new show's egress.
             // The server-side egress continues writing to the same live.m3u8 path
@@ -242,7 +246,14 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
               wasPlayingRef.current = false;
               setAutoResumePending(true);
             }
-            // Same-room live→live WebRTC: keep playing, tracks arrive automatically via TrackSubscribed
+            // Same-room live→live WebRTC: log state for debugging
+            if (roomRef.current && roomRef.current.name === ROOM_NAME) {
+              const parts = Array.from(roomRef.current.remoteParticipants.values());
+              console.log('🔄 Same-room WebRTC — waiting for TrackSubscribed', {
+                roomState: roomRef.current.state, participantCount: parts.length,
+                participants: parts.map(p => ({ identity: p.identity, trackCount: p.trackPublications.size })),
+              });
+            }
 
             // Live→restream: need to switch from WebRTC to HLS
             if (slot.broadcastType === 'restream' && roomRef.current) {
@@ -304,6 +315,10 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
           }
         } else {
           // No live slot — enter grace period if we were playing
+          console.log('🔄 No live slot detected', {
+            isPlaying: isPlayingRef.current, hasRoom: !!roomRef.current, hasHls: !!hlsRef.current,
+            wasPlaying: wasPlayingRef.current, hasGraceTimer: !!graceTimerRef.current,
+          });
           if (isPlayingRef.current || roomRef.current || hlsRef.current) {
             wasPlayingRef.current = true;
             // Invalidate cached token — next play() should fetch a fresh one
@@ -375,7 +390,10 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
   // Handle track subscription - play audio when we get a remote track
   const handleTrackSubscribed = useCallback(
     (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
-      console.log('🎵 Track subscribed:', track.kind, 'from', participant.identity);
+      console.log('🎵 Track subscribed:', track.kind, 'from', participant.identity, {
+        isPlaying: isPlayingRef.current, isLoading: isLoadingRef.current,
+        hasAudioEl: !!audioElementRef.current, audioPaused: audioElementRef.current?.paused,
+      });
 
       if (track.kind === Track.Kind.Audio) {
         // Audio element should already exist from play() warmup
@@ -420,7 +438,9 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
 
   const handleTrackUnsubscribed = useCallback(
     (track: RemoteTrack) => {
-      console.log('🎵 Track unsubscribed:', track.kind);
+      console.log('🎵 Track unsubscribed:', track.kind, {
+        isPlaying: isPlayingRef.current, userPaused: userPausedRef.current,
+      });
       if (track.kind === Track.Kind.Audio && audioElementRef.current) {
         track.detach(audioElementRef.current);
         // Don't reset isPlaying during DJ transitions — keep the player
@@ -435,24 +455,32 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
   );
 
   const play = useCallback(async () => {
+    console.log('🎵 play() called', {
+      isLive, useHLS: shouldUseHLS(), broadcastType: currentShow?.broadcastType,
+      hasRoom: !!roomRef.current, roomName: roomRef.current?.name, roomState: roomRef.current?.state,
+      hasHls: !!hlsRef.current, hasAudio: !!audioElementRef.current,
+      isPlaying: isPlayingRef.current, isLoading: isLoadingRef.current,
+      autoResumePending,
+    });
+
     if (!isLive) {
+      console.log('🎵 play() aborted — not live');
       setError('Stream not available');
       return;
     }
 
-    userPausedRef.current = false; // Reset — user is actively playing
+    userPausedRef.current = false;
     setIsLoading(true);
     setError(null);
 
-    // Restreams use FFmpeg → HLS → R2 (no LiveKit room), so always use HLS for restreams.
     const useHLS = shouldUseHLS() || currentShow?.broadcastType === 'restream';
 
-    // If the WebRTC room is already connected (e.g. kept alive during DJ transition
-    // grace period), skip the disconnect/reconnect cycle. The next DJ's tracks will
-    // arrive via handleTrackSubscribed on the existing room connection.
     if (roomRef.current && roomRef.current.name === ROOM_NAME && !useHLS) {
-      console.log('🎵 Room already connected, waiting for tracks');
-      // Tracks may already be available if DJ published while we were in grace
+      const parts = Array.from(roomRef.current.remoteParticipants.values());
+      console.log('🎵 Room already connected — early return', {
+        roomState: roomRef.current.state, participantCount: parts.length,
+        participants: parts.map(p => ({ identity: p.identity, trackCount: p.trackPublications.size })),
+      });
       return;
     }
 
@@ -601,8 +629,10 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
       room.on(RoomEvent.TrackSubscribed, handleTrackSubscribed);
       room.on(RoomEvent.TrackUnsubscribed, handleTrackUnsubscribed);
 
-      room.on(RoomEvent.Disconnected, () => {
-        console.log('🎵 Disconnected from LiveKit room');
+      room.on(RoomEvent.Disconnected, (reason) => {
+        console.log('🎵 Disconnected from LiveKit room', {
+          reason, isActiveRoom: roomRef.current === room, hasGraceTimer: !!graceTimerRef.current,
+        });
         // Only update state if this room is still the active one.
         // When play() cleans up an old room before reconnecting, the old
         // room's Disconnected event should not reset playback state.
