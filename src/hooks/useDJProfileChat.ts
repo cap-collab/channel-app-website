@@ -56,7 +56,6 @@ export function useDJProfileChat({
   isOwner = false,
   lockedInMessagesEnabled = true,
   broadcastSlotId,
-  currentShowStartTime,
   userId,
   djPhotoUrl,
   isArchivePlayback = false,
