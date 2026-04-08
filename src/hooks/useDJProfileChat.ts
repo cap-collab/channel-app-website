@@ -258,11 +258,17 @@ export function useDJProfileChat({
 
       // Helper: record love in user's loveHistory (fire-and-forget)
       const recordLoveHistory = () => {
-        console.log('[recordLoveHistory] called', { userId, djUsername, isArchivePlayback });
+        const authUid = auth.currentUser?.uid;
+        console.log('[recordLoveHistory] called', { userId, authUid, uidMatch: userId === authUid, djUsername, isArchivePlayback });
         if (!userId || !djUsername) return;
+        if (authUid !== userId) {
+          console.error('[recordLoveHistory] AUTH MISMATCH: userId from props =', userId, 'but auth.currentUser.uid =', authUid);
+        }
         const loveHistoryRef = doc(db, 'users', userId, 'loveHistory', djUsername);
         (async () => {
+          console.log('[recordLoveHistory] Reading existing doc...');
           const existing = await getDoc(loveHistoryRef);
+          console.log('[recordLoveHistory] Existing doc exists:', existing.exists());
           const data: Record<string, unknown> = {
             djUsername,
             djDisplayName: djUsername,
@@ -274,9 +280,10 @@ export function useDJProfileChat({
           if (!existing.exists()) {
             data.firstLovedAt = serverTimestamp();
           }
+          console.log('[recordLoveHistory] Writing setDoc to', loveHistoryRef.path);
           await setDoc(loveHistoryRef, data, { merge: true });
-          console.log('[recordLoveHistory] Wrote loveHistory for', djUsername);
-        })().catch((err) => console.error('[recordLoveHistory] Failed:', err));
+          console.log('[recordLoveHistory] SUCCESS: Wrote loveHistory for', djUsername);
+        })().catch((err) => console.error('[recordLoveHistory] FAILED:', err.code, err.message));
       };
 
       // Check if we already have a love message - if so, increment heartCount
