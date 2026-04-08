@@ -257,8 +257,9 @@ async function run48hReminders(db: FirebaseFirestore.Firestore, now: number): Pr
   return result;
 }
 
-// ── Phase 1: 24h reminders ──────────────────────────────────────────
+// ── Phase 1: 24h reminders (paused — kept for easy re-enable) ───────
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function run24hReminders(db: FirebaseFirestore.Firestore, now: number): Promise<PhaseResult> {
   const result: PhaseResult = { sent: 0, skipped: 0, errors: [] };
 
