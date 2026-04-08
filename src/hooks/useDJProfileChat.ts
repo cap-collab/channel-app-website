@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getFirestore, collection, query, orderBy, limit, onSnapshot, addDoc, serverTimestamp, Timestamp, doc, updateDoc, increment, setDoc, arrayUnion, getDoc } from 'firebase/firestore';
+import { getFirestore, collection, query, orderBy, limit, onSnapshot, addDoc, serverTimestamp, Timestamp, doc, updateDoc, increment, setDoc, arrayUnion, getDoc, where, getDocs } from 'firebase/firestore';
 import { getApps, initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { ChatMessageSerialized } from '@/types/broadcast';
@@ -70,6 +70,8 @@ export function useDJProfileChat({
   const currentLoveMessageIdRef = useRef<string | null>(null);
   // Track the cross-posted love message ID in channelbroadcast for incrementing
   const currentLoveBroadcastMessageIdRef = useRef<string | null>(null);
+  // Track whether we already ensured DJ is in favorites this session
+  const djFavoriteEnsuredRef = useRef<string | null>(null);
 
   // Subscribe to chat messages
   useEffect(() => {
@@ -241,6 +243,29 @@ export function useDJProfileChat({
     try {
       const shouldCrossPost = chatUsernameNormalized !== 'channelbroadcast';
 
+      // Helper: ensure DJ is added to user's favorites/watchlist (fire-and-forget, once per session)
+      const ensureDJFavorite = () => {
+        if (!userId || !djUsername || djFavoriteEnsuredRef.current === djUsername) return;
+        djFavoriteEnsuredRef.current = djUsername;
+        (async () => {
+          const favoritesRef = collection(db, 'users', userId, 'favorites');
+          const q = query(favoritesRef, where('term', '==', djUsername.toLowerCase()));
+          const existing = await getDocs(q);
+          if (!existing.empty) return; // Already a favorite
+          await addDoc(favoritesRef, {
+            term: djUsername.toLowerCase(),
+            type: 'search',
+            showName: null,
+            djName: djUsername,
+            djUsername: chatUsernameNormalized || null,
+            djPhotoUrl: djPhotoUrl || null,
+            stationId: null,
+            createdAt: serverTimestamp(),
+            createdBy: 'web',
+          });
+        })().catch(() => {});
+      };
+
       // Helper: record love in user's loveHistory (fire-and-forget)
       const recordLoveHistory = () => {
         if (!userId || !djUsername) return;
@@ -278,6 +303,7 @@ export function useDJProfileChat({
           ).catch((err) => console.error('Failed to cross-post love increment:', err));
         }
         recordLoveHistory();
+        ensureDJFavorite();
         return;
       }
 
@@ -313,6 +339,7 @@ export function useDJProfileChat({
       }
 
       recordLoveHistory();
+      ensureDJFavorite();
     } catch (err) {
       console.error('Failed to send love:', err);
       throw new Error('Failed to send love');
