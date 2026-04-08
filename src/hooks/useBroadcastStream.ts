@@ -126,6 +126,7 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
   const wasPlayingRef = useRef(false);
   const isPlayingRef = useRef(false);
   const userPausedRef = useRef(false); // Track user-initiated pauses vs browser auto-pause
+  const isLoadingRef = useRef(false);
   const artworkPreloadRef = useRef<HTMLImageElement | null>(null);
   const artworkRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const broadcastCumulativeTimeRef = useRef(0);
@@ -133,9 +134,11 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
   const broadcastLockedInFiredRef = useRef<string | null>(null);
   const [autoResumePending, setAutoResumePending] = useState(false);
   const playbackStartedAtRef = useRef<number | null>(null); // For posthog session_duration
+  const playRef = useRef<() => void>(() => {});
 
-  // Keep playing ref in sync
+  // Keep refs in sync
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+  useEffect(() => { isLoadingRef.current = isLoading; }, [isLoading]);
 
   // Subscribe to current live slot from Firestore
   useEffect(() => {
@@ -653,6 +656,9 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
     }
   }, [isLive, currentShow, handleTrackSubscribed, handleTrackUnsubscribed]);
 
+  // Keep playRef in sync so the auto-resume timer always calls the latest play()
+  useEffect(() => { playRef.current = play; }, [play]);
+
   const pause = useCallback(() => {
     // User explicitly paused — mark so we don't auto-resume on iOS
     userPausedRef.current = true;
@@ -699,23 +705,54 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
   }, [isPlaying, play, pause]);
 
   // Auto-resume effect: when a new show goes live after a transition,
-  // automatically call play() if the user was previously playing
+  // automatically call play() if the user was previously playing.
+  // Uses playRef instead of play directly so that identity changes to the play
+  // callback (caused by currentShow updating) don't cancel the pending timer.
+  // Retries up to 2 times if playback doesn't start (HLS segments may not be ready).
   useEffect(() => {
     if (autoResumePending && isLive && !isPlaying && !isLoading) {
       setAutoResumePending(false);
-      // Restreams need more time for the URL ingress + egress to start writing audio segments.
-      // WebRTC (desktop) gets tracks near-instantly via TrackSubscribed, so use a shorter delay.
-      // HLS (mobile/Safari) needs time for segments to appear on CDN.
       const isRestream = currentShow?.archiveRecordingUrl != null;
       const isHLS = shouldUseHLS() || isRestream;
       const delay = isRestream ? 15000 : isHLS ? 1500 : 300;
-      console.log(`🔄 Auto-resuming playback in ${delay}ms (${isRestream ? 'restream' : 'live'})`);
-      const timer = setTimeout(() => {
-        play();
-      }, delay);
-      return () => clearTimeout(timer);
+      const maxAttempts = 3;
+      let attempt = 0;
+      let cancelled = false;
+
+      const tryResume = () => {
+        if (cancelled) return;
+        attempt++;
+        console.log(`🔄 Auto-resuming playback attempt ${attempt}/${maxAttempts} in ${delay}ms (${isRestream ? 'restream' : 'live'})`);
+        setTimeout(() => {
+          if (cancelled) return;
+          if (isPlayingRef.current) return; // already playing, no need to retry
+          if (isLoadingRef.current) {
+            // play() is still in progress — don't stack another call, just schedule a recheck
+            if (attempt < maxAttempts) {
+              setTimeout(() => {
+                if (cancelled || isPlayingRef.current) return;
+                attempt--; // don't count this as a failed attempt
+                tryResume();
+              }, 3000);
+            }
+            return;
+          }
+          playRef.current();
+          // Schedule retry if not the last attempt
+          if (attempt < maxAttempts) {
+            setTimeout(() => {
+              if (cancelled || isPlayingRef.current || isLoadingRef.current) return;
+              console.log(`🔄 Playback not started, retrying...`);
+              tryResume();
+            }, 3000); // check after 3s if playback started
+          }
+        }, delay);
+      };
+
+      tryResume();
+      return () => { cancelled = true; };
     }
-  }, [autoResumePending, isLive, isPlaying, isLoading, play, currentShow]);
+  }, [autoResumePending, isLive, isPlaying, isLoading, currentShow]);
 
   // iOS Safari auto-pauses audio elements during silence (e.g. between DJ transitions).
   // Detect this and auto-resume so listeners don't lose the stream during handoff.
