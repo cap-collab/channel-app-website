@@ -619,7 +619,7 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
   // Genre filter triggers email popup for logged-out users
   const handleGenreDropdownClose = useCallback(() => {
     if (!isAuthenticated && selectedGenres.length > 0) {
-      window.dispatchEvent(new Event('open-email-popup'));
+      window.dispatchEvent(new CustomEvent('open-email-popup', { detail: { source: 'genre-filter' } }));
     }
   }, [isAuthenticated, selectedGenres]);
 

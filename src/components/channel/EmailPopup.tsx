@@ -38,11 +38,18 @@ export function EmailPopup({ siteDelayMs }: { siteDelayMs?: number } = {}) {
   const [isOpen, setIsOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [subtitle, setSubtitle] = useState('Get notified about upcoming shows');
 
   // Allow external components to open the popup via custom event
   useEffect(() => {
-    const handler = () => {
+    const handler = (e: Event) => {
       if (isAuthenticated || hasFiledEmail()) return;
+      const source = (e as CustomEvent)?.detail?.source;
+      setSubtitle(
+        source === 'genre-filter'
+          ? 'Get notified about shows matching your preferences'
+          : 'Get notified about upcoming shows'
+      );
       recordShown();
       setIsOpen(true);
     };
@@ -67,6 +74,7 @@ export function EmailPopup({ siteDelayMs }: { siteDelayMs?: number } = {}) {
   const maybeShow = useCallback(() => {
     if (suppressedRef.current || isOpen) return;
     if (isAuthenticated || hasFiledEmail() || hasShownThisSession()) return;
+    setSubtitle('Get notified about upcoming shows');
     recordShown();
     suppressedRef.current = true;
     setIsOpen(true);
@@ -157,7 +165,7 @@ export function EmailPopup({ siteDelayMs }: { siteDelayMs?: number } = {}) {
         ) : (
           <>
             <h3 className="text-white font-bold text-lg mb-1">Stay in the loop</h3>
-            <p className="text-zinc-400 text-sm mb-5">Get notified about upcoming shows</p>
+            <p className="text-zinc-400 text-sm mb-5">{subtitle}</p>
 
             <form onSubmit={handleSubmit} className="flex gap-0">
               <input
