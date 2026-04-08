@@ -131,7 +131,7 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
   const broadcastCumulativeTimeRef = useRef(0);
   const broadcastStreamCountedRef = useRef<string | null>(null);
   const broadcastLockedInFiredRef = useRef<string | null>(null);
-  const [autoResumePending, setAutoResumePending] = useState(false);
+
   const playbackStartedAtRef = useRef<number | null>(null); // For posthog session_duration
 
   // Keep playing ref in sync
@@ -202,61 +202,24 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
           if (showChanged && isPlayingRef.current) {
             console.log('🔄 Show changed while playing');
 
-            // HLS needs to be recreated for the new show's egress.
-            // The server-side egress continues writing to the same live.m3u8 path
-            // (reuseHlsEgress), but the client-side HLS.js instance must be
-            // destroyed and recreated so it refetches the playlist and picks up
-            // the new DJ's audio segments instead of playing stale buffered audio.
-            if (hlsRef.current || (!roomRef.current && audioElementRef.current)) {
-              if (hlsRef.current) {
-                hlsRef.current.destroy();
-                hlsRef.current = null;
-              }
-              // Clear the audio element so it doesn't keep playing cached segments
-              if (audioElementRef.current) {
-                audioElementRef.current.pause();
-                audioElementRef.current.removeAttribute('src');
-                audioElementRef.current.load();
-              }
-              console.log('🔄 HLS show transition — will auto-resume with fresh HLS stream');
-              wasPlayingRef.current = true;
-              setIsPlaying(false);
-              setAutoResumePending(true);
-            }
-
-            // Only tear down audio and reset player if switching to a different room.
-            // For same-room transitions (all shows on channel-radio), the new DJ's tracks
-            // arrive via handleTrackSubscribed automatically — no need to pause/restart.
-            if (roomRef.current && roomRef.current.name !== ROOM_NAME) {
-              if (audioElementRef.current) {
-                audioElementRef.current.pause();
-                audioElementRef.current.removeAttribute('src');
-                audioElementRef.current.load();
-              }
+            // Clean stop on show change — tear down everything and let user press play again.
+            // Auto-resume caused stale audio on mobile and connection cycling on desktop.
+            console.log('🔄 Stopping playback for clean transition');
+            if (roomRef.current) {
               roomRef.current.disconnect();
               roomRef.current = null;
-              setIsPlaying(false);
-              wasPlayingRef.current = false;
-              setAutoResumePending(true);
             }
-            // Same-room live→live WebRTC: keep playing, tracks arrive automatically via TrackSubscribed
-
-            // Live→restream: need to switch from WebRTC to HLS
-            if (slot.broadcastType === 'restream' && roomRef.current) {
-              console.log('🔄 Switching from WebRTC to HLS for restream');
-              roomRef.current.disconnect();
-              roomRef.current = null;
-              if (audioElementRef.current) {
-                audioElementRef.current.pause();
-                audioElementRef.current.removeAttribute('src');
-                audioElementRef.current.load();
-              }
-              setIsPlaying(false);
-              wasPlayingRef.current = false;
-              // Don't auto-resume — let the user tap play for the restream.
-              // Auto-resume can fail silently (Safari autoplay policy) leaving
-              // the button in a "playing" state with no audio.
+            if (hlsRef.current) {
+              hlsRef.current.destroy();
+              hlsRef.current = null;
             }
+            if (audioElementRef.current) {
+              audioElementRef.current.pause();
+              audioElementRef.current.removeAttribute('src');
+              audioElementRef.current.load();
+            }
+            setIsPlaying(false);
+            wasPlayingRef.current = false;
           }
 
           // Find current DJ name:
@@ -292,13 +255,8 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
           // Prewarm token as soon as we detect a live broadcast
           prewarmToken();
 
-          // Auto-resume: if user was playing before the transition gap, re-trigger play
-          if (wasPlayingRef.current) {
-            console.log('🔄 Auto-resume pending after show transition');
-            wasPlayingRef.current = false;
-            // Trigger auto-resume via state → effect → play()
-            setAutoResumePending(true);
-          }
+          // Don't auto-resume — user presses play for the new show
+          wasPlayingRef.current = false;
         } else {
           // No live slot — enter grace period if we were playing
           if (isPlayingRef.current || roomRef.current || hlsRef.current) {
@@ -670,7 +628,6 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
       graceTimerRef.current = null;
     }
     wasPlayingRef.current = false;
-    setAutoResumePending(false);
 
     // Clean up WebRTC
     if (roomRef.current) {
@@ -698,24 +655,9 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
     }
   }, [isPlaying, play, pause]);
 
-  // Auto-resume effect: when a new show goes live after a transition,
-  // automatically call play() if the user was previously playing
-  useEffect(() => {
-    if (autoResumePending && isLive && !isPlaying && !isLoading) {
-      setAutoResumePending(false);
-      // Restreams need more time for the URL ingress + egress to start writing audio segments.
-      // WebRTC (desktop) gets tracks near-instantly via TrackSubscribed, so use a shorter delay.
-      // HLS (mobile/Safari) needs time for segments to appear on CDN.
-      const isRestream = currentShow?.archiveRecordingUrl != null;
-      const isHLS = shouldUseHLS() || isRestream;
-      const delay = isRestream ? 15000 : isHLS ? 1500 : 300;
-      console.log(`🔄 Auto-resuming playback in ${delay}ms (${isRestream ? 'restream' : 'live'})`);
-      const timer = setTimeout(() => {
-        play();
-      }, delay);
-      return () => clearTimeout(timer);
-    }
-  }, [autoResumePending, isLive, isPlaying, isLoading, play, currentShow]);
+  // Auto-resume removed — on show transitions, playback stops cleanly
+  // and the user presses play again. This avoids stale audio on mobile
+  // and connection cycling on desktop.
 
   // iOS Safari auto-pauses audio elements during silence (e.g. between DJ transitions).
   // Detect this and auto-resume so listeners don't lose the stream during handoff.
