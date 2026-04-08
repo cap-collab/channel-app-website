@@ -137,6 +137,8 @@ export async function GET(request: NextRequest) {
     for (const slot of broadcastSlots) {
       const data = slot.data;
       if (data.broadcastType === "restream") continue;
+      // Skip channelbroadcast shows (test broadcasts) — no notifications
+      if (data.djUsername === "channelbroadcast") continue;
       liveShows.push({
         name: data.showName as string,
         dj: data.djName as string | undefined,
