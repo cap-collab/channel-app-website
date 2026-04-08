@@ -32,7 +32,6 @@ interface UseDJProfileChatOptions {
   // Broadcast-specific options:
   broadcastSlotId?: string;         // For tagging messages with slot ID
   currentShowStartTime?: number;    // Unix ms — filter love counts to current show only
-  dailyResetHourPT?: number;        // Hour (0–23) in America/Los_Angeles to reset love count daily
   // User behavior tracking options:
   userId?: string;                  // Firebase UID — when set, love history is recorded
   djPhotoUrl?: string;              // DJ photo for love history denormalization
@@ -58,7 +57,6 @@ export function useDJProfileChat({
   lockedInMessagesEnabled = true,
   broadcastSlotId,
   currentShowStartTime,
-  dailyResetHourPT,
   userId,
   djPhotoUrl,
   isArchivePlayback = false,
@@ -91,18 +89,14 @@ export function useDJProfileChat({
     let unsubscribe: (() => void) | undefined;
     let cancelled = false;
 
-    // Compute daily reset cutoff in PT (America/Los_Angeles)
+    // For channelbroadcast room, reset love count daily at 7am PT
     let dailyResetCutoff: number | undefined;
-    if (dailyResetHourPT !== undefined) {
+    if (chatUsernameNormalized === 'channelbroadcast') {
       const now = new Date();
-      // Get UTC offset for PT: ptToUtcOffset = UTC - PT-as-local
       const ptToUtcOffset = now.getTime() - new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })).getTime();
-      // Get current PT time as a Date (in local-like representation)
       const ptNow = new Date(now.getTime() - ptToUtcOffset);
-      // Build today's reset time in PT-as-local, then convert to UTC
       const resetPT = new Date(ptNow);
-      resetPT.setHours(dailyResetHourPT, 0, 0, 0);
-      // If we haven't reached the reset hour yet in PT, use yesterday's reset
+      resetPT.setHours(7, 0, 0, 0);
       if (ptNow < resetPT) {
         resetPT.setDate(resetPT.getDate() - 1);
       }
@@ -143,11 +137,11 @@ export function useDJProfileChat({
           };
           newMessages.push(msg);
 
-          // Sum up hearts from love reactions — only from current show if currentShowStartTime is set
+          // Sum up hearts from love reactions
           if (data.messageType === 'love' || data.message?.includes(' is ❤️')) {
-            const isFromCurrentShow = !currentShowStartTime || msgTimestamp >= currentShowStartTime;
+            // For channelbroadcast: only count since 7am PT; for all others: count all
             const isAfterDailyReset = !dailyResetCutoff || msgTimestamp >= dailyResetCutoff;
-            if (isFromCurrentShow && isAfterDailyReset) {
+            if (isAfterDailyReset) {
               loves += data.heartCount || 1;
             }
           }
@@ -185,7 +179,7 @@ export function useDJProfileChat({
       cancelled = true;
       unsubscribe?.();
     };
-  }, [chatUsernameNormalized, enabled, currentShowStartTime, dailyResetHourPT]);
+  }, [chatUsernameNormalized, enabled]);
 
   // Send a regular chat message
   const sendMessage = useCallback(async (text: string) => {
