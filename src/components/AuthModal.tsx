@@ -129,9 +129,11 @@ export function AuthModal({
   const [view, setView] = useState<ModalView>("main");
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
 
-  // Reset state when modal closes
+  // Track when modal is shown / reset state when it closes
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen) {
+      captureEvent('auth_modal_shown');
+    } else {
       setEmail("");
       setView("main");
       setForgotPasswordEmail("");

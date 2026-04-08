@@ -52,6 +52,7 @@ export function EmailPopup({ siteDelayMs }: { siteDelayMs?: number } = {}) {
           : 'Get notified about upcoming shows'
       );
       recordShown();
+      captureEvent('email_popup_shown');
       setIsOpen(true);
     };
     window.addEventListener('open-email-popup', handler);
@@ -78,6 +79,7 @@ export function EmailPopup({ siteDelayMs }: { siteDelayMs?: number } = {}) {
     setSubtitle('Get notified about upcoming shows');
     recordShown();
     suppressedRef.current = true;
+    captureEvent('email_popup_shown');
     setIsOpen(true);
   }, [isAuthenticated, isOpen]);
 
