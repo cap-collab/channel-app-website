@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
                 filenamePrefix: `${ROOM_NAME}/stream`,
                 playlistName: 'playlist.m3u8',
                 livePlaylistName: 'live.m3u8',
-                segmentDuration: 2,
+                segmentDuration: 6,
                 output: { case: 's3', value: s3Upload },
               });
               const hlsEgress = await egressClient.startRoomCompositeEgress(

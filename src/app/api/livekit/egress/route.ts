@@ -118,13 +118,14 @@ export async function POST(request: NextRequest) {
       });
 
       // Create SegmentedFileOutput with proper protobuf structure
-      // Use 2-second segments for lower latency (minimum stable duration)
+      // Use 6-second segments — reduces R2 write pressure (manifest overwritten every 6s
+      // instead of 2s) which prevents the manifest from stalling on R2.
       const segmentOutput = new SegmentedFileOutput({
         protocol: SegmentedFileProtocol.HLS_PROTOCOL,
         filenamePrefix: `${room}/stream`,
         playlistName: 'playlist.m3u8',
         livePlaylistName: 'live.m3u8',
-        segmentDuration: 2,
+        segmentDuration: 6,
         output: {
           case: 's3',
           value: s3Upload,
