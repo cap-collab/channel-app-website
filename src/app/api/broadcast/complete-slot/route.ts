@@ -224,7 +224,7 @@ export async function POST(request: NextRequest) {
           });
 
           const prefix = `${ROOM_NAME}/`;
-          let allKeys: string[] = [];
+          const allKeys: string[] = [];
           let continuationToken: string | undefined;
           do {
             const res = await s3.send(new ListObjectsV2Command({
