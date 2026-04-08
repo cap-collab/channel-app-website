@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { captureEvent } from "@/lib/posthog";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -202,6 +203,7 @@ export function AuthModal({
 
   const handleEmailContinue = async () => {
     if (!email.trim()) return;
+    captureEvent('email_submitted', { source: 'auth_modal' });
     // Note: fetchSignInMethodsForEmail returns [] when email enumeration protection
     // is enabled (Firebase default), so we can't reliably detect existing users.
     // Instead, always go to methodChoice and handle both cases in handlePasswordSubmit.

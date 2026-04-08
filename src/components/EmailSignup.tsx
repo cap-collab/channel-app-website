@@ -3,6 +3,7 @@
 import { useState, FormEvent } from 'react';
 import { addDoc, collection, getFirestore } from 'firebase/firestore';
 import { getApps, initializeApp } from 'firebase/app';
+import { captureEvent } from '@/lib/posthog';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -33,6 +34,7 @@ export function EmailSignup({ placeholder = 'Get really cool email updates' }: {
         email: email.trim(),
         createdAt: new Date(),
       });
+      captureEvent('email_submitted', { source: 'email_signup' });
       setStatus('success');
     } catch {
       setStatus('error');
