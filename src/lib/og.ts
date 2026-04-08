@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 
-const DEFAULT_DESCRIPTION = "Bringing DJs, producers, and dancers closer together.";
+const DEFAULT_DESCRIPTION = "For the music. And the people behind it.";
 
 export function makeOG({
   title = "Channel",
