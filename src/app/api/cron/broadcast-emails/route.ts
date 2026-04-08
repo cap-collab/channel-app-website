@@ -175,8 +175,8 @@ export async function GET(request: NextRequest) {
     // ── Phase 0: 48h reminders ────────────────────────────────────
     const phase0 = await run48hReminders(db, now);
 
-    // ── Phase 1: 24h reminders ────────────────────────────────────
-    const phase1 = await run24hReminders(db, now);
+    // ── Phase 1: 24h reminders (paused — redundant with 48h email) ──
+    const phase1: PhaseResult = { sent: 0, skipped: 0, errors: [] };
 
     // ── Phase 2: 2h reminders ─────────────────────────────────────
     const phase2 = await run2hReminders(db, now);
