@@ -12,7 +12,7 @@ service cloud.firestore {
     // Chat messages (mobile app) - requires auth
     match /chats/{stationId}/messages/{messageId} {
       // Allow public read/write for broadcast chat (DJs don't need to log in)
-      allow read, write: if stationId == 'broadcast';
+      allow read, write: if stationId == 'broadcast' || stationId == 'channelbroadcast';
 
       // Other station chats require authentication
       allow read: if stationId != 'broadcast' && request.auth != null;
