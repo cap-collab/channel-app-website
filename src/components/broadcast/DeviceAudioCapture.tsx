@@ -55,7 +55,7 @@ export function DeviceAudioCapture({ onStream, onError, onBack }: DeviceAudioCap
         if (audioInputs.length > 0 && !selectedDeviceId) {
           setSelectedDeviceId(audioInputs[0].deviceId);
         }
-      } catch (error) {
+      } catch {
         onError('Failed to load audio devices');
       } finally {
         setIsLoading(false);
