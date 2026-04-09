@@ -9,7 +9,7 @@ const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 3100;
-const SHARED_SECRET = process.env.SHARED_SECRET || '';
+const SHARED_SECRET = process.env.SHARED_SECRET || process.env.CRON_SECRET || '';
 
 // Active restreams keyed by slotId
 const activeStreams = new Map();

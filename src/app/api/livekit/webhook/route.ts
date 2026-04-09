@@ -311,26 +311,30 @@ export async function POST(request: NextRequest) {
             await slotRef.update(updateData);
             console.log(`Recording saved for slot ${slotId}: ${recordingUrl} (${durationSec}s)`);
 
-            // Run faststart on the recording (moves moov atom to front for mobile streaming)
+            // Run faststart on the recording (moves moov atom to front for streaming)
             try {
               const restreamWorkerUrl = process.env.RESTREAM_WORKER_URL;
               const cronSecret = process.env.CRON_SECRET;
               if (restreamWorkerUrl && mp4File.filename) {
-                fetch(`${restreamWorkerUrl}/faststart`, {
+                const faststartRes = await fetch(`${restreamWorkerUrl}/faststart`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${cronSecret}`,
                   },
                   body: JSON.stringify({ r2Key: mp4File.filename }),
-                }).then(r => r.json()).then(result => {
-                  console.log(`[webhook] Faststart result for ${mp4File.filename}:`, result);
-                }).catch(err => {
-                  console.error(`[webhook] Faststart failed for ${mp4File.filename}:`, err.message);
                 });
+                const faststartResult = await faststartRes.json();
+                if (!faststartRes.ok) {
+                  console.error(`[webhook] Faststart failed (${faststartRes.status}) for ${mp4File.filename}:`, faststartResult);
+                } else {
+                  console.log(`[webhook] Faststart done for ${mp4File.filename}:`, faststartResult);
+                }
+              } else {
+                console.warn(`[webhook] Faststart skipped: RESTREAM_WORKER_URL=${restreamWorkerUrl ? 'set' : 'missing'}, filename=${mp4File.filename || 'missing'}`);
               }
             } catch (faststartError) {
-              console.error('Failed to trigger faststart:', faststartError);
+              console.error('[webhook] Faststart error:', faststartError);
             }
 
             // Create archive for the recording
