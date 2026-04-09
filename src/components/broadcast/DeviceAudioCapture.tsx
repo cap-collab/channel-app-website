@@ -77,12 +77,12 @@ export function DeviceAudioCapture({ onStream, onError, onBack }: DeviceAudioCap
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          deviceId: selectedDeviceId ? { ideal: selectedDeviceId } : undefined,
+          deviceId: { exact: selectedDeviceId },
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
           sampleRate: { ideal: 48000 },
-          channelCount: { ideal: 2 },
+          channelCount: { min: 1, ideal: 2 },
         },
         video: false,
       });
