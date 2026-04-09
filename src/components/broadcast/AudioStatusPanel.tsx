@@ -61,6 +61,22 @@ export function AudioStatusPanel({
     return () => clearInterval(interval);
   }, [slotStartTime, canGoLive]);
 
+  // Seconds countdown: when canGoLive but room empty and before actual start time
+  const [secondsUntilStart, setSecondsUntilStart] = useState<number | null>(null);
+  useEffect(() => {
+    if (!slotStartTime || !canGoLive || roomOccupied) {
+      setSecondsUntilStart(null);
+      return;
+    }
+    const update = () => {
+      const remaining = Math.max(0, Math.ceil((slotStartTime - Date.now()) / 1000));
+      setSecondsUntilStart(remaining > 0 ? remaining : null);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [slotStartTime, canGoLive, roomOccupied]);
+
   // Get display name for input method
   const getInputMethodLabel = () => {
     switch (inputMethod) {
@@ -261,6 +277,15 @@ export function AudioStatusPanel({
                     Your live slot starts in less than a minute
                   </p>
                 </>
+              ) : secondsUntilStart !== null ? (
+                <div>
+                  <button
+                    disabled
+                    className="w-full bg-orange-600/30 border-2 border-orange-500 cursor-not-allowed text-orange-300 font-bold py-4 px-6 rounded-lg text-xl"
+                  >
+                    GO LIVE in {secondsUntilStart}s
+                  </button>
+                </div>
               ) : (
                 <>
                   <button
