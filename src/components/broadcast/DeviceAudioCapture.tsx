@@ -20,13 +20,24 @@ export function DeviceAudioCapture({ onStream, onError, onBack }: DeviceAudioCap
     const loadDevices = async () => {
       try {
         // Request permission first to get device labels
-        await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false
+        // This may fail on multi-channel devices (e.g. TASCAM Model 16) — that's OK,
+        // enumerateDevices will still return labeled devices if permission was granted before
+        try {
+          await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false
+            }
+          });
+        } catch (permError) {
+          if (permError instanceof Error && permError.name === 'NotAllowedError') {
+            onError('Microphone permission denied. Please allow microphone access.');
+            return;
           }
-        });
+          // For other errors (e.g. multi-channel device), continue to enumerate
+          console.warn('Initial getUserMedia failed, attempting enumeration anyway:', permError);
+        }
 
         const allDevices = await navigator.mediaDevices.enumerateDevices();
         const audioInputs = allDevices
@@ -45,11 +56,7 @@ export function DeviceAudioCapture({ onStream, onError, onBack }: DeviceAudioCap
           setSelectedDeviceId(audioInputs[0].deviceId);
         }
       } catch (error) {
-        if (error instanceof Error && error.name === 'NotAllowedError') {
-          onError('Microphone permission denied. Please allow microphone access.');
-        } else {
-          onError('Failed to load audio devices');
-        }
+        onError('Failed to load audio devices');
       } finally {
         setIsLoading(false);
       }
