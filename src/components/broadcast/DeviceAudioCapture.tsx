@@ -35,8 +35,12 @@ export function DeviceAudioCapture({ onStream, onError, onBack }: DeviceAudioCap
             onError('Microphone permission denied. Please allow microphone access.');
             return;
           }
-          // For other errors (e.g. multi-channel device), continue to enumerate
-          console.warn('Initial getUserMedia failed, attempting enumeration anyway:', permError);
+          // For other errors (e.g. multi-channel device), retry with mono to satisfy Safari
+          try {
+            await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 } });
+          } catch {
+            console.warn('getUserMedia retry also failed:', permError);
+          }
         }
 
         const allDevices = await navigator.mediaDevices.enumerateDevices();
