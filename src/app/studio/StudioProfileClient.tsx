@@ -15,7 +15,7 @@ import { uploadDJPhoto, deleteDJPhoto, validatePhoto, uploadRecImage, uploadEven
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { getStationById } from "@/lib/stations";
 import { parseGenresInput, extractInstagramHandle } from "@/lib/genres";
-import { ShareableShowCard } from "@/components/studio/ShareableShowCard";
+import { ShareableShowCardStory } from "@/components/studio/ShareableShowCardStory";
 
 // Word boundary matching for DJ/show names
 // e.g. "PAC" matches "PAC" or "Night PAC" but NOT "pace" or "space"
@@ -1872,7 +1872,7 @@ export function StudioProfileClient() {
                         </Link>
                       ) : null}
                       {!show.isExternal && show.broadcastToken && (
-                        <ShareableShowCard
+                        <ShareableShowCardStory
                           showName={show.showName}
                           djName={show.djName || chatUsername || "DJ"}
                           startTime={show.startTime}
