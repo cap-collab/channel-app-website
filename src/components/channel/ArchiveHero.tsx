@@ -816,33 +816,35 @@ function ArchiveGridCard({
         )}
 
         {/* Top left: Show name */}
-        <div className="absolute top-1.5 left-1.5 right-1.5 drop-shadow-lg">
-          <span className="text-[10px] md:text-sm font-bold text-white uppercase tracking-wide whitespace-nowrap overflow-hidden block">{archive.showName}</span>
+        <div className="absolute top-1 left-1 right-1 md:top-1.5 md:left-1.5 md:right-1.5 drop-shadow-lg">
+          <span className="text-[8px] md:text-sm font-bold text-white uppercase tracking-wide whitespace-nowrap overflow-hidden block">{archive.showName}</span>
         </div>
 
         {/* Top right: Live badge + BPM (only on live cards) */}
         {isLiveCard && (
-          <div className="absolute top-1.5 right-1.5 flex items-center gap-1 drop-shadow-lg">
+          <div className="absolute top-1 right-1 md:top-1.5 md:right-1.5 flex items-center gap-1 drop-shadow-lg">
             <span className="relative flex h-1.5 w-1.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-600" />
             </span>
-            <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">
+            <span className="text-[8px] md:text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">
               {isRestreamCard ? 'Restream' : 'Live'}
               {cardLiveBPM ? ` ${cardLiveBPM} BPM` : ''}
             </span>
           </div>
         )}
 
-        {/* Bottom: DJ name + genre */}
+        {/* Bottom: DJ name, genre below */}
         {displayImage && (
-          <div className="absolute bottom-1.5 left-1.5 right-1.5 drop-shadow-lg">
-            <div className="text-xs font-black uppercase tracking-wider text-white whitespace-nowrap overflow-hidden">
+          <div className="absolute bottom-1 left-1 right-1 md:bottom-1.5 md:left-1.5 md:right-1.5 drop-shadow-lg">
+            <div className="text-[7px] md:text-xs font-black uppercase tracking-wider text-white whitespace-nowrap overflow-hidden">
               {djNames}
-              {genreText && (
-                <span className="font-medium tracking-[0.15em] text-zinc-300"> - {genreText}</span>
-              )}
             </div>
+            {genreText && (
+              <div className="text-[6px] md:text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-300 whitespace-nowrap overflow-hidden mt-0 md:mt-0.5">
+                {genreText}
+              </div>
+            )}
           </div>
         )}
 
