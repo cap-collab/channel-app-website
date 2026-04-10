@@ -19,6 +19,7 @@ import { DJImageOverlay, ScrollingShowName, ScrollingDJName } from './LiveBroadc
 import { FloatingHearts } from './FloatingHearts';
 import { TipButton } from './TipButton';
 import { AuthModal } from '@/components/AuthModal';
+import { Tuner } from '@/components/channel/Tuner';
 import { ArchiveSerialized } from '@/types/broadcast';
 
 function ArchiveIcon({ className }: { className?: string }) {
@@ -704,6 +705,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           )}
         </div>
 
+        <div className="mb-4">
+          <ArchiveTuner />
+        </div>
+
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4">
           {isLive && currentShow && archivePlayer.isPlaying && (
             <ArchiveGridCard
@@ -752,6 +757,30 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
     </section>
     </>
+  );
+}
+
+function ArchiveTuner() {
+  const {
+    selectedCity, handleCityChange,
+    selectedGenres, handleGenresChange,
+    cityResultCount, genreResultCount,
+    citiesWithMatches, genresWithMatches,
+    onGenreDropdownClose,
+  } = useFilterContext();
+
+  return (
+    <Tuner
+      selectedCity={selectedCity}
+      onCityChange={handleCityChange}
+      selectedGenres={selectedGenres}
+      onGenresChange={handleGenresChange}
+      cityResultCount={cityResultCount}
+      genreResultCount={genreResultCount}
+      citiesWithMatches={citiesWithMatches}
+      genresWithMatches={genresWithMatches}
+      onGenreDropdownClose={onGenreDropdownClose}
+    />
   );
 }
 
