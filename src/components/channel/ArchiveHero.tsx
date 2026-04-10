@@ -11,6 +11,8 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useLoveHistory } from '@/hooks/useLoveHistory';
 import { useDJProfileInfo } from '@/hooks/useDJProfileInfo';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
+import { useFilterContext } from '@/contexts/FilterContext';
+import { matchesGenre as matchesGenreLib } from '@/lib/genres';
 import { useBroadcastSchedule } from '@/hooks/useBroadcastSchedule';
 import { DJImageOverlay, ScrollingShowName, ScrollingDJName } from './LiveBroadcastHero';
 import { FloatingHearts } from './FloatingHearts';
@@ -35,7 +37,7 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-function ArchiveSeekBar({ currentTime, duration, onSeek }: { currentTime: number; duration: number; onSeek: (time: number) => void }) {
+export function ArchiveSeekBar({ currentTime, duration, onSeek }: { currentTime: number; duration: number; onSeek: (time: number) => void }) {
   const barRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
   const [dragFraction, setDragFraction] = useState(0);
@@ -775,11 +777,22 @@ function ArchiveGridCard({
   const genreText = genres.length > 0 ? genres.map((g) => g.toUpperCase()).join(' · ') : null;
   const displayImage = archive.showImageUrl || archive.djs[0]?.photoUrl;
 
+  // Match label from user filters
+  const { selectedGenres } = useFilterContext();
+  const matchingGenres = selectedGenres.filter(g => genres.some(dg => matchesGenreLib([dg], g)));
+  const matchLabel = matchingGenres.length > 0 ? matchingGenres.map(g => g.toUpperCase()).join(' + ') : undefined;
+
   return (
     <button
       onClick={onPlay}
       className="w-full text-left group flex flex-col"
     >
+      {/* Match label */}
+      {matchLabel && (
+        <div className="flex items-center mb-1 h-4 px-0.5">
+          <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">{matchLabel}</span>
+        </div>
+      )}
       {/* Image with hero-style overlays */}
       <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10">
         {displayImage ? (

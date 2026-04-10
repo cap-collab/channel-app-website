@@ -13,6 +13,7 @@ import { useDJProfileInfo } from '@/hooks/useDJProfileInfo';
 import { useLoveHistory } from '@/hooks/useLoveHistory';
 import { FloatingHearts } from '@/components/channel/FloatingHearts';
 import { ScrollingShowName, ScrollingDJName } from '@/components/channel/LiveBroadcastHero';
+import { ArchiveSeekBar } from '@/components/channel/ArchiveHero';
 
 /**
  * A bar shown below the header on all pages when a broadcast is live.
@@ -302,6 +303,13 @@ export function GlobalBroadcastBar() {
           </a>
         )}
       </div>
+      {archivePlayer.currentArchive && (
+        <ArchiveSeekBar
+          currentTime={archivePlayer.currentTime}
+          duration={archivePlayer.duration || 1}
+          onSeek={archivePlayer.seek}
+        />
+      )}
     </div>
   );
 }
