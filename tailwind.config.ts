@@ -8,6 +8,17 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      keyframes: {
+        'heart-nudge': {
+          '0%, 3%': { transform: 'scale(1)' },
+          '1%': { transform: 'scale(1.3)' },
+          '2%': { transform: 'scale(0.9)' },
+          '2.5%': { transform: 'scale(1.15)' },
+        },
+      },
+      animation: {
+        'heart-nudge': 'heart-nudge 20s ease-in-out 3',
+      },
       fontFamily: {
         sans: ['var(--font-geist-sans)', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
         mono: ['var(--font-geist-mono)', 'ui-monospace', 'monospace'],
