@@ -9,6 +9,7 @@ interface DJProfileInfo {
   tipButtonLink: string | null;
   photoUrl: string | null;
   bio: string | null;
+  location: string | null;
   loading: boolean;
 }
 
@@ -21,6 +22,7 @@ export function useDJProfileInfo(username: string | undefined): DJProfileInfo {
   const [tipButtonLink, setTipButtonLink] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [bio, setBio] = useState<string | null>(null);
+  const [location, setLocation] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -29,6 +31,7 @@ export function useDJProfileInfo(username: string | undefined): DJProfileInfo {
       setTipButtonLink(null);
       setPhotoUrl(null);
       setBio(null);
+      setLocation(null);
       return;
     }
 
@@ -54,6 +57,7 @@ export function useDJProfileInfo(username: string | undefined): DJProfileInfo {
           setTipButtonLink(data.djProfile?.tipButtonLink || null);
           setPhotoUrl(data.djProfile?.photoUrl || null);
           setBio(data.djProfile?.bio || null);
+          setLocation(data.djProfile?.location || null);
           setLoading(false);
           return;
         }
@@ -72,6 +76,7 @@ export function useDJProfileInfo(username: string | undefined): DJProfileInfo {
           setTipButtonLink(data.djProfile?.tipButtonLink || null);
           setPhotoUrl(data.djProfile?.photoUrl || null);
           setBio(data.djProfile?.bio || null);
+          setLocation(data.djProfile?.location || null);
         }
       } catch {
         // Silently fail — genres/tip are non-critical
@@ -84,5 +89,5 @@ export function useDJProfileInfo(username: string | undefined): DJProfileInfo {
     return () => { cancelled = true; };
   }, [username]);
 
-  return { genres, tipButtonLink, photoUrl, bio, loading };
+  return { genres, tipButtonLink, photoUrl, bio, location, loading };
 }

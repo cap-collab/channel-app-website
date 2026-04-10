@@ -13,6 +13,7 @@ import { useDJProfileInfo } from '@/hooks/useDJProfileInfo';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useFilterContext } from '@/contexts/FilterContext';
 import { matchesGenre as matchesGenreLib } from '@/lib/genres';
+import { matchesCity } from '@/lib/city-detection';
 import { useBroadcastSchedule } from '@/hooks/useBroadcastSchedule';
 import { DJImageOverlay, ScrollingShowName, ScrollingDJName } from './LiveBroadcastHero';
 import { FloatingHearts } from './FloatingHearts';
@@ -773,14 +774,19 @@ function ArchiveGridCard({
 }) {
   const djNames = archive.djs.map((d) => d.name).join(', ');
   const primaryUsername = archive.djs[0]?.username;
-  const { genres } = useDJProfileInfo(primaryUsername);
+  const { genres, location: djLocation } = useDJProfileInfo(primaryUsername);
   const genreText = genres.length > 0 ? genres.map((g) => g.toUpperCase()).join(' · ') : null;
   const displayImage = archive.showImageUrl || archive.djs[0]?.photoUrl;
 
-  // Match label from user filters (genre only — archives don't have DJ location)
-  const { selectedGenres } = useFilterContext();
+  // Match label from user filters
+  const { selectedCity, selectedGenres } = useFilterContext();
   const matchingGenres = selectedGenres.filter(g => genres.some(dg => matchesGenreLib([dg], g)));
-  const matchLabel = matchingGenres.length > 0 ? matchingGenres.map(g => g.toUpperCase()).join(' + ') : undefined;
+  const genreLabel = matchingGenres.length > 0 ? matchingGenres.map(g => g.toUpperCase()).join(' + ') : '';
+  const cityMatch = selectedCity && selectedCity !== 'Anywhere' && djLocation ? matchesCity(djLocation, selectedCity) : false;
+  const cityLabel = cityMatch ? selectedCity!.toUpperCase() : '';
+  const matchLabel = cityLabel && genreLabel
+    ? `${cityLabel} + ${genreLabel}`
+    : cityLabel || genreLabel || undefined;
 
   return (
     <button
