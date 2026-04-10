@@ -37,6 +37,98 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+function ArchiveSeekBar({ currentTime, duration, onSeek }: { currentTime: number; duration: number; onSeek: (time: number) => void }) {
+  const barRef = useRef<HTMLDivElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const [dragFraction, setDragFraction] = useState(0);
+
+  const getFraction = useCallback((clientX: number) => {
+    const rect = barRef.current?.getBoundingClientRect();
+    if (!rect) return 0;
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  }, []);
+
+  const commitSeek = useCallback((fraction: number) => {
+    onSeek(fraction * duration);
+  }, [onSeek, duration]);
+
+  // Mouse events
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const f = getFraction(e.clientX);
+    setDragFraction(f);
+    setDragging(true);
+    commitSeek(f);
+  }, [getFraction, commitSeek]);
+
+  // Touch events
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    const f = getFraction(touch.clientX);
+    setDragFraction(f);
+    setDragging(true);
+    commitSeek(f);
+  }, [getFraction, commitSeek]);
+
+  useEffect(() => {
+    if (!dragging) return;
+
+    const onMouseMove = (e: MouseEvent) => {
+      const f = getFraction(e.clientX);
+      setDragFraction(f);
+      onSeek(f * duration);
+    };
+    const onMouseUp = () => setDragging(false);
+
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const f = getFraction(e.touches[0].clientX);
+      setDragFraction(f);
+      onSeek(f * duration);
+    };
+    const onTouchEnd = () => setDragging(false);
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onTouchEnd);
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [dragging, getFraction, onSeek, duration]);
+
+  const fraction = dragging ? dragFraction : (currentTime / duration);
+  const pct = `${fraction * 100}%`;
+
+  return (
+    <div
+      ref={barRef}
+      className="relative w-full cursor-pointer select-none touch-none group"
+      onMouseDown={onMouseDown}
+      onTouchStart={onTouchStart}
+    >
+      {/* Larger touch target */}
+      <div className="py-2">
+        <div className="relative w-full h-[3px] bg-white/10 rounded-full">
+          <div
+            className="absolute inset-y-0 left-0 bg-white rounded-full"
+            style={{ width: pct }}
+          />
+        </div>
+      </div>
+      {/* Thumb – visible on hover/drag */}
+      <div
+        className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 bg-white rounded-full shadow transition-opacity ${dragging ? 'opacity-100 scale-110' : 'opacity-0 group-hover:opacity-100'}`}
+        style={{ left: pct }}
+      />
+    </div>
+  );
+}
+
 interface ArchiveHeroProps {
   archives: ArchiveSerialized[];
   featuredArchive: ArchiveSerialized;
@@ -630,22 +722,11 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 <span>{formatTime(archivePlayer.currentArchive?.id === displayedArchive.id ? archivePlayer.currentTime : 0)}</span>
                 <span>{formatTime(archivePlayer.duration || displayedArchive.duration)}</span>
               </div>
-              <div
-                className="relative w-full h-[3px] bg-white/10 cursor-pointer"
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-                  const dur = archivePlayer.duration || displayedArchive.duration || 1;
-                  archivePlayer.seek(fraction * dur);
-                }}
-              >
-                <div
-                  className="absolute inset-y-0 left-0 bg-white"
-                  style={{
-                    width: `${((archivePlayer.currentArchive?.id === displayedArchive.id ? archivePlayer.currentTime : 0) / (archivePlayer.duration || displayedArchive.duration || 1)) * 100}%`,
-                  }}
-                />
-              </div>
+              <ArchiveSeekBar
+                currentTime={archivePlayer.currentArchive?.id === displayedArchive.id ? archivePlayer.currentTime : 0}
+                duration={archivePlayer.duration || displayedArchive.duration || 1}
+                onSeek={archivePlayer.seek}
+              />
             </>
           )}
         </div>
