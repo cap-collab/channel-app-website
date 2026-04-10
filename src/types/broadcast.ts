@@ -272,6 +272,7 @@ export interface ArchiveDJ {
   email?: string;              // DJ email (for watchlist matching)
   photoUrl?: string;           // Profile photo
   genres?: string[];           // DJ genres (for genre matching)
+  location?: string;           // DJ city/location (for city matching)
 }
 
 // Archive priority (admin-only field, not exposed in public API)

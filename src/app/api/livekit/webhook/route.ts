@@ -372,6 +372,39 @@ export async function POST(request: NextRequest) {
               // Extract DJ info from the slot
               const djs = extractDJs(slotData || {});
 
+              // Enrich DJs with genres and location from their profiles
+              for (let i = 0; i < djs.length; i++) {
+                const dj = djs[i];
+                if (!dj.userId && !dj.username) continue;
+                try {
+                  let profileData: { genres?: string[]; location?: string } | null = null;
+                  if (dj.userId) {
+                    const userDoc = await db.collection('users').doc(dj.userId).get();
+                    if (userDoc.exists) {
+                      const profile = userDoc.data()?.djProfile;
+                      profileData = { genres: profile?.genres, location: profile?.location };
+                    }
+                  }
+                  if (!profileData && dj.username) {
+                    const normalized = dj.username.replace(/[\s-]+/g, '').toLowerCase();
+                    const snap = await db.collection('users')
+                      .where('chatUsernameNormalized', '==', normalized)
+                      .limit(1)
+                      .get();
+                    if (!snap.empty) {
+                      const profile = snap.docs[0].data()?.djProfile;
+                      profileData = { genres: profile?.genres, location: profile?.location };
+                    }
+                  }
+                  if (profileData) {
+                    if (profileData.genres?.length) djs[i] = { ...djs[i], genres: profileData.genres };
+                    if (profileData.location) djs[i] = { ...djs[i], location: profileData.location };
+                  }
+                } catch (err) {
+                  console.error(`Failed to enrich DJ ${dj.name} profile:`, err);
+                }
+              }
+
               // Get the recorded time from the slot's startTime
               const startTime = slotData?.startTime;
               const recordedAt = startTime?.toMillis ? startTime.toMillis() : Date.now();

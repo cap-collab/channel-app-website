@@ -11,6 +11,7 @@ interface DJInfo {
   userId?: string;
   email?: string;
   genres?: string[];
+  location?: string;
 }
 
 export async function GET(request: Request) {
@@ -161,8 +162,8 @@ export async function GET(request: Request) {
       }
     }
 
-    const djGenresByUserId = new Map<string, string[]>();
-    const djGenresByUsername = new Map<string, string[]>();
+    const djProfileByUserId = new Map<string, { genres?: string[]; location?: string }>();
+    const djProfileByUsername = new Map<string, { genres?: string[]; location?: string }>();
 
     // Batch fetch by userId
     if (userIdsForGenres.size > 0) {
@@ -172,9 +173,14 @@ export async function GET(request: Request) {
         const batch = userIds.slice(i, i + batchSize);
         const snap = await db.collection('users').where('__name__', 'in', batch).get();
         for (const doc of snap.docs) {
-          const genres = doc.data()?.djProfile?.genres;
-          if (Array.isArray(genres) && genres.length > 0) {
-            djGenresByUserId.set(doc.id, genres);
+          const profile = doc.data()?.djProfile;
+          const genres = profile?.genres;
+          const location = profile?.location;
+          if ((Array.isArray(genres) && genres.length > 0) || location) {
+            djProfileByUserId.set(doc.id, {
+              genres: Array.isArray(genres) && genres.length > 0 ? genres : undefined,
+              location: location || undefined,
+            });
           }
         }
       }
@@ -188,10 +194,15 @@ export async function GET(request: Request) {
         const batch = usernames.slice(i, i + batchSize);
         const snap = await db.collection('users').where('chatUsernameNormalized', 'in', batch).get();
         for (const doc of snap.docs) {
-          const genres = doc.data()?.djProfile?.genres;
+          const profile = doc.data()?.djProfile;
+          const genres = profile?.genres;
+          const location = profile?.location;
           const normalized = doc.data()?.chatUsernameNormalized;
-          if (Array.isArray(genres) && genres.length > 0 && normalized) {
-            djGenresByUsername.set(normalized, genres);
+          if (normalized && ((Array.isArray(genres) && genres.length > 0) || location)) {
+            djProfileByUsername.set(normalized, {
+              genres: Array.isArray(genres) && genres.length > 0 ? genres : undefined,
+              location: location || undefined,
+            });
           }
         }
       }
@@ -208,13 +219,16 @@ export async function GET(request: Request) {
             enriched = { ...enriched, username };
           }
         }
-        // Add genres from profile lookup
-        if (!enriched.genres) {
-          const genres = (dj.userId && djGenresByUserId.get(dj.userId))
-            || (dj.username && djGenresByUsername.get(dj.username.replace(/\s+/g, '').toLowerCase()))
-            || (enriched.username && djGenresByUsername.get(enriched.username.replace(/\s+/g, '').toLowerCase()));
-          if (genres) {
-            enriched = { ...enriched, genres };
+        // Add genres and location from profile lookup (archive-stored data takes priority)
+        const profileData = (dj.userId && djProfileByUserId.get(dj.userId))
+          || (dj.username && djProfileByUsername.get(dj.username.replace(/\s+/g, '').toLowerCase()))
+          || (enriched.username && djProfileByUsername.get(enriched.username.replace(/\s+/g, '').toLowerCase()));
+        if (profileData) {
+          if (!enriched.genres && profileData.genres) {
+            enriched = { ...enriched, genres: profileData.genres };
+          }
+          if (!enriched.location && profileData.location) {
+            enriched = { ...enriched, location: profileData.location };
           }
         }
         return enriched;

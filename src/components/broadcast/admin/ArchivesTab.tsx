@@ -167,6 +167,27 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
     }
   };
 
+  const handleMetadataChange = async (archiveId: string, djIndex: number, genres: string[], location: string) => {
+    // Optimistic update
+    setArchives(prev => prev.map(a => {
+      if (a.id !== archiveId) return a;
+      const newDjs = [...a.djs];
+      newDjs[djIndex] = { ...newDjs[djIndex], genres, location: location || undefined };
+      return { ...a, djs: newDjs };
+    }));
+
+    try {
+      const response = await fetch('/api/admin/archives/metadata', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archiveId, djIndex, genres, location }),
+      });
+      if (!response.ok) throw new Error('Failed to update metadata');
+    } catch {
+      await fetchArchives();
+    }
+  };
+
   // Filter
   const filtered = archives.filter((a) => {
     if (filterSource !== 'all' && a.sourceType !== filterSource) return false;
@@ -300,6 +321,7 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
               archive={archive}
               onDelete={() => initiateDelete(archive)}
               onPriorityChange={handlePriorityChange}
+              onMetadataChange={handleMetadataChange}
               isDeleting={deletingId === archive.id}
             />
           ))}
@@ -398,17 +420,29 @@ function ArchiveCard({
   archive,
   onDelete,
   onPriorityChange,
+  onMetadataChange,
   isDeleting,
 }: {
   archive: ArchiveSerialized;
   onDelete: () => void;
   onPriorityChange: (archiveId: string, priority: ArchivePriority) => void;
+  onMetadataChange: (archiveId: string, djIndex: number, genres: string[], location: string) => void;
   isDeleting: boolean;
 }) {
   const djNames = archive.djs?.map(dj => dj.name).join(', ') || 'Unknown DJ';
   const isLive = archive.sourceType === 'live';
   const isPublic = archive.isPublic !== false;
   const currentPriority = archive.priority || 'medium';
+  const primaryDj = archive.djs?.[0];
+  const [genreInput, setGenreInput] = useState(primaryDj?.genres?.join(', ') || '');
+  const [locationInput, setLocationInput] = useState(primaryDj?.location || '');
+  const [isEditing, setIsEditing] = useState(false);
+
+  const handleSaveMetadata = () => {
+    const genres = genreInput.split(',').map(g => g.trim()).filter(Boolean);
+    onMetadataChange(archive.id, 0, genres, locationInput.trim());
+    setIsEditing(false);
+  };
 
   return (
     <div className="p-4 bg-[#1a1a1a] border border-gray-800 rounded-xl hover:border-gray-700 transition-colors">
@@ -439,6 +473,54 @@ function ArchiveCard({
             </select>
           </div>
           <p className="text-sm text-gray-400 truncate mb-2">{djNames}</p>
+
+          {/* Genre & Location */}
+          {isEditing ? (
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                type="text"
+                value={genreInput}
+                onChange={(e) => setGenreInput(e.target.value)}
+                placeholder="Genres (comma-separated)"
+                className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-gray-500"
+              />
+              <input
+                type="text"
+                value={locationInput}
+                onChange={(e) => setLocationInput(e.target.value)}
+                placeholder="City"
+                className="w-32 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-gray-500"
+              />
+              <button
+                onClick={handleSaveMetadata}
+                className="px-2 py-1 rounded text-xs bg-white text-black hover:bg-gray-200 transition-colors"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setIsEditing(false)}
+                className="px-2 py-1 rounded text-xs text-gray-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 mb-2">
+              {primaryDj?.genres && primaryDj.genres.length > 0 && (
+                <span className="text-xs text-gray-500">{primaryDj.genres.join(', ')}</span>
+              )}
+              {primaryDj?.location && (
+                <span className="text-xs text-gray-600">{primaryDj.location}</span>
+              )}
+              <button
+                onClick={() => setIsEditing(true)}
+                className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
+              >
+                {primaryDj?.genres?.length || primaryDj?.location ? 'edit' : '+ genre/location'}
+              </button>
+            </div>
+          )}
+
           <div className="flex items-center gap-4 text-xs text-gray-500">
             <span>{formatDuration(archive.duration || 0)}</span>
             {archive.recordedAt && (
