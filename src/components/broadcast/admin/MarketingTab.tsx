@@ -89,7 +89,6 @@ export function MarketingTab({ slots }: MarketingTabProps) {
 
   // Show today + next 2 days only
   const upcomingSlots = useMemo(() => {
-    const now = Date.now();
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
     const threeDaysOut = startOfToday.getTime() + 3 * 86400_000;
@@ -140,12 +139,14 @@ export function MarketingTab({ slots }: MarketingTabProps) {
     }
 
     if (Object.keys(normalizedToSlotIds).length === 0) return;
+    const firestore = db;
+    if (!firestore) return;
 
     Promise.all(
       Object.entries(normalizedToSlotIds).map(async ([normalized, slotIds]) => {
         try {
           const q = query(
-            collection(db, 'users'),
+            collection(firestore, 'users'),
             where('chatUsernameNormalized', '==', normalized),
             where('role', 'in', ['dj', 'broadcaster', 'admin']),
           );
