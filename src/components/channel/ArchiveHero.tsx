@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback, useMemo, FormEvent } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -12,7 +12,7 @@ import { useLoveHistory } from '@/hooks/useLoveHistory';
 import { useDJProfileInfo } from '@/hooks/useDJProfileInfo';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useBroadcastSchedule } from '@/hooks/useBroadcastSchedule';
-import { DJImageOverlay, ScrollingShowName, ScrollingDJName, HeroChatMessage } from './LiveBroadcastHero';
+import { DJImageOverlay, ScrollingShowName, ScrollingDJName } from './LiveBroadcastHero';
 import { FloatingHearts } from './FloatingHearts';
 import { TipButton } from './TipButton';
 import { AuthModal } from '@/components/AuthModal';
@@ -28,9 +28,6 @@ function ArchiveIcon({ className }: { className?: string }) {
   );
 }
 
-function formatDurationMinutes(seconds: number): string {
-  return `${Math.round(seconds / 60)} min`;
-}
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -162,7 +159,7 @@ function ShowProgressBar({ startTime, endTime }: { startTime: number; endTime: n
 
 export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liveBPM, liveDJChatRoom }: ArchiveHeroProps) {
   const { user, isAuthenticated } = useAuthContext();
-  const { chatUsername, loading: profileLoading, setChatUsername } = useUserProfile(user?.uid);
+  const { chatUsername } = useUserProfile(user?.uid);
   const {
     isPlaying: isLivePlaying, isLoading: isLiveLoading, currentShow, currentDJ,
     listenerCount, toggle: toggleLive, play: playLive,
@@ -305,23 +302,13 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     sendLove();
   };
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState<'archives' | 'chat'>('archives');
-
-  // Chat (reused from OfflineHero pattern)
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [chatInput, setChatInput] = useState('');
-  const [isSending, setIsSending] = useState(false);
-  const [usernameInput, setUsernameInput] = useState('');
-  const [usernameError, setUsernameError] = useState('');
-  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // When live, chat targets the live DJ's room; otherwise channelbroadcast
   const chatRoom = isLive && liveDJChatRoom ? liveDJChatRoom : 'channelbroadcast';
   const chatDJLabel = isLive && liveDjName ? liveDjName : 'Channel Radio';
 
-  const { messages, sendMessage, loveCount } = useDJProfileChat({
+  const { loveCount } = useDJProfileChat({
     chatUsernameNormalized: chatRoom,
     djUsername: chatDJLabel,
     username: chatUsername || undefined,
@@ -346,53 +333,6 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     djPhotoUrl: isArchiveLove ? archivePrimaryDj?.photoUrl : undefined,
     isArchivePlayback: isArchiveLove,
   });
-
-  // Auto-scroll chat to latest message (also when switching to chat tab)
-  useEffect(() => {
-    if (activeTab !== 'chat') return;
-    const container = messagesContainerRef.current;
-    if (container) {
-      requestAnimationFrame(() => {
-        container.scrollTop = container.scrollHeight;
-      });
-    }
-  }, [messages, activeTab]);
-
-  const handleSetUsername = useCallback(async () => {
-    const trimmed = usernameInput.trim();
-    if (!trimmed) return;
-    if (trimmed.length < 2 || trimmed.length > 20) {
-      setUsernameError('Username must be 2-20 characters');
-      return;
-    }
-    if (!/^[a-zA-Z0-9 ]+$/.test(trimmed)) {
-      setUsernameError('Letters, numbers, and spaces only');
-      return;
-    }
-    setIsCheckingUsername(true);
-    try {
-      const result = await setChatUsername(trimmed);
-      if (!result.success) {
-        setUsernameError(result.error || 'Username already taken. Try another one.');
-      }
-    } catch {
-      setUsernameError('Username taken or error occurred');
-    } finally {
-      setIsCheckingUsername(false);
-    }
-  }, [usernameInput, setChatUsername]);
-
-  const handleSendMessage = useCallback(async (e: FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim() || isSending) return;
-    setIsSending(true);
-    try {
-      await sendMessage(chatInput.trim());
-      setChatInput('');
-    } finally {
-      setIsSending(false);
-    }
-  }, [chatInput, isSending, sendMessage]);
 
 
   const showName = showLiveInHero ? liveShowName : displayedArchive.showName;
@@ -809,82 +749,6 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
     </section>
     </>
-  );
-}
-
-function LiveBroadcastRow({
-  showName,
-  djName,
-  djPhotoUrl,
-  isRestream,
-  isActive,
-  onPlay,
-}: {
-  showName: string;
-  djName: string | null;
-  djPhotoUrl: string | null;
-  isRestream?: boolean;
-  isActive: boolean;
-  onPlay: () => void;
-}) {
-  return (
-    <button
-      onClick={onPlay}
-      className={`w-full flex items-center gap-3 py-3 px-2 text-left transition-colors hover:bg-white/5 ${
-        isActive ? 'bg-white/5' : ''
-      }`}
-    >
-      {djPhotoUrl ? (
-        <div className="w-12 h-12 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
-          <Image
-            src={djPhotoUrl}
-            alt={showName}
-            width={48}
-            height={48}
-            className="w-full h-full object-cover"
-            unoptimized
-          />
-        </div>
-      ) : (
-        <div className="w-12 h-12 rounded-lg bg-white/5 flex-shrink-0 flex items-center justify-center">
-          <span className="relative flex h-3 w-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600" />
-          </span>
-        </div>
-      )}
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold text-white truncate">{showName}</div>
-        <div className="text-xs text-zinc-500 truncate">
-          {djName || 'Live'}
-          <span className="ml-2 inline-flex items-center gap-1 text-red-500 font-bold uppercase text-[10px]">
-            {isRestream ? (
-              <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                <path d="M3 3v5h5" />
-              </svg>
-            ) : (
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-600" />
-              </span>
-            )}
-            {isRestream ? 'Restream' : 'Live'}
-          </span>
-        </div>
-      </div>
-      <div className="flex-shrink-0">
-        {isActive ? (
-          <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-          </svg>
-        ) : (
-          <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M8 5v14l11-7z" />
-          </svg>
-        )}
-      </div>
-    </button>
   );
 }
 
