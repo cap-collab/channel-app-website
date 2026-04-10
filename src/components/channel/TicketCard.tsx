@@ -85,13 +85,13 @@ export function TicketCard({
   return (
     <div className="w-full group flex flex-col h-full">
       {/* Match label row */}
-      {matchLabel && (
-        <div className="flex items-center mb-1 h-4 px-0.5">
+      <div className="flex items-center mb-1 h-4 px-0.5">
+        {matchLabel && (
           <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">
             {matchLabel}
           </span>
-        </div>
-      )}
+        )}
+      </div>
       {/* Full width image with overlays - links to DJ profile if available */}
       <div className="relative">
         {show.djUsername ? (

@@ -778,21 +778,25 @@ function ArchiveGridCard({
   const displayImage = archive.showImageUrl || archive.djs[0]?.photoUrl;
 
   // Match label from user filters
-  const { selectedGenres } = useFilterContext();
+  const { selectedCity, selectedGenres } = useFilterContext();
   const matchingGenres = selectedGenres.filter(g => genres.some(dg => matchesGenreLib([dg], g)));
-  const matchLabel = matchingGenres.length > 0 ? matchingGenres.map(g => g.toUpperCase()).join(' + ') : undefined;
+  const genreLabel = matchingGenres.length > 0 ? matchingGenres.map(g => g.toUpperCase()).join(' + ') : '';
+  const cityLabel = selectedCity && selectedCity !== 'Anywhere' ? selectedCity.toUpperCase() : '';
+  const matchLabel = cityLabel && genreLabel
+    ? `${cityLabel} + ${genreLabel}`
+    : cityLabel || genreLabel || undefined;
 
   return (
     <button
       onClick={onPlay}
       className="w-full text-left group flex flex-col"
     >
-      {/* Match label */}
-      {matchLabel && (
-        <div className="flex items-center mb-1 h-4 px-0.5">
+      {/* Match label — always reserve space for alignment */}
+      <div className="flex items-center mb-1 h-4 px-0.5">
+        {matchLabel && (
           <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">{matchLabel}</span>
-        </div>
-      )}
+        )}
+      </div>
       {/* Image with hero-style overlays */}
       <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10">
         {displayImage ? (
