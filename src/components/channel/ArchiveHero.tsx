@@ -737,181 +737,68 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           )}
         </div>
 
-        {/* Tab Bar */}
-        <div className="flex border-b border-white/10">
-          <button
-            onClick={() => setActiveTab('archives')}
-            className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${
-              activeTab === 'archives' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            Archives
-            {activeTab === 'archives' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('chat')}
-            className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${
-              activeTab === 'chat' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            <div className="flex items-center justify-center gap-2">
-              <span>Chat</span>
-              {(archivePlayer.listenerCount >= 5 || listenerCount >= 5) && (
-                <span className="flex items-center gap-1 text-zinc-500 text-xs">
-                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 3a9 9 0 00-9 9v7c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2H5v-1a7 7 0 1114 0v1h-2c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-7a9 9 0 00-9-9z" />
-                  </svg>
-                  {archivePlayer.listenerCount + listenerCount}
-                </span>
-              )}
-              {loveCount > 0 && (
-                <span className="flex items-center gap-1 text-zinc-500 text-xs">
-                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                  </svg>
-                  {loveCount}
-                </span>
-              )}
-            </div>
-            {activeTab === 'chat' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
-            )}
-          </button>
+      </div>
+
+      {/* Latest Archives Grid — wider to match scene section */}
+      <div className="mt-6 max-w-7xl mx-auto">
+        <div className="flex items-center gap-2 mb-3">
+          <h2 className="text-xs font-mono uppercase tracking-widest text-zinc-500">Latest Archives</h2>
+          {loveCount > 0 && (
+            <span className="flex items-center gap-1 text-zinc-600 text-xs">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+              </svg>
+              {loveCount}
+            </span>
+          )}
+          {(archivePlayer.listenerCount >= 5 || listenerCount >= 5) && (
+            <span className="flex items-center gap-1 text-zinc-600 text-xs">
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 3a9 9 0 00-9 9v7c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2H5v-1a7 7 0 1114 0v1h-2c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-7a9 9 0 00-9-9z" />
+              </svg>
+              {archivePlayer.listenerCount + listenerCount}
+            </span>
+          )}
         </div>
 
-        {/* Tab Content */}
-        {activeTab === 'archives' ? (
-          <div className="py-2 overflow-y-auto h-[30vh] lg:h-[25vh]">
-            <div className="divide-y divide-white/5">
-              {/* Live broadcast pinned at top when live */}
-              {isLive && currentShow && (
-                <LiveBroadcastRow
-                  showName={liveShowName}
-                  djName={liveDjName}
-                  djPhotoUrl={liveDjPhotoUrl}
-                  isRestream={isRestream}
-                  isActive={isLivePlaying}
-                  onPlay={() => {
-                    if (archivePlayer.isPlaying) archivePlayer.pause();
-                    setUserSelectedMode('live');
-                    playLive();
-                  }}
-                />
-              )}
-              {archives.map((archive) => (
-                <ArchiveRow
-                  key={archive.id}
-                  archive={archive}
-                  isActive={archivePlayer.currentArchive?.id === archive.id}
-                  isPlaying={archivePlayer.isPlaying && archivePlayer.currentArchive?.id === archive.id}
-                  onPlay={() => { setUserSelectedMode('archive'); pauseLive(); archivePlayer.play(archive); }}
-                />
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col h-[30vh] lg:h-[25vh]">
-            {!isAuthenticated ? (
-              <div className="flex-1 flex items-center justify-center p-6">
-                <div className="text-center">
-                  <p className="text-zinc-400 mb-4">Sign in to join the chat</p>
-                  <button
-                    onClick={() => setShowAuthModal(true)}
-                    className="px-6 py-2 bg-white text-black font-medium text-sm hover:bg-gray-200 transition-colors"
-                  >
-                    Sign In
-                  </button>
-                </div>
-              </div>
-            ) : profileLoading ? (
-              <div className="flex-1 flex items-center justify-center p-6">
-                <svg className="animate-spin h-8 w-8 text-zinc-500" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-              </div>
-            ) : !chatUsername ? (
-              <div className="flex-1 flex items-center justify-center p-6">
-                <div className="text-center max-w-sm w-full">
-                  <h3 className="text-white font-bold text-xl mb-2">Choose a Username</h3>
-                  <p className="text-zinc-400 text-sm mb-6">This will be displayed in the chat</p>
-                  <div className="text-left mb-4">
-                    <input
-                      type="text"
-                      value={usernameInput}
-                      onChange={(e) => { setUsernameInput(e.target.value); if (usernameError) setUsernameError(''); }}
-                      onKeyDown={(e) => { if (e.key === 'Enter' && usernameInput.trim() && !isCheckingUsername) { e.preventDefault(); handleSetUsername(); } }}
-                      placeholder="Username"
-                      className="w-full px-4 py-3 bg-black border border-white/20 text-white placeholder-zinc-500 focus:outline-none focus:border-white/40"
-                      maxLength={20}
-                      autoComplete="off"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      disabled={isCheckingUsername}
-                    />
-                    <p className="text-zinc-500 text-xs mt-2">2-20 characters, letters, numbers, and spaces</p>
-                    {usernameError && <p className="text-red-400 text-xs mt-2">{usernameError}</p>}
-                  </div>
-                  <button
-                    onClick={handleSetUsername}
-                    disabled={!usernameInput.trim() || isCheckingUsername}
-                    className="w-full bg-white hover:bg-gray-200 disabled:bg-zinc-700 disabled:cursor-not-allowed text-black disabled:text-zinc-400 font-medium py-3 transition-colors"
-                  >
-                    {isCheckingUsername ? 'Checking...' : 'Join Chat'}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto">
-                  {messages.length === 0 ? (
-                    <div className="flex items-center justify-center py-12 text-zinc-500">
-                      <p>No messages yet. Start the conversation!</p>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-white/5">
-                      {messages.map((msg) => (
-                        <HeroChatMessage
-                          key={msg.id}
-                          message={msg}
-                          isOwnMessage={msg.username === chatUsername}
-                          currentLiveDjUsername={isLive ? (currentDJ || currentShow?.djName) : undefined}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="border-t border-white/10 p-3">
-                  <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
-                      placeholder="Message..."
-                      className="flex-1 min-w-0 bg-black text-white text-sm border border-white/20 px-3 py-2 focus:outline-none focus:border-white/40 disabled:text-zinc-500 disabled:cursor-not-allowed"
-                      maxLength={280}
-                      disabled={isSending}
-                    />
-                    <button
-                      type="submit"
-                      disabled={!chatInput.trim() || isSending}
-                      className="flex-shrink-0 bg-white hover:bg-gray-200 disabled:bg-zinc-700 disabled:cursor-not-allowed text-black disabled:text-zinc-400 p-2 transition-colors"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                      </svg>
-                    </button>
-                  </form>
-                  <p className="text-zinc-500 text-xs mt-2">
-                    Chatting as <span className="text-white">{chatUsername}</span>
-                  </p>
-                </div>
-              </>
-            )}
-          </div>
-        )}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4">
+          {isLive && currentShow && archivePlayer.isPlaying && (
+            <ArchiveGridCard
+              archive={{
+                id: 'live-now',
+                slug: '',
+                broadcastSlotId: '',
+                showName: liveShowName,
+                djs: [{ name: liveDjName || 'Live', username: liveDJChatRoom || '', photoUrl: liveDjPhotoUrl || undefined }],
+                recordingUrl: '',
+                duration: 0,
+                recordedAt: Date.now(),
+                createdAt: Date.now(),
+                stationId: 'channel-main',
+                showImageUrl: liveDjPhotoUrl || undefined,
+              }}
+              isActive={isLivePlaying}
+              isPlaying={isLivePlaying}
+              isLive
+              isRestream={isRestream}
+              liveBPM={liveBPM}
+              onPlay={() => {
+                if (archivePlayer.isPlaying) archivePlayer.pause();
+                setUserSelectedMode('live');
+                playLive();
+              }}
+            />
+          )}
+          {archives.map((archive) => (
+            <ArchiveGridCard
+              key={archive.id}
+              archive={archive}
+              isActive={archivePlayer.currentArchive?.id === archive.id}
+              isPlaying={archivePlayer.isPlaying && archivePlayer.currentArchive?.id === archive.id}
+              onPlay={() => { setUserSelectedMode('archive'); pauseLive(); archivePlayer.play(archive); }}
+            />
+          ))}
+        </div>
       </div>
 
       <AuthModal
@@ -1001,72 +888,108 @@ function LiveBroadcastRow({
   );
 }
 
-function ArchiveRow({
+function ArchiveGridCard({
   archive,
   isActive,
   isPlaying,
+  isLive: isLiveCard,
+  isRestream: isRestreamCard,
+  liveBPM: cardLiveBPM,
   onPlay,
 }: {
   archive: ArchiveSerialized;
   isActive: boolean;
   isPlaying: boolean;
+  isLive?: boolean;
+  isRestream?: boolean;
+  liveBPM?: number | null;
   onPlay: () => void;
 }) {
   const djNames = archive.djs.map((d) => d.name).join(', ');
   const primaryUsername = archive.djs[0]?.username;
-  const { genres } = useDJProfileInfo(primaryUsername);
+  const { genres, bio } = useDJProfileInfo(primaryUsername);
   const genreText = genres.length > 0 ? genres.map((g) => g.toUpperCase()).join(' · ') : null;
   const displayImage = archive.showImageUrl || archive.djs[0]?.photoUrl;
 
   return (
     <button
       onClick={onPlay}
-      className={`w-full flex items-center gap-3 py-3 px-2 text-left transition-colors hover:bg-white/5 ${
-        isActive ? 'bg-white/5' : ''
-      }`}
+      className="w-full text-left group flex flex-col"
     >
-      {/* Image */}
-      {displayImage ? (
-        <div className="w-12 h-12 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
-          <Image
-            src={displayImage}
-            alt={archive.showName}
-            width={48}
-            height={48}
-            className="w-full h-full object-cover"
-            unoptimized
-          />
-        </div>
-      ) : (
-        <div className="w-12 h-12 rounded-lg bg-white/5 flex-shrink-0 flex items-center justify-center">
-          <ArchiveIcon className="w-5 h-5 text-zinc-600" />
-        </div>
-      )}
+      {/* Image with hero-style overlays */}
+      <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10">
+        {displayImage ? (
+          <>
+            <Image
+              src={displayImage}
+              alt={archive.showName}
+              fill
+              className="object-cover"
+              unoptimized
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
+          </>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-white/5">
+            <h2 className="text-lg font-black uppercase tracking-tight leading-none text-white text-center px-2">
+              {djNames}
+            </h2>
+          </div>
+        )}
 
-      {/* Info — always 2 lines */}
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold text-white truncate">
-          {archive.showName}
-          {genreText && (
-            <span className="font-normal text-zinc-400"> - {genreText}</span>
-          )}
+        {/* Top left: Show name */}
+        <div className="absolute top-1.5 left-1.5 right-12 drop-shadow-lg">
+          <span className="text-[10px] md:text-sm font-bold text-white uppercase tracking-wide line-clamp-1">{archive.showName}</span>
         </div>
-        <div className="text-xs text-zinc-500 truncate">
-          {djNames}
-          <span className="text-zinc-600 ml-2">{formatDurationMinutes(archive.duration)}</span>
+
+        {/* Top right: Live badge + BPM (only on live cards) */}
+        {isLiveCard && (
+          <div className="absolute top-1.5 right-1.5 flex items-center gap-1 drop-shadow-lg">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-600" />
+            </span>
+            <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">
+              {isRestreamCard ? 'Restream' : 'Live'}
+              {cardLiveBPM ? ` ${cardLiveBPM} BPM` : ''}
+            </span>
+          </div>
+        )}
+
+        {/* Bottom: DJ name + genre (mobile), DJ name + genre + description (desktop) */}
+        {displayImage && (
+          <div className="absolute bottom-1.5 left-1.5 right-1.5 drop-shadow-lg">
+            <div className="text-xs font-black uppercase tracking-wider text-white whitespace-nowrap overflow-hidden">
+              {djNames}
+              {genreText && (
+                <span className="hidden md:inline font-medium tracking-[0.15em] text-zinc-300"> - {genreText}</span>
+              )}
+            </div>
+            {bio && (
+              <p className="hidden md:block text-[11px] leading-[1.3em] text-zinc-300 font-light mt-0.5 line-clamp-2">{bio}</p>
+            )}
+          </div>
+        )}
+
+        {/* Play/Pause overlay */}
+        <div className={`absolute inset-0 flex items-center justify-center bg-black/30 transition-opacity ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+          {isPlaying ? (
+            <svg className="w-8 h-8 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+            </svg>
+          ) : (
+            <svg className="w-8 h-8 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          )}
         </div>
       </div>
 
-      {/* Play indicator / chevron */}
-      <div className="flex-shrink-0">
-        {isPlaying ? (
-          <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-          </svg>
-        ) : (
-          <svg className="w-4 h-4 text-zinc-500" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M8 5v14l11-7z" />
-          </svg>
+      {/* Below image: genre on mobile only */}
+      <div className="flex flex-col py-1.5 md:hidden">
+        {genreText && (
+          <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter truncate">{genreText}</p>
         )}
       </div>
     </button>
