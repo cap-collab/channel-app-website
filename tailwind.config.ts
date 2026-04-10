@@ -17,7 +17,7 @@ const config: Config = {
         },
       },
       animation: {
-        'heart-nudge': 'heart-nudge 20s ease-in-out 3',
+        'heart-nudge': 'heart-nudge 20s ease-in-out 10s 3',
       },
       fontFamily: {
         sans: ['var(--font-geist-sans)', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
