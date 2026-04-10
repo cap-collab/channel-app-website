@@ -48,11 +48,16 @@ export function IRLShowCard({
           {new Date(show.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
         </span>
       </div>
-      {/* DJ name and city - bottom left */}
+      {/* DJ name, genre, city - bottom left */}
       <div className="absolute bottom-2 left-2 right-2">
         <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
           {show.djName}
         </span>
+        {show.djGenres && show.djGenres.length > 0 && (
+          <span className="block text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-300 drop-shadow-lg whitespace-nowrap overflow-hidden">
+            {show.djGenres.join(' · ')}
+          </span>
+        )}
         <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
           {show.location}
         </span>

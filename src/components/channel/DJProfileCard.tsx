@@ -33,11 +33,16 @@ export function DJProfileCard({
       {/* Gradient scrims */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
-      {/* DJ name and city - bottom left */}
+      {/* DJ name, genre, city - bottom left */}
       <div className="absolute bottom-2 left-2 right-2">
         <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
           {profile.displayName}
         </span>
+        {profile.genres && profile.genres.length > 0 && (
+          <span className="block text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-300 drop-shadow-lg whitespace-nowrap overflow-hidden">
+            {profile.genres.join(' · ')}
+          </span>
+        )}
         {profile.location && (
           <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
             {profile.location}

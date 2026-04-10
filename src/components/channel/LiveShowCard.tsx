@@ -49,11 +49,16 @@ export function LiveShowCard({
           Online
         </span>
       </div>
-      {/* DJ Name and Location - bottom left */}
+      {/* DJ Name, Genre, Location - bottom left */}
       <div className="absolute bottom-2 left-2 right-2">
         <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
           {djName}
         </span>
+        {show.djGenres && show.djGenres.length > 0 && (
+          <span className="block text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-300 drop-shadow-lg whitespace-nowrap overflow-hidden">
+            {show.djGenres.join(' · ')}
+          </span>
+        )}
         {show.djLocation && (
           <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
             {show.djLocation}
