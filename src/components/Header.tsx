@@ -8,6 +8,7 @@ import { AuthModal } from "@/components/AuthModal";
 import { MobileMenu, MobileMenuItem } from "@/components/MobileMenu";
 import { HeaderTuner } from "@/components/HeaderTuner";
 import { GlobalBroadcastBar } from "@/components/GlobalBroadcastBar";
+import { FloatingChat } from "@/components/channel/FloatingChat";
 
 type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal" | "radio-portal" | "my-shows" | "streaming-guide" | "stripe-setup" | "studio" | "archives" | "explore";
 
@@ -85,6 +86,8 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
         </div>
         <GlobalBroadcastBar />
       </header>
+
+      <FloatingChat />
 
       {/* Auth Modal */}
       <AuthModal
