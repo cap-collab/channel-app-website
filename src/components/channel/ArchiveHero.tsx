@@ -788,11 +788,28 @@ function ArchiveGridCard({
     ? `${cityLabel} + ${genreLabel}`
     : cityLabel || genreLabel || undefined;
 
+  // Watchlist
+  const { isInWatchlist, followDJ, removeFromWatchlist } = useFavorites();
+  const djName = archive.djs[0]?.name || '';
+  const isFollowing = djName ? isInWatchlist(djName) : false;
+  const [isAddingFollow, setIsAddingFollow] = useState(false);
+
+  const handleToggleWatchlist = useCallback(async () => {
+    if (!djName) return;
+    setIsAddingFollow(true);
+    try {
+      if (isFollowing) {
+        await removeFromWatchlist(djName);
+      } else {
+        await followDJ(djName);
+      }
+    } finally {
+      setIsAddingFollow(false);
+    }
+  }, [djName, isFollowing, followDJ, removeFromWatchlist]);
+
   return (
-    <button
-      onClick={onPlay}
-      className="w-full text-left group flex flex-col"
-    >
+    <div className="w-full group flex flex-col h-full">
       {/* Match label — always reserve space for alignment */}
       <div className="flex items-center mb-1 h-4 px-0.5">
         {matchLabel && (
@@ -800,7 +817,7 @@ function ArchiveGridCard({
         )}
       </div>
       {/* Image with hero-style overlays */}
-      <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10">
+      <button onClick={onPlay} className="w-full text-left relative aspect-[16/9] overflow-hidden border border-white/10">
         {displayImage ? (
           <>
             <Image
@@ -866,8 +883,36 @@ function ArchiveGridCard({
             </svg>
           )}
         </div>
-      </div>
+      </button>
 
-    </button>
+      {/* Action buttons */}
+      <div className="flex gap-2 mt-2">
+        <button
+          onClick={handleToggleWatchlist}
+          disabled={isAddingFollow}
+          className={`flex-1 py-2 px-2 rounded text-xs md:text-sm font-semibold transition-colors flex items-center justify-center gap-1 ${
+            isFollowing
+              ? 'bg-white/10 text-gray-400 cursor-default'
+              : 'bg-white hover:bg-gray-100 text-gray-900'
+          } disabled:opacity-50`}
+        >
+          {isAddingFollow ? (
+            <div className={`w-3.5 h-3.5 border-2 ${isFollowing ? 'border-white' : 'border-gray-900'} border-t-transparent rounded-full animate-spin mx-auto`} />
+          ) : isFollowing ? (
+            <><svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg> Watchlist</>
+          ) : (
+            <><svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> Watchlist</>
+          )}
+        </button>
+        {primaryUsername && (
+          <Link
+            href={`/dj/${primaryUsername}`}
+            className="flex-1 py-2 px-2 rounded text-xs md:text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white text-center"
+          >
+            See profile
+          </Link>
+        )}
+      </div>
+    </div>
   );
 }
