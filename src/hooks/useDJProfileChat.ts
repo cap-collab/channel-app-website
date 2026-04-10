@@ -241,6 +241,8 @@ export function useDJProfileChat({
   // Anyone can send love — if no username, post as "Someone" (no chat message username)
   const sendLove = useCallback(async () => {
     if (!chatUsernameNormalized) return;
+    // Don't post automated messages when the DJ is listening to their own mix
+    if (username && djUsername && username.toLowerCase() === djUsername.toLowerCase()) return;
 
     const app = getFirebaseApp();
     const auth = getAuth(app);
@@ -348,6 +350,8 @@ export function useDJProfileChat({
   const sendLockedIn = useCallback(async () => {
     if (!chatUsernameNormalized) return;
     if (!lockedInMessagesEnabled) return;
+    // Don't post automated messages when the DJ is listening to their own mix
+    if (username && djUsername && username.toLowerCase() === djUsername.toLowerCase()) return;
 
     const app = getFirebaseApp();
     const auth = getAuth(app);
