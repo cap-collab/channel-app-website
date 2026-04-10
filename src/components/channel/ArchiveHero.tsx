@@ -771,7 +771,7 @@ function ArchiveGridCard({
 }) {
   const djNames = archive.djs.map((d) => d.name).join(', ');
   const primaryUsername = archive.djs[0]?.username;
-  const { genres, bio } = useDJProfileInfo(primaryUsername);
+  const { genres } = useDJProfileInfo(primaryUsername);
   const genreText = genres.length > 0 ? genres.map((g) => g.toUpperCase()).join(' · ') : null;
   const displayImage = archive.showImageUrl || archive.djs[0]?.photoUrl;
 
@@ -803,8 +803,8 @@ function ArchiveGridCard({
         )}
 
         {/* Top left: Show name */}
-        <div className="absolute top-1.5 left-1.5 right-12 drop-shadow-lg">
-          <span className="text-[10px] md:text-sm font-bold text-white uppercase tracking-wide line-clamp-1">{archive.showName}</span>
+        <div className="absolute top-1.5 left-1.5 right-1.5 drop-shadow-lg">
+          <span className="text-[10px] md:text-sm font-bold text-white uppercase tracking-wide whitespace-nowrap overflow-hidden block">{archive.showName}</span>
         </div>
 
         {/* Top right: Live badge + BPM (only on live cards) */}
@@ -821,18 +821,15 @@ function ArchiveGridCard({
           </div>
         )}
 
-        {/* Bottom: DJ name + genre (mobile), DJ name + genre + description (desktop) */}
+        {/* Bottom: DJ name + genre */}
         {displayImage && (
           <div className="absolute bottom-1.5 left-1.5 right-1.5 drop-shadow-lg">
             <div className="text-xs font-black uppercase tracking-wider text-white whitespace-nowrap overflow-hidden">
               {djNames}
               {genreText && (
-                <span className="hidden md:inline font-medium tracking-[0.15em] text-zinc-300"> - {genreText}</span>
+                <span className="font-medium tracking-[0.15em] text-zinc-300"> - {genreText}</span>
               )}
             </div>
-            {bio && (
-              <p className="hidden md:block text-[11px] leading-[1.3em] text-zinc-300 font-light mt-0.5 line-clamp-2">{bio}</p>
-            )}
           </div>
         )}
 
@@ -850,12 +847,6 @@ function ArchiveGridCard({
         </div>
       </div>
 
-      {/* Below image: genre on mobile only */}
-      <div className="flex flex-col py-1.5 md:hidden">
-        {genreText && (
-          <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter truncate">{genreText}</p>
-        )}
-      </div>
     </button>
   );
 }
