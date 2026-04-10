@@ -59,11 +59,6 @@ export function LiveShowCard({
             {show.djGenres.join(' · ')}
           </span>
         )}
-        {show.djLocation && (
-          <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
-            {show.djLocation}
-          </span>
-        )}
       </div>
     </>
   );

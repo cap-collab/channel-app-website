@@ -43,11 +43,6 @@ export function DJProfileCard({
             {profile.genres.join(' · ')}
           </span>
         )}
-        {profile.location && (
-          <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
-            {profile.location}
-          </span>
-        )}
       </div>
     </>
   );

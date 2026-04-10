@@ -58,9 +58,6 @@ export function IRLShowCard({
             {show.djGenres.join(' · ')}
           </span>
         )}
-        <span className="block text-[10px] text-white/80 drop-shadow-lg mt-0.5">
-          {show.location}
-        </span>
       </div>
     </>
   );
