@@ -777,14 +777,10 @@ function ArchiveGridCard({
   const genreText = genres.length > 0 ? genres.map((g) => g.toUpperCase()).join(' · ') : null;
   const displayImage = archive.showImageUrl || archive.djs[0]?.photoUrl;
 
-  // Match label from user filters
-  const { selectedCity, selectedGenres } = useFilterContext();
+  // Match label from user filters (genre only — archives don't have DJ location)
+  const { selectedGenres } = useFilterContext();
   const matchingGenres = selectedGenres.filter(g => genres.some(dg => matchesGenreLib([dg], g)));
-  const genreLabel = matchingGenres.length > 0 ? matchingGenres.map(g => g.toUpperCase()).join(' + ') : '';
-  const cityLabel = selectedCity && selectedCity !== 'Anywhere' ? selectedCity.toUpperCase() : '';
-  const matchLabel = cityLabel && genreLabel
-    ? `${cityLabel} + ${genreLabel}`
-    : cityLabel || genreLabel || undefined;
+  const matchLabel = matchingGenres.length > 0 ? matchingGenres.map(g => g.toUpperCase()).join(' + ') : undefined;
 
   return (
     <button
