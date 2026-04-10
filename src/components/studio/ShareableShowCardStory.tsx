@@ -6,6 +6,7 @@ interface ShareableShowCardStoryProps {
   showName: string;
   djName: string;
   startTime: number;
+  endTime?: number;
   imageUrl?: string;
   genres?: string[];
   description?: string;
@@ -24,8 +25,13 @@ const S = CANVAS_W / 310;
 // Font stack: Geist Sans (loaded on page) with system fallbacks
 const FONT = '"Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
-function getOverlayInfo(startTime: number): { text: string; color: string } | null {
-  const diff = startTime - Date.now();
+function getOverlayInfo(startTime: number, endTime?: number): { text: string; color: string } | null {
+  const now = Date.now();
+  // Show completed after endTime has passed
+  if (endTime && now > endTime) {
+    return { text: 'Recording is up', color: '#a1a1aa' };
+  }
+  const diff = startTime - now;
   if (diff < 3600_000) {
     return { text: 'LIVE NOW', color: '#ef4444' };
   }
@@ -85,7 +91,7 @@ function drawCanvas(
   logoImg: HTMLImageElement | null,
   fontFamily: string,
 ) {
-  const { showName, djName, startTime, genres, description } = props;
+  const { showName, djName, startTime, endTime, genres, description } = props;
   const F = fontFamily;
   const pad = Math.round(10 * S);
 
@@ -111,45 +117,56 @@ function drawCanvas(
   ctx.textAlign = 'left';
 
   // === Line 2: "LIVE on..." centered with red dot ===
-  const overlay = getOverlayInfo(startTime);
+  const overlay = getOverlayInfo(startTime, endTime);
   const dotRadius = Math.round(3.5 * S);
 
   if (overlay) {
     const line2CenterY = LOGO_STRIP_H + INFO_STRIP_H / 2;
     ctx.textBaseline = 'middle';
 
+    const isRecordingUp = overlay.text === 'Recording is up';
     const isLiveNow = overlay.text === 'LIVE NOW';
-    const liveWord = isLiveNow ? 'LIVE NOW' : 'LIVE';
-    const restText = isLiveNow ? '' : overlay.text.slice(4);
 
-    ctx.font = `700 ${fontSize}px ${F}`;
-    const liveW = ctx.measureText(liveWord).width;
-    ctx.font = `400 ${fontSize}px ${F}`;
-    const restW = restText ? ctx.measureText(restText).width : 0;
+    if (isRecordingUp) {
+      // "Recording is up" — no dot, centered gray text
+      ctx.fillStyle = overlay.color;
+      ctx.font = `500 ${fontSize}px ${F}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(overlay.text, CANVAS_W / 2, line2CenterY);
+      ctx.textAlign = 'left';
+    } else {
+      const liveWord = isLiveNow ? 'LIVE NOW' : 'LIVE';
+      const restText = isLiveNow ? '' : overlay.text.slice(4);
 
-    const dotSpace = dotRadius * 2 + Math.round(5 * S);
-    const totalW = dotSpace + liveW + restW;
-    const startX = (CANVAS_W - totalW) / 2;
-
-    // Red dot
-    ctx.fillStyle = '#ef4444';
-    ctx.beginPath();
-    ctx.arc(startX + dotRadius, line2CenterY, dotRadius, 0, Math.PI * 2);
-    ctx.fill();
-
-    // "LIVE" or "LIVE NOW" in red, bold
-    ctx.fillStyle = '#ef4444';
-    ctx.font = `700 ${fontSize}px ${F}`;
-    ctx.textAlign = 'left';
-    ctx.fillText(liveWord, startX + dotSpace, line2CenterY);
-
-    // Rest of text in white, normal weight
-    if (restText) {
-      ctx.fillStyle = '#ffffff';
+      ctx.font = `700 ${fontSize}px ${F}`;
+      const liveW = ctx.measureText(liveWord).width;
       ctx.font = `400 ${fontSize}px ${F}`;
-      ctx.fillText(restText, startX + dotSpace + liveW, line2CenterY);
+      const restW = restText ? ctx.measureText(restText).width : 0;
+
+      const dotSpace = dotRadius * 2 + Math.round(5 * S);
+      const totalW = dotSpace + liveW + restW;
+      const startX = (CANVAS_W - totalW) / 2;
+
+      // Red dot
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.arc(startX + dotRadius, line2CenterY, dotRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // "LIVE" or "LIVE NOW" in red, bold
+      ctx.fillStyle = '#ef4444';
+      ctx.font = `700 ${fontSize}px ${F}`;
+      ctx.textAlign = 'left';
+      ctx.fillText(liveWord, startX + dotSpace, line2CenterY);
+
+      // Rest of text in white, normal weight
+      if (restText) {
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `400 ${fontSize}px ${F}`;
+        ctx.fillText(restText, startX + dotSpace + liveW, line2CenterY);
+      }
+      ctx.textAlign = 'left';
     }
-    ctx.textAlign = 'left';
   }
 
   // === Full-height hero image ===

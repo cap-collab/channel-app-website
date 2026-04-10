@@ -44,6 +44,8 @@ export async function GET(request: NextRequest) {
       djPhotoUrl: djProfile.photoUrl || null,
       djThankYouMessage: djProfile.thankYouMessage || null,
       djSocialLinks: djProfile.socialLinks || null,
+      djGenres: djProfile.genres || null,
+      djDescription: djProfile.description || djProfile.bio || null,
       // Legacy field names (for backwards compatibility)
       liveDjBio: djProfile.bio || null,
       liveDjPhotoUrl: djProfile.photoUrl || null,

@@ -12,8 +12,9 @@ import { getSlots, createSlot, deleteSlot as deleteSlotFromDb, updateSlot } from
 import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { DJApplicationsTab } from '@/components/broadcast/admin/DJApplicationsTab';
 import { ArchivesTab } from '@/components/broadcast/admin/ArchivesTab';
+import { MarketingTab } from '@/components/broadcast/admin/MarketingTab';
 
-type AdminTab = 'schedule' | 'applications' | 'archives';
+type AdminTab = 'schedule' | 'applications' | 'archives' | 'marketing';
 
 // Get start of current week (Sunday)
 function getWeekStart(date: Date = new Date()): Date {
@@ -309,6 +310,16 @@ export function AdminDashboard() {
                 </span>
               )}
             </button>
+            <button
+              onClick={() => setActiveTab('marketing')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                activeTab === 'marketing'
+                  ? 'bg-white text-black'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+            >
+              Marketing
+            </button>
             <Link
               href="/broadcast/admin/pending-djs"
               className="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-800 text-gray-300 hover:bg-gray-700"
@@ -365,10 +376,12 @@ export function AdminDashboard() {
               userId={user?.uid || ''}
               onPendingCountChange={setApplicationCount}
             />
-          ) : (
+          ) : activeTab === 'archives' ? (
             <ArchivesTab
               onArchiveCountChange={setArchiveCount}
             />
+          ) : (
+            <MarketingTab slots={slots} />
           )}
         </div>
       </div>
