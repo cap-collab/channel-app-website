@@ -66,7 +66,6 @@ function drawCanvas(
   archive: ArchiveSerialized,
   description: string | null,
   showImg: HTMLImageElement | null,
-  logoImg: HTMLImageElement | null,
   fontFamily: string,
 ) {
   const F = fontFamily;
@@ -96,26 +95,19 @@ function drawCanvas(
     ctx.textAlign = 'left';
   }
 
-  // === Logo strip at bottom: logo left + channel-app.com right ===
+  // === Bottom strip: channel-app.com centered ===
   const logoStripTop = IMAGE_H;
   const line1CenterY = logoStripTop + LOGO_STRIP_H / 2;
   const fontSize = Math.round(11 * S);
 
-  // Black background for logo strip (already filled, but ensure it's clean)
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, logoStripTop, CANVAS_W, LOGO_STRIP_H);
-
-  if (logoImg) {
-    const logoH = Math.round(24 * S * 1.3 / 2);
-    const logoW = logoImg.naturalWidth * (logoH / logoImg.naturalHeight);
-    ctx.drawImage(logoImg, pad, line1CenterY - logoH / 2, logoW, logoH);
-  }
 
   ctx.fillStyle = '#a1a1aa';
   ctx.font = `500 ${fontSize}px ${F}`;
   ctx.textBaseline = 'middle';
-  ctx.textAlign = 'right';
-  ctx.fillText('channel-app.com', CANVAS_W - pad, line1CenterY);
+  ctx.textAlign = 'center';
+  ctx.fillText('channel-app.com', CANVAS_W / 2, line1CenterY);
   ctx.textAlign = 'left';
 
   // Gradient scrims
@@ -182,22 +174,9 @@ function drawCanvas(
   const djFontSize = Math.round(12 * S);
   const hasDescription = !!description;
 
-  // Duration + date line (bottommost)
-  if (archive.duration) {
-    const durFontSize = Math.round(10 * S);
-    ctx.font = `400 ${durFontSize}px ${F}`;
-    ctx.fillStyle = '#a1a1aa';
-    ctx.textBaseline = 'bottom';
-    ctx.letterSpacing = '0';
-    const h = Math.floor(archive.duration / 3600);
-    const m = Math.floor((archive.duration % 3600) / 60);
-    const durText = h > 0 ? `${h}h ${m}m` : `${m}m`;
-    const dateStr = archive.recordedAt
-      ? new Date(archive.recordedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-      : '';
-    ctx.fillText(`${durText}${dateStr ? '  ·  ' + dateStr : ''}`, pad, cursorY);
-    cursorY -= Math.round(durFontSize * 1.3 + 4 * S);
-  }
+  // Empty line (preserving spacing where duration/date used to be)
+  const durFontSize = Math.round(10 * S);
+  cursorY -= Math.round(durFontSize * 1.3 + 4 * S);
 
   // Description (truncated, 2 lines max) — only if available
   if (hasDescription) {
@@ -308,12 +287,9 @@ export function ShareableArchiveCard({ archive }: { archive: ArchiveSerialized }
     const imageUrl = archive.showImageUrl || archive.djs?.[0]?.photoUrl;
 
     (async () => {
-      const [showImg, logoImg] = await Promise.all([
-        imageUrl ? loadImage(imageUrl) : Promise.resolve(null),
-        loadImage('/logo-white.png'),
-      ]);
+      const showImg = imageUrl ? await loadImage(imageUrl) : null;
       if (cancelled) return;
-      drawCanvas(ctx, archive, description, showImg, logoImg, computedFont);
+      drawCanvas(ctx, archive, description, showImg, computedFont);
       setReady(true);
     })();
 
