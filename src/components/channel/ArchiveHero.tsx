@@ -841,7 +841,7 @@ function HeroSlide({ archive, onPlay }: { archive: ArchiveSerialized; onPlay: ()
           {archive.tags && archive.tags.length > 0 && (
             <div className="absolute top-2 right-2 flex gap-1.5 drop-shadow-lg">
               {['exploratory', 'clubby', 'pick-me-up', 'chill'].filter(t => archive.tags!.includes(t)).map(tag => (
-                <span key={tag} className="text-[10px] font-mono text-white/60 uppercase tracking-tighter border border-white/20 px-1.5 py-0.5 rounded">
+                <span key={tag} className="text-[10px] font-mono text-white/60 uppercase tracking-tighter md:border md:border-white/20 px-1.5 py-0.5 md:rounded">
                   {TAG_LABELS[tag] || tag}
                 </span>
               ))}
