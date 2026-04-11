@@ -884,7 +884,7 @@ function ArchiveGridCard({
 
         {/* Top left: Show name */}
         <div className="absolute top-1 left-1 right-1 md:top-1.5 md:left-1.5 md:right-1.5 drop-shadow-lg">
-          <span className="text-[10px] md:text-sm font-bold text-white uppercase tracking-wide whitespace-nowrap overflow-hidden block">{archive.showName}</span>
+          <span className="text-sm font-bold text-white uppercase tracking-wide whitespace-nowrap overflow-hidden block">{archive.showName}</span>
         </div>
 
         {/* Top right: Live badge + BPM (only on live cards) */}
