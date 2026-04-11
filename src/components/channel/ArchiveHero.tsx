@@ -447,6 +447,27 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 <HeroSlide key={ha.id} archive={ha} onPlay={() => { setUserSelectedMode('archive'); pauseLive(); archivePlayer.play(ha); }} />
               ))}
             </div>
+            {/* Desktop arrows */}
+            {heroArchives.length > 1 && (
+              <>
+                <button
+                  onClick={() => setHeroIndex(Math.max(0, heroIndex - 1))}
+                  className={`hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 items-center justify-center rounded-full bg-black/40 hover:bg-black/60 transition-colors ${heroIndex === 0 ? 'opacity-0 pointer-events-none' : ''}`}
+                >
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setHeroIndex(Math.min(heroArchives.length - 1, heroIndex + 1))}
+                  className={`hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 items-center justify-center rounded-full bg-black/40 hover:bg-black/60 transition-colors ${heroIndex === heroArchives.length - 1 ? 'opacity-0 pointer-events-none' : ''}`}
+                >
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </>
+            )}
           </div>
         )}
         {showLiveInHero && (
