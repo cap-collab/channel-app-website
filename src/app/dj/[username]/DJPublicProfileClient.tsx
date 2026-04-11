@@ -1560,8 +1560,8 @@ export function DJPublicProfileClient({ username }: Props) {
 
               return (
                 <div key={archive.id} className="bg-black border border-white/10 overflow-hidden">
-                  {/* Header: Live Recording / Recording */}
-                  <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-black/40 border-b border-white/5">
+                  {/* Header: Live Recording / Recording + date */}
+                  <div className="flex items-center justify-between px-3 py-1.5 bg-black/40 border-b border-white/5">
                     <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
                       {archive.sourceType === 'live' ? (
                         <>
@@ -1577,6 +1577,7 @@ export function DJPublicProfileClient({ username }: Props) {
                         </>
                       )}
                     </span>
+                    <span className="text-zinc-500 text-xs">{recordingDate}</span>
                   </div>
 
                   {/* Body: image left + info right */}
@@ -1596,7 +1597,6 @@ export function DJPublicProfileClient({ username }: Props) {
                     <div className="flex-1 min-w-0 flex flex-col justify-between" style={showImage ? { minHeight: '80px' } : undefined}>
                       <div>
                         <p className="text-sm font-bold text-white uppercase tracking-wide">{archive.showName}</p>
-                        <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-tighter">{recordingDate}</span>
                         {genreText && (
                           <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-400 mt-0.5">{genreText}</p>
                         )}
