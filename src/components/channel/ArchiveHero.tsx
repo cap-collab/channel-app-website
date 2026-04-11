@@ -217,17 +217,26 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const showLiveInHero = isLive && userSelectedMode === 'live';
 
 
-  // Hero carousel: top 3 archives, playing one always first, no duplicates
+  // Hero carousel: top 3 archives, random order when nothing playing
   const heroArchives = useMemo(() => {
-    const playing = archivePlayer.currentArchive || featuredArchive;
-    const result = [playing];
-    for (const a of archives) {
-      if (result.length >= 3) break;
-      if (result.some(r => r.id === a.id)) continue;
-      result.push(a);
+    if (archivePlayer.currentArchive) {
+      // Playing: playing archive first, then next 2
+      const result = [archivePlayer.currentArchive];
+      for (const a of archives) {
+        if (result.length >= 3) break;
+        if (result.some(r => r.id === a.id)) continue;
+        result.push(a);
+      }
+      return result;
     }
-    return result;
-  }, [archives, featuredArchive, archivePlayer.currentArchive]);
+    // Not playing: high priority only, random order
+    const high = archives.filter(a => a.priority === 'high');
+    for (let i = high.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [high[i], high[j]] = [high[j], high[i]];
+    }
+    return high.slice(0, 3);
+  }, [archives, archivePlayer.currentArchive]);
 
   const [heroIndex, setHeroIndex] = useState(0);
   const heroTouchRef = useRef<{ startX: number; startY: number } | null>(null);
