@@ -884,7 +884,7 @@ function ArchiveGridCard({
 
         {/* Top left: Show name */}
         <div className="absolute top-1 left-1 right-1 md:top-1.5 md:left-1.5 md:right-1.5 drop-shadow-lg">
-          <span className="text-[8px] md:text-sm font-bold text-white uppercase tracking-wide whitespace-nowrap overflow-hidden block">{archive.showName}</span>
+          <span className="text-[10px] md:text-sm font-bold text-white uppercase tracking-wide whitespace-nowrap overflow-hidden block">{archive.showName}</span>
         </div>
 
         {/* Top right: Live badge + BPM (only on live cards) */}
@@ -894,7 +894,7 @@ function ArchiveGridCard({
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-600" />
             </span>
-            <span className="text-[8px] md:text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">
+            <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">
               {isRestreamCard ? 'Restream' : 'Live'}
               {cardLiveBPM ? ` ${cardLiveBPM} BPM` : ''}
             </span>
@@ -904,11 +904,11 @@ function ArchiveGridCard({
         {/* Bottom: DJ name, genre below */}
         {displayImage && (
           <div className="absolute bottom-1 left-1 right-1 md:bottom-1.5 md:left-1.5 md:right-1.5 drop-shadow-lg">
-            <div className="text-[7px] md:text-xs font-black uppercase tracking-wider text-white whitespace-nowrap overflow-hidden">
+            <div className="text-[10px] md:text-xs font-black uppercase tracking-wider text-white whitespace-nowrap overflow-hidden">
               {djNames}
             </div>
             {genreText && (
-              <div className="text-[6px] md:text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-300 whitespace-nowrap overflow-hidden mt-0 md:mt-0.5">
+              <div className="text-[8px] md:text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-300 whitespace-nowrap overflow-hidden mt-0.5">
                 {genreText}
               </div>
             )}
