@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { useUserRole, isDJ } from "@/hooks/useUserRole";
 
 
 export type MobileMenuItem =
@@ -19,7 +18,6 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
   const { user, isAuthenticated, signOut, loading } = useAuthContext();
-  const { role } = useUserRole(user);
 
   const handleItemClick = (item: MobileMenuItem) => {
     if (item.onClick) {
@@ -87,18 +85,16 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                 if (isAuthenticated && user) {
                   return (
                     <div key={index}>
-                      {isDJ(role) && (
-                        <button
-                          onClick={() => {
-                            setIsOpen(false);
-                            router.push("/studio");
-                          }}
-                          className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
-                          style={{ pointerEvents: 'auto' }}
-                        >
-                          Studio
-                        </button>
-                      )}
+                      <button
+                        onClick={() => {
+                          setIsOpen(false);
+                          router.push("/studio");
+                        }}
+                        className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                        style={{ pointerEvents: 'auto' }}
+                      >
+                        Studio
+                      </button>
                       <button
                         onClick={() => {
                           setIsOpen(false);

@@ -5,7 +5,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/AuthModal";
-import { useUserRole, isDJ } from "@/hooks/useUserRole";
 
 
 interface BroadcastHeaderProps {
@@ -18,7 +17,6 @@ export function BroadcastHeader({ stationName = "Channel Radio", openInNewWindow
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { user, isAuthenticated, signOut, loading } = useAuthContext();
-  const { role } = useUserRole(user);
 
   // Handle link clicks - open in new window if broadcasting
   const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
@@ -113,18 +111,16 @@ export function BroadcastHeader({ stationName = "Channel Radio", openInNewWindow
                         My Shows
                       </a>
 
-                      {isDJ(role) && (
-                        <a
-                          href="/studio"
-                          onClick={(e) => {
-                            handleLinkClick(e, '/studio');
-                            if (!openInNewWindow) setShowUserMenu(false);
-                          }}
-                          className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
-                        >
-                          Studio
-                        </a>
-                      )}
+                      <a
+                        href="/studio"
+                        onClick={(e) => {
+                          handleLinkClick(e, '/studio');
+                          if (!openInNewWindow) setShowUserMenu(false);
+                        }}
+                        className="block w-full px-3 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                      >
+                        Studio
+                      </a>
                       <a
                         href="/settings"
                         onClick={(e) => {

@@ -107,6 +107,13 @@ export function StudioProfileClient() {
   const [upgradingToDJ, setUpgradingToDJ] = useState(false);
   const [upgradeError, setUpgradeError] = useState("");
 
+  // Invite code state
+  const [showCodeInput, setShowCodeInput] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
+  const [codeValidating, setCodeValidating] = useState(false);
+  const [codeError, setCodeError] = useState("");
+  const [codeValidated, setCodeValidated] = useState(false);
+
   // Track when inline sign-in flow completes (role assignment done)
   const [signInFlowComplete, setSignInFlowComplete] = useState(false);
   // Keep showing inline auth UI until sign-in flow is fully done
@@ -1570,6 +1577,32 @@ export function StudioProfileClient() {
     });
   };
 
+  const handleValidateCode = async () => {
+    if (!inviteCode.trim()) {
+      setCodeError("Please enter a code");
+      return;
+    }
+    setCodeValidating(true);
+    setCodeError("");
+    try {
+      const res = await fetch("/api/validate-invite-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: inviteCode.trim() }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        setCodeValidated(true);
+      } else {
+        setCodeError("Invalid code. Please try again.");
+      }
+    } catch {
+      setCodeError("Something went wrong. Please try again.");
+    } finally {
+      setCodeValidating(false);
+    }
+  };
+
   const handleUpgradeToDJ = async () => {
     if (!user || !agreedToDJTerms) {
       setUpgradeError("Please accept the DJ Terms to continue");
@@ -1609,6 +1642,34 @@ export function StudioProfileClient() {
 
   // Not authenticated, or sign-in is in progress (keep AuthModal mounted until flow completes)
   if (!isAuthenticated || (signingInInline && !signInFlowComplete)) {
+    // Code validated — show sign-up modal with DJ terms
+    if (codeValidated) {
+      return (
+        <div className="min-h-screen bg-black">
+          <Header currentPage="studio" position="sticky" />
+          <main className="max-w-xl mx-auto p-4">
+            <div className="text-center py-12">
+              <h1 className="text-2xl font-semibold text-white mb-2">Studio</h1>
+              <p className="text-gray-400 mb-8">
+                {signingInInline ? 'Setting up your account...' : 'Create your account to get started'}
+              </p>
+              <div className="max-w-sm mx-auto">
+                <AuthModal
+                  isOpen={true}
+                  onClose={() => {}}
+                  inline
+                  includeDjTerms
+                  onSignInStart={() => setSigningInInline(true)}
+                  onSignInComplete={() => setSignInFlowComplete(true)}
+                />
+              </div>
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    // Not authenticated — show two options
     return (
       <div className="min-h-screen bg-black">
         <Header currentPage="studio" position="sticky" />
@@ -1616,17 +1677,53 @@ export function StudioProfileClient() {
           <div className="text-center py-12">
             <h1 className="text-2xl font-semibold text-white mb-2">Studio</h1>
             <p className="text-gray-400 mb-8">
-              {signingInInline ? 'Setting up your account...' : 'Sign in to access your DJ profile'}
+              Broadcast live on Channel
             </p>
-            <div className="max-w-sm mx-auto">
-              <AuthModal
-                isOpen={true}
-                onClose={() => {}}
-                inline
-                includeDjTerms
-                onSignInStart={() => setSigningInInline(true)}
-                onSignInComplete={() => setSignInFlowComplete(true)}
-              />
+
+            <div className="max-w-sm mx-auto space-y-4">
+              {!showCodeInput ? (
+                <button
+                  onClick={() => setShowCodeInput(true)}
+                  className="w-full bg-white text-black px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+                >
+                  I have a code
+                </button>
+              ) : (
+                <div className="bg-[#1e1e1e] rounded-lg p-4 space-y-3">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={inviteCode}
+                      onChange={(e) => { setInviteCode(e.target.value); setCodeError(""); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleValidateCode(); }}
+                      placeholder="Enter your code"
+                      className="flex-1 bg-black border border-gray-700 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-white focus:outline-none"
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleValidateCode}
+                      disabled={codeValidating}
+                      className="bg-white text-black px-4 py-2 rounded font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
+                    >
+                      {codeValidating ? "..." : "Go"}
+                    </button>
+                  </div>
+                  {codeError && <p className="text-red-400 text-sm">{codeError}</p>}
+                  <button
+                    onClick={() => { setShowCodeInput(false); setInviteCode(""); setCodeError(""); }}
+                    className="text-gray-500 text-sm hover:text-gray-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+
+              <Link
+                href="/studio/join"
+                className="block w-full border border-gray-700 text-white px-6 py-3 rounded-lg font-medium hover:border-gray-500 transition-colors"
+              >
+                Apply to host a live show
+              </Link>
             </div>
           </div>
         </main>
@@ -1646,56 +1743,120 @@ export function StudioProfileClient() {
     );
   }
 
-  // Not a DJ - show upgrade option
+  // Authenticated but not a DJ — show two options (code or apply)
   if (!isDJ(role)) {
+    // Code validated — show DJ terms acceptance and upgrade
+    if (codeValidated) {
+      return (
+        <div className="min-h-screen bg-black">
+          <Header currentPage="studio" position="sticky" />
+          <main className="max-w-xl mx-auto p-4">
+            <div className="py-8">
+              <h1 className="text-2xl font-semibold text-white mb-2">Activate DJ Profile</h1>
+              <p className="text-gray-400 mb-6">
+                Accept the DJ Terms to unlock your DJ profile and start broadcasting on Channel.
+              </p>
+
+              <div className="bg-[#1e1e1e] rounded-lg p-6">
+                <label className="flex items-start gap-3 cursor-pointer mb-4">
+                  <input
+                    type="checkbox"
+                    checked={agreedToDJTerms}
+                    onChange={(e) => setAgreedToDJTerms(e.target.checked)}
+                    className="mt-1 w-5 h-5 rounded border-gray-600 bg-gray-800 text-white focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                  />
+                  <span className="text-sm text-gray-300">
+                    I have read and agree to the{" "}
+                    <Link
+                      href="/dj-terms"
+                      target="_blank"
+                      className="text-white underline hover:text-gray-300"
+                    >
+                      DJ Terms
+                    </Link>
+                  </span>
+                </label>
+
+                {upgradeError && (
+                  <p className="text-red-400 text-sm mb-4">{upgradeError}</p>
+                )}
+
+                <button
+                  onClick={handleUpgradeToDJ}
+                  disabled={!agreedToDJTerms || upgradingToDJ}
+                  className="bg-white text-black px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {upgradingToDJ ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                      Activating...
+                    </>
+                  ) : (
+                    "Activate DJ Profile"
+                  )}
+                </button>
+              </div>
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    // Show two options: code input or apply
     return (
       <div className="min-h-screen bg-black">
         <Header currentPage="studio" position="sticky" />
         <main className="max-w-xl mx-auto p-4">
-          <div className="py-8">
-            <h1 className="text-2xl font-semibold text-white mb-2">Upgrade to DJ Profile</h1>
-            <p className="text-gray-400 mb-6">
-              You&apos;re logged in as {user?.email}. Accept the DJ Terms to unlock your DJ profile and start broadcasting on Channel.
+          <div className="text-center py-12">
+            <h1 className="text-2xl font-semibold text-white mb-2">Studio</h1>
+            <p className="text-gray-400 mb-8">
+              Broadcast live on Channel
             </p>
 
-            <div className="bg-[#1e1e1e] rounded-lg p-6">
-              <label className="flex items-start gap-3 cursor-pointer mb-4">
-                <input
-                  type="checkbox"
-                  checked={agreedToDJTerms}
-                  onChange={(e) => setAgreedToDJTerms(e.target.checked)}
-                  className="mt-1 w-5 h-5 rounded border-gray-600 bg-gray-800 text-white focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                />
-                <span className="text-sm text-gray-300">
-                  I have read and agree to the{" "}
-                  <Link
-                    href="/dj-terms"
-                    target="_blank"
-                    className="text-white underline hover:text-gray-300"
+            <div className="max-w-sm mx-auto space-y-4">
+              {!showCodeInput ? (
+                <button
+                  onClick={() => setShowCodeInput(true)}
+                  className="w-full bg-white text-black px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+                >
+                  I have a code
+                </button>
+              ) : (
+                <div className="bg-[#1e1e1e] rounded-lg p-4 space-y-3">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={inviteCode}
+                      onChange={(e) => { setInviteCode(e.target.value); setCodeError(""); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleValidateCode(); }}
+                      placeholder="Enter your code"
+                      className="flex-1 bg-black border border-gray-700 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-white focus:outline-none"
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleValidateCode}
+                      disabled={codeValidating}
+                      className="bg-white text-black px-4 py-2 rounded font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
+                    >
+                      {codeValidating ? "..." : "Go"}
+                    </button>
+                  </div>
+                  {codeError && <p className="text-red-400 text-sm">{codeError}</p>}
+                  <button
+                    onClick={() => { setShowCodeInput(false); setInviteCode(""); setCodeError(""); }}
+                    className="text-gray-500 text-sm hover:text-gray-300 transition-colors"
                   >
-                    DJ Terms
-                  </Link>
-                </span>
-              </label>
-
-              {upgradeError && (
-                <p className="text-red-400 text-sm mb-4">{upgradeError}</p>
+                    Cancel
+                  </button>
+                </div>
               )}
 
-              <button
-                onClick={handleUpgradeToDJ}
-                disabled={!agreedToDJTerms || upgradingToDJ}
-                className="bg-white text-black px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              <Link
+                href="/studio/join"
+                className="block w-full border border-gray-700 text-white px-6 py-3 rounded-lg font-medium hover:border-gray-500 transition-colors text-center"
               >
-                {upgradingToDJ ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                    Upgrading...
-                  </>
-                ) : (
-                  "Upgrade to DJ"
-                )}
-              </button>
+                Apply to host a live show
+              </Link>
             </div>
           </div>
         </main>
