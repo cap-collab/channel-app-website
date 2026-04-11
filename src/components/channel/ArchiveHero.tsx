@@ -700,7 +700,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
         return (
           <div className="mt-6 max-w-3xl mx-auto">
-            <h2 className="text-2xl md:text-3xl font-semibold mb-3">Latest Archives</h2>
+            <h2 className="text-2xl md:text-3xl font-semibold mb-3">Archives</h2>
 
             {/* Tag filter pills */}
             <div className="flex gap-2 mb-4">
