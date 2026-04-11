@@ -779,7 +779,13 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   activeTags={activeTags}
                   isActive={archivePlayer.currentArchive?.id === archive.id}
                   isPlaying={archivePlayer.isPlaying && archivePlayer.currentArchive?.id === archive.id}
-                  onPlay={() => { setUserSelectedMode('archive'); pauseLive(); archivePlayer.play(archive); }}
+                  onPlay={() => {
+                    if (archivePlayer.currentArchive?.id === archive.id && archivePlayer.isPlaying) {
+                      archivePlayer.pause();
+                    } else {
+                      setUserSelectedMode('archive'); pauseLive(); archivePlayer.play(archive);
+                    }
+                  }}
                 />
               ))}
             </div>
@@ -986,30 +992,28 @@ function ArchiveGridCard({
           </div>
         )}
 
-        {/* Centered play/pause icon — always visible to distinguish archive cards */}
+        {/* Centered play/pause icon with circle — always visible to distinguish archive cards */}
         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity ${isActive ? '' : 'group-hover:opacity-0'}`}>
-          {isActive && isPlaying ? (
-            <svg className="w-10 h-10 text-white/60 drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-            </svg>
-          ) : (
-            <svg className="w-10 h-10 text-white/40 drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          )}
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center drop-shadow-lg ${isActive && isPlaying ? 'bg-white/15' : 'bg-black/20 border border-white/20'}`}>
+            {isActive && isPlaying ? (
+              <svg className="w-6 h-6 text-white/70" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+              </svg>
+            ) : (
+              <svg className="w-6 h-6 text-white/50 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            )}
+          </div>
         </div>
 
         {/* Hover overlay with stronger icon */}
         <div className={`absolute inset-0 flex items-center justify-center bg-black/30 transition-opacity ${isActive ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}>
-          {isPlaying ? (
-            <svg className="w-10 h-10 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-            </svg>
-          ) : (
-            <svg className="w-10 h-10 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
+          <div className="w-12 h-12 rounded-full bg-black/40 border border-white/30 flex items-center justify-center">
+            <svg className="w-6 h-6 text-white ml-0.5 drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z" />
             </svg>
-          )}
+          </div>
         </div>
       </button>
 
