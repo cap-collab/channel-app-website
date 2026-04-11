@@ -217,9 +217,6 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const showLiveInHero = isLive && userSelectedMode === 'live';
 
 
-  // The currently displayed archive (either playing or featured)
-  const displayedArchive = archivePlayer.currentArchive || featuredArchive;
-
   // Hero carousel: top 3 archives, playing one always first, no duplicates
   const heroArchives = useMemo(() => {
     const playing = archivePlayer.currentArchive || featuredArchive;
@@ -239,6 +236,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   useEffect(() => {
     setHeroIndex(0);
   }, [archivePlayer.currentArchive?.id]);
+
+  // The currently displayed archive (playing → hero slide → featured)
+  const displayedArchive = archivePlayer.currentArchive || heroArchives[heroIndex] || featuredArchive;
 
   // Live DJ info (computed from currentShow, similar to LiveBroadcastHero)
   const liveDjPhotoUrl = (() => {
@@ -632,13 +632,13 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   )}
                 </button>
                 <div className="flex-1 min-w-0">
-                  <ScrollingShowName text={archivePlayer.currentArchive?.showName || featuredArchive.showName} className="text-sm font-bold leading-tight text-white" />
-                  {(archivePlayer.currentArchive?.djs || featuredArchive.djs) && (
-                    <ScrollingDJName text={(archivePlayer.currentArchive?.djs || featuredArchive.djs).map((d) => d.name).join(', ')} className="text-[10px] text-zinc-500 uppercase mt-0.5 leading-[1.3em]" />
+                  <ScrollingShowName text={displayedArchive.showName} className="text-sm font-bold leading-tight text-white" />
+                  {displayedArchive.djs && (
+                    <ScrollingDJName text={displayedArchive.djs.map((d) => d.name).join(', ')} className="text-[10px] text-zinc-500 uppercase mt-0.5 leading-[1.3em]" />
                   )}
                 </div>
                 {(() => {
-                  const archiveDjUsername = (archivePlayer.currentArchive || featuredArchive).djs[0]?.username?.replace(/\s+/g, '').toLowerCase();
+                  const archiveDjUsername = displayedArchive.djs[0]?.username?.replace(/\s+/g, '').toLowerCase();
                   return archiveDjUsername ? (
                     <Link href={`/dj/${archiveDjUsername}`} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
@@ -768,27 +768,6 @@ function HeroSlide({ archive, onPlay }: { archive: ArchiveSerialized; onPlay: ()
   const [imgError, setImgError] = useState(false);
   const hasPhoto = photoUrl && !imgError;
 
-  // Watchlist
-  const { isInWatchlist, followDJ, removeFromWatchlist } = useFavorites();
-  const djWatchlistName = primaryDj?.name || '';
-  const isFollowing = djWatchlistName ? isInWatchlist(djWatchlistName) : false;
-  const [isAddingFollow, setIsAddingFollow] = useState(false);
-
-  const handleToggleWatchlist = useCallback(async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!djWatchlistName) return;
-    setIsAddingFollow(true);
-    try {
-      if (isFollowing) {
-        await removeFromWatchlist(djWatchlistName);
-      } else {
-        await followDJ(djWatchlistName);
-      }
-    } finally {
-      setIsAddingFollow(false);
-    }
-  }, [djWatchlistName, isFollowing, followDJ, removeFromWatchlist]);
-
   return (
     <button
       onClick={onPlay}
@@ -818,21 +797,6 @@ function HeroSlide({ archive, onPlay }: { archive: ArchiveSerialized; onPlay: ()
                   </span>
                 ))}
               </div>
-            )}
-          </div>
-          {/* Watchlist — top right */}
-          <div
-            onClick={handleToggleWatchlist}
-            className={`absolute top-2 right-2 z-20 w-8 h-8 flex items-center justify-center rounded-full transition-colors ${
-              isFollowing ? 'bg-white/20 text-white/50' : 'bg-white text-black hover:bg-gray-200'
-            } ${isAddingFollow ? 'opacity-50' : ''}`}
-          >
-            {isAddingFollow ? (
-              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-            ) : isFollowing ? (
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
-            ) : (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
             )}
           </div>
           <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
