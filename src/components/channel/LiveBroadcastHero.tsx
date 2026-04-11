@@ -231,13 +231,18 @@ export function DJImageOverlay({
 
   return (
     <div className="absolute bottom-2 left-2 right-2 drop-shadow-lg">
-      {/* DJ Name + Genre on one line */}
+      {/* DJ Name — genre inline when description exists, below when not */}
       <div className="text-xs font-black uppercase tracking-wider text-white whitespace-nowrap overflow-hidden">
         {djName}
-        {genreText && (
+        {genreText && djDescription && (
           <span className="font-medium tracking-[0.15em] text-zinc-300"> - {genreText}</span>
         )}
       </div>
+      {genreText && !djDescription && (
+        <div className="text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-300 whitespace-nowrap overflow-hidden mt-0.5">
+          {genreText}
+        </div>
+      )}
 
       {/* Description — max 2 visible lines, auto-scrolls if longer */}
       {djDescription && (
