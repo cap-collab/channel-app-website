@@ -662,6 +662,11 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
       </div>
 
+      {/* Latest Archives */}
+      <div className="mt-6 max-w-7xl mx-auto">
+        <h2 className="text-2xl md:text-3xl font-semibold mb-4">Latest Archives</h2>
+      </div>
+
       {/* Archive Carousels by mood */}
       {[
         { tag: 'pick-me-up', label: 'Pick Me Up' },
@@ -673,8 +678,8 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           : archives.filter(a => a.tags?.includes(tag));
         if (filtered.length === 0) return null;
         return (
-          <div key={tag} className="mt-6 max-w-7xl mx-auto">
-            <h2 className="text-2xl md:text-3xl font-semibold mb-2">{label}</h2>
+          <div key={tag} className="mt-4 max-w-7xl mx-auto">
+            <h3 className="text-xs font-mono uppercase tracking-widest text-zinc-500 mb-2">{label}</h3>
             <SwipeableCardCarousel>
               {filtered.map((archive) => (
                 <ArchiveGridCard
