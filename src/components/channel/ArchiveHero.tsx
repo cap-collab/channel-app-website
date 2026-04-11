@@ -19,7 +19,7 @@ import { DJImageOverlay, ScrollingShowName, ScrollingDJName } from './LiveBroadc
 import { FloatingHearts } from './FloatingHearts';
 import { TipButton } from './TipButton';
 import { AuthModal } from '@/components/AuthModal';
-import { Tuner } from '@/components/channel/Tuner';
+import { SwipeableCardCarousel } from '@/components/channel/SwipeableCardCarousel';
 import { ArchiveSerialized } from '@/types/broadcast';
 
 function ArchiveIcon({ className }: { className?: string }) {
@@ -662,53 +662,33 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
       </div>
 
-      {/* Latest Archives Grid — wider to match scene section */}
-      <div className="mt-6 max-w-7xl mx-auto">
-        <h2 className="text-xs font-mono uppercase tracking-widest text-zinc-500 mb-3">Latest Archives</h2>
-
-        <div className="mb-4">
-          <ArchiveTuner />
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4">
-          {isLive && currentShow && archivePlayer.isPlaying && (
-            <ArchiveGridCard
-              archive={{
-                id: 'live-now',
-                slug: '',
-                broadcastSlotId: '',
-                showName: liveShowName,
-                djs: [{ name: liveDjName || 'Live', username: liveDJChatRoom || '', photoUrl: liveDjPhotoUrl || undefined }],
-                recordingUrl: '',
-                duration: 0,
-                recordedAt: Date.now(),
-                createdAt: Date.now(),
-                stationId: 'channel-main',
-                showImageUrl: liveDjPhotoUrl || undefined,
-              }}
-              isActive={isLivePlaying}
-              isPlaying={isLivePlaying}
-              isLive
-              isRestream={isRestream}
-              liveBPM={liveBPM}
-              onPlay={() => {
-                if (archivePlayer.isPlaying) archivePlayer.pause();
-                setUserSelectedMode('live');
-                playLive();
-              }}
-            />
-          )}
-          {archives.map((archive) => (
-            <ArchiveGridCard
-              key={archive.id}
-              archive={archive}
-              isActive={archivePlayer.currentArchive?.id === archive.id}
-              isPlaying={archivePlayer.isPlaying && archivePlayer.currentArchive?.id === archive.id}
-              onPlay={() => { setUserSelectedMode('archive'); pauseLive(); archivePlayer.play(archive); }}
-            />
-          ))}
-        </div>
-      </div>
+      {/* Archive Carousels by mood */}
+      {[
+        { tag: 'pick-me-up', label: 'Pick Me Up' },
+        { tag: 'chill', label: 'Chill' },
+        { tag: 'exploratory', label: 'Exploratory' },
+      ].map(({ tag, label }) => {
+        const filtered = tag === 'exploratory'
+          ? archives.filter(a => a.tags?.includes('exploratory') || !a.tags?.length)
+          : archives.filter(a => a.tags?.includes(tag));
+        if (filtered.length === 0) return null;
+        return (
+          <div key={tag} className="mt-6 max-w-7xl mx-auto">
+            <h2 className="text-2xl md:text-3xl font-semibold mb-2">{label}</h2>
+            <SwipeableCardCarousel>
+              {filtered.map((archive) => (
+                <ArchiveGridCard
+                  key={archive.id}
+                  archive={archive}
+                  isActive={archivePlayer.currentArchive?.id === archive.id}
+                  isPlaying={archivePlayer.isPlaying && archivePlayer.currentArchive?.id === archive.id}
+                  onPlay={() => { setUserSelectedMode('archive'); pauseLive(); archivePlayer.play(archive); }}
+                />
+              ))}
+            </SwipeableCardCarousel>
+          </div>
+        );
+      })}
 
       <AuthModal
         isOpen={showAuthModal}
@@ -802,29 +782,6 @@ function HeroSlide({ archive, onPlay }: { archive: ArchiveSerialized; onPlay: ()
   );
 }
 
-function ArchiveTuner() {
-  const {
-    selectedCity, handleCityChange,
-    selectedGenres, handleGenresChange,
-    cityResultCount, genreResultCount,
-    citiesWithMatches, genresWithMatches,
-    onGenreDropdownClose,
-  } = useFilterContext();
-
-  return (
-    <Tuner
-      selectedCity={selectedCity}
-      onCityChange={handleCityChange}
-      selectedGenres={selectedGenres}
-      onGenresChange={handleGenresChange}
-      cityResultCount={cityResultCount}
-      genreResultCount={genreResultCount}
-      citiesWithMatches={citiesWithMatches}
-      genresWithMatches={genresWithMatches}
-      onGenreDropdownClose={onGenreDropdownClose}
-    />
-  );
-}
 
 function ArchiveGridCard({
   archive,

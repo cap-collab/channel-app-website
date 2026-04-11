@@ -183,6 +183,18 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
     }
   };
 
+  const handleToggleTag = async (archiveId: string, tag: string) => {
+    const archive = archives.find(a => a.id === archiveId);
+    if (!archive) return;
+    const currentTags = archive.tags || [];
+    const newTags = currentTags.includes(tag)
+      ? currentTags.filter(t => t !== tag)
+      : [...currentTags, tag];
+    // Optimistic update
+    setArchives(prev => prev.map(a => a.id === archiveId ? { ...a, tags: newTags } : a));
+    await handleUpdateArchive(archiveId, { tags: newTags });
+  };
+
   // Filter
   const filtered = archives.filter((a) => {
     if (filterSource !== 'all' && a.sourceType !== filterSource) return false;
@@ -317,6 +329,7 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
               onDelete={() => initiateDelete(archive)}
               onPriorityChange={handlePriorityChange}
               onUpdate={handleUpdateArchive}
+              onToggleTag={handleToggleTag}
               isDeleting={deletingId === archive.id}
             />
           ))}
@@ -411,17 +424,25 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
 }
 
 // Archive Card Component
+const TAG_OPTIONS = [
+  { value: 'pick-me-up', label: 'Pick Me Up', color: 'bg-green-900/40 text-green-400 border-green-800' },
+  { value: 'chill', label: 'Chill', color: 'bg-blue-900/40 text-blue-400 border-blue-800' },
+  { value: 'exploratory', label: 'Exploratory', color: 'bg-purple-900/40 text-purple-400 border-purple-800' },
+];
+
 function ArchiveCard({
   archive,
   onDelete,
   onPriorityChange,
   onUpdate,
+  onToggleTag,
   isDeleting,
 }: {
   archive: ArchiveSerialized;
   onDelete: () => void;
   onPriorityChange: (archiveId: string, priority: ArchivePriority) => void;
   onUpdate: (archiveId: string, updates: Record<string, unknown>) => Promise<void>;
+  onToggleTag: (archiveId: string, tag: string) => void;
   isDeleting: boolean;
 }) {
   const djNames = archive.djs?.map(dj => dj.name).join(', ') || 'Unknown DJ';
@@ -623,6 +644,23 @@ function ArchiveCard({
                   {primaryDj?.location}
                 </p>
               )}
+              {/* Tag pills */}
+              <div className="flex items-center gap-1.5 mb-1.5">
+                {TAG_OPTIONS.map(({ value, label, color }) => {
+                  const active = archive.tags?.includes(value);
+                  return (
+                    <button
+                      key={value}
+                      onClick={() => onToggleTag(archive.id, value)}
+                      className={`px-2 py-0.5 text-[10px] rounded border transition-colors ${
+                        active ? color : 'bg-gray-800/50 text-gray-600 border-gray-700 hover:text-gray-400'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
               <div className="flex items-center gap-4 text-xs text-gray-500">
                 <span>{formatDuration(archive.duration || 0)}</span>
                 {archive.recordedAt && (

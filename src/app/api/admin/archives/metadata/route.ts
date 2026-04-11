@@ -28,6 +28,7 @@ export async function PATCH(request: NextRequest) {
     if (body.showName !== undefined) updates.showName = body.showName;
     if (body.showImageUrl !== undefined) updates.showImageUrl = body.showImageUrl || null;
     if (body.slug !== undefined) updates.slug = body.slug;
+    if (body.tags !== undefined) updates.tags = Array.isArray(body.tags) ? body.tags : [];
 
     // DJ-level updates (genres, location, name, username, photoUrl)
     if (body.djIndex !== undefined) {
