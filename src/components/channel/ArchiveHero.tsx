@@ -753,10 +753,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 <button
                   key={tag}
                   onClick={() => toggleTag(tag)}
-                  className={`px-1.5 sm:px-2 py-1 sm:py-1.5 rounded text-[9px] sm:text-xs font-medium transition-colors border flex items-center gap-0.5 sm:gap-1 ${
+                  className={`px-1.5 sm:px-2 py-1 sm:py-1.5 rounded text-[9px] sm:text-xs font-medium transition-colors border-0 sm:border flex items-center gap-0.5 sm:gap-1 ${
                     activeTags.includes(tag)
-                      ? 'border-white text-white'
-                      : 'border-white/10 text-zinc-600 hover:border-white/30 hover:text-zinc-400'
+                      ? 'sm:border-white text-white'
+                      : 'sm:border-white/10 text-zinc-600 hover:sm:border-white/30 hover:text-zinc-400'
                   }`}
                 >
                   {activeTags.includes(tag) ? (
@@ -839,9 +839,9 @@ function HeroSlide({ archive, onPlay }: { archive: ArchiveSerialized; onPlay: ()
           </div>
           {/* Mood tags — top right */}
           {archive.tags && archive.tags.length > 0 && (
-            <div className="absolute top-2 right-2 flex gap-1.5 drop-shadow-lg">
+            <div className="absolute top-2 right-2 flex flex-wrap justify-end gap-1 max-w-[50%] drop-shadow-lg">
               {['exploratory', 'clubby', 'pick-me-up', 'chill'].filter(t => archive.tags!.includes(t)).map(tag => (
-                <span key={tag} className="text-[10px] font-mono text-white/60 uppercase tracking-tighter md:border md:border-white/20 px-1.5 py-0.5 md:rounded">
+                <span key={tag} className="text-[10px] font-mono text-white/60 uppercase tracking-tighter border border-white/20 px-1.5 py-0.5 rounded">
                   {TAG_LABELS[tag] || tag}
                 </span>
               ))}
