@@ -883,11 +883,11 @@ function ArchiveGridCard({
   const genreLabel = matchingGenres.length > 0 ? matchingGenres.map(g => g.toUpperCase()).join(' + ') : '';
   const cityMatch = selectedCity && selectedCity !== 'Anywhere' && djLocation ? matchesCity(djLocation, selectedCity) : false;
   const cityLabel = cityMatch ? selectedCity!.toUpperCase() : '';
-  // Mood tag: first active tag that matches this archive
-  const moodLabel = activeTags
-    ? (archive.tags || []).filter(t => activeTags.includes(t)).map(t => TAG_LABELS[t] || t.toUpperCase())[0] || ''
-    : '';
-  const parts = [moodLabel, genreLabel, cityLabel].filter(Boolean);
+  // Mood tags: all active tags that match this archive
+  const moodLabels = activeTags
+    ? (archive.tags || []).filter(t => activeTags.includes(t)).map(t => TAG_LABELS[t] || t.toUpperCase())
+    : [];
+  const parts = [...moodLabels, genreLabel, cityLabel].filter(Boolean);
   const matchLabel = parts.length > 0 ? parts.join(' · ') : undefined;
 
   // Watchlist
