@@ -190,6 +190,6 @@ export function matchesGenre(showGenres: string[], genre: string): boolean {
   }
   return showGenres.some((g) => {
     const gNorm = normalizeGenre(g);
-    return allTerms.some((term) => gNorm.includes(term) || term.includes(gNorm));
+    return allTerms.some((term) => gNorm === term || gNorm.includes(term));
   });
 }

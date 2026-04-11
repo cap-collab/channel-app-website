@@ -802,10 +802,14 @@ function ArchiveGridCard({
   onPlay: () => void;
 }) {
   const djNames = archive.djs.map((d) => d.name).join(', ');
-  const primaryUsername = archive.djs[0]?.username;
-  const { genres, location: djLocation } = useDJProfileInfo(primaryUsername);
+  const primaryDj = archive.djs[0];
+  const primaryUsername = primaryDj?.username;
+  const profileInfo = useDJProfileInfo(primaryUsername);
+  // Archive-stored data takes priority over profile lookup
+  const genres = (primaryDj?.genres?.length ? primaryDj.genres : profileInfo.genres) || [];
+  const djLocation = primaryDj?.location || profileInfo.location;
   const genreText = genres.length > 0 ? genres.map((g) => g.toUpperCase()).join(' · ') : null;
-  const displayImage = archive.showImageUrl || archive.djs[0]?.photoUrl;
+  const displayImage = archive.showImageUrl || primaryDj?.photoUrl;
 
   // Match label from user filters
   const { selectedCity, selectedGenres } = useFilterContext();
