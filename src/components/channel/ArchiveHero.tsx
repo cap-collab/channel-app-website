@@ -904,11 +904,11 @@ function ArchiveGridCard({
         {/* Bottom: DJ name, genre below */}
         {displayImage && (
           <div className="absolute bottom-1 left-1 right-1 md:bottom-1.5 md:left-1.5 md:right-1.5 drop-shadow-lg">
-            <div className="text-[10px] md:text-xs font-black uppercase tracking-wider text-white whitespace-nowrap overflow-hidden">
+            <div className="text-xs font-black uppercase tracking-wider text-white whitespace-nowrap overflow-hidden">
               {djNames}
             </div>
             {genreText && (
-              <div className="text-[8px] md:text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-300 whitespace-nowrap overflow-hidden mt-0.5">
+              <div className="text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-300 whitespace-nowrap overflow-hidden mt-0.5">
                 {genreText}
               </div>
             )}
