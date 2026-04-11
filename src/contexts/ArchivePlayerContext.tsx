@@ -255,6 +255,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Lock screen / Media Session metadata for archive playback
+  const artworkPreloadRef = useRef<HTMLImageElement | null>(null);
   useEffect(() => {
     if (!('mediaSession' in navigator) || !currentArchive) return;
 
@@ -262,13 +263,42 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     const artworkUrl = currentArchive.showImageUrl || currentArchive.djs[0]?.photoUrl;
     const fallbackArtworkUrl = typeof window !== 'undefined' ? `${window.location.origin}/apple-touch-icon.png` : '';
 
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: currentArchive.showName || 'Archive',
-      artist: djNames || undefined,
-      artwork: artworkUrl
-        ? [{ src: artworkUrl, sizes: '512x512', type: 'image/jpeg' }]
-        : [{ src: fallbackArtworkUrl, sizes: '180x180', type: 'image/png' }],
-    });
+    const setMetadata = (imgSrc?: string) => {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentArchive.showName || 'Archive',
+        artist: djNames || undefined,
+        artwork: imgSrc
+          ? [{ src: imgSrc, sizes: '512x512', type: 'image/jpeg' }]
+          : [{ src: fallbackArtworkUrl, sizes: '180x180', type: 'image/png' }],
+      });
+    };
+
+    // Clean up previous preload
+    if (artworkPreloadRef.current) {
+      artworkPreloadRef.current.onload = null;
+      artworkPreloadRef.current.onerror = null;
+      artworkPreloadRef.current.src = '';
+      artworkPreloadRef.current = null;
+    }
+
+    if (artworkUrl) {
+      // Set metadata with fallback first, then upgrade when image loads
+      setMetadata();
+      const img = new window.Image();
+      artworkPreloadRef.current = img;
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        if (artworkPreloadRef.current === img) {
+          setMetadata(artworkUrl);
+        }
+      };
+      img.onerror = () => {
+        // Keep fallback metadata
+      };
+      img.src = artworkUrl;
+    } else {
+      setMetadata();
+    }
 
     if (isPlaying) {
       try {

@@ -458,7 +458,8 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   alt={djName || 'DJ'}
                   fill
                   className="object-cover"
-                  unoptimized
+                  sizes="(max-width: 768px) 100vw, 768px"
+                  priority
                   onError={() => setImageError(true)}
                 />
                 <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
@@ -712,7 +713,7 @@ function HeroSlide({ archive }: { archive: ArchiveSerialized }) {
         alt={djName || 'DJ'}
         fill
         className="object-cover"
-        unoptimized
+        sizes="(max-width: 768px) 100vw, 768px"
         priority
         onError={() => setImgError(true)}
       />
@@ -840,7 +841,7 @@ function ArchiveGridCard({
               alt={archive.showName}
               fill
               className="object-cover"
-              unoptimized
+              sizes="(max-width: 768px) 50vw, 33vw"
             />
             <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
