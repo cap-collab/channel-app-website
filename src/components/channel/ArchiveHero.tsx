@@ -682,14 +682,15 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       {/* Latest Archives — filtered full-width cards */}
       {(() => {
         const heroFirstId = heroArchives[0]?.id;
-        // Filter: match any active tag, hide low priority, sort newest first
+        // Filter: hide archives that have any non-active (toggled off) mood tag
+        const allTags = ['pick-me-up', 'chill', 'exploratory'];
+        const inactiveTags = allTags.filter(t => !activeTags.includes(t));
         const filtered = archives
           .filter(a => a.priority !== 'low')
           .filter(a => {
-            if (activeTags.length === 0) return true;
-            // If archive has tags, check overlap. If no tags, show in exploratory if active
-            if (a.tags?.length) return activeTags.some(t => a.tags!.includes(t));
-            return activeTags.includes('exploratory');
+            if (!a.tags?.length) return true;
+            // Exclude if archive has any tag that's toggled off
+            return !inactiveTags.some(t => a.tags!.includes(t));
           })
           .sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0));
         // Move hero first to position 3
