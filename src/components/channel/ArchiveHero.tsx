@@ -840,7 +840,7 @@ function HeroSlide({ archive, onPlay }: { archive: ArchiveSerialized; onPlay: ()
           {/* Mood tags — top right */}
           {archive.tags && archive.tags.length > 0 && (
             <div className="absolute top-2 right-2 flex gap-1.5 drop-shadow-lg">
-              {archive.tags.map(tag => (
+              {['exploratory', 'clubby', 'pick-me-up', 'chill'].filter(t => archive.tags!.includes(t)).map(tag => (
                 <span key={tag} className="text-[10px] font-mono text-white/60 uppercase tracking-tighter border border-white/20 px-1.5 py-0.5 rounded">
                   {TAG_LABELS[tag] || tag}
                 </span>
@@ -895,9 +895,10 @@ function ArchiveGridCard({
   const genreLabel = matchingGenres.length > 0 ? matchingGenres.map(g => g.toUpperCase()).join(' + ') : '';
   const cityMatch = selectedCity && selectedCity !== 'Anywhere' && djLocation ? matchesCity(djLocation, selectedCity) : false;
   const cityLabel = cityMatch ? selectedCity!.toUpperCase() : '';
-  // Mood tags: all active tags that match this archive
+  // Mood tags: all active tags that match this archive, in fixed display order
+  const MOOD_ORDER = ['exploratory', 'clubby', 'pick-me-up', 'chill'];
   const moodLabels = activeTags
-    ? (archive.tags || []).filter(t => activeTags.includes(t)).map(t => TAG_LABELS[t] || t.toUpperCase())
+    ? MOOD_ORDER.filter(t => activeTags.includes(t) && (archive.tags || []).includes(t)).map(t => TAG_LABELS[t] || t.toUpperCase())
     : [];
   const parts = [...moodLabels, genreLabel, cityLabel].filter(Boolean);
   const matchLabel = parts.length > 0 ? parts.join(' · ') : undefined;
