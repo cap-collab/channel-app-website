@@ -6,8 +6,8 @@ import { useDJProfileInfo } from '@/hooks/useDJProfileInfo';
 
 // Square IG post: 1080×1080
 const CANVAS_W = 1080;
-const LOGO_STRIP_H = 64;
-const IMAGE_H = CANVAS_W - LOGO_STRIP_H; // 1016px square hero
+const LOGO_STRIP_H = 83; // 30% thicker than original 64px
+const IMAGE_H = CANVAS_W - LOGO_STRIP_H;
 const CANVAS_H = CANVAS_W;
 
 const S = CANVAS_W / 375;
@@ -81,25 +81,8 @@ function drawCanvas(
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-  // === Logo strip: logo left + channel-app.com right ===
-  const line1CenterY = LOGO_STRIP_H / 2;
-  const fontSize = Math.round(11 * S);
-
-  if (logoImg) {
-    const logoH = Math.round(24 * S / 2);
-    const logoW = logoImg.naturalWidth * (logoH / logoImg.naturalHeight);
-    ctx.drawImage(logoImg, pad, line1CenterY - logoH / 2, logoW, logoH);
-  }
-
-  ctx.fillStyle = '#a1a1aa';
-  ctx.font = `500 ${fontSize}px ${F}`;
-  ctx.textBaseline = 'middle';
-  ctx.textAlign = 'right';
-  ctx.fillText('channel-app.com', CANVAS_W - pad, line1CenterY);
-  ctx.textAlign = 'left';
-
-  // === Hero image (fills rest of canvas) ===
-  const imgTop = LOGO_STRIP_H;
+  // === Hero image (top of canvas) ===
+  const imgTop = 0;
   if (showImg) {
     drawCoverImage(ctx, showImg, imgTop, IMAGE_H);
   } else {
@@ -112,6 +95,28 @@ function drawCanvas(
     ctx.fillText((djNames || archive.showName).toUpperCase(), CANVAS_W / 2, imgTop + IMAGE_H / 2);
     ctx.textAlign = 'left';
   }
+
+  // === Logo strip at bottom: logo left + channel-app.com right ===
+  const logoStripTop = IMAGE_H;
+  const line1CenterY = logoStripTop + LOGO_STRIP_H / 2;
+  const fontSize = Math.round(11 * S);
+
+  // Black background for logo strip (already filled, but ensure it's clean)
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, logoStripTop, CANVAS_W, LOGO_STRIP_H);
+
+  if (logoImg) {
+    const logoH = Math.round(24 * S * 1.3 / 2);
+    const logoW = logoImg.naturalWidth * (logoH / logoImg.naturalHeight);
+    ctx.drawImage(logoImg, pad, line1CenterY - logoH / 2, logoW, logoH);
+  }
+
+  ctx.fillStyle = '#a1a1aa';
+  ctx.font = `500 ${fontSize}px ${F}`;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'right';
+  ctx.fillText('channel-app.com', CANVAS_W - pad, line1CenterY);
+  ctx.textAlign = 'left';
 
   // Gradient scrims
   const topGrad = ctx.createLinearGradient(0, imgTop, 0, imgTop + IMAGE_H);
