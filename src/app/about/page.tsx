@@ -9,12 +9,12 @@ const faqItems = [
   {
     question: "What is Channel?",
     answer:
-      "Channel is an online radio for the electronic music community, curated in LA.\n\nDJs, labels, venues, and collectives host shows and listening sessions. People tune in, listen together, and connect with their community.\n\nNo ads. No algorithms.",
+      "Channel is an online radio for the electronic music community, curated in LA.\n\nArtists, labels, venues, and collectives host shows and listening sessions. People tune in, listen together, and connect with their community.\n\nNo ads. No algorithms.",
   },
   {
     question: "Who is it for?",
     answer:
-      "For DJs and show hosts\nHost shows, share music, connect directly with the people who care about your craft, and notify your followers when something new happens.\n\nNo more depending on Instagram to reach your audience.\n\nFor listeners\nFollow the DJs and curators you care about. Get notified when something new happens. Tune in when they host shows and connect with them and their community, live.\n\nNo more chasing stories to catch what's next.",
+      "For artists and show hosts\nHost shows, share music, connect directly with the people who care about your craft, and notify your followers when something new happens.\n\nNo more depending on Instagram to reach your audience.\n\nFor listeners\nFollow the artists and curators you care about. Get notified when something new happens. Tune in when they host shows and connect with them and their community, live.\n\nNo more chasing stories to catch what's next.",
   },
   {
     question: "How much does it cost?",
@@ -44,15 +44,15 @@ export default function About() {
 
             <div className="space-y-6 text-zinc-400 leading-relaxed">
               <p>
-                My name is Cap. I&apos;m building Channel out of love for DJ culture and the communities that make it so special.
+                My name is Cap. I&apos;m building Channel out of love for the music, and the people behind it.
               </p>
 
               <p>
-                After moving from France to New York to Los Angeles, I realized how hard it is to stay connected to the people shaping a scene, on and beyond the dancefloor. This culture deserves better tools to find and follow the sounds and people you care about.
+                After moving from France to New York to Los Angeles, I realized how hard it is to stay connected to the people shaping a scene. This culture deserves better tools to find and follow the sounds and people you care about.
               </p>
 
               <p>
-                Channel is built with the same values that shape the spaces we love. On the dancefloor, that often means no recording, no yapping, no staring, and a shared focus on the music. Channel extends that culture beyond the dancefloor — a place to have conversations, dive deeper into music, strengthen communities, and support the artists shaping our world.
+                Channel is built with the same values that shape the spaces we love. On the dancefloor, that often means no recording, no yapping, no staring, and a shared focus on the music. Channel extends that culture beyond the dancefloor — a place to dive deeper into music, strengthen communities, and support the artists shaping our world.
               </p>
 
               <p>
