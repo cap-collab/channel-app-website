@@ -418,6 +418,7 @@ export function DJPublicProfileClient({ username }: Props) {
     }
   }, [hasSetDefaultTab, djProfile?.email, liveOnChannel]);
 
+
   // Fetch DJ profile by username
   useEffect(() => {
     async function fetchDJProfile() {
@@ -1233,6 +1234,15 @@ export function DJPublicProfileClient({ username }: Props) {
     return { upcomingShows: upcoming, pastActivities: past };
   }, [upcomingBroadcasts, pastExternalShows, pastBroadcastShows, djProfile, djUpcomingEvents, djPastEvents]);
 
+  // If schedule is empty, default to chat tab
+  const hasScheduleContent = upcomingShows.length > 0 || pastActivities.length > 0;
+
+  useEffect(() => {
+    if (!hasScheduleContent && !hasSetDefaultTab && djProfile?.email) {
+      setActiveTab('chat');
+    }
+  }, [hasScheduleContent, hasSetDefaultTab, djProfile?.email]);
+
   // Create Artist Selects (recommendations)
   const artistSelects = useMemo(() => {
     const selects: { label: string; url: string; imageUrl?: string }[] = [];
@@ -1632,17 +1642,19 @@ export function DJPublicProfileClient({ username }: Props) {
         {/* Tab Bar - only if DJ has email (claimed profile) */}
         {profile.email && (
           <div className="flex border-b border-white/10 mb-4">
-            <button
-              onClick={() => setActiveTab('timeline')}
-              className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${
-                activeTab === 'timeline' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
-              }`}
-            >
-              Schedule
-              {activeTab === 'timeline' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
-              )}
-            </button>
+            {hasScheduleContent && (
+              <button
+                onClick={() => setActiveTab('timeline')}
+                className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${
+                  activeTab === 'timeline' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                Schedule
+                {activeTab === 'timeline' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
+                )}
+              </button>
+            )}
             <button
               onClick={() => setActiveTab('chat')}
               className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${
