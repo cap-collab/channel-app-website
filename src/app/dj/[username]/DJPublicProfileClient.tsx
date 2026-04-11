@@ -1545,104 +1545,78 @@ export function DJPublicProfileClient({ username }: Props) {
               const currentTime = isThisArchive ? archivePlayer.currentTime : 0;
               const showImage = archive.showImageUrl;
               const recordingDate = new Date(archive.recordedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-              const stationName = getStationById(archive.stationId)?.name || "Channel Radio";
+              const archiveGenres = archive.djs?.[0]?.genres;
+              const genreText = archiveGenres?.length ? archiveGenres.map(g => g.toUpperCase()).join(' · ') : null;
 
               return (
-                <div key={archive.id} className="bg-zinc-900/50 border border-white/10 rounded-lg overflow-hidden">
-                  {/* Header bar */}
-                  <div className="grid grid-cols-3 items-center px-4 py-2 bg-black/40">
-                    <span className="text-zinc-400 text-xs">
-                      {recordingDate}
-                    </span>
-                    <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center justify-center gap-1.5">
-                      {archive.sourceType === 'live' ? (
-                        <>
-                          <span className="inline-flex rounded-full h-2 w-2 bg-red-600"></span>
-                          Live Recording
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-3 h-3 text-zinc-400" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-                          </svg>
-                          Recording
-                        </>
-                      )}
-                    </span>
-                    <span className="text-zinc-400 text-xs text-right">
-                      {stationName}
-                    </span>
-                  </div>
-                  {/* Body */}
-                  <div className="p-4">
-                    <div className="flex items-start gap-4">
-                      {showImage && (
-                        <div className="w-20 h-20 rounded bg-zinc-800 flex-shrink-0 overflow-hidden">
-                          <Image
-                            src={showImage}
-                            alt={archive.showName}
-                            width={80}
-                            height={80}
-                            className="w-full h-full object-cover"
-                            unoptimized
-                          />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0 flex flex-col justify-between" style={showImage ? { minHeight: '80px' } : undefined}>
-                        <div>
-                          <p className="text-white font-medium">{archive.showName}</p>
-                          {archive.djs && archive.djs.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 mt-1">
-                              {archive.djs.map((dj, i) => (
-                                dj.username ? (
-                                  <Link
-                                    key={`dj-${i}`}
-                                    href={`/dj/${dj.username}`}
-                                    className="text-xs text-zinc-400 hover:text-white transition-colors"
-                                  >
-                                    {dj.name}
-                                    {i < archive.djs.length - 1 ? "," : ""}
-                                  </Link>
-                                ) : (
-                                  <span key={`dj-${i}`} className="text-xs text-zinc-400">
-                                    {dj.name}
-                                    {i < archive.djs.length - 1 ? "," : ""}
-                                  </span>
-                                )
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                <div key={archive.id} className="bg-black border border-white/10 overflow-hidden">
+                  {/* Image with overlays */}
+                  <div className="relative w-full aspect-[4/3] overflow-hidden">
+                    {showImage ? (
+                      <>
+                        <Image
+                          src={showImage}
+                          alt={archive.showName}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
+                      </>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-white/5">
+                        <h2 className="text-2xl font-black uppercase tracking-tight leading-none text-white text-center px-4">
+                          {archive.showName}
+                        </h2>
+                      </div>
+                    )}
 
-                        {/* Player */}
-                        <div className="flex items-center gap-2 mt-1">
-                          <button
-                            onClick={() => handlePlayPause(archive)}
-                            className="w-7 h-7 bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0 text-black"
-                          >
-                            {isPlayingArchive ? (
-                              <PauseIcon size={12} />
-                            ) : (
-                              <svg className="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M8 5v14l11-7z" />
-                              </svg>
-                            )}
-                          </button>
-                          <div className="flex-1 min-w-0 space-y-0.5">
-                            <input
-                              type="range"
-                              min={0}
-                              max={archive.duration || 100}
-                              value={currentTime}
-                              onChange={(e) => handleSeek(archive.id, parseFloat(e.target.value))}
-                              className="w-full h-1 bg-zinc-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
-                            />
-                            <div className="flex justify-between text-[10px] text-zinc-500">
-                              <span>{formatDuration(currentTime)}</span>
-                              <span>{formatDuration(archive.duration)}</span>
-                            </div>
-                          </div>
+                    {/* Bottom overlay: show name + badge + date + genre */}
+                    <div className="absolute bottom-2 left-2 right-2 drop-shadow-lg">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-bold text-white uppercase tracking-wide whitespace-nowrap overflow-hidden">{archive.showName}</span>
+                        <span className="flex items-center gap-1.5 text-[10px] font-mono text-zinc-300 uppercase tracking-tighter flex-shrink-0">
+                          {archive.sourceType === 'live' && (
+                            <span className="inline-flex rounded-full h-1.5 w-1.5 bg-red-600" />
+                          )}
+                          {archive.sourceType === 'live' ? 'Live' : 'Rec'} · {recordingDate}
+                        </span>
+                      </div>
+                      {genreText && (
+                        <div className="text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-300 whitespace-nowrap overflow-hidden mt-0.5">
+                          {genreText}
                         </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Player bar */}
+                  <div className="flex items-center gap-2 px-2 py-2">
+                    <button
+                      onClick={() => handlePlayPause(archive)}
+                      className="w-7 h-7 bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0 text-black"
+                    >
+                      {isPlayingArchive ? (
+                        <PauseIcon size={12} />
+                      ) : (
+                        <svg className="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      )}
+                    </button>
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      <input
+                        type="range"
+                        min={0}
+                        max={archive.duration || 100}
+                        value={currentTime}
+                        onChange={(e) => handleSeek(archive.id, parseFloat(e.target.value))}
+                        className="w-full h-1 bg-zinc-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+                      />
+                      <div className="flex justify-between text-[10px] text-zinc-500">
+                        <span>{formatDuration(currentTime)}</span>
+                        <span>{formatDuration(archive.duration)}</span>
                       </div>
                     </div>
                   </div>
