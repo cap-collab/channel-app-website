@@ -58,7 +58,7 @@ export function DJPortalClient() {
 
   const validateForm = (): boolean => {
     if (!formData.djName.trim()) {
-      setErrorMessage('DJ name is required');
+      setErrorMessage('Artist name is required');
       return false;
     }
     if (!formData.email.trim()) {
@@ -171,18 +171,18 @@ export function DJPortalClient() {
         <div className="max-w-2xl mx-auto">
           {/* Intro */}
           <div className="mb-12">
-            <h1 className="text-3xl font-bold mb-6">DJ Portal</h1>
+            <h1 className="text-3xl font-bold mb-6">Artist Portal</h1>
             <div className="space-y-4 text-gray-400 leading-relaxed">
               <p>
-                Channel lets DJs broadcast live sets from wherever they play.
+                Channel lets artists broadcast live sets from wherever they play.
               </p>
               <p>
                 If you want to play a live set on Channel, you can apply below. We&apos;re onboarding
-                DJs progressively and keeping things intentional — good sound, clear context, and
+                artists progressively and keeping things intentional — good sound, clear context, and
                 respect for the moment.
               </p>
               <p>
-                A live set is streamed from home. If your DJ setup connects to a
+                A live set is streamed from home. If your setup connects to a
                 computer, you already have what you need. Check our{' '}
                 <Link href="/streaming-guide" className="text-white underline hover:text-gray-300 transition-colors">
                   streaming setup guide
@@ -203,7 +203,7 @@ export function DJPortalClient() {
                   htmlFor="djName"
                   className="block text-sm font-medium text-gray-300 mb-2"
                 >
-                  DJ Name *
+                  Artist Name *
                 </label>
                 <input
                   type="text"
@@ -211,7 +211,7 @@ export function DJPortalClient() {
                   name="djName"
                   value={formData.djName}
                   onChange={handleInputChange}
-                  placeholder="Your DJ name"
+                  placeholder="Your artist name"
                   className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
                 />
               </div>
@@ -410,7 +410,7 @@ export function DJPortalClient() {
                       target="_blank"
                       className="text-white underline hover:text-gray-300"
                     >
-                      Channel Radio Terms for DJs &amp; Broadcasters
+                      Channel Radio Terms for Artists &amp; Broadcasters
                     </Link>
                     , including responsibilities for content rights, licensing, and venue authorization. *
                   </span>

@@ -247,7 +247,7 @@ export function StudioLivestreamClient() {
         <main className="p-4 md:p-8">
           <div className="max-w-2xl mx-auto text-center py-20">
             <p className="text-gray-500 mb-4">
-              Livestream slots are only available to approved DJs.
+              Livestream slots are only available to approved artists.
             </p>
             <p className="text-gray-600 text-sm mb-6">
               Want to broadcast on Channel?
@@ -264,7 +264,7 @@ export function StudioLivestreamClient() {
         <AuthModal
           isOpen={showAuthModal}
           onClose={() => setShowAuthModal(false)}
-          message="Sign in to create your DJ profile"
+          message="Sign in to create your artist profile"
           includeDjTerms
         />
       </div>
@@ -428,7 +428,7 @@ export function StudioLivestreamClient() {
                     target="_blank"
                     className="text-white underline hover:text-gray-300"
                   >
-                    Channel Radio Terms for DJs &amp; Broadcasters
+                    Channel Radio Terms for Artists &amp; Broadcasters
                   </Link>
                   , including responsibilities for content rights, licensing, and venue authorization. *
                 </span>

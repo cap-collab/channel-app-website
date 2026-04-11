@@ -2,8 +2,8 @@ import Link from "next/link";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "DJ Terms of Use - Channel",
-  description: "DJ Terms of Use - Channel Media, Inc.",
+  title: "Artist Terms of Use - Channel",
+  description: "Artist Terms of Use - Channel Media, Inc.",
 };
 
 export default function DJTermsPage() {
@@ -13,7 +13,7 @@ export default function DJTermsPage() {
         &larr; Back to Channel
       </Link>
 
-      <h1>DJ Terms of Use</h1>
+      <h1>Artist Terms of Use</h1>
       <p className="last-updated">
         Channel Media, Inc.
         <br />
@@ -22,64 +22,64 @@ export default function DJTermsPage() {
 
       <h2>1. Purpose &amp; Scope</h2>
       <p>
-        These DJ Terms of Use (&quot;DJ Terms&quot;) apply to any DJ, artist, collective, or
-        broadcaster (&quot;DJ,&quot; &quot;you&quot;) who applies to participate on Channel,
+        These Artist Terms of Use (&quot;Artist Terms&quot;) apply to any artist, DJ, collective, or
+        broadcaster (&quot;Artist,&quot; &quot;you&quot;) who applies to participate on Channel,
         including by:
       </p>
       <ul>
         <li>broadcasting live audio</li>
-        <li>managing or appearing on a DJ profile or DJ Studio page</li>
+        <li>managing or appearing on an artist profile or Studio page</li>
         <li>sharing external links (including promotional or support links)</li>
-        <li>appearing on public DJ pages (e.g. /dj/[username])</li>
-        <li>participating in DJ-specific chats associated with your profile</li>
+        <li>appearing on public artist pages (e.g. /dj/[username])</li>
+        <li>participating in artist-specific chats associated with your profile</li>
         <li>participating in collective pages or collective-related broadcasts</li>
       </ul>
       <p>
-        The DJ application process is open and may be accessed through the Channel website or app.
+        The artist application process is open and may be accessed through the Channel website or app.
       </p>
       <p>
-        By submitting a DJ application or using DJ features on Channel, you confirm that you have
-        read and accepted these DJ Terms.
+        By submitting an artist application or using artist features on Channel, you confirm that you have
+        read and accepted these Artist Terms.
       </p>
       <p>
-        These DJ Terms supplement Channel&apos;s{" "}
+        These Artist Terms supplement Channel&apos;s{" "}
         <Link href="/terms">Terms of Use</Link>,{" "}
         <Link href="/privacy">Privacy Policy</Link>, and{" "}
         <Link href="/guidelines">Community Guidelines</Link>.
       </p>
 
       <h2>2. Eligibility &amp; Approval</h2>
-      <p>Submitting a DJ application does not guarantee approval.</p>
+      <p>Submitting an artist application does not guarantee approval.</p>
       <p>
-        Applications may be submitted through the DJ application interface without requiring prior
+        Applications may be submitted through the artist application interface without requiring prior
         authentication.
       </p>
       <p>Channel Media, Inc. (&quot;Channel&quot;) may:</p>
       <ul>
         <li>approve or reject applications</li>
         <li>approve or deny profile claims</li>
-        <li>assign or revoke DJ permissions</li>
-        <li>suspend or revoke DJ access</li>
+        <li>assign or revoke artist permissions</li>
+        <li>suspend or revoke artist access</li>
       </ul>
       <p>All decisions are made at Channel&apos;s sole discretion.</p>
       <p>
-        Channel may also pre-create DJ profiles and assign roles or permissions before a DJ claims
+        Channel may also pre-create artist profiles and assign roles or permissions before an artist claims
         or manages the profile.
       </p>
-      <p>Channel may limit, modify, or discontinue DJ features at any time.</p>
+      <p>Channel may limit, modify, or discontinue artist features at any time.</p>
 
       <h2>3. Platform Role Disclaimer</h2>
       <p>Channel provides technical infrastructure to enable:</p>
       <ul>
         <li>live audio streaming</li>
-        <li>DJ profiles and discovery</li>
-        <li>DJ chats and community spaces</li>
+        <li>artist profiles and discovery</li>
+        <li>artist chats and community spaces</li>
         <li>recordings and archives</li>
       </ul>
       <p>Channel:</p>
       <ul>
         <li>is not a publisher</li>
-        <li>does not pre-screen or curate DJ content</li>
+        <li>does not pre-screen or curate artist content</li>
         <li>does not assume responsibility for audio played during broadcasts</li>
       </ul>
       <p>Channel does not process payments, handle funds, or facilitate financial transactions.</p>
@@ -114,7 +114,7 @@ export default function DJTermsPage() {
         <li>copyright-infringing or unauthorized content</li>
         <li>deceptive content (e.g. recorded sets presented as live)</li>
       </ul>
-      <p>Channel may interrupt or terminate DJ activity immediately for violations.</p>
+      <p>Channel may interrupt or terminate artist activity immediately for violations.</p>
 
       <h3>6.1 Prohibited External Monetization &amp; Links</h3>
       <p>
@@ -130,7 +130,7 @@ export default function DJTermsPage() {
       <p>Channel may remove links, restrict access, or suspend accounts for violations.</p>
 
       <h2>7. External Links &amp; Third-Party Services</h2>
-      <p>Channel may allow DJs to display or share external links.</p>
+      <p>Channel may allow artists to display or share external links.</p>
       <p>You acknowledge that:</p>
       <ul>
         <li>Channel does not operate or control external websites or services</li>
@@ -155,10 +155,10 @@ export default function DJTermsPage() {
       </ul>
       <p>Broadcasts may be interrupted or terminated at any time.</p>
 
-      <h2>9. DJ Identity, Profiles &amp; Public Display</h2>
+      <h2>9. Artist Identity, Profiles &amp; Public Display</h2>
 
-      <h3>9.1 DJ Profiles</h3>
-      <p>Channel displays public DJ profiles that may include:</p>
+      <h3>9.1 Artist Profiles</h3>
+      <p>Channel displays public artist profiles that may include:</p>
       <ul>
         <li>name, bio, and media</li>
         <li>genres, location, and recommendations</li>
@@ -182,8 +182,8 @@ export default function DJTermsPage() {
         <Link href="/privacy">Privacy Policy</Link>.
       </p>
 
-      <h2>10. DJ Chats &amp; Community Spaces</h2>
-      <p>Each DJ profile may include a public chat.</p>
+      <h2>10. Artist Chats &amp; Community Spaces</h2>
+      <p>Each artist profile may include a public chat.</p>
       <p>You acknowledge:</p>
       <ul>
         <li>messages are public</li>

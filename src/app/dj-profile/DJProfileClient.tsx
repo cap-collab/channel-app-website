@@ -405,7 +405,7 @@ export function DJProfileClient() {
   // Handle upgrade to DJ for logged-in non-DJ users
   const handleUpgradeToDJ = async () => {
     if (!user || !agreedToDJTerms) {
-      setUpgradeError("Please accept the DJ Terms to continue");
+      setUpgradeError("Please accept the Artist Terms to continue");
       return;
     }
 
@@ -449,7 +449,7 @@ export function DJProfileClient() {
         <main className="max-w-xl mx-auto p-4">
           <div className="text-center py-12">
             <p className="text-gray-500 mb-6">
-              Sign in to access your DJ profile
+              Sign in to access your artist profile
             </p>
             <button
               onClick={() => setShowAuthModal(true)}
@@ -475,9 +475,9 @@ export function DJProfileClient() {
         <Header position="sticky" />
         <main className="max-w-xl mx-auto p-4">
           <div className="py-8">
-            <h1 className="text-2xl font-semibold text-white mb-2">Upgrade to DJ Profile</h1>
+            <h1 className="text-2xl font-semibold text-white mb-2">Upgrade to Artist Profile</h1>
             <p className="text-gray-400 mb-6">
-              You&apos;re logged in as {user?.email}. Accept the DJ Terms to unlock your DJ profile and start broadcasting on Channel.
+              You&apos;re logged in as {user?.email}. Accept the Artist Terms to unlock your artist profile and start broadcasting on Channel.
             </p>
 
             <div className="bg-[#1a1a1a] rounded-lg p-6">
@@ -495,7 +495,7 @@ export function DJProfileClient() {
                     target="_blank"
                     className="text-white underline hover:text-gray-300"
                   >
-                    DJ Terms
+                    Artist Terms
                   </Link>
                 </span>
               </label>
@@ -515,7 +515,7 @@ export function DJProfileClient() {
                     Upgrading...
                   </>
                 ) : (
-                  "Upgrade to DJ"
+                  "Upgrade to Artist"
                 )}
               </button>
             </div>
@@ -650,7 +650,7 @@ export function DJProfileClient() {
               </div>
             </div>
             <p className="text-gray-600 text-xs mt-2 px-1">
-              Your bio appears on your DJ profile during broadcasts.
+              Your bio appears on your artist profile during broadcasts.
             </p>
           </section>
 
@@ -795,7 +795,7 @@ export function DJProfileClient() {
               )}
             </div>
             <p className="text-gray-600 text-xs mt-2 px-1">
-              Recordings are private until published. Published recordings appear on your DJ profile.
+              Recordings are private until published. Published recordings appear on your artist profile.
             </p>
           </section>
 

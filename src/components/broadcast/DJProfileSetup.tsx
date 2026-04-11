@@ -156,21 +156,21 @@ export function DJProfileSetup({ defaultUsername, showName, broadcastType, isVen
   const validateUsername = (value: string): string | null => {
     const trimmed = value.trim();
     if (trimmed.length < 2) {
-      return 'DJ name must be at least 2 characters';
+      return 'Artist name must be at least 2 characters';
     }
     if (trimmed.length > 20) {
-      return 'DJ name must be 20 characters or less';
+      return 'Artist name must be 20 characters or less';
     }
 
     // Must contain at least 2 alphanumeric characters (when spaces removed)
     const handle = trimmed.replace(/\s+/g, '');
     if (handle.length < 2) {
-      return 'DJ name must have at least 2 characters (excluding spaces)';
+      return 'Artist name must have at least 2 characters (excluding spaces)';
     }
 
     // Alphanumeric and single spaces only
     if (!/^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(trimmed)) {
-      return 'DJ name can only contain letters, numbers, and spaces';
+      return 'Artist name can only contain letters, numbers, and spaces';
     }
 
     // Check reserved usernames against normalized handle
@@ -197,18 +197,18 @@ export function DJProfileSetup({ defaultUsername, showName, broadcastType, isVen
     // For logged-in remote DJs without chatUsername, check username availability
     if (!defaultUsername && needsUsernameCheck) {
       if (checkingUsername) {
-        setError('Please wait while we check DJ name availability');
+        setError('Please wait while we check artist name availability');
         return;
       }
       if (usernameAvailable === false) {
-        setError(usernameCheckError || 'DJ name is not available. Please choose another.');
+        setError(usernameCheckError || 'Artist name is not available. Please choose another.');
         return;
       }
       if (usernameAvailable === null) {
         // Force a check if not yet checked
         await checkUsernameAvailability(username);
         if (usernameAvailable === false) {
-          setError(usernameCheckError || 'DJ name is not available. Please choose another.');
+          setError(usernameCheckError || 'Artist name is not available. Please choose another.');
           return;
         }
       }
@@ -216,7 +216,7 @@ export function DJProfileSetup({ defaultUsername, showName, broadcastType, isVen
 
     // Validate permissions confirmation
     if (!permissionsConfirmed) {
-      setError('You must confirm and agree to the DJ Terms');
+      setError('You must confirm and agree to the Artist Terms');
       return;
     }
 
@@ -253,7 +253,7 @@ export function DJProfileSetup({ defaultUsername, showName, broadcastType, isVen
 
         {/* DJ Name - plain text title using the name from the broadcast slot */}
         <h2 className="text-2xl font-bold text-white">
-          You are live streaming as <span className="text-accent">{defaultUsername || username.trim() || 'DJ'}</span>
+          You are live streaming as <span className="text-accent">{defaultUsername || username.trim() || 'Artist'}</span>
           {showName && (
             <span className="text-gray-400 text-lg font-normal"> for {showName}</span>
           )}
@@ -262,7 +262,7 @@ export function DJProfileSetup({ defaultUsername, showName, broadcastType, isVen
         {/* Broadcast/Recording Permissions Confirmation */}
         <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
           <p className="text-gray-300 text-sm mb-3">
-            I confirm that I am the DJ (or authorized representative) known as <span className="text-white font-medium">{defaultUsername || username.trim() || 'DJName'}</span>, under whose name this {broadcastType === 'recording' ? 'recording' : 'broadcast'} is being made.
+            I confirm that I am the artist (or authorized representative) known as <span className="text-white font-medium">{defaultUsername || username.trim() || 'Artist'}</span>, under whose name this {broadcastType === 'recording' ? 'recording' : 'broadcast'} is being made.
           </p>
           <p className="text-gray-300 text-sm mb-3">
             By starting this {broadcastType === 'recording' ? 'recording' : 'broadcast'}, I represent and warrant that:
@@ -273,7 +273,7 @@ export function DJProfileSetup({ defaultUsername, showName, broadcastType, isVen
                 <li>• The venue and promoters have authorized this recording.</li>
                 <li>• I am responsible for ensuring the recording content complies with venue policies and applicable laws.</li>
                 <li>• Channel may use this recording and replay it or make it available on Channel websites and channels.</li>
-                <li>• All DJs listed on this recording are aware of and consent to being recorded and used by Channel.</li>
+                <li>• All artists listed on this recording are aware of and consent to being recorded and used by Channel.</li>
               </>
             ) : broadcastType === 'recording' ? (
               <>
@@ -284,7 +284,7 @@ export function DJProfileSetup({ defaultUsername, showName, broadcastType, isVen
               <>
                 <li>• Channel may record this broadcast and replay it or make it available on Channel websites and channels.</li>
                 {broadcastType === 'venue' && (
-                  <li>• All DJs listed on this broadcast are aware of and consent to being livestreamed, recorded, and used by Channel.</li>
+                  <li>• All artists listed on this broadcast are aware of and consent to being livestreamed, recorded, and used by Channel.</li>
                 )}
                 <li>• I am responsible for ensuring the livestream complies with applicable laws.</li>
               </>
@@ -305,7 +305,7 @@ export function DJProfileSetup({ defaultUsername, showName, broadcastType, isVen
                     rel="noopener noreferrer"
                     className="text-white underline hover:text-gray-300"
                   >
-                    DJ Terms
+                    Artist Terms
                   </a>
             </span>
           </label>

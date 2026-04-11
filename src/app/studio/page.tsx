@@ -3,7 +3,7 @@ import { StudioProfileClient } from "./StudioProfileClient";
 
 export const metadata = {
   title: "Studio - Channel",
-  description: "Manage your DJ profile and broadcast settings",
+  description: "Manage your artist profile and broadcast settings",
 };
 
 function LoadingFallback() {

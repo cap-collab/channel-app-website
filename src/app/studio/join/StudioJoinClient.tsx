@@ -303,7 +303,7 @@ export function StudioJoinClient() {
                   name="djName"
                   value={formData.djName}
                   onChange={handleInputChange}
-                  placeholder="Your DJ / curator name"
+                  placeholder="Your artist name"
                   disabled={profileFields.djName}
                   className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 />
@@ -548,7 +548,7 @@ export function StudioJoinClient() {
                       target="_blank"
                       className="text-white underline hover:text-gray-300"
                     >
-                      Channel Radio Terms for DJs &amp; Broadcasters
+                      Channel Radio Terms for Artists &amp; Broadcasters
                     </Link>
                     , including responsibilities for content rights, licensing, and venue authorization. *
                   </span>

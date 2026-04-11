@@ -637,7 +637,7 @@ export function AuthModal({
               <>
                 ,{" "}
                 <Link href="/dj-terms" className="text-white/60 hover:text-white underline">
-                  DJ Terms
+                  Artist Terms
                 </Link>
               </>
             )}

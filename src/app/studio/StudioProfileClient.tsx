@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { doc, onSnapshot, updateDoc, collection, query, where, orderBy, Timestamp, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -100,6 +101,7 @@ interface RecItem {
 export function StudioProfileClient() {
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const { role, loading: roleLoading } = useUserRole(user);
+  const searchParams = useSearchParams();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   // DJ upgrade state
@@ -122,6 +124,33 @@ export function StudioProfileClient() {
   // If user signed in via the inline AuthModal with DJ terms,
   // we know they have the DJ role — skip the upgrade screen while role propagates
   const djTermsJustAccepted = signInFlowComplete || (typeof window !== 'undefined' && sessionStorage.getItem('djTermsJustAccepted') === 'true');
+  // Auto-validate invite code from URL parameter (e.g. /studio?code=XYZ)
+  useEffect(() => {
+    const codeParam = searchParams.get("code");
+    if (codeParam && !codeValidated) {
+      setCodeValidating(true);
+      fetch("/api/validate-invite-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: codeParam.trim() }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.valid) {
+            setCodeValidated(true);
+          } else {
+            setShowCodeInput(true);
+            setCodeError("Invalid code. Please try again.");
+          }
+        })
+        .catch(() => {
+          setShowCodeInput(true);
+          setCodeError("Something went wrong. Please try again.");
+        })
+        .finally(() => setCodeValidating(false));
+    }
+  }, [searchParams]);
+
   // Clear the flag once role is confirmed
   useEffect(() => {
     if (isDJ(role) && typeof window !== 'undefined') {
@@ -1605,7 +1634,7 @@ export function StudioProfileClient() {
 
   const handleUpgradeToDJ = async () => {
     if (!user || !agreedToDJTerms) {
-      setUpgradeError("Please accept the DJ Terms to continue");
+      setUpgradeError("Please accept the Artist Terms to continue");
       return;
     }
 
@@ -1677,7 +1706,7 @@ export function StudioProfileClient() {
           <div className="text-center py-12">
             <h1 className="text-2xl font-semibold text-white mb-2">Studio</h1>
             <p className="text-gray-400 mb-8">
-              Broadcast live on Channel
+              Get your artist profile on Channel
             </p>
 
             <div className="max-w-sm mx-auto space-y-4">
@@ -1737,7 +1766,7 @@ export function StudioProfileClient() {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
           <div className="w-6 h-6 border-2 border-gray-700 border-t-white rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-400">Building your DJ profile...</p>
+          <p className="text-gray-400">Building your artist profile...</p>
         </div>
       </div>
     );
@@ -1752,9 +1781,9 @@ export function StudioProfileClient() {
           <Header currentPage="studio" position="sticky" />
           <main className="max-w-xl mx-auto p-4">
             <div className="py-8">
-              <h1 className="text-2xl font-semibold text-white mb-2">Activate DJ Profile</h1>
+              <h1 className="text-2xl font-semibold text-white mb-2">Activate Artist Profile</h1>
               <p className="text-gray-400 mb-6">
-                Accept the DJ Terms to unlock your DJ profile and start broadcasting on Channel.
+                Accept the Artist Terms to unlock your artist profile and start broadcasting on Channel.
               </p>
 
               <div className="bg-[#1e1e1e] rounded-lg p-6">
@@ -1772,7 +1801,7 @@ export function StudioProfileClient() {
                       target="_blank"
                       className="text-white underline hover:text-gray-300"
                     >
-                      DJ Terms
+                      Artist Terms
                     </Link>
                   </span>
                 </label>
@@ -1792,7 +1821,7 @@ export function StudioProfileClient() {
                       Activating...
                     </>
                   ) : (
-                    "Activate DJ Profile"
+                    "Activate Artist Profile"
                   )}
                 </button>
               </div>
@@ -1810,7 +1839,7 @@ export function StudioProfileClient() {
           <div className="text-center py-12">
             <h1 className="text-2xl font-semibold text-white mb-2">Studio</h1>
             <p className="text-gray-400 mb-8">
-              Broadcast live on Channel
+              Get your artist profile on Channel
             </p>
 
             <div className="max-w-sm mx-auto space-y-4">
@@ -2335,7 +2364,7 @@ export function StudioProfileClient() {
               About
             </h2>
             <p className="text-gray-500 text-xs mb-3 px-1">
-              Your bio appears on your public DJ profile and during broadcasts.
+              Your bio appears on your public artist profile and during broadcasts.
             </p>
             <div className="bg-[#1e1e1e] rounded p-4 space-y-4">
               <div>
@@ -2368,7 +2397,7 @@ export function StudioProfileClient() {
               Social Links
             </h2>
             <p className="text-gray-500 text-xs mb-3 px-1">
-              These links appear on your public DJ profile.
+              These links appear on your public artist profile.
             </p>
             <div className="bg-[#1e1e1e] rounded p-4 space-y-4">
               <div>
@@ -3092,7 +3121,7 @@ export function StudioProfileClient() {
             {/* Terms confirmation */}
             <div className="mb-4 bg-gray-800/50 border border-gray-700 rounded-lg p-4">
               <p className="text-gray-300 text-sm mb-3">
-                I confirm that I am the DJ (or authorized representative) known as <span className="text-white font-medium">{chatUsername || 'DJName'}</span>, under whose name this upload is being made.
+                I confirm that I am the artist (or authorized representative) known as <span className="text-white font-medium">{chatUsername || 'Artist'}</span>, under whose name this upload is being made.
               </p>
               <p className="text-gray-300 text-sm mb-3">
                 By uploading this recording, I represent and warrant that:
@@ -3100,7 +3129,7 @@ export function StudioProfileClient() {
               <ul className="text-gray-400 text-sm space-y-1 mb-4 ml-1">
                 <li>• I am responsible for ensuring the content complies with applicable laws.</li>
                 <li>• Channel may use this recording, replay it, and make it available on Channel websites and radio.</li>
-                <li>• All DJs featured in this recording are aware of and consent to its use on Channel.</li>
+                <li>• All artists featured in this recording are aware of and consent to its use on Channel.</li>
               </ul>
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
@@ -3118,7 +3147,7 @@ export function StudioProfileClient() {
                     rel="noopener noreferrer"
                     className="text-white underline hover:text-gray-300"
                   >
-                    DJ Terms
+                    Artist Terms
                   </a>
                 </span>
               </label>
