@@ -166,7 +166,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const { chatUsername } = useUserProfile(user?.uid);
   const {
     isPlaying: isLivePlaying, isLoading: isLiveLoading, currentShow, currentDJ,
-    listenerCount, toggle: toggleLive, play: playLive,
+    toggle: toggleLive, play: playLive,
     setHeroBarVisible, setHeroBarObserverReady, pause: pauseLive, tipLink: liveTipLink,
     error: streamError,
   } = useBroadcastStreamContext();
@@ -307,18 +307,6 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   };
 
   const [showAuthModal, setShowAuthModal] = useState(false);
-
-  // When live, chat targets the live DJ's room; otherwise channelbroadcast
-  const chatRoom = isLive && liveDJChatRoom ? liveDJChatRoom : 'channelbroadcast';
-  const chatDJLabel = isLive && liveDjName ? liveDjName : 'Channel Radio';
-
-  const { loveCount } = useDJProfileChat({
-    chatUsernameNormalized: chatRoom,
-    djUsername: chatDJLabel,
-    username: chatUsername || undefined,
-    enabled: true,
-    currentShowStartTime: isLive ? currentShow?.startTime : undefined,
-  });
 
   // DJ-specific chat hook for sending loves to the DJ currently shown in the player
   // When showing live hero → love goes to live DJ; when showing archive → love goes to archive DJ
@@ -685,25 +673,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
       {/* Latest Archives Grid — wider to match scene section */}
       <div className="mt-6 max-w-7xl mx-auto">
-        <div className="flex items-center gap-2 mb-3">
-          <h2 className="text-xs font-mono uppercase tracking-widest text-zinc-500">Latest Archives</h2>
-          {loveCount > 0 && (
-            <span className="flex items-center gap-1 text-zinc-600 text-xs">
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-              </svg>
-              {loveCount}
-            </span>
-          )}
-          {(archivePlayer.listenerCount >= 5 || listenerCount >= 5) && (
-            <span className="flex items-center gap-1 text-zinc-600 text-xs">
-              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 3a9 9 0 00-9 9v7c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2H5v-1a7 7 0 1114 0v1h-2c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-7a9 9 0 00-9-9z" />
-              </svg>
-              {archivePlayer.listenerCount + listenerCount}
-            </span>
-          )}
-        </div>
+        <h2 className="text-xs font-mono uppercase tracking-widest text-zinc-500 mb-3">Latest Archives</h2>
 
         <div className="mb-4">
           <ArchiveTuner />
