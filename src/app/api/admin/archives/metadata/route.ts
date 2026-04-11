@@ -3,10 +3,11 @@ import { getAdminDb } from '@/lib/firebase-admin';
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { archiveId, djIndex, genres, location } = await request.json();
+    const body = await request.json();
+    const { archiveId } = body;
 
-    if (!archiveId || djIndex === undefined) {
-      return NextResponse.json({ error: 'Archive ID and DJ index required' }, { status: 400 });
+    if (!archiveId) {
+      return NextResponse.json({ error: 'Archive ID required' }, { status: 400 });
     }
 
     const db = getAdminDb();
@@ -21,22 +22,43 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Archive not found' }, { status: 404 });
     }
 
-    const data = archiveDoc.data();
-    const djs = data?.djs || [];
+    const updates: Record<string, unknown> = {};
 
-    if (djIndex < 0 || djIndex >= djs.length) {
-      return NextResponse.json({ error: 'Invalid DJ index' }, { status: 400 });
+    // Top-level archive fields
+    if (body.showName !== undefined) updates.showName = body.showName;
+    if (body.showImageUrl !== undefined) updates.showImageUrl = body.showImageUrl || null;
+    if (body.slug !== undefined) updates.slug = body.slug;
+
+    // DJ-level updates (genres, location, name, username, photoUrl)
+    if (body.djIndex !== undefined) {
+      const data = archiveDoc.data();
+      const djs = [...(data?.djs || [])];
+
+      if (body.djIndex >= 0 && body.djIndex < djs.length) {
+        if (body.genres !== undefined) {
+          djs[body.djIndex].genres = Array.isArray(body.genres) ? body.genres : [];
+        }
+        if (body.location !== undefined) {
+          djs[body.djIndex].location = body.location || null;
+        }
+        if (body.djName !== undefined) {
+          djs[body.djIndex].name = body.djName;
+        }
+        if (body.djUsername !== undefined) {
+          djs[body.djIndex].username = body.djUsername || null;
+        }
+        if (body.djPhotoUrl !== undefined) {
+          djs[body.djIndex].photoUrl = body.djPhotoUrl || null;
+        }
+        updates.djs = djs;
+      }
     }
 
-    // Update the specific DJ's genres and/or location
-    if (genres !== undefined) {
-      djs[djIndex].genres = Array.isArray(genres) ? genres : [];
-    }
-    if (location !== undefined) {
-      djs[djIndex].location = location || null;
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No updates provided' }, { status: 400 });
     }
 
-    await archiveRef.update({ djs });
+    await archiveRef.update(updates);
 
     return NextResponse.json({ success: true });
   } catch (error) {

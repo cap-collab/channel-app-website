@@ -406,6 +406,39 @@ export async function deleteEventPhoto(eventId: string, photoUrl: string): Promi
 }
 
 /**
+ * Upload an archive show image to Firebase Storage
+ */
+export async function uploadArchiveImage(archiveId: string, file: File): Promise<UploadPhotoResult> {
+  if (!storage) {
+    return { success: false, error: 'Storage not configured' };
+  }
+
+  const validation = validatePhoto(file);
+  if (!validation.valid) {
+    return { success: false, error: validation.error };
+  }
+
+  try {
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const filename = `archive-image.${ext}`;
+    const photoRef = ref(storage, `archive-images/${archiveId}/${filename}`);
+
+    await uploadBytes(photoRef, file, {
+      contentType: file.type,
+      customMetadata: {
+        uploadedAt: new Date().toISOString(),
+      },
+    });
+
+    const url = await getDownloadURL(photoRef);
+    return { success: true, url };
+  } catch (error) {
+    console.error('Archive image upload failed:', error);
+    return { success: false, error: 'Failed to upload image. Please try again.' };
+  }
+}
+
+/**
  * Delete a DJ profile photo from Firebase Storage
  */
 export async function deleteDJPhoto(userId: string, photoUrl: string): Promise<boolean> {

@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import Image from 'next/image';
 import { ArchiveSerialized, ArchivePriority } from '@/types/broadcast';
+import { uploadArchiveImage, validatePhoto } from '@/lib/photo-upload';
 
 interface ArchivesTabProps {
   onArchiveCountChange: (count: number) => void;
@@ -167,22 +169,15 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
     }
   };
 
-  const handleMetadataChange = async (archiveId: string, djIndex: number, genres: string[], location: string) => {
-    // Optimistic update
-    setArchives(prev => prev.map(a => {
-      if (a.id !== archiveId) return a;
-      const newDjs = [...a.djs];
-      newDjs[djIndex] = { ...newDjs[djIndex], genres, location: location || undefined };
-      return { ...a, djs: newDjs };
-    }));
-
+  const handleUpdateArchive = async (archiveId: string, updates: Record<string, unknown>) => {
     try {
       const response = await fetch('/api/admin/archives/metadata', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ archiveId, djIndex, genres, location }),
+        body: JSON.stringify({ archiveId, ...updates }),
       });
-      if (!response.ok) throw new Error('Failed to update metadata');
+      if (!response.ok) throw new Error('Failed to update');
+      await fetchArchives();
     } catch {
       await fetchArchives();
     }
@@ -321,7 +316,7 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
               archive={archive}
               onDelete={() => initiateDelete(archive)}
               onPriorityChange={handlePriorityChange}
-              onMetadataChange={handleMetadataChange}
+              onUpdate={handleUpdateArchive}
               isDeleting={deletingId === archive.id}
             />
           ))}
@@ -420,13 +415,13 @@ function ArchiveCard({
   archive,
   onDelete,
   onPriorityChange,
-  onMetadataChange,
+  onUpdate,
   isDeleting,
 }: {
   archive: ArchiveSerialized;
   onDelete: () => void;
   onPriorityChange: (archiveId: string, priority: ArchivePriority) => void;
-  onMetadataChange: (archiveId: string, djIndex: number, genres: string[], location: string) => void;
+  onUpdate: (archiveId: string, updates: Record<string, unknown>) => Promise<void>;
   isDeleting: boolean;
 }) {
   const djNames = archive.djs?.map(dj => dj.name).join(', ') || 'Unknown DJ';
@@ -434,129 +429,230 @@ function ArchiveCard({
   const isPublic = archive.isPublic !== false;
   const currentPriority = archive.priority || 'medium';
   const primaryDj = archive.djs?.[0];
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showNameInput, setShowNameInput] = useState(archive.showName);
+  const [slugInput, setSlugInput] = useState(archive.slug);
+  const [djNameInput, setDjNameInput] = useState(primaryDj?.name || '');
+  const [djUsernameInput, setDjUsernameInput] = useState(primaryDj?.username || '');
   const [genreInput, setGenreInput] = useState(primaryDj?.genres?.join(', ') || '');
   const [locationInput, setLocationInput] = useState(primaryDj?.location || '');
-  const [isEditing, setIsEditing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSaveMetadata = () => {
+  const handleSave = async () => {
+    setIsSaving(true);
     const genres = genreInput.split(',').map(g => g.trim()).filter(Boolean);
-    onMetadataChange(archive.id, 0, genres, locationInput.trim());
+    await onUpdate(archive.id, {
+      showName: showNameInput,
+      slug: slugInput,
+      djIndex: 0,
+      djName: djNameInput,
+      djUsername: djUsernameInput,
+      genres,
+      location: locationInput.trim(),
+    });
+    setIsSaving(false);
     setIsEditing(false);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const validation = validatePhoto(file);
+    if (!validation.valid) {
+      alert(validation.error);
+      return;
+    }
+    setIsUploading(true);
+    const result = await uploadArchiveImage(archive.id, file);
+    if (result.success && result.url) {
+      await onUpdate(archive.id, { showImageUrl: result.url });
+    }
+    setIsUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const openEdit = () => {
+    setShowNameInput(archive.showName);
+    setSlugInput(archive.slug);
+    setDjNameInput(primaryDj?.name || '');
+    setDjUsernameInput(primaryDj?.username || '');
+    setGenreInput(primaryDj?.genres?.join(', ') || '');
+    setLocationInput(primaryDj?.location || '');
+    setIsEditing(true);
   };
 
   return (
     <div className="p-4 bg-[#1a1a1a] border border-gray-800 rounded-xl hover:border-gray-700 transition-colors">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 mb-1">
-            <h3 className="font-medium text-white truncate">{archive.showName}</h3>
-            <span className={`px-2 py-0.5 text-xs rounded border ${
-              isLive
-                ? 'bg-cyan-900/30 text-cyan-400 border-cyan-800'
-                : 'bg-purple-900/30 text-purple-400 border-purple-800'
-            }`}>
-              {isLive ? 'Live' : 'Recording'}
-            </span>
-            {!isPublic && (
-              <span className="px-2 py-0.5 text-xs rounded border bg-gray-900/30 text-gray-400 border-gray-700">
-                Private
-              </span>
-            )}
-            <select
-              value={currentPriority}
-              onChange={(e) => onPriorityChange(archive.id, e.target.value as ArchivePriority)}
-              className={`px-2 py-0.5 text-xs rounded border cursor-pointer appearance-none bg-transparent transition-colors ${PRIORITY_COLORS[currentPriority]}`}
-            >
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-            </select>
-          </div>
-          <p className="text-sm text-gray-400 truncate mb-2">{djNames}</p>
+      <div className="flex items-start gap-4">
+        {/* Thumbnail */}
+        <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden relative">
+          {archive.showImageUrl ? (
+            <Image src={archive.showImageUrl} alt={archive.showName} fill className="object-cover" unoptimized />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs">No img</div>
+          )}
+        </div>
 
-          {/* Genre & Location */}
+        <div className="flex-1 min-w-0">
           {isEditing ? (
-            <div className="flex items-center gap-2 mb-2">
-              <input
-                type="text"
-                value={genreInput}
-                onChange={(e) => setGenreInput(e.target.value)}
-                placeholder="Genres (comma-separated)"
-                className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-gray-500"
-              />
-              <input
-                type="text"
-                value={locationInput}
-                onChange={(e) => setLocationInput(e.target.value)}
-                placeholder="City"
-                className="w-32 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-gray-500"
-              />
-              <button
-                onClick={handleSaveMetadata}
-                className="px-2 py-1 rounded text-xs bg-white text-black hover:bg-gray-200 transition-colors"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => setIsEditing(false)}
-                className="px-2 py-1 rounded text-xs text-gray-400 hover:text-white transition-colors"
-              >
-                Cancel
-              </button>
+            /* Edit mode */
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  value={showNameInput}
+                  onChange={(e) => setShowNameInput(e.target.value)}
+                  placeholder="Show name"
+                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
+                />
+                <input
+                  value={slugInput}
+                  onChange={(e) => setSlugInput(e.target.value)}
+                  placeholder="Slug"
+                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  value={djNameInput}
+                  onChange={(e) => setDjNameInput(e.target.value)}
+                  placeholder="DJ name"
+                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
+                />
+                <input
+                  value={djUsernameInput}
+                  onChange={(e) => setDjUsernameInput(e.target.value)}
+                  placeholder="DJ username (profile link)"
+                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  value={genreInput}
+                  onChange={(e) => setGenreInput(e.target.value)}
+                  placeholder="Genres (comma-separated)"
+                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
+                />
+                <input
+                  value={locationInput}
+                  onChange={(e) => setLocationInput(e.target.value)}
+                  placeholder="City / Location"
+                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors cursor-pointer">
+                  {isUploading ? 'Uploading...' : 'Upload Image'}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    disabled={isUploading}
+                  />
+                </label>
+                <div className="flex-1" />
+                <button
+                  onClick={() => setIsEditing(false)}
+                  className="px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="px-3 py-1.5 rounded-lg text-xs bg-white text-black hover:bg-gray-200 transition-colors disabled:opacity-50"
+                >
+                  {isSaving ? 'Saving...' : 'Save'}
+                </button>
+              </div>
             </div>
           ) : (
-            <div className="flex items-center gap-2 mb-2">
-              {primaryDj?.genres && primaryDj.genres.length > 0 && (
-                <span className="text-xs text-gray-500">{primaryDj.genres.join(', ')}</span>
+            /* View mode */
+            <>
+              <div className="flex items-center gap-3 mb-1">
+                <h3 className="font-medium text-white truncate">{archive.showName}</h3>
+                <span className={`px-2 py-0.5 text-xs rounded border ${
+                  isLive
+                    ? 'bg-cyan-900/30 text-cyan-400 border-cyan-800'
+                    : 'bg-purple-900/30 text-purple-400 border-purple-800'
+                }`}>
+                  {isLive ? 'Live' : 'Recording'}
+                </span>
+                {!isPublic && (
+                  <span className="px-2 py-0.5 text-xs rounded border bg-gray-900/30 text-gray-400 border-gray-700">
+                    Private
+                  </span>
+                )}
+                <select
+                  value={currentPriority}
+                  onChange={(e) => onPriorityChange(archive.id, e.target.value as ArchivePriority)}
+                  className={`px-2 py-0.5 text-xs rounded border cursor-pointer appearance-none bg-transparent transition-colors ${PRIORITY_COLORS[currentPriority]}`}
+                >
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </div>
+              <p className="text-sm text-gray-400 truncate mb-1">{djNames}</p>
+              {(primaryDj?.genres?.length || primaryDj?.location) && (
+                <p className="text-xs text-gray-500 mb-1">
+                  {primaryDj?.genres?.join(', ')}
+                  {primaryDj?.genres?.length && primaryDj?.location ? ' · ' : ''}
+                  {primaryDj?.location}
+                </p>
               )}
-              {primaryDj?.location && (
-                <span className="text-xs text-gray-600">{primaryDj.location}</span>
-              )}
-              <button
-                onClick={() => setIsEditing(true)}
-                className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
-              >
-                {primaryDj?.genres?.length || primaryDj?.location ? 'edit' : '+ genre/location'}
-              </button>
-            </div>
+              <div className="flex items-center gap-4 text-xs text-gray-500">
+                <span>{formatDuration(archive.duration || 0)}</span>
+                {archive.recordedAt && (
+                  <span>{formatDate(archive.recordedAt)} at {formatTime(archive.recordedAt)}</span>
+                )}
+                {(archive.streamCount || 0) > 0 && (
+                  <span>{archive.streamCount} stream{archive.streamCount !== 1 ? 's' : ''}</span>
+                )}
+                {archive.slug && (
+                  <span className="text-gray-600">/archives/{archive.slug}</span>
+                )}
+              </div>
+            </>
           )}
+        </div>
 
-          <div className="flex items-center gap-4 text-xs text-gray-500">
-            <span>{formatDuration(archive.duration || 0)}</span>
-            {archive.recordedAt && (
-              <span>{formatDate(archive.recordedAt)} at {formatTime(archive.recordedAt)}</span>
-            )}
-            {(archive.streamCount || 0) > 0 && (
-              <span>{archive.streamCount} stream{archive.streamCount !== 1 ? 's' : ''}</span>
-            )}
-            {archive.slug && (
-              <span className="text-gray-600">/archives/{archive.slug}</span>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {archive.recordingUrl && (
-            <a
-              href={archive.recordingUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+        {/* Actions */}
+        {!isEditing && (
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={openEdit}
               className="px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors"
-              title="Open recording URL"
             >
-              MP4
-            </a>
-          )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            disabled={isDeleting}
-            className="px-3 py-1.5 rounded-lg text-xs bg-red-900/30 text-red-400 border border-red-800 hover:bg-red-900/50 transition-colors disabled:opacity-50"
-          >
-            {isDeleting ? '...' : 'Delete'}
-          </button>
-        </div>
+              Edit
+            </button>
+            {archive.recordingUrl && (
+              <a
+                href={archive.recordingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors"
+                title="Open recording URL"
+              >
+                MP4
+              </a>
+            )}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              disabled={isDeleting}
+              className="px-3 py-1.5 rounded-lg text-xs bg-red-900/30 text-red-400 border border-red-800 hover:bg-red-900/50 transition-colors disabled:opacity-50"
+            >
+              {isDeleting ? '...' : 'Delete'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
