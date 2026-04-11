@@ -807,9 +807,6 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
 
       <div id="scene" />
 
-      {/* Explore search bar (only rendered on /explore) */}
-      {exploreSearchBar}
-
       {/* Favorites — followed DJs & favorited shows in next 7 days, only when NOT on Channel Radio */}
       {mounted && !(isBroadcastLive && isBroadcastStreaming) && favoritesNowLive.length > 0 && (
         <section className="px-4 md:px-8 pt-4 pb-6 relative z-10">
@@ -822,14 +819,14 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
         </section>
       )}
 
-      {/* Meanwhile in the Scene — hidden on /explore */}
-      {!skipHero ? (
-        <section className="px-4 md:px-8 pt-4 pb-0 relative z-10">
-          <div className="max-w-7xl mx-auto">
-            <h2 className="text-2xl md:text-3xl font-semibold mb-2">Meanwhile in the scene</h2>
-          </div>
-        </section>
-      ) : null}
+      {/* Meanwhile in the Scene */}
+      <section className="px-4 md:px-8 pt-4 pb-0 relative z-10">
+        <div className="max-w-7xl mx-auto">
+          <h2 className="text-2xl md:text-3xl font-semibold mb-2">Meanwhile in the scene</h2>
+          {/* Search bar + filter (only on /explore) */}
+          {exploreSearchBar}
+        </div>
+      </section>
 
       <div className="px-4 md:px-8 flex-1 w-full flex flex-col">
       <main className="max-w-7xl mx-auto flex-1 w-full flex flex-col">

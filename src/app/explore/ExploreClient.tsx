@@ -39,14 +39,12 @@ export function ExploreClient() {
       <ChannelClient
         skipHero
         exploreSearchBar={
-          <div className="px-4 md:px-8 pt-4 pb-2 relative z-10">
-            <div className="max-w-7xl mx-auto">
-              <HeaderSearch onAuthRequired={() => setShowAuthModal(true)} />
-              <div className="mt-3">
-                <ExploreTuner />
-              </div>
+          <>
+            <HeaderSearch onAuthRequired={() => setShowAuthModal(true)} />
+            <div className="mt-3">
+              <ExploreTuner />
             </div>
-          </div>
+          </>
         }
       />
       <AuthModal
