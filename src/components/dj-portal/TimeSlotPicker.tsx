@@ -9,11 +9,6 @@ interface TimeSlotPickerProps {
   setDuration: number; // Duration in hours
 }
 
-interface BlockedSlot {
-  start: number;
-  end: number;
-}
-
 // All 24 hours, default view 9am–6pm
 const ALL_HOURS = Array.from({ length: 24 }, (_, i) => i);
 const HOUR_HEIGHT = 40;
@@ -95,8 +90,6 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
     const firstOpen = getSunday(new Date(BLOCKED_UNTIL));
     return firstOpen > today ? firstOpen : today;
   });
-  const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [hoverSlot, setHoverSlot] = useState<{ dayIndex: number; startHour: number } | null>(null);
   const timeColumnRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -115,39 +108,18 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
     return result;
   }, [currentWeekStart]);
 
-  // Fetch blocked slots
-  useEffect(() => {
-    async function fetchBlockedSlots() {
-      setIsLoading(true);
-      try {
-        const response = await fetch('/api/broadcast/available-slots');
-        if (response.ok) {
-          const data = await response.json();
-          setBlockedSlots(data.blockedSlots || []);
-        }
-      } catch (error) {
-        console.error('Failed to fetch available slots:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    fetchBlockedSlots();
-  }, []);
-
   // Scroll to 9am on mount
   useEffect(() => {
-    if (!isLoading) {
-      requestAnimationFrame(() => {
-        const scrollPos = DEFAULT_VIEW_START * HOUR_HEIGHT;
-        if (gridRef.current) gridRef.current.scrollTop = scrollPos;
-        if (timeColumnRef.current) timeColumnRef.current.scrollTop = scrollPos;
-      });
-    }
-  }, [isLoading]);
+    requestAnimationFrame(() => {
+      const scrollPos = DEFAULT_VIEW_START * HOUR_HEIGHT;
+      if (gridRef.current) gridRef.current.scrollTop = scrollPos;
+      if (timeColumnRef.current) timeColumnRef.current.scrollTop = scrollPos;
+    });
+  }, []);
 
   // Auto-scroll horizontally to the first day with available slots
   useEffect(() => {
-    if (isLoading || hasAutoScrolled.current) return;
+    if (hasAutoScrolled.current) return;
 
     const minTime = Date.now() + 36 * 60 * 60 * 1000;
 
@@ -184,12 +156,7 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
         }
       });
     }
-  }, [isLoading, currentWeekStart]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const isTimeBlocked = (_timestamp: number): boolean => {
-    // Don't show existing bookings as blocked — applicants just pick open calendar slots
-    return false;
-  };
+  }, [currentWeekStart]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isTimeUnavailable = (timestamp: number): boolean => {
     const minTime = Date.now() + 36 * 60 * 60 * 1000;
@@ -204,7 +171,7 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
 
     const segmentDuration = 30 * 60 * 1000;
     for (let t = startTime; t < endTime; t += segmentDuration) {
-      if (isTimeBlocked(t) || isTimeUnavailable(t)) return false;
+      if (isTimeUnavailable(t)) return false;
     }
     return true;
   };
@@ -346,11 +313,6 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
       )}
 
       {/* Calendar grid */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-        </div>
-      ) : (
         <div className="flex">
           {/* Fixed time column */}
           <div className="flex-shrink-0 w-[50px] bg-[#0a0a0a] z-10">
@@ -412,11 +374,10 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
                   >
                     {days.map((_, dayIndex) => {
                       const timestamp = getTimestamp(days[dayIndex], hour);
-                      const blocked = isTimeBlocked(timestamp);
                       const unavailable = isTimeUnavailable(timestamp);
                       const selected = isInSelectedSlot(dayIndex, hour);
                       const inPreview = isInHoverPreview(dayIndex, hour);
-                      const canSelect = !blocked && !unavailable && isSlotValid(dayIndex, hour);
+                      const canSelect = !unavailable && isSlotValid(dayIndex, hour);
 
                       return (
                         <div
@@ -425,10 +386,9 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
                             border-l border-gray-800/50 transition-colors
                             ${selected ? 'bg-green-600/40 border-l-green-700 cursor-pointer' : ''}
                             ${inPreview && !selected ? 'bg-green-700/30 cursor-pointer' : ''}
-                            ${blocked && !selected ? 'bg-white/[0.03] cursor-not-allowed' : ''}
-                            ${unavailable && !blocked && !selected ? 'bg-white/[0.02] cursor-not-allowed' : ''}
-                            ${!blocked && !unavailable && !selected && !inPreview && canSelect ? 'bg-white/[0.08] hover:bg-green-800/30 cursor-pointer' : ''}
-                            ${!blocked && !unavailable && !canSelect && !selected && !inPreview ? 'bg-white/[0.08] cursor-not-allowed' : ''}
+                            ${unavailable && !selected ? 'bg-white/[0.02] cursor-not-allowed' : ''}
+                            ${!unavailable && !selected && !inPreview && canSelect ? 'bg-white/[0.08] hover:bg-green-800/30 cursor-pointer' : ''}
+                            ${!unavailable && !canSelect && !selected && !inPreview ? 'bg-white/[0.08] cursor-not-allowed' : ''}
                           `}
                           onClick={() => handleCellClick(dayIndex, hour)}
                           onMouseEnter={() => handleCellMouseEnter(dayIndex, hour)}
@@ -442,7 +402,6 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
             </div>
           </div>
         </div>
-      )}
 
       {/* Legend */}
       <div className="px-4 py-3 bg-[#1a1a1a] border-t border-gray-800">
