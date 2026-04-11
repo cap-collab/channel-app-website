@@ -311,7 +311,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Archive tag filter — default: all selected, persisted to Firestore
-  const ALL_MOOD_TAGS = ['pick-me-up', 'chill', 'exploratory'];
+  const ALL_MOOD_TAGS = ['pick-me-up', 'chill', 'exploratory', 'clubby'];
   const [activeTags, setActiveTags] = useState<string[]>(ALL_MOOD_TAGS);
   const [tagsLoaded, setTagsLoaded] = useState(false);
 
@@ -722,7 +722,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       {(() => {
         const heroFirstId = heroArchives[0]?.id;
         // Filter: hide archives that have any non-active (toggled off) mood tag
-        const allTags = ['pick-me-up', 'chill', 'exploratory'];
+        const allTags = ALL_MOOD_TAGS;
         const inactiveTags = allTags.filter(t => !activeTags.includes(t));
         const filtered = archives
           .filter(a => a.priority !== 'low')
@@ -748,6 +748,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 { tag: 'pick-me-up', label: 'Upbeat' },
                 { tag: 'chill', label: 'Chill' },
                 { tag: 'exploratory', label: 'Deep' },
+                { tag: 'clubby', label: 'Clubby' },
               ].map(({ tag, label }) => (
                 <button
                   key={tag}
@@ -801,6 +802,7 @@ const TAG_LABELS: Record<string, string> = {
   'pick-me-up': 'UPBEAT',
   'chill': 'CHILL',
   'exploratory': 'DEEP',
+  'clubby': 'CLUBBY',
 };
 
 function HeroSlide({ archive, onPlay }: { archive: ArchiveSerialized; onPlay: () => void }) {
