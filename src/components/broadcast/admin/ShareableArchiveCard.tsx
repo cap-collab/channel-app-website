@@ -106,8 +106,8 @@ function drawCanvas(
   ctx.fillStyle = '#a1a1aa';
   ctx.font = `500 ${fontSize}px ${F}`;
   ctx.textBaseline = 'middle';
-  ctx.textAlign = 'center';
-  ctx.fillText('channel-app.com', CANVAS_W / 2, line1CenterY);
+  ctx.textAlign = 'right';
+  ctx.fillText('channel-app.com', CANVAS_W - pad, line1CenterY);
   ctx.textAlign = 'left';
 
   // Gradient scrims
