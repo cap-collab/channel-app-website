@@ -306,16 +306,16 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const [activeTags, setActiveTags] = useState<string[]>(ALL_MOOD_TAGS);
   const [tagsLoaded, setTagsLoaded] = useState(false);
 
-  // Load preference from Firestore (or localStorage fallback)
+  // Load preference from Firestore user doc (or localStorage fallback)
   useEffect(() => {
     if (tagsLoaded) return;
     if (user?.uid) {
       import('firebase/firestore').then(({ doc, getDoc }) => {
         import('@/lib/firebase').then(({ db }) => {
           if (!db) return;
-          getDoc(doc(db, 'users', user.uid, 'preferences', 'archiveTags')).then(snap => {
+          getDoc(doc(db, 'users', user.uid)).then(snap => {
             if (snap.exists()) {
-              const saved = snap.data()?.tags;
+              const saved = snap.data()?.archiveMoodTags;
               if (Array.isArray(saved)) setActiveTags(saved);
             }
             setTagsLoaded(true);
@@ -336,12 +336,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       const next = prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag];
       // Save to localStorage always
       try { localStorage.setItem('archive-tags', JSON.stringify(next)); } catch {}
-      // Save to Firestore if logged in
+      // Save to Firestore user doc if logged in
       if (user?.uid) {
-        import('firebase/firestore').then(({ doc, setDoc }) => {
+        import('firebase/firestore').then(({ doc, updateDoc }) => {
           import('@/lib/firebase').then(({ db }) => {
             if (!db) return;
-            setDoc(doc(db, 'users', user.uid, 'preferences', 'archiveTags'), { tags: next }).catch(() => {});
+            updateDoc(doc(db, 'users', user.uid), { archiveMoodTags: next }).catch(() => {});
           });
         });
       }
