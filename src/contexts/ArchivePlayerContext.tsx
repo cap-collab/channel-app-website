@@ -83,6 +83,8 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   const streamCountedRef = useRef<string | null>(null);
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seekTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isSeeking = useRef(false);
   const playbackStartedAtRef = useRef<number | null>(null);
   const archiveLockedInFiredRef = useRef<string | null>(null);
   const onLockedInRef = useRef<(() => void) | null>(null);
@@ -93,6 +95,10 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       if (retryTimerRef.current) {
         clearTimeout(retryTimerRef.current);
         retryTimerRef.current = null;
+      }
+      if (seekTimerRef.current) {
+        clearTimeout(seekTimerRef.current);
+        seekTimerRef.current = null;
       }
       if (audioRef.current) {
         audioRef.current.pause();
@@ -139,6 +145,8 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
         }
       });
       audio.addEventListener('error', () => {
+        // Ignore errors caused by rapid seeking (aborted range requests)
+        if (isSeeking.current) return;
         const MAX_RETRIES = 3;
         if (retryCountRef.current < MAX_RETRIES && audio.src) {
           retryCountRef.current += 1;
@@ -448,10 +456,20 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
 
   const seek = useCallback((time: number) => {
     const audio = audioRef.current;
-    if (audio) {
+    if (!audio) return;
+
+    // Update UI immediately
+    setCurrentTime(time);
+
+    // Debounce the actual audio seek to avoid rapid range request errors
+    isSeeking.current = true;
+    retryCountRef.current = 0;
+    if (seekTimerRef.current) clearTimeout(seekTimerRef.current);
+    seekTimerRef.current = setTimeout(() => {
+      seekTimerRef.current = null;
       audio.currentTime = time;
-      setCurrentTime(time);
-    }
+      isSeeking.current = false;
+    }, 150);
   }, []);
 
   const value = useMemo<ArchivePlayerContextValue>(() => ({
