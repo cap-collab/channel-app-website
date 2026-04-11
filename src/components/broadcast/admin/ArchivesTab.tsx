@@ -425,9 +425,9 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
 
 // Archive Card Component
 const TAG_OPTIONS = [
-  { value: 'pick-me-up', label: 'Pick Me Up', color: 'bg-green-900/40 text-green-400 border-green-800' },
+  { value: 'pick-me-up', label: 'Upbeat', color: 'bg-green-900/40 text-green-400 border-green-800' },
   { value: 'chill', label: 'Chill', color: 'bg-blue-900/40 text-blue-400 border-blue-800' },
-  { value: 'exploratory', label: 'Exploratory', color: 'bg-purple-900/40 text-purple-400 border-purple-800' },
+  { value: 'exploratory', label: 'Deep', color: 'bg-purple-900/40 text-purple-400 border-purple-800' },
 ];
 
 function ArchiveCard({

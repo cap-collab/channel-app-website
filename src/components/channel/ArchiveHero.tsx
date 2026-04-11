@@ -705,9 +705,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               {/* Tag filter pills */}
               <div className="flex gap-2">
               {[
-                { tag: 'pick-me-up', label: 'Pick Me Up' },
+                { tag: 'pick-me-up', label: 'Upbeat' },
                 { tag: 'chill', label: 'Chill' },
-                { tag: 'exploratory', label: 'Exploratory' },
+                { tag: 'exploratory', label: 'Deep' },
               ].map(({ tag, label }) => (
                 <button
                   key={tag}
@@ -753,9 +753,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 }
 
 const TAG_LABELS: Record<string, string> = {
-  'pick-me-up': 'PICK ME UP',
+  'pick-me-up': 'UPBEAT',
   'chill': 'CHILL',
-  'exploratory': 'EXPLORATORY',
+  'exploratory': 'DEEP',
 };
 
 function HeroSlide({ archive, onPlay }: { archive: ArchiveSerialized; onPlay: () => void }) {
