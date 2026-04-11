@@ -677,9 +677,11 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         const raw = tag === 'exploratory'
           ? archives.filter(a => a.tags?.includes('exploratory') || !a.tags?.length)
           : archives.filter(a => a.tags?.includes(tag));
-        // Move hero's first archive to end so it doesn't lead in both places
-        const filtered = heroFirstId
-          ? [...raw.filter(a => a.id !== heroFirstId), ...raw.filter(a => a.id === heroFirstId)]
+        // Move hero's first archive to position 3 (index 2) so it doesn't lead
+        const heroItem = heroFirstId ? raw.find(a => a.id === heroFirstId) : null;
+        const rest = heroItem ? raw.filter(a => a.id !== heroFirstId) : raw;
+        const filtered = heroItem
+          ? [...rest.slice(0, 2), heroItem, ...rest.slice(2)]
           : raw;
         if (filtered.length === 0) return null;
         return (
