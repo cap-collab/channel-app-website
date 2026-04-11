@@ -32,13 +32,16 @@ export function FloatingChat() {
   const chatRoom = isLive && liveDJChatRoom ? liveDJChatRoom : 'channelbroadcast';
   const chatDJLabel = isLive && liveDjName ? liveDjName : 'Channel Radio';
 
-  const { messages, sendMessage, loveCount } = useDJProfileChat({
+  const { messages, sendMessage } = useDJProfileChat({
     chatUsernameNormalized: chatRoom,
     djUsername: chatDJLabel,
     username: chatUsername || undefined,
-    enabled: isOpen,
+    enabled: true,
     currentShowStartTime: isLive ? currentShow?.startTime : undefined,
   });
+
+  // Count regular chat messages (exclude love, lockedin, tip)
+  const messageCount = messages.filter(m => !m.messageType || m.messageType === 'chat').length;
 
   // Auto-scroll chat
   useEffect(() => {
@@ -119,12 +122,9 @@ export function FloatingChat() {
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-white">Chat</span>
-              {loveCount > 0 && (
-                <span className="flex items-center gap-1 text-zinc-500 text-xs">
-                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                  </svg>
-                  {loveCount}
+              {messageCount > 0 && (
+                <span className="text-zinc-500 text-xs">
+                  {messageCount} message{messageCount !== 1 ? 's' : ''}
                 </span>
               )}
             </div>
@@ -230,20 +230,20 @@ export function FloatingChat() {
       {/* Floating button */}
       <button
         onClick={handleToggle}
-        className="fixed bottom-4 right-4 z-[199] w-10 h-10 rounded-full bg-zinc-800/80 backdrop-blur border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700/80 transition-colors"
+        className="fixed bottom-4 right-4 z-[199] w-10 h-10 md:w-12 md:h-12 rounded-full bg-zinc-800/80 backdrop-blur border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700/80 transition-colors"
       >
         {isOpen ? (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         ) : (
           <>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
-            {loveCount > 0 && (
+            {messageCount > 0 && (
               <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-zinc-700 border border-white/10 text-[10px] text-white font-medium flex items-center justify-center">
-                {loveCount}
+                {messageCount}
               </span>
             )}
           </>
