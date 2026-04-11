@@ -190,7 +190,6 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       setHeroBarObserverReady(false);
     };
   }, [setHeroBarVisible, setHeroBarObserverReady]);
-  const { addToWatchlist, isInWatchlist, removeFromWatchlist } = useFavorites();
 
   // Track what the user last chose: 'live' or 'archive'
   // If an archive is loaded (playing or paused), stay in archive mode even if live is on
@@ -221,6 +220,26 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
   // The currently displayed archive (either playing or featured)
   const displayedArchive = archivePlayer.currentArchive || featuredArchive;
+
+  // Hero carousel: top 3 archives, playing one always first, no duplicates
+  const heroArchives = useMemo(() => {
+    const playing = archivePlayer.currentArchive || featuredArchive;
+    const result = [playing];
+    for (const a of archives) {
+      if (result.length >= 3) break;
+      if (result.some(r => r.id === a.id)) continue;
+      result.push(a);
+    }
+    return result;
+  }, [archives, featuredArchive, archivePlayer.currentArchive]);
+
+  const [heroIndex, setHeroIndex] = useState(0);
+  const heroTouchRef = useRef<{ startX: number; startY: number } | null>(null);
+
+  // When playback changes, snap to first slide
+  useEffect(() => {
+    setHeroIndex(0);
+  }, [archivePlayer.currentArchive?.id]);
 
   // Live DJ info (computed from currentShow, similar to LiveBroadcastHero)
   const liveDjPhotoUrl = (() => {
@@ -256,43 +275,18 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   // Primary DJ info — live or archive based
   const primaryDJ = displayedArchive.djs[0];
   const djUsername = showLiveInHero ? (liveDjProfileUsername || primaryDJ?.username) : primaryDJ?.username;
-  const djProfileUsername = showLiveInHero ? liveDjProfileUsername : djUsername?.replace(/\s+/g, '').toLowerCase();
   const djName = showLiveInHero ? (liveDjName || displayedArchive.djs.map((d) => d.name).join(', ')) : displayedArchive.djs.map((d) => d.name).join(', ');
   const djPhotoUrl = showLiveInHero ? liveDjPhotoUrl : (displayedArchive.showImageUrl || primaryDJ?.photoUrl);
 
-  // Fetch DJ profile for genres, tip link, and bio
+  // Fetch DJ profile for genres, tip link, and bio (used for live hero)
   const djProfile = useDJProfileInfo(djUsername);
   const djGenres = showLiveInHero ? liveDjGenres : djProfile.genres;
   const tipLink = showLiveInHero ? liveTipLink : djProfile.tipButtonLink;
   const djDescription = showLiveInHero ? liveDjDescription : djProfile.bio;
 
-  // Image error state
+  // Image error state (for live hero)
   const [imageError, setImageError] = useState(false);
   const hasPhoto = djPhotoUrl && !imageError;
-
-
-
-  // Watchlist
-  const [isAddingToWatchlist, setIsAddingToWatchlist] = useState(false);
-  const isDJInWatchlist = djUsername ? isInWatchlist(djUsername) : false;
-
-  const handleToggleWatchlist = useCallback(async () => {
-    if (!djUsername) return;
-    if (!isAuthenticated) {
-      setShowAuthModal(true);
-      return;
-    }
-    setIsAddingToWatchlist(true);
-    try {
-      if (isDJInWatchlist) {
-        await removeFromWatchlist(djUsername);
-      } else {
-        await addToWatchlist(djUsername, primaryDJ?.userId, primaryDJ?.email);
-      }
-    } finally {
-      setIsAddingToWatchlist(false);
-    }
-  }, [djUsername, primaryDJ, addToWatchlist, removeFromWatchlist, isDJInWatchlist, isAuthenticated]);
 
   // Heart / Love
   const [heartTrigger, setHeartTrigger] = useState(0);
@@ -360,7 +354,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       <div className="max-w-3xl mx-auto">
 
         {/* Status line above image — reflects what the hero is showing */}
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-2 relative">
           {showLiveInHero ? (
             <span />
           ) : isLive ? (
@@ -416,57 +410,46 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               </>
             )}
           </div>
+          {/* Carousel dots — centered */}
+          {!showLiveInHero && heroArchives.length > 1 && (
+            <div className="absolute left-1/2 -translate-x-1/2 flex gap-1.5">
+              {heroArchives.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setHeroIndex(i)}
+                  className={`w-1.5 h-1.5 rounded-full transition-colors ${i === heroIndex ? 'bg-white' : 'bg-white/30'}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Hero Image — 16:9 mobile, 5:2 desktop */}
-        {djProfileUsername ? (
-          <Link href={`/dj/${djProfileUsername}`} className="block relative w-full aspect-[16/9] lg:aspect-[5/2] overflow-hidden border border-white/10">
-            {hasPhoto ? (
-              <>
-                <Image
-                  src={djPhotoUrl!}
-                  alt={djName || 'DJ'}
-                  fill
-                  className="object-cover"
-                  unoptimized
-                  onError={() => setImageError(true)}
-                />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
-                {/* Watchlist button — top right */}
-                <button
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleWatchlist(); }}
-                  disabled={isAddingToWatchlist}
-                  className={`absolute top-2 right-2 z-20 w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-50 ${
-                    isDJInWatchlist ? 'bg-white text-black' : 'bg-black/50 text-white hover:bg-black/70'
-                  }`}
-                >
-                  {isAddingToWatchlist ? (
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                  ) : isDJInWatchlist ? (
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                  )}
-                </button>
-                {/* Show name — top left */}
-                <div className="absolute top-2 left-2 drop-shadow-lg">
-                  <span className="text-sm font-bold text-white uppercase tracking-wide">{showName}</span>
-                </div>
-                <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
-              </>
-            ) : (
-              <div className="w-full h-full relative flex items-center justify-center bg-white/5">
-                <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-center px-4 text-white">
-                  {djName || showName}
-                </h2>
-              </div>
-            )}
-          </Link>
-        ) : (
+        {/* Hero Image Carousel — swipable top 3 archives */}
+        {!showLiveInHero && (
+          <div
+            className="relative overflow-hidden"
+            onTouchStart={(e) => { heroTouchRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY }; }}
+            onTouchEnd={(e) => {
+              if (!heroTouchRef.current) return;
+              const dx = e.changedTouches[0].clientX - heroTouchRef.current.startX;
+              const dy = e.changedTouches[0].clientY - heroTouchRef.current.startY;
+              heroTouchRef.current = null;
+              if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return;
+              if (dx < 0 && heroIndex < heroArchives.length - 1) setHeroIndex(heroIndex + 1);
+              if (dx > 0 && heroIndex > 0) setHeroIndex(heroIndex - 1);
+            }}
+          >
+            <div
+              className="flex transition-transform duration-300 ease-out"
+              style={{ transform: `translateX(-${heroIndex * 100}%)` }}
+            >
+              {heroArchives.map((ha) => (
+                <HeroSlide key={ha.id} archive={ha} />
+              ))}
+            </div>
+          </div>
+        )}
+        {showLiveInHero && (
           <div className="relative w-full aspect-[16/9] lg:aspect-[5/2] overflow-hidden border border-white/10">
             {hasPhoto ? (
               <>
@@ -480,25 +463,6 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 />
                 <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
-                <button
-                  onClick={handleToggleWatchlist}
-                  disabled={isAddingToWatchlist}
-                  className={`absolute top-2 right-2 z-20 w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-50 ${
-                    isDJInWatchlist ? 'bg-white text-black' : 'bg-black/50 text-white hover:bg-black/70'
-                  }`}
-                >
-                  {isAddingToWatchlist ? (
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                  ) : isDJInWatchlist ? (
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                  )}
-                </button>
-                {/* Show name — top left */}
                 <div className="absolute top-2 left-2 drop-shadow-lg">
                   <span className="text-sm font-bold text-white uppercase tracking-wide">{showName}</span>
                 </div>
@@ -727,6 +691,54 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
     </section>
     </>
+  );
+}
+
+function HeroSlide({ archive }: { archive: ArchiveSerialized }) {
+  const primaryDj = archive.djs[0];
+  const djName = archive.djs.map(d => d.name).join(', ');
+  const djUsername = primaryDj?.username?.replace(/\s+/g, '').toLowerCase();
+  const photoUrl = archive.showImageUrl || primaryDj?.photoUrl;
+  const djProfile = useDJProfileInfo(primaryDj?.username);
+  const djGenres = (primaryDj?.genres?.length ? primaryDj.genres : djProfile.genres) || [];
+  const djDescription = djProfile.bio;
+  const [imgError, setImgError] = useState(false);
+  const hasPhoto = photoUrl && !imgError;
+
+  const content = hasPhoto ? (
+    <>
+      <Image
+        src={photoUrl!}
+        alt={djName || 'DJ'}
+        fill
+        className="object-cover"
+        unoptimized
+        priority
+        onError={() => setImgError(true)}
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
+      <div className="absolute top-2 left-2 drop-shadow-lg">
+        <span className="text-sm font-bold text-white uppercase tracking-wide">{archive.showName}</span>
+      </div>
+      <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
+    </>
+  ) : (
+    <div className="w-full h-full relative flex items-center justify-center bg-white/5">
+      <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-center px-4 text-white">
+        {djName || archive.showName}
+      </h2>
+    </div>
+  );
+
+  return djUsername ? (
+    <Link href={`/dj/${djUsername}`} className="block relative w-full aspect-[16/9] lg:aspect-[5/2] overflow-hidden border border-white/10 flex-shrink-0">
+      {content}
+    </Link>
+  ) : (
+    <div className="relative w-full aspect-[16/9] lg:aspect-[5/2] overflow-hidden border border-white/10 flex-shrink-0">
+      {content}
+    </div>
   );
 }
 
