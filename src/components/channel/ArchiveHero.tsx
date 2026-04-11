@@ -301,23 +301,53 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  // Archive tag filter — default: chill + exploratory
-  const [activeTags, setActiveTags] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return ['chill', 'exploratory'];
-    try {
-      const saved = localStorage.getItem('archive-tags');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return ['chill', 'exploratory'];
-  });
+  // Archive tag filter — default: all selected, persisted to Firestore
+  const ALL_MOOD_TAGS = ['pick-me-up', 'chill', 'exploratory'];
+  const [activeTags, setActiveTags] = useState<string[]>(ALL_MOOD_TAGS);
+  const [tagsLoaded, setTagsLoaded] = useState(false);
+
+  // Load preference from Firestore (or localStorage fallback)
+  useEffect(() => {
+    if (tagsLoaded) return;
+    if (user?.uid) {
+      import('firebase/firestore').then(({ doc, getDoc }) => {
+        import('@/lib/firebase').then(({ db }) => {
+          if (!db) return;
+          getDoc(doc(db, 'users', user.uid, 'preferences', 'archiveTags')).then(snap => {
+            if (snap.exists()) {
+              const saved = snap.data()?.tags;
+              if (Array.isArray(saved)) setActiveTags(saved);
+            }
+            setTagsLoaded(true);
+          }).catch(() => setTagsLoaded(true));
+        });
+      });
+    } else {
+      try {
+        const saved = localStorage.getItem('archive-tags');
+        if (saved) setActiveTags(JSON.parse(saved));
+      } catch {}
+      setTagsLoaded(true);
+    }
+  }, [user?.uid, tagsLoaded]);
 
   const toggleTag = useCallback((tag: string) => {
     setActiveTags(prev => {
       const next = prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag];
+      // Save to localStorage always
       try { localStorage.setItem('archive-tags', JSON.stringify(next)); } catch {}
+      // Save to Firestore if logged in
+      if (user?.uid) {
+        import('firebase/firestore').then(({ doc, setDoc }) => {
+          import('@/lib/firebase').then(({ db }) => {
+            if (!db) return;
+            setDoc(doc(db, 'users', user.uid, 'preferences', 'archiveTags'), { tags: next }).catch(() => {});
+          });
+        });
+      }
       return next;
     });
-  }, []);
+  }, [user?.uid]);
 
   // DJ-specific chat hook for sending loves to the DJ currently shown in the player
   // When showing live hero → love goes to live DJ; when showing archive → love goes to archive DJ
