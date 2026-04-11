@@ -712,10 +712,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 <button
                   key={tag}
                   onClick={() => toggleTag(tag)}
-                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors border ${
                     activeTags.includes(tag)
-                      ? 'bg-white text-black'
-                      : 'bg-white/10 text-zinc-400 hover:bg-white/20'
+                      ? 'border-white text-white'
+                      : 'border-white/10 text-zinc-600 hover:border-white/30 hover:text-zinc-400'
                   }`}
                 >
                   {label}
@@ -751,6 +751,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     </>
   );
 }
+
+const TAG_LABELS: Record<string, string> = {
+  'pick-me-up': 'PICK ME UP',
+  'chill': 'CHILL',
+  'exploratory': 'EXPLORATORY',
+};
 
 function HeroSlide({ archive, onPlay }: { archive: ArchiveSerialized; onPlay: () => void }) {
   const primaryDj = archive.djs[0];
@@ -801,9 +807,18 @@ function HeroSlide({ archive, onPlay }: { archive: ArchiveSerialized; onPlay: ()
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
-          {/* Show name — top left */}
+          {/* Show name + mood tags — top left */}
           <div className="absolute top-2 left-2 drop-shadow-lg">
             <span className="text-sm font-bold text-white uppercase tracking-wide">{archive.showName}</span>
+            {archive.tags && archive.tags.length > 0 && (
+              <div className="flex gap-1.5 mt-1">
+                {archive.tags.map(tag => (
+                  <span key={tag} className="text-[10px] font-mono text-white/60 uppercase tracking-tighter border border-white/20 px-1.5 py-0.5 rounded">
+                    {TAG_LABELS[tag] || tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           {/* Watchlist — top right */}
           <div
@@ -832,13 +847,6 @@ function HeroSlide({ archive, onPlay }: { archive: ArchiveSerialized; onPlay: ()
     </button>
   );
 }
-
-
-const TAG_LABELS: Record<string, string> = {
-  'pick-me-up': 'PICK ME UP',
-  'chill': 'CHILL',
-  'exploratory': 'EXPLORATORY',
-};
 
 function ArchiveGridCard({
   archive,
