@@ -439,6 +439,7 @@ function ArchiveCard({
   const [genreInput, setGenreInput] = useState(primaryDj?.genres?.join(', ') || '');
   const [locationInput, setLocationInput] = useState(primaryDj?.location || '');
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = async () => {
@@ -462,16 +463,25 @@ function ArchiveCard({
     if (!file) return;
     const validation = validatePhoto(file);
     if (!validation.valid) {
-      alert(validation.error);
+      setUploadError(validation.error || 'Invalid file');
       return;
     }
     setIsUploading(true);
-    const result = await uploadArchiveImage(archive.id, file);
-    if (result.success && result.url) {
-      await onUpdate(archive.id, { showImageUrl: result.url });
+    setUploadError(null);
+    try {
+      const result = await uploadArchiveImage(archive.id, file);
+      if (result.success && result.url) {
+        await onUpdate(archive.id, { showImageUrl: result.url });
+      } else {
+        setUploadError(result.error || 'Upload failed');
+      }
+    } catch (err) {
+      console.error('Archive image upload failed:', err);
+      setUploadError('Upload failed — check console');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
-    setIsUploading(false);
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const openEdit = () => {
@@ -487,14 +497,34 @@ function ArchiveCard({
   return (
     <div className="p-4 bg-[#1a1a1a] border border-gray-800 rounded-xl hover:border-gray-700 transition-colors">
       <div className="flex items-start gap-4">
-        {/* Thumbnail */}
-        <div className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden relative">
+        {/* Thumbnail — click to upload */}
+        <label className="w-16 h-16 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden relative cursor-pointer group">
           {archive.showImageUrl ? (
             <Image src={archive.showImageUrl} alt={archive.showName} fill className="object-cover" unoptimized />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs">No img</div>
           )}
-        </div>
+          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            {isUploading ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            )}
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            className="hidden"
+            disabled={isUploading}
+          />
+        </label>
+        {uploadError && (
+          <span className="text-red-400 text-xs">{uploadError}</span>
+        )}
 
         <div className="flex-1 min-w-0">
           {isEditing ? (
@@ -542,19 +572,7 @@ function ArchiveCard({
                   className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <label className="px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors cursor-pointer">
-                  {isUploading ? 'Uploading...' : 'Upload Image'}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    disabled={isUploading}
-                  />
-                </label>
-                <div className="flex-1" />
+              <div className="flex items-center gap-2 justify-end">
                 <button
                   onClick={() => setIsEditing(false)}
                   className="px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white transition-colors"

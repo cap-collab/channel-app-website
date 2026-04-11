@@ -910,9 +910,10 @@ function ArchiveGridCard({
         {primaryUsername && (
           <Link
             href={`/dj/${primaryUsername}`}
-            className="flex-1 py-2 px-2 rounded text-xs md:text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white text-center"
+            className="flex-1 py-2 px-2 rounded text-xs md:text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white flex items-center justify-center gap-1"
           >
-            See profile
+            <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+            Profile
           </Link>
         )}
       </div>

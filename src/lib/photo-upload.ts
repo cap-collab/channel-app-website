@@ -421,7 +421,7 @@ export async function uploadArchiveImage(archiveId: string, file: File): Promise
   try {
     const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
     const filename = `archive-image.${ext}`;
-    const photoRef = ref(storage, `archive-images/${archiveId}/${filename}`);
+    const photoRef = ref(storage, `show-images/${archiveId}/${filename}`);
 
     await uploadBytes(photoRef, file, {
       contentType: file.type,
