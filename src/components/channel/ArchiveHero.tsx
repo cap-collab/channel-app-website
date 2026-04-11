@@ -19,7 +19,6 @@ import { DJImageOverlay, ScrollingShowName, ScrollingDJName } from './LiveBroadc
 import { FloatingHearts } from './FloatingHearts';
 import { TipButton } from './TipButton';
 import { AuthModal } from '@/components/AuthModal';
-import { SwipeableCardCarousel } from '@/components/channel/SwipeableCardCarousel';
 import { ArchiveSerialized } from '@/types/broadcast';
 
 function ArchiveIcon({ className }: { className?: string }) {
@@ -301,6 +300,24 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   };
 
   const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // Archive tag filter — default: chill + exploratory
+  const [activeTags, setActiveTags] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return ['chill', 'exploratory'];
+    try {
+      const saved = localStorage.getItem('archive-tags');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return ['chill', 'exploratory'];
+  });
+
+  const toggleTag = useCallback((tag: string) => {
+    setActiveTags(prev => {
+      const next = prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag];
+      try { localStorage.setItem('archive-tags', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
 
   // DJ-specific chat hook for sending loves to the DJ currently shown in the player
   // When showing live hero → love goes to live DJ; when showing archive → love goes to archive DJ
@@ -662,33 +679,53 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
       </div>
 
-      {/* Latest Archives */}
-      <div className="mt-6 max-w-7xl mx-auto">
-        <h2 className="text-2xl md:text-3xl font-semibold mb-4">Latest Archives</h2>
-      </div>
-
-      {/* Archive Carousels by mood */}
-      {[
-        { tag: 'pick-me-up', label: 'Pick Me Up' },
-        { tag: 'chill', label: 'Chill' },
-        { tag: 'exploratory', label: 'Exploratory' },
-      ].map(({ tag, label }) => {
+      {/* Latest Archives — filtered full-width cards */}
+      {(() => {
         const heroFirstId = heroArchives[0]?.id;
-        const raw = tag === 'exploratory'
-          ? archives.filter(a => a.tags?.includes('exploratory') || !a.tags?.length)
-          : archives.filter(a => a.tags?.includes(tag));
-        // Move hero's first archive to position 3 (index 2) so it doesn't lead
-        const heroItem = heroFirstId ? raw.find(a => a.id === heroFirstId) : null;
-        const rest = heroItem ? raw.filter(a => a.id !== heroFirstId) : raw;
-        const filtered = heroItem
-          ? [...rest.slice(0, 2), heroItem, ...rest.slice(2)]
-          : raw;
-        if (filtered.length === 0) return null;
+        // Filter: match any active tag, hide low priority, sort newest first
+        const filtered = archives
+          .filter(a => a.priority !== 'low')
+          .filter(a => {
+            if (activeTags.length === 0) return true;
+            // If archive has tags, check overlap. If no tags, show in exploratory if active
+            if (a.tags?.length) return activeTags.some(t => a.tags!.includes(t));
+            return activeTags.includes('exploratory');
+          })
+          .sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0));
+        // Move hero first to position 3
+        const heroItem = heroFirstId ? filtered.find(a => a.id === heroFirstId) : null;
+        const ordered = heroItem
+          ? (() => { const rest = filtered.filter(a => a.id !== heroFirstId); return [...rest.slice(0, 2), heroItem, ...rest.slice(2)]; })()
+          : filtered;
+
         return (
-          <div key={tag} className="mt-4 max-w-7xl mx-auto">
-            <h3 className="text-xs font-mono uppercase tracking-widest text-zinc-500 mb-2">{label}</h3>
-            <SwipeableCardCarousel>
-              {filtered.map((archive) => (
+          <div className="mt-6 max-w-3xl mx-auto">
+            <h2 className="text-2xl md:text-3xl font-semibold mb-3">Latest Archives</h2>
+
+            {/* Tag filter pills */}
+            <div className="flex gap-2 mb-4">
+              {[
+                { tag: 'pick-me-up', label: 'Pick Me Up' },
+                { tag: 'chill', label: 'Chill' },
+                { tag: 'exploratory', label: 'Exploratory' },
+              ].map(({ tag, label }) => (
+                <button
+                  key={tag}
+                  onClick={() => toggleTag(tag)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    activeTags.includes(tag)
+                      ? 'bg-white text-black'
+                      : 'bg-white/10 text-zinc-400 hover:bg-white/20'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Full-width card list */}
+            <div className="space-y-4">
+              {ordered.map((archive) => (
                 <ArchiveGridCard
                   key={archive.id}
                   archive={archive}
@@ -697,10 +734,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   onPlay={() => { setUserSelectedMode('archive'); pauseLive(); archivePlayer.play(archive); }}
                 />
               ))}
-            </SwipeableCardCarousel>
+            </div>
           </div>
         );
-      })}
+      })()}
 
       <AuthModal
         isOpen={showAuthModal}
