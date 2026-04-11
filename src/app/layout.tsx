@@ -19,18 +19,18 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   title: "channel",
-  description: "Ditch the algorithms. Stay in the know with the curators who move your world forward.",
+  description: "For the music. And the people behind it.",
   metadataBase: new URL("https://channel-app.com"),
   openGraph: {
     title: "channel",
-    description: "Ditch the algorithms. Stay in the know with the curators who move your world forward.",
+    description: "For the music. And the people behind it.",
     type: "website",
     url: "https://channel-app.com",
   },
   twitter: {
     card: "summary_large_image",
     title: "channel",
-    description: "Ditch the algorithms. Stay in the know with the curators who move your world forward.",
+    description: "For the music. And the people behind it.",
   },
   icons: {
     icon: [
