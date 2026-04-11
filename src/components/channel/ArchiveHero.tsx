@@ -713,12 +713,17 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 <button
                   key={tag}
                   onClick={() => toggleTag(tag)}
-                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors border ${
+                  className={`px-2 py-1.5 rounded text-[10px] sm:text-xs font-medium transition-colors border flex items-center gap-1 ${
                     activeTags.includes(tag)
                       ? 'border-white text-white'
                       : 'border-white/10 text-zinc-600 hover:border-white/30 hover:text-zinc-400'
                   }`}
                 >
+                  {activeTags.includes(tag) ? (
+                    <svg className="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                  ) : (
+                    <svg className="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  )}
                   {label}
                 </button>
               ))}
