@@ -33,8 +33,21 @@ function isNighttimePT(timestamp: number): boolean {
   return ptHour >= 22 || ptHour < 7;
 }
 
-// Hard cutoff: everything up to and including April 1st is blocked (midnight PT = 7am UTC)
-const BLOCKED_UNTIL = new Date('2026-04-02T07:00:00Z').getTime();
+// Hard cutoff: everything up to and including April 22nd is blocked (midnight PT = 7am UTC)
+const BLOCKED_UNTIL = new Date('2026-04-23T07:00:00Z').getTime();
+
+// Specific blocked dates (in PT)
+const BLOCKED_DATES = ['2026-04-24', '2026-04-27', '2026-05-25', '2026-05-26'];
+
+function isBlockedDate(timestamp: number): boolean {
+  const ptDate = new Date(timestamp).toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+  return BLOCKED_DATES.includes(ptDate);
+}
+
+function isWeekendPT(timestamp: number): boolean {
+  const ptDayStr = new Date(timestamp).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'America/Los_Angeles' });
+  return ptDayStr === 'Sat' || ptDayStr === 'Sun';
+}
 
 function formatHour(hour: number): string {
   if (hour === 0) return '12a';
@@ -142,7 +155,7 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
     for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
       for (const hour of ALL_HOURS) {
         const timestamp = getTimestamp(days[dayIndex], hour);
-        if (timestamp >= minTime && !blockedSlots.some(s => timestamp >= s.start && timestamp < s.end)) {
+        if (timestamp >= minTime && !isTimeUnavailable(timestamp)) {
           firstAvailableDay = dayIndex;
           break;
         }
@@ -173,13 +186,14 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
     }
   }, [isLoading, currentWeekStart]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isTimeBlocked = (timestamp: number): boolean => {
-    return blockedSlots.some((slot) => timestamp >= slot.start && timestamp < slot.end);
+  const isTimeBlocked = (_timestamp: number): boolean => {
+    // Don't show existing bookings as blocked — applicants just pick open calendar slots
+    return false;
   };
 
   const isTimeUnavailable = (timestamp: number): boolean => {
     const minTime = Date.now() + 36 * 60 * 60 * 1000;
-    return timestamp < minTime || timestamp < BLOCKED_UNTIL || isNighttimePT(timestamp);
+    return timestamp < minTime || timestamp < BLOCKED_UNTIL || isNighttimePT(timestamp) || isWeekendPT(timestamp) || isBlockedDate(timestamp);
   };
 
   const isSlotValid = (dayIndex: number, startHour: number): boolean => {
