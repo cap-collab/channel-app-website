@@ -1,4 +1,4 @@
-import { EgressClient } from 'livekit-server-sdk';
+import { EgressClient, RoomServiceClient } from 'livekit-server-sdk';
 import { SegmentedFileOutput, SegmentedFileProtocol, S3Upload, EncodedFileOutput, EncodedFileType } from '@livekit/protocol';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -13,6 +13,24 @@ const r2SecretKey = process.env.R2_SECRET_ACCESS_KEY || '';
 const r2Bucket = process.env.R2_BUCKET_NAME || '';
 const r2Endpoint = `https://${r2AccountId}.r2.cloudflarestorage.com`;
 const r2PublicUrl = process.env.R2_PUBLIC_URL || '';
+
+/** Find the first published audio track SID in a room. */
+async function findAudioTrackSid(room: string): Promise<string | null> {
+  try {
+    const roomService = new RoomServiceClient(livekitHost, apiKey, apiSecret);
+    const participants = await roomService.listParticipants(room);
+    for (const p of participants) {
+      for (const t of p.tracks) {
+        if (t.type === 1 /* AUDIO */ && !t.muted && t.sid) {
+          return t.sid;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to find audio track SID:', err);
+  }
+  return null;
+}
 
 // Start HLS + MP4 egress for a room (or MP4-only for recording mode)
 export async function POST(request: NextRequest) {
@@ -51,13 +69,23 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      const recordingEgress = await egressClient.startRoomCompositeEgress(
-        room,
-        { file: mp4Output },
-        { audioOnly: true }
-      );
+      // Use track composite egress for MP4 recording — encodes the audio track
+      // directly via GStreamer instead of running a headless Chrome compositor,
+      // which eliminates periodic pops/frame drops in recordings.
+      const audioTrackSid = await findAudioTrackSid(room);
+      const recordingEgress = audioTrackSid
+        ? await egressClient.startTrackCompositeEgress(
+            room,
+            { file: mp4Output },
+            { audioTrackId: audioTrackSid }
+          )
+        : await egressClient.startRoomCompositeEgress(
+            room,
+            { file: mp4Output },
+            { audioOnly: true }
+          );
 
-      console.log('MP4 recording egress started (recording-only mode):', recordingEgress.egressId);
+      console.log(`MP4 recording egress started (recording-only, ${audioTrackSid ? 'track-composite' : 'room-composite'}):`, recordingEgress.egressId);
 
       return NextResponse.json({
         egressId: null,  // No HLS egress in recording-only mode
@@ -169,13 +197,23 @@ export async function POST(request: NextRequest) {
 
     let recordingEgressId: string | null = null;
     try {
-      const recordingEgress = await egressClient.startRoomCompositeEgress(
-        room,
-        { file: mp4Output },
-        { audioOnly: true }
-      );
+      // Use track composite egress for MP4 recording — encodes the audio track
+      // directly via GStreamer instead of running a headless Chrome compositor,
+      // which eliminates periodic pops/frame drops in recordings.
+      const audioTrackSid = await findAudioTrackSid(room);
+      const recordingEgress = audioTrackSid
+        ? await egressClient.startTrackCompositeEgress(
+            room,
+            { file: mp4Output },
+            { audioTrackId: audioTrackSid }
+          )
+        : await egressClient.startRoomCompositeEgress(
+            room,
+            { file: mp4Output },
+            { audioOnly: true }
+          );
       recordingEgressId = recordingEgress.egressId;
-      console.log('MP4 recording egress started:', recordingEgressId);
+      console.log(`MP4 recording egress started (${audioTrackSid ? 'track-composite' : 'room-composite'}):`, recordingEgressId);
     } catch (recordingError) {
       // Log but don't fail - HLS streaming is more important
       console.error('Failed to start MP4 recording egress:', recordingError);
