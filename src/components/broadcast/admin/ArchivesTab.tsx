@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { ArchiveSerialized, ArchivePriority } from '@/types/broadcast';
 import { uploadArchiveImage, validatePhoto } from '@/lib/photo-upload';
+import { ShareableArchiveCard } from './ShareableArchiveCard';
 
 interface ArchivesTabProps {
   onArchiveCountChange: (count: number) => void;
@@ -63,6 +64,7 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
     archiveId: string;
     archiveName: string;
   } | null>(null);
+  const [socialArchive, setSocialArchive] = useState<ArchiveSerialized | null>(null);
 
   const fetchArchives = useCallback(async () => {
     try {
@@ -330,6 +332,7 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
               onPriorityChange={handlePriorityChange}
               onUpdate={handleUpdateArchive}
               onToggleTag={handleToggleTag}
+              onSocial={() => setSocialArchive(archive)}
               isDeleting={deletingId === archive.id}
             />
           ))}
@@ -363,6 +366,19 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
                 {deletingId === confirmDelete.archiveId ? 'Deleting...' : 'Delete'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Social image modal */}
+      {socialArchive && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={(e) => { if (e.target === e.currentTarget) setSocialArchive(null); }}>
+          <div className="max-w-sm w-full">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm text-gray-400">Social image preview</span>
+              <button onClick={() => setSocialArchive(null)} className="text-gray-500 hover:text-white text-sm">Close</button>
+            </div>
+            <ShareableArchiveCard archive={socialArchive} />
           </div>
         </div>
       )}
@@ -437,6 +453,7 @@ function ArchiveCard({
   onPriorityChange,
   onUpdate,
   onToggleTag,
+  onSocial,
   isDeleting,
 }: {
   archive: ArchiveSerialized;
@@ -444,6 +461,7 @@ function ArchiveCard({
   onPriorityChange: (archiveId: string, priority: ArchivePriority) => void;
   onUpdate: (archiveId: string, updates: Record<string, unknown>) => Promise<void>;
   onToggleTag: (archiveId: string, tag: string) => void;
+  onSocial: () => void;
   isDeleting: boolean;
 }) {
   const djNames = archive.djs?.map(dj => dj.name).join(', ') || 'Unknown DJ';
@@ -681,6 +699,13 @@ function ArchiveCard({
         {/* Actions */}
         {!isEditing && (
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={onSocial}
+              className="px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors"
+              title="Download social image"
+            >
+              Social
+            </button>
             <button
               onClick={openEdit}
               className="px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors"
