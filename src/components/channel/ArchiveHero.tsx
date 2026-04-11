@@ -986,14 +986,27 @@ function ArchiveGridCard({
           </div>
         )}
 
-        {/* Play/Pause overlay */}
-        <div className={`absolute inset-0 flex items-center justify-center bg-black/30 transition-opacity ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-          {isPlaying ? (
-            <svg className="w-8 h-8 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
+        {/* Centered play/pause icon — always visible to distinguish archive cards */}
+        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity ${isActive ? '' : 'group-hover:opacity-0'}`}>
+          {isActive && isPlaying ? (
+            <svg className="w-10 h-10 text-white/60 drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
               <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
             </svg>
           ) : (
-            <svg className="w-8 h-8 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-10 h-10 text-white/40 drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          )}
+        </div>
+
+        {/* Hover overlay with stronger icon */}
+        <div className={`absolute inset-0 flex items-center justify-center bg-black/30 transition-opacity ${isActive ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}>
+          {isPlaying ? (
+            <svg className="w-10 h-10 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+            </svg>
+          ) : (
+            <svg className="w-10 h-10 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z" />
             </svg>
           )}
