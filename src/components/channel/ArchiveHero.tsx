@@ -444,7 +444,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               style={{ transform: `translateX(-${heroIndex * 100}%)` }}
             >
               {heroArchives.map((ha) => (
-                <HeroSlide key={ha.id} archive={ha} />
+                <HeroSlide key={ha.id} archive={ha} onPlay={() => { setUserSelectedMode('archive'); pauseLive(); archivePlayer.play(ha); }} />
               ))}
             </div>
           </div>
@@ -695,10 +695,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   );
 }
 
-function HeroSlide({ archive }: { archive: ArchiveSerialized }) {
+function HeroSlide({ archive, onPlay }: { archive: ArchiveSerialized; onPlay: () => void }) {
   const primaryDj = archive.djs[0];
   const djName = archive.djs.map(d => d.name).join(', ');
-  const djUsername = primaryDj?.username?.replace(/\s+/g, '').toLowerCase();
   const photoUrl = archive.showImageUrl || primaryDj?.photoUrl;
   const djProfile = useDJProfileInfo(primaryDj?.username);
   const djGenres = (primaryDj?.genres?.length ? primaryDj.genres : djProfile.genres) || [];
@@ -706,40 +705,74 @@ function HeroSlide({ archive }: { archive: ArchiveSerialized }) {
   const [imgError, setImgError] = useState(false);
   const hasPhoto = photoUrl && !imgError;
 
-  const content = hasPhoto ? (
-    <>
-      <Image
-        src={photoUrl!}
-        alt={djName || 'DJ'}
-        fill
-        className="object-cover"
-        sizes="(max-width: 768px) 100vw, 768px"
-        priority
-        onError={() => setImgError(true)}
-      />
-      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
-      <div className="absolute top-2 left-2 drop-shadow-lg">
-        <span className="text-sm font-bold text-white uppercase tracking-wide">{archive.showName}</span>
-      </div>
-      <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
-    </>
-  ) : (
-    <div className="w-full h-full relative flex items-center justify-center bg-white/5">
-      <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-center px-4 text-white">
-        {djName || archive.showName}
-      </h2>
-    </div>
-  );
+  // Watchlist
+  const { isInWatchlist, followDJ, removeFromWatchlist } = useFavorites();
+  const djWatchlistName = primaryDj?.name || '';
+  const isFollowing = djWatchlistName ? isInWatchlist(djWatchlistName) : false;
+  const [isAddingFollow, setIsAddingFollow] = useState(false);
 
-  return djUsername ? (
-    <Link href={`/dj/${djUsername}`} className="block relative w-full aspect-[16/9] lg:aspect-[5/2] overflow-hidden border border-white/10 flex-shrink-0">
-      {content}
-    </Link>
-  ) : (
-    <div className="relative w-full aspect-[16/9] lg:aspect-[5/2] overflow-hidden border border-white/10 flex-shrink-0">
-      {content}
-    </div>
+  const handleToggleWatchlist = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!djWatchlistName) return;
+    setIsAddingFollow(true);
+    try {
+      if (isFollowing) {
+        await removeFromWatchlist(djWatchlistName);
+      } else {
+        await followDJ(djWatchlistName);
+      }
+    } finally {
+      setIsAddingFollow(false);
+    }
+  }, [djWatchlistName, isFollowing, followDJ, removeFromWatchlist]);
+
+  return (
+    <button
+      onClick={onPlay}
+      className="relative w-full aspect-[16/9] lg:aspect-[5/2] overflow-hidden border border-white/10 flex-shrink-0 text-left"
+    >
+      {hasPhoto ? (
+        <>
+          <Image
+            src={photoUrl!}
+            alt={djName || 'DJ'}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, 768px"
+            priority
+            onError={() => setImgError(true)}
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
+          {/* Show name — top left */}
+          <div className="absolute top-2 left-2 drop-shadow-lg">
+            <span className="text-sm font-bold text-white uppercase tracking-wide">{archive.showName}</span>
+          </div>
+          {/* Watchlist — top right */}
+          <div
+            onClick={handleToggleWatchlist}
+            className={`absolute top-2 right-2 z-20 w-8 h-8 flex items-center justify-center rounded-full transition-colors ${
+              isFollowing ? 'bg-white/20 text-white/50' : 'bg-white text-black hover:bg-gray-200'
+            } ${isAddingFollow ? 'opacity-50' : ''}`}
+          >
+            {isAddingFollow ? (
+              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            ) : isFollowing ? (
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            )}
+          </div>
+          <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
+        </>
+      ) : (
+        <div className="w-full h-full relative flex items-center justify-center bg-white/5">
+          <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-center px-4 text-white">
+            {djName || archive.showName}
+          </h2>
+        </div>
+      )}
+    </button>
   );
 }
 
