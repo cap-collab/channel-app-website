@@ -267,14 +267,12 @@ export function GlobalBroadcastBar() {
           )}
         </Link>
 
-        {/* Archive indicator */}
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <svg className="w-3 h-3 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="3" width="20" height="5" rx="1" />
-            <path d="M4 8v11a2 2 0 002 2h12a2 2 0 002-2V8" />
-            <path d="M10 12h4" />
-          </svg>
-        </div>
+        {/* DJ profile link */}
+        {archiveDjProfileUsername && (
+          <Link href={`/dj/${archiveDjProfileUsername}`} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+          </Link>
+        )}
 
         {/* Love button */}
         <div className="relative flex-shrink-0">

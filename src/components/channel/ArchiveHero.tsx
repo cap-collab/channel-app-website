@@ -599,9 +599,14 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     <ScrollingDJName text={(archivePlayer.currentArchive?.djs || featuredArchive.djs).map((d) => d.name).join(', ')} className="text-[10px] text-zinc-500 uppercase mt-0.5 leading-[1.3em]" />
                   )}
                 </div>
-                <div className="flex items-center flex-shrink-0">
-                  <ArchiveIcon className="w-4 h-4 text-gray-500" />
-                </div>
+                {(() => {
+                  const archiveDjUsername = (archivePlayer.currentArchive || featuredArchive).djs[0]?.username?.replace(/\s+/g, '').toLowerCase();
+                  return archiveDjUsername ? (
+                    <Link href={`/dj/${archiveDjUsername}`} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                    </Link>
+                  ) : null;
+                })()}
                 <div className="relative flex-shrink-0">
                   <button
                     onClick={handleLove}
