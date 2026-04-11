@@ -786,19 +786,20 @@ function HeroSlide({ archive, onPlay }: { archive: ArchiveSerialized; onPlay: ()
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
-          {/* Show name + mood tags — top left */}
+          {/* Show name — top left */}
           <div className="absolute top-2 left-2 drop-shadow-lg">
             <span className="text-sm font-bold text-white uppercase tracking-wide">{archive.showName}</span>
-            {archive.tags && archive.tags.length > 0 && (
-              <div className="flex gap-1.5 mt-1">
-                {archive.tags.map(tag => (
-                  <span key={tag} className="text-[10px] font-mono text-white/60 uppercase tracking-tighter border border-white/20 px-1.5 py-0.5 rounded">
-                    {TAG_LABELS[tag] || tag}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
+          {/* Mood tags — top right */}
+          {archive.tags && archive.tags.length > 0 && (
+            <div className="absolute top-2 right-2 flex gap-1.5 drop-shadow-lg">
+              {archive.tags.map(tag => (
+                <span key={tag} className="text-[10px] font-mono text-white/60 uppercase tracking-tighter border border-white/20 px-1.5 py-0.5 rounded">
+                  {TAG_LABELS[tag] || tag}
+                </span>
+              ))}
+            </div>
+          )}
           <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
         </>
       ) : (
