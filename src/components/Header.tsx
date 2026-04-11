@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { useUserRole, isDJ } from "@/hooks/useUserRole";
 import { AuthModal } from "@/components/AuthModal";
 import { MobileMenu, MobileMenuItem } from "@/components/MobileMenu";
 import { HeaderTuner } from "@/components/HeaderTuner";
@@ -18,6 +20,8 @@ interface HeaderProps {
 
 export function Header({ currentPage = "home", position = "fixed" }: HeaderProps) {
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const { user, isAuthenticated } = useAuthContext();
+  const { role } = useUserRole(user);
 
   // Build menu items - now used for both mobile hamburger and desktop dropdown
   const getMenuItems = (): MobileMenuItem[] => {
@@ -29,8 +33,10 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
     // Explore - always shown
     items.push({ label: "Explore", href: "/explore", active: currentPage === "explore" });
 
-    // Studio - always shown
-    items.push({ label: "Studio", href: "/studio", active: currentPage === "studio" || currentPage === "dj-portal" });
+    // Studio - shown when signed out or when user is a DJ
+    if (!isAuthenticated || isDJ(role)) {
+      items.push({ label: "Studio", href: "/studio", active: currentPage === "studio" || currentPage === "dj-portal" });
+    }
 
     // Always show auth option in menu
     items.push({ type: "auth" });

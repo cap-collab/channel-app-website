@@ -88,16 +88,6 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                       <button
                         onClick={() => {
                           setIsOpen(false);
-                          router.push("/studio");
-                        }}
-                        className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
-                        style={{ pointerEvents: 'auto' }}
-                      >
-                        Studio
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsOpen(false);
                           router.push("/settings");
                         }}
                         className="block w-full px-4 py-3 text-left text-sm text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
