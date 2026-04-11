@@ -743,7 +743,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl md:text-3xl font-semibold">Archives</h2>
               {/* Tag filter pills */}
-              <div className="flex gap-2">
+              <div className="flex gap-1 sm:gap-2">
               {[
                 { tag: 'pick-me-up', label: 'Upbeat' },
                 { tag: 'chill', label: 'Chill' },
@@ -753,7 +753,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 <button
                   key={tag}
                   onClick={() => toggleTag(tag)}
-                  className={`px-2 py-1.5 rounded text-[10px] sm:text-xs font-medium transition-colors border flex items-center gap-1 ${
+                  className={`px-1.5 sm:px-2 py-1 sm:py-1.5 rounded text-[9px] sm:text-xs font-medium transition-colors border flex items-center gap-0.5 sm:gap-1 ${
                     activeTags.includes(tag)
                       ? 'border-white text-white'
                       : 'border-white/10 text-zinc-600 hover:border-white/30 hover:text-zinc-400'
