@@ -673,9 +673,14 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         { tag: 'chill', label: 'Chill' },
         { tag: 'exploratory', label: 'Exploratory' },
       ].map(({ tag, label }) => {
-        const filtered = tag === 'exploratory'
+        const heroFirstId = heroArchives[0]?.id;
+        const raw = tag === 'exploratory'
           ? archives.filter(a => a.tags?.includes('exploratory') || !a.tags?.length)
           : archives.filter(a => a.tags?.includes(tag));
+        // Move hero's first archive to end so it doesn't lead in both places
+        const filtered = heroFirstId
+          ? [...raw.filter(a => a.id !== heroFirstId), ...raw.filter(a => a.id === heroFirstId)]
+          : raw;
         if (filtered.length === 0) return null;
         return (
           <div key={tag} className="mt-4 max-w-7xl mx-auto">
