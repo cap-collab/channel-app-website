@@ -568,7 +568,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleWatchlist(); }}
                   disabled={isAddingToWatchlist}
                   className={`absolute top-2 right-2 z-20 w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-50 ${
-                    isDJInWatchlist ? 'bg-white text-black' : 'bg-black/50 text-white hover:bg-black/70'
+                    isDJInWatchlist ? 'bg-white/20 text-white/50' : 'bg-white text-black hover:bg-gray-200'
                   }`}
                 >
                   {isAddingToWatchlist ? (
@@ -616,7 +616,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
                   onClick={handleToggleWatchlist}
                   disabled={isAddingToWatchlist}
                   className={`absolute top-2 right-2 z-20 w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-50 ${
-                    isDJInWatchlist ? 'bg-white text-black' : 'bg-black/50 text-white hover:bg-black/70'
+                    isDJInWatchlist ? 'bg-white/20 text-white/50' : 'bg-white text-black hover:bg-gray-200'
                   }`}
                 >
                   {isAddingToWatchlist ? (
