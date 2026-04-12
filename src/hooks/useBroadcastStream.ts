@@ -758,9 +758,10 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
 
       const fallbackArtworkUrl = `${window.location.origin}/apple-touch-icon.png`;
 
-      // Proxy artwork through Next.js image optimization so it's same-origin
+      // iOS only uses first artwork entry and rejects images > 128x128.
+      // Proxy through Next.js for same-origin.
       const proxyUrl = (url: string) =>
-        url.startsWith('/') ? url : `/_next/image?url=${encodeURIComponent(url)}&w=512&q=75`;
+        url.startsWith('/') ? url : `/_next/image?url=${encodeURIComponent(url)}&w=128&q=75`;
 
       const setMetadata = (imgSrc: string) => {
         navigator.mediaSession.metadata = new MediaMetadata({
@@ -768,7 +769,7 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
           artist: currentDJ || undefined,
           album: 'channel radio',
           artwork: [
-            { src: proxyUrl(imgSrc), sizes: '512x512' },
+            { src: proxyUrl(imgSrc), sizes: '128x128', type: 'image/png' },
           ],
         });
       };
