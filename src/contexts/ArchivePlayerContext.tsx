@@ -267,24 +267,24 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     if (!('mediaSession' in navigator) || !currentArchive) return;
 
     const djNames = currentArchive.djs.map(d => d.name).join(', ');
-    const artworkUrl = currentArchive.showImageUrl || currentArchive.djs[0]?.photoUrl;
+    const rawArtworkUrl = currentArchive.showImageUrl || currentArchive.djs[0]?.photoUrl;
     const fallbackArtworkUrl = typeof window !== 'undefined' ? `${window.location.origin}/apple-touch-icon.png` : '';
 
-    // DEBUG: log what we're setting so we can verify on device
+    // Proxy artwork through Next.js image optimization so it's same-origin.
+    // Chrome/Safari MediaSession may fail to fetch cross-origin Firebase Storage URLs.
+    const artworkUrl = rawArtworkUrl
+      ? `/_next/image?url=${encodeURIComponent(rawArtworkUrl)}&w=512&q=75`
+      : null;
+
     console.log('🎵 MediaSession metadata:', {
       title: currentArchive.showName,
       artist: djNames,
       artworkUrl,
-      fallback: !artworkUrl,
       isPlaying,
     });
 
-    // Set metadata directly — iOS fetches artwork internally, no need to preload
-    // Provide multiple sizes for best compatibility across devices
     const artwork = artworkUrl
       ? [
-          { src: artworkUrl, sizes: '96x96' },
-          { src: artworkUrl, sizes: '256x256' },
           { src: artworkUrl, sizes: '512x512' },
         ]
       : [{ src: fallbackArtworkUrl, sizes: '180x180', type: 'image/png' }];

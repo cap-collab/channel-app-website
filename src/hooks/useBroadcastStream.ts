@@ -754,9 +754,13 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
           || null;
         return primary?.photoUrl || null;
       })();
-      const artworkUrl = currentShow.showImageUrl || currentShow.liveDjPhotoUrl || primaryRestreamDjPhoto;
+      const rawArtworkUrl = currentShow.showImageUrl || currentShow.liveDjPhotoUrl || primaryRestreamDjPhoto;
 
       const fallbackArtworkUrl = `${window.location.origin}/apple-touch-icon.png`;
+
+      // Proxy artwork through Next.js image optimization so it's same-origin
+      const proxyUrl = (url: string) =>
+        url.startsWith('/') ? url : `/_next/image?url=${encodeURIComponent(url)}&w=512&q=75`;
 
       const setMetadata = (imgSrc: string) => {
         navigator.mediaSession.metadata = new MediaMetadata({
@@ -764,9 +768,7 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
           artist: currentDJ || undefined,
           album: 'channel radio',
           artwork: [
-            { src: imgSrc, sizes: '96x96' },
-            { src: imgSrc, sizes: '256x256' },
-            { src: imgSrc, sizes: '512x512' },
+            { src: proxyUrl(imgSrc), sizes: '512x512' },
           ],
         });
       };
@@ -783,7 +785,7 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
         artworkRetryTimerRef.current = null;
       }
 
-      if (artworkUrl) {
+      if (rawArtworkUrl) {
         // Show fallback immediately while new image loads
         setMetadata(fallbackArtworkUrl);
 
@@ -792,7 +794,7 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
 
         img.onload = () => {
           if (artworkPreloadRef.current === img) {
-            setMetadata(artworkUrl);
+            setMetadata(rawArtworkUrl);
           }
         };
 
@@ -804,7 +806,7 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
             artworkPreloadRef.current = retryImg;
             retryImg.onload = () => {
               if (artworkPreloadRef.current === retryImg) {
-                setMetadata(artworkUrl);
+                setMetadata(rawArtworkUrl);
               }
             };
             retryImg.onerror = () => {
@@ -812,11 +814,11 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
                 setMetadata(fallbackArtworkUrl);
               }
             };
-            retryImg.src = artworkUrl;
+            retryImg.src = rawArtworkUrl;
           }, 3000);
         };
 
-        img.src = artworkUrl;
+        img.src = rawArtworkUrl;
       } else {
         setMetadata(fallbackArtworkUrl);
       }
