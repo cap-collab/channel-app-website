@@ -745,7 +745,7 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
 
-    if (currentShow) {
+    if (currentShow && isPlaying) {
       // Match hero image priority: show image > DJ photo > primary restream DJ photo
       const primaryRestreamDjPhoto = (() => {
         if (!currentShow.restreamDjs || currentShow.restreamDjs.length === 0) return null;
@@ -763,7 +763,11 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
           title: currentShow.showName || 'Live Broadcast',
           artist: currentDJ || undefined,
           album: 'channel radio',
-          artwork: [{ src: imgSrc, sizes: '512x512', type: 'image/jpeg' }],
+          artwork: [
+            { src: imgSrc, sizes: '96x96' },
+            { src: imgSrc, sizes: '256x256' },
+            { src: imgSrc, sizes: '512x512' },
+          ],
         });
       };
 
@@ -817,64 +821,47 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
         setMetadata(fallbackArtworkUrl);
       }
 
-      // Playback-only: action handlers and position state
-      if (isPlaying) {
-        // Disable skip/seek buttons in mobile control center
-        const disableActions: MediaSessionAction[] = ['seekforward', 'seekbackward', 'previoustrack', 'nexttrack'];
-        for (const action of disableActions) {
-          try {
-            navigator.mediaSession.setActionHandler(action, null);
-          } catch {
-            // Browser doesn't support this action
-          }
-        }
+      // Disable skip/seek buttons in mobile control center
+      const disableActions: MediaSessionAction[] = ['seekforward', 'seekbackward', 'previoustrack', 'nexttrack'];
+      for (const action of disableActions) {
         try {
-          navigator.mediaSession.setActionHandler('seekto', () => {});
+          navigator.mediaSession.setActionHandler(action, null);
         } catch {
-          // Browser doesn't support seekto
+          // Browser doesn't support this action
         }
-
-        // Handle play/pause from Control Center / lock screen
-        try {
-          navigator.mediaSession.setActionHandler('pause', () => { pause(); });
-          navigator.mediaSession.setActionHandler('play', () => { play(); });
-        } catch {
-          // Browser doesn't support these actions
-        }
-
-        // Show progress bar based on show start/end time, update every 2 min
-        const duration = (currentShow.endTime - currentShow.startTime) / 1000;
-
-        const updatePosition = () => {
-          if (duration > 0) {
-            const position = Math.max(0, (Date.now() - currentShow.startTime) / 1000);
-            navigator.mediaSession.setPositionState({
-              duration,
-              position: Math.min(position, duration),
-              playbackRate: 1,
-            });
-          }
-        };
-
-        updatePosition();
-        const interval = setInterval(updatePosition, 120_000);
-        return () => {
-          clearInterval(interval);
-          if (artworkPreloadRef.current) {
-            artworkPreloadRef.current.onload = null;
-            artworkPreloadRef.current.onerror = null;
-            artworkPreloadRef.current.src = '';
-            artworkPreloadRef.current = null;
-          }
-          if (artworkRetryTimerRef.current) {
-            clearTimeout(artworkRetryTimerRef.current);
-            artworkRetryTimerRef.current = null;
-          }
-        };
+      }
+      try {
+        navigator.mediaSession.setActionHandler('seekto', () => {});
+      } catch {
+        // Browser doesn't support seekto
       }
 
-      // Cleanup preloads even when not playing
+      // Handle play/pause from Control Center / lock screen
+      try {
+        navigator.mediaSession.setActionHandler('pause', () => { pause(); });
+        navigator.mediaSession.setActionHandler('play', () => { play(); });
+      } catch {
+        // Browser doesn't support these actions
+      }
+
+      // Show progress bar based on show start/end time, update every 2 min
+      const duration = (currentShow.endTime - currentShow.startTime) / 1000;
+
+      const updatePosition = () => {
+        if (duration > 0) {
+          const position = Math.max(0, (Date.now() - currentShow.startTime) / 1000);
+          navigator.mediaSession.setPositionState({
+            duration,
+            position: Math.min(position, duration),
+            playbackRate: 1,
+          });
+        }
+      };
+
+      updatePosition();
+      const interval = setInterval(updatePosition, 120_000);
       return () => {
+        clearInterval(interval);
         if (artworkPreloadRef.current) {
           artworkPreloadRef.current.onload = null;
           artworkPreloadRef.current.onerror = null;

@@ -274,9 +274,9 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     // Provide multiple sizes for best compatibility across devices
     const artwork = artworkUrl
       ? [
-          { src: artworkUrl, sizes: '96x96', type: 'image/jpeg' },
-          { src: artworkUrl, sizes: '256x256', type: 'image/jpeg' },
-          { src: artworkUrl, sizes: '512x512', type: 'image/jpeg' },
+          { src: artworkUrl, sizes: '96x96' },
+          { src: artworkUrl, sizes: '256x256' },
+          { src: artworkUrl, sizes: '512x512' },
         ]
       : [{ src: fallbackArtworkUrl, sizes: '180x180', type: 'image/png' }];
 
