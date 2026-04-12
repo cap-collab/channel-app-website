@@ -270,6 +270,15 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     const artworkUrl = currentArchive.showImageUrl || currentArchive.djs[0]?.photoUrl;
     const fallbackArtworkUrl = typeof window !== 'undefined' ? `${window.location.origin}/apple-touch-icon.png` : '';
 
+    // DEBUG: log what we're setting so we can verify on device
+    console.log('🎵 MediaSession metadata:', {
+      title: currentArchive.showName,
+      artist: djNames,
+      artworkUrl,
+      fallback: !artworkUrl,
+      isPlaying,
+    });
+
     // Set metadata directly — iOS fetches artwork internally, no need to preload
     // Provide multiple sizes for best compatibility across devices
     const artwork = artworkUrl
