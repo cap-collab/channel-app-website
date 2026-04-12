@@ -283,10 +283,12 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: currentArchive.showName || 'Archive',
       artist: djNames || undefined,
+      album: 'channel radio',
       artwork,
     });
 
     if (isPlaying) {
+      navigator.mediaSession.playbackState = 'playing';
       try {
         navigator.mediaSession.setActionHandler('pause', () => { audioRef.current?.pause(); });
         navigator.mediaSession.setActionHandler('play', () => { audioRef.current?.play().catch(() => {}); });
@@ -315,6 +317,8 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       updatePosition();
       const posInterval = setInterval(updatePosition, 30_000);
       return () => clearInterval(posInterval);
+    } else {
+      navigator.mediaSession.playbackState = 'paused';
     }
   }, [currentArchive, isPlaying, duration]);
 
