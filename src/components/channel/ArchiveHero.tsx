@@ -178,12 +178,21 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     if (!el) return;
     setHeroBarVisible(true);
     setHeroBarObserverReady(true);
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
     const observer = new IntersectionObserver(
-      ([entry]) => setHeroBarVisible(entry.isIntersecting),
-      { threshold: 0, rootMargin: '100px 0px 0px 0px' },
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+          setHeroBarVisible(true);
+        } else {
+          hideTimer = setTimeout(() => setHeroBarVisible(false), 150);
+        }
+      },
+      { threshold: 0 },
     );
     observer.observe(el);
     return () => {
+      if (hideTimer) clearTimeout(hideTimer);
       observer.disconnect();
       setHeroBarVisible(false);
       setHeroBarObserverReady(false);

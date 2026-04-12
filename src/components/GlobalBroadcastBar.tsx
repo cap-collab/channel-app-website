@@ -135,7 +135,8 @@ export function GlobalBroadcastBar() {
 
   // On /radio, hide while the hero's inline player bar is in view.
   // Before the observer initializes, default to hidden to prevent a flash on load.
-  if (pathname === '/radio' && (heroBarVisible || !heroBarObserverReady)) return null;
+  // Uses CSS transition instead of unmounting to avoid flicker during scroll.
+  const hiddenOnRadio = pathname === '/radio' && (heroBarVisible || !heroBarObserverReady);
 
   const showLiveBar = barMode === 'live';
   const isRestream = currentShow?.broadcastType === 'restream';
@@ -146,7 +147,7 @@ export function GlobalBroadcastBar() {
 
   if (showLiveBar) {
     return (
-      <div className="z-[99] bg-black border-b border-white/10 overflow-hidden">
+      <div className={`z-[99] bg-black border-b border-white/10 overflow-hidden transition-all duration-200 ${hiddenOnRadio ? 'opacity-0 -translate-y-full h-0 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
         <div className="flex items-center gap-1 sm:gap-3 py-2 px-1">
           {/* Play/Pause — synced with broadcast stream */}
           <button
@@ -230,7 +231,7 @@ export function GlobalBroadcastBar() {
 
   // Archive playback bar (not live)
   return (
-    <div className="z-[99] bg-black border-b border-white/10 overflow-hidden">
+    <div className={`z-[99] bg-black border-b border-white/10 overflow-hidden transition-all duration-200 ${hiddenOnRadio ? 'opacity-0 -translate-y-full h-0 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
       <div className="flex items-center gap-1 sm:gap-3 py-2 px-1">
         {/* Play/Pause — archive player */}
         <button
