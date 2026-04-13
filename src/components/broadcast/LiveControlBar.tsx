@@ -1,32 +1,38 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useAudioHealth } from '@/hooks/useAudioHealth';
+import { AudioInputMethod } from '@/types/broadcast';
+import { buildChecklist, isChecklistAllGreen } from '@/lib/broadcast-checklist';
 
 interface LiveControlBarProps {
   stream: MediaStream | null;
   isLive: boolean;
+  isRecordingMode?: boolean;
+  inputMethod: AudioInputMethod | null;
+  // Kept for prop compatibility with parent (unused here)
   showStartTime?: number;
   showName?: string;
-  isRecordingMode?: boolean;
-  // Kept for prop compatibility with parent
   chatUsernameNormalized?: string;
 }
 
 type HealthBadge = 'OK' | 'MONITOR' | 'FIX';
 
+// Health badge reflects live audio health:
+// - FIX: both channels silent while stream exists, or heavy dropouts (≥4/min).
+// - MONITOR: 1-3 dropouts/min.
+// - OK: otherwise. Weak signal alone is NOT monitor — the checklist warns about that.
+// No-stream state (before source selection) returns OK and is visually handled by
+// the READY pill color (gray when offline, orange NEEDS REVIEW if checklist fails).
 function computeHealth(
   leftState: 'active' | 'weak' | 'silent',
   rightState: 'active' | 'weak' | 'silent',
   recentDropouts: number,
+  hasStream: boolean,
 ): HealthBadge {
+  if (!hasStream) return 'OK';
   const bothSilent = leftState === 'silent' && rightState === 'silent';
-  const oneSilent = leftState === 'silent' || rightState === 'silent';
-
   if (bothSilent || recentDropouts >= 4) return 'FIX';
-  if (oneSilent || recentDropouts >= 1 || leftState === 'weak' || rightState === 'weak') {
-    return 'MONITOR';
-  }
+  if (recentDropouts >= 1) return 'MONITOR';
   return 'OK';
 }
 
@@ -35,15 +41,6 @@ function dbToBarWidth(db: number): number {
   if (db <= -60) return 0;
   if (db >= 0) return 1;
   return (db + 60) / 60;
-}
-
-function formatDuration(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000));
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
 function ChannelMeter({ label, db }: { label: 'L' | 'R'; db: number }) {
@@ -81,22 +78,17 @@ function ChannelMeter({ label, db }: { label: 'L' | 'R'; db: number }) {
 export function LiveControlBar({
   stream,
   isLive,
-  showStartTime,
-  showName,
   isRecordingMode = false,
+  inputMethod,
 }: LiveControlBarProps) {
   const health = useAudioHealth(stream);
 
-  // Rolling timer for elapsed time since live
-  const [nowMs, setNowMs] = useState<number>(() => Date.now());
-  useEffect(() => {
-    if (!isLive) return;
-    const id = setInterval(() => setNowMs(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [isLive]);
+  const hasStream = !!stream;
+  const hasStrongAudio = health.leftState === 'active' || health.rightState === 'active';
+  const checklist = buildChecklist({ inputMethod, hasStream, hasStrongAudio });
+  const allGreen = isChecklistAllGreen(checklist);
 
-  const elapsedMs = isLive && showStartTime ? nowMs - showStartTime : 0;
-  const badge = computeHealth(health.leftState, health.rightState, health.recentDropouts);
+  const badge = computeHealth(health.leftState, health.rightState, health.recentDropouts, hasStream);
 
   const badgeStyle =
     badge === 'OK'
@@ -105,29 +97,33 @@ export function LiveControlBar({
         ? 'bg-yellow-500 text-black'
         : 'bg-red-600 text-white';
 
-  const statusLabel = isLive ? (isRecordingMode ? 'RECORDING' : 'LIVE') : 'READY';
-  const statusPillStyle = isLive ? 'bg-red-600' : 'bg-gray-700';
+  // READY pill (pre-live) mirrors the checklist outcome so the DJ knows at a
+  // glance whether setup is good before they click GO LIVE.
+  // LIVE / RECORDING pill (post-live) stays red.
+  const statusLabel = isLive
+    ? (isRecordingMode ? 'RECORDING' : 'LIVE')
+    : (allGreen ? 'READY' : 'NEEDS REVIEW');
+  const statusPillStyle = isLive
+    ? 'bg-red-600'
+    : (allGreen ? 'bg-green-600' : 'bg-orange-500');
+
+  // Audio-too-low warning — sustained severe undershoot on both channels.
+  // We show this only when the stream exists and the loudest channel is
+  // persistently below -40 dB (i.e. signal is so weak it's barely above noise).
+  // The warning slot keeps reserved height so the layout never jumps.
+  const peak = Math.max(health.leftPeakDb, health.rightPeakDb);
+  const audioTooLow = hasStream && peak > -90 && peak < -40;
 
   return (
     <div className="sticky top-0 z-30 bg-[#141414] border-b border-gray-800 backdrop-blur-sm">
       <div className="max-w-6xl mx-auto px-4 py-2.5">
         <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto] gap-3 md:gap-5 items-center">
-          {/* Left: status pill + show + timer */}
+          {/* Left: status pill only — timer and show name live in the Audio System panel */}
           <div className="flex items-center gap-3 min-w-0">
             <div className={`flex items-center gap-2 px-3 py-1 rounded-full flex-shrink-0 ${statusPillStyle}`}>
-              <div className={`w-2 h-2 rounded-full ${isLive ? 'bg-white animate-pulse' : 'bg-gray-400'}`} />
+              <div className={`w-2 h-2 rounded-full ${isLive ? 'bg-white animate-pulse' : 'bg-white/70'}`} />
               <span className="text-white font-bold text-xs tracking-wider">{statusLabel}</span>
             </div>
-            {isLive && (
-              <span className="text-white font-mono tabular-nums text-sm flex-shrink-0">
-                {formatDuration(elapsedMs)}
-              </span>
-            )}
-            {showName && (
-              <span className="text-gray-400 text-sm truncate min-w-0 hidden sm:inline">
-                {showName}
-              </span>
-            )}
           </div>
 
           {/* Middle: L/R meters */}
@@ -154,6 +150,16 @@ export function LiveControlBar({
               {badge}
             </div>
           </div>
+        </div>
+
+        {/* Reserved warning slot — keeps height even when empty so layout doesn't
+            jump when warnings come and go. */}
+        <div className="mt-2 h-6 flex items-center">
+          {audioTooLow && (
+            <div className="text-xs text-orange-300 font-medium">
+              ⚠ Audio levels are very low — check your mixer output or gain staging
+            </div>
+          )}
         </div>
       </div>
     </div>

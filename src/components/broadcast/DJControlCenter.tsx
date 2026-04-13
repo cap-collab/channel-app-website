@@ -93,10 +93,8 @@ export function DJControlCenter({
       <LiveControlBar
         stream={audioStream}
         isLive={isLive}
-        showStartTime={slot?.startTime}
-        showName={slot?.showName}
+        inputMethod={inputMethod}
         isRecordingMode={isRecordingMode}
-        chatUsernameNormalized={chatUsernameNormalized}
       />
 
       {/* Main Content — single column: audio first, then tip/share, then compact chat at bottom */}
@@ -122,6 +120,7 @@ export function DJControlCenter({
               onQueueGoLive={onQueueGoLive}
               slotStartTime={slot?.startTime}
               slotEndTime={slot?.endTime}
+              showName={slot?.showName}
             />
 
             {/* Tip + Share side by side */}

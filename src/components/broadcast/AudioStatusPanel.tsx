@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react';
 import { useAudioHealth } from '@/hooks/useAudioHealth';
 import { AudioInputMethod } from '@/types/broadcast';
+import { buildChecklist } from '@/lib/broadcast-checklist';
 
 interface AudioStatusPanelProps {
   inputMethod: AudioInputMethod | null;
   stream: MediaStream | null;
   isLive: boolean;
-  isPublishing: boolean;
+  // isPublishing kept in callers' prop shape but no longer used here
+  isPublishing?: boolean;
   canGoLive: boolean;
   goLiveMessage?: string;
   onGoLive: () => void;
@@ -22,13 +24,13 @@ interface AudioStatusPanelProps {
   onQueueGoLive?: () => void; // Queue to auto go-live when room clears
   slotStartTime?: number;    // Slot start time (Unix ms) for "available in X minutes" countdown
   slotEndTime?: number;      // Slot end time (Unix ms) for progress bar while live
+  showName?: string;         // Show title (used as the progress bar label when live)
 }
 
 export function AudioStatusPanel({
   inputMethod,
   stream,
   isLive,
-  isPublishing,
   canGoLive,
   goLiveMessage,
   onGoLive,
@@ -42,6 +44,7 @@ export function AudioStatusPanel({
   onQueueGoLive,
   slotStartTime,
   slotEndTime,
+  showName,
 }: AudioStatusPanelProps) {
   const health = useAudioHealth(stream);
   // Tie checklist to real broadcast-level signal, not just "any signal detected".
@@ -103,63 +106,12 @@ export function AudioStatusPanel({
     }
   };
 
-  // Build checklist items based on input method
-  const getStatusItems = () => {
-    const items: { id: string; label: string; checked: boolean }[] = [];
-
-    // Add method-specific checklist items
-    if (inputMethod === 'device' && !isLive) {
-      items.push({
-        id: 'macos-io',
-        label: 'macOS input & output set to mixer/controller (levels moving in Sound Settings)',
-        checked: hasStrongAudio,
-      });
-      items.push({
-        id: 'chrome-input',
-        label: 'channel-app.com allowed to capture your audio (chrome://settings/content/siteDetails?site=https%3A%2F%2Fchannel-app.com)',
-        checked: !!stream,
-      });
-      items.push({
-        id: 'chrome-audio-input',
-        label: 'Chrome audio input set to your mixer/controller or audio interface',
-        checked: !!stream,
-      });
-    }
-
-    if (inputMethod === 'system' && !isLive) {
-      items.push({
-        id: 'browser-audio',
-        label: 'Chrome has Screen & System Audio Recording permission for audio only (one-time setup)',
-        checked: !!stream,
-      });
-    }
-
-    // Common item for both paths
-    if (!isLive) {
-      items.push({
-        id: 'levels',
-        label: 'Audio levels strong on the Channel Go Live page — and NOT coming from your microphone',
-        checked: hasStrongAudio,
-      });
-    }
-
-    if (isLive) {
-      items.push({
-        id: 'connected',
-        label: `${getInputMethodLabel()} connected`,
-        checked: !!stream || inputMethod === 'rtmp',
-      });
-      items.push({
-        id: 'publishing',
-        label: 'Stream publishing',
-        checked: isPublishing,
-      });
-    }
-
-    return items;
-  };
-
-  const statusItems = getStatusItems();
+  // Shared checklist (3 items): Chrome permission, page capturing, loud enough
+  const statusItems = buildChecklist({
+    inputMethod,
+    hasStream: !!stream,
+    hasStrongAudio,
+  });
 
   // Slot progress bar
   const slotProgressPct =
@@ -177,14 +129,16 @@ export function AudioStatusPanel({
       {isLive && slotStartTime && slotEndTime && (
         <div className="mb-4">
           <div className="flex items-center justify-between mb-1.5">
-            <h3 className="text-gray-400 text-sm font-medium">Your slot</h3>
-            <span className="text-xs text-gray-500 tabular-nums">
+            <h3 className="text-white text-sm font-medium truncate">
+              {showName || 'Your show'}
+            </h3>
+            <span className="text-xs text-gray-400 tabular-nums flex-shrink-0 ml-2">
               {slotRemainingMin} min remaining
             </span>
           </div>
           <div className="h-2 bg-gray-800 rounded overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-red-500 to-red-400 transition-all duration-1000"
+              className="h-full bg-white transition-all duration-1000"
               style={{ width: `${slotProgressPct}%` }}
             />
           </div>
@@ -242,46 +196,29 @@ export function AudioStatusPanel({
         )}
       </div>
 
-      {/* Status checklist — collapsed when all green, auto-expanded when anything fails.
-          (Top bar now carries the L/R meters + dropout health, so the checklist only
-          needs to surface setup items the DJ must fix.) */}
-      {!isLive && statusItems.length > 0 && (() => {
-        const allGreen = statusItems.every(i => i.checked);
-        if (allGreen) {
-          return (
-            <div className="mb-4 flex items-center gap-2 text-sm text-green-400">
-              <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
-                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
+      {/* Checklist — pre-live only. Top bar handles monitoring once live. */}
+      {!isLive && statusItems.length > 0 && (
+        <div className="space-y-2 mb-4">
+          {statusItems.map((item) => (
+            <div key={item.id} className="flex items-center gap-2">
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                item.checked ? 'bg-green-500' : 'bg-gray-700'
+              }`}>
+                {item.checked ? (
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <div className="w-2 h-2 bg-gray-500 rounded-full" />
+                )}
               </div>
-              <span>Setup looks good</span>
+              <span className={`text-sm ${item.checked ? 'text-white' : 'text-gray-500'}`}>
+                {item.label}
+              </span>
             </div>
-          );
-        }
-        return (
-          <div className="space-y-2 mb-4">
-            {statusItems.map((item) => (
-              <div key={item.id} className="flex items-center gap-2">
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                  item.checked ? 'bg-green-500' : 'bg-gray-700'
-                }`}>
-                  {item.checked ? (
-                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : (
-                    <div className="w-2 h-2 bg-gray-500 rounded-full" />
-                  )}
-                </div>
-                <span className={`text-sm ${item.checked ? 'text-white' : 'text-gray-500'}`}>
-                  {item.label}
-                </span>
-              </div>
-            ))}
-          </div>
-        );
-      })()}
+          ))}
+        </div>
+      )}
 
       {/* Setup tip - show method-specific guidance when not live */}
       {!isLive && inputMethod === 'device' && (
