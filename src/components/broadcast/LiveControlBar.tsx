@@ -52,37 +52,51 @@ function dbToBarWidth(db: number): number {
 // Fill semantics: the bar fills left→right as level rises. Whatever portion
 // is filled takes the color of the zone the CURRENT level sits in. Reference
 // ticks at -40 / -6 / -3 stay as faint marks on the track.
-// Gradual color at a given dB level. Interpolates through:
-//   below -50 dB : gray (no useful signal)
-//   -50 → -10 dB : green (stable hue, healthy zone)
-//   -10 → -3 dB  : green → yellow → orange (getting hot)
-//   -3 → 0+ dB   : red (clipping)
-function fillColorForDb(db: number): string {
-  if (db < -50) return '#4b5563'; // gray
-  if (db <= -10) return '#22c55e'; // green plateau
-  if (db >= -3) return '#ef4444'; // red plateau
-  // Between -10 and -3: interpolate hue from green (120°) through yellow (60°)
-  // to red-orange (10°). At -10 → 120°, at -3 → 10°.
-  const t = (db - -10) / (-3 - -10); // 0..1
-  const hue = 120 - t * 110; // 120° → 10°
-  return `hsl(${Math.round(hue)}, 85%, 50%)`;
-}
-
+// Peak meter: bar fills left→right as level rises. The filled portion's color
+// changes ALONG its length (not uniformly) — the part of the bar past the -6
+// tick is yellow, past the -3 tick is red. Implemented by putting a
+// full-track-width gradient inside a clipping container that's sized to the
+// current fill width, so the gradient stays anchored to dB positions while
+// only the reached portion is visible.
+//
+// Track width maps -60 dB → 0 dB linearly (dbToBarWidth).
+// Zone positions on the track:
+//   -40 dB = 33.3%  (green plateau begins; below this we leave the fill gray)
+//   -6  dB = 90%    (green → yellow)
+//   -3  dB = 95%    (yellow → red)
 function ChannelMeter({ label, db }: { label: 'L' | 'R'; db: number }) {
   const width = Math.round(dbToBarWidth(db) * 100);
-  const fillColor = fillColorForDb(db);
+  const belowFloor = db < -40;
+  // Gradient positioned to the full track (100%):
+  //   0%..33.3% gray (under -40 — visually subtle for noise floor)
+  //   33.3%..85% green (healthy)
+  //   85%..92% green → yellow
+  //   92%..97% yellow → orange → red
+  //   97%..100% red
+  const gradient = belowFloor
+    ? '#4b5563' // solid gray when level is below -40; avoids flashing green for tiny signal
+    : 'linear-gradient(to right,' +
+      ' #4b5563 0%, #4b5563 33.3%,' +
+      ' #22c55e 33.3%, #22c55e 85%,' +
+      ' #eab308 92%,' +
+      ' #ef4444 97%, #ef4444 100%)';
+
   return (
     <div className="flex items-center gap-2 min-w-0">
       <span className="text-[10px] text-gray-500 font-mono w-3 text-right">{label}</span>
       <div className="relative h-3 bg-gray-900 rounded-sm overflow-hidden flex-1 min-w-0 border border-gray-800">
-        {/* Zone reference ticks (faint, fixed): -40, -6, -3 */}
+        {/* Zone reference ticks on the empty track: -40 / -6 / -3 */}
         <div className="absolute inset-y-0 bg-gray-600/50" style={{ left: '33.3%', width: 1 }} />
-        <div className="absolute inset-y-0 bg-yellow-500/30" style={{ left: '90%', width: 1 }} />
-        <div className="absolute inset-y-0 bg-red-500/40" style={{ left: '95%', width: 1 }} />
-        {/* Fill — solid color based on current level */}
+        <div className="absolute inset-y-0 bg-yellow-500/40" style={{ left: '90%', width: 1 }} />
+        <div className="absolute inset-y-0 bg-red-500/50" style={{ left: '95%', width: 1 }} />
+        {/* Gradient layer spans the full track; we reveal only the left
+            `width%` via clip-path. Color positions are anchored to dB marks. */}
         <div
-          className="absolute inset-y-0 left-0 transition-all duration-75"
-          style={{ width: `${width}%`, backgroundColor: fillColor }}
+          className="absolute inset-0 transition-[clip-path] duration-75"
+          style={{
+            background: gradient,
+            clipPath: `inset(0 ${100 - width}% 0 0)`,
+          }}
         />
       </div>
       <span className="text-[10px] text-gray-500 font-mono tabular-nums w-10 text-right">
