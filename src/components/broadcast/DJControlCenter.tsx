@@ -89,11 +89,12 @@ export function DJControlCenter({
 
   return (
     <div className="min-h-screen bg-[#1a1a1a] flex flex-col">
-      {/* Top Control Bar - always visible */}
+      {/* Top Control Bar - always visible, sticky */}
       <LiveControlBar
         stream={audioStream}
         isLive={isLive}
         showStartTime={slot?.startTime}
+        showName={slot?.showName}
         isRecordingMode={isRecordingMode}
         chatUsernameNormalized={chatUsernameNormalized}
       />
@@ -120,37 +121,39 @@ export function DJControlCenter({
               roomFreeAt={roomFreeAt}
               onQueueGoLive={onQueueGoLive}
               slotStartTime={slot?.startTime}
+              slotEndTime={slot?.endTime}
             />
 
-            {/* Broadcast Settings */}
-            <BroadcastSettingsPanel
-              broadcastToken={broadcastToken}
-              tipButtonLink={tipButtonLink}
-              onTipButtonLinkChange={onTipButtonLinkChange}
-            />
+            {/* Tip + Share side by side */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <BroadcastSettingsPanel
+                broadcastToken={broadcastToken}
+                tipButtonLink={tipButtonLink}
+                onTipButtonLinkChange={onTipButtonLinkChange}
+              />
 
-            {/* Share URL */}
-            <div className="bg-[#252525] rounded-xl p-4">
-              <h3 className="text-gray-400 text-sm font-medium mb-3">
-                Share Your Stream
-              </h3>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  readOnly
-                  value={shareUrl}
-                  className="flex-1 bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 font-mono text-sm"
-                />
-                <button
-                  onClick={copyShareUrl}
-                  className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors text-sm"
-                >
-                  {copied ? 'Copied!' : 'Copy'}
-                </button>
+              <div className="bg-[#252525] rounded-xl p-4">
+                <h3 className="text-gray-400 text-sm font-medium mb-3">
+                  Share Your Stream
+                </h3>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={shareUrl}
+                    className="flex-1 min-w-0 bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 font-mono text-sm"
+                  />
+                  <button
+                    onClick={copyShareUrl}
+                    className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors text-sm flex-shrink-0"
+                  >
+                    {copied ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+                <p className="text-gray-600 text-xs mt-2">
+                  Share with friends and followers
+                </p>
               </div>
-              <p className="text-gray-600 text-xs mt-2">
-                Share this with friends and followers
-              </p>
             </div>
 
             {/* Chat — secondary; aligned with tip/share widgets. Fixed height so it
@@ -175,13 +178,13 @@ export function DJControlCenter({
               </div>
             )}
 
-            {/* End Broadcast/Recording - only show when live */}
+            {/* End Broadcast/Recording — subdued; the top bar already conveys live state */}
             {isLive && (
-              <div className="bg-[#252525] rounded-xl p-4">
+              <div className="flex justify-end pt-2">
                 <button
                   onClick={handleEndBroadcast}
                   disabled={isEnding}
-                  className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-colors"
+                  className="text-red-400 hover:text-red-300 hover:bg-red-900/20 disabled:text-red-800 disabled:cursor-not-allowed text-sm font-medium py-2 px-4 rounded-lg border border-red-900/40 hover:border-red-700 transition-colors"
                 >
                   {isEnding
                     ? (isRecordingMode ? 'Ending recording...' : 'Ending broadcast...')

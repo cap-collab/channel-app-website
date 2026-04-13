@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAudioLevel } from '@/hooks/useAudioLevel';
 import { useAudioHealth } from '@/hooks/useAudioHealth';
-import { AudioHealthMeter } from '@/components/broadcast/AudioHealthMeter';
 import { AudioInputMethod } from '@/types/broadcast';
 
 interface AudioStatusPanelProps {
@@ -23,6 +21,7 @@ interface AudioStatusPanelProps {
   roomFreeAt?: number | null; // When the previous DJ's slot ends (Unix ms)
   onQueueGoLive?: () => void; // Queue to auto go-live when room clears
   slotStartTime?: number;    // Slot start time (Unix ms) for "available in X minutes" countdown
+  slotEndTime?: number;      // Slot end time (Unix ms) for progress bar while live
 }
 
 export function AudioStatusPanel({
@@ -42,14 +41,12 @@ export function AudioStatusPanel({
   // roomFreeAt — currently unused, kept in props interface for future use
   onQueueGoLive,
   slotStartTime,
+  slotEndTime,
 }: AudioStatusPanelProps) {
-  const level = useAudioLevel(stream);
   const health = useAudioHealth(stream);
   // Tie checklist to real broadcast-level signal, not just "any signal detected".
   // At least one channel must reach "active" (peak > -20 dB) for the check to pass.
   const hasStrongAudio = health.leftState === 'active' || health.rightState === 'active';
-  // Kept for legacy "levels detected at all" decisions
-  const hasAudioLevels = level > 0.01;
 
   // Countdown for "Going live available in X minutes" when too early
   const [minutesUntilAvailable, setMinutesUntilAvailable] = useState<number | null>(null);
@@ -67,6 +64,14 @@ export function AudioStatusPanel({
     const interval = setInterval(update, 60000);
     return () => clearInterval(interval);
   }, [slotStartTime, canGoLive]);
+
+  // Ticking clock for slot progress bar while live (updates every 1s)
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
+  useEffect(() => {
+    if (!isLive) return;
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [isLive]);
 
   // Seconds countdown: when canGoLive but room empty and before actual start time
   const [secondsUntilStart, setSecondsUntilStart] = useState<number | null>(null);
@@ -156,8 +161,36 @@ export function AudioStatusPanel({
 
   const statusItems = getStatusItems();
 
+  // Slot progress bar
+  const slotProgressPct =
+    isLive && slotStartTime && slotEndTime && slotEndTime > slotStartTime
+      ? Math.min(100, Math.max(0, ((nowMs - slotStartTime) / (slotEndTime - slotStartTime)) * 100))
+      : 0;
+  const slotRemainingMin =
+    isLive && slotEndTime
+      ? Math.max(0, Math.ceil((slotEndTime - nowMs) / 60000))
+      : null;
+
   return (
     <div className="bg-[#252525] rounded-xl p-4">
+      {/* Slot progress bar (live only) */}
+      {isLive && slotStartTime && slotEndTime && (
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-1.5">
+            <h3 className="text-gray-400 text-sm font-medium">Your slot</h3>
+            <span className="text-xs text-gray-500 tabular-nums">
+              {slotRemainingMin} min remaining
+            </span>
+          </div>
+          <div className="h-2 bg-gray-800 rounded overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-red-500 to-red-400 transition-all duration-1000"
+              style={{ width: `${slotProgressPct}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       <h3 className="text-gray-400 text-sm font-medium mb-3">Audio System</h3>
 
       {/* Input method and source with aligned change buttons */}
@@ -209,37 +242,46 @@ export function AudioStatusPanel({
         )}
       </div>
 
-      {/* Per-channel audio health meter — works before and after going live.
-          Catches dead channels, silent audio, and periodic dropouts. */}
-      {stream && (
-        <div className="mb-4">
-          <AudioHealthMeter stream={stream} isLive={isLive} />
-        </div>
-      )}
-
-      {/* Status checklist - only show when not live */}
-      {!isLive && (
-        <div className="space-y-2 mb-4">
-          {statusItems.map((item) => (
-            <div key={item.id} className="flex items-center gap-2">
-              <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                item.checked ? 'bg-green-500' : 'bg-gray-700'
-              }`}>
-                {item.checked ? (
-                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                  </svg>
-                ) : (
-                  <div className="w-2 h-2 bg-gray-500 rounded-full" />
-                )}
+      {/* Status checklist — collapsed when all green, auto-expanded when anything fails.
+          (Top bar now carries the L/R meters + dropout health, so the checklist only
+          needs to surface setup items the DJ must fix.) */}
+      {!isLive && statusItems.length > 0 && (() => {
+        const allGreen = statusItems.every(i => i.checked);
+        if (allGreen) {
+          return (
+            <div className="mb-4 flex items-center gap-2 text-sm text-green-400">
+              <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
               </div>
-              <span className={`text-sm ${item.checked ? 'text-white' : 'text-gray-500'}`}>
-                {item.label}
-              </span>
+              <span>Setup looks good</span>
             </div>
-          ))}
-        </div>
-      )}
+          );
+        }
+        return (
+          <div className="space-y-2 mb-4">
+            {statusItems.map((item) => (
+              <div key={item.id} className="flex items-center gap-2">
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                  item.checked ? 'bg-green-500' : 'bg-gray-700'
+                }`}>
+                  {item.checked ? (
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <div className="w-2 h-2 bg-gray-500 rounded-full" />
+                  )}
+                </div>
+                <span className={`text-sm ${item.checked ? 'text-white' : 'text-gray-500'}`}>
+                  {item.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Setup tip - show method-specific guidance when not live */}
       {!isLive && inputMethod === 'device' && (
