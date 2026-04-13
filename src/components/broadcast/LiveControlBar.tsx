@@ -156,41 +156,101 @@ export function LiveControlBar({
     ? 'bg-red-600'
     : (allGreen ? 'bg-green-600' : 'bg-orange-500');
 
-  // Audio-too-low warning — hysteresis-based so the message doesn't flicker
-  // on every brief peak/dip. Must sustain below threshold for `enterMs` to
-  // turn ON, and must sustain above it for `exitMs` to turn OFF.
+  // Warnings use hysteresis so messages don't flicker on momentary changes.
+  // Each warning must "enter" by sustaining its trigger for `enterMs` and
+  // "exit" by sustaining its clear condition for `exitMs`.
   const peak = Math.max(health.leftPeakDb, health.rightPeakDb);
-  const LOW_ENTER_DB = -40;   // must be below this for a while to trigger
-  const LOW_EXIT_DB = -35;    // must be above this for a while to clear (5 dB gap)
-  const LOW_ENTER_MS = 4000;  // sustained under-volume needed to alert
-  const LOW_EXIT_MS = 2000;   // sustained proper volume needed to clear
+
+  // --- Audio too low ---
+  const LOW_ENTER_DB = -40;
+  const LOW_EXIT_DB = -35;
+  const LOW_ENTER_MS = 4000;
+  const LOW_EXIT_MS = 2000;
   const [audioTooLow, setAudioTooLow] = useState(false);
   const lowSinceRef = useRef<number | null>(null);
-  const okSinceRef = useRef<number | null>(null);
+  const lowOkSinceRef = useRef<number | null>(null);
   useEffect(() => {
     if (!hasStream || peak <= -90) {
-      // No signal at all — don't show the "too low" warning (covered by checklist).
       setAudioTooLow(false);
       lowSinceRef.current = null;
-      okSinceRef.current = null;
+      lowOkSinceRef.current = null;
       return;
     }
     const now = performance.now();
     if (peak < LOW_ENTER_DB) {
-      okSinceRef.current = null;
+      lowOkSinceRef.current = null;
       if (lowSinceRef.current === null) lowSinceRef.current = now;
-      if (!audioTooLow && now - lowSinceRef.current >= LOW_ENTER_MS) {
-        setAudioTooLow(true);
-      }
+      if (!audioTooLow && now - lowSinceRef.current >= LOW_ENTER_MS) setAudioTooLow(true);
     } else if (peak > LOW_EXIT_DB) {
       lowSinceRef.current = null;
-      if (okSinceRef.current === null) okSinceRef.current = now;
-      if (audioTooLow && now - okSinceRef.current >= LOW_EXIT_MS) {
-        setAudioTooLow(false);
+      if (lowOkSinceRef.current === null) lowOkSinceRef.current = now;
+      if (audioTooLow && now - lowOkSinceRef.current >= LOW_EXIT_MS) setAudioTooLow(false);
+    }
+  }, [peak, hasStream, audioTooLow]);
+
+  // --- Dead channel (one side silent while the other is carrying audio) ---
+  // Only meaningful once the stream is actually delivering signal to at least
+  // one channel. Avoids warning about both channels being silent at startup.
+  const DEAD_ENTER_MS = 3000;
+  const DEAD_EXIT_MS = 1500;
+  const [deadChannelSide, setDeadChannelSide] = useState<'L' | 'R' | null>(null);
+  const deadSinceRef = useRef<{ side: 'L' | 'R' | null; since: number | null }>({ side: null, since: null });
+  const deadOkSinceRef = useRef<number | null>(null);
+  const observedDeadSide: 'L' | 'R' | null =
+    health.leftState === 'silent' && health.rightState === 'active' ? 'L' :
+    health.rightState === 'silent' && health.leftState === 'active' ? 'R' :
+    null;
+  useEffect(() => {
+    if (!hasStream) {
+      setDeadChannelSide(null);
+      deadSinceRef.current = { side: null, since: null };
+      deadOkSinceRef.current = null;
+      return;
+    }
+    const now = performance.now();
+    if (observedDeadSide) {
+      deadOkSinceRef.current = null;
+      if (deadSinceRef.current.side !== observedDeadSide) {
+        deadSinceRef.current = { side: observedDeadSide, since: now };
+      }
+      const since = deadSinceRef.current.since;
+      if (since !== null && deadChannelSide !== observedDeadSide && now - since >= DEAD_ENTER_MS) {
+        setDeadChannelSide(observedDeadSide);
+      }
+    } else {
+      deadSinceRef.current = { side: null, since: null };
+      if (deadOkSinceRef.current === null) deadOkSinceRef.current = now;
+      if (deadChannelSide !== null && now - deadOkSinceRef.current >= DEAD_EXIT_MS) {
+        setDeadChannelSide(null);
       }
     }
-    // In the dead zone between LOW_ENTER_DB and LOW_EXIT_DB, hold current state.
-  }, [peak, hasStream, audioTooLow]);
+  }, [observedDeadSide, hasStream, deadChannelSide]);
+
+  // --- Heavy dropouts — mirror FIX threshold with a slight delay.
+  // Show the banner when recentDropouts >= 8 and auto-hide once it falls <= 3.
+  const DROPOUT_ENTER_MS = 2000;
+  const DROPOUT_EXIT_MS = 3000;
+  const [heavyDropouts, setHeavyDropouts] = useState(false);
+  const dropEnterSinceRef = useRef<number | null>(null);
+  const dropExitSinceRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!hasStream) {
+      setHeavyDropouts(false);
+      dropEnterSinceRef.current = null;
+      dropExitSinceRef.current = null;
+      return;
+    }
+    const now = performance.now();
+    if (health.recentDropouts >= 8) {
+      dropExitSinceRef.current = null;
+      if (dropEnterSinceRef.current === null) dropEnterSinceRef.current = now;
+      if (!heavyDropouts && now - dropEnterSinceRef.current >= DROPOUT_ENTER_MS) setHeavyDropouts(true);
+    } else if (health.recentDropouts <= 3) {
+      dropEnterSinceRef.current = null;
+      if (dropExitSinceRef.current === null) dropExitSinceRef.current = now;
+      if (heavyDropouts && now - dropExitSinceRef.current >= DROPOUT_EXIT_MS) setHeavyDropouts(false);
+    }
+  }, [health.recentDropouts, hasStream, heavyDropouts]);
 
   return (
     <div className="sticky top-0 z-30 bg-[#141414] border-b border-gray-800 backdrop-blur-sm">
@@ -231,11 +291,21 @@ export function LiveControlBar({
         </div>
 
         {/* Reserved warning slot — keeps height even when empty so layout doesn't
-            jump when warnings come and go. */}
-        <div className="mt-2 min-h-[2.5rem] flex items-center">
+            jump when warnings come and go. Stacks multiple warnings vertically. */}
+        <div className="mt-2 min-h-[2.5rem] space-y-2">
+          {deadChannelSide && (
+            <div className="w-full bg-red-950/70 border border-red-600 rounded px-3 py-2 text-red-200 text-sm font-semibold">
+              ⚠ {deadChannelSide === 'L' ? 'Left' : 'Right'} channel is silent — check cable between mixer and interface
+            </div>
+          )}
           {audioTooLow && (
             <div className="w-full bg-red-950/70 border border-red-600 rounded px-3 py-2 text-red-200 text-sm font-semibold">
               ⚠ Audio levels are very low — check your mixer output or gain staging
+            </div>
+          )}
+          {heavyDropouts && (
+            <div className="w-full bg-red-950/70 border border-red-600 rounded px-3 py-2 text-red-200 text-sm font-semibold">
+              ⚠ Frequent audio dropouts — check USB cable, interface connection, or CPU load
             </div>
           )}
         </div>
