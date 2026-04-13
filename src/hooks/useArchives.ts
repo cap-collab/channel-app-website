@@ -11,9 +11,10 @@ interface UseArchivesReturn {
   loading: boolean;
 }
 
-export function useArchives(): UseArchivesReturn {
-  const [archives, setArchives] = useState<ArchiveSerialized[]>([]);
-  const [loading, setLoading] = useState(true);
+export function useArchives(initial?: ArchiveSerialized[]): UseArchivesReturn {
+  const [archives, setArchives] = useState<ArchiveSerialized[]>(initial ?? []);
+  // If we have an initial seed, render with it immediately while the full list loads
+  const [loading, setLoading] = useState(!initial || initial.length === 0);
 
   useEffect(() => {
     async function fetchArchives() {
@@ -26,7 +27,7 @@ export function useArchives(): UseArchivesReturn {
         );
         setArchives(filtered);
       } catch {
-        setArchives([]);
+        // Keep any initial seed we have rather than clearing it
       } finally {
         setLoading(false);
       }

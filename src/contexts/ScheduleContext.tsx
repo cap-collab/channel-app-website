@@ -13,6 +13,7 @@ interface ScheduleContextType {
   loading: boolean;
   error: string | null;
   refetch: () => void;
+  activate: () => void;
 }
 
 const ScheduleContext = createContext<ScheduleContextType>({
@@ -23,6 +24,7 @@ const ScheduleContext = createContext<ScheduleContextType>({
   loading: true,
   error: null,
   refetch: () => {},
+  activate: () => {},
 });
 
 // Fetch broadcast shows directly from Firebase client SDK
@@ -248,8 +250,11 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
   const [irlShows, setIrlShows] = useState<IRLShowData[]>([]);
   const [curatorRecs, setCuratorRecs] = useState<CuratorRec[]>([]);
   const [djProfiles, setDjProfiles] = useState<DJProfile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activated, setActivated] = useState(false);
+
+  const activate = useCallback(() => setActivated(true), []);
 
   const fetchSchedule = useCallback(() => {
     setLoading(true);
@@ -284,16 +289,37 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    fetchSchedule();
-  }, [fetchSchedule]);
+    if (!activated) return;
+    // Defer fetch until after first paint so the hero/above-the-fold content
+    // renders before we block the main thread with Firebase + /api/schedule.
+    const win = window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number };
+    if (typeof win.requestIdleCallback === 'function') {
+      const handle = win.requestIdleCallback(() => fetchSchedule(), { timeout: 1500 });
+      return () => {
+        const cancel = (window as Window & { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback;
+        if (typeof cancel === 'function') cancel(handle);
+      };
+    }
+    const timer = setTimeout(fetchSchedule, 300);
+    return () => clearTimeout(timer);
+  }, [activated, fetchSchedule]);
 
   return (
-    <ScheduleContext.Provider value={{ shows, irlShows, curatorRecs, djProfiles, loading, error, refetch: fetchSchedule }}>
+    <ScheduleContext.Provider value={{ shows, irlShows, curatorRecs, djProfiles, loading, error, refetch: fetchSchedule, activate }}>
       {children}
     </ScheduleContext.Provider>
   );
 }
 
 export function useSchedule() {
+  const ctx = useContext(ScheduleContext);
+  // Auto-activate on any access — opt-out only by using useScheduleLazy below.
+  useEffect(() => { ctx.activate(); }, [ctx]);
+  return ctx;
+}
+
+// Use this instead of useSchedule when you want to read the context
+// without triggering the fetch. Caller is responsible for calling activate().
+export function useScheduleLazy() {
   return useContext(ScheduleContext);
 }

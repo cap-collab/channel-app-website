@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { useSchedule } from '@/contexts/ScheduleContext';
+import { useScheduleLazy } from '@/contexts/ScheduleContext';
 import { Header } from '@/components/Header';
 import { useFilterContext } from '@/contexts/FilterContext';
 import { SwipeableCardCarousel } from '@/components/channel/SwipeableCardCarousel';
@@ -37,13 +37,13 @@ type RecommendedItem =
   | MatchedItem
   | { type: 'curator'; data: CuratorRec };
 
-export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boolean; exploreSearchBar?: React.ReactNode } = {}) {
+export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives }: { skipHero?: boolean; exploreSearchBar?: React.ReactNode; initialHeroArchives?: import('@/types/broadcast').ArchiveSerialized[] } = {}) {
   const { user, isAuthenticated } = useAuthContext();
   const { isLive: isBroadcastLive, isStreaming: isBroadcastStreaming, currentShow } = useBroadcastStreamContext();
   const { stationBPM } = useBPM();
   const archivePlayer = useArchivePlayer();
   const { isGated, gateAttempt, clearGate } = archivePlayer;
-  const { archives: rawArchives, featuredArchive: rawFeaturedArchive, loading: archivesLoading } = useArchives();
+  const { archives: rawArchives, featuredArchive: rawFeaturedArchive, loading: archivesLoading } = useArchives(initialHeroArchives);
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
@@ -59,7 +59,13 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
     }
   }, [mounted]);
   const { favorites, isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
-  const { shows: scheduleShows, irlShows: scheduleIrlShows, curatorRecs: scheduleCuratorRecs, djProfiles: scheduleDjProfiles, loading: scheduleLoading } = useSchedule();
+  const { shows: scheduleShows, irlShows: scheduleIrlShows, curatorRecs: scheduleCuratorRecs, djProfiles: scheduleDjProfiles, loading: scheduleLoading, activate: activateSchedule } = useScheduleLazy();
+
+  // Activate schedule fetch: always on /explore (skipHero=true), only for
+  // logged-in users on /radio (watchlist needs it; logged-out users have no favorites).
+  useEffect(() => {
+    if (skipHero || isAuthenticated) activateSchedule();
+  }, [skipHero, isAuthenticated, activateSchedule]);
   // Auth modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
@@ -819,15 +825,16 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
         </section>
       )}
 
-      {/* Meanwhile in the Scene */}
-      <section className="px-4 md:px-8 pt-4 pb-0 relative z-10">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-2xl md:text-3xl font-semibold mb-2">Meanwhile in the scene</h2>
-          {/* Search bar + filter (only on /explore) */}
-          {exploreSearchBar}
-        </div>
-      </section>
+      {/* Search bar + filter (only on /explore) */}
+      {exploreSearchBar && (
+        <section className="px-4 md:px-8 pt-4 pb-0 relative z-10">
+          <div className="max-w-7xl mx-auto">
+            {exploreSearchBar}
+          </div>
+        </section>
+      )}
 
+      {skipHero && (
       <div className="px-4 md:px-8 flex-1 w-full flex flex-col">
       <main className="max-w-7xl mx-auto flex-1 w-full flex flex-col">
         <div className="flex flex-col">
@@ -911,6 +918,7 @@ export function ChannelClient({ skipHero, exploreSearchBar }: { skipHero?: boole
         </div>
       </main>
       </div>
+      )}
 
       <AuthModal
         isOpen={showAuthModal}

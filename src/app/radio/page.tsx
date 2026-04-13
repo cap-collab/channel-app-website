@@ -1,13 +1,16 @@
 import { Suspense } from 'react';
 import { makeOG } from '@/lib/og';
 import { ChannelClient } from './ChannelClient';
+import { getHeroArchives } from '@/lib/hero-archives';
 
 export const metadata = makeOG();
+export const revalidate = 60;
 
-export default function ChannelPage() {
+export default async function ChannelPage() {
+  const initialHeroArchives = await getHeroArchives();
   return (
     <Suspense fallback={<div className="min-h-screen bg-black" />}>
-      <ChannelClient />
+      <ChannelClient initialHeroArchives={initialHeroArchives} />
     </Suspense>
   );
 }

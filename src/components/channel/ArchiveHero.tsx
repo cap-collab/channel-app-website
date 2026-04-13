@@ -320,7 +320,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Archive tag filter — default: all selected, persisted to Firestore
-  const ALL_MOOD_TAGS = ['pick-me-up', 'chill', 'exploratory', 'clubby'];
+  const ALL_MOOD_TAGS = ['chill', 'exploratory', 'clubby'];
   const [activeTags, setActiveTags] = useState<string[]>(ALL_MOOD_TAGS);
   const [tagsLoaded, setTagsLoaded] = useState(false);
 
@@ -492,7 +492,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         {/* Hero Image Carousel — swipable top 3 archives */}
         {!showLiveInHero && (
           <div
-            className="relative overflow-hidden"
+            className="relative"
             onTouchStart={(e) => { heroTouchRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY }; }}
             onTouchEnd={(e) => {
               if (!heroTouchRef.current) return;
@@ -504,13 +504,15 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               if (dx > 0 && heroIndex > 0) setHeroIndex(heroIndex - 1);
             }}
           >
-            <div
-              className="flex transition-transform duration-300 ease-out"
-              style={{ transform: `translateX(-${heroIndex * 100}%)` }}
-            >
-              {heroArchives.map((ha) => (
-                <HeroSlide key={ha.id} archive={ha} onPlay={() => { setUserSelectedMode('archive'); pauseLive(); archivePlayer.play(ha); }} />
-              ))}
+            <div className="overflow-hidden">
+              <div
+                className="flex transition-transform duration-300 ease-out"
+                style={{ transform: `translateX(-${heroIndex * 100}%)` }}
+              >
+                {heroArchives.map((ha) => (
+                  <HeroSlide key={ha.id} archive={ha} onPlay={() => { setUserSelectedMode('archive'); pauseLive(); archivePlayer.play(ha); }} />
+                ))}
+              </div>
             </div>
             {/* Desktop arrows — same style as watchlist carousel, loops */}
             {heroArchives.length > 1 && (
@@ -754,7 +756,6 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               {/* Tag filter pills */}
               <div className="flex gap-1 sm:gap-2">
               {[
-                { tag: 'pick-me-up', label: 'Upbeat' },
                 { tag: 'chill', label: 'Chill' },
                 { tag: 'exploratory', label: 'Deep' },
                 { tag: 'clubby', label: 'Clubby' },
@@ -855,7 +856,7 @@ function HeroSlide({ archive, onPlay }: { archive: ArchiveSerialized; onPlay: ()
           {/* Mood tags — top right */}
           {archive.tags && archive.tags.length > 0 && (
             <div className="absolute top-2 right-2 flex flex-wrap justify-end gap-1 max-w-[50%] drop-shadow-lg">
-              {['exploratory', 'clubby', 'pick-me-up', 'chill'].filter(t => archive.tags!.includes(t)).map(tag => (
+              {['exploratory', 'clubby', 'chill'].filter(t => archive.tags!.includes(t)).map(tag => (
                 <span key={tag} className="text-[10px] font-mono text-white/60 uppercase tracking-tighter border border-white/20 px-1.5 py-0.5 rounded">
                   {TAG_LABELS[tag] || tag}
                 </span>
@@ -911,7 +912,7 @@ function ArchiveGridCard({
   const cityMatch = selectedCity && selectedCity !== 'Anywhere' && djLocation ? matchesCity(djLocation, selectedCity) : false;
   const cityLabel = cityMatch ? selectedCity!.toUpperCase() : '';
   // Mood tags: all active tags that match this archive, in fixed display order
-  const MOOD_ORDER = ['exploratory', 'clubby', 'pick-me-up', 'chill'];
+  const MOOD_ORDER = ['exploratory', 'clubby', 'chill'];
   const moodLabels = activeTags
     ? MOOD_ORDER.filter(t => activeTags.includes(t) && (archive.tags || []).includes(t)).map(t => TAG_LABELS[t] || t.toUpperCase())
     : [];
