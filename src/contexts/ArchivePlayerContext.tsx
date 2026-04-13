@@ -140,6 +140,8 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
         setIsPlaying(false);
       });
       audio.addEventListener('waiting', () => {
+        // Don't flip back to loading if we've errored and are awaiting user action
+        if (needsHardReloadRef.current) return;
         setIsLoading(true);
       });
       audio.addEventListener('ended', () => {
@@ -160,9 +162,9 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
         // User's explicit play press is a better signal than auto-retry loops.
         console.error('🔄 Archive playback error; stopping. Click play to retry.');
         resumePositionRef.current = audio.currentTime || resumePositionRef.current;
+        needsHardReloadRef.current = true;
         setIsPlaying(false);
         setIsLoading(false);
-        needsHardReloadRef.current = true;
         captureEvent('playback_error', { type: 'archive', message: 'Playback error' });
         if (playbackStartedAtRef.current) {
           const sessionDuration = Math.round((Date.now() - playbackStartedAtRef.current) / 1000);
@@ -419,7 +421,6 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       if (needsHardReloadRef.current || !audio.src || audio.src === window.location.href) {
         needsHardReloadRef.current = false;
         const resumeAt = resumePositionRef.current || currentTime;
-        isRetryingRef.current = true;
         audio.src = archive.recordingUrl;
         // Need to wait for metadata before setting currentTime on some browsers
         const setTime = () => {
@@ -427,7 +428,6 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
           audio.removeEventListener('loadedmetadata', setTime);
         };
         audio.addEventListener('loadedmetadata', setTime);
-        setTimeout(() => { isRetryingRef.current = false; }, 100);
         setIsLoading(true);
       }
       audio.play().catch(() => { setIsLoading(false); });
