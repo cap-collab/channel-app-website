@@ -44,36 +44,45 @@ function dbToBarWidth(db: number): number {
   return (db + 60) / 60;
 }
 
-// Meter scale: -60 dB → 0 dB linear across the bar.
-// Color zones map to broadcast practice:
-//   -60 to -40 dB : gray (too quiet / noise floor — not a useful signal)
-//   -40 to -6  dB : green (healthy broadcast level — this is where you want to be)
-//   -6  to -3  dB : yellow (hot, approaching headroom ceiling)
-//   -3  to  0  dB : red (clipping territory — back off)
-// dbToBarWidth maps -60..0 to 0..1, so:
-//   -40 dB = 33.3%,  -6 dB = 90%,  -3 dB = 95%
+// Meter scale: -60 dB → 0 dB linear. Zones map to broadcast practice:
+//   -60 to -40 dB : gray   (noise floor — not useful signal)
+//   -40 to -6  dB : green  (healthy level)
+//   -6  to -3  dB : yellow (hot, near headroom ceiling)
+//   -3  to  0  dB : red    (clipping)
+// Fill semantics: the bar fills left→right as level rises. Whatever portion
+// is filled takes the color of the zone the CURRENT level sits in. Reference
+// ticks at -40 / -6 / -3 stay as faint marks on the track.
+// Gradual color at a given dB level. Interpolates through:
+//   below -50 dB : gray (no useful signal)
+//   -50 → -10 dB : green (stable hue, healthy zone)
+//   -10 → -3 dB  : green → yellow → orange (getting hot)
+//   -3 → 0+ dB   : red (clipping)
+function fillColorForDb(db: number): string {
+  if (db < -50) return '#4b5563'; // gray
+  if (db <= -10) return '#22c55e'; // green plateau
+  if (db >= -3) return '#ef4444'; // red plateau
+  // Between -10 and -3: interpolate hue from green (120°) through yellow (60°)
+  // to red-orange (10°). At -10 → 120°, at -3 → 10°.
+  const t = (db - -10) / (-3 - -10); // 0..1
+  const hue = 120 - t * 110; // 120° → 10°
+  return `hsl(${Math.round(hue)}, 85%, 50%)`;
+}
+
 function ChannelMeter({ label, db }: { label: 'L' | 'R'; db: number }) {
   const width = Math.round(dbToBarWidth(db) * 100);
+  const fillColor = fillColorForDb(db);
   return (
     <div className="flex items-center gap-2 min-w-0">
       <span className="text-[10px] text-gray-500 font-mono w-3 text-right">{label}</span>
       <div className="relative h-3 bg-gray-900 rounded-sm overflow-hidden flex-1 min-w-0 border border-gray-800">
-        {/* Reference marks: -40 (gray→green boundary), -6 (green→yellow) */}
-        <div className="absolute inset-y-0 bg-gray-700/60" style={{ left: '33.3%', width: 1 }} />
+        {/* Zone reference ticks (faint, fixed): -40, -6, -3 */}
+        <div className="absolute inset-y-0 bg-gray-600/50" style={{ left: '33.3%', width: 1 }} />
         <div className="absolute inset-y-0 bg-yellow-500/30" style={{ left: '90%', width: 1 }} />
         <div className="absolute inset-y-0 bg-red-500/40" style={{ left: '95%', width: 1 }} />
-        {/* Fill — gradient with stops at the zone boundaries */}
+        {/* Fill — solid color based on current level */}
         <div
           className="absolute inset-y-0 left-0 transition-all duration-75"
-          style={{
-            width: `${width}%`,
-            background:
-              'linear-gradient(to right, ' +
-              '#4b5563 0%, #4b5563 33.3%, ' +   // gray: below -40 dB
-              '#22c55e 33.3%, #22c55e 90%, ' +  // green: -40 to -6 dB (healthy)
-              '#eab308 90%, #eab308 95%, ' +    // yellow: -6 to -3 dB (hot)
-              '#ef4444 95%, #ef4444 100%)',     // red: -3 to 0 dB (clipping)
-          }}
+          style={{ width: `${width}%`, backgroundColor: fillColor }}
         />
       </div>
       <span className="text-[10px] text-gray-500 font-mono tabular-nums w-10 text-right">
