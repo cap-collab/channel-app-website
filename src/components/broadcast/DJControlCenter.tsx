@@ -98,82 +98,65 @@ export function DJControlCenter({
         chatUsernameNormalized={chatUsernameNormalized}
       />
 
-      {/* Main Content */}
+      {/* Main Content — single column: audio first, then tip/share, then compact chat at bottom */}
       <div className="flex-1 p-4 lg:p-6">
-        <div className="max-w-6xl mx-auto h-full">
-          <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 lg:h-[calc(100vh-8rem)]">
-            {/* Left Column - Controls */}
-            <div className="flex-1 space-y-4 lg:overflow-y-auto">
-              {/* Audio System */}
-              <AudioStatusPanel
-                inputMethod={inputMethod}
-                stream={audioStream}
-                isLive={isLive}
-                isPublishing={isPublishing}
-                canGoLive={canGoLive}
-                goLiveMessage={goLiveMessage}
-                onGoLive={onGoLive}
-                isGoingLive={isGoingLive}
-                onChangeAudioSetup={onChangeAudioSetup}
-                onChangeSource={onChangeSource}
-                audioSourceLabel={audioSourceLabel}
-                isRecordingMode={isRecordingMode}
-                roomOccupied={roomOccupied}
-                roomFreeAt={roomFreeAt}
-                onQueueGoLive={onQueueGoLive}
-                slotStartTime={slot?.startTime}
-              />
+        <div className="max-w-3xl mx-auto h-full">
+          <div className="space-y-4">
+            {/* Audio System */}
+            <AudioStatusPanel
+              inputMethod={inputMethod}
+              stream={audioStream}
+              isLive={isLive}
+              isPublishing={isPublishing}
+              canGoLive={canGoLive}
+              goLiveMessage={goLiveMessage}
+              onGoLive={onGoLive}
+              isGoingLive={isGoingLive}
+              onChangeAudioSetup={onChangeAudioSetup}
+              onChangeSource={onChangeSource}
+              audioSourceLabel={audioSourceLabel}
+              isRecordingMode={isRecordingMode}
+              roomOccupied={roomOccupied}
+              roomFreeAt={roomFreeAt}
+              onQueueGoLive={onQueueGoLive}
+              slotStartTime={slot?.startTime}
+            />
 
-              {/* Broadcast Settings */}
-              <BroadcastSettingsPanel
-                broadcastToken={broadcastToken}
-                tipButtonLink={tipButtonLink}
-                onTipButtonLinkChange={onTipButtonLinkChange}
-              />
+            {/* Broadcast Settings */}
+            <BroadcastSettingsPanel
+              broadcastToken={broadcastToken}
+              tipButtonLink={tipButtonLink}
+              onTipButtonLinkChange={onTipButtonLinkChange}
+            />
 
-              {/* Share URL */}
-              <div className="bg-[#252525] rounded-xl p-4">
-                <h3 className="text-gray-400 text-sm font-medium mb-3">
-                  Share Your Stream
-                </h3>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={shareUrl}
-                    className="flex-1 bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 font-mono text-sm"
-                  />
-                  <button
-                    onClick={copyShareUrl}
-                    className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors text-sm"
-                  >
-                    {copied ? 'Copied!' : 'Copy'}
-                  </button>
-                </div>
-                <p className="text-gray-600 text-xs mt-2">
-                  Share this with friends and followers
-                </p>
+            {/* Share URL */}
+            <div className="bg-[#252525] rounded-xl p-4">
+              <h3 className="text-gray-400 text-sm font-medium mb-3">
+                Share Your Stream
+              </h3>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={shareUrl}
+                  className="flex-1 bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 font-mono text-sm"
+                />
+                <button
+                  onClick={copyShareUrl}
+                  className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors text-sm"
+                >
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
               </div>
-
-              {/* End Broadcast/Recording - only show when live */}
-              {isLive && (
-                <div className="bg-[#252525] rounded-xl p-4">
-                  <button
-                    onClick={handleEndBroadcast}
-                    disabled={isEnding}
-                    className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-colors"
-                  >
-                    {isEnding
-                      ? (isRecordingMode ? 'Ending recording...' : 'Ending broadcast...')
-                      : (isRecordingMode ? 'End Recording' : 'End Broadcast')}
-                  </button>
-                </div>
-              )}
+              <p className="text-gray-600 text-xs mt-2">
+                Share this with friends and followers
+              </p>
             </div>
 
-            {/* Right Column - Chat (compact; DJ focus is on audio monitoring, not chat) */}
+            {/* Chat — secondary; aligned with tip/share widgets. Fixed height so it
+                doesn't dominate the page. DJ focus should stay on audio monitoring. */}
             {slot && (
-              <div className="lg:w-64 lg:flex-shrink-0 lg:h-full lg:min-h-0 flex flex-col overflow-hidden opacity-80 hover:opacity-100 transition-opacity">
+              <div className="bg-[#252525] rounded-xl overflow-hidden h-80">
                 <DJProfileChatPanel
                   chatUsernameNormalized={chatUsernameNormalized}
                   djUserId={userId || ''}
@@ -189,6 +172,21 @@ export function DJControlCenter({
                   onChangeUsername={onChangeUsername}
                   currentShowStartTime={slot.startTime}
                 />
+              </div>
+            )}
+
+            {/* End Broadcast/Recording - only show when live */}
+            {isLive && (
+              <div className="bg-[#252525] rounded-xl p-4">
+                <button
+                  onClick={handleEndBroadcast}
+                  disabled={isEnding}
+                  className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-colors"
+                >
+                  {isEnding
+                    ? (isRecordingMode ? 'Ending recording...' : 'Ending broadcast...')
+                    : (isRecordingMode ? 'End Recording' : 'End Broadcast')}
+                </button>
               </div>
             )}
           </div>

@@ -18,7 +18,7 @@ export interface AudioHealth {
 }
 
 const SILENT_DB = -50;   // below this = silent
-const WEAK_DB = -35;     // below this = weak
+const WEAK_DB = -20;     // below this = weak; above = proper broadcast level
 const DROPOUT_MIN_MS = 150; // silence shorter than this ignored (short gap)
 const DROPOUT_MAX_MS = 5000; // silence longer than this not a dropout (track ended)
 

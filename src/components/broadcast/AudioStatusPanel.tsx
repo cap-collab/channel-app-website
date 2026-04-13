@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAudioLevel } from '@/hooks/useAudioLevel';
+import { useAudioHealth } from '@/hooks/useAudioHealth';
 import { AudioHealthMeter } from '@/components/broadcast/AudioHealthMeter';
 import { AudioInputMethod } from '@/types/broadcast';
 
@@ -43,6 +44,11 @@ export function AudioStatusPanel({
   slotStartTime,
 }: AudioStatusPanelProps) {
   const level = useAudioLevel(stream);
+  const health = useAudioHealth(stream);
+  // Tie checklist to real broadcast-level signal, not just "any signal detected".
+  // At least one channel must reach "active" (peak > -20 dB) for the check to pass.
+  const hasStrongAudio = health.leftState === 'active' || health.rightState === 'active';
+  // Kept for legacy "levels detected at all" decisions
   const hasAudioLevels = level > 0.01;
 
   // Countdown for "Going live available in X minutes" when too early
@@ -101,7 +107,7 @@ export function AudioStatusPanel({
       items.push({
         id: 'macos-io',
         label: 'macOS input & output set to mixer/controller (levels moving in Sound Settings)',
-        checked: hasAudioLevels,
+        checked: hasStrongAudio,
       });
       items.push({
         id: 'chrome-input',
@@ -127,8 +133,8 @@ export function AudioStatusPanel({
     if (!isLive) {
       items.push({
         id: 'levels',
-        label: 'Audio levels moving on the Channel Go Live page — and NOT coming from your microphone',
-        checked: hasAudioLevels,
+        label: 'Audio levels strong on the Channel Go Live page — and NOT coming from your microphone',
+        checked: hasStrongAudio,
       });
     }
 
@@ -247,8 +253,8 @@ export function AudioStatusPanel({
         </div>
       )}
 
-      {/* Microphone warning - show when audio levels detected */}
-      {hasAudioLevels && !isLive && (
+      {/* Microphone warning - always show before going live */}
+      {!isLive && (
         <div className="bg-yellow-900/30 border border-yellow-700/50 rounded-lg p-3 mb-4">
           <p className="text-yellow-200 text-sm">
             {inputMethod === 'device'
