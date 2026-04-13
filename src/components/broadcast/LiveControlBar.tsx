@@ -196,9 +196,13 @@ export function LiveControlBar({
   const [deadChannelSide, setDeadChannelSide] = useState<'L' | 'R' | null>(null);
   const deadSinceRef = useRef<{ side: 'L' | 'R' | null; since: number | null }>({ side: null, since: null });
   const deadOkSinceRef = useRef<number | null>(null);
+  // A side is "dead" if it's silent while the OTHER side has any usable
+  // signal (active OR weak). A weak-but-present channel still means the
+  // silent channel is broken — don't require broadcast-level signal on the
+  // live side to trigger the warning.
   const observedDeadSide: 'L' | 'R' | null =
-    health.leftState === 'silent' && health.rightState === 'active' ? 'L' :
-    health.rightState === 'silent' && health.leftState === 'active' ? 'R' :
+    health.leftState === 'silent' && health.rightState !== 'silent' ? 'L' :
+    health.rightState === 'silent' && health.leftState !== 'silent' ? 'R' :
     null;
   useEffect(() => {
     if (!hasStream) {
