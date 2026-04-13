@@ -88,6 +88,10 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   // True while we're intentionally resetting audio.src during a retry.
   // Prevents the synthetic error event from triggering another retry cascade.
   const isRetryingRef = useRef(false);
+  // True after retries are exhausted; next play() must force a fresh load.
+  const needsHardReloadRef = useRef(false);
+  // Playhead position to restore when recovering from a failed retry cycle.
+  const resumePositionRef = useRef(0);
   const playbackStartedAtRef = useRef<number | null>(null);
   const archiveLockedInFiredRef = useRef<string | null>(null);
   const onLockedInRef = useRef<(() => void) | null>(null);
@@ -160,7 +164,8 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
           setIsLoading(true);
           retryTimerRef.current = setTimeout(() => {
             retryTimerRef.current = null;
-            const savedTime = audio.currentTime;
+            const savedTime = audio.currentTime || resumePositionRef.current;
+            resumePositionRef.current = savedTime;
             const src = audio.src;
             isRetryingRef.current = true;
             audio.src = '';
@@ -175,12 +180,12 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
           }, delay);
         } else {
           console.error('🔄 Archive playback failed after retries');
+          // Capture current playhead BEFORE any state resets so we can resume here
+          resumePositionRef.current = audio.currentTime || resumePositionRef.current;
           setIsPlaying(false);
           setIsLoading(false);
-          // Clear src so the next play() click triggers a fresh load path.
-          isRetryingRef.current = true;
-          audio.src = '';
-          setTimeout(() => { isRetryingRef.current = false; }, 100);
+          // Flag that the next play() click must force a fresh load
+          needsHardReloadRef.current = true;
           captureEvent('playback_error', { type: 'archive', message: `Error after ${MAX_RETRIES} retries` });
           if (playbackStartedAtRef.current) {
             const sessionDuration = Math.round((Date.now() - playbackStartedAtRef.current) / 1000);
@@ -427,16 +432,26 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       setDuration(archive.duration || 0);
       cumulativeTimeRef.current = 0;
       archiveLockedInFiredRef.current = null;
+      resumePositionRef.current = 0;
       setIsLoading(true);
       audio.play().catch(() => {
         setIsLoading(false);
       });
     } else if (!isPlaying) {
-      // Resume same archive. If there's no src (retries previously exhausted
-      // and failed), re-seed the src so we get a fresh load.
-      if (!audio.src) {
+      // Resume same archive. If retries previously exhausted (or src looks
+      // stale), force a fresh load and restore the playhead position.
+      if (needsHardReloadRef.current || !audio.src || audio.src === window.location.href) {
+        needsHardReloadRef.current = false;
+        const resumeAt = resumePositionRef.current || currentTime;
+        isRetryingRef.current = true;
         audio.src = archive.recordingUrl;
-        audio.currentTime = currentTime;
+        // Need to wait for metadata before setting currentTime on some browsers
+        const setTime = () => {
+          audio.currentTime = resumeAt;
+          audio.removeEventListener('loadedmetadata', setTime);
+        };
+        audio.addEventListener('loadedmetadata', setTime);
+        setTimeout(() => { isRetryingRef.current = false; }, 100);
         setIsLoading(true);
       }
       audio.play().catch(() => { setIsLoading(false); });
