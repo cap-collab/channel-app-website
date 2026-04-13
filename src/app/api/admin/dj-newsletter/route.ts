@@ -10,7 +10,18 @@ const resend = process.env.RESEND_API_KEY
 const FROM_EMAIL = "Cap from Channel <cap@channel-app.com>";
 const LOGO_URL = "https://channel-app.com/logo-black.png";
 const APP_URL = "https://channel-app.com";
-const SUBJECT = "Starting week 2";
+const SUBJECT = "Week 3: building around the community";
+
+// First-name overrides: when data.name is missing, wrong, or a full name.
+const FIRST_NAME_OVERRIDES: Record<string, string> = {
+  "anthonypomije@gmail.com": "Anthony",
+  "paulsboston@gmail.com": "Paul",
+  "kevinlipman7@gmail.com": "Kevin",
+  "drew.labarre@gmail.com": "Drew",
+  "celebritybitcrush@gmail.com": "Keigo",
+  "cap@beyondalgorithms.cloud": "Cap",
+  "2ty7cmd5tf@privaterelay.appleid.com": "Cap",
+};
 
 // ── Email HTML builder ─────────────────────────────────────────────
 
@@ -48,13 +59,21 @@ function buildEmailHtml(name: string): string {
               <tr>
                 <td bgcolor="#ffffff" style="font-size: 15px; line-height: 1.6; color: #1a1a1a;">
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Hi ${name},</p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;">Quick note to start the week :)</p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;">Last week was honestly so much fun. Really grateful for all of you — the music, the energy, the vote of confidence, and everything I learned from it.</p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;"><strong>We had 280 streamers on launch day</strong>, which was amazing to see. It also pushed the setup a bit, so I've since improved the streaming capacity to make things smoother and support more listeners. I've also made a few improvements across the website.</p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;">Also, I'm always looking for new people to invite. If there are DJs, producers, or friends you think would be a good fit, I would love an intro.</p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;">And more specifically, <strong>I'd really like to bring more women into the lineup</strong>, so if anyone comes to mind, please send them my way.</p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;">As always, if you have any feedback, ideas, or things you'd want to see, I'm all ears.</p>
-                  <p style="margin: 0 0 4px; color: #1a1a1a;">Thanks again for being part of this 🖤</p>
+                  <p style="margin: 0 0 16px; color: #1a1a1a;">Channel is taking shape, last week was another strong step forward.</p>
+                  <p style="margin: 0 0 16px; color: #1a1a1a;">Streaming quality is now in a really good place. I've improved recording quality and upgraded audio monitoring.</p>
+                  <p style="margin: 0 0 8px; color: #1a1a1a;"><strong>This week, I'm pausing live shows to focus on making Channel feel less like a playlist, and more like a living network of communities by:</strong></p>
+                  <ul style="margin: 0 0 16px; padding-left: 20px; color: #1a1a1a;">
+                    <li style="margin-bottom: 4px;">organizing the artists and recording library by scene / community</li>
+                    <li style="margin-bottom: 4px;">introducing visual identities with artists from each scene</li>
+                  </ul>
+                  <p style="margin: 0 0 8px; color: #1a1a1a;"><strong>I'd love your help representing your scene:</strong></p>
+                  <ul style="margin: 0 0 16px; padding-left: 20px; color: #1a1a1a;">
+                    <li style="margin-bottom: 4px;">if you know DJs, producers, or visual artists who could represent your community, I'd love an intro</li>
+                    <li style="margin-bottom: 4px;">I also want to bring more diversity into the lineup</li>
+                  </ul>
+                  <p style="margin: 0 0 16px; color: #1a1a1a;">I'll be back next week with more live sessions, stronger promotion, better discovery, and cleaner recordings.</p>
+                  <p style="margin: 0 0 16px; color: #1a1a1a;">As always, if you have feedback or ideas, I'm all ears.</p>
+                  <p style="margin: 0 0 4px; color: #1a1a1a;">Thanks again,</p>
                   <p style="margin: 0; color: #1a1a1a;">Cap</p>
                 </td>
               </tr>
@@ -114,7 +133,8 @@ export async function GET(request: NextRequest) {
     if (!data.email) continue;
     if (EXCLUDE_EMAILS.has(data.email)) continue;
     if (!data.emailNotifications?.djInsiders) continue;
-    const name = data.name || "there";
+    const override = FIRST_NAME_OVERRIDES[data.email];
+    const name = override || (data.name ? data.name.split(" ")[0] : "there");
     djRecipients.push({ email: data.email, name, id: doc.id });
   }
 
@@ -176,6 +196,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Full DJ user dump for audit
     return NextResponse.json({
       mode: "dry-run",
       totalDjRecipients: djRecipients.length,
@@ -186,7 +207,7 @@ export async function GET(request: NextRequest) {
 
   // ── Send mode: LOCKED — flip to true when ready ──
   if (mode === "send") {
-    const SEND_ENABLED = false; // ← sent 21/21 on 2026-04-06
+    const SEND_ENABLED = false; // ← sent 24/24 on 2026-04-13
     if (!SEND_ENABLED) {
       return NextResponse.json({
         error: "Send mode is locked. Set SEND_ENABLED = true in code when ready.",

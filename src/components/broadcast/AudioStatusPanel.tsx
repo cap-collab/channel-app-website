@@ -125,8 +125,8 @@ export function AudioStatusPanel({
 
   return (
     <div className="bg-[#252525] rounded-xl p-4">
-      {/* Slot progress bar (live only) */}
-      {isLive && slotStartTime && slotEndTime && (
+      {/* Slot progress bar (live broadcasts only — recordings have no fixed window) */}
+      {isLive && !isRecordingMode && slotStartTime && slotEndTime && (
         <div className="mb-4">
           <div className="flex items-center justify-between mb-1.5">
             <h3 className="text-white text-sm font-medium truncate">
