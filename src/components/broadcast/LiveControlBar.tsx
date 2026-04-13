@@ -232,9 +232,9 @@ export function LiveControlBar({
 
         {/* Reserved warning slot — keeps height even when empty so layout doesn't
             jump when warnings come and go. */}
-        <div className="mt-2 h-6 flex items-center">
+        <div className="mt-2 min-h-[2.5rem] flex items-center">
           {audioTooLow && (
-            <div className="text-xs text-orange-300 font-medium">
+            <div className="w-full bg-red-950/70 border border-red-600 rounded px-3 py-2 text-red-200 text-sm font-semibold">
               ⚠ Audio levels are very low — check your mixer output or gain staging
             </div>
           )}
