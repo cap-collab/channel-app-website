@@ -44,28 +44,35 @@ function dbToBarWidth(db: number): number {
   return (db + 60) / 60;
 }
 
+// Meter scale: -60 dB → 0 dB linear across the bar.
+// Color zones map to broadcast practice:
+//   -60 to -40 dB : gray (too quiet / noise floor — not a useful signal)
+//   -40 to -6  dB : green (healthy broadcast level — this is where you want to be)
+//   -6  to -3  dB : yellow (hot, approaching headroom ceiling)
+//   -3  to  0  dB : red (clipping territory — back off)
+// dbToBarWidth maps -60..0 to 0..1, so:
+//   -40 dB = 33.3%,  -6 dB = 90%,  -3 dB = 95%
 function ChannelMeter({ label, db }: { label: 'L' | 'R'; db: number }) {
   const width = Math.round(dbToBarWidth(db) * 100);
-  // Segment coloring: red at top, yellow mid, green bottom — but we render as a
-  // single gradient bar since peaks traverse all zones.
   return (
     <div className="flex items-center gap-2 min-w-0">
       <span className="text-[10px] text-gray-500 font-mono w-3 text-right">{label}</span>
       <div className="relative h-3 bg-gray-900 rounded-sm overflow-hidden flex-1 min-w-0 border border-gray-800">
-        {/* dB reference marks */}
-        <div className="absolute inset-y-0" style={{ left: '66%', width: 1 }}>
-          <div className="h-full bg-gray-700/60" />
-        </div>
-        <div className="absolute inset-y-0" style={{ left: '83%', width: 1 }}>
-          <div className="h-full bg-red-500/30" />
-        </div>
-        {/* Fill */}
+        {/* Reference marks: -40 (gray→green boundary), -6 (green→yellow) */}
+        <div className="absolute inset-y-0 bg-gray-700/60" style={{ left: '33.3%', width: 1 }} />
+        <div className="absolute inset-y-0 bg-yellow-500/30" style={{ left: '90%', width: 1 }} />
+        <div className="absolute inset-y-0 bg-red-500/40" style={{ left: '95%', width: 1 }} />
+        {/* Fill — gradient with stops at the zone boundaries */}
         <div
           className="absolute inset-y-0 left-0 transition-all duration-75"
           style={{
             width: `${width}%`,
             background:
-              'linear-gradient(to right, #22c55e 0%, #22c55e 60%, #eab308 75%, #ef4444 95%)',
+              'linear-gradient(to right, ' +
+              '#4b5563 0%, #4b5563 33.3%, ' +   // gray: below -40 dB
+              '#22c55e 33.3%, #22c55e 90%, ' +  // green: -40 to -6 dB (healthy)
+              '#eab308 90%, #eab308 95%, ' +    // yellow: -6 to -3 dB (hot)
+              '#ef4444 95%, #ef4444 100%)',     // red: -3 to 0 dB (clipping)
           }}
         />
       </div>
