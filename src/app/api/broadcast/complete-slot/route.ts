@@ -206,10 +206,16 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Clean up old HLS segments from R2 if no next show is taking over.
-    // This prevents thousands of stale .ts files from accumulating and
-    // causing egress manifest write stalls on R2.
-    if (!nextShowDoc && newStatus === 'completed') {
+    // Clean up HLS segments from R2.
+    //  - If no next show is taking over → delete everything (manifests + segments).
+    //  - If next show IS coming → delete only .ts segments older than 30s.
+    //    HLS live playlist window is ~5 × 6s segments = 30s. Anything older is
+    //    already out of the manifest and safe to delete.
+    //    Keeps recent segments and manifests themselves intact so the next DJ's
+    //    egress can keep writing without disruption.
+    //    Prevents multi-hour sessions from accumulating 1000s of dead segments
+    //    which degrade egress performance and cause audio dropouts.
+    if (newStatus === 'completed') {
       try {
         const r2AccountId = process.env.R2_ACCOUNT_ID?.replace(/\\n/g, '').trim() || '';
         const r2AccessKey = process.env.R2_ACCESS_KEY_ID?.replace(/\\n/g, '').trim() || '';
@@ -223,6 +229,8 @@ export async function POST(request: NextRequest) {
             credentials: { accessKeyId: r2AccessKey, secretAccessKey: r2SecretKey },
           });
 
+          const hasNextShow = !!nextShowDoc;
+          const cutoffMs = Date.now() - 30_000; // 30s — outside HLS playlist window
           const prefix = `${ROOM_NAME}/`;
           const allKeys: string[] = [];
           let continuationToken: string | undefined;
@@ -230,10 +238,21 @@ export async function POST(request: NextRequest) {
             const res = await s3.send(new ListObjectsV2Command({
               Bucket: r2Bucket, Prefix: prefix, MaxKeys: 1000, ContinuationToken: continuationToken,
             }));
-            const keys = (res.Contents || [])
-              .map(o => o.Key!)
-              .filter(k => k.endsWith('.ts') || k.endsWith('.m3u8') || k.endsWith('.json'));
-            allKeys.push(...keys);
+            for (const o of (res.Contents || [])) {
+              const key = o.Key!;
+              const isSegment = key.endsWith('.ts');
+              const isManifest = key.endsWith('.m3u8') || key.endsWith('.json');
+              if (!isSegment && !isManifest) continue;
+
+              if (hasNextShow) {
+                // Mid-session: only delete old .ts segments. Never touch manifests
+                // (LiveKit is rewriting them) or recent segments (still in playlist).
+                if (!isSegment) continue;
+                const modified = o.LastModified?.getTime() ?? Date.now();
+                if (modified > cutoffMs) continue;
+              }
+              allKeys.push(key);
+            }
             continuationToken = res.NextContinuationToken;
           } while (continuationToken);
 
@@ -244,7 +263,7 @@ export async function POST(request: NextRequest) {
                 Bucket: r2Bucket, Delete: { Objects: batch.map(Key => ({ Key })) },
               }));
             }
-            console.log(`[complete-slot] Cleaned up ${allKeys.length} HLS files from R2 (${prefix})`);
+            console.log(`[complete-slot] Cleaned ${allKeys.length} HLS files from R2 (${prefix}) — hasNextShow=${hasNextShow}`);
           }
         }
       } catch (cleanupErr) {
