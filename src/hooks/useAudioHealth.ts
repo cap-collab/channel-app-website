@@ -19,8 +19,11 @@ export interface AudioHealth {
 
 const SILENT_DB = -50;   // below this = silent
 const WEAK_DB = -20;     // below this = weak; above = proper broadcast level
-const DROPOUT_MIN_MS = 150; // silence shorter than this ignored (short gap)
+const DROPOUT_MIN_MS = 300;  // silence shorter than this ignored — avoids catching
+                             // natural beat/break silences and AudioContext hiccups
 const DROPOUT_MAX_MS = 5000; // silence longer than this not a dropout (track ended)
+const WARMUP_MS = 3000;      // ignore dropouts in the first 3s after stream starts
+                             // (WebAudio buffers warming up, source negotiation)
 
 function rmsToDb(rms: number): number {
   if (rms <= 0.00001) return -100;
@@ -61,11 +64,18 @@ export function useAudioHealth(stream: MediaStream | null): AudioHealth {
   const silenceStartRef = useRef<number | null>(null);
   const dropoutTimestampsRef = useRef<number[]>([]);
   const totalDropoutsRef = useRef<number>(0);
+  // Timestamp (performance.now) when the current stream started, for warmup skip
+  const streamStartRef = useRef<number>(0);
 
   useEffect(() => {
     if (!stream || stream.getAudioTracks().length === 0) {
       return;
     }
+    streamStartRef.current = performance.now();
+    // Reset counters when a new stream attaches
+    silenceStartRef.current = null;
+    dropoutTimestampsRef.current = [];
+    totalDropoutsRef.current = 0;
 
     const audioContext = new AudioContext();
     const source = audioContext.createMediaStreamSource(stream);
@@ -134,9 +144,13 @@ export function useAudioHealth(stream: MediaStream | null): AudioHealth {
       const eitherActive = leftState === 'active' || rightState === 'active';
       const mono = eitherSilent && eitherActive;
 
-      // Dropout detection: both channels silent transition
+      // Dropout detection: both channels silent transition.
+      // Skip during warmup window — WebAudio setup, first getUserMedia buffer
+      // fills, and tab focus transitions produce sub-second silences that
+      // would falsely register as dropouts otherwise.
       const elapsed = now - lastTick;
       lastTick = now;
+      const inWarmup = now - streamStartRef.current < WARMUP_MS;
       if (bothSilent) {
         if (silenceStartRef.current === null) {
           silenceStartRef.current = now;
@@ -144,7 +158,11 @@ export function useAudioHealth(stream: MediaStream | null): AudioHealth {
       } else {
         if (silenceStartRef.current !== null) {
           const silenceDuration = now - silenceStartRef.current;
-          if (silenceDuration >= DROPOUT_MIN_MS && silenceDuration <= DROPOUT_MAX_MS) {
+          if (
+            !inWarmup &&
+            silenceDuration >= DROPOUT_MIN_MS &&
+            silenceDuration <= DROPOUT_MAX_MS
+          ) {
             dropoutTimestampsRef.current.push(Date.now());
             totalDropoutsRef.current += 1;
           }

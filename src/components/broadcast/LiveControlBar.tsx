@@ -18,11 +18,11 @@ interface LiveControlBarProps {
 type HealthBadge = 'OK' | 'MONITOR' | 'FIX';
 
 // Health badge reflects live audio health:
-// - FIX: both channels silent while stream exists, or heavy dropouts (≥4/min).
-// - MONITOR: 1-3 dropouts/min.
+// - FIX: both channels silent while stream exists, or severe dropouts (≥8/min).
+// - MONITOR: sustained dropouts (≥3/min). Single blips shouldn't alarm.
 // - OK: otherwise. Weak signal alone is NOT monitor — the checklist warns about that.
 // No-stream state (before source selection) returns OK and is visually handled by
-// the READY pill color (gray when offline, orange NEEDS REVIEW if checklist fails).
+// the READY pill color.
 function computeHealth(
   leftState: 'active' | 'weak' | 'silent',
   rightState: 'active' | 'weak' | 'silent',
@@ -31,8 +31,8 @@ function computeHealth(
 ): HealthBadge {
   if (!hasStream) return 'OK';
   const bothSilent = leftState === 'silent' && rightState === 'silent';
-  if (bothSilent || recentDropouts >= 4) return 'FIX';
-  if (recentDropouts >= 1) return 'MONITOR';
+  if (bothSilent || recentDropouts >= 8) return 'FIX';
+  if (recentDropouts >= 3) return 'MONITOR';
   return 'OK';
 }
 
@@ -137,8 +137,8 @@ export function LiveControlBar({
             <div className="text-right">
               <div className="text-[10px] text-gray-500 uppercase tracking-wider">Dropouts / min</div>
               <div className={`text-sm font-mono tabular-nums ${
-                health.recentDropouts === 0 ? 'text-green-400' :
-                health.recentDropouts < 4 ? 'text-yellow-400' : 'text-red-400'
+                health.recentDropouts < 3 ? 'text-green-400' :
+                health.recentDropouts < 8 ? 'text-yellow-400' : 'text-red-400'
               }`}>
                 {health.recentDropouts}
                 {isLive && health.totalDropouts > 0 && (
