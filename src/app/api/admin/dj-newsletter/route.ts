@@ -99,9 +99,10 @@ function buildEmailHtml(name: string): string {
 
 // ── Route handler ───────────────────────────────────────────────────
 // Modes:
-//   ?mode=preview  → send test to cap@channel-app.com
-//   ?mode=dry-run  → list who would receive (default)
-//   ?mode=send     → send to all DJs with djInsiders=true (LOCKED until ready)
+//   ?mode=preview[&to=foo@bar.com]  → send test to cap@channel-app.com (or override)
+//   ?mode=dry-run                   → list who would receive, flag "there" fallbacks (default)
+//   ?mode=compare                   → diff current recipients vs last send (by subject via Resend API)
+//   ?mode=send                      → send to all (LOCKED until SEND_ENABLED=true)
 
 export async function GET(request: NextRequest) {
   const secret = request.nextUrl.searchParams.get("secret");
@@ -154,27 +155,34 @@ export async function GET(request: NextRequest) {
     djRecipients.push(pending);
   }
 
-  // ── Preview mode: send test to cap@channel-app.com ──
+  // ── Preview mode: send test to cap@channel-app.com (or ?to=...) ──
   if (mode === "preview") {
     if (!resend) {
       return NextResponse.json({ error: "Resend not configured" }, { status: 500 });
     }
 
+    const toParam = request.nextUrl.searchParams.get("to");
+    const previewTo = toParam || "cap@channel-app.com";
+    const previewName = toParam
+      ? (djRecipients.find((r) => r.email === toParam)?.name || "Cap")
+      : "Cap";
+
     try {
       await resend.emails.send({
         from: FROM_EMAIL,
-        to: "cap@channel-app.com",
+        to: previewTo,
         subject: SUBJECT,
-        html: buildEmailHtml("Cap"),
+        html: buildEmailHtml(previewName),
         headers: getUnsubscribeHeaders("dj"),
       });
 
       return NextResponse.json({
         mode: "preview",
-        sentTo: "cap@channel-app.com",
+        sentTo: previewTo,
+        greetedAs: previewName,
+        subject: SUBJECT,
         success: true,
         totalDjRecipients: djRecipients.length,
-        recipients: djRecipients.map((r) => ({ email: r.email, name: r.name })),
       });
     } catch (e) {
       return NextResponse.json({ error: String(e) }, { status: 500 });
@@ -196,12 +204,57 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Full DJ user dump for audit
+    const unresolved = djRecipients.filter((r) => r.name === "there");
+
     return NextResponse.json({
       mode: "dry-run",
+      subject: SUBJECT,
       totalDjRecipients: djRecipients.length,
-      recipients: djRecipients.map((r) => ({ email: r.email, name: r.name })),
+      unresolvedGreetingCount: unresolved.length,
+      unresolvedGreetings: unresolved.map((r) => r.email),
+      recipients: djRecipients.map((r) => ({ email: r.email, greeting: `Hi ${r.name},` })),
       pendingDjProfiles: pendingProfiles,
+    });
+  }
+
+  // ── Compare mode: diff current recipients vs last send ──
+  if (mode === "compare") {
+    if (!process.env.RESEND_API_KEY) {
+      return NextResponse.json({ error: "Resend API key not configured" }, { status: 500 });
+    }
+
+    const lastSubject = request.nextUrl.searchParams.get("lastSubject");
+    if (!lastSubject) {
+      return NextResponse.json({
+        error: "Pass ?lastSubject=... to diff against a prior send (e.g. 'Starting week 2')",
+      }, { status: 400 });
+    }
+
+    // Fetch recent Resend emails (first 100 covers ~10 days of normal traffic).
+    const r = await fetch("https://api.resend.com/emails?limit=100", {
+      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+    });
+    if (!r.ok) {
+      return NextResponse.json({ error: `Resend API: ${r.status}` }, { status: 500 });
+    }
+    const data = await r.json() as { data: Array<{ to: string[]; subject: string; last_event: string; created_at: string }> };
+    const priorSends = data.data.filter((e) => e.subject === lastSubject);
+    const priorEmails = new Set(priorSends.map((e) => e.to[0]).filter((e) => e !== "cap@channel-app.com"));
+    const currentEmails = new Set(djRecipients.map((r) => r.email));
+
+    const added = [...currentEmails].filter((e) => !priorEmails.has(e));
+    const removed = [...priorEmails].filter((e) => !currentEmails.has(e));
+    const unchanged = [...currentEmails].filter((e) => priorEmails.has(e));
+
+    return NextResponse.json({
+      mode: "compare",
+      lastSubject,
+      currentSubject: SUBJECT,
+      priorSendCount: priorEmails.size,
+      currentRecipientCount: currentEmails.size,
+      added,
+      removed,
+      unchangedCount: unchanged.length,
     });
   }
 
