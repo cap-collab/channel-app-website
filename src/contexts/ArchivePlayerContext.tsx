@@ -154,44 +154,20 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       audio.addEventListener('error', () => {
         // Ignore errors caused by rapid seeking (aborted range requests)
         if (isSeeking.current) return;
-        // Ignore the synthetic error that fires when we clear src during a retry
+        // Ignore the synthetic error that fires when we clear src during recovery
         if (isRetryingRef.current) return;
-        const MAX_RETRIES = 3;
-        if (retryCountRef.current < MAX_RETRIES && audio.src) {
-          retryCountRef.current += 1;
-          const delay = Math.min(1000 * Math.pow(2, retryCountRef.current - 1), 4000);
-          console.warn(`🔄 Archive playback error, retrying in ${delay}ms (attempt ${retryCountRef.current}/${MAX_RETRIES})`);
-          setIsLoading(true);
-          retryTimerRef.current = setTimeout(() => {
-            retryTimerRef.current = null;
-            const savedTime = audio.currentTime || resumePositionRef.current;
-            resumePositionRef.current = savedTime;
-            const src = audio.src;
-            isRetryingRef.current = true;
-            audio.src = '';
-            audio.src = src;
-            audio.currentTime = savedTime;
-            // Release the retry guard after the load settles so real errors still surface
-            setTimeout(() => { isRetryingRef.current = false; }, 100);
-            audio.play().catch(() => {
-              setIsPlaying(false);
-              setIsLoading(false);
-            });
-          }, delay);
-        } else {
-          console.error('🔄 Archive playback failed after retries');
-          // Capture current playhead BEFORE any state resets so we can resume here
-          resumePositionRef.current = audio.currentTime || resumePositionRef.current;
-          setIsPlaying(false);
-          setIsLoading(false);
-          // Flag that the next play() click must force a fresh load
-          needsHardReloadRef.current = true;
-          captureEvent('playback_error', { type: 'archive', message: `Error after ${MAX_RETRIES} retries` });
-          if (playbackStartedAtRef.current) {
-            const sessionDuration = Math.round((Date.now() - playbackStartedAtRef.current) / 1000);
-            captureEvent('playback_ended', { type: 'archive', session_duration: sessionDuration });
-            playbackStartedAtRef.current = null;
-          }
+        // Stop playback and mark for hard reload on next play() click.
+        // User's explicit play press is a better signal than auto-retry loops.
+        console.error('🔄 Archive playback error; stopping. Click play to retry.');
+        resumePositionRef.current = audio.currentTime || resumePositionRef.current;
+        setIsPlaying(false);
+        setIsLoading(false);
+        needsHardReloadRef.current = true;
+        captureEvent('playback_error', { type: 'archive', message: 'Playback error' });
+        if (playbackStartedAtRef.current) {
+          const sessionDuration = Math.round((Date.now() - playbackStartedAtRef.current) / 1000);
+          captureEvent('playback_ended', { type: 'archive', session_duration: sessionDuration });
+          playbackStartedAtRef.current = null;
         }
       });
 
