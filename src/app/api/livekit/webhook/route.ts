@@ -233,8 +233,11 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ received: true, warning: 'DB not configured' });
         }
 
-        // Construct public URL from filename
-        const recordingUrl = `${r2PublicUrl}/${mp4File.filename}`;
+        // Construct public URL from filename.
+        // `originalRecordingUrl` stays pointing to the raw R2 upload.
+        // `recordingUrl` may later be reassigned if auto-normalization produces a new version.
+        const originalRecordingUrl = `${r2PublicUrl}/${mp4File.filename}`;
+        let recordingUrl = originalRecordingUrl;
 
         // Duration is in nanoseconds, convert to seconds
         const durationNs = mp4File.duration ? Number(mp4File.duration) : 0;
@@ -312,9 +315,9 @@ export async function POST(request: NextRequest) {
             console.log(`Recording saved for slot ${slotId}: ${recordingUrl} (${durationSec}s)`);
 
             // Run faststart on the recording (moves moov atom to front for streaming)
+            const restreamWorkerUrl = process.env.RESTREAM_WORKER_URL;
+            const cronSecret = process.env.CRON_SECRET;
             try {
-              const restreamWorkerUrl = process.env.RESTREAM_WORKER_URL;
-              const cronSecret = process.env.CRON_SECRET;
               if (restreamWorkerUrl && mp4File.filename) {
                 const faststartRes = await fetch(`${restreamWorkerUrl}/faststart`, {
                   method: 'POST',
@@ -335,6 +338,42 @@ export async function POST(request: NextRequest) {
               }
             } catch (faststartError) {
               console.error('[webhook] Faststart error:', faststartError);
+            }
+
+            // Auto-normalize loudness for broken captures (quiet uniform recordings).
+            // The worker decides internally whether to apply gain or skip — original R2
+            // key is NEVER overwritten; a new "-normalized-v1.mp4" is uploaded instead.
+            // Only updates Firestore recordingUrl if normalization was actually applied.
+            try {
+              if (restreamWorkerUrl && mp4File.filename) {
+                const normRes = await fetch(`${restreamWorkerUrl}/normalize`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${cronSecret}`,
+                  },
+                  body: JSON.stringify({ r2Key: mp4File.filename }),
+                });
+                const normResult = await normRes.json();
+                if (!normRes.ok) {
+                  console.error(`[webhook] Normalize failed (${normRes.status}) for ${mp4File.filename}:`, normResult);
+                } else if (normResult.skipped) {
+                  console.log(`[webhook] Normalize skipped for ${mp4File.filename}: ${normResult.reason}`);
+                } else if (normResult.newUrl) {
+                  console.log(`[webhook] Normalize applied +${normResult.gainDb}dB for ${mp4File.filename} → ${normResult.newUrl}`);
+                  // Swap effective URL to the normalized version — archive doc below
+                  // will pick this up. Original stays as previousRecordingUrl for rollback.
+                  recordingUrl = normResult.newUrl;
+                  await slotRef.update({
+                    previousRecordingUrl: originalRecordingUrl,
+                    recordingUrl: normResult.newUrl,
+                    normalizedAt: new Date(),
+                    normalizedGainDb: normResult.gainDb,
+                  });
+                }
+              }
+            } catch (normError) {
+              console.error('[webhook] Normalize error:', normError);
             }
 
             // Create archive for the recording

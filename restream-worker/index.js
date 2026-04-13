@@ -263,6 +263,135 @@ app.post('/faststart', authenticate, async (req, res) => {
   }
 });
 
+// POST /normalize - Measure MP4 loudness and apply safe uniform gain if broken capture.
+// Uploads a NEW file with "-normalized-v1.mp4" suffix — original R2 key is NEVER overwritten.
+// Returns { skipped, reason } if file doesn't need normalizing, or { newR2Key, newUrl, gainDb, measurements }.
+app.post('/normalize', authenticate, async (req, res) => {
+  const { r2Key } = req.body;
+  if (!r2Key) return res.status(400).json({ error: 'r2Key required' });
+
+  console.log(`[normalize] Processing: ${r2Key}`);
+
+  const s3 = new S3Client({
+    region: 'auto',
+    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    },
+  });
+  const bucket = process.env.R2_BUCKET_NAME;
+  const publicBase = process.env.R2_PUBLIC_URL || '';
+
+  const tmpIn = `/tmp/normalize-in-${Date.now()}.mp4`;
+  const tmpOut = `/tmp/normalize-out-${Date.now()}.mp4`;
+  const tmpMeta = `/tmp/normalize-meta-${Date.now()}.txt`;
+
+  try {
+    // --- 1. Download ---
+    const resp = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: r2Key }));
+    const body = Buffer.from(await resp.Body.transformToByteArray());
+    writeFileSync(tmpIn, body);
+    console.log(`[normalize] Downloaded ${(body.length / 1024 / 1024).toFixed(1)}MB`);
+
+    // --- 2. Measure integrated LUFS and true peak ---
+    const loudnormOut = execSync(
+      `ffmpeg -hide_banner -nostats -i ${tmpIn} -af "loudnorm=I=-14:TP=-1.0:LRA=11:print_format=json" -f null - 2>&1 | awk '/^{/,/^}/'`,
+      { encoding: 'utf-8' }
+    );
+    const measurements = JSON.parse(loudnormOut);
+    const integratedLufs = parseFloat(measurements.input_i);
+    const truePeak = parseFloat(measurements.input_tp);
+    const lra = parseFloat(measurements.input_lra);
+
+    console.log(`[normalize] Measured: LUFS=${integratedLufs} TP=${truePeak} LRA=${lra}`);
+
+    // --- 3. Measure momentary loudness distribution ---
+    execSync(
+      `ffmpeg -hide_banner -nostats -i ${tmpIn} -filter_complex "ebur128=metadata=1,ametadata=print:key=lavfi.r128.M:file=${tmpMeta}" -f null - 2>&1`
+    );
+    const metaContent = readFileSync(tmpMeta, 'utf-8');
+    const momentaryVals = [];
+    const re = /r128\.M=(-?\d+\.\d+|-inf)/g;
+    let m;
+    while ((m = re.exec(metaContent)) !== null) {
+      if (m[1] !== '-inf') momentaryVals.push(parseFloat(m[1]));
+    }
+    const nSamples = momentaryVals.length;
+    const countBelow20 = momentaryVals.filter(v => v <= -20).length;
+    const percentBelow20 = nSamples > 0 ? (100 * countBelow20 / nSamples) : 0;
+
+    console.log(`[normalize] ${percentBelow20.toFixed(1)}% of track below -20 LUFS`);
+
+    // --- 4. Decide whether to boost ---
+    // Only boost if majority of track is uniformly quiet AND headroom available
+    const MIN_PERCENT_BELOW_20 = 80;
+    const MIN_PEAK_HEADROOM = -3.0;
+    const TARGET_LUFS = -16; // conservative target (lower than -14 so we don't overshoot without a limiter)
+    const TARGET_PEAK_CEILING = -1.0;
+
+    if (percentBelow20 < MIN_PERCENT_BELOW_20) {
+      [tmpIn, tmpMeta].forEach(p => { try { unlinkSync(p); } catch {} });
+      const reason = `Only ${percentBelow20.toFixed(1)}% below -20 LUFS (threshold ${MIN_PERCENT_BELOW_20}%). Likely intentional dynamics.`;
+      console.log(`[normalize] SKIP: ${reason}`);
+      return res.json({ skipped: true, reason, measurements: { integratedLufs, truePeak, lra, percentBelow20 } });
+    }
+
+    if (truePeak > MIN_PEAK_HEADROOM) {
+      [tmpIn, tmpMeta].forEach(p => { try { unlinkSync(p); } catch {} });
+      const reason = `True peak ${truePeak} dBFS > ${MIN_PEAK_HEADROOM} (already well-mastered or clipping).`;
+      console.log(`[normalize] SKIP: ${reason}`);
+      return res.json({ skipped: true, reason, measurements: { integratedLufs, truePeak, lra, percentBelow20 } });
+    }
+
+    // --- 5. Compute safe gain (linear, no limiter) ---
+    const desiredGain = TARGET_LUFS - integratedLufs;
+    const maxSafeGain = TARGET_PEAK_CEILING - truePeak;
+    const gainDb = Math.min(desiredGain, maxSafeGain);
+
+    if (gainDb <= 0.5) {
+      [tmpIn, tmpMeta].forEach(p => { try { unlinkSync(p); } catch {} });
+      const reason = `Computed gain ${gainDb.toFixed(2)} dB is negligible.`;
+      console.log(`[normalize] SKIP: ${reason}`);
+      return res.json({ skipped: true, reason, measurements: { integratedLufs, truePeak, lra, percentBelow20 } });
+    }
+
+    console.log(`[normalize] Applying +${gainDb.toFixed(2)} dB gain (no limiter)`);
+
+    // --- 6. Apply gain, re-encode, write to NEW R2 key ---
+    execSync(
+      `ffmpeg -y -i ${tmpIn} -af "volume=${gainDb.toFixed(2)}dB" -c:a aac -b:a 192k -movflags +faststart ${tmpOut} 2>&1`
+    );
+    const outBuf = readFileSync(tmpOut);
+
+    const newR2Key = r2Key.replace(/\.mp4$/, '-normalized-v1.mp4');
+    await s3.send(new PutObjectCommand({
+      Bucket: bucket,
+      Key: newR2Key,
+      Body: outBuf,
+      ContentType: 'video/mp4',
+    }));
+
+    [tmpIn, tmpOut, tmpMeta].forEach(p => { try { unlinkSync(p); } catch {} });
+
+    const newUrl = publicBase ? `${publicBase}/${newR2Key}` : null;
+    console.log(`[normalize] Done: ${newR2Key} (+${gainDb.toFixed(2)} dB)`);
+    res.json({
+      success: true,
+      skipped: false,
+      originalR2Key: r2Key,
+      newR2Key,
+      newUrl,
+      gainDb: Number(gainDb.toFixed(2)),
+      measurements: { integratedLufs, truePeak, lra, percentBelow20 },
+    });
+  } catch (err) {
+    [tmpIn, tmpOut, tmpMeta].forEach(p => { try { unlinkSync(p); } catch {} });
+    console.error(`[normalize] Failed:`, err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`[restream-worker] Listening on port ${PORT}`);
 });
