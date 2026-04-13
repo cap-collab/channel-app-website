@@ -73,13 +73,23 @@ function ChannelMeter({ label, db }: { label: 'L' | 'R'; db: number }) {
   //   85%..92% green → yellow
   //   92%..97% yellow → orange → red
   //   97%..100% red
+  // Gradient anchored to dB positions. Stops with matching colors on either
+  // side = sharp boundary; stops with different colors = gradual blend.
+  // Transitions:
+  //   0→33.3%  : solid gray (noise floor)
+  //   33.3→55% : sharp green boundary (jumps out of noise floor into healthy)
+  //   55→90%   : solid green (stable healthy zone)
+  //   90→95%   : green → yellow (gradual warm-up as you approach -6 dB)
+  //   95→98%   : yellow → orange (gradual, -3 dB zone)
+  //   98→100%  : orange → red (clipping)
   const gradient = belowFloor
-    ? '#4b5563' // solid gray when level is below -40; avoids flashing green for tiny signal
+    ? '#4b5563'
     : 'linear-gradient(to right,' +
-      ' #4b5563 0%, #4b5563 33.3%,' +
-      ' #22c55e 33.3%, #22c55e 85%,' +
-      ' #eab308 92%,' +
-      ' #ef4444 97%, #ef4444 100%)';
+      ' #4b5563 0%, #4b5563 30%,' +
+      ' #22c55e 40%, #22c55e 88%,' +
+      ' #eab308 94%,' +
+      ' #f97316 97%,' +
+      ' #ef4444 100%)';
 
   return (
     <div className="flex items-center gap-2 min-w-0">
