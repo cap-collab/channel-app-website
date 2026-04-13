@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { useAudioHealth } from '@/hooks/useAudioHealth';
 import { AudioInputMethod } from '@/types/broadcast';
 import { buildChecklist, isChecklistAllGreen } from '@/lib/broadcast-checklist';
@@ -107,12 +108,41 @@ export function LiveControlBar({
     ? 'bg-red-600'
     : (allGreen ? 'bg-green-600' : 'bg-orange-500');
 
-  // Audio-too-low warning — sustained severe undershoot on both channels.
-  // We show this only when the stream exists and the loudest channel is
-  // persistently below -40 dB (i.e. signal is so weak it's barely above noise).
-  // The warning slot keeps reserved height so the layout never jumps.
+  // Audio-too-low warning — hysteresis-based so the message doesn't flicker
+  // on every brief peak/dip. Must sustain below threshold for `enterMs` to
+  // turn ON, and must sustain above it for `exitMs` to turn OFF.
   const peak = Math.max(health.leftPeakDb, health.rightPeakDb);
-  const audioTooLow = hasStream && peak > -90 && peak < -40;
+  const LOW_ENTER_DB = -40;   // must be below this for a while to trigger
+  const LOW_EXIT_DB = -35;    // must be above this for a while to clear (5 dB gap)
+  const LOW_ENTER_MS = 4000;  // sustained under-volume needed to alert
+  const LOW_EXIT_MS = 2000;   // sustained proper volume needed to clear
+  const [audioTooLow, setAudioTooLow] = useState(false);
+  const lowSinceRef = useRef<number | null>(null);
+  const okSinceRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!hasStream || peak <= -90) {
+      // No signal at all — don't show the "too low" warning (covered by checklist).
+      setAudioTooLow(false);
+      lowSinceRef.current = null;
+      okSinceRef.current = null;
+      return;
+    }
+    const now = performance.now();
+    if (peak < LOW_ENTER_DB) {
+      okSinceRef.current = null;
+      if (lowSinceRef.current === null) lowSinceRef.current = now;
+      if (!audioTooLow && now - lowSinceRef.current >= LOW_ENTER_MS) {
+        setAudioTooLow(true);
+      }
+    } else if (peak > LOW_EXIT_DB) {
+      lowSinceRef.current = null;
+      if (okSinceRef.current === null) okSinceRef.current = now;
+      if (audioTooLow && now - okSinceRef.current >= LOW_EXIT_MS) {
+        setAudioTooLow(false);
+      }
+    }
+    // In the dead zone between LOW_ENTER_DB and LOW_EXIT_DB, hold current state.
+  }, [peak, hasStream, audioTooLow]);
 
   return (
     <div className="sticky top-0 z-30 bg-[#141414] border-b border-gray-800 backdrop-blur-sm">
