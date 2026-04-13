@@ -82,11 +82,19 @@ function ChannelMeter({ label, db }: { label: 'L' | 'R'; db: number }) {
   //   90→95%   : green → yellow (gradual warm-up as you approach -6 dB)
   //   95→98%   : yellow → orange (gradual, -3 dB zone)
   //   98→100%  : orange → red (clipping)
+  // Gradient anchored to dB positions. Matching color pairs = solid region,
+  // mismatched = gradual blend.
+  //   0→25%   : solid gray (deep noise floor)
+  //   25→50%  : gray → green (gradual emergence from noise, roughly -45 to -30 dB)
+  //   50→88%  : solid green (healthy zone)
+  //   88→94%  : green → yellow (≈ -7 to -4 dB)
+  //   94→97%  : yellow → orange (≈ -4 to -2 dB)
+  //   97→100% : orange → red (clipping)
   const gradient = belowFloor
     ? '#4b5563'
     : 'linear-gradient(to right,' +
-      ' #4b5563 0%, #4b5563 30%,' +
-      ' #22c55e 40%, #22c55e 88%,' +
+      ' #4b5563 0%, #4b5563 25%,' +
+      ' #22c55e 50%, #22c55e 88%,' +
       ' #eab308 94%,' +
       ' #f97316 97%,' +
       ' #ef4444 100%)';
