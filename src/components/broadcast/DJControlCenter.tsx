@@ -171,9 +171,9 @@ export function DJControlCenter({
               )}
             </div>
 
-            {/* Right Column - Chat */}
+            {/* Right Column - Chat (compact; DJ focus is on audio monitoring, not chat) */}
             {slot && (
-              <div className="lg:w-96 lg:flex-shrink-0 lg:h-full lg:min-h-0 flex flex-col overflow-hidden">
+              <div className="lg:w-64 lg:flex-shrink-0 lg:h-full lg:min-h-0 flex flex-col overflow-hidden opacity-80 hover:opacity-100 transition-opacity">
                 <DJProfileChatPanel
                   chatUsernameNormalized={chatUsernameNormalized}
                   djUserId={userId || ''}

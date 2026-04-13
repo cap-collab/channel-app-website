@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAudioLevel } from '@/hooks/useAudioLevel';
+import { AudioHealthMeter } from '@/components/broadcast/AudioHealthMeter';
 import { AudioInputMethod } from '@/types/broadcast';
 
 interface AudioStatusPanelProps {
@@ -201,6 +202,14 @@ export function AudioStatusPanel({
           </div>
         )}
       </div>
+
+      {/* Per-channel audio health meter — works before and after going live.
+          Catches dead channels, silent audio, and periodic dropouts. */}
+      {stream && (
+        <div className="mb-4">
+          <AudioHealthMeter stream={stream} isLive={isLive} />
+        </div>
+      )}
 
       {/* Status checklist - only show when not live */}
       {!isLive && (

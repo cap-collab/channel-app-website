@@ -1,84 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useAudioLevel } from '@/hooks/useAudioLevel';
-
-import { getFirestore, collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
-import { getDatabase, ref, onValue } from 'firebase/database';
-import { getApps, initializeApp } from 'firebase/app';
-
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-function getFirebaseApp() {
-  if (getApps().length === 0) {
-    return initializeApp(firebaseConfig);
-  }
-  return getApps()[0];
-}
 
 interface LiveControlBarProps {
   stream: MediaStream | null;
   isLive: boolean;
-  showStartTime?: number; // Unix timestamp ms - love count resets per show
+  showStartTime?: number; // Unix timestamp ms (kept for prop compatibility)
   isRecordingMode?: boolean; // Show "RECORDING" instead of "LIVE"
-  chatUsernameNormalized: string; // DJ's chat room ID for love count subscription
+  chatUsernameNormalized: string; // kept for prop compatibility
 }
 
-export function LiveControlBar({ stream, isLive, showStartTime, isRecordingMode = false, chatUsernameNormalized }: LiveControlBarProps) {
+export function LiveControlBar({ stream, isLive, isRecordingMode = false }: LiveControlBarProps) {
   const level = useAudioLevel(stream);
-  const [listenerCount, setListenerCount] = useState(0);
-  const [loveCount, setLoveCount] = useState(0);
-
-  // Subscribe to activity counts - filter by show start time so counts reset per show
-  useEffect(() => {
-    const app = getFirebaseApp();
-    const db = getFirestore(app);
-
-    const messagesRef = collection(db, 'chats', chatUsernameNormalized, 'messages');
-    // Use show start time if available, otherwise fall back to 24 hours ago
-    const startTime = showStartTime || (Date.now() - 24 * 60 * 60 * 1000);
-
-    const messagesQuery = query(
-      messagesRef,
-      where('timestamp', '>', new Date(startTime)),
-      orderBy('timestamp', 'desc'),
-      limit(100)
-    );
-
-    const unsubMessages = onSnapshot(messagesQuery, (snapshot) => {
-      let loves = 0;
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.messageType === 'love' || data.message?.includes(' is ❤️')) {
-          loves += data.heartCount || 1;
-        }
-      });
-      setLoveCount(loves);
-    });
-
-    return () => unsubMessages();
-  }, [showStartTime, chatUsernameNormalized]);
-
-  // Subscribe to listener count
-  useEffect(() => {
-    const app = getFirebaseApp();
-    const db = getDatabase(app);
-    const presenceRef = ref(db, 'presence/broadcast');
-
-    const unsubscribe = onValue(presenceRef, (snapshot) => {
-      const count = snapshot.size || 0;
-      setListenerCount(count);
-    });
-
-    return () => unsubscribe();
-  }, []);
 
   // Convert level to percentage width
   const width = Math.min(level * 100, 100);
@@ -123,26 +56,7 @@ export function LiveControlBar({ stream, isLive, showStartTime, isRecordingMode 
           </div>
         </div>
 
-        {/* Metrics - visible from afar */}
-        <div className="flex items-center gap-4 flex-shrink-0">
-          {/* Listeners - large with headphone icon (hidden in recording mode or when < 5) */}
-          {!isRecordingMode && listenerCount >= 5 && (
-            <div className="flex items-center gap-2" title="Listeners">
-              <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 1a9 9 0 00-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7a9 9 0 00-9-9z" />
-              </svg>
-              <span className="text-white font-bold text-xl tabular-nums">{listenerCount}</span>
-            </div>
-          )}
-
-          {/* Loves */}
-          <div className="flex items-center gap-1.5" title="Loves">
-            <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-            </svg>
-            <span className="text-white font-bold text-lg tabular-nums">{loveCount}</span>
-          </div>
-        </div>
+        {/* Metrics hidden on DJ panel — DJ focus should be on audio monitoring */}
       </div>
     </div>
   );
