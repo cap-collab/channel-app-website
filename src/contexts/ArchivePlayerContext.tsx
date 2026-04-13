@@ -85,6 +85,9 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seekTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSeeking = useRef(false);
+  // True while we're intentionally resetting audio.src during a retry.
+  // Prevents the synthetic error event from triggering another retry cascade.
+  const isRetryingRef = useRef(false);
   const playbackStartedAtRef = useRef<number | null>(null);
   const archiveLockedInFiredRef = useRef<string | null>(null);
   const onLockedInRef = useRef<(() => void) | null>(null);
@@ -147,6 +150,8 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       audio.addEventListener('error', () => {
         // Ignore errors caused by rapid seeking (aborted range requests)
         if (isSeeking.current) return;
+        // Ignore the synthetic error that fires when we clear src during a retry
+        if (isRetryingRef.current) return;
         const MAX_RETRIES = 3;
         if (retryCountRef.current < MAX_RETRIES && audio.src) {
           retryCountRef.current += 1;
@@ -157,9 +162,12 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
             retryTimerRef.current = null;
             const savedTime = audio.currentTime;
             const src = audio.src;
+            isRetryingRef.current = true;
             audio.src = '';
             audio.src = src;
             audio.currentTime = savedTime;
+            // Release the retry guard after the load settles so real errors still surface
+            setTimeout(() => { isRetryingRef.current = false; }, 100);
             audio.play().catch(() => {
               setIsPlaying(false);
               setIsLoading(false);
@@ -169,6 +177,10 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
           console.error('🔄 Archive playback failed after retries');
           setIsPlaying(false);
           setIsLoading(false);
+          // Clear src so the next play() click triggers a fresh load path.
+          isRetryingRef.current = true;
+          audio.src = '';
+          setTimeout(() => { isRetryingRef.current = false; }, 100);
           captureEvent('playback_error', { type: 'archive', message: `Error after ${MAX_RETRIES} retries` });
           if (playbackStartedAtRef.current) {
             const sessionDuration = Math.round((Date.now() - playbackStartedAtRef.current) / 1000);
@@ -391,6 +403,15 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     }
     const audio = getAudio();
 
+    // Clear any pending retry from a prior failure and reset the counter
+    // so the user's explicit play click always gets a fresh attempt.
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+    retryCountRef.current = 0;
+    isRetryingRef.current = false;
+
     if (currentArchive?.id !== archive.id) {
       // Switching to a new archive — end previous session
       if (playbackStartedAtRef.current) {
@@ -411,10 +432,16 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       });
     } else if (!isPlaying) {
-      // Resume same archive
-      audio.play().catch(() => {});
+      // Resume same archive. If there's no src (retries previously exhausted
+      // and failed), re-seed the src so we get a fresh load.
+      if (!audio.src) {
+        audio.src = archive.recordingUrl;
+        audio.currentTime = currentTime;
+        setIsLoading(true);
+      }
+      audio.play().catch(() => { setIsLoading(false); });
     }
-  }, [currentArchive, isPlaying, getAudio, isGated, isAuthenticated]);
+  }, [currentArchive, isPlaying, currentTime, getAudio, isGated, isAuthenticated]);
 
   const pause = useCallback(() => {
     if (playbackStartedAtRef.current) {
