@@ -49,8 +49,7 @@ export function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSe
     onSeek(parseFloat(e.target.value));
   };
 
-  // Only use show image if available - no fallback to DJ photo
-  const displayImage = archive.showImageUrl;
+  const displayImage = archive.showImageUrl || archive.djs?.[0]?.photoUrl;
   const imageAlt = archive.showName;
 
   return (

@@ -175,6 +175,7 @@ export async function POST(request: NextRequest) {
       createdAt: Date.now(),
       stationId: slotData.stationId || STATION_ID,
       priority: 'medium',
+      showImageUrl: slotData.showImageUrl || null,
     });
 
     return NextResponse.json({

@@ -12,7 +12,7 @@ import { useUserRole, isDJ } from "@/hooks/useUserRole";
 import { AuthModal } from "@/components/AuthModal";
 import { Header } from "@/components/Header";
 import { normalizeUrl } from "@/lib/url";
-import { uploadDJPhoto, deleteDJPhoto, validatePhoto, uploadRecImage, uploadEventPhoto } from "@/lib/photo-upload";
+import { uploadDJPhoto, deleteDJPhoto, validatePhoto, uploadRecImage, uploadEventPhoto, uploadShowImage, deleteShowImage } from "@/lib/photo-upload";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { getStationById } from "@/lib/stations";
 import { parseGenresInput, extractInstagramHandle } from "@/lib/genres";
@@ -26,6 +26,7 @@ function containsMatch(text: string, term: string): boolean {
 
 interface UpcomingShow {
   id: string;
+  slotId?: string;
   showName: string;
   djName?: string;
   startTime: number;
@@ -257,6 +258,12 @@ export function StudioProfileClient() {
   // Upcoming shows (broadcasts + external radio shows)
   const [upcomingShows, setUpcomingShows] = useState<UpcomingShow[]>([]);
   const [loadingBroadcasts, setLoadingBroadcasts] = useState(true);
+  const [uploadingShowImageSlotId, setUploadingShowImageSlotId] = useState<string | null>(null);
+  const [showImageErrors, setShowImageErrors] = useState<Record<string, string | null>>({});
+  const [editingShowNameSlotId, setEditingShowNameSlotId] = useState<string | null>(null);
+  const [editingShowNameValue, setEditingShowNameValue] = useState("");
+  const [savingShowName, setSavingShowName] = useState(false);
+  const [showNameError, setShowNameError] = useState<string | null>(null);
   const { shows: allShows } = useSchedule();
 
   // My recordings state
@@ -604,6 +611,7 @@ export function StudioProfileClient() {
             seenIds.add(id);
             shows.push({
               id,
+              slotId: docSnap.id,
               stationId: data.stationId || "broadcast",
               stationName: "Channel Radio",
               showName: data.showName || "Broadcast",
@@ -613,8 +621,8 @@ export function StudioProfileClient() {
               status: data.status,
               isExternal: false,
               broadcastToken: data.broadcastToken,
-              showImageUrl: data.showImageUrl || data.liveDjPhotoUrl || undefined,
-              djPhotoUrl: data.liveDjPhotoUrl || data.showImageUrl || undefined,
+              showImageUrl: data.showImageUrl || undefined,
+              djPhotoUrl: data.liveDjPhotoUrl || undefined,
               djGenres: data.liveDjGenres || undefined,
               djDescription: data.liveDjDescription || data.liveDjBio || undefined,
             });
@@ -1568,6 +1576,108 @@ export function StudioProfileClient() {
     }
   };
 
+  const handleShowImageChange = async (slotId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !db) return;
+
+    setShowImageErrors(prev => ({ ...prev, [slotId]: null }));
+
+    const validation = validatePhoto(file);
+    if (!validation.valid) {
+      setShowImageErrors(prev => ({ ...prev, [slotId]: validation.error || 'Invalid file' }));
+      return;
+    }
+
+    setUploadingShowImageSlotId(slotId);
+
+    try {
+      const result = await uploadShowImage(slotId, file);
+
+      if (!result.success) {
+        setShowImageErrors(prev => ({ ...prev, [slotId]: result.error || 'Upload failed' }));
+        return;
+      }
+
+      await updateDoc(doc(db, "broadcast-slots", slotId), {
+        showImageUrl: result.url,
+      });
+
+      setUpcomingShows(prev => prev.map(s =>
+        s.slotId === slotId ? { ...s, showImageUrl: result.url } : s
+      ));
+    } catch (error) {
+      console.error("Error uploading show image:", error);
+      setShowImageErrors(prev => ({ ...prev, [slotId]: 'Failed to upload image' }));
+    } finally {
+      setUploadingShowImageSlotId(null);
+    }
+  };
+
+  const handleRemoveShowImage = async (slotId: string) => {
+    if (!db) return;
+
+    setUploadingShowImageSlotId(slotId);
+    setShowImageErrors(prev => ({ ...prev, [slotId]: null }));
+
+    try {
+      await deleteShowImage(slotId);
+
+      await updateDoc(doc(db, "broadcast-slots", slotId), {
+        showImageUrl: null,
+      });
+
+      setUpcomingShows(prev => prev.map(s =>
+        s.slotId === slotId ? { ...s, showImageUrl: undefined } : s
+      ));
+    } catch (error) {
+      console.error("Error removing show image:", error);
+      setShowImageErrors(prev => ({ ...prev, [slotId]: 'Failed to remove image' }));
+    } finally {
+      setUploadingShowImageSlotId(null);
+    }
+  };
+
+  const handleStartEditShowName = (slotId: string, currentName: string) => {
+    setEditingShowNameSlotId(slotId);
+    setEditingShowNameValue(currentName);
+    setShowNameError(null);
+  };
+
+  const handleCancelEditShowName = () => {
+    setEditingShowNameSlotId(null);
+    setEditingShowNameValue("");
+    setShowNameError(null);
+  };
+
+  const handleSaveShowName = async (slotId: string) => {
+    if (!db) return;
+    const trimmed = editingShowNameValue.trim();
+    if (!trimmed) {
+      setShowNameError("Show name cannot be empty");
+      return;
+    }
+
+    setSavingShowName(true);
+    setShowNameError(null);
+
+    try {
+      await updateDoc(doc(db, "broadcast-slots", slotId), {
+        showName: trimmed,
+      });
+
+      setUpcomingShows(prev => prev.map(s =>
+        s.slotId === slotId ? { ...s, showName: trimmed } : s
+      ));
+      setEditingShowNameSlotId(null);
+      setEditingShowNameValue("");
+    } catch (error) {
+      console.error("Error saving show name:", error);
+      setShowNameError("Failed to save show name");
+    } finally {
+      setSavingShowName(false);
+    }
+  };
+
   const formatBroadcastTime = (startTime: number, endTime: number) => {
     const start = new Date(startTime);
     const end = new Date(endTime);
@@ -2031,9 +2141,57 @@ export function StudioProfileClient() {
                 </div>
               ) : (
                 <div className="divide-y divide-gray-700/50">
-                  {upcomingShows.map((show) => (
+                  {upcomingShows.map((show) => {
+                    const canEdit = !show.isExternal && !!show.slotId && show.status !== "completed" && show.status !== "missed";
+                    const isEditingName = editingShowNameSlotId === show.slotId;
+                    const isUploadingImage = uploadingShowImageSlotId === show.slotId;
+                    const showImageError = show.slotId ? showImageErrors[show.slotId] : null;
+                    return (
                     <div key={show.id} className={`p-4 ${!show.isExternal && show.broadcastToken ? "bg-[#1a2a1a] border border-green-900/50 rounded-lg" : ""}`}>
-                      <p className="text-white font-medium">{show.showName}</p>
+                      {isEditingName && show.slotId ? (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={editingShowNameValue}
+                            onChange={(e) => setEditingShowNameValue(e.target.value)}
+                            disabled={savingShowName}
+                            className="w-full bg-[#2a2a2a] text-white text-sm px-3 py-2 rounded border border-gray-700 focus:border-white focus:outline-none"
+                            autoFocus
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleSaveShowName(show.slotId!)}
+                              disabled={savingShowName}
+                              className="text-white bg-green-600 hover:bg-green-500 text-xs px-3 py-1 rounded disabled:opacity-50"
+                            >
+                              {savingShowName ? "Saving..." : "Save"}
+                            </button>
+                            <button
+                              onClick={handleCancelEditShowName}
+                              disabled={savingShowName}
+                              className="text-gray-400 hover:text-white text-xs px-3 py-1 rounded disabled:opacity-50"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                          {showNameError && (
+                            <p className="text-red-400 text-xs">{showNameError}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <p className="text-white font-medium">{show.showName}</p>
+                          {canEdit && (
+                            <button
+                              onClick={() => handleStartEditShowName(show.slotId!, show.showName)}
+                              className="text-gray-500 hover:text-white text-xs transition-colors"
+                              aria-label="Edit show name"
+                            >
+                              Edit
+                            </button>
+                          )}
+                        </div>
+                      )}
                       <p className="text-gray-400 text-sm">
                         {formatBroadcastTime(show.startTime, show.endTime)}
                       </p>
@@ -2061,19 +2219,82 @@ export function StudioProfileClient() {
                           {Date.now() >= show.startTime ? "Go Live" : "Prepare to Go Live"} &rarr;
                         </Link>
                       ) : null}
+                      {canEdit && show.slotId && (
+                        <div className="mt-3 bg-[#252525] rounded p-3">
+                          <p className="text-gray-400 text-xs uppercase tracking-wide mb-2">Show Image</p>
+                          <div className="flex items-center gap-4">
+                            <div className="relative w-20 h-20 flex-shrink-0">
+                              {show.showImageUrl ? (
+                                <Image
+                                  src={show.showImageUrl}
+                                  alt="Show image"
+                                  fill
+                                  className="rounded object-cover"
+                                />
+                              ) : (
+                                <div className="w-20 h-20 rounded bg-gray-800 flex items-center justify-center">
+                                  <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
+                                </div>
+                              )}
+                              {isUploadingImage && (
+                                <div className="absolute inset-0 bg-black/50 rounded flex items-center justify-center">
+                                  <div className="w-6 h-6 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 space-y-2">
+                              <label className="block">
+                                <span className="sr-only">Choose show image</span>
+                                <input
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/gif,image/webp"
+                                  onChange={(e) => handleShowImageChange(show.slotId!, e)}
+                                  disabled={isUploadingImage}
+                                  className="block w-full text-sm text-gray-400
+                                    file:mr-4 file:py-2 file:px-4
+                                    file:rounded file:border-0
+                                    file:text-sm file:font-medium
+                                    file:bg-white file:text-black
+                                    file:cursor-pointer file:hover:bg-gray-100
+                                    file:disabled:opacity-50 file:disabled:cursor-not-allowed
+                                    cursor-pointer"
+                                />
+                              </label>
+                              {show.showImageUrl && (
+                                <button
+                                  onClick={() => handleRemoveShowImage(show.slotId!)}
+                                  disabled={isUploadingImage}
+                                  className="text-red-400 hover:text-red-300 text-sm transition-colors disabled:opacity-50"
+                                >
+                                  Remove image
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          {showImageError && (
+                            <p className="text-red-400 text-xs mt-2">{showImageError}</p>
+                          )}
+                          <p className="text-gray-500 text-xs mt-2">
+                            JPG, PNG, GIF, or WebP. Max 5MB. Falls back to your DJ photo if left empty.
+                          </p>
+                        </div>
+                      )}
                       {!show.isExternal && show.broadcastToken && (
                         <ShareableShowCardStory
                           showName={show.showName}
                           djName={show.djName || chatUsername || "DJ"}
                           startTime={show.startTime}
                           endTime={show.endTime}
-                          imageUrl={djProfile.photoUrl || show.showImageUrl || show.djPhotoUrl || undefined}
+                          imageUrl={show.showImageUrl || djProfile.photoUrl || show.djPhotoUrl || undefined}
                           genres={show.djGenres?.length ? show.djGenres : djProfile.genres.length ? djProfile.genres : undefined}
                           description={show.djDescription || djProfile.bio || undefined}
                         />
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
