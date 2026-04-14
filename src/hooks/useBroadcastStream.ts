@@ -122,6 +122,7 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
 
   // Grace period + auto-resume refs for show transitions
   const currentShowIdRef = useRef<string | null>(null);
+  const previousBroadcastTypeRef = useRef<string | null>(null);
   const graceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasPlayingRef = useRef(false);
   const isPlayingRef = useRef(false);
@@ -197,18 +198,30 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
 
           // Detect show change (e.g. live → restream) while user is playing
           const showChanged = currentShowIdRef.current !== null && currentShowIdRef.current !== doc.id;
+          const previousType = previousBroadcastTypeRef.current;
           currentShowIdRef.current = doc.id;
+          previousBroadcastTypeRef.current = slot.broadcastType || 'live';
 
           if (showChanged && isPlayingRef.current) {
             console.log('🔄 Show changed while playing', {
               hasRoom: !!roomRef.current, roomName: roomRef.current?.name,
               hasHls: !!hlsRef.current, broadcastType: slot.broadcastType,
-              useHLS: shouldUseHLS(),
+              previousType, useHLS: shouldUseHLS(),
             });
+
+            // Live → live HLS handoff: the server keeps the HLS egress alive
+            // across DJs (reuseHlsEgress), so the manifest stream is continuous
+            // and the player auto-advances to DJ B's segments. Tearing down
+            // the Hls instance here is what leaves mobile listeners stuck on
+            // DJ A's tail. Only tear down when the stream source actually
+            // changes (live ↔ restream).
+            const wasLive = !previousType || previousType !== 'restream';
+            const nowLive = slot.broadcastType !== 'restream';
+            const sameSource = wasLive && nowLive;
 
             // HLS (mobile/Safari): clean stop — user presses play again.
             // Stale R2 segments cause audio loops if we auto-resume.
-            if (hlsRef.current || (!roomRef.current && audioElementRef.current)) {
+            if (!sameSource && (hlsRef.current || (!roomRef.current && audioElementRef.current))) {
               console.log('🔄 HLS path — clean stop');
               if (hlsRef.current) {
                 hlsRef.current.destroy();
@@ -221,6 +234,8 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
               }
               setIsPlaying(false);
               wasPlayingRef.current = false;
+            } else if (sameSource && (hlsRef.current || (!roomRef.current && audioElementRef.current))) {
+              console.log('🔄 HLS live→live — keeping connection, manifest will auto-advance to new DJ');
             }
 
             // WebRTC different room: disconnect and auto-resume

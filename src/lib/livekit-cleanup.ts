@@ -14,6 +14,11 @@ export interface SlotCleanupInput {
   restreamIngressId?: string;
   liveDjUsername?: string;
   liveDjUserId?: string;
+  // When another show is taking over, keep the HLS egress alive so the next
+  // DJ's startEgress can reuse it (reuseHlsEgress). Stopping + restarting
+  // resets #EXT-X-MEDIA-SEQUENCE and breaks HLS.js continuity, which leaves
+  // mobile listeners stuck on the previous DJ's tail.
+  keepHlsEgress?: boolean;
 }
 
 export interface SlotCleanupResult {
@@ -79,7 +84,7 @@ export async function cleanupSlotLiveKit(slot: SlotCleanupInput): Promise<SlotCl
     }
   }
 
-  if (slot.egressId) {
+  if (slot.egressId && !slot.keepHlsEgress) {
     try {
       await egressClient.stopEgress(slot.egressId);
       result.stoppedHlsEgress = true;
