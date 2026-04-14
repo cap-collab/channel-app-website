@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb, getAdminRtdb } from '@/lib/firebase-admin';
-import { EgressClient, RoomServiceClient } from 'livekit-server-sdk';
-import { ROOM_NAME } from '@/types/broadcast';
-
-// LiveKit server configuration
-const livekitHost = process.env.LIVEKIT_URL?.replace('wss://', 'https://') || '';
-const apiKey = process.env.LIVEKIT_API_KEY || '';
-const apiSecret = process.env.LIVEKIT_API_SECRET || '';
+import { cleanupSlotLiveKit } from '@/lib/livekit-cleanup';
 
 // App URL for internal API calls
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
@@ -38,11 +32,6 @@ export async function GET(request: NextRequest) {
     let disconnectedCount = 0;
     let restreamActivatedCount = 0;
     const restreamErrors: string[] = [];
-
-    // Initialize LiveKit client if configured
-    const roomService = (livekitHost && apiKey && apiSecret)
-      ? new RoomServiceClient(livekitHost, apiKey, apiSecret)
-      : null;
 
     // ── Step 1: Complete expired slots FIRST ──
     // This ensures the previous live show is cleaned up before activating restreams.
@@ -78,73 +67,18 @@ export async function GET(request: NextRequest) {
 
         // Clean up LiveKit resources when slot ends
         if (slot.status === 'live') {
-          // Clean up restream worker if this was a restream
-          if (slot.restreamWorkerId || slot.restreamIngressId) {
-            const restreamWorkerUrl = process.env.RESTREAM_WORKER_URL;
-            if (restreamWorkerUrl) {
-              try {
-                await fetch(`${restreamWorkerUrl}/stop`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${process.env.CRON_SECRET}`,
-                  },
-                  body: JSON.stringify({ slotId: doc.id }),
-                });
-                console.log(`Stopped restream worker for slot ${doc.id}`);
-              } catch (e) {
-                console.log(`Could not stop restream worker for slot ${doc.id}: ${e}`);
-              }
-            }
-          }
-          // Stop recording egress if still running (e.g. DJ closed browser without ending broadcast)
-          if (slot.recordingEgressId) {
-            try {
-              const egressClient = new EgressClient(livekitHost, apiKey, apiSecret);
-              await egressClient.stopEgress(slot.recordingEgressId);
-              console.log(`Stopped recording egress ${slot.recordingEgressId} for slot ${doc.id}`);
-            } catch (e) {
-              console.log(`Could not stop recording egress ${slot.recordingEgressId}: ${e}`);
-            }
-          }
-
-          // Stop HLS egress if still running
-          if (slot.egressId) {
-            try {
-              const egressClient = new EgressClient(livekitHost, apiKey, apiSecret);
-              await egressClient.stopEgress(slot.egressId);
-              console.log(`Stopped HLS egress ${slot.egressId} for slot ${doc.id}`);
-            } catch (e) {
-              console.log(`Could not stop HLS egress ${slot.egressId}: ${e}`);
-            }
-          }
-
-          if (slot.restreamEgressId) {
-            try {
-              const egressClient = new EgressClient(livekitHost, apiKey, apiSecret);
-              await egressClient.stopEgress(slot.restreamEgressId);
-              console.log(`Stopped restream HLS egress ${slot.restreamEgressId} for slot ${doc.id}`);
-            } catch (e) {
-              console.log(`Could not stop restream egress ${slot.restreamEgressId}: ${e}`);
-            }
-          }
-
-          // Disconnect DJ from LiveKit if they're still connected
-          if (roomService) {
-            const djIdentity = (slot.restreamWorkerId || slot.restreamIngressId)
-              ? `restream-${doc.id}`
-              : (slot.liveDjUsername || slot.liveDjUserId);
-            if (djIdentity) {
-              try {
-                await roomService.removeParticipant(ROOM_NAME, djIdentity);
-                disconnectedCount++;
-                console.log(`Disconnected ${djIdentity} from LiveKit (show ended)`);
-              } catch (e) {
-                // Participant may have already disconnected - that's fine
-                console.log(`Could not remove ${djIdentity} from LiveKit: ${e}`);
-              }
-            }
-          }
+          const cleanup = await cleanupSlotLiveKit({
+            slotId: doc.id,
+            egressId: slot.egressId,
+            recordingEgressId: slot.recordingEgressId,
+            restreamEgressId: slot.restreamEgressId,
+            restreamWorkerId: slot.restreamWorkerId,
+            restreamIngressId: slot.restreamIngressId,
+            liveDjUsername: slot.liveDjUsername,
+            liveDjUserId: slot.liveDjUserId,
+          });
+          if (cleanup.removedParticipant) disconnectedCount++;
+          console.log(`[cron] LiveKit cleanup for slot ${doc.id}:`, cleanup);
         }
       } catch (slotError) {
         // Log but continue processing remaining slots

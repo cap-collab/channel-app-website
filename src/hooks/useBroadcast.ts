@@ -6,6 +6,17 @@ import { BroadcastState, ROOM_NAME, RoomStatus } from '@/types/broadcast';
 
 const r2PublicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
 
+async function fetchWithTimeout(input: RequestInfo, init: RequestInit & { timeoutMs: number }) {
+  const { timeoutMs, ...rest } = init;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...rest, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 interface DJInfo {
   username: string;
   userId?: string;
@@ -22,7 +33,8 @@ export function useBroadcast(
   slotId?: string,
   djInfo?: DJInfo,
   broadcastToken?: string,
-  options?: BroadcastOptions
+  options?: BroadcastOptions,
+  slotEndTime?: number,
 ) {
   // Determine the room name to use
   const roomName = options?.customRoomName || ROOM_NAME;
@@ -68,6 +80,9 @@ export function useBroadcast(
 
   const isConnectedRef = useRef(state.isConnected);
   isConnectedRef.current = state.isConnected;
+
+  const slotEndTimeRef = useRef(slotEndTime);
+  slotEndTimeRef.current = slotEndTime;
 
   // Update state.roomName when prop changes (for consumers to check readiness)
   useEffect(() => {
@@ -235,10 +250,22 @@ export function useBroadcast(
         return false;
       }
 
-      const publication = await roomRef.current.localParticipant.publishTrack(audioTrack, {
+      // Bound publishTrack with a timeout — if the SFU is still holding the
+      // previous DJ's publish slot, this can otherwise hang indefinitely and
+      // leave the UI stuck on "Connecting…".
+      const publishPromise = roomRef.current.localParticipant.publishTrack(audioTrack, {
         name: 'dj-audio',
         source: Track.Source.Microphone,
       });
+      const publication = await Promise.race([
+        publishPromise,
+        new Promise<never>((_, reject) => {
+          setTimeout(
+            () => reject(new Error('Audio publish timed out — the room may still be releasing from the previous DJ. Try again in a few seconds.')),
+            10_000,
+          );
+        }),
+      ]);
 
       audioTrackRef.current = audioTrack as unknown as LocalTrack;
 
@@ -278,10 +305,11 @@ export function useBroadcast(
 
     try {
       console.log('📡 Starting egress for room:', currentRoomName, recordingOnly ? '(recording-only mode)' : '');
-      const res = await fetch('/api/livekit/egress', {
+      const res = await fetchWithTimeout('/api/livekit/egress', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ room: currentRoomName, recordingOnly, reuseHlsEgress: !recordingOnly }),
+        timeoutMs: 15_000,
       });
 
       const data = await res.json();
@@ -308,7 +336,7 @@ export function useBroadcast(
             egressId: data.egressId,
             recordingEgressId: data.recordingEgressId,
           });
-          const goLiveRes = await fetch('/api/broadcast/go-live', {
+          const goLiveRes = await fetchWithTimeout('/api/broadcast/go-live', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -319,6 +347,7 @@ export function useBroadcast(
               egressId: data.egressId,
               recordingEgressId: data.recordingEgressId,
             }),
+            timeoutMs: 15_000,
           });
 
           if (goLiveRes.ok) {
@@ -346,7 +375,10 @@ export function useBroadcast(
 
       return true;
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to start stream';
+      const isAbort = error instanceof Error && error.name === 'AbortError';
+      const message = isAbort
+        ? 'Stream start timed out — the previous broadcast may not have fully ended. Try again.'
+        : (error instanceof Error ? error.message : 'Failed to start stream');
       setState(prev => ({ ...prev, error: message }));
       return false;
     }
@@ -616,11 +648,23 @@ export function useBroadcast(
             JSON.stringify({ slotId, egressId: state.recordingEgressId })
           );
         } else {
-          // For live broadcasts, just mark as paused (DJ may reconnect)
-          navigator.sendBeacon(
-            '/api/broadcast/pause-slot',
-            JSON.stringify({ slotId })
-          );
+          // If the slot is ending (within 30s of scheduled end, or already past),
+          // fire complete-slot so the LiveKit room is released immediately instead
+          // of leaving a ghost participant + stale egress until the 5-min cron.
+          const endTime = slotEndTimeRef.current;
+          const nearEnd = typeof endTime === 'number' && Date.now() >= endTime - 30_000;
+          if (nearEnd) {
+            navigator.sendBeacon(
+              '/api/broadcast/complete-slot',
+              JSON.stringify({ slotId, force: true })
+            );
+          } else {
+            // Mid-slot disconnect — mark as paused so the DJ can reconnect.
+            navigator.sendBeacon(
+              '/api/broadcast/pause-slot',
+              JSON.stringify({ slotId })
+            );
+          }
         }
       }
     };

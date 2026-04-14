@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { BroadcastSlot, Recording, ROOM_NAME } from '@/types/broadcast';
-import { EgressClient, RoomServiceClient } from 'livekit-server-sdk';
 import { S3Client, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3';
-
-const livekitHost = process.env.LIVEKIT_URL?.replace('wss://', 'https://') || '';
-const apiKey = process.env.LIVEKIT_API_KEY || '';
-const apiSecret = process.env.LIVEKIT_API_SECRET || '';
+import { cleanupSlotLiveKit } from '@/lib/livekit-cleanup';
 
 // POST - Mark a slot as completed (called when slot end time passes)
 export async function POST(request: NextRequest) {
@@ -133,52 +129,21 @@ export async function POST(request: NextRequest) {
     await batch.commit();
     console.log(`Slot ${slotId} marked as ${newStatus}`);
 
-    // Clean up LiveKit resources if slot was live
-    if (slot.status === 'live' && newStatus === 'completed' && livekitHost && apiKey && apiSecret) {
-      // Clean up restream worker + egress if this was a restream
-      if (slot.restreamWorkerId || slot.restreamIngressId) {
-        // Stop the restream worker on Hetzner
-        const restreamWorkerUrl = process.env.RESTREAM_WORKER_URL;
-        if (restreamWorkerUrl) {
-          try {
-            await fetch(`${restreamWorkerUrl}/stop`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${process.env.CRON_SECRET}`,
-              },
-              body: JSON.stringify({ slotId }),
-            });
-            console.log(`[complete-slot] Stopped restream worker for slot ${slotId}`);
-          } catch (e) {
-            console.log(`[complete-slot] Could not stop restream worker: ${e}`);
-          }
-        }
-      }
-      if (slot.restreamEgressId) {
-        try {
-          const egressClient = new EgressClient(livekitHost, apiKey, apiSecret);
-          await egressClient.stopEgress(slot.restreamEgressId);
-          console.log(`[complete-slot] Stopped restream egress ${slot.restreamEgressId}`);
-        } catch (e) {
-          console.log(`[complete-slot] Could not stop restream egress: ${e}`);
-        }
-      }
-
-      // Remove participant from LiveKit (DJ or restream bot)
-      const identity = (slot.restreamWorkerId || slot.restreamIngressId)
-        ? `restream-${slotId}`
-        : (slot.liveDjUsername || slot.liveDjUserId);
-      if (identity) {
-        try {
-          const roomService = new RoomServiceClient(livekitHost, apiKey, apiSecret);
-          await roomService.removeParticipant(ROOM_NAME, identity);
-          console.log(`[complete-slot] Removed ${identity} from LiveKit room`);
-        } catch (e) {
-          // Participant may have already disconnected — that's fine
-          console.log(`[complete-slot] Could not remove ${identity}: ${e}`);
-        }
-      }
+    // Clean up LiveKit resources if slot was live. This matches what the
+    // complete-expired-slots cron does, so the room is released immediately
+    // instead of waiting up to 5 minutes for the next cron tick.
+    if (slot.status === 'live' && newStatus === 'completed') {
+      const cleanup = await cleanupSlotLiveKit({
+        slotId,
+        egressId: slot.egressId,
+        recordingEgressId: slot.recordingEgressId,
+        restreamEgressId: slot.restreamEgressId,
+        restreamWorkerId: slot.restreamWorkerId,
+        restreamIngressId: slot.restreamIngressId,
+        liveDjUsername: slot.liveDjUsername,
+        liveDjUserId: slot.liveDjUserId,
+      });
+      console.log(`[complete-slot] LiveKit cleanup for ${slotId}:`, cleanup);
     }
 
     // For restreams, fire off the start-restream call after the batch committed.

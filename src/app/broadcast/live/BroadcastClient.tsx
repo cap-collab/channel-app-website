@@ -104,7 +104,7 @@ export function BroadcastClient() {
   }, [djUsername, broadcastDjUserId]);
 
   const participantIdentity = slot?.djName || 'DJ';
-  const broadcast = useBroadcast(participantIdentity, slot?.id, djInfo, token || undefined);
+  const broadcast = useBroadcast(participantIdentity, slot?.id, djInfo, token || undefined, undefined, slot?.endTime);
 
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [audioSourceLabel, setAudioSourceLabel] = useState<string | null>(null);
@@ -344,9 +344,18 @@ export function BroadcastClient() {
 
     console.log('[handleGoLive] Starting go-live flow');
     setIsGoingLive(true);
+    // Safety net: even if every step inside goLive() has its own timeout, a bug
+    // elsewhere could still leave the UI stuck on "Connecting…". Cap the whole
+    // flow at 35s and always release the loading state.
+    const outerTimeout = new Promise<false>((resolve) => {
+      setTimeout(() => {
+        console.error('[handleGoLive] Outer timeout hit (35s) — releasing UI');
+        resolve(false);
+      }, 35_000);
+    });
     try {
       console.log('[handleGoLive] Calling broadcast.goLive...');
-      const success = await broadcast.goLive(audioStream);
+      const success = await Promise.race([broadcast.goLive(audioStream), outerTimeout]);
       console.log('[handleGoLive] broadcast.goLive returned:', success);
 
       if (!success) {
