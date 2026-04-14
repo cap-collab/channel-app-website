@@ -242,9 +242,9 @@ export async function GET(request: NextRequest) {
     const priorEmails = new Set(priorSends.map((e) => e.to[0]).filter((e) => e !== "cap@channel-app.com"));
     const currentEmails = new Set(djRecipients.map((r) => r.email));
 
-    const added = [...currentEmails].filter((e) => !priorEmails.has(e));
-    const removed = [...priorEmails].filter((e) => !currentEmails.has(e));
-    const unchanged = [...currentEmails].filter((e) => priorEmails.has(e));
+    const added = Array.from(currentEmails).filter((e) => !priorEmails.has(e));
+    const removed = Array.from(priorEmails).filter((e) => !currentEmails.has(e));
+    const unchanged = Array.from(currentEmails).filter((e) => priorEmails.has(e));
 
     return NextResponse.json({
       mode: "compare",
