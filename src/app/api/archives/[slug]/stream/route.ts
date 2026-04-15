@@ -13,12 +13,14 @@ export async function POST(
       return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
     }
 
-    // Parse optional userId from body
+    // Parse optional userId + gateTriggered from body
     let userId: string | null = null;
+    let gateTriggered = false;
     try {
       const body = await request.json();
       userId = body.userId || null;
-      console.log('[archive/stream] userId from body:', userId);
+      gateTriggered = body.gateTriggered === true;
+      console.log('[archive/stream] userId from body:', userId, 'gateTriggered:', gateTriggered);
     } catch {
       console.log('[archive/stream] No body or invalid JSON, skipping user tracking');
     }
@@ -38,10 +40,12 @@ export async function POST(
     const archiveRef = archiveDoc.ref;
     const archiveData = archiveDoc.data();
 
-    // Increment the global stream count
-    await archiveRef.update({
-      streamCount: FieldValue.increment(1),
-    });
+    // Increment the global stream count (skip for gate-triggered sign-in logs)
+    if (!gateTriggered) {
+      await archiveRef.update({
+        streamCount: FieldValue.increment(1),
+      });
+    }
 
     // Write per-user stream history if authenticated
     if (userId) {
@@ -64,9 +68,15 @@ export async function POST(
         stationId: archiveData.stationId || '',
         showImageUrl: archiveData.showImageUrl || null,
         sourceType: 'archive',
-        streamCount: FieldValue.increment(1),
-        lastStreamedAt: FieldValue.serverTimestamp(),
       };
+
+      if (gateTriggered) {
+        historyData.gateTriggered = true;
+        historyData.gateTriggeredAt = FieldValue.serverTimestamp();
+      } else {
+        historyData.streamCount = FieldValue.increment(1);
+        historyData.lastStreamedAt = FieldValue.serverTimestamp();
+      }
 
       if (!existing.exists) {
         historyData.firstStreamedAt = FieldValue.serverTimestamp();

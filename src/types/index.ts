@@ -120,6 +120,8 @@ export interface StreamHistoryDoc {
   streamCount: number;
   firstStreamedAt: Date;
   lastStreamedAt: Date;
+  gateTriggered?: boolean;
+  gateTriggeredAt?: Date;
 }
 
 // Love history document in Firestore (users/{userId}/loveHistory/{djUsername})

@@ -64,6 +64,7 @@ export function useArchivePlayer() {
 export { ArchivePlayerContext };
 
 const GATE_STORAGE_KEY = 'archive_cumulative_seconds';
+const GATE_TRIGGER_KEY = 'archive_gate_trigger';
 const GATE_THRESHOLD_SECONDS = 960;
 
 export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
@@ -216,18 +217,40 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, []);
 
-  // Clear gate when user becomes authenticated
+  // Clear gate when user becomes authenticated; log the trigger archive to stream history
   useEffect(() => {
-    if (isAuthenticated && isGated) {
-      setIsGated(false);
-    }
-  }, [isAuthenticated, isGated]);
+    if (!isAuthenticated || !user) return;
+    if (isGated) setIsGated(false);
+
+    try {
+      const raw = localStorage.getItem(GATE_TRIGGER_KEY);
+      if (!raw) return;
+      const trigger = JSON.parse(raw) as { slug?: string; archiveId?: string };
+      if (trigger?.slug) {
+        fetch(`/api/archives/${trigger.slug}/stream`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.uid, gateTriggered: true }),
+        }).catch(() => {});
+      }
+      localStorage.removeItem(GATE_TRIGGER_KEY);
+    } catch {}
+  }, [isAuthenticated, isGated, user]);
 
   // Archive gate: track cumulative listening for unauthenticated users
   useEffect(() => {
     if (isAuthenticated) return;
     if (!isPlaying) return;
     if (gateSecondsRef.current >= GATE_THRESHOLD_SECONDS) {
+      if (currentArchive) {
+        try {
+          localStorage.setItem(GATE_TRIGGER_KEY, JSON.stringify({
+            slug: currentArchive.slug,
+            archiveId: currentArchive.id,
+            triggeredAt: Date.now(),
+          }));
+        } catch {}
+      }
       audioRef.current?.pause();
       setIsGated(true);
       return;
@@ -242,6 +265,15 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
 
       if (gateSecondsRef.current >= GATE_THRESHOLD_SECONDS) {
         try { localStorage.setItem(GATE_STORAGE_KEY, String(gateSecondsRef.current)); } catch {}
+        if (currentArchive) {
+          try {
+            localStorage.setItem(GATE_TRIGGER_KEY, JSON.stringify({
+              slug: currentArchive.slug,
+              archiveId: currentArchive.id,
+              triggeredAt: Date.now(),
+            }));
+          } catch {}
+        }
         audioRef.current?.pause();
         setIsGated(true);
       }
@@ -251,7 +283,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       clearInterval(interval);
       try { localStorage.setItem(GATE_STORAGE_KEY, String(gateSecondsRef.current)); } catch {}
     };
-  }, [isPlaying, isAuthenticated]);
+  }, [isPlaying, isAuthenticated, currentArchive]);
 
   const clearGate = useCallback(() => {
     setIsGated(false);
