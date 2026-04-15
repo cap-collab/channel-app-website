@@ -10,6 +10,7 @@ import { useUserRole, isDJ } from '@/hooks/useUserRole';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { extractInstagramHandle } from '@/lib/genres';
+import { trackLeadConversion } from '@/lib/gtag';
 
 type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
 
@@ -219,6 +220,9 @@ export function StudioJoinClient() {
         }
       }
 
+      if (!user) {
+        trackLeadConversion();
+      }
       setStatus('success');
     } catch (error) {
       console.error('Error submitting application:', error);

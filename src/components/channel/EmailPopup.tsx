@@ -7,6 +7,7 @@ import { ArchivePlayerContext } from '@/contexts/ArchivePlayerContext';
 import { useFilterContext } from '@/contexts/FilterContext';
 import { getDefaultCity } from '@/lib/city-detection';
 import { captureEvent } from '@/lib/posthog';
+import { trackLeadConversion } from '@/lib/gtag';
 import { useContext } from 'react';
 
 const STORAGE_KEY_FILED = 'radio-email-filed';       // localStorage — persists forever after submit
@@ -129,6 +130,7 @@ export function EmailPopup({ siteDelayMs }: { siteDelayMs?: number } = {}) {
       });
       if (!res.ok) throw new Error('Failed');
       captureEvent('email_submitted', { source: 'email_popup' });
+      trackLeadConversion();
       setStatus('success');
       setEmail('');
       localStorage.setItem(STORAGE_KEY_FILED, 'true');

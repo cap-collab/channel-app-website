@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Show } from '@/types';
+import { trackLeadConversion } from '@/lib/gtag';
 
 interface EmailCaptureModalProps {
   isOpen: boolean;
@@ -57,6 +58,7 @@ export function EmailCaptureModal({
     setIsSubmitting(true);
     try {
       await onSubmit(email, show);
+      trackLeadConversion();
       setSuccess(true);
     } catch {
       setError('Something went wrong. Please try again.');

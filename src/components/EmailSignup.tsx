@@ -4,6 +4,7 @@ import { useState, FormEvent } from 'react';
 import { addDoc, collection, getFirestore } from 'firebase/firestore';
 import { getApps, initializeApp } from 'firebase/app';
 import { captureEvent } from '@/lib/posthog';
+import { trackLeadConversion } from '@/lib/gtag';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -35,6 +36,7 @@ export function EmailSignup({ placeholder = 'Get really cool email updates' }: {
         createdAt: new Date(),
       });
       captureEvent('email_submitted', { source: 'email_signup' });
+      trackLeadConversion();
       setStatus('success');
     } catch {
       setStatus('error');

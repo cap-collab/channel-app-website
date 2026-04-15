@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { captureEvent } from "@/lib/posthog";
+import { trackLeadConversion } from "@/lib/gtag";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -151,6 +152,7 @@ export function AuthModal({
     onSignInStart?.();
     const user = await signInWithGoogle(enableNotifications);
     if (user) {
+      trackLeadConversion();
       if (includeDjTerms) {
         try {
           await fetch('/api/users/assign-dj-role', {
@@ -181,6 +183,7 @@ export function AuthModal({
     onSignInStart?.();
     const user = await signInWithApple(enableNotifications);
     if (user) {
+      trackLeadConversion();
       if (includeDjTerms) {
         try {
           await fetch('/api/users/assign-dj-role', {
@@ -225,6 +228,7 @@ export function AuthModal({
       window.localStorage.setItem('authRedirectTo', targetRedirect);
     }
     await sendEmailLink(email.trim(), enableNotifications);
+    trackLeadConversion();
   };
 
   const handlePasswordSubmit = async (password: string) => {
@@ -240,6 +244,7 @@ export function AuthModal({
     const user = await signInOrCreateWithPassword(email.trim(), password, enableNotifications);
 
     if (user) {
+      trackLeadConversion();
       if (includeDjTerms) {
         try {
           await fetch('/api/users/assign-dj-role', {
