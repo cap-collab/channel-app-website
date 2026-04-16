@@ -854,15 +854,6 @@ function HeroSlide({ archive, onPlay }: { archive: ArchiveSerialized; onPlay: ()
             <span className="text-sm font-bold text-white uppercase tracking-wide">{archive.showName}</span>
           </div>
           {/* Mood tags — hidden for now (testing) */}
-          {false && archive.tags && archive.tags.length > 0 && (
-            <div className="absolute top-2 right-2 flex flex-wrap justify-end gap-1 max-w-[50%] drop-shadow-lg">
-              {['exploratory', 'clubby', 'chill'].filter(t => archive.tags!.includes(t)).map(tag => (
-                <span key={tag} className="text-[10px] font-mono text-white/60 uppercase tracking-tighter border border-white/20 px-1.5 py-0.5 rounded">
-                  {TAG_LABELS[tag] || tag}
-                </span>
-              ))}
-            </div>
-          )}
           <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
         </>
       ) : (
