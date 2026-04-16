@@ -319,53 +319,6 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  // Archive tag filter — default: all selected, persisted to Firestore
-  const ALL_MOOD_TAGS = ['chill', 'exploratory', 'clubby'];
-  const [activeTags, setActiveTags] = useState<string[]>(ALL_MOOD_TAGS);
-  const [tagsLoaded, setTagsLoaded] = useState(false);
-
-  // Load preference from Firestore user doc (or localStorage fallback)
-  useEffect(() => {
-    if (tagsLoaded) return;
-    if (user?.uid) {
-      import('firebase/firestore').then(({ doc, getDoc }) => {
-        import('@/lib/firebase').then(({ db }) => {
-          if (!db) return;
-          getDoc(doc(db, 'users', user.uid)).then(snap => {
-            if (snap.exists()) {
-              const saved = snap.data()?.archiveMoodTags;
-              if (Array.isArray(saved)) setActiveTags(saved);
-            }
-            setTagsLoaded(true);
-          }).catch(() => setTagsLoaded(true));
-        });
-      });
-    } else {
-      try {
-        const saved = localStorage.getItem('archive-tags');
-        if (saved) setActiveTags(JSON.parse(saved));
-      } catch {}
-      setTagsLoaded(true);
-    }
-  }, [user?.uid, tagsLoaded]);
-
-  const toggleTag = useCallback((tag: string) => {
-    setActiveTags(prev => {
-      const next = prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag];
-      // Save to localStorage always
-      try { localStorage.setItem('archive-tags', JSON.stringify(next)); } catch {}
-      // Save to Firestore user doc if logged in
-      if (user?.uid) {
-        import('firebase/firestore').then(({ doc, updateDoc }) => {
-          import('@/lib/firebase').then(({ db }) => {
-            if (!db) return;
-            updateDoc(doc(db, 'users', user.uid), { archiveMoodTags: next }).catch(() => {});
-          });
-        });
-      }
-      return next;
-    });
-  }, [user?.uid]);
 
   // DJ-specific chat hook for sending loves to the DJ currently shown in the player
   // When showing live hero → love goes to live DJ; when showing archive → love goes to archive DJ
@@ -416,6 +369,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   return (
     <>
     <section className="relative z-10 px-4 pt-6 pb-2">
+      <div className="max-w-7xl mx-auto mb-4">
+        <h2 className="text-2xl md:text-3xl font-semibold">Live DJ radio</h2>
+        <p className="text-sm md:text-base text-zinc-400 mt-1">for the music. and the people behind it</p>
+      </div>
       <div className="max-w-3xl mx-auto">
 
         {/* Status line above image — reflects what the hero is showing */}
@@ -729,19 +686,11 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
       </div>
 
-      {/* Latest Archives — filtered full-width cards */}
+      {/* Past shows — full-width cards */}
       {(() => {
         const heroFirstId = heroArchives[0]?.id;
-        // Filter: hide archives that have any non-active (toggled off) mood tag
-        const allTags = ALL_MOOD_TAGS;
-        const inactiveTags = allTags.filter(t => !activeTags.includes(t));
         const filtered = archives
           .filter(a => a.priority !== 'low')
-          .filter(a => {
-            if (!a.tags?.length) return true;
-            // Exclude if archive has any tag that's toggled off
-            return !inactiveTags.some(t => a.tags!.includes(t));
-          })
           .sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0));
         // Move hero first to position 3
         const heroItem = heroFirstId ? filtered.find(a => a.id === heroFirstId) : null;
@@ -752,32 +701,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         return (
           <div className="mt-6 max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl md:text-3xl font-semibold">Archives</h2>
-              {/* Tag filter pills */}
-              <div className="flex gap-1 sm:gap-2">
-              {[
-                { tag: 'chill', label: 'Chill' },
-                { tag: 'exploratory', label: 'Deep' },
-                { tag: 'clubby', label: 'Clubby' },
-              ].map(({ tag, label }) => (
-                <button
-                  key={tag}
-                  onClick={() => toggleTag(tag)}
-                  className={`px-1.5 sm:px-2 py-1 sm:py-1.5 rounded text-[9px] sm:text-xs font-medium transition-colors border-0 sm:border flex items-center gap-0.5 sm:gap-1 ${
-                    activeTags.includes(tag)
-                      ? 'sm:border-white text-white'
-                      : 'sm:border-white/10 text-zinc-600 hover:sm:border-white/30 hover:text-zinc-400'
-                  }`}
-                >
-                  {activeTags.includes(tag) ? (
-                    <svg className="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                  ) : (
-                    <svg className="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                  )}
-                  {label}
-                </button>
-              ))}
-              </div>
+              <h2 className="text-2xl md:text-3xl font-semibold">Past shows</h2>
             </div>
 
             {/* Card list — full width mobile, 2 cols desktop */}
@@ -786,7 +710,6 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 <ArchiveGridCard
                   key={archive.id}
                   archive={archive}
-                  activeTags={activeTags}
                   isActive={archivePlayer.currentArchive?.id === archive.id}
                   isPlaying={archivePlayer.isPlaying && archivePlayer.currentArchive?.id === archive.id}
                   onPlay={() => {
@@ -869,7 +792,6 @@ function HeroSlide({ archive, onPlay }: { archive: ArchiveSerialized; onPlay: ()
 
 function ArchiveGridCard({
   archive,
-  activeTags,
   isActive,
   isPlaying,
   isLive: isLiveCard,
@@ -878,7 +800,6 @@ function ArchiveGridCard({
   onPlay,
 }: {
   archive: ArchiveSerialized;
-  activeTags?: string[];
   isActive: boolean;
   isPlaying: boolean;
   isLive?: boolean;
@@ -896,19 +817,18 @@ function ArchiveGridCard({
   const genreText = genres.length > 0 ? genres.map((g) => g.toUpperCase()).join(' · ') : null;
   const displayImage = archive.showImageUrl || primaryDj?.photoUrl;
 
-  // Match label: mood tag — genre — location
+  // Match label: genre — location
   const { selectedCity, selectedGenres } = useFilterContext();
   const matchingGenres = selectedGenres.filter(g => genres.some(dg => matchesGenreLib([dg], g)));
   const genreLabel = matchingGenres.length > 0 ? matchingGenres.map(g => g.toUpperCase()).join(' + ') : '';
   const cityMatch = selectedCity && selectedCity !== 'Anywhere' && djLocation ? matchesCity(djLocation, selectedCity) : false;
   const cityLabel = cityMatch ? selectedCity!.toUpperCase() : '';
-  // Mood tags: all active tags that match this archive, in fixed display order
-  const MOOD_ORDER = ['exploratory', 'clubby', 'chill'];
-  const moodLabels = activeTags
-    ? MOOD_ORDER.filter(t => activeTags.includes(t) && (archive.tags || []).includes(t)).map(t => TAG_LABELS[t] || t.toUpperCase())
-    : [];
-  const parts = [...moodLabels, genreLabel, cityLabel].filter(Boolean);
+  const parts = [genreLabel, cityLabel].filter(Boolean);
   const matchLabel = parts.length > 0 ? parts.join(' · ') : undefined;
+  // Mood tag for top-right of card: first matching tag in fixed display order
+  const MOOD_ORDER = ['exploratory', 'clubby', 'chill'];
+  const moodTag = MOOD_ORDER.find(t => (archive.tags || []).includes(t));
+  const moodLabel = moodTag ? (TAG_LABELS[moodTag] || moodTag.toUpperCase()) : null;
 
   // Watchlist
   const { isInWatchlist, followDJ, removeFromWatchlist } = useFavorites();
@@ -975,6 +895,15 @@ function ArchiveGridCard({
             <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">
               {isRestreamCard ? 'Restream' : 'Live'}
               {cardLiveBPM ? ` ${cardLiveBPM} BPM` : ''}
+            </span>
+          </div>
+        )}
+
+        {/* Top right: Mood tag (only on non-live cards) */}
+        {!isLiveCard && moodLabel && (
+          <div className="absolute top-1 right-1 md:top-1.5 md:right-1.5 drop-shadow-lg">
+            <span className="px-1.5 py-0.5 rounded border border-white/20 text-[9px] sm:text-[10px] font-mono text-zinc-400 uppercase tracking-tighter">
+              {moodLabel}
             </span>
           </div>
         )}
