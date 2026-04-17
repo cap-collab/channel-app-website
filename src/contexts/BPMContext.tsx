@@ -45,8 +45,8 @@ export function BPMProvider({ children }: { children: ReactNode }) {
 
     fetchBPM();
 
-    // Refresh every 60 seconds
-    const interval = setInterval(fetchBPM, 60000);
+    // Refresh every 15s — backend updates Channel's live stream every 30s
+    const interval = setInterval(fetchBPM, 15000);
     return () => clearInterval(interval);
   }, []);
 
