@@ -345,6 +345,11 @@ function normalizeUsername(chatUsername: string): string {
   return chatUsername.replace(/[\s-]+/g, "").toLowerCase();
 }
 
+function formatShowTime(date: Date): string {
+  const formatted = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  return formatted.replace(/:00(?= )/, "");
+}
+
 export function DJPublicProfileClient({ username }: Props) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername, setChatUsername, loading: profileLoading } = useUserProfile(user?.uid);
@@ -1569,8 +1574,6 @@ export function DJPublicProfileClient({ username }: Props) {
                           Recording
                         </>
                       )}
-                      <span className="text-zinc-500">·</span>
-                      <span className="text-zinc-400 truncate">Channel</span>
                     </span>
                     <span className="text-zinc-500 text-xs flex-shrink-0 ml-2">{recordingDate}</span>
                   </div>
@@ -1705,6 +1708,8 @@ export function DJPublicProfileClient({ username }: Props) {
               {upcomingShows.map((item) => {
                 if (item.feedType === "event") {
                   const event = item as ChannelEvent & { feedType: "event"; feedStatus: "upcoming" };
+                  const headerVenue = event.linkedVenues?.[0]?.venueName || event.venueName || null;
+                  const headerLabel = headerVenue || event.location || "";
                   return (
                     <div
                       key={event.id}
@@ -1717,10 +1722,10 @@ export function DJPublicProfileClient({ username }: Props) {
                             <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
                           </svg>
                           IRL
-                          {event.location && (
+                          {headerLabel && (
                             <>
                               <span className="text-zinc-500">·</span>
-                              <span className="truncate">{event.location}</span>
+                              <span className="truncate">{headerLabel}</span>
                             </>
                           )}
                         </span>
@@ -1753,23 +1758,6 @@ export function DJPublicProfileClient({ username }: Props) {
                           )}
                           <div className="flex-1 min-w-0">
                             <p className="text-white font-medium mb-1">{event.name}</p>
-                            {(event.linkedVenues?.length || event.venueName) && (
-                              <p className="text-zinc-500 text-xs mb-1">
-                                <svg className="inline-block w-2.5 h-2.5 -mt-0.5 mr-0.5" viewBox="0 0 24 36" fill="none">
-                                  <circle cx="12" cy="12" r="10" fill="#ef4444" />
-                                  <line x1="12" y1="22" x2="12" y2="35" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" />
-                                </svg>
-                                {event.linkedVenues && event.linkedVenues.length > 0
-                                  ? event.linkedVenues.map((v: EventVenueRef, vi: number) => (
-                                      <span key={v.venueId}>
-                                        <Link href={`/venue/${generateSlug(v.venueName)}`} className="hover:text-white transition-colors">{v.venueName}</Link>
-                                        {vi < event.linkedVenues!.length - 1 && ", "}
-                                      </span>
-                                    ))
-                                  : event.venueName
-                                }
-                              </p>
-                            )}
                             {(event.djs.length > 0 || (event.linkedCollectives && event.linkedCollectives.length > 0)) && (
                               <div className="flex flex-wrap gap-1.5">
                                 {event.djs.map((dj: EventDJRef, i: number) => (
@@ -1834,7 +1822,7 @@ export function DJPublicProfileClient({ username }: Props) {
                   // Format date and time for header
                   const showDate = new Date(broadcast.startTime);
                   const dateStr = showDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                  const timeStr = showDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+                  const timeStr = formatShowTime(showDate);
 
                   return (
                     <div
@@ -1851,7 +1839,9 @@ export function DJPublicProfileClient({ username }: Props) {
                           {broadcast.stationName && (
                             <>
                               <span className="text-zinc-500">·</span>
-                              <span className="truncate">{broadcast.stationName}</span>
+                              <span className="truncate">
+                                {broadcast.stationId === "broadcast" ? "Channel" : broadcast.stationName}
+                              </span>
                             </>
                           )}
                         </span>
@@ -1880,8 +1870,8 @@ export function DJPublicProfileClient({ username }: Props) {
                             />
                           </div>
                           <div className="flex justify-between text-[10px] text-zinc-500">
-                            <span>{new Date(broadcast.startTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
-                            <span>{new Date(broadcast.endTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
+                            <span>{formatShowTime(new Date(broadcast.startTime))}</span>
+                            <span>{formatShowTime(new Date(broadcast.endTime))}</span>
                           </div>
                         </div>
 
@@ -1940,7 +1930,7 @@ export function DJPublicProfileClient({ username }: Props) {
                       ? new Date(radioShow.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
                       : "TBA";
                   const timeStr = showStartUtc !== null
-                    ? new Date(showStartUtc).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+                    ? formatShowTime(new Date(showStartUtc))
                     : "";
 
                   // Check if show is currently live
@@ -1994,8 +1984,8 @@ export function DJPublicProfileClient({ username }: Props) {
                                 />
                               </div>
                               <div className="flex justify-between text-[10px] text-zinc-500">
-                                <span>{new Date(showStartUtc).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
-                                <span>{new Date(showEndUtc).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
+                                <span>{formatShowTime(new Date(showStartUtc))}</span>
+                                <span>{formatShowTime(new Date(showEndUtc))}</span>
                               </div>
                             </div>
                           );
@@ -2290,7 +2280,9 @@ export function DJPublicProfileClient({ username }: Props) {
                           {pastShow.stationName && (
                             <>
                               <span className="text-zinc-500">·</span>
-                              <span className="truncate">{pastShow.stationName}</span>
+                              <span className="truncate">
+                                {pastShow.stationId === "broadcast" ? "Channel" : pastShow.stationName}
+                              </span>
                             </>
                           )}
                         </span>
