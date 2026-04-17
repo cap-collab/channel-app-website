@@ -409,6 +409,7 @@ export function DJPublicProfileClient({ username }: Props) {
   // Tab state for claimed profiles (with email)
   const [activeTab, setActiveTab] = useState<'timeline' | 'chat'>('timeline');
   const [pastActivitiesExpanded, setPastActivitiesExpanded] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
   const [loveCount, setLoveCount] = useState(0);
 
 
@@ -1383,13 +1384,13 @@ export function DJPublicProfileClient({ username }: Props) {
         {/* LIVE SHOW CARD - Above tabs when DJ is live */}
         {currentLiveShow && (
           <section className="mb-4">
-            <div className="bg-surface-card overflow-hidden">
+            <div className="bg-surface-card border border-[#333] rounded-none overflow-hidden">
               {/* Header: LIVE/RESTREAM badge and radio name */}
-              <div className="flex items-center justify-between px-4 py-3 bg-black/40">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between px-4 py-3 bg-black/40 border-b border-[#333] font-mono">
+                <span className="text-[11px] uppercase tracking-wider flex items-center gap-1.5 min-w-0">
                   {currentLiveShow.broadcastType === "restream" ? (
                     <>
-                      <span className="relative flex h-3 w-3">
+                      <span className="relative flex h-3 w-3 flex-shrink-0">
                         <svg className="animate-ping absolute inset-0 w-3 h-3 opacity-50" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                           <path d="M3 3v5h5" />
@@ -1399,33 +1400,30 @@ export function DJPublicProfileClient({ username }: Props) {
                           <path d="M3 3v5h5" />
                         </svg>
                       </span>
-                      <span className="text-gray-400 text-xs font-bold uppercase tracking-wide">
-                        Restream
-                      </span>
+                      <span className="text-gray-400 font-bold">Restream</span>
                     </>
                   ) : (
                     <>
-                      <span className="relative flex h-2 w-2">
+                      <span className="relative flex h-2 w-2 flex-shrink-0">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
                       </span>
-                      <span className="text-red-500 text-xs font-bold uppercase tracking-wide">
-                        Live
-                      </span>
+                      <span className="text-red-500 font-bold">Live</span>
                     </>
                   )}
-                  {(() => {
-                    const bpm = stationBPM[getMetadataKeyByStationId(currentLiveShow.stationId) || '']?.bpm;
-                    return bpm ? (
-                      <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter">
-                        {bpm} BPM
-                      </span>
-                    ) : null;
-                  })()}
-                </div>
-                <span className="text-zinc-400 text-xs">
-                  {liveOnChannel ? "Channel" : liveElsewhere ? liveElsewhere.stationName : ""}
+                  <span className="text-zinc-500">·</span>
+                  <span className="text-zinc-400 truncate">
+                    {liveOnChannel ? "Channel" : liveElsewhere ? liveElsewhere.stationName : ""}
+                  </span>
                 </span>
+                {(() => {
+                  const bpm = stationBPM[getMetadataKeyByStationId(currentLiveShow.stationId) || '']?.bpm;
+                  return bpm ? (
+                    <span className="text-[11px] uppercase tracking-wider text-red-500 tracking-tighter flex-shrink-0 ml-2">
+                      {bpm} BPM
+                    </span>
+                  ) : null;
+                })()}
               </div>
 
               {/* Show Info */}
@@ -1445,7 +1443,7 @@ export function DJPublicProfileClient({ username }: Props) {
                       }}
                     />
                   </div>
-                  <div className="flex justify-between text-[10px] text-zinc-500">
+                  <div className="flex justify-between text-[10px] text-zinc-500 font-mono">
                     <span>{new Date(currentLiveShow.startTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
                     <span>{new Date(currentLiveShow.endTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
                   </div>
@@ -1477,20 +1475,24 @@ export function DJPublicProfileClient({ username }: Props) {
                     </button>
                     <button
                       onClick={async () => {
-                        if (!isAuthenticated) { setShowAuthModal(true); return; }
-                        if (currentLiveShow) {
-                          if (isInWatchlist(currentLiveShow.name)) await removeFromWatchlist(currentLiveShow.name);
-                          else await addToWatchlist(currentLiveShow.name);
-                        }
+                        const profileUrl = `${window.location.origin}/dj/${username}`;
+                        const message = currentLiveShow ? `${currentLiveShow.name} is live on Channel right now — ${profileUrl}` : profileUrl;
+                        try {
+                          if (navigator.share) {
+                            await navigator.share({ text: message });
+                          } else {
+                            await navigator.clipboard.writeText(message);
+                            setShareCopied(true);
+                            setTimeout(() => setShareCopied(false), 2000);
+                          }
+                        } catch {}
                       }}
-                      className={`flex-1 min-w-0 py-3 px-2 sm:px-4 text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap ${
-                        currentLiveShow && isInWatchlist(currentLiveShow.name) ? 'bg-white/10 hover:bg-white/20 text-gray-400' : 'bg-white/10 hover:bg-white/20 text-white'
-                      }`}
+                      className="flex-1 min-w-0 py-3 px-2 sm:px-4 text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap bg-white/10 hover:bg-white/20 text-white"
                     >
-                      {currentLiveShow && isInWatchlist(currentLiveShow.name) ? (
-                        <><svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg> Watchlist</>
+                      {shareCopied ? (
+                        <><svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg> Copied</>
                       ) : (
-                        <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> Watchlist</>
+                        <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" /></svg> Share</>
                       )}
                     </button>
                   </div>
@@ -1509,20 +1511,25 @@ export function DJPublicProfileClient({ username }: Props) {
                     </a>
                     <button
                       onClick={async () => {
-                        if (!isAuthenticated) { setShowAuthModal(true); return; }
-                        if (currentLiveShow) {
-                          if (isInWatchlist(currentLiveShow.name)) await removeFromWatchlist(currentLiveShow.name);
-                          else await addToWatchlist(currentLiveShow.name);
-                        }
+                        const profileUrl = `${window.location.origin}/dj/${username}`;
+                        const stationName = liveElsewhere?.stationName || "";
+                        const message = currentLiveShow ? `${currentLiveShow.name} is live on ${stationName} right now — ${profileUrl}` : profileUrl;
+                        try {
+                          if (navigator.share) {
+                            await navigator.share({ text: message });
+                          } else {
+                            await navigator.clipboard.writeText(message);
+                            setShareCopied(true);
+                            setTimeout(() => setShareCopied(false), 2000);
+                          }
+                        } catch {}
                       }}
-                      className={`flex-1 min-w-0 py-3 px-2 sm:px-4 text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap ${
-                        currentLiveShow && isInWatchlist(currentLiveShow.name) ? 'bg-white/10 hover:bg-white/20 text-gray-400' : 'bg-white/10 hover:bg-white/20 text-white'
-                      }`}
+                      className="flex-1 min-w-0 py-3 px-2 sm:px-4 text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap bg-white/10 hover:bg-white/20 text-white"
                     >
-                      {currentLiveShow && isInWatchlist(currentLiveShow.name) ? (
-                        <><svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg> Watchlist</>
+                      {shareCopied ? (
+                        <><svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg> Copied</>
                       ) : (
-                        <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> Watchlist</>
+                        <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" /></svg> Share</>
                       )}
                     </button>
                   </div>
@@ -1545,10 +1552,10 @@ export function DJPublicProfileClient({ username }: Props) {
               const genreText = archiveGenres?.length ? archiveGenres.map(g => g.toUpperCase()).join(' · ') : null;
 
               return (
-                <div key={archive.id} className="bg-black border border-white/10 overflow-hidden">
+                <div key={archive.id} className="bg-black border border-[#333] rounded-none overflow-hidden">
                   {/* Header: Live Recording / Recording + date */}
-                  <div className="flex items-center justify-between px-3 py-1.5 bg-black/40 border-b border-white/5">
-                    <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <div className="flex items-center justify-between px-3 py-1.5 bg-black/40 border-b border-[#333] font-mono">
+                    <span className="text-zinc-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5 min-w-0">
                       {archive.sourceType === 'live' ? (
                         <>
                           <span className="inline-flex rounded-full h-2 w-2 bg-red-600 flex-shrink-0" />
@@ -1562,8 +1569,10 @@ export function DJPublicProfileClient({ username }: Props) {
                           Recording
                         </>
                       )}
+                      <span className="text-zinc-500">·</span>
+                      <span className="text-zinc-400 truncate">Channel</span>
                     </span>
-                    <span className="text-zinc-500 text-xs">{recordingDate}</span>
+                    <span className="text-zinc-500 text-xs flex-shrink-0 ml-2">{recordingDate}</span>
                   </div>
 
                   {/* Body: image left + info right */}
@@ -1699,29 +1708,32 @@ export function DJPublicProfileClient({ username }: Props) {
                   return (
                     <div
                       key={event.id}
-                      className="bg-zinc-900/50 border border-white/10 rounded-lg overflow-hidden hover:bg-zinc-800/50 transition-colors"
+                      className="bg-zinc-900/50 border border-[#333] rounded-none overflow-hidden hover:bg-zinc-800/50 transition-colors"
                     >
                       {/* Header bar */}
-                      <div className="grid grid-cols-3 items-center px-4 py-2 bg-black/40">
-                        <span className="text-zinc-400 text-xs">
+                      <div className="flex items-center justify-between px-4 py-2 bg-black/40 border-b border-[#333] font-mono">
+                        <span className="text-zinc-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5 min-w-0">
+                          <svg className="w-3 h-3 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
+                          </svg>
+                          IRL
+                          {event.location && (
+                            <>
+                              <span className="text-zinc-500">·</span>
+                              <span className="truncate">{event.location}</span>
+                            </>
+                          )}
+                        </span>
+                        <span className="text-zinc-400 text-xs flex-shrink-0 ml-2">
                           {new Date(event.date).toLocaleDateString("en-US", {
                             weekday: "short",
                             month: "short",
                             day: "numeric",
                           })}
                         </span>
-                        <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center justify-center gap-1">
-                          <svg className="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
-                          </svg>
-                          IRL
-                        </span>
-                        <span className="text-zinc-400 text-xs text-right">
-                          {event.location || ""}
-                        </span>
                       </div>
                       {/* Body */}
-                      <div className="p-4">
+                      <div className="p-4 space-y-4">
                         <div className="flex items-start gap-4">
                           {event.photo ? (
                             <Image
@@ -1797,18 +1809,18 @@ export function DJPublicProfileClient({ username }: Props) {
                               </div>
                             )}
                           </div>
-                          {event.ticketLink && (
-                            <a
-                              href={event.ticketLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black text-xs font-medium rounded-full hover:bg-zinc-200 transition-colors flex-shrink-0"
-                            >
-                              Tickets
-                              <ExternalLinkIcon size={10} />
-                            </a>
-                          )}
                         </div>
+                        {event.ticketLink && (
+                          <a
+                            href={event.ticketLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full py-3 px-4 text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5"
+                          >
+                            Tickets
+                            <ExternalLinkIcon size={12} />
+                          </a>
+                        )}
                       </div>
                     </div>
                   );
@@ -1827,56 +1839,39 @@ export function DJPublicProfileClient({ username }: Props) {
                   return (
                     <div
                       key={broadcast.id}
-                      className="bg-zinc-900/50 border border-white/10 rounded-lg overflow-hidden"
+                      className="bg-zinc-900/50 border border-[#333] rounded-none overflow-hidden"
                     >
                       {/* Header bar */}
-                      <div className="grid grid-cols-3 items-center px-4 py-2 bg-black/40">
-                        <span className="text-zinc-400 text-xs">
-                          {dateStr} · {timeStr}
-                        </span>
-                        <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center justify-center gap-1">
-                          <svg className="w-3 h-3 text-sky-300" fill="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center justify-between px-4 py-2 bg-black/40 border-b border-[#333] font-mono">
+                        <span className="text-zinc-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5 min-w-0">
+                          <svg className="w-3 h-3 text-sky-300 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
                           </svg>
                           Online
+                          {broadcast.stationName && (
+                            <>
+                              <span className="text-zinc-500">·</span>
+                              <span className="truncate">{broadcast.stationName}</span>
+                            </>
+                          )}
                         </span>
-                        <span className="text-zinc-400 text-xs text-right">
-                          {broadcast.stationName}
+                        <span className="text-zinc-400 text-xs flex-shrink-0 ml-2">
+                          {dateStr} · {timeStr}
                         </span>
                       </div>
 
                       {/* Body */}
                       <div className="p-4 space-y-4">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <h3 className="text-white font-medium">{broadcast.showName}</h3>
-                            {broadcast.djName && (
-                              <p className="text-zinc-400 text-sm mt-0.5">{broadcast.djName}</p>
-                            )}
-                          </div>
-                          {broadcast.stationId === "broadcast" && (
-                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                              {broadcast.broadcastType === "restream" ? (
-                                <>
-                                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                                    <path d="M3 3v5h5" />
-                                  </svg>
-                                  <span className="text-[10px] font-mono text-gray-400 uppercase tracking-tighter font-bold">Restream</span>
-                                </>
-                              ) : (
-                                <>
-                                  <span className="inline-flex rounded-full h-2 w-2 bg-red-600" />
-                                  <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">Live</span>
-                                </>
-                              )}
-                            </div>
+                        <div>
+                          <h3 className="text-white font-medium">{broadcast.showName}</h3>
+                          {broadcast.djName && (
+                            <p className="text-zinc-400 text-sm mt-0.5">{broadcast.djName}</p>
                           )}
                         </div>
 
                         {/* Time Bar */}
                         <div className="space-y-1">
-                          <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                          <div className="h-1 bg-zinc-800 overflow-hidden">
                             <div
                               className="h-full w-0"
                               style={{
@@ -1901,7 +1896,7 @@ export function DJPublicProfileClient({ username }: Props) {
                             setTogglingFavoriteId(null);
                           }}
                           disabled={isToggling}
-                          className={`w-full py-3 px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-1 disabled:opacity-50 ${
+                          className={`w-full py-3 px-4 text-sm font-semibold transition-colors flex items-center justify-center gap-1 disabled:opacity-50 ${
                             isWatching ? 'bg-white/10 hover:bg-white/20 text-gray-400' : 'bg-white/10 hover:bg-white/20 text-white'
                           }`}
                           style={stationAccentColor ? { borderColor: stationAccentColor } : undefined}
@@ -1960,21 +1955,20 @@ export function DJPublicProfileClient({ username }: Props) {
                   return (
                     <div
                       key={radioShow.id}
-                      className="bg-zinc-900/50 border border-white/10 rounded-lg overflow-hidden"
+                      className="bg-zinc-900/50 border border-[#333] rounded-none overflow-hidden"
                     >
                       {/* Header bar */}
-                      <div className="grid grid-cols-3 items-center px-4 py-2 bg-black/40">
-                        <span className="text-zinc-400 text-xs">
-                          {dateStr}{timeStr ? ` · ${timeStr}` : ""}
-                        </span>
-                        <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center justify-center gap-1">
-                          <svg className="w-3 h-3 text-sky-300" fill="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center justify-between px-4 py-2 bg-black/40 border-b border-[#333] font-mono">
+                        <span className="text-zinc-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5 min-w-0">
+                          <svg className="w-3 h-3 text-sky-300 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
                           </svg>
                           Online
+                          <span className="text-zinc-500">·</span>
+                          <span className="truncate">{radioShow.radioName || "Radio"}</span>
                         </span>
-                        <span className="text-zinc-400 text-xs text-right">
-                          {radioShow.radioName || "Radio"}
+                        <span className="text-zinc-400 text-xs flex-shrink-0 ml-2">
+                          {dateStr}{timeStr ? ` · ${timeStr}` : ""}
                         </span>
                       </div>
 
@@ -1990,7 +1984,7 @@ export function DJPublicProfileClient({ username }: Props) {
                         {showStartUtc !== null && showEndUtc !== null && (() => {
                           return (
                             <div className="space-y-1">
-                              <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                              <div className="h-1 bg-zinc-800 overflow-hidden">
                                 <div
                                   className="h-full"
                                   style={{
@@ -2014,7 +2008,7 @@ export function DJPublicProfileClient({ username }: Props) {
                               href={radioShow.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex-1 min-w-0 py-3 px-2 sm:px-4 rounded text-sm font-semibold bg-accent hover:bg-accent/80 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
+                              className="flex-1 min-w-0 py-3 px-2 sm:px-4 text-sm font-semibold bg-accent hover:bg-accent/80 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
                             >
                               <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M8 5v14l11-7z" />
@@ -2031,7 +2025,7 @@ export function DJPublicProfileClient({ username }: Props) {
                                 setTogglingFavoriteId(null);
                               }}
                               disabled={isToggling}
-                              className={`flex-1 min-w-0 py-3 px-2 sm:px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-1 whitespace-nowrap disabled:opacity-50 ${
+                              className={`flex-1 min-w-0 py-3 px-2 sm:px-4 text-sm font-semibold transition-colors flex items-center justify-center gap-1 whitespace-nowrap disabled:opacity-50 ${
                                 isWatching ? 'bg-white/10 hover:bg-white/20 text-gray-400' : 'bg-white/10 hover:bg-white/20 text-white'
                               }`}
                             >
@@ -2055,7 +2049,7 @@ export function DJPublicProfileClient({ username }: Props) {
                               setTogglingFavoriteId(null);
                             }}
                             disabled={isToggling}
-                            className={`w-full py-3 px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-1 disabled:opacity-50 ${
+                            className={`w-full py-3 px-4 text-sm font-semibold transition-colors flex items-center justify-center gap-1 disabled:opacity-50 ${
                               isWatching ? 'bg-white/10 hover:bg-white/20 text-gray-400' : 'bg-white/10 hover:bg-white/20 text-white'
                             }`}
                           >
@@ -2108,25 +2102,28 @@ export function DJPublicProfileClient({ username }: Props) {
                   return (
                     <div
                       key={event.id}
-                      className="bg-zinc-900/50 border border-white/10 rounded-lg overflow-hidden hover:bg-zinc-800/50 transition-colors"
+                      className="bg-zinc-900/50 border border-[#333] rounded-none overflow-hidden hover:bg-zinc-800/50 transition-colors"
                     >
                       {/* Header bar */}
-                      <div className="grid grid-cols-3 items-center px-4 py-2 bg-black/40">
-                        <span className="text-zinc-400 text-xs">
+                      <div className="flex items-center justify-between px-4 py-2 bg-black/40 border-b border-[#333] font-mono">
+                        <span className="text-zinc-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5 min-w-0">
+                          <svg className="w-3 h-3 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
+                          </svg>
+                          IRL
+                          {event.location && (
+                            <>
+                              <span className="text-zinc-500">·</span>
+                              <span className="truncate">{event.location}</span>
+                            </>
+                          )}
+                        </span>
+                        <span className="text-zinc-400 text-xs flex-shrink-0 ml-2">
                           {new Date(event.date).toLocaleDateString("en-US", {
                             weekday: "short",
                             month: "short",
                             day: "numeric",
                           })}
-                        </span>
-                        <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center justify-center gap-1">
-                          <svg className="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
-                          </svg>
-                          IRL
-                        </span>
-                        <span className="text-zinc-400 text-xs text-right">
-                          {event.location || ""}
                         </span>
                       </div>
                       {/* Body */}
@@ -2220,20 +2217,19 @@ export function DJPublicProfileClient({ username }: Props) {
                     ? new Date(radioShow.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
                     : "TBA";
                   return (
-                    <div key={radioShow.id} className="bg-zinc-900/50 border border-white/10 rounded-lg overflow-hidden">
+                    <div key={radioShow.id} className="bg-zinc-900/50 border border-[#333] rounded-none overflow-hidden">
                       {/* Header bar */}
-                      <div className="grid grid-cols-3 items-center px-4 py-2 bg-black/40">
-                        <span className="text-zinc-400 text-xs">
-                          {dateStr}
-                        </span>
-                        <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center justify-center gap-1">
-                          <svg className="w-3 h-3 text-sky-300" fill="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center justify-between px-4 py-2 bg-black/40 border-b border-[#333] font-mono">
+                        <span className="text-zinc-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5 min-w-0">
+                          <svg className="w-3 h-3 text-sky-300 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
                           </svg>
                           Online
+                          <span className="text-zinc-500">·</span>
+                          <span className="truncate">{radioShow.radioName || "Radio"}</span>
                         </span>
-                        <span className="text-zinc-400 text-xs text-right">
-                          {radioShow.radioName || "Radio"}
+                        <span className="text-zinc-400 text-xs flex-shrink-0 ml-2">
+                          {dateStr}
                         </span>
                       </div>
                       {/* Body */}
@@ -2252,7 +2248,7 @@ export function DJPublicProfileClient({ username }: Props) {
                             setTogglingFavoriteId(null);
                           }}
                           disabled={isToggling}
-                          className={`w-full py-3 px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-1 disabled:opacity-50 ${
+                          className={`w-full py-3 px-4 text-sm font-semibold transition-colors flex items-center justify-center gap-1 disabled:opacity-50 ${
                             isWatching ? 'bg-white/10 hover:bg-white/20 text-gray-400' : 'bg-white/10 hover:bg-white/20 text-white'
                           }`}
                         >
@@ -2282,21 +2278,24 @@ export function DJPublicProfileClient({ username }: Props) {
                   return (
                     <div
                       key={pastShow.id}
-                      className="bg-zinc-900/50 border border-white/10 rounded-lg overflow-hidden"
+                      className="bg-zinc-900/50 border border-[#333] rounded-none overflow-hidden"
                     >
                       {/* Header bar */}
-                      <div className="grid grid-cols-3 items-center px-4 py-2 bg-black/40">
-                        <span className="text-zinc-400 text-xs">
-                          {dateStr}
-                        </span>
-                        <span className="text-zinc-400 text-xs uppercase tracking-wider flex items-center justify-center gap-1">
-                          <svg className="w-3 h-3 text-sky-300" fill="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center justify-between px-4 py-2 bg-black/40 border-b border-[#333] font-mono">
+                        <span className="text-zinc-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5 min-w-0">
+                          <svg className="w-3 h-3 text-sky-300 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
                           </svg>
                           Online
+                          {pastShow.stationName && (
+                            <>
+                              <span className="text-zinc-500">·</span>
+                              <span className="truncate">{pastShow.stationName}</span>
+                            </>
+                          )}
                         </span>
-                        <span className="text-zinc-400 text-xs text-right">
-                          {pastShow.stationName}
+                        <span className="text-zinc-400 text-xs flex-shrink-0 ml-2">
+                          {dateStr}
                         </span>
                       </div>
 
@@ -2320,7 +2319,7 @@ export function DJPublicProfileClient({ username }: Props) {
                             setTogglingFavoriteId(null);
                           }}
                           disabled={isToggling}
-                          className={`w-full py-3 px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-1 disabled:opacity-50 ${
+                          className={`w-full py-3 px-4 text-sm font-semibold transition-colors flex items-center justify-center gap-1 disabled:opacity-50 ${
                             isWatching ? 'bg-white/10 hover:bg-white/20 text-gray-400' : 'bg-white/10 hover:bg-white/20 text-white'
                           }`}
                           style={stationAccentColor ? { borderColor: stationAccentColor } : undefined}
