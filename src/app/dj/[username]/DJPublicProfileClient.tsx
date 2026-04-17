@@ -408,15 +408,8 @@ export function DJPublicProfileClient({ username }: Props) {
 
   // Tab state for claimed profiles (with email)
   const [activeTab, setActiveTab] = useState<'timeline' | 'chat'>('timeline');
-  const [hasSetDefaultTab, setHasSetDefaultTab] = useState(false);
+  const [pastActivitiesExpanded, setPastActivitiesExpanded] = useState(false);
   const [loveCount, setLoveCount] = useState(0);
-
-  useEffect(() => {
-    if (!hasSetDefaultTab && djProfile?.email && liveOnChannel) {
-      setActiveTab('chat');
-      setHasSetDefaultTab(true);
-    }
-  }, [hasSetDefaultTab, djProfile?.email, liveOnChannel]);
 
 
   // Fetch DJ profile by username
@@ -1234,14 +1227,7 @@ export function DJPublicProfileClient({ username }: Props) {
     return { upcomingShows: upcoming, pastActivities: past };
   }, [upcomingBroadcasts, pastExternalShows, pastBroadcastShows, djProfile, djUpcomingEvents, djPastEvents]);
 
-  // If schedule is empty, default to chat tab
   const hasScheduleContent = upcomingShows.length > 0 || pastActivities.length > 0;
-
-  useEffect(() => {
-    if (!hasScheduleContent && !hasSetDefaultTab && djProfile?.email) {
-      setActiveTab('chat');
-    }
-  }, [hasScheduleContent, hasSetDefaultTab, djProfile?.email]);
 
   // Create Artist Selects (recommendations)
   const artistSelects = useMemo(() => {
@@ -2096,10 +2082,25 @@ export function DJPublicProfileClient({ username }: Props) {
         {/* SECTION: PAST ACTIVITIES */}
         {pastActivities.length > 0 && (
           <section className="mb-6">
-            <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2">
-              Past Activities
-            </h2>
+            <button
+              type="button"
+              onClick={() => setPastActivitiesExpanded((v) => !v)}
+              aria-expanded={pastActivitiesExpanded}
+              className="w-full flex items-center justify-between text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2 hover:text-zinc-300 transition-colors"
+            >
+              <span>Past Activities ({pastActivities.length})</span>
+              <svg
+                className={`w-3 h-3 transition-transform ${pastActivitiesExpanded ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
 
+            {pastActivitiesExpanded && (
             <div className="space-y-3">
               {pastActivities.map((item) => {
                 if (item.feedType === "event") {
@@ -2148,7 +2149,7 @@ export function DJPublicProfileClient({ username }: Props) {
                             </div>
                           )}
                           <div className="flex-1 min-w-0">
-                            <p className="text-white font-medium mb-1">{event.name}</p>
+                            <p className="text-zinc-400 font-medium mb-1">{event.name}</p>
                             {(event.linkedVenues?.length || event.venueName) && (
                               <p className="text-zinc-500 text-xs mb-1">
                                 <svg className="inline-block w-2.5 h-2.5 -mt-0.5 mr-0.5" viewBox="0 0 24 36" fill="none">
@@ -2237,7 +2238,7 @@ export function DJPublicProfileClient({ username }: Props) {
                       </div>
                       {/* Body */}
                       <div className="p-4 space-y-4">
-                        <p className="text-white font-medium">{showName}</p>
+                        <p className="text-zinc-400 font-medium">{showName}</p>
                         <button
                           onClick={async (e) => {
                             e.stopPropagation();
@@ -2302,7 +2303,7 @@ export function DJPublicProfileClient({ username }: Props) {
                       {/* Body */}
                       <div className="p-4 space-y-4">
                         <div>
-                          <h3 className="text-white font-medium">{pastShow.showName}</h3>
+                          <h3 className="text-zinc-400 font-medium">{pastShow.showName}</h3>
                         </div>
 
                         {/* Action Button: Toggle watchlist */}
@@ -2340,6 +2341,7 @@ export function DJPublicProfileClient({ username }: Props) {
                 return null;
               })}
             </div>
+            )}
           </section>
         )}
 
