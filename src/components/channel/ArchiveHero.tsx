@@ -21,17 +21,6 @@ import { TipButton } from './TipButton';
 import { AuthModal } from '@/components/AuthModal';
 import { ArchiveSerialized } from '@/types/broadcast';
 
-function ArchiveIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="3" width="20" height="5" rx="1" />
-      <path d="M4 8v11a2 2 0 002 2h12a2 2 0 002-2V8" />
-      <path d="M10 12h4" />
-    </svg>
-  );
-}
-
-
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
@@ -408,7 +397,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             <span />
           )}
           <div className="flex items-center gap-1.5">
-            {showLiveInHero ? (
+            {showLiveInHero && (
               <>
                 {isRestream ? (
                   <svg className="w-3 h-3 text-red-500 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -425,25 +414,8 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   {liveBPM ? `${liveBPM} BPM ` : ''}{isRestream ? 'Restream' : 'Live'}
                 </span>
               </>
-            ) : (
-              <>
-                <ArchiveIcon className="w-3 h-3 text-gray-400" />
-                <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">Archive</span>
-              </>
             )}
           </div>
-          {/* Carousel dots — centered */}
-          {!showLiveInHero && heroArchives.length > 1 && (
-            <div className="absolute left-1/2 -translate-x-1/2 flex gap-1.5">
-              {heroArchives.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setHeroIndex(i)}
-                  className={`w-1.5 h-1.5 rounded-full transition-colors ${i === heroIndex ? 'bg-white' : 'bg-white/30'}`}
-                />
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Hero Image Carousel — swipable top 3 archives */}
@@ -683,6 +655,19 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             </>
           )}
         </div>
+
+        {/* Carousel dots — below player bar */}
+        {!showLiveInHero && heroArchives.length > 1 && (
+          <div className="flex justify-center gap-1.5 pt-2">
+            {heroArchives.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setHeroIndex(i)}
+                className={`w-1.5 h-1.5 rounded-full transition-colors ${i === heroIndex ? 'bg-white' : 'bg-white/30'}`}
+              />
+            ))}
+          </div>
+        )}
 
       </div>
 
