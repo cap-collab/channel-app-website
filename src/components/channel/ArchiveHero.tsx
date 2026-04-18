@@ -126,6 +126,9 @@ interface ArchiveHeroProps {
   isRestream?: boolean;
   liveBPM?: number | null;
   liveDJChatRoom?: string;
+  // Max number of slides in the offline hero carousel. Default 3 (used on /radio).
+  // Pass 1 for scene pages where we want a single featured archive.
+  maxHeroSlides?: number;
 }
 
 function formatClockTime(timestampMs: number): string {
@@ -149,7 +152,7 @@ function ShowProgressBar({ startTime, endTime }: { startTime: number; endTime: n
   );
 }
 
-export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liveBPM, liveDJChatRoom }: ArchiveHeroProps) {
+export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liveBPM, liveDJChatRoom, maxHeroSlides = 3 }: ArchiveHeroProps) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
   const {
@@ -215,26 +218,32 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const showLiveInHero = isLive && userSelectedMode === 'live';
 
 
-  // Hero carousel: top 3 archives, random order when nothing playing
+  // Hero carousel: top N archives, random order when nothing playing (N = maxHeroSlides).
+  // For scene pages we pass maxHeroSlides=1 so the offline hero shows only the latest
+  // high-priority archive.
   const heroArchives = useMemo(() => {
     if (archivePlayer.currentArchive) {
-      // Playing: playing archive first, then next 2
+      // Playing: playing archive first, then next (maxHeroSlides - 1)
       const result = [archivePlayer.currentArchive];
       for (const a of archives) {
-        if (result.length >= 3) break;
+        if (result.length >= maxHeroSlides) break;
         if (result.some(r => r.id === a.id)) continue;
         result.push(a);
       }
       return result;
     }
-    // Not playing: high priority only, random order
+    // Not playing: high priority only, random order (or latest when maxHeroSlides === 1).
     const high = archives.filter(a => a.priority === 'high');
+    if (maxHeroSlides === 1) {
+      const latest = high.sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0))[0];
+      return latest ? [latest] : [];
+    }
     for (let i = high.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [high[i], high[j]] = [high[j], high[i]];
     }
-    return high.slice(0, 3);
-  }, [archives, archivePlayer.currentArchive]);
+    return high.slice(0, maxHeroSlides);
+  }, [archives, archivePlayer.currentArchive, maxHeroSlides]);
 
   const [heroIndex, setHeroIndex] = useState(0);
   const heroTouchRef = useRef<{ startX: number; startY: number } | null>(null);
@@ -775,7 +784,7 @@ function HeroSlide({ archive, onPlay }: { archive: ArchiveSerialized; onPlay: ()
   );
 }
 
-function ArchiveGridCard({
+export function ArchiveGridCard({
   archive,
   isActive,
   isPlaying,

@@ -1,16 +1,18 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { AuthModal } from '@/components/AuthModal';
-import { ArchiveCard } from '@/components/ArchiveCard';
-import { WatchlistModal } from '@/components/WatchlistModal';
+import { ArchiveHero } from '@/components/channel/ArchiveHero';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
+import { useBPM } from '@/contexts/BPMContext';
 import { useSchedule } from '@/contexts/ScheduleContext';
 import { useFavoriteScenes } from '@/hooks/useFavoriteScenes';
+import { computeDJChatRoom } from '@/lib/broadcast-utils';
 import { getStationById } from '@/lib/stations';
 import type { SceneSerialized } from '@/types/scenes';
 import type { ArchiveSerialized } from '@/types/broadcast';
@@ -108,55 +110,40 @@ export function ScenePublicClient({ data }: Props) {
     collectives,
     archives,
     upcomingEvents,
-    pastEvents,
     upcomingSlots,
-    pastSlots,
   } = data;
 
   const { isAuthenticated } = useAuthContext();
   const { isFavoriteScene, toggleFavoriteScene } = useFavoriteScenes();
   const { shows: allShows } = useSchedule();
 
+  // Live broadcast state for the hero (same hookup /radio uses).
+  const { isLive: isBroadcastLive, isStreaming: isBroadcastStreaming, currentShow } =
+    useBroadcastStreamContext();
+  const { stationBPM } = useBPM();
+  const isLiveReady = isBroadcastLive && isBroadcastStreaming;
+  const isRestream = currentShow?.broadcastType === 'restream';
+  const [currentDJChatRoom, setCurrentDJChatRoom] = useState(() =>
+    computeDJChatRoom(currentShow ?? null)
+  );
+  useEffect(() => {
+    setCurrentDJChatRoom(computeDJChatRoom(currentShow ?? null));
+  }, [currentShow]);
+
+  // Featured archive for this scene: highest priority, then most recent.
+  const featuredArchive = useMemo(() => {
+    if (archives.length === 0) return null;
+    const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
+    return [...archives].sort((a, b) => {
+      const pa = PRIORITY_RANK[a.priority || 'medium'] ?? 1;
+      const pb = PRIORITY_RANK[b.priority || 'medium'] ?? 1;
+      if (pa !== pb) return pa - pb;
+      return (b.recordedAt || 0) - (a.recordedAt || 0);
+    })[0];
+  }, [archives]);
+
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [pastExpanded, setPastExpanded] = useState(false);
   const [togglingFav, setTogglingFav] = useState(false);
-
-  // Archive playback (local audio refs — same pattern as /archives page).
-  const [playingId, setPlayingId] = useState<string | null>(null);
-  const [currentTimes, setCurrentTimes] = useState<Record<string, number>>({});
-  const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
-  const [watchlistArchive, setWatchlistArchive] = useState<ArchiveSerialized | null>(null);
-
-  const handleArchivePlayPause = (archiveId: string) => {
-    const audio = audioRefs.current[archiveId];
-    if (!audio) return;
-    if (playingId && playingId !== archiveId) {
-      const currentAudio = audioRefs.current[playingId];
-      if (currentAudio) currentAudio.pause();
-    }
-    if (playingId === archiveId) {
-      audio.pause();
-      setPlayingId(null);
-    } else {
-      audio.play();
-      setPlayingId(archiveId);
-    }
-  };
-
-  const handleArchiveSeek = (archiveId: string, time: number) => {
-    const audio = audioRefs.current[archiveId];
-    if (audio) {
-      audio.currentTime = time;
-      setCurrentTimes((prev) => ({ ...prev, [archiveId]: time }));
-    }
-  };
-
-  const handleArchiveTimeUpdate = (archiveId: string) => {
-    const audio = audioRefs.current[archiveId];
-    if (audio) {
-      setCurrentTimes((prev) => ({ ...prev, [archiveId]: audio.currentTime }));
-    }
-  };
 
   // Build a set of usernames + userIds in this scene for external-show matching
   const sceneDjUsernamesLower = useMemo(() => {
@@ -233,16 +220,8 @@ export function ScenePublicClient({ data }: Props) {
     return items;
   }, [upcomingSlots, upcomingEvents, externalShows]);
 
-  const pastFeed: FeedItem[] = useMemo(() => {
-    const items: FeedItem[] = [];
-    for (const slot of pastSlots) items.push({ ...slot, kind: 'slot', time: slot.startTime });
-    for (const ev of pastEvents) items.push({ ...ev, kind: 'event', time: ev.date });
-    for (const ext of externalShows.filter((s) => s.isPast)) {
-      items.push({ kind: 'external', time: ext.startTime, ...ext });
-    }
-    items.sort((a, b) => b.time - a.time);
-    return items;
-  }, [pastSlots, pastEvents, externalShows]);
+  // Past feed intentionally not rendered on scene pages — hero's past-shows grid covers this.
+  // (pastSlots / pastEvents still fetched server-side in case we want them back.)
 
   const favorited = isFavoriteScene(scene.id);
 
@@ -256,64 +235,39 @@ export function ScenePublicClient({ data }: Props) {
     setTogglingFav(false);
   };
 
-  // Filter to recordings with meaningful duration (>20 min), same as DJ page
-  const displayedArchives = archives.filter((a) => a.duration > 1200 && a.recordingUrl);
-
   return (
     <div className="min-h-screen text-white relative overflow-x-clip">
       <AnimatedBackground />
       <Header position="sticky" />
 
-      <main className="max-w-5xl mx-auto px-6 py-4 pb-24">
-        {/* Big colored emoji, centered. No title, no background. */}
-        <section className="mb-8 flex justify-center">
-          <SceneEmojiMark
-            scene={scene}
-            className="text-[7rem] sm:text-[9rem] md:text-[11rem] leading-none"
-          />
+      <main className="max-w-7xl mx-auto px-4 md:px-8 py-4 pb-24">
+        {/* Live {emoji} Radio title + subtitle */}
+        <section className="mb-6 text-center">
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black uppercase tracking-tighter leading-none">
+            Live <SceneEmojiMark scene={scene} /> Radio
+          </h1>
+          <p className="mt-3 text-zinc-400 text-sm md:text-base">
+            for the music. and the people behind it
+          </p>
         </section>
 
-        {scene.description && (
-          <p className="max-w-xl mx-auto text-center text-zinc-400 mb-8">{scene.description}</p>
-        )}
-
-        {/* Artists: square DJ photos with name overlaid, compact grid */}
-        {djs.length > 0 && (
-          <section className="mb-6">
-            <p className="text-zinc-500 text-[10px] uppercase tracking-[0.5em] mb-3">Artists</p>
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-              {djs.map((dj) => (
-                <Link
-                  key={dj.userId}
-                  href={dj.username ? `/dj/${dj.username}` : '#'}
-                  className="group relative aspect-square bg-zinc-900 border border-white/10 overflow-hidden hover:border-white/30 transition-colors"
-                >
-                  {dj.photoUrl ? (
-                    <Image
-                      src={dj.photoUrl}
-                      alt={dj.name}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 768px) 33vw, 16vw"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-zinc-600 text-xl">
-                      {dj.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-6 pb-1.5 px-2">
-                    <p className="text-white text-[11px] font-medium truncate">{dj.name}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
+        {/* HERO — same component as /radio, scene-scoped archives.
+            maxHeroSlides=1 shows only the latest high-priority archive offline. */}
+        {featuredArchive && (
+          <ArchiveHero
+            archives={archives}
+            featuredArchive={featuredArchive}
+            isLive={isLiveReady}
+            isRestream={isRestream}
+            liveBPM={stationBPM['broadcast']?.bpm ?? null}
+            liveDJChatRoom={currentDJChatRoom}
+            maxHeroSlides={1}
+          />
         )}
 
         {/* Collectives — keep pill style (smaller ancillary group) */}
         {collectives.length > 0 && (
-          <section className="mb-6">
+          <section className="mb-6 mt-6">
             <p className="text-zinc-500 text-[10px] uppercase tracking-[0.5em] mb-3">Collectives</p>
             <div className="flex flex-wrap gap-2">
               {collectives.map((c) => (
@@ -345,38 +299,6 @@ export function ScenePublicClient({ data }: Props) {
           </section>
         )}
 
-        {/* RECORDINGS — reuses /archives ArchiveCard for consistency */}
-        {displayedArchives.length > 0 && (
-          <section className="space-y-3 mb-6">
-            <p className="text-zinc-500 text-[10px] uppercase tracking-[0.5em]">Recordings</p>
-            {displayedArchives.map((archive) => (
-              <ArchiveCard
-                key={archive.id}
-                archive={archive}
-                isPlaying={playingId === archive.id}
-                onPlayPause={() => handleArchivePlayPause(archive.id)}
-                currentTime={currentTimes[archive.id] || 0}
-                onSeek={(time) => handleArchiveSeek(archive.id, time)}
-                onAudioRef={(el) => {
-                  audioRefs.current[archive.id] = el;
-                }}
-                onTimeUpdate={() => handleArchiveTimeUpdate(archive.id)}
-                onEnded={() => {
-                  setPlayingId(null);
-                  setCurrentTimes((prev) => ({ ...prev, [archive.id]: 0 }));
-                }}
-                onAddToWatchlist={() => {
-                  if (!isAuthenticated) {
-                    setShowAuthModal(true);
-                    return;
-                  }
-                  setWatchlistArchive(archive);
-                }}
-              />
-            ))}
-          </section>
-        )}
-
         {/* UPCOMING — merged chronological feed (IRL events + Channel slots + external shows) */}
         {upcomingFeed.length > 0 && (
           <section className="mb-6">
@@ -391,37 +313,8 @@ export function ScenePublicClient({ data }: Props) {
           </section>
         )}
 
-        {/* PAST — collapsible */}
-        {pastFeed.length > 0 && (
-          <section className="mb-6">
-            <button
-              type="button"
-              onClick={() => setPastExpanded((v) => !v)}
-              aria-expanded={pastExpanded}
-              className="w-full flex items-center justify-between text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2 hover:text-zinc-300 transition-colors"
-            >
-              <span>Past Activities ({pastFeed.length})</span>
-              <svg
-                className={`w-3 h-3 transition-transform ${pastExpanded ? 'rotate-180' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {pastExpanded && (
-              <div className="space-y-3">
-                {pastFeed.map((item) => {
-                  if (item.kind === 'event') return <EventCard key={`pe-${item.id}`} event={item} isPast />;
-                  if (item.kind === 'slot') return <SlotCard key={`ps-${item.id}`} slot={item} />;
-                  return <ExternalCard key={`px-${item.id}`} show={item} isPast />;
-                })}
-              </div>
-            )}
-          </section>
-        )}
+        {/* Past Activities intentionally hidden on scene pages —
+            the hero's "Past shows" grid (inside ArchiveHero) already covers scene recordings. */}
 
         {/* MAIN ACTION — Add scene to watchlist */}
         <div className="mt-10 flex justify-center">
@@ -460,20 +353,6 @@ export function ScenePublicClient({ data }: Props) {
         onClose={() => setShowAuthModal(false)}
         message={`Sign up to add ${scene.emoji} ${scene.name} to your watchlist.`}
       />
-
-      {watchlistArchive && (
-        <WatchlistModal
-          isOpen={!!watchlistArchive}
-          onClose={() => setWatchlistArchive(null)}
-          showName={watchlistArchive.showName}
-          djs={watchlistArchive.djs.map((dj) => ({
-            name: dj.name,
-            username: dj.username,
-            userId: dj.userId,
-            email: dj.email,
-          }))}
-        />
-      )}
     </div>
   );
 }
@@ -487,10 +366,55 @@ function sceneEmojiColor(scene: SceneSerialized): string | undefined {
   return match ? match[0] : undefined;
 }
 
+function SceneGlyph({ slug }: { slug: string }) {
+  // Strokes intentionally extend past the 24x24 viewBox so lines bleed past the
+  // glyph's bounding box. overflow-visible lets that bleed render outside the inline box.
+  const common = {
+    width: '1em',
+    height: '1em',
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    className: 'inline-block align-[-0.15em] overflow-visible',
+  };
+  if (slug === 'grid') {
+    return (
+      <svg {...common} aria-hidden>
+        <line x1="-3" y1="8" x2="27" y2="8" />
+        <line x1="-3" y1="16" x2="27" y2="16" />
+        <line x1="8" y1="-3" x2="8" y2="27" />
+        <line x1="16" y1="-3" x2="16" y2="27" />
+      </svg>
+    );
+  }
+  if (slug === 'diamond') {
+    return (
+      <svg {...common} aria-hidden>
+        <path d="M12 2 L22 12 L12 22 L2 12 Z" />
+        <path d="M12 2 L12 22 M2 12 L22 12" strokeOpacity="0.5" />
+      </svg>
+    );
+  }
+  if (slug === 'spiral') {
+    return (
+      <svg {...common} aria-hidden>
+        <path d="M12 12 m0 0 a2 2 0 1 1 4 0 a4 4 0 1 1 -8 0 a6 6 0 1 1 12 0 a8 8 0 1 1 -16 0 a10 10 0 1 1 20 0" />
+      </svg>
+    );
+  }
+  return null;
+}
+
 function SceneEmojiMark({ scene, className }: { scene: SceneSerialized; className?: string }) {
   const colorClass = sceneEmojiColor(scene);
+  const glyph = <SceneGlyph slug={scene.id} />;
   return (
-    <span className={`${colorClass ?? ''} ${className ?? ''}`}>{scene.emoji}</span>
+    <span className={`${colorClass ?? ''} ${className ?? ''} inline-flex items-center justify-center align-middle`}>
+      {glyph ?? scene.emoji}
+    </span>
   );
 }
 
