@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import { useScenesData, resolveArchiveScenes } from '@/hooks/useScenesData';
+import { SceneGlyph } from '@/components/SceneGlyph';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -733,7 +734,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
               <h2 className="text-2xl md:text-3xl font-semibold">Past shows</h2>
               {availableScenes.length > 0 && (
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   {availableScenes.map((s) => {
                     const active = sceneFilter.has(s.id);
                     return (
@@ -742,11 +743,11 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                         onClick={() => toggleSceneFilter(s.id)}
                         title={s.name}
                         aria-label={`Filter by ${s.name}`}
-                        className={`text-lg leading-none transition-opacity ${
+                        className={`text-xl leading-none transition-opacity text-white ${
                           active ? 'opacity-100' : 'opacity-30 hover:opacity-60'
                         }`}
                       >
-                        <span className={active ? 'text-white' : 'grayscale'}>{s.emoji}</span>
+                        <SceneGlyph slug={s.id} />
                       </button>
                     );
                   })}
@@ -762,10 +763,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   archive={archive}
                   isActive={archivePlayer.currentArchive?.id === archive.id}
                   isPlaying={archivePlayer.isPlaying && archivePlayer.currentArchive?.id === archive.id}
-                  sceneEmojis={sceneIds
+                  sceneChips={sceneIds
                     .map((id) => scenesById.get(id))
                     .filter((s): s is NonNullable<typeof s> => Boolean(s))
-                    .map((s) => ({ emoji: s.emoji, name: s.name, color: s.color }))}
+                    .map((s) => ({ slug: s.id, name: s.name, emoji: s.emoji }))}
                   onPlay={() => {
                     if (archivePlayer.currentArchive?.id === archive.id && archivePlayer.isPlaying) {
                       archivePlayer.pause();
@@ -845,7 +846,7 @@ export function ArchiveGridCard({
   isRestream: isRestreamCard,
   liveBPM: cardLiveBPM,
   onPlay,
-  sceneEmojis,
+  sceneChips,
 }: {
   archive: ArchiveSerialized;
   isActive: boolean;
@@ -854,7 +855,7 @@ export function ArchiveGridCard({
   isRestream?: boolean;
   liveBPM?: number | null;
   onPlay: () => void;
-  sceneEmojis?: Array<{ emoji: string; name: string; color: string }>;
+  sceneChips?: Array<{ slug: string; name: string; emoji: string }>;
 }) {
   const djNames = archive.djs.map((d) => d.name).join(', ');
   const primaryDj = archive.djs[0];
@@ -944,17 +945,18 @@ export function ArchiveGridCard({
           </div>
         )}
 
-        {/* Top right: scene emojis (only on non-live cards) */}
-        {!isLiveCard && sceneEmojis && sceneEmojis.length > 0 && (
-          <div className="absolute top-1 right-1 md:top-1.5 md:right-1.5 flex items-center gap-1 drop-shadow-lg">
-            {sceneEmojis.map((s) => {
-              const colorClass = s.color.match(/text-[^\s]+/)?.[0] ?? '';
-              return (
-                <span key={s.name} title={s.name} className={`text-base leading-none ${colorClass}`}>
-                  {s.emoji}
-                </span>
-              );
-            })}
+        {/* Top right: scene glyphs (only on non-live cards) */}
+        {!isLiveCard && sceneChips && sceneChips.length > 0 && (
+          <div className="absolute top-1 right-1 md:top-1.5 md:right-1.5 flex items-center gap-1.5 drop-shadow-lg text-white">
+            {sceneChips.map((s) => (
+              <span
+                key={s.slug}
+                title={s.name}
+                className="text-lg leading-none inline-flex items-center"
+              >
+                <SceneGlyph slug={s.slug} />
+              </span>
+            ))}
           </div>
         )}
 

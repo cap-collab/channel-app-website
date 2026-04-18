@@ -1,0 +1,43 @@
+// Monochrome SVG glyphs for each scene. Rendered with `currentColor` so the
+// parent's text color controls the tint (default white when used standalone).
+// Strokes intentionally extend past the 24x24 viewBox so lines bleed past the
+// glyph's bounding box; overflow-visible lets that bleed render outside the box.
+export function SceneGlyph({ slug, className }: { slug: string; className?: string }) {
+  const common = {
+    width: '0.7em',
+    height: '0.7em',
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    className: `inline-block align-[-0.05em] overflow-visible ${className ?? ''}`,
+  };
+  if (slug === 'grid') {
+    return (
+      <svg {...common} aria-hidden>
+        <line x1="-2" y1="8" x2="26" y2="8" />
+        <line x1="-2" y1="16" x2="26" y2="16" />
+        <line x1="8" y1="-2" x2="8" y2="26" />
+        <line x1="16" y1="-2" x2="16" y2="26" />
+      </svg>
+    );
+  }
+  if (slug === 'diamond') {
+    return (
+      <svg {...common} aria-hidden>
+        <path d="M12 2 L22 12 L12 22 L2 12 Z" />
+        <path d="M12 2 L12 22 M2 12 L22 12" strokeOpacity="0.5" />
+      </svg>
+    );
+  }
+  if (slug === 'spiral') {
+    return (
+      <svg {...common} aria-hidden>
+        <path d="M12 12 m0 0 a2 2 0 1 1 4 0 a4 4 0 1 1 -8 0 a6 6 0 1 1 12 0 a8 8 0 1 1 -16 0 a10 10 0 1 1 20 0" />
+      </svg>
+    );
+  }
+  return null;
+}
