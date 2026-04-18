@@ -241,8 +241,8 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
           )}
         </div>
 
-        {/* Genre selector - right column */}
-        <div className="relative flex-1 flex justify-center">
+        {/* Genre selector removed — scene filter on /radio Past shows replaces it. */}
+        <div className="relative flex-1 flex justify-center hidden">
           <button
             ref={genreButtonRef}
             onClick={() => {

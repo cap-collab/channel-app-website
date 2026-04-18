@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from 'react';
+import { useScenesData, resolveArchiveScenes } from '@/hooks/useScenesData';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -158,7 +159,7 @@ function ShowProgressBar({ startTime, endTime }: { startTime: number; endTime: n
 }
 
 export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liveBPM, liveDJChatRoom, maxHeroSlides = 3, titleOverride, hideSubtitle }: ArchiveHeroProps) {
-  const { user, isAuthenticated } = useAuthContext();
+  const { user } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
   const {
     isPlaying: isLivePlaying, isLoading: isLiveLoading, currentShow, currentDJ,
@@ -168,6 +169,23 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   } = useBroadcastStreamContext();
   const archivePlayer = useArchivePlayer();
   const stickyBarRef = useRef<HTMLDivElement>(null);
+
+  // Scenes data (scene emoji chips on archive cards + Past-shows filter).
+  const { scenes, djSceneMap } = useScenesData();
+  const [sceneFilter, setSceneFilter] = useState<Set<string>>(new Set());
+  const scenesById = useMemo(() => {
+    const m = new Map<string, typeof scenes[number]>();
+    for (const s of scenes) m.set(s.id, s);
+    return m;
+  }, [scenes]);
+  const toggleSceneFilter = useCallback((sceneId: string) => {
+    setSceneFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(sceneId)) next.delete(sceneId);
+      else next.add(sceneId);
+      return next;
+    });
+  }, []);
 
   // Track player bar visibility — GlobalBroadcastBar shows when this scrolls out of view
   useEffect(() => {
@@ -362,13 +380,6 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
   const nextShowTime = nextUpcomingShow ? new Date(nextUpcomingShow.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null;
 
-  const canShowEmailPopup = !isAuthenticated && (typeof window === 'undefined' || localStorage.getItem('radio-email-filed') !== 'true');
-
-  const handleNextShowClick = useCallback(() => {
-    if (!canShowEmailPopup) return;
-    window.dispatchEvent(new Event('open-email-popup'));
-  }, [canShowEmailPopup]);
-
   return (
     <>
     <section className="relative z-10 px-4 pt-6 pb-2">
@@ -399,18 +410,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               {liveBPM ? `${liveBPM} BPM` : ''}
             </button>
           ) : nextShowTime ? (
-            canShowEmailPopup ? (
-              <button
-                onClick={handleNextShowClick}
-                className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold hover:text-white transition-colors"
-              >
-                Next <span className="w-1.5 h-1.5 bg-red-500 rounded-full inline-block" /> live at {nextShowTime}
-              </button>
-            ) : (
-              <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">
-                Next <span className="w-1.5 h-1.5 bg-red-500 rounded-full inline-block" /> live at {nextShowTime}
-              </span>
-            )
+            <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">
+              Next <span className="w-1.5 h-1.5 bg-red-500 rounded-full inline-block" /> live at {nextShowTime}
+            </span>
           ) : (
             <span />
           )}
@@ -692,29 +694,78 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       {/* Past shows — full-width cards */}
       {(() => {
         const heroFirstId = heroArchives[0]?.id;
-        const filtered = archives
+        const prefiltered = archives
           .filter(a => a.priority !== 'low')
           .sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0));
-        // Move hero first to position 3
-        const heroItem = heroFirstId ? filtered.find(a => a.id === heroFirstId) : null;
-        const ordered = heroItem
-          ? (() => { const rest = filtered.filter(a => a.id !== heroFirstId); return [...rest.slice(0, 2), heroItem, ...rest.slice(2)]; })()
-          : filtered;
+
+        // Compute effective scenes per archive once and attach as a tuple list.
+        const archivesWithScenes = prefiltered.map((a) => ({
+          archive: a,
+          sceneIds: resolveArchiveScenes(a, djSceneMap),
+        }));
+
+        // Scene chips: only show scenes that at least one past show belongs to.
+        const activeSceneIdSet = new Set<string>();
+        for (const { sceneIds } of archivesWithScenes) {
+          for (const id of sceneIds) activeSceneIdSet.add(id);
+        }
+        const availableScenes = scenes.filter((s) => activeSceneIdSet.has(s.id));
+
+        // Apply scene filter (multi-select, any-of).
+        const filteredArchives =
+          sceneFilter.size === 0
+            ? archivesWithScenes
+            : archivesWithScenes.filter(({ sceneIds }) =>
+                sceneIds.some((id) => sceneFilter.has(id))
+              );
+
+        // Move hero first to position 3 (only when no filter applied, to preserve the curated order).
+        const heroItem = heroFirstId ? filteredArchives.find((x) => x.archive.id === heroFirstId) : null;
+        const ordered = heroItem && sceneFilter.size === 0
+          ? (() => {
+              const rest = filteredArchives.filter((x) => x.archive.id !== heroFirstId);
+              return [...rest.slice(0, 2), heroItem, ...rest.slice(2)];
+            })()
+          : filteredArchives;
 
         return (
           <div className="mt-6 max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
               <h2 className="text-2xl md:text-3xl font-semibold">Past shows</h2>
+              {availableScenes.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  {availableScenes.map((s) => {
+                    const active = sceneFilter.has(s.id);
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => toggleSceneFilter(s.id)}
+                        title={s.name}
+                        aria-label={`Filter by ${s.name}`}
+                        className={`text-lg leading-none transition-opacity ${
+                          active ? 'opacity-100' : 'opacity-30 hover:opacity-60'
+                        }`}
+                      >
+                        <span className={active ? 'text-white' : 'grayscale'}>{s.emoji}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Card list — full width mobile, 2 cols desktop */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {ordered.map((archive) => (
+              {ordered.map(({ archive, sceneIds }) => (
                 <ArchiveGridCard
                   key={archive.id}
                   archive={archive}
                   isActive={archivePlayer.currentArchive?.id === archive.id}
                   isPlaying={archivePlayer.isPlaying && archivePlayer.currentArchive?.id === archive.id}
+                  sceneEmojis={sceneIds
+                    .map((id) => scenesById.get(id))
+                    .filter((s): s is NonNullable<typeof s> => Boolean(s))
+                    .map((s) => ({ emoji: s.emoji, name: s.name, color: s.color }))}
                   onPlay={() => {
                     if (archivePlayer.currentArchive?.id === archive.id && archivePlayer.isPlaying) {
                       archivePlayer.pause();
@@ -794,6 +845,7 @@ export function ArchiveGridCard({
   isRestream: isRestreamCard,
   liveBPM: cardLiveBPM,
   onPlay,
+  sceneEmojis,
 }: {
   archive: ArchiveSerialized;
   isActive: boolean;
@@ -802,6 +854,7 @@ export function ArchiveGridCard({
   isRestream?: boolean;
   liveBPM?: number | null;
   onPlay: () => void;
+  sceneEmojis?: Array<{ emoji: string; name: string; color: string }>;
 }) {
   const djNames = archive.djs.map((d) => d.name).join(', ');
   const primaryDj = archive.djs[0];
@@ -888,6 +941,20 @@ export function ArchiveGridCard({
               {isRestreamCard ? 'Restream' : 'Live'}
               {cardLiveBPM ? ` ${cardLiveBPM} BPM` : ''}
             </span>
+          </div>
+        )}
+
+        {/* Top right: scene emojis (only on non-live cards) */}
+        {!isLiveCard && sceneEmojis && sceneEmojis.length > 0 && (
+          <div className="absolute top-1 right-1 md:top-1.5 md:right-1.5 flex items-center gap-1 drop-shadow-lg">
+            {sceneEmojis.map((s) => {
+              const colorClass = s.color.match(/text-[^\s]+/)?.[0] ?? '';
+              return (
+                <span key={s.name} title={s.name} className={`text-base leading-none ${colorClass}`}>
+                  {s.emoji}
+                </span>
+              );
+            })}
           </div>
         )}
 
