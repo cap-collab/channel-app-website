@@ -254,9 +254,10 @@ export function ScenePublicClient({ data }: Props) {
             maxHeroSlides={1}
             titleOverride={
               <>
-                Live <SceneEmojiMark scene={scene} className="inline-block align-baseline" /> Radio
+                In the <SceneEmojiMark scene={scene} className="inline-block align-baseline" /> scene
               </>
             }
+            hideSubtitle
           />
         )}
 
