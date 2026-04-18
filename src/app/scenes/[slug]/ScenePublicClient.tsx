@@ -366,23 +366,23 @@ function SceneGlyph({ slug }: { slug: string }) {
   // Strokes intentionally extend past the 24x24 viewBox so lines bleed past the
   // glyph's bounding box. overflow-visible lets that bleed render outside the inline box.
   const common = {
-    width: '1em',
-    height: '1em',
+    width: '0.7em',
+    height: '0.7em',
     viewBox: '0 0 24 24',
     fill: 'none',
     stroke: 'currentColor',
     strokeWidth: 2,
     strokeLinecap: 'round' as const,
     strokeLinejoin: 'round' as const,
-    className: 'inline-block align-[-0.15em] overflow-visible',
+    className: 'inline-block align-[-0.05em] overflow-visible',
   };
   if (slug === 'grid') {
     return (
       <svg {...common} aria-hidden>
-        <line x1="-3" y1="8" x2="27" y2="8" />
-        <line x1="-3" y1="16" x2="27" y2="16" />
-        <line x1="8" y1="-3" x2="8" y2="27" />
-        <line x1="16" y1="-3" x2="16" y2="27" />
+        <line x1="-2" y1="8" x2="26" y2="8" />
+        <line x1="-2" y1="16" x2="26" y2="16" />
+        <line x1="8" y1="-2" x2="8" y2="26" />
+        <line x1="16" y1="-2" x2="16" y2="26" />
       </svg>
     );
   }
