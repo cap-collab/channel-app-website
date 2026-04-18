@@ -469,24 +469,17 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 className="flex transition-transform duration-300 ease-out"
                 style={{ transform: `translateX(-${heroIndex * 100}%)` }}
               >
-                {heroArchives.map((ha) => {
-                  const chips = resolveArchiveScenes(ha, djSceneMap)
-                    .map((id) => scenesById.get(id))
-                    .filter((s): s is NonNullable<typeof s> => Boolean(s))
-                    .map((s) => ({ slug: s.id, name: s.name }));
-                  return (
-                    <HeroSlide
-                      key={ha.id}
-                      archive={ha}
-                      sceneChips={chips}
-                      onPlay={() => {
-                        setUserSelectedMode('archive');
-                        pauseLive();
-                        archivePlayer.play(ha);
-                      }}
-                    />
-                  );
-                })}
+                {heroArchives.map((ha) => (
+                  <HeroSlide
+                    key={ha.id}
+                    archive={ha}
+                    onPlay={() => {
+                      setUserSelectedMode('archive');
+                      pauseLive();
+                      archivePlayer.play(ha);
+                    }}
+                  />
+                ))}
               </div>
             </div>
             {/* Desktop arrows — same style as watchlist carousel, loops */}
@@ -827,11 +820,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 function HeroSlide({
   archive,
   onPlay,
-  sceneChips,
 }: {
   archive: ArchiveSerialized;
   onPlay: () => void;
-  sceneChips?: Array<{ slug: string; name: string }>;
 }) {
   const primaryDj = archive.djs[0];
   const djName = archive.djs.map(d => d.name).join(', ');
@@ -864,20 +855,6 @@ function HeroSlide({
           <div className="absolute top-2 left-2 drop-shadow-lg">
             <span className="text-sm font-bold text-white uppercase tracking-wide">{archive.showName}</span>
           </div>
-          {/* Scene glyphs — top right */}
-          {sceneChips && sceneChips.length > 0 && (
-            <div className="absolute top-2 right-2 flex items-center gap-2 drop-shadow-lg text-white">
-              {sceneChips.map((s) => (
-                <span
-                  key={s.slug}
-                  title={s.name}
-                  className="text-xl leading-none inline-flex items-center"
-                >
-                  <SceneGlyph slug={s.slug} />
-                </span>
-              ))}
-            </div>
-          )}
           {/* Mood tags — hidden for now (testing) */}
           <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
         </>
