@@ -740,13 +740,6 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   );
 }
 
-const TAG_LABELS: Record<string, string> = {
-  'pick-me-up': 'UPBEAT',
-  'chill': 'CHILL',
-  'exploratory': 'DEEP',
-  'clubby': 'CLUBBY',
-};
-
 function HeroSlide({ archive, onPlay }: { archive: ArchiveSerialized; onPlay: () => void }) {
   const primaryDj = archive.djs[0];
   const djName = archive.djs.map(d => d.name).join(', ');
@@ -828,10 +821,6 @@ export function ArchiveGridCard({
   const cityLabel = cityMatch ? selectedCity!.toUpperCase() : '';
   const parts = [genreLabel, cityLabel].filter(Boolean);
   const matchLabel = parts.length > 0 ? parts.join(' · ') : undefined;
-  // Mood tag for top-right of card: first matching tag in fixed display order
-  const MOOD_ORDER = ['exploratory', 'clubby', 'chill'];
-  const moodTag = MOOD_ORDER.find(t => (archive.tags || []).includes(t));
-  const moodLabel = moodTag ? (TAG_LABELS[moodTag] || moodTag.toUpperCase()) : null;
 
   // Watchlist
   const { isInWatchlist, followDJ, removeFromWatchlist } = useFavorites();
@@ -898,15 +887,6 @@ export function ArchiveGridCard({
             <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">
               {isRestreamCard ? 'Restream' : 'Live'}
               {cardLiveBPM ? ` ${cardLiveBPM} BPM` : ''}
-            </span>
-          </div>
-        )}
-
-        {/* Top right: Mood tag (only on non-live cards) */}
-        {!isLiveCard && moodLabel && (
-          <div className="absolute top-1 right-1 md:top-1.5 md:right-1.5 drop-shadow-lg">
-            <span className="px-1.5 py-0.5 rounded border border-white/20 text-[9px] sm:text-[10px] font-mono text-zinc-400 uppercase tracking-tighter">
-              {moodLabel}
             </span>
           </div>
         )}
