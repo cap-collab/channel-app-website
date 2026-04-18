@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import ScrollReveal from "@/components/ScrollReveal";
-import { EmailSignup } from "@/components/EmailSignup";
 import FAQAccordion from "@/components/FAQAccordion";
 import { Header } from "@/components/Header";
 
@@ -61,7 +60,14 @@ export default function About() {
             </div>
 
             <div className="mt-10 flex justify-center">
-              <EmailSignup />
+              <a
+                href="https://instagram.com/channelrad.io"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-white hover:text-gray-300 transition-colors text-sm"
+              >
+                Follow us on Instagram @channelrad.io
+              </a>
             </div>
           </div>
         </ScrollReveal>

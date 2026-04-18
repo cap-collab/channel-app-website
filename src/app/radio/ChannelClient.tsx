@@ -16,7 +16,6 @@ import { AuthModal } from '@/components/AuthModal';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { ArchiveHero } from '@/components/channel/ArchiveHero';
 import { computeDJChatRoom } from '@/lib/broadcast-utils';
-import { EmailPopup } from '@/components/channel/EmailPopup';
 import { Show, Station, IRLShowData, CuratorRec, DJProfile } from '@/types';
 import { DJProfileCard } from '@/components/channel/DJProfileCard';
 import { STATIONS, getMetadataKeyByStationId } from '@/lib/stations';
@@ -622,13 +621,6 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives 
     return set;
   }, [allShows, irlShows, djProfiles, isValidShow, stationsMap]);
 
-  // Genre filter triggers email popup for logged-out users
-  const handleGenreDropdownClose = useCallback(() => {
-    if (!isAuthenticated && selectedGenres.length > 0) {
-      window.dispatchEvent(new CustomEvent('open-email-popup', { detail: { source: 'genre-filter' } }));
-    }
-  }, [isAuthenticated, selectedGenres]);
-
   // Push computed Tuner hints into FilterContext for HeaderTuner
   useEffect(() => {
     setTunerHints({
@@ -636,9 +628,8 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives 
       genreResultCount,
       citiesWithMatches,
       genresWithMatches,
-      onGenreDropdownClose: handleGenreDropdownClose,
     });
-  }, [cityResultCount, genreResultCount, citiesWithMatches, genresWithMatches, handleGenreDropdownClose, setTunerHints]);
+  }, [cityResultCount, genreResultCount, citiesWithMatches, genresWithMatches, setTunerHints]);
 
   // Auth handlers
   const handleRemindMe = useCallback((show: Show) => {
@@ -808,8 +799,6 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives 
           ) : null}
         </div>
       ) : null}
-
-      <EmailPopup />
 
       <div id="scene" />
 

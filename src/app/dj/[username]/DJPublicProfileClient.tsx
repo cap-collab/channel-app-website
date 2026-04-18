@@ -16,7 +16,6 @@ import { TipButton } from "@/components/channel/TipButton";
 import { DJProfileChatPanel } from "@/components/dj-profile/DJProfileChatPanel";
 import { useBroadcastStreamContext } from "@/contexts/BroadcastStreamContext";
 import { useArchivePlayer } from "@/contexts/ArchivePlayerContext";
-import { EmailPopup } from "@/components/channel/EmailPopup";
 import { Show } from "@/types";
 import { Archive } from "@/types/broadcast";
 import { getStationById, getMetadataKeyByStationId } from "@/lib/stations";
@@ -2529,7 +2528,6 @@ export function DJPublicProfileClient({ username }: Props) {
           }
         }}
       />
-      <EmailPopup siteDelayMs={10000} />
     </div>
   );
 }
