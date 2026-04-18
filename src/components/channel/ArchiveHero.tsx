@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -129,6 +129,11 @@ interface ArchiveHeroProps {
   // Max number of slides in the offline hero carousel. Default 3 (used on /radio).
   // Pass 1 for scene pages where we want a single featured archive.
   maxHeroSlides?: number;
+  // Custom section title. Defaults to "Live DJ radio" on /radio.
+  // Scene pages pass <>Live {emoji} Radio</> so the scene emoji sits inline.
+  titleOverride?: ReactNode;
+  // Hide the subtitle under the title (scene pages want a cleaner header).
+  hideSubtitle?: boolean;
 }
 
 function formatClockTime(timestampMs: number): string {
@@ -152,7 +157,7 @@ function ShowProgressBar({ startTime, endTime }: { startTime: number; endTime: n
   );
 }
 
-export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liveBPM, liveDJChatRoom, maxHeroSlides = 3 }: ArchiveHeroProps) {
+export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liveBPM, liveDJChatRoom, maxHeroSlides = 3, titleOverride, hideSubtitle }: ArchiveHeroProps) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
   const {
@@ -368,8 +373,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     <>
     <section className="relative z-10 px-4 pt-6 pb-2">
       <div className="max-w-7xl mx-auto mb-4">
-        <h2 className="text-2xl md:text-3xl font-semibold">Live DJ radio</h2>
-        <p className="text-sm md:text-base text-zinc-400 mt-1">for the music. and the people behind it</p>
+        <h2 className="text-2xl md:text-3xl font-semibold flex items-center gap-2">
+          {titleOverride ?? 'Live DJ radio'}
+        </h2>
+        {!hideSubtitle && (
+          <p className="text-sm md:text-base text-zinc-400 mt-1">for the music. and the people behind it</p>
+        )}
       </div>
       <div className="max-w-3xl mx-auto">
 

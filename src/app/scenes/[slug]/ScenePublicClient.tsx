@@ -241,18 +241,8 @@ export function ScenePublicClient({ data }: Props) {
       <Header position="sticky" />
 
       <main className="max-w-7xl mx-auto px-4 md:px-8 py-4 pb-24">
-        {/* Live {emoji} Radio title + subtitle */}
-        <section className="mb-6 text-center">
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black uppercase tracking-tighter leading-none">
-            Live <SceneEmojiMark scene={scene} /> Radio
-          </h1>
-          <p className="mt-3 text-zinc-400 text-sm md:text-base">
-            for the music. and the people behind it
-          </p>
-        </section>
-
         {/* HERO — same component as /radio, scene-scoped archives.
-            maxHeroSlides=1 shows only the latest high-priority archive offline. */}
+            Title becomes "Live <emoji> Radio" inline, and the subtitle is kept. */}
         {featuredArchive && (
           <ArchiveHero
             archives={archives}
@@ -262,6 +252,11 @@ export function ScenePublicClient({ data }: Props) {
             liveBPM={stationBPM['broadcast']?.bpm ?? null}
             liveDJChatRoom={currentDJChatRoom}
             maxHeroSlides={1}
+            titleOverride={
+              <>
+                Live <SceneEmojiMark scene={scene} className="inline-block align-baseline" /> Radio
+              </>
+            }
           />
         )}
 
