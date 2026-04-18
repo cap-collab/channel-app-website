@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { ScenePillEditor } from '@/components/broadcast/admin/ScenePillEditor';
+import { useScenesData } from '@/hooks/useScenesData';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -26,9 +28,11 @@ export function VenuesAdmin() {
   const router = useRouter();
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const { role, loading: roleLoading } = useUserRole(user);
+  const { scenes: adminScenes } = useScenesData();
 
   // Edit mode
   const [editingVenue, setEditingVenue] = useState<Venue | null>(null);
+  const [venueSceneIds, setVenueSceneIds] = useState<string[]>([]);
 
   // Form state
   const [name, setName] = useState('');
@@ -198,6 +202,7 @@ export function VenuesAdmin() {
           residentDJs: data.residentDJs || [],
           collectives: data.collectives || [],
           linkedEvents: data.linkedEvents || [],
+          sceneIds: Array.isArray(data.sceneIds) ? data.sceneIds : [],
           createdAt: data.createdAt?.toMillis?.() || Date.now(),
           createdBy: data.createdBy,
         });
@@ -245,6 +250,7 @@ export function VenuesAdmin() {
     setResidentDJs([{ djName: '' }]);
     setVenueCollectives([]);
     setVenueLinkedEvents([]);
+    setVenueSceneIds([]);
     setPhotoUrl(null);
     setPhotoError(null);
     setEditingVenue(null);
@@ -274,6 +280,7 @@ export function VenuesAdmin() {
     );
     setVenueCollectives(venue.collectives || []);
     setVenueLinkedEvents(venue.linkedEvents || []);
+    setVenueSceneIds(venue.sceneIds || []);
     setPhotoUrl(venue.photo || null);
     setPhotoError(null);
     setError(null);
@@ -386,6 +393,7 @@ export function VenuesAdmin() {
         residentDJs: filteredDJs,
         collectives: venueCollectives,
         linkedEvents: venueLinkedEvents,
+        sceneIds: venueSceneIds,
       };
 
       const res = await fetch('/api/admin/venues', {
@@ -870,6 +878,22 @@ export function VenuesAdmin() {
                     ))}
                 </select>
               )}
+            </div>
+
+            {/* Scene assignment */}
+            <div className="mb-6">
+              <label className="block text-sm text-gray-400 mb-2">Scenes</label>
+              <ScenePillEditor
+                scenes={adminScenes}
+                selectedSceneIds={venueSceneIds}
+                onToggle={(sceneId) =>
+                  setVenueSceneIds((prev) =>
+                    prev.includes(sceneId)
+                      ? prev.filter((id) => id !== sceneId)
+                      : [...prev, sceneId]
+                  )
+                }
+              />
             </div>
 
             {/* Buttons */}

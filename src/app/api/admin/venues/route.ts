@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, photo, location, description, genres, socialLinks, residentDJs, collectives, linkedEvents } = body;
+    const { name, photo, location, description, genres, socialLinks, residentDJs, collectives, linkedEvents, sceneIds } = body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json({ error: 'Venue name is required' }, { status: 400 });
@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
       residentDJs: residentDJs || [],
       collectives: collectives || [],
       linkedEvents: linkedEvents || [],
+      sceneIds: Array.isArray(sceneIds) ? sceneIds.filter((v: unknown) => typeof v === 'string') : [],
       createdAt: FieldValue.serverTimestamp(),
       createdBy: adminUserId,
     };
@@ -119,7 +120,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { venueId, name, photo, location, description, genres, socialLinks, residentDJs, collectives, linkedEvents } = body;
+    const { venueId, name, photo, location, description, genres, socialLinks, residentDJs, collectives, linkedEvents, sceneIds } = body;
 
     if (!venueId) {
       return NextResponse.json({ error: 'venueId is required' }, { status: 400 });
@@ -143,6 +144,11 @@ export async function PATCH(request: NextRequest) {
     if (residentDJs !== undefined) updateData.residentDJs = residentDJs;
     if (collectives !== undefined) updateData.collectives = collectives;
     if (linkedEvents !== undefined) updateData.linkedEvents = linkedEvents;
+    if (sceneIds !== undefined) {
+      updateData.sceneIds = Array.isArray(sceneIds)
+        ? sceneIds.filter((v: unknown) => typeof v === 'string')
+        : [];
+    }
 
     const batch = db.batch();
     batch.update(venueRef, updateData);

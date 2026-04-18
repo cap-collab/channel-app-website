@@ -63,6 +63,7 @@ export interface Venue {
   residentDJs?: EventDJRef[];
   collectives?: CollectiveRef[];
   linkedEvents?: EventRef[];
+  sceneIds?: string[];
   createdAt: number;
   createdBy: string;
 }
