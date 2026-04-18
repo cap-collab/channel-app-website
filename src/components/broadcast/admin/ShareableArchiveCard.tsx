@@ -13,14 +13,6 @@ const CANVAS_H = CANVAS_W;
 const S = CANVAS_W / 375;
 const FONT = '"Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
-const TAG_LABELS: Record<string, string> = {
-  'pick-me-up': 'UPBEAT',
-  'chill': 'CHILL',
-  'exploratory': 'DEEP',
-  'clubby': 'CLUBBY',
-};
-const TAG_ORDER = ['exploratory', 'clubby', 'pick-me-up', 'chill'];
-
 function drawCoverImage(ctx: CanvasRenderingContext2D, img: HTMLImageElement, yOffset: number, h: number) {
   const imgRatio = img.naturalWidth / img.naturalHeight;
   const targetRatio = CANVAS_W / h;
@@ -74,7 +66,6 @@ function drawCanvas(
   const djNames = archive.djs?.map(d => d.name).join(', ') || 'Unknown';
   const primaryDj = archive.djs?.[0];
   const genres = primaryDj?.genres || [];
-  const tags = (archive.tags || []).filter(t => TAG_ORDER.includes(t));
 
   // Black background
   ctx.fillStyle = '#000000';
@@ -133,40 +124,6 @@ function drawCanvas(
   ctx.fillText(archive.showName.toUpperCase(), pad, imgTop + pad);
   ctx.letterSpacing = '0';
 
-  // === Mood tags — top-right (matching ArchiveHero style) ===
-  if (tags.length > 0) {
-    const tagFontSize = Math.round(10 * S);
-    const tagPadH = Math.round(5 * S);
-    const tagPadV = Math.round(2.5 * S);
-    const tagGap = Math.round(3 * S);
-    const tagRadius = Math.round(3 * S);
-    const tagY = imgTop + pad;
-
-    ctx.font = `400 ${tagFontSize}px "Geist Mono", monospace, ${F}`;
-    ctx.textBaseline = 'top';
-
-    const orderedTags = TAG_ORDER.filter(t => tags.includes(t));
-    const tagWidths = orderedTags.map(t => ctx.measureText(TAG_LABELS[t] || t.toUpperCase()).width + tagPadH * 2);
-
-    let cursorX = CANVAS_W - pad;
-    for (let i = orderedTags.length - 1; i >= 0; i--) {
-      const label = TAG_LABELS[orderedTags[i]] || orderedTags[i].toUpperCase();
-      const w = tagWidths[i];
-      const h = tagFontSize + tagPadV * 2;
-      const x = cursorX - w;
-
-      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.roundRect(x, tagY, w, h, tagRadius);
-      ctx.stroke();
-
-      ctx.fillStyle = 'rgba(255,255,255,0.6)';
-      ctx.fillText(label, x + tagPadH, tagY + tagPadV);
-
-      cursorX = x - tagGap;
-    }
-  }
 
   // === DJ info — bottom (build up from bottom) ===
   const overlayBottom = imgTop + IMAGE_H - pad;

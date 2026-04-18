@@ -299,7 +299,6 @@ export interface Archive {
   sourceType?: 'live' | 'recording';  // Distinguish live broadcast recordings from private recordings
   publishedAt?: number;          // When recording was published (Unix ms)
   priority?: ArchivePriority;    // Admin-only: high, medium, or low (default medium)
-  tags?: string[];               // Mood/vibe tags: 'pick-me-up', 'chill', 'exploratory'
   sceneIdsOverride?: string[] | null; // null/undefined = inherit from DJs; [] = no scene; [ids] = pinned
 }
 

@@ -5,6 +5,8 @@ import Image from 'next/image';
 import { ArchiveSerialized, ArchivePriority } from '@/types/broadcast';
 import { uploadArchiveImage, validatePhoto } from '@/lib/photo-upload';
 import { ShareableArchiveCard } from './ShareableArchiveCard';
+import { useScenesData, resolveArchiveScenes } from '@/hooks/useScenesData';
+import { SceneGlyph } from '@/components/SceneGlyph';
 
 interface ArchivesTabProps {
   onArchiveCountChange: (count: number) => void;
@@ -47,6 +49,7 @@ function formatTime(timestamp: number): string {
 
 export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
   const [archives, setArchives] = useState<ArchiveSerialized[]>([]);
+  const { scenes, djSceneMap } = useScenesData();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterSource, setFilterSource] = useState<FilterSource>('all');
@@ -185,16 +188,33 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
     }
   };
 
-  const handleToggleTag = async (archiveId: string, tag: string) => {
+  // Toggle a scene on this archive's override. `inherited` is the DJ-derived
+  // default; we only write an override when the admin explicitly toggles.
+  const handleToggleScene = async (
+    archiveId: string,
+    sceneId: string,
+    inherited: string[]
+  ) => {
     const archive = archives.find(a => a.id === archiveId);
     if (!archive) return;
-    const currentTags = archive.tags || [];
-    const newTags = currentTags.includes(tag)
-      ? currentTags.filter(t => t !== tag)
-      : [...currentTags, tag];
-    // Optimistic update
-    setArchives(prev => prev.map(a => a.id === archiveId ? { ...a, tags: newTags } : a));
-    await handleUpdateArchive(archiveId, { tags: newTags });
+    const current = Array.isArray(archive.sceneIdsOverride)
+      ? archive.sceneIdsOverride
+      : inherited;
+    const next = current.includes(sceneId)
+      ? current.filter(id => id !== sceneId)
+      : [...current, sceneId];
+    // Optimistic update — store as explicit override.
+    setArchives(prev =>
+      prev.map(a => (a.id === archiveId ? { ...a, sceneIdsOverride: next } : a))
+    );
+    await handleUpdateArchive(archiveId, { sceneIdsOverride: next });
+  };
+
+  const handleResetSceneOverride = async (archiveId: string) => {
+    setArchives(prev =>
+      prev.map(a => (a.id === archiveId ? { ...a, sceneIdsOverride: null } : a))
+    );
+    await handleUpdateArchive(archiveId, { sceneIdsOverride: null });
   };
 
   // Filter
@@ -324,18 +344,27 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
         </div>
       ) : (
         <div className="space-y-3">
-          {sorted.map((archive) => (
-            <ArchiveCard
-              key={archive.id}
-              archive={archive}
-              onDelete={() => initiateDelete(archive)}
-              onPriorityChange={handlePriorityChange}
-              onUpdate={handleUpdateArchive}
-              onToggleTag={handleToggleTag}
-              onSocial={() => setSocialArchive(archive)}
-              isDeleting={deletingId === archive.id}
-            />
-          ))}
+          {sorted.map((archive) => {
+            const inheritedScenes = resolveArchiveScenes(
+              { sceneIdsOverride: null, djs: archive.djs },
+              djSceneMap
+            );
+            return (
+              <ArchiveCard
+                key={archive.id}
+                archive={archive}
+                scenes={scenes}
+                inheritedSceneIds={inheritedScenes}
+                onToggleScene={(sceneId) => handleToggleScene(archive.id, sceneId, inheritedScenes)}
+                onResetSceneOverride={() => handleResetSceneOverride(archive.id)}
+                onDelete={() => initiateDelete(archive)}
+                onPriorityChange={handlePriorityChange}
+                onUpdate={handleUpdateArchive}
+                onSocial={() => setSocialArchive(archive)}
+                isDeleting={deletingId === archive.id}
+              />
+            );
+          })}
         </div>
       )}
 
@@ -439,28 +468,26 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
   );
 }
 
-// Archive Card Component
-const TAG_OPTIONS = [
-  { value: 'pick-me-up', label: 'Upbeat', color: 'bg-green-900/40 text-green-400 border-green-800' },
-  { value: 'chill', label: 'Chill', color: 'bg-blue-900/40 text-blue-400 border-blue-800' },
-  { value: 'exploratory', label: 'Deep', color: 'bg-purple-900/40 text-purple-400 border-purple-800' },
-  { value: 'clubby', label: 'Clubby', color: 'bg-orange-900/40 text-orange-400 border-orange-800' },
-];
-
 function ArchiveCard({
   archive,
+  scenes,
+  inheritedSceneIds,
+  onToggleScene,
+  onResetSceneOverride,
   onDelete,
   onPriorityChange,
   onUpdate,
-  onToggleTag,
   onSocial,
   isDeleting,
 }: {
   archive: ArchiveSerialized;
+  scenes: Array<{ id: string; name: string; emoji: string; color: string }>;
+  inheritedSceneIds: string[];
+  onToggleScene: (sceneId: string) => void;
+  onResetSceneOverride: () => void;
   onDelete: () => void;
   onPriorityChange: (archiveId: string, priority: ArchivePriority) => void;
   onUpdate: (archiveId: string, updates: Record<string, unknown>) => Promise<void>;
-  onToggleTag: (archiveId: string, tag: string) => void;
   onSocial: () => void;
   isDeleting: boolean;
 }) {
@@ -663,23 +690,44 @@ function ArchiveCard({
                   {primaryDj?.location}
                 </p>
               )}
-              {/* Tag pills */}
-              <div className="flex items-center gap-1.5 mb-1.5">
-                {TAG_OPTIONS.map(({ value, label, color }) => {
-                  const active = archive.tags?.includes(value);
-                  return (
-                    <button
-                      key={value}
-                      onClick={() => onToggleTag(archive.id, value)}
-                      className={`px-2 py-0.5 text-[10px] rounded border transition-colors ${
-                        active ? color : 'bg-gray-800/50 text-gray-600 border-gray-700 hover:text-gray-400'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
+              {/* Scene pills — admin-only assignment. Effective = override or inherited-from-DJs. */}
+              {scenes.length > 0 && (() => {
+                const hasOverride = Array.isArray(archive.sceneIdsOverride);
+                const effective = hasOverride
+                  ? (archive.sceneIdsOverride as string[])
+                  : inheritedSceneIds;
+                return (
+                  <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                    {scenes.map((s) => {
+                      const active = effective.includes(s.id);
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={() => onToggleScene(s.id)}
+                          title={s.name}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] rounded border transition-colors ${
+                            active
+                              ? 'bg-white text-black border-white'
+                              : 'bg-gray-800/50 text-gray-500 border-gray-700 hover:text-gray-300'
+                          }`}
+                        >
+                          <SceneGlyph slug={s.id} />
+                          {s.name}
+                        </button>
+                      );
+                    })}
+                    {hasOverride && (
+                      <button
+                        onClick={onResetSceneOverride}
+                        title="Reset to DJ default"
+                        className="px-2 py-0.5 text-[10px] rounded border bg-transparent text-gray-500 border-gray-700 hover:text-gray-300"
+                      >
+                        reset
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="flex items-center gap-4 text-xs text-gray-500">
                 <span>{formatDuration(archive.duration || 0)}</span>
                 {archive.recordedAt && (

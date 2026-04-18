@@ -234,7 +234,6 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
       sourceType: data.sourceType,
       publishedAt: typeof data.publishedAt === 'number' ? data.publishedAt : undefined,
       priority: data.priority,
-      tags: Array.isArray(data.tags) ? data.tags : undefined,
     });
   });
   const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
