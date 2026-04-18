@@ -3,7 +3,14 @@ import type { Metadata } from 'next';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { makeOG } from '@/lib/og';
 import { fetchSceneBySlugServer } from '@/lib/scenes';
-import { ScenePublicClient, type SceneCollective, type SceneDj } from './ScenePublicClient';
+import {
+  ScenePublicClient,
+  type SceneArchiveData,
+  type SceneCollective,
+  type SceneDj,
+  type SceneEvent,
+  type SceneSlot,
+} from './ScenePublicClient';
 import type { SceneSerialized } from '@/types/scenes';
 
 export const dynamic = 'force-dynamic';
@@ -24,53 +31,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   });
 }
 
-interface SceneArchive {
-  id: string;
-  slug: string;
-  showName: string;
-  showImageUrl?: string;
-  recordedAt: number;
-  duration: number;
-  djs: Array<{ name: string; username?: string; photoUrl?: string }>;
-  effectiveScenes: string[];
-}
-
-interface SceneEvent {
-  id: string;
-  slug: string;
-  name: string;
-  date: number;
-  endDate?: number;
-  photo?: string | null;
-  venueName?: string | null;
-  collectiveName?: string | null;
-  location?: string | null;
-  ticketLink?: string | null;
-  djs: Array<{ djName: string; djUsername?: string; djPhotoUrl?: string }>;
-  isPast: boolean;
-  effectiveScenes: string[];
-}
-
-interface SceneSlot {
-  id: string;
-  showName: string;
-  showImageUrl?: string;
-  startTime: number;
-  endTime: number;
-  djName?: string;
-  djUsername?: string;
-  djPhotoUrl?: string;
-  effectiveScenes: string[];
-}
-
 interface ScenePageData {
   scene: SceneSerialized;
   djs: SceneDj[];
   collectives: SceneCollective[];
-  archives: SceneArchive[];
+  archives: SceneArchiveData[];
   upcomingEvents: SceneEvent[];
   pastEvents: SceneEvent[];
   upcomingSlots: SceneSlot[];
+  pastSlots: SceneSlot[];
 }
 
 function toMs(v: unknown): number {
@@ -109,25 +78,21 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
       upcomingEvents: [],
       pastEvents: [],
       upcomingSlots: [],
+      pastSlots: [],
     };
   }
 
-  // DJs (users collection only, role-filtered)
+  // DJs tagged directly with this scene (users collection only, role-filtered).
   const djUsersSnap = await db
     .collection('users')
     .where('djProfile.sceneIds', 'array-contains', slug)
     .get();
 
   const djs: SceneDj[] = [];
-  const djScenesByUserId = new Map<string, string[]>();
-  const djScenesByUsername = new Map<string, string[]>();
   djUsersSnap.forEach((doc) => {
     const data = doc.data();
     const role = data.role;
     if (role !== 'dj' && role !== 'broadcaster' && role !== 'admin') return;
-    const sceneIds: string[] = data.djProfile?.sceneIds ?? [];
-    djScenesByUserId.set(doc.id, sceneIds);
-    if (data.chatUsernameNormalized) djScenesByUsername.set(data.chatUsernameNormalized, sceneIds);
     djs.push({
       userId: doc.id,
       name: data.displayName || data.chatUsername || '(no name)',
@@ -137,20 +102,15 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
   });
   djs.sort((a, b) => a.name.localeCompare(b.name));
 
-  // Collectives
+  // Collectives tagged with this scene.
   const collectivesSnap = await db
     .collection('collectives')
     .where('sceneIds', 'array-contains', slug)
     .get();
 
   const collectives: SceneCollective[] = [];
-  const collectiveScenesById = new Map<string, string[]>();
-  const collectiveScenesBySlug = new Map<string, string[]>();
   collectivesSnap.forEach((doc) => {
     const data = doc.data();
-    const sceneIds: string[] = data.sceneIds ?? [];
-    collectiveScenesById.set(doc.id, sceneIds);
-    if (data.slug) collectiveScenesBySlug.set(data.slug, sceneIds);
     collectives.push({
       id: doc.id,
       slug: data.slug || doc.id,
@@ -161,23 +121,31 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
   });
   collectives.sort((a, b) => a.name.localeCompare(b.name));
 
-  // For archives/events/slots we also need scenes of DJs/collectives that aren't in this
-  // scene but might be co-credited with one that is. Simpler approach: load all scene-tagged
-  // users+collectives once so inheritance works across multiple scenes.
-  const allDjsSnap = await db.collection('users').get();
+  // For inheritance resolution on content, load every scene-tagged DJ and collective once.
   const allDjScenesByUsername = new Map<string, string[]>();
   const allDjScenesByUserId = new Map<string, string[]>();
+  const allDjPhotoByUsername = new Map<string, string>();
+  const allDjPhotoByUserId = new Map<string, string>();
+
+  const allDjsSnap = await db.collection('users').get();
   allDjsSnap.forEach((doc) => {
     const data = doc.data();
     const sceneIds: string[] = data.djProfile?.sceneIds ?? [];
-    if (sceneIds.length === 0) return;
-    allDjScenesByUserId.set(doc.id, sceneIds);
-    if (data.chatUsernameNormalized) allDjScenesByUsername.set(data.chatUsernameNormalized, sceneIds);
+    const username = (data.chatUsernameNormalized || data.chatUsername || '').toLowerCase();
+    const photo = data.djProfile?.photoUrl;
+    if (sceneIds.length > 0) {
+      allDjScenesByUserId.set(doc.id, sceneIds);
+      if (username) allDjScenesByUsername.set(username, sceneIds);
+    }
+    if (photo) {
+      allDjPhotoByUserId.set(doc.id, photo);
+      if (username) allDjPhotoByUsername.set(username, photo);
+    }
   });
 
-  const allCollectivesSnap = await db.collection('collectives').get();
   const allCollectiveScenesById = new Map<string, string[]>();
   const allCollectiveScenesBySlug = new Map<string, string[]>();
+  const allCollectivesSnap = await db.collection('collectives').get();
   allCollectivesSnap.forEach((doc) => {
     const data = doc.data();
     const sceneIds: string[] = data.sceneIds ?? [];
@@ -186,13 +154,18 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
     if (data.slug) allCollectiveScenesBySlug.set(data.slug, sceneIds);
   });
 
-  // Archives
+  // Archives in this scene.
   const archivesSnap = await db.collection('archives').get();
-  const archives: SceneArchive[] = [];
+  const archives: SceneArchiveData[] = [];
   archivesSnap.forEach((doc) => {
     const data = doc.data();
-    const djList: Array<{ name: string; username?: string; userId?: string; photoUrl?: string }> =
-      data.djs ?? [];
+    const djList: Array<{
+      name: string;
+      username?: string;
+      userId?: string;
+      photoUrl?: string;
+      genres?: string[];
+    }> = data.djs ?? [];
     const djUsernames = djList.map((d) => d.username).filter(Boolean) as string[];
     const djUserIds = djList.map((d) => d.userId).filter(Boolean) as string[];
 
@@ -200,8 +173,6 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
       ...djUserIds.map((id) => `u:${id}`),
       ...djUsernames.map((u) => `n:${u.toLowerCase()}`),
     ];
-
-    // Combine per-archive DJ scenes via username OR userId
     const djScenesLookup = new Map<string, string[]>();
     djUserIds.forEach((id) => {
       const s = allDjScenesByUserId.get(id);
@@ -219,7 +190,6 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
       djKeys,
       []
     );
-
     if (!effective.includes(slug)) return;
 
     archives.push({
@@ -227,15 +197,25 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
       slug: data.slug || doc.id,
       showName: data.showName || '(untitled)',
       showImageUrl: data.showImageUrl,
+      recordingUrl: data.recordingUrl,
       recordedAt: typeof data.recordedAt === 'number' ? data.recordedAt : 0,
       duration: typeof data.duration === 'number' ? data.duration : 0,
-      djs: djList.map((d) => ({ name: d.name, username: d.username, photoUrl: d.photoUrl })),
-      effectiveScenes: effective,
+      sourceType: data.sourceType,
+      djs: djList.map((d) => ({
+        name: d.name,
+        username: d.username,
+        photoUrl:
+          d.photoUrl ||
+          (d.userId && allDjPhotoByUserId.get(d.userId)) ||
+          (d.username && allDjPhotoByUsername.get(d.username.toLowerCase())) ||
+          undefined,
+        genres: d.genres,
+      })),
     });
   });
   archives.sort((a, b) => b.recordedAt - a.recordedAt);
 
-  // Events
+  // Events in this scene (past + upcoming, all types).
   const eventsSnap = await db.collection('events').get();
   const now = Date.now();
   const upcomingEvents: SceneEvent[] = [];
@@ -243,9 +223,14 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
 
   eventsSnap.forEach((doc) => {
     const data = doc.data();
-    const djList: Array<{ djName: string; djUsername?: string; djUserId?: string; djPhotoUrl?: string }> =
-      data.djs ?? [];
-    const linkedCollectives: Array<{ id?: string; slug?: string }> = data.linkedCollectives ?? [];
+    const djList: Array<{
+      djName: string;
+      djUsername?: string;
+      djUserId?: string;
+      djPhotoUrl?: string;
+    }> = data.djs ?? [];
+    const linkedCollectives: Array<{ id?: string; slug?: string; name?: string }> =
+      data.linkedCollectives ?? [];
 
     const djKeys: string[] = [];
     const djScenesLookup = new Map<string, string[]>();
@@ -293,11 +278,31 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
       djKeys,
       collectiveKeys
     );
-
     if (!effective.includes(slug)) return;
 
     const date = typeof data.date === 'number' ? data.date : 0;
     const isPast = date < now;
+
+    const enrichedDjs = djList.map((d) => ({
+      djName: d.djName,
+      djUsername: d.djUsername,
+      djPhotoUrl:
+        d.djPhotoUrl ||
+        (d.djUserId && allDjPhotoByUserId.get(d.djUserId)) ||
+        (d.djUsername && allDjPhotoByUsername.get(d.djUsername.toLowerCase())) ||
+        undefined,
+    }));
+
+    const linkedCollectivesForClient = (
+      data.linkedCollectives as
+        | Array<{ collectiveId?: string; collectiveName?: string; collectiveSlug?: string }>
+        | undefined
+    )?.map((c) => ({
+      collectiveId: c.collectiveId,
+      collectiveName: c.collectiveName,
+      collectiveSlug: c.collectiveSlug,
+    }));
+
     const evt: SceneEvent = {
       id: doc.id,
       slug: data.slug || doc.id,
@@ -307,26 +312,30 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
       photo: data.photo ?? null,
       venueName: data.venueName ?? null,
       collectiveName: data.collectiveName ?? null,
+      collectiveSlug: null,
       location: data.location ?? null,
       ticketLink: data.ticketLink ?? null,
-      djs: djList.map((d) => ({ djName: d.djName, djUsername: d.djUsername, djPhotoUrl: d.djPhotoUrl })),
+      djs: enrichedDjs,
+      linkedCollectives: linkedCollectivesForClient,
       isPast,
-      effectiveScenes: effective,
     };
     (isPast ? pastEvents : upcomingEvents).push(evt);
   });
   upcomingEvents.sort((a, b) => a.date - b.date);
   pastEvents.sort((a, b) => b.date - a.date);
 
-  // Upcoming broadcast slots (in the next 60 days)
+  // Broadcast slots in this scene (upcoming next 60 days + past 90 days).
   const in60Days = now + 60 * 24 * 60 * 60 * 1000;
+  const since90Days = now - 90 * 24 * 60 * 60 * 1000;
   const slotsSnap = await db.collection('broadcast-slots').get();
   const upcomingSlots: SceneSlot[] = [];
+  const pastSlots: SceneSlot[] = [];
   slotsSnap.forEach((doc) => {
     const data = doc.data();
     const startTime = toMs(data.startTime);
     const endTime = toMs(data.endTime);
-    if (endTime < now || startTime > in60Days) return;
+    if (endTime < since90Days || startTime > in60Days) return;
+    if (data.status === 'cancelled' || data.broadcastType === 'recording') return;
 
     const djKeys: string[] = [];
     const djScenesLookup = new Map<string, string[]>();
@@ -367,21 +376,40 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
     );
     if (!effective.includes(slug)) return;
 
-    upcomingSlots.push({
+    const djUsernameRaw = (data.djUsername || data.liveDjUsername) as string | undefined;
+    const djUsernameLower = djUsernameRaw?.toLowerCase();
+    const djPhotoResolved =
+      (data.liveDjPhotoUrl as string | undefined) ||
+      (data.djUserId && allDjPhotoByUserId.get(data.djUserId)) ||
+      (djUsernameLower && allDjPhotoByUsername.get(djUsernameLower)) ||
+      undefined;
+
+    const slot: SceneSlot = {
       id: doc.id,
       showName: data.showName || '(show)',
       showImageUrl: data.showImageUrl,
       startTime,
       endTime,
       djName: data.djName || data.liveDjUsername,
-      djUsername: data.djUsername || data.liveDjUsername,
-      djPhotoUrl: data.liveDjPhotoUrl,
-      effectiveScenes: effective,
-    });
+      djUsername: djUsernameRaw,
+      djPhotoUrl: djPhotoResolved,
+      isPast: endTime < now,
+    };
+    (slot.isPast ? pastSlots : upcomingSlots).push(slot);
   });
   upcomingSlots.sort((a, b) => a.startTime - b.startTime);
+  pastSlots.sort((a, b) => b.startTime - a.startTime);
 
-  return { scene, djs, collectives, archives, upcomingEvents, pastEvents, upcomingSlots };
+  return {
+    scene,
+    djs,
+    collectives,
+    archives,
+    upcomingEvents,
+    pastEvents,
+    upcomingSlots,
+    pastSlots,
+  };
 }
 
 export default async function ScenePage({ params }: Props) {

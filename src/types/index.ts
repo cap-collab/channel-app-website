@@ -84,6 +84,7 @@ export interface UserDocument {
   };
   lastWatchlistEmailAt?: Date;
   lastDjOnlineEmailAt?: Record<string, number>; // { [djUserId]: timestamp }
+  favoriteSceneIds?: string[]; // scene slugs the user has added to their scene watchlist
   djProfile?: {
     bio: string | null;
     tipButtonLink: string | null;
