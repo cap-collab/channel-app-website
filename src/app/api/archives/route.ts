@@ -252,6 +252,7 @@ export async function GET(request: Request) {
         sourceType: data.sourceType,
         publishedAt: data.publishedAt,
         priority: data.priority || 'medium',
+        sceneIdsOverride: data.sceneIdsOverride ?? null,
       };
     });
 

@@ -35,6 +35,7 @@ export async function getHeroArchives(): Promise<ArchiveSerialized[]> {
           sourceType: data.sourceType,
           publishedAt: data.publishedAt,
           priority: data.priority || 'medium',
+          sceneIdsOverride: data.sceneIdsOverride ?? null,
           uploadStatus: data.uploadStatus,
         } as ArchiveSerialized & { uploadStatus?: string };
       })
