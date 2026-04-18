@@ -237,7 +237,13 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
       tags: Array.isArray(data.tags) ? data.tags : undefined,
     });
   });
-  archives.sort((a, b) => b.recordedAt - a.recordedAt);
+  const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
+  archives.sort((a, b) => {
+    const pa = PRIORITY_ORDER[a.priority || 'medium'] ?? 1;
+    const pb = PRIORITY_ORDER[b.priority || 'medium'] ?? 1;
+    if (pa !== pb) return pa - pb;
+    return b.recordedAt - a.recordedAt;
+  });
 
   // Events in this scene (past + upcoming, all types).
   const eventsSnap = await db.collection('events').get();
