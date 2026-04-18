@@ -204,6 +204,7 @@ export function CollectivesAdmin() {
           linkedVenues: data.linkedVenues || [],
           linkedCollectives: data.linkedCollectives || [],
           linkedEvents: data.linkedEvents || [],
+          sceneIds: Array.isArray(data.sceneIds) ? data.sceneIds : [],
           createdAt: data.createdAt?.toMillis?.() || Date.now(),
           createdBy: data.createdBy,
         });
