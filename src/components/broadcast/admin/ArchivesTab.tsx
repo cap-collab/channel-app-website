@@ -6,7 +6,8 @@ import { ArchiveSerialized, ArchivePriority } from '@/types/broadcast';
 import { uploadArchiveImage, validatePhoto } from '@/lib/photo-upload';
 import { ShareableArchiveCard } from './ShareableArchiveCard';
 import { useScenesData, resolveArchiveScenes } from '@/hooks/useScenesData';
-import { SceneGlyph } from '@/components/SceneGlyph';
+import { ScenePillEditor } from './ScenePillEditor';
+import type { SceneSerialized } from '@/types/scenes';
 
 interface ArchivesTabProps {
   onArchiveCountChange: (count: number) => void;
@@ -481,7 +482,7 @@ function ArchiveCard({
   isDeleting,
 }: {
   archive: ArchiveSerialized;
-  scenes: Array<{ id: string; name: string; emoji: string; color: string }>;
+  scenes: SceneSerialized[];
   inheritedSceneIds: string[];
   onToggleScene: (sceneId: string) => void;
   onResetSceneOverride: () => void;
@@ -690,44 +691,19 @@ function ArchiveCard({
                   {primaryDj?.location}
                 </p>
               )}
-              {/* Scene pills — admin-only assignment. Effective = override or inherited-from-DJs. */}
-              {scenes.length > 0 && (() => {
-                const hasOverride = Array.isArray(archive.sceneIdsOverride);
-                const effective = hasOverride
-                  ? (archive.sceneIdsOverride as string[])
-                  : inheritedSceneIds;
-                return (
-                  <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-                    {scenes.map((s) => {
-                      const active = effective.includes(s.id);
-                      return (
-                        <button
-                          key={s.id}
-                          onClick={() => onToggleScene(s.id)}
-                          title={s.name}
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] rounded border transition-colors ${
-                            active
-                              ? 'bg-white text-black border-white'
-                              : 'bg-gray-800/50 text-gray-500 border-gray-700 hover:text-gray-300'
-                          }`}
-                        >
-                          <SceneGlyph slug={s.id} />
-                          {s.name}
-                        </button>
-                      );
-                    })}
-                    {hasOverride && (
-                      <button
-                        onClick={onResetSceneOverride}
-                        title="Reset to DJ default"
-                        className="px-2 py-0.5 text-[10px] rounded border bg-transparent text-gray-500 border-gray-700 hover:text-gray-300"
-                      >
-                        reset
-                      </button>
-                    )}
-                  </div>
-                );
-              })()}
+              {/* Scene pills — admin-only assignment. Inherited from DJs unless overridden. */}
+              <div className="mb-1.5">
+                <ScenePillEditor
+                  scenes={scenes}
+                  selectedSceneIds={
+                    Array.isArray(archive.sceneIdsOverride) ? archive.sceneIdsOverride : null
+                  }
+                  inheritedSceneIds={inheritedSceneIds}
+                  onToggle={onToggleScene}
+                  onReset={onResetSceneOverride}
+                  size="xs"
+                />
+              </div>
               <div className="flex items-center gap-4 text-xs text-gray-500">
                 <span>{formatDuration(archive.duration || 0)}</span>
                 {archive.recordedAt && (

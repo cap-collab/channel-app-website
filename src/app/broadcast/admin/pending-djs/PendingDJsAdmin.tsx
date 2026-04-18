@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { ScenePillEditor } from '@/components/broadcast/admin/ScenePillEditor';
+import { useScenesData } from '@/hooks/useScenesData';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -93,6 +95,7 @@ interface PendingProfile {
       bandcampLinks?: string[];
       eventLinks?: string[];
     };
+    sceneIds?: string[];
   };
   status: string;
   createdAt: Date;
@@ -105,6 +108,8 @@ export function PendingDJsAdmin() {
 
   // Edit mode state
   const [editingProfile, setEditingProfile] = useState<PendingProfile | null>(null);
+  const [pendingSceneIds, setPendingSceneIds] = useState<string[]>([]);
+  const { scenes: adminScenes } = useScenesData();
   const [searchQuery, setSearchQuery] = useState('');
 
   // Form state
@@ -374,6 +379,7 @@ export function PendingDJsAdmin() {
     setOriginalLinkedVenueIds([]);
     setOriginalLinkedCollectiveIds([]);
     setOriginalLinkedEventIds([]);
+    setPendingSceneIds([]);
     setEditingProfile(null);
     setError(null);
     setSuccess(null);
@@ -451,6 +457,8 @@ export function PendingDJsAdmin() {
     const eventIds = eventOptions.filter(e => matchesDJ(e.djs)).map(e => e.id);
     setLinkedEventIds(eventIds);
     setOriginalLinkedEventIds(eventIds);
+
+    setPendingSceneIds(Array.isArray(profile.djProfile.sceneIds) ? profile.djProfile.sceneIds : []);
 
     // Scroll to form
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -653,6 +661,7 @@ export function PendingDJsAdmin() {
               bandcampLinks: validBandcampRecs.length > 0 ? validBandcampRecs : undefined,
               eventLinks: validEventRecs.length > 0 ? validEventRecs : undefined,
             } : undefined,
+            sceneIds: pendingSceneIds,
           },
         };
 
@@ -810,6 +819,7 @@ export function PendingDJsAdmin() {
                 bandcampLinks: validBandcampRecs.length > 0 ? validBandcampRecs : undefined,
                 eventLinks: validEventRecs.length > 0 ? validEventRecs : undefined,
               } : undefined,
+              sceneIds: pendingSceneIds,
             },
           }),
         });
@@ -1983,6 +1993,22 @@ Cap`;
                   </div>
                 </div>
               )}
+
+              {/* Scene assignment (admin-only; invisible to the DJ) */}
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Scenes</label>
+                <ScenePillEditor
+                  scenes={adminScenes}
+                  selectedSceneIds={pendingSceneIds}
+                  onToggle={(sceneId) =>
+                    setPendingSceneIds((prev) =>
+                      prev.includes(sceneId)
+                        ? prev.filter((id) => id !== sceneId)
+                        : [...prev, sceneId]
+                    )
+                  }
+                />
+              </div>
 
               {/* Submit / Cancel / Delete */}
               <div className="pt-4 flex gap-3">

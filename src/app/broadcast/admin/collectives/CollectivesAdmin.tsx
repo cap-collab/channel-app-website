@@ -12,6 +12,8 @@ import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { normalizeUrl } from '@/lib/url';
 import { uploadCollectivePhoto, deleteCollectivePhoto, validatePhoto } from '@/lib/photo-upload';
 import { Collective, CollectiveRef, CollectiveVenueRef, Event, EventRef, EventDJRef, Venue, CustomLink } from '@/types/events';
+import { ScenePillEditor } from '@/components/broadcast/admin/ScenePillEditor';
+import { useScenesData } from '@/hooks/useScenesData';
 
 interface DJOption {
   label: string;
@@ -26,6 +28,7 @@ export function CollectivesAdmin() {
   const router = useRouter();
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const { role, loading: roleLoading } = useUserRole(user);
+  const { scenes: adminScenes } = useScenesData();
 
   // Edit mode
   const [editingCollective, setEditingCollective] = useState<Collective | null>(null);
@@ -48,6 +51,7 @@ export function CollectivesAdmin() {
   const [linkedVenues, setLinkedVenues] = useState<CollectiveVenueRef[]>([]);
   const [linkedCollectives, setLinkedCollectives] = useState<CollectiveRef[]>([]);
   const [collectiveLinkedEvents, setCollectiveLinkedEvents] = useState<EventRef[]>([]);
+  const [collectiveSceneIds, setCollectiveSceneIds] = useState<string[]>([]);
 
   // Photo state
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -248,6 +252,7 @@ export function CollectivesAdmin() {
     setLinkedVenues([]);
     setLinkedCollectives([]);
     setCollectiveLinkedEvents([]);
+    setCollectiveSceneIds([]);
     setPhotoUrl(null);
     setPhotoError(null);
     setEditingCollective(null);
@@ -278,6 +283,7 @@ export function CollectivesAdmin() {
     setLinkedVenues(collective.linkedVenues || []);
     setLinkedCollectives(collective.linkedCollectives || []);
     setCollectiveLinkedEvents(collective.linkedEvents || []);
+    setCollectiveSceneIds(collective.sceneIds || []);
     setPhotoUrl(collective.photo || null);
     setPhotoError(null);
     setError(null);
@@ -418,6 +424,7 @@ export function CollectivesAdmin() {
         linkedVenues,
         linkedCollectives,
         linkedEvents: collectiveLinkedEvents,
+        sceneIds: collectiveSceneIds,
       };
 
       const res = await fetch('/api/admin/collectives', {
@@ -937,6 +944,22 @@ export function CollectivesAdmin() {
                     ))}
                 </select>
               )}
+            </div>
+
+            {/* Scene assignment */}
+            <div className="mb-6">
+              <label className="block text-sm text-gray-400 mb-2">Scenes</label>
+              <ScenePillEditor
+                scenes={adminScenes}
+                selectedSceneIds={collectiveSceneIds}
+                onToggle={(sceneId) =>
+                  setCollectiveSceneIds((prev) =>
+                    prev.includes(sceneId)
+                      ? prev.filter((id) => id !== sceneId)
+                      : [...prev, sceneId]
+                  )
+                }
+              />
             </div>
 
             {/* Buttons */}

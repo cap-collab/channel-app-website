@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -12,6 +12,8 @@ import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { normalizeUrl } from '@/lib/url';
 import { uploadEventPhoto, deleteEventPhoto, validatePhoto } from '@/lib/photo-upload';
 import { Event, EventDJRef, EventVenueRef, Venue, Collective, CollectiveRef, CustomLink } from '@/types/events';
+import { ScenePillEditor } from '@/components/broadcast/admin/ScenePillEditor';
+import { useScenesData } from '@/hooks/useScenesData';
 
 interface DJOption {
   label: string;
@@ -26,6 +28,7 @@ export function EventsAdmin() {
   const router = useRouter();
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const { role, loading: roleLoading } = useUserRole(user);
+  const { scenes: adminScenes, djSceneMap } = useScenesData();
 
   // Edit mode
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -51,6 +54,8 @@ export function EventsAdmin() {
   const [residentAdvisor, setResidentAdvisor] = useState('');
   const [customLinks, setCustomLinks] = useState<CustomLink[]>([]);
   const [djs, setDjs] = useState<EventDJRef[]>([{ djName: '' }]);
+  // Scene override: null = inherit from DJs + collectives; [] = pinned to no scene; [ids] = pinned.
+  const [sceneIdsOverride, setSceneIdsOverride] = useState<string[] | null>(null);
 
   // Photo state
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -69,6 +74,25 @@ export function EventsAdmin() {
   const [collectives, setCollectives] = useState<Collective[]>([]);
   const [djOptions, setDjOptions] = useState<DJOption[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
+
+  // Inherited scenes = union of sceneIds from all attached DJs + collectives.
+  const inheritedEventScenes = useMemo(() => {
+    const out = new Set<string>();
+    for (const dj of djs) {
+      if (dj.djUserId) {
+        for (const id of djSceneMap.byUserId.get(dj.djUserId) ?? []) out.add(id);
+      }
+      if (dj.djUsername) {
+        const key = dj.djUsername.toLowerCase().replace(/\s+/g, '');
+        for (const id of djSceneMap.byUsername.get(key) ?? []) out.add(id);
+      }
+    }
+    for (const ref of eventLinkedCollectives) {
+      const c = collectives.find((cc) => cc.id === ref.collectiveId);
+      for (const id of c?.sceneIds ?? []) out.add(id);
+    }
+    return Array.from(out);
+  }, [djs, eventLinkedCollectives, djSceneMap, collectives]);
 
   const hasBroadcasterAccess = isBroadcaster(role);
 
@@ -198,6 +222,7 @@ export function EventsAdmin() {
           location: data.location || null,
           ticketLink: data.ticketLink || null,
           socialLinks: data.socialLinks || {},
+          sceneIdsOverride: data.sceneIdsOverride === undefined ? undefined : data.sceneIdsOverride,
           createdAt: data.createdAt?.toMillis?.() || Date.now(),
           createdBy: data.createdBy,
         });
@@ -274,6 +299,7 @@ export function EventsAdmin() {
     setResidentAdvisor('');
     setCustomLinks([]);
     setDjs([{ djName: '' }]);
+    setSceneIdsOverride(null);
     setPhotoUrl(null);
     setPhotoError(null);
     setEditingEvent(null);
@@ -319,6 +345,9 @@ export function EventsAdmin() {
     setResidentAdvisor(event.socialLinks?.residentAdvisor || '');
     setCustomLinks(event.socialLinks?.customLinks || []);
     setDjs(event.djs.length > 0 ? event.djs : [{ djName: '' }]);
+    setSceneIdsOverride(
+      event.sceneIdsOverride === undefined ? null : event.sceneIdsOverride
+    );
     setPhotoUrl(event.photo || null);
     setPhotoError(null);
     setError(null);
@@ -438,6 +467,7 @@ export function EventsAdmin() {
         linkedVenues: eventLinkedVenues,
         linkedCollectives: eventLinkedCollectives,
         djs: filteredDJs,
+        sceneIdsOverride: sceneIdsOverride,
         genres: genres.trim() ? genres.split(',').map(g => g.trim()).filter(Boolean) : [],
         location: location.trim() || null,
         ticketLink: ticketLink.trim() ? normalizeUrl(ticketLink.trim()) : null,
@@ -987,6 +1017,32 @@ export function EventsAdmin() {
               >
                 + Add DJ
               </button>
+            </div>
+
+            {/* Scene assignment */}
+            <div className="mb-6">
+              <label className="block text-sm text-gray-400 mb-2">
+                Scenes{' '}
+                <span className="text-xs text-gray-600">
+                  (inherits from DJs + collectives unless pinned)
+                </span>
+              </label>
+              <ScenePillEditor
+                scenes={adminScenes}
+                selectedSceneIds={sceneIdsOverride}
+                inheritedSceneIds={inheritedEventScenes}
+                onToggle={(sceneId) => {
+                  const current = Array.isArray(sceneIdsOverride)
+                    ? sceneIdsOverride
+                    : inheritedEventScenes;
+                  setSceneIdsOverride(
+                    current.includes(sceneId)
+                      ? current.filter((id) => id !== sceneId)
+                      : [...current, sceneId]
+                  );
+                }}
+                onReset={() => setSceneIdsOverride(null)}
+              />
             </div>
 
             {/* Buttons */}

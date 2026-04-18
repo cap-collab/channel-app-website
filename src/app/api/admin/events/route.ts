@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, date, endDate, photo, description, venueId, venueName: manualVenueName, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, socialLinks } = body;
+    const { name, date, endDate, photo, description, venueId, venueName: manualVenueName, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, socialLinks, sceneIdsOverride } = body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json({ error: 'Event name is required' }, { status: 400 });
@@ -114,6 +114,12 @@ export async function POST(request: NextRequest) {
       location: location || null,
       ticketLink: ticketLink || null,
       socialLinks: socialLinks || {},
+      sceneIdsOverride:
+        sceneIdsOverride === null
+          ? null
+          : Array.isArray(sceneIdsOverride)
+            ? sceneIdsOverride.filter((v: unknown) => typeof v === 'string')
+            : null,
       source: body.source || 'admin',
       createdAt: FieldValue.serverTimestamp(),
       createdBy: adminUserId,
@@ -165,7 +171,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { eventId, name, date, endDate, photo, description, venueId, venueName: manualVenueName, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, socialLinks } = body;
+    const { eventId, name, date, endDate, photo, description, venueId, venueName: manualVenueName, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, socialLinks, sceneIdsOverride } = body;
 
     if (!eventId) {
       return NextResponse.json({ error: 'eventId is required' }, { status: 400 });
@@ -192,6 +198,15 @@ export async function PATCH(request: NextRequest) {
     if (socialLinks !== undefined) updateData.socialLinks = socialLinks;
     if (linkedVenues !== undefined) updateData.linkedVenues = linkedVenues;
     if (linkedCollectives !== undefined) updateData.linkedCollectives = linkedCollectives;
+    if (sceneIdsOverride !== undefined) {
+      if (sceneIdsOverride === null) {
+        updateData.sceneIdsOverride = null;
+      } else if (Array.isArray(sceneIdsOverride)) {
+        updateData.sceneIdsOverride = sceneIdsOverride.filter(
+          (v: unknown) => typeof v === 'string'
+        );
+      }
+    }
 
     // Re-denormalize venue name if venueId changed
     if (venueId !== undefined) {

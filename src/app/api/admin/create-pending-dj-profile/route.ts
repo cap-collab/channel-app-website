@@ -96,6 +96,7 @@ interface DJProfileData {
     bandcampLinks?: string[];
     eventLinks?: string[];
   };
+  sceneIds?: string[];
 }
 
 // POST - Create a pending DJ profile for a pre-registered DJ
@@ -192,6 +193,7 @@ export async function POST(request: NextRequest) {
           photoUrl: djProfile?.photoUrl || null,
           location: djProfile?.location || null,
           genres: djProfile?.genres || [],
+          sceneIds: Array.isArray(djProfile?.sceneIds) ? djProfile.sceneIds : [],
           tipButtonLink: null,
           socialLinks: djProfile?.socialLinks || {},
           irlShows: djProfile?.irlShows || [],
@@ -318,6 +320,9 @@ export async function PATCH(request: NextRequest) {
       photoUrl: djProfile?.photoUrl ?? existingData?.djProfile?.photoUrl ?? null,
       location: djProfile?.location || null,
       genres: djProfile?.genres || [],
+      sceneIds: Array.isArray(djProfile?.sceneIds)
+        ? djProfile.sceneIds
+        : existingData?.djProfile?.sceneIds || [],
       // Auto-populate tipButtonLink from bandcamp if not already set
       tipButtonLink: existingTipButtonLink || djProfile?.socialLinks?.bandcamp || null,
       socialLinks: djProfile?.socialLinks || {},
