@@ -24,18 +24,25 @@ export function SceneGlyph({ slug, className }: { slug: string; className?: stri
       </svg>
     );
   }
+  // Diamond + spiral live inside 24×24, whereas the grid's strokes bleed out to
+  // -2…26. Scale them up around the center so they read the same visual size as
+  // the grid glyph.
   if (slug === 'diamond') {
     return (
       <svg {...common} aria-hidden>
-        <path d="M12 2 L22 12 L12 22 L2 12 Z" />
-        <path d="M12 2 L12 22 M2 12 L22 12" strokeOpacity="0.5" />
+        <g transform="translate(12 12) scale(1.2) translate(-12 -12)">
+          <path d="M12 2 L22 12 L12 22 L2 12 Z" />
+          <path d="M12 2 L12 22 M2 12 L22 12" strokeOpacity="0.5" />
+        </g>
       </svg>
     );
   }
   if (slug === 'spiral') {
     return (
       <svg {...common} aria-hidden>
-        <path d="M12 12 m0 0 a2 2 0 1 1 4 0 a4 4 0 1 1 -8 0 a6 6 0 1 1 12 0 a8 8 0 1 1 -16 0 a10 10 0 1 1 20 0" />
+        <g transform="translate(12 12) scale(1.2) translate(-12 -12)">
+          <path d="M12 12 m0 0 a2 2 0 1 1 4 0 a4 4 0 1 1 -8 0 a6 6 0 1 1 12 0 a8 8 0 1 1 -16 0 a10 10 0 1 1 20 0" />
+        </g>
       </svg>
     );
   }
