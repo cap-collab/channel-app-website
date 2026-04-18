@@ -297,8 +297,8 @@ export function ScenePublicClient({ data }: Props) {
 
         {/* UPCOMING — merged chronological feed (IRL events + Channel slots + external shows) */}
         {upcomingFeed.length > 0 && (
-          <section className="mb-6">
-            <p className="text-zinc-500 text-[10px] uppercase tracking-[0.5em] mb-3">Upcoming</p>
+          <section className="mt-16 mb-6 max-w-7xl mx-auto px-4">
+            <h2 className="text-2xl md:text-3xl font-semibold mb-4">Upcoming</h2>
             <div className="space-y-3">
               {upcomingFeed.map((item) => {
                 if (item.kind === 'event') return <EventCard key={`e-${item.id}`} event={item} isPast={false} />;
