@@ -13,6 +13,11 @@ interface FilterContextValue {
   setSelectedGenres: (genres: string[]) => void;
   handleCityChange: (city: string) => void;
   handleGenresChange: (genres: string[]) => void;
+  // Scene filter (Past shows grid on /radio).
+  // `null` means "not yet initialized" — consumers should treat this as "all scenes"
+  // until scenes are loaded and the chip row seeds the set.
+  selectedSceneIds: string[] | null;
+  handleSceneIdsChange: (ids: string[]) => void;
   // Optional display hints set by pages that have schedule data
   cityResultCount?: number;
   genreResultCount?: number;
@@ -42,9 +47,10 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuthContext();
   const [selectedCity, setSelectedCity] = useState<string>(getDefaultCity());
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const [selectedSceneIds, setSelectedSceneIds] = useState<string[] | null>(null);
   const [tunerHints, setTunerHints] = useState<TunerHints>({});
 
-  // Load city/genre preferences: Firebase for auth users, localStorage for unauth
+  // Load city/genre/scene preferences: Firebase for auth users, localStorage for unauth
   useEffect(() => {
     if (user?.uid && db) {
       const userRef = doc(db, 'users', user.uid);
@@ -58,6 +64,12 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
           setSelectedGenres([data.preferredGenre]);
         } else {
           setSelectedGenres([]);
+        }
+        const sceneIds = data?.preferredSceneIds;
+        if (Array.isArray(sceneIds)) {
+          setSelectedSceneIds(sceneIds);
+        } else {
+          setSelectedSceneIds(null);
         }
       });
       return;
@@ -78,6 +90,13 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
         if (localGenre) setSelectedGenres([localGenre]);
       }
     } catch {}
+    try {
+      const storedScenes = localStorage.getItem('channel-selected-scenes');
+      if (storedScenes) {
+        const parsed = JSON.parse(storedScenes);
+        if (Array.isArray(parsed)) setSelectedSceneIds(parsed);
+      }
+    } catch {}
   }, [user?.uid]);
 
   // Migrate localStorage preferences to Firestore when user signs up/in
@@ -88,8 +107,9 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
         const storedGenres = localStorage.getItem('channel-selected-genres');
         const storedCity = localStorage.getItem('channel-selected-city');
         const storedGenreLegacy = localStorage.getItem('channel-selected-genre');
+        const storedScenes = localStorage.getItem('channel-selected-scenes');
 
-        if (storedGenres || storedCity || storedGenreLegacy) {
+        if (storedGenres || storedCity || storedGenreLegacy || storedScenes) {
           const userDocRef = doc(db, 'users', user.uid);
           getDoc(userDocRef).then((snap) => {
             const data = snap.data();
@@ -110,11 +130,19 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
               update.irlCity = storedCity;
             }
 
+            if (!Array.isArray(data?.preferredSceneIds) && storedScenes) {
+              try {
+                const parsed = JSON.parse(storedScenes);
+                if (Array.isArray(parsed)) update.preferredSceneIds = parsed;
+              } catch {}
+            }
+
             if (Object.keys(update).length > 0) {
               updateDoc(userDocRef, update).then(() => {
                 localStorage.removeItem('channel-selected-genres');
                 localStorage.removeItem('channel-selected-city');
                 localStorage.removeItem('channel-selected-genre');
+                localStorage.removeItem('channel-selected-scenes');
               }).catch(console.error);
             }
           }).catch(console.error);
@@ -154,12 +182,28 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.uid]);
 
+  const handleSceneIdsChange = useCallback(async (sceneIds: string[]) => {
+    setSelectedSceneIds(sceneIds);
+    if (user?.uid && db) {
+      try {
+        const userRef = doc(db, 'users', user.uid);
+        await updateDoc(userRef, { preferredSceneIds: sceneIds });
+      } catch (error) {
+        console.error('Error saving scene preferences:', error);
+      }
+    } else {
+      try { localStorage.setItem('channel-selected-scenes', JSON.stringify(sceneIds)); } catch {}
+    }
+  }, [user?.uid]);
+
   return (
     <FilterContext.Provider value={{
       selectedCity,
       setSelectedCity,
       selectedGenres,
       setSelectedGenres,
+      selectedSceneIds,
+      handleSceneIdsChange,
       handleCityChange,
       handleGenresChange,
       cityResultCount: tunerHints.cityResultCount,

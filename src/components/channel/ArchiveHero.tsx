@@ -173,20 +173,30 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
   // Scenes data (scene emoji chips on archive cards + Past-shows filter).
   const { scenes, djSceneMap } = useScenesData();
-  const [sceneFilter, setSceneFilter] = useState<Set<string>>(new Set());
+  const { selectedSceneIds, handleSceneIdsChange } = useFilterContext();
+  // Derived view: the persisted selection as a Set, defaulting to all scenes
+  // until the user makes a choice (selectedSceneIds === null).
+  const sceneFilter = useMemo(() => {
+    if (selectedSceneIds === null) return new Set(scenes.map((s) => s.id));
+    return new Set(selectedSceneIds);
+  }, [selectedSceneIds, scenes]);
   const scenesById = useMemo(() => {
     const m = new Map<string, typeof scenes[number]>();
     for (const s of scenes) m.set(s.id, s);
     return m;
   }, [scenes]);
-  const toggleSceneFilter = useCallback((sceneId: string) => {
-    setSceneFilter((prev) => {
-      const next = new Set(prev);
-      if (next.has(sceneId)) next.delete(sceneId);
-      else next.add(sceneId);
-      return next;
-    });
-  }, []);
+  const toggleSceneFilter = useCallback(
+    (sceneId: string) => {
+      const current = selectedSceneIds === null
+        ? scenes.map((s) => s.id)
+        : selectedSceneIds;
+      const next = current.includes(sceneId)
+        ? current.filter((id) => id !== sceneId)
+        : [...current, sceneId];
+      handleSceneIdsChange(next);
+    },
+    [selectedSceneIds, scenes, handleSceneIdsChange]
+  );
 
   // Track player bar visibility — GlobalBroadcastBar shows when this scrolls out of view
   useEffect(() => {
@@ -459,9 +469,24 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 className="flex transition-transform duration-300 ease-out"
                 style={{ transform: `translateX(-${heroIndex * 100}%)` }}
               >
-                {heroArchives.map((ha) => (
-                  <HeroSlide key={ha.id} archive={ha} onPlay={() => { setUserSelectedMode('archive'); pauseLive(); archivePlayer.play(ha); }} />
-                ))}
+                {heroArchives.map((ha) => {
+                  const chips = resolveArchiveScenes(ha, djSceneMap)
+                    .map((id) => scenesById.get(id))
+                    .filter((s): s is NonNullable<typeof s> => Boolean(s))
+                    .map((s) => ({ slug: s.id, name: s.name }));
+                  return (
+                    <HeroSlide
+                      key={ha.id}
+                      archive={ha}
+                      sceneChips={chips}
+                      onPlay={() => {
+                        setUserSelectedMode('archive');
+                        pauseLive();
+                        archivePlayer.play(ha);
+                      }}
+                    />
+                  );
+                })}
               </div>
             </div>
             {/* Desktop arrows — same style as watchlist carousel, loops */}
@@ -712,17 +737,24 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         }
         const availableScenes = scenes.filter((s) => activeSceneIdSet.has(s.id));
 
-        // Apply scene filter (multi-select, any-of).
-        const filteredArchives =
-          sceneFilter.size === 0
-            ? archivesWithScenes
-            : archivesWithScenes.filter(({ sceneIds }) =>
-                sceneIds.some((id) => sceneFilter.has(id))
-              );
+        // Treat "all available scenes selected" (or nothing selected at all) the same
+        // as no filter — so the default state (all chips on) shows everything with the
+        // curated hero-first placement intact.
+        const allSelected =
+          availableScenes.length > 0 && availableScenes.every((s) => sceneFilter.has(s.id));
+        const noneSelected = sceneFilter.size === 0;
+        const filteringActive = !allSelected && !noneSelected;
 
-        // Move hero first to position 3 (only when no filter applied, to preserve the curated order).
+        const filteredArchives = filteringActive
+          ? archivesWithScenes.filter(({ sceneIds }) =>
+              sceneIds.some((id) => sceneFilter.has(id))
+            )
+          : archivesWithScenes;
+
+        // Move hero first to position 3 (only when not actively filtering, so the
+        // curated order is preserved).
         const heroItem = heroFirstId ? filteredArchives.find((x) => x.archive.id === heroFirstId) : null;
-        const ordered = heroItem && sceneFilter.size === 0
+        const ordered = heroItem && !filteringActive
           ? (() => {
               const rest = filteredArchives.filter((x) => x.archive.id !== heroFirstId);
               return [...rest.slice(0, 2), heroItem, ...rest.slice(2)];
@@ -792,7 +824,15 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   );
 }
 
-function HeroSlide({ archive, onPlay }: { archive: ArchiveSerialized; onPlay: () => void }) {
+function HeroSlide({
+  archive,
+  onPlay,
+  sceneChips,
+}: {
+  archive: ArchiveSerialized;
+  onPlay: () => void;
+  sceneChips?: Array<{ slug: string; name: string }>;
+}) {
   const primaryDj = archive.djs[0];
   const djName = archive.djs.map(d => d.name).join(', ');
   const photoUrl = archive.showImageUrl || primaryDj?.photoUrl;
@@ -824,6 +864,20 @@ function HeroSlide({ archive, onPlay }: { archive: ArchiveSerialized; onPlay: ()
           <div className="absolute top-2 left-2 drop-shadow-lg">
             <span className="text-sm font-bold text-white uppercase tracking-wide">{archive.showName}</span>
           </div>
+          {/* Scene glyphs — top right */}
+          {sceneChips && sceneChips.length > 0 && (
+            <div className="absolute top-2 right-2 flex items-center gap-2 drop-shadow-lg text-white">
+              {sceneChips.map((s) => (
+                <span
+                  key={s.slug}
+                  title={s.name}
+                  className="text-xl leading-none inline-flex items-center"
+                >
+                  <SceneGlyph slug={s.slug} />
+                </span>
+              ))}
+            </div>
+          )}
           {/* Mood tags — hidden for now (testing) */}
           <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
         </>
