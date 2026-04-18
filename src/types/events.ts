@@ -91,6 +91,7 @@ export interface Collective {
   linkedVenues?: CollectiveVenueRef[];
   linkedCollectives?: CollectiveRef[];
   linkedEvents?: EventRef[];
+  sceneIds?: string[];
   createdAt: number;
   createdBy: string;
 }
@@ -126,6 +127,7 @@ export interface Event {
     residentAdvisor?: string;
     customLinks?: CustomLink[];
   };
+  sceneIdsOverride?: string[] | null; // null/undefined = inherit from DJs + collectives; [] = no scene; [ids] = pinned
   createdAt: number;
   createdBy: string;
 }

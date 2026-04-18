@@ -129,6 +129,7 @@ export interface BroadcastSlot {
   restreamWorkerId?: string;      // Restream worker slot ID (set by start-restream)
   restreamEgressId?: string;      // LiveKit HLS egress ID (set by webhook on track_published)
   streamCount?: number;            // Number of streams (counted after 5+ min playback)
+  sceneIdsOverride?: string[] | null; // null/undefined = inherit from DJs; [] = no scene; [ids] = pinned
 }
 
 // Serialized version for API responses (timestamps as numbers)
@@ -182,6 +183,7 @@ export interface BroadcastSlotSerialized {
   archiveDuration?: number;       // Duration in seconds
   restreamDjs?: ArchiveDJ[];      // All DJs from the archive (for multi-DJ restream display)
   streamCount?: number;            // Number of streams (counted after 5+ min playback)
+  sceneIdsOverride?: string[] | null; // null/undefined = inherit from DJs; [] = no scene; [ids] = pinned
 }
 
 // Recording status type
@@ -298,6 +300,7 @@ export interface Archive {
   publishedAt?: number;          // When recording was published (Unix ms)
   priority?: ArchivePriority;    // Admin-only: high, medium, or low (default medium)
   tags?: string[];               // Mood/vibe tags: 'pick-me-up', 'chill', 'exploratory'
+  sceneIdsOverride?: string[] | null; // null/undefined = inherit from DJs; [] = no scene; [ids] = pinned
 }
 
 // Serialized version for API responses (same as Archive since all fields are already serialized)

@@ -88,6 +88,7 @@ export interface UserDocument {
     bio: string | null;
     tipButtonLink: string | null;
     photoUrl: string | null;
+    sceneIds?: string[];
   };
   // Recording quota tracking (for self-service recording feature)
   recordingQuota?: {
