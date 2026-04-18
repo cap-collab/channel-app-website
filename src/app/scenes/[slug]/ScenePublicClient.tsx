@@ -1,17 +1,19 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { AuthModal } from '@/components/AuthModal';
+import { ArchiveCard } from '@/components/ArchiveCard';
+import { WatchlistModal } from '@/components/WatchlistModal';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useSchedule } from '@/contexts/ScheduleContext';
 import { useFavoriteScenes } from '@/hooks/useFavoriteScenes';
-import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
+import { getStationById } from '@/lib/stations';
 import type { SceneSerialized } from '@/types/scenes';
-import type { Archive } from '@/types/broadcast';
+import type { ArchiveSerialized } from '@/types/broadcast';
 
 export interface SceneDj {
   userId: string;
@@ -26,18 +28,6 @@ export interface SceneCollective {
   name: string;
   photo?: string | null;
   location?: string | null;
-}
-
-export interface SceneArchiveData {
-  id: string;
-  slug: string;
-  showName: string;
-  showImageUrl?: string;
-  recordingUrl?: string;
-  recordedAt: number;
-  duration: number;
-  sourceType?: 'live' | 'recording';
-  djs: Array<{ name: string; username?: string; photoUrl?: string; genres?: string[] }>;
 }
 
 export interface SceneEvent {
@@ -74,7 +64,7 @@ interface Props {
     scene: SceneSerialized;
     djs: SceneDj[];
     collectives: SceneCollective[];
-    archives: SceneArchiveData[];
+    archives: ArchiveSerialized[];
     upcomingEvents: SceneEvent[];
     pastEvents: SceneEvent[];
     upcomingSlots: SceneSlot[];
@@ -86,13 +76,6 @@ type FeedItem =
   | ({ kind: 'event'; time: number } & SceneEvent)
   | ({ kind: 'slot'; time: number } & SceneSlot)
   | ({ kind: 'external'; time: number; id: string; showName: string; djName?: string; djUsername?: string; djPhotoUrl?: string; stationId: string; stationName?: string; startTime: number; endTime: number; imageUrl?: string });
-
-function formatDuration(seconds: number): string {
-  if (!isFinite(seconds) || seconds < 0) return '0:00';
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
 
 function formatShowTime(d: Date): string {
   return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -118,12 +101,6 @@ const IconPlus = () => (
   </svg>
 );
 
-const IconPause = ({ size = 12 }: { size?: number }) => (
-  <svg width={size} height={size} fill="currentColor" viewBox="0 0 24 24">
-    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-  </svg>
-);
-
 export function ScenePublicClient({ data }: Props) {
   const {
     scene,
@@ -139,11 +116,47 @@ export function ScenePublicClient({ data }: Props) {
   const { isAuthenticated } = useAuthContext();
   const { isFavoriteScene, toggleFavoriteScene } = useFavoriteScenes();
   const { shows: allShows } = useSchedule();
-  const archivePlayer = useArchivePlayer();
 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pastExpanded, setPastExpanded] = useState(false);
   const [togglingFav, setTogglingFav] = useState(false);
+
+  // Archive playback (local audio refs — same pattern as /archives page).
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const [currentTimes, setCurrentTimes] = useState<Record<string, number>>({});
+  const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
+  const [watchlistArchive, setWatchlistArchive] = useState<ArchiveSerialized | null>(null);
+
+  const handleArchivePlayPause = (archiveId: string) => {
+    const audio = audioRefs.current[archiveId];
+    if (!audio) return;
+    if (playingId && playingId !== archiveId) {
+      const currentAudio = audioRefs.current[playingId];
+      if (currentAudio) currentAudio.pause();
+    }
+    if (playingId === archiveId) {
+      audio.pause();
+      setPlayingId(null);
+    } else {
+      audio.play();
+      setPlayingId(archiveId);
+    }
+  };
+
+  const handleArchiveSeek = (archiveId: string, time: number) => {
+    const audio = audioRefs.current[archiveId];
+    if (audio) {
+      audio.currentTime = time;
+      setCurrentTimes((prev) => ({ ...prev, [archiveId]: time }));
+    }
+  };
+
+  const handleArchiveTimeUpdate = (archiveId: string) => {
+    const audio = audioRefs.current[archiveId];
+    if (audio) {
+      setCurrentTimes((prev) => ({ ...prev, [archiveId]: audio.currentTime }));
+    }
+  };
 
   // Build a set of usernames + userIds in this scene for external-show matching
   const sceneDjUsernamesLower = useMemo(() => {
@@ -252,99 +265,114 @@ export function ScenePublicClient({ data }: Props) {
       <Header position="sticky" />
 
       <main className="max-w-5xl mx-auto px-6 py-4 pb-24">
-        {/* SECTION A: IDENTITY — big colored emoji + name + description */}
-        <section className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-6 md:items-start">
-          <div className="md:col-span-4">
-            <div className="aspect-square bg-zinc-900 overflow-hidden border border-white/10 flex items-center justify-center">
-              <SceneEmojiMark scene={scene} className="text-[9rem] md:text-[11rem] leading-none" />
-            </div>
-          </div>
-
-          <div className="md:col-span-8 flex flex-col">
-            <h1 className="text-4xl sm:text-7xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-4 break-words">
-              {scene.name}
-            </h1>
-
-            {scene.description && (
-              <p className="max-w-xl text-zinc-400 mb-4">{scene.description}</p>
-            )}
-
-            {/* Artists strip */}
-            {djs.length > 0 && (
-              <div className="mb-2">
-                <p className="text-zinc-500 text-[10px] uppercase tracking-[0.3em] mb-2">Artists</p>
-                <div className="flex flex-wrap gap-2">
-                  {djs.map((dj) => (
-                    <Link
-                      key={dj.userId}
-                      href={dj.username ? `/dj/${dj.username}` : '#'}
-                      className="flex items-center gap-2 px-2.5 py-1.5 bg-zinc-900/50 border border-white/10 rounded-full text-zinc-400 hover:text-white hover:border-white/20 transition-colors text-xs"
-                    >
-                      <span className="w-5 h-5 rounded-full overflow-hidden bg-zinc-800 flex-shrink-0">
-                        {dj.photoUrl ? (
-                          <Image
-                            src={dj.photoUrl}
-                            alt={dj.name}
-                            width={20}
-                            height={20}
-                            className="w-full h-full object-cover"
-                            unoptimized
-                          />
-                        ) : (
-                          <span className="flex items-center justify-center w-full h-full text-[10px] text-zinc-600">
-                            {dj.name.charAt(0).toUpperCase()}
-                          </span>
-                        )}
-                      </span>
-                      <span className="truncate max-w-[120px]">{dj.name}</span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Collectives strip */}
-            {collectives.length > 0 && (
-              <div className="mt-2">
-                <p className="text-zinc-500 text-[10px] uppercase tracking-[0.3em] mb-2">Collectives</p>
-                <div className="flex flex-wrap gap-2">
-                  {collectives.map((c) => (
-                    <Link
-                      key={c.id}
-                      href={`/collective/${c.slug}`}
-                      className="flex items-center gap-2 px-2.5 py-1.5 bg-zinc-900/50 border border-white/10 rounded-full text-zinc-400 hover:text-white hover:border-white/20 transition-colors text-xs"
-                    >
-                      <span className="w-5 h-5 rounded-full overflow-hidden bg-zinc-800 flex-shrink-0">
-                        {c.photo ? (
-                          <Image
-                            src={c.photo}
-                            alt={c.name}
-                            width={20}
-                            height={20}
-                            className="w-full h-full object-cover"
-                            unoptimized
-                          />
-                        ) : (
-                          <span className="flex items-center justify-center w-full h-full text-[10px] text-zinc-600">
-                            {c.name.charAt(0).toUpperCase()}
-                          </span>
-                        )}
-                      </span>
-                      <span className="truncate max-w-[120px]">{c.name}</span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+        {/* Big colored emoji, centered. No title, no background. */}
+        <section className="mb-8 flex justify-center">
+          <SceneEmojiMark
+            scene={scene}
+            className="text-[7rem] sm:text-[9rem] md:text-[11rem] leading-none"
+          />
         </section>
 
-        {/* RECORDINGS — radio-style cards, same as /dj/[username] */}
+        {scene.description && (
+          <p className="max-w-xl mx-auto text-center text-zinc-400 mb-8">{scene.description}</p>
+        )}
+
+        {/* Artists: square DJ photos with name overlaid, compact grid */}
+        {djs.length > 0 && (
+          <section className="mb-6">
+            <p className="text-zinc-500 text-[10px] uppercase tracking-[0.5em] mb-3">Artists</p>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+              {djs.map((dj) => (
+                <Link
+                  key={dj.userId}
+                  href={dj.username ? `/dj/${dj.username}` : '#'}
+                  className="group relative aspect-square bg-zinc-900 border border-white/10 overflow-hidden hover:border-white/30 transition-colors"
+                >
+                  {dj.photoUrl ? (
+                    <Image
+                      src={dj.photoUrl}
+                      alt={dj.name}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 33vw, 16vw"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-zinc-600 text-xl">
+                      {dj.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-6 pb-1.5 px-2">
+                    <p className="text-white text-[11px] font-medium truncate">{dj.name}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Collectives — keep pill style (smaller ancillary group) */}
+        {collectives.length > 0 && (
+          <section className="mb-6">
+            <p className="text-zinc-500 text-[10px] uppercase tracking-[0.5em] mb-3">Collectives</p>
+            <div className="flex flex-wrap gap-2">
+              {collectives.map((c) => (
+                <Link
+                  key={c.id}
+                  href={`/collective/${c.slug}`}
+                  className="flex items-center gap-2 px-2.5 py-1.5 bg-zinc-900/50 border border-white/10 rounded-full text-zinc-400 hover:text-white hover:border-white/20 transition-colors text-xs"
+                >
+                  <span className="w-5 h-5 rounded-full overflow-hidden bg-zinc-800 flex-shrink-0">
+                    {c.photo ? (
+                      <Image
+                        src={c.photo}
+                        alt={c.name}
+                        width={20}
+                        height={20}
+                        className="w-full h-full object-cover"
+                        unoptimized
+                      />
+                    ) : (
+                      <span className="flex items-center justify-center w-full h-full text-[10px] text-zinc-600">
+                        {c.name.charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </span>
+                  <span className="truncate max-w-[120px]">{c.name}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* RECORDINGS — reuses /archives ArchiveCard for consistency */}
         {displayedArchives.length > 0 && (
           <section className="space-y-3 mb-6">
             <p className="text-zinc-500 text-[10px] uppercase tracking-[0.5em]">Recordings</p>
             {displayedArchives.map((archive) => (
-              <RecordingCard key={archive.id} archive={archive} archivePlayer={archivePlayer} />
+              <ArchiveCard
+                key={archive.id}
+                archive={archive}
+                isPlaying={playingId === archive.id}
+                onPlayPause={() => handleArchivePlayPause(archive.id)}
+                currentTime={currentTimes[archive.id] || 0}
+                onSeek={(time) => handleArchiveSeek(archive.id, time)}
+                onAudioRef={(el) => {
+                  audioRefs.current[archive.id] = el;
+                }}
+                onTimeUpdate={() => handleArchiveTimeUpdate(archive.id)}
+                onEnded={() => {
+                  setPlayingId(null);
+                  setCurrentTimes((prev) => ({ ...prev, [archive.id]: 0 }));
+                }}
+                onAddToWatchlist={() => {
+                  if (!isAuthenticated) {
+                    setShowAuthModal(true);
+                    return;
+                  }
+                  setWatchlistArchive(archive);
+                }}
+              />
             ))}
           </section>
         )}
@@ -432,6 +460,20 @@ export function ScenePublicClient({ data }: Props) {
         onClose={() => setShowAuthModal(false)}
         message={`Sign up to add ${scene.emoji} ${scene.name} to your watchlist.`}
       />
+
+      {watchlistArchive && (
+        <WatchlistModal
+          isOpen={!!watchlistArchive}
+          onClose={() => setWatchlistArchive(null)}
+          showName={watchlistArchive.showName}
+          djs={watchlistArchive.djs.map((dj) => ({
+            name: dj.name,
+            username: dj.username,
+            userId: dj.userId,
+            email: dj.email,
+          }))}
+        />
+      )}
     </div>
   );
 }
@@ -452,119 +494,29 @@ function SceneEmojiMark({ scene, className }: { scene: SceneSerialized; classNam
   );
 }
 
-function RecordingCard({
-  archive,
-  archivePlayer,
+// Render "DJ · Show name" in a single line, same font weight/size as caller.
+// DJ name links to the DJ page when username is set.
+function DjShowTitle({
+  djs,
+  showName,
 }: {
-  archive: SceneArchiveData;
-  archivePlayer: ReturnType<typeof useArchivePlayer>;
+  djs: Array<{ name: string; username?: string }>;
+  showName: string;
 }) {
-  const isThisArchive = archivePlayer.currentArchive?.id === archive.id;
-  const isPlayingArchive = isThisArchive && archivePlayer.isPlaying;
-  const currentTime = isThisArchive ? archivePlayer.currentTime : 0;
-  const showImage = archive.showImageUrl;
-  const recordingDate = new Date(archive.recordedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const genres = archive.djs?.[0]?.genres;
-  const genreText = genres?.length ? genres.map((g) => g.toUpperCase()).join(' · ') : null;
-
-  const handlePlayPause = () => {
-    if (!archive.recordingUrl) return;
-    if (isPlayingArchive) {
-      archivePlayer.pause();
-    } else {
-      archivePlayer.play(archive as unknown as Archive);
-    }
-  };
-
+  const first = djs[0];
+  if (!first) return <>{showName}</>;
   return (
-    <div className="bg-black border border-[#333] rounded-none overflow-hidden">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-black/40 border-b border-[#333] font-mono">
-        <span className="text-zinc-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5 min-w-0">
-          {archive.sourceType === 'live' ? (
-            <>
-              <span className="inline-flex rounded-full h-2 w-2 bg-red-600 flex-shrink-0" />
-              Live Recording
-            </>
-          ) : (
-            <>
-              <svg className="w-3 h-3 text-zinc-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-              </svg>
-              Recording
-            </>
-          )}
-        </span>
-        <span className="text-zinc-500 text-xs flex-shrink-0 ml-2">{recordingDate}</span>
-      </div>
-
-      <div className="p-3 flex items-start gap-3">
-        {showImage && (
-          <div className="w-20 h-20 bg-zinc-800 flex-shrink-0 overflow-hidden">
-            <Image
-              src={showImage}
-              alt={archive.showName}
-              width={80}
-              height={80}
-              className="w-full h-full object-cover"
-              unoptimized
-            />
-          </div>
-        )}
-        <div className="flex-1 min-w-0 flex flex-col justify-between" style={showImage ? { minHeight: '80px' } : undefined}>
-          <div>
-            <p className="text-sm font-bold text-white uppercase tracking-wide">{archive.showName}</p>
-            {archive.djs.length > 0 && (
-              <p className="text-[11px] text-zinc-400 mt-0.5 truncate">
-                {archive.djs.map((dj, i) => (
-                  <span key={`${dj.username || dj.name}-${i}`}>
-                    {i > 0 && ', '}
-                    {dj.username ? (
-                      <Link href={`/dj/${dj.username}`} className="hover:text-white">
-                        {dj.name}
-                      </Link>
-                    ) : (
-                      dj.name
-                    )}
-                  </span>
-                ))}
-              </p>
-            )}
-            {genreText && (
-              <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-400 mt-0.5">{genreText}</p>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 mt-1">
-            <button
-              onClick={handlePlayPause}
-              className="w-7 h-7 bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0 text-black"
-            >
-              {isPlayingArchive ? (
-                <IconPause size={12} />
-              ) : (
-                <svg className="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              )}
-            </button>
-            <div className="flex-1 min-w-0 space-y-0.5">
-              <input
-                type="range"
-                min={0}
-                max={archive.duration || 100}
-                value={currentTime}
-                onChange={(e) => archivePlayer.seek(parseFloat(e.target.value))}
-                className="w-full h-1 bg-zinc-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
-              />
-              <div className="flex justify-between text-[10px] text-zinc-500">
-                <span>{formatDuration(currentTime)}</span>
-                <span>{formatDuration(archive.duration)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <>
+      {first.username ? (
+        <Link href={`/dj/${first.username}`} className="hover:text-zinc-300">
+          {first.name}
+        </Link>
+      ) : (
+        first.name
+      )}
+      <span className="text-zinc-500 mx-2">·</span>
+      {showName}
+    </>
   );
 }
 
@@ -712,12 +664,12 @@ function SlotCard({ slot }: { slot: SceneSlot }) {
             alt={slot.showName}
           />
           <div className="flex-1 min-w-0">
-            <h3 className="text-white font-medium">{slot.showName}</h3>
-            {slot.djName && (
-              <div className="mt-1.5">
-                <DjBadge name={slot.djName} username={slot.djUsername} photoUrl={slot.djPhotoUrl} size={22} />
-              </div>
-            )}
+            <h3 className="text-white font-medium">
+              <DjShowTitle
+                djs={slot.djName ? [{ name: slot.djName, username: slot.djUsername }] : []}
+                showName={slot.showName}
+              />
+            </h3>
           </div>
         </div>
       </div>
@@ -750,7 +702,6 @@ function CardThumb({
 
 function ExternalCard({
   show,
-  isPast,
 }: {
   show: {
     id: string;
@@ -768,6 +719,7 @@ function ExternalCard({
 }) {
   const dateStr = shortDate(show.startTime);
   const timeStr = formatShowTime(new Date(show.startTime));
+  const stationLabel = show.stationName || getStationById(show.stationId)?.name || show.stationId;
   return (
     <div className="bg-zinc-900/50 border border-[#333] rounded-none overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2 bg-black/40 border-b border-[#333] font-mono">
@@ -777,7 +729,7 @@ function ExternalCard({
           </svg>
           Online
           <span className="text-zinc-500">·</span>
-          <span className="truncate">{show.stationName || show.stationId}</span>
+          <span className="truncate">{stationLabel}</span>
         </span>
         <span className="text-zinc-400 text-xs flex-shrink-0 ml-2">
           {dateStr} · {timeStr}
@@ -791,15 +743,14 @@ function ExternalCard({
             alt={show.showName}
           />
           <div className="flex-1 min-w-0">
-            <h3 className="text-white font-medium">{show.showName}</h3>
-            {show.djName && (
-              <div className="mt-1.5">
-                <DjBadge name={show.djName} username={show.djUsername} photoUrl={show.djPhotoUrl} size={22} />
-              </div>
-            )}
+            <h3 className="text-white font-medium">
+              <DjShowTitle
+                djs={show.djName ? [{ name: show.djName, username: show.djUsername }] : []}
+                showName={show.showName}
+              />
+            </h3>
           </div>
         </div>
-        {!isPast && null}
       </div>
     </div>
   );

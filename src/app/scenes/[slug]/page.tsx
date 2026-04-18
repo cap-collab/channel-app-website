@@ -5,13 +5,13 @@ import { makeOG } from '@/lib/og';
 import { fetchSceneBySlugServer } from '@/lib/scenes';
 import {
   ScenePublicClient,
-  type SceneArchiveData,
   type SceneCollective,
   type SceneDj,
   type SceneEvent,
   type SceneSlot,
 } from './ScenePublicClient';
 import type { SceneSerialized } from '@/types/scenes';
+import type { ArchiveSerialized } from '@/types/broadcast';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +35,7 @@ interface ScenePageData {
   scene: SceneSerialized;
   djs: SceneDj[];
   collectives: SceneCollective[];
-  archives: SceneArchiveData[];
+  archives: ArchiveSerialized[];
   upcomingEvents: SceneEvent[];
   pastEvents: SceneEvent[];
   upcomingSlots: SceneSlot[];
@@ -93,9 +93,11 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
     const data = doc.data();
     const role = data.role;
     if (role !== 'dj' && role !== 'broadcaster' && role !== 'admin') return;
+    // Prefer the DJ name (chatUsername / stage name). Fall back to displayName only
+    // if there is no chatUsername.
     djs.push({
       userId: doc.id,
-      name: data.displayName || data.chatUsername || '(no name)',
+      name: data.chatUsername || data.displayName || '(no name)',
       username: data.chatUsername,
       photoUrl: data.djProfile?.photoUrl,
     });
@@ -154,17 +156,26 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
     if (data.slug) allCollectiveScenesBySlug.set(data.slug, sceneIds);
   });
 
-  // Archives in this scene.
+  // Archives in this scene + a global index of which slots already have a recording.
   const archivesSnap = await db.collection('archives').get();
-  const archives: SceneArchiveData[] = [];
+  const archives: ArchiveSerialized[] = [];
+  const slotIdsWithRecording = new Set<string>();
+  archivesSnap.forEach((doc) => {
+    const data = doc.data();
+    if (typeof data.broadcastSlotId === 'string' && data.broadcastSlotId) {
+      slotIdsWithRecording.add(data.broadcastSlotId);
+    }
+  });
   archivesSnap.forEach((doc) => {
     const data = doc.data();
     const djList: Array<{
       name: string;
       username?: string;
       userId?: string;
+      email?: string;
       photoUrl?: string;
       genres?: string[];
+      location?: string;
     }> = data.djs ?? [];
     const djUsernames = djList.map((d) => d.username).filter(Boolean) as string[];
     const djUserIds = djList.map((d) => d.userId).filter(Boolean) as string[];
@@ -192,25 +203,38 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
     );
     if (!effective.includes(slug)) return;
 
+    const enrichedDjs = djList.map((d) => ({
+      name: d.name,
+      username: d.username,
+      userId: d.userId,
+      email: d.email,
+      photoUrl:
+        d.photoUrl ||
+        (d.userId && allDjPhotoByUserId.get(d.userId)) ||
+        (d.username && allDjPhotoByUsername.get(d.username.toLowerCase())) ||
+        undefined,
+      genres: d.genres,
+      location: d.location,
+    }));
+
     archives.push({
       id: doc.id,
       slug: data.slug || doc.id,
+      broadcastSlotId: data.broadcastSlotId || '',
       showName: data.showName || '(untitled)',
-      showImageUrl: data.showImageUrl,
-      recordingUrl: data.recordingUrl,
-      recordedAt: typeof data.recordedAt === 'number' ? data.recordedAt : 0,
+      djs: enrichedDjs,
+      recordingUrl: data.recordingUrl || '',
       duration: typeof data.duration === 'number' ? data.duration : 0,
+      recordedAt: typeof data.recordedAt === 'number' ? data.recordedAt : 0,
+      createdAt: typeof data.createdAt === 'number' ? data.createdAt : 0,
+      stationId: data.stationId || 'channel-main',
+      showImageUrl: data.showImageUrl,
+      streamCount: typeof data.streamCount === 'number' ? data.streamCount : undefined,
+      isPublic: typeof data.isPublic === 'boolean' ? data.isPublic : undefined,
       sourceType: data.sourceType,
-      djs: djList.map((d) => ({
-        name: d.name,
-        username: d.username,
-        photoUrl:
-          d.photoUrl ||
-          (d.userId && allDjPhotoByUserId.get(d.userId)) ||
-          (d.username && allDjPhotoByUsername.get(d.username.toLowerCase())) ||
-          undefined,
-        genres: d.genres,
-      })),
+      publishedAt: typeof data.publishedAt === 'number' ? data.publishedAt : undefined,
+      priority: data.priority,
+      tags: Array.isArray(data.tags) ? data.tags : undefined,
     });
   });
   archives.sort((a, b) => b.recordedAt - a.recordedAt);
@@ -384,6 +408,11 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
       (djUsernameLower && allDjPhotoByUsername.get(djUsernameLower)) ||
       undefined;
 
+    const isPastSlot = endTime < now;
+    // Hide past Channel broadcasts that already have a recording — the archive row
+    // (rendered as a "Recording" card above) already represents them.
+    if (isPastSlot && slotIdsWithRecording.has(doc.id)) return;
+
     const slot: SceneSlot = {
       id: doc.id,
       showName: data.showName || '(show)',
@@ -393,7 +422,7 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
       djName: data.djName || data.liveDjUsername,
       djUsername: djUsernameRaw,
       djPhotoUrl: djPhotoResolved,
-      isPast: endTime < now,
+      isPast: isPastSlot,
     };
     (slot.isPast ? pastSlots : upcomingSlots).push(slot);
   });
