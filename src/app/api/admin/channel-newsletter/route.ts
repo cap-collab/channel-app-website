@@ -299,22 +299,27 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "preview requires cohort=dj|listener" }, { status: 400 });
     }
     const toParam = request.nextUrl.searchParams.get("to");
+    const asParam = request.nextUrl.searchParams.get("as");
     const previewTo = toParam || "cap@channel-app.com";
-    const previewName = toParam
-      ? (selected.find((r) => r.email === toParam)?.name || "Cap")
-      : "Cap";
+    // The "as" email drives the unsubscribe token + greeted name so we can
+    // simulate sends from a specific cohort source (pending DJ, waitlist, etc.)
+    // while still delivering to the test inbox.
+    const tokenEmail = asParam || previewTo;
+    const matched = selected.find((r) => r.email === tokenEmail);
+    const previewName = matched?.name || (toParam ? "Cap" : "Cap");
     try {
       await resend.emails.send({
         from: FROM_EMAIL,
         to: previewTo,
-        subject: SUBJECT,
-        html: buildEmailHtml(previewName, cohortParam, previewTo),
-        headers: buildListUnsubscribeHeaders(previewTo, cohortParam === "dj" ? "dj" : "marketing"),
+        subject: `[test as ${tokenEmail}] ${SUBJECT}`,
+        html: buildEmailHtml(previewName, cohortParam, tokenEmail),
+        headers: buildListUnsubscribeHeaders(tokenEmail, cohortParam === "dj" ? "dj" : "marketing"),
       });
       return NextResponse.json({
         mode: "preview",
         cohort: cohortParam,
         sentTo: previewTo,
+        unsubscribeTokenFor: tokenEmail,
         greetedAs: previewName,
         subject: SUBJECT,
       });
