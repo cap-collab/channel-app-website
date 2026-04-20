@@ -68,7 +68,18 @@ function resolveFirstName(email: string, name?: string, chatUsername?: string): 
   return "there";
 }
 
+// Capitalize the first letter (Unicode-safe) without touching the rest,
+// so "aurelien" → "Aurelien", "jérémie" → "Jérémie", "DJ Valerian" stays.
+function capitalize(s: string): string {
+  if (!s) return s;
+  const first = s.charAt(0);
+  const upper = first.toLocaleUpperCase();
+  if (first === upper) return s;
+  return upper + s.slice(1);
+}
+
 function buildEmailHtml(name: string, cohort: Cohort): string {
+  const displayName = capitalize(name);
   const unsubscribeCategory = cohort === "dj" ? "dj" : "marketing";
   const settingsUrl = `${APP_URL}/settings?unsubscribe=${unsubscribeCategory}`;
   const footerText = cohort === "dj"
@@ -101,7 +112,7 @@ function buildEmailHtml(name: string, cohort: Cohort): string {
               </tr>
               <tr>
                 <td bgcolor="#ffffff" style="font-size: 15px; line-height: 1.6; color: #1a1a1a;">
-                  <p style="margin: 0 0 16px; color: #1a1a1a;">Hi ${name},</p>
+                  <p style="margin: 0 0 16px; color: #1a1a1a;">Hi ${displayName},</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Channel is starting to take shape.</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Over the past couple weeks, a number of DJs and producers have been playing, and something is emerging through that.</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">I've started posting moments from the shows here, and will share upcoming sessions as they happen:<br/><a href="https://instagram.com/channelrad.io" style="color: #1a1a1a;">https://instagram.com/channelrad.io</a></p>
