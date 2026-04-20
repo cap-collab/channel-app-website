@@ -393,9 +393,9 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // ── Send ──
+  // ── Send (LOCKED) ──
   if (mode === "send") {
-    const SEND_ENABLED = true;
+    const SEND_ENABLED = false; // ← sent 72/72 on 2026-04-20
     if (!SEND_ENABLED) {
       return NextResponse.json({
         error: "Send mode is locked. Set SEND_ENABLED = true in code when ready.",
