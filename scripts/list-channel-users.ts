@@ -64,6 +64,13 @@ const EXTRA_PENDING_DJS = [
   { email: "omer.almileik@gmail.com", name: "Omer" },
 ];
 
+const EXTRA_LISTENERS = [
+  { email: "alexandra.sentisfranco@gmail.com", name: "Alexandra" },
+  { email: "charles.fages@gmail.com", name: "Charles" },
+  { email: "emroseclements@gmail.com", name: "Em Rose" },
+  { email: "jahichambers@gmail.com", name: "Jahi" },
+];
+
 // Recipients from the Week 3 send (pulled from /api/admin/dj-newsletter compare).
 const WEEK3_EMAILS = new Set<string>([
   "anthonypomije@gmail.com",
@@ -182,6 +189,19 @@ async function main() {
       cohort: "listener",
       receivedLastWeek: false,
       role: data.role,
+    });
+  }
+
+  // Radio-notify waitlist signups without a users doc
+  for (const extra of EXTRA_LISTENERS) {
+    if (EXCLUDE_EMAILS.has(extra.email)) continue;
+    if (djEmails.has(extra.email)) continue;
+    if (listenerRows.some((r) => r.email === extra.email)) continue;
+    listenerRows.push({
+      email: extra.email,
+      firstName: extra.name,
+      cohort: "listener",
+      receivedLastWeek: false,
     });
   }
 

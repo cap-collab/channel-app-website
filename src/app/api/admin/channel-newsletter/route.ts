@@ -60,6 +60,15 @@ const EXTRA_PENDING_DJS: Array<{ email: string; name: string; id: string }> = [
   { email: "omer.almileik@gmail.com", name: "Omer", id: "pending-omer" },
 ];
 
+// Extra listeners — radio-notify waitlist signups without a `users` doc
+// that we still want included in the broadcast.
+const EXTRA_LISTENERS: Array<{ email: string; name: string; id: string }> = [
+  { email: "alexandra.sentisfranco@gmail.com", name: "Alexandra", id: "waitlist-alexandra" },
+  { email: "charles.fages@gmail.com", name: "Charles", id: "waitlist-charles" },
+  { email: "emroseclements@gmail.com", name: "Em Rose", id: "waitlist-emrose" },
+  { email: "jahichambers@gmail.com", name: "Jahi", id: "waitlist-jahi" },
+];
+
 function minifyHtml(html: string): string {
   return html.replace(/\n\s+/g, "\n").replace(/\n+/g, "\n").trim();
 }
@@ -195,6 +204,12 @@ async function getListenerRecipients(
       id: doc.id,
       cohort: "listener",
     });
+  }
+  for (const extra of EXTRA_LISTENERS) {
+    if (EXCLUDE_EMAILS.has(extra.email)) continue;
+    if (djEmails.has(extra.email)) continue;
+    if (out.some((r) => r.email === extra.email)) continue;
+    out.push({ ...extra, cohort: "listener" });
   }
   return out;
 }
