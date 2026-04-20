@@ -38,6 +38,9 @@ const FIRST_NAME_OVERRIDES: Record<string, string> = {
   "mashinerie@gmail.com": "hello",
   "t8bm2sdryx@privaterelay.appleid.com": "user1",
   "v8yykfdgbd@privaterelay.appleid.com": "cpl",
+  "yaldahesh@gmail.com": "Yalda",
+  "pierre.elie.fauche@gmail.com": "Pierre-Elie",
+  "margot2themax@gmail.com": "Margot",
 };
 
 const EXCLUDE_EMAILS = new Set([
@@ -61,9 +64,9 @@ function minifyHtml(html: string): string {
 }
 
 function resolveFirstName(email: string, name?: string, chatUsername?: string): string {
-  if (name && name.trim()) return name.trim().split(/\s+/)[0];
   const override = FIRST_NAME_OVERRIDES[email];
   if (override) return override;
+  if (name && name.trim()) return name.trim().split(/\s+/)[0];
   if (chatUsername && chatUsername.trim()) return chatUsername.trim();
   return "there";
 }
