@@ -14,7 +14,8 @@ const SUBJECT = "Something is starting to take shape";
 
 type Cohort = "dj" | "listener";
 
-// First-name overrides: when data.name is missing, wrong, or a full name.
+// First-name overrides: applied only when Firebase `name` is missing.
+// Priority: Firebase name → override → chatUsername → "there".
 const FIRST_NAME_OVERRIDES: Record<string, string> = {
   "anthonypomije@gmail.com": "Anthony",
   "paulsboston@gmail.com": "Paul",
@@ -23,6 +24,20 @@ const FIRST_NAME_OVERRIDES: Record<string, string> = {
   "celebritybitcrush@gmail.com": "Keigo",
   "cap@beyondalgorithms.cloud": "Cap",
   "2ty7cmd5tf@privaterelay.appleid.com": "Cap",
+  // Listener corrections
+  "aubespin@gmail.com": "David",
+  "jchatard@outlook.fr": "JP",
+  "powell.oliver@me.com": "Oliver",
+  "ssantos2107@gmail.com": "Sofia",
+  "walidvb@gmail.com": "Walid",
+  "benjaminruthven@aol.com": "Benji",
+  "billyboyali@gmail.com": "Bilal",
+  "cf6nq9k22f@privaterelay.appleid.com": "there",
+  "emwhitenoise@gmail.com": "Emily",
+  "jbektemba0711@gmail.com": "Jelani",
+  "mashinerie@gmail.com": "hello",
+  "t8bm2sdryx@privaterelay.appleid.com": "user1",
+  "v8yykfdgbd@privaterelay.appleid.com": "cpl",
 };
 
 const EXCLUDE_EMAILS = new Set([
@@ -45,10 +60,11 @@ function minifyHtml(html: string): string {
   return html.replace(/\n\s+/g, "\n").replace(/\n+/g, "\n").trim();
 }
 
-function resolveFirstName(email: string, name?: string): string {
+function resolveFirstName(email: string, name?: string, chatUsername?: string): string {
+  if (name && name.trim()) return name.trim().split(/\s+/)[0];
   const override = FIRST_NAME_OVERRIDES[email];
   if (override) return override;
-  if (name && name.trim()) return name.trim().split(/\s+/)[0];
+  if (chatUsername && chatUsername.trim()) return chatUsername.trim();
   return "there";
 }
 
@@ -126,7 +142,7 @@ async function getDjRecipients(db: FirebaseFirestore.Firestore): Promise<Recipie
     if (!data.emailNotifications?.djInsiders) continue;
     out.push({
       email: data.email,
-      name: resolveFirstName(data.email, data.name),
+      name: resolveFirstName(data.email, data.name, data.chatUsername),
       id: doc.id,
       cohort: "dj",
     });
@@ -159,7 +175,7 @@ async function getListenerRecipients(
     seen.add(email);
     out.push({
       email,
-      name: resolveFirstName(email, data.name),
+      name: resolveFirstName(email, data.name, data.chatUsername),
       id: doc.id,
       cohort: "listener",
     });

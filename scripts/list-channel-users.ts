@@ -3,7 +3,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import { initializeApp, cert, getApps } from "firebase-admin/app";
+import { initializeApp, cert, applicationDefault, getApps } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
 // Minimal .env.local loader (avoids dotenv dependency).
@@ -29,6 +29,20 @@ const FIRST_NAME_OVERRIDES: Record<string, string> = {
   "celebritybitcrush@gmail.com": "Keigo",
   "cap@beyondalgorithms.cloud": "Cap",
   "2ty7cmd5tf@privaterelay.appleid.com": "Cap",
+  // Listener corrections from manual review
+  "aubespin@gmail.com": "David",
+  "jchatard@outlook.fr": "JP",
+  "powell.oliver@me.com": "Oliver",
+  "ssantos2107@gmail.com": "Sofia",
+  "walidvb@gmail.com": "Walid",
+  "benjaminruthven@aol.com": "Benji",
+  "billyboyali@gmail.com": "Bilal",
+  "cf6nq9k22f@privaterelay.appleid.com": "there",
+  "emwhitenoise@gmail.com": "Emily",
+  "jbektemba0711@gmail.com": "Jelani",
+  "mashinerie@gmail.com": "hello",
+  "t8bm2sdryx@privaterelay.appleid.com": "user1",
+  "v8yykfdgbd@privaterelay.appleid.com": "cpl",
 };
 
 const EXCLUDE_EMAILS = new Set([
@@ -73,25 +87,34 @@ const WEEK3_EMAILS = new Set<string>([
   "omer.almileik@gmail.com",
 ]);
 
-function resolveFirstName(email: string, name?: string): string {
+// Priority: Firebase name → manual override → chatUsername → "there".
+// No email-handle stitching.
+function resolveFirstName(email: string, name?: string, chatUsername?: string): string {
+  if (name && name.trim()) return name.trim().split(/\s+/)[0];
   const override = FIRST_NAME_OVERRIDES[email];
   if (override) return override;
-  if (name && name.trim()) return name.trim().split(/\s+/)[0];
+  if (chatUsername && chatUsername.trim()) return chatUsername.trim();
   return "there";
 }
 
 async function main() {
   if (!getApps().length) {
-    const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY!;
-    initializeApp({
-      credential: cert({
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
-        clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL!,
-        privateKey: privateKey.includes("\\n")
-          ? privateKey.replace(/\\n/g, "\n")
-          : privateKey,
-      }),
-    });
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!;
+    const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
+    const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
+    if (privateKey && privateKey.includes("BEGIN PRIVATE KEY") && clientEmail) {
+      initializeApp({
+        credential: cert({
+          projectId,
+          clientEmail,
+          privateKey: privateKey.includes("\\n")
+            ? privateKey.replace(/\\n/g, "\n")
+            : privateKey,
+        }),
+      });
+    } else {
+      initializeApp({ credential: applicationDefault(), projectId });
+    }
   }
   const db = getFirestore();
 
@@ -110,7 +133,7 @@ async function main() {
     if (!data.emailNotifications?.djInsiders) continue;
     djRows.push({
       email: data.email,
-      firstName: resolveFirstName(data.email, data.name),
+      firstName: resolveFirstName(data.email, data.name, data.chatUsername),
       cohort: "dj",
       receivedLastWeek: WEEK3_EMAILS.has(data.email),
     });
@@ -149,7 +172,7 @@ async function main() {
     seen.add(email);
     listenerRows.push({
       email,
-      firstName: resolveFirstName(email, data.name),
+      firstName: resolveFirstName(email, data.name, data.chatUsername),
       cohort: "listener",
       receivedLastWeek: false,
       role: data.role,
