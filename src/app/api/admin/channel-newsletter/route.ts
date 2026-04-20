@@ -41,6 +41,7 @@ const FIRST_NAME_OVERRIDES: Record<string, string> = {
   "yaldahesh@gmail.com": "Yalda",
   "pierre.elie.fauche@gmail.com": "Pierre-Elie",
   "margot2themax@gmail.com": "Margot",
+  "akumenmusic@gmail.com": "Tony",
 };
 
 const EXCLUDE_EMAILS = new Set([
@@ -119,7 +120,7 @@ function buildEmailHtml(name: string, cohort: Cohort): string {
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Channel is starting to take shape.</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Over the past couple weeks, a number of DJs and producers have been playing, and something is emerging through that.</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">I've started posting moments from the shows here, and will share upcoming sessions as they happen:<br/><a href="https://instagram.com/channelrad.io" style="color: #1a1a1a;">https://instagram.com/channelrad.io</a></p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;">A series of live shows are coming up this week across LA and NY, spanning a range of sounds — from ambient to house, techno, and more experimental edges.</p>
+                  <p style="margin: 0 0 16px; color: #1a1a1a;"><strong>A series of live shows are coming up this week across LA and NY</strong>, spanning a range of sounds — from ambient to house, techno, and more experimental edges.</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Stay tuned.</p>
                   <p style="margin: 0; color: #1a1a1a;">Cap</p>
                 </td>
