@@ -107,8 +107,8 @@ function buildEmailHtml(name: string, cohort: Cohort): string {
     <body class="body-bg" bgcolor="#ffffff" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #ffffff; color: #1a1a1a; margin: 0; padding: 0;">
       <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="background-color: #ffffff;">
         <tr>
-          <td align="center" style="padding: 40px 8px;" bgcolor="#ffffff">
-            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px;">
+          <td align="center" style="padding: 40px 16px;" bgcolor="#ffffff">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 720px;">
               <tr>
                 <td align="center" style="padding-bottom: 32px;" bgcolor="#ffffff">
                   <a href="${APP_URL}" style="text-decoration: none;"><img src="${LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" /></a>
