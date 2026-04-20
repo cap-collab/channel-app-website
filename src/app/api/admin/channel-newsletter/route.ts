@@ -87,7 +87,7 @@ function buildEmailHtml(name: string, cohort: Cohort): string {
   const unsubscribeCategory = cohort === "dj" ? "dj" : "marketing";
   const settingsUrl = `${APP_URL}/settings?unsubscribe=${unsubscribeCategory}`;
   const footerText = cohort === "dj"
-    ? "You're receiving this as a DJ on Channel Radio."
+    ? "You're receiving this as a participative artist on Channel."
     : "You're receiving this as a member of Channel.";
 
   return minifyHtml(`
