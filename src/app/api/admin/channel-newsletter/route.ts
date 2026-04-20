@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { getAdminDb } from "@/lib/firebase-admin";
-import { getUnsubscribeHeaders } from "@/lib/email";
+function buildListUnsubscribeHeaders(email: string, category: "dj" | "marketing") {
+  const url = buildUnsubscribeUrl(email, category);
+  return {
+    "List-Unsubscribe": `<${url}>`,
+    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+  };
+}
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -91,10 +97,15 @@ function capitalize(s: string): string {
   return upper + s.slice(1);
 }
 
-function buildEmailHtml(name: string, cohort: Cohort): string {
+function buildUnsubscribeUrl(email: string, category: "dj" | "marketing"): string {
+  const token = Buffer.from(email.trim().toLowerCase()).toString("base64");
+  return `${APP_URL}/api/newsletter-unsubscribe?token=${encodeURIComponent(token)}&c=${category}`;
+}
+
+function buildEmailHtml(name: string, cohort: Cohort, email: string): string {
   const displayName = capitalize(name);
-  const unsubscribeCategory = cohort === "dj" ? "dj" : "marketing";
-  const settingsUrl = `${APP_URL}/settings?unsubscribe=${unsubscribeCategory}`;
+  const category: "dj" | "marketing" = cohort === "dj" ? "dj" : "marketing";
+  const settingsUrl = buildUnsubscribeUrl(email, category);
   const footerText = cohort === "dj"
     ? "You're receiving this as an artist on Channel."
     : "You're receiving this as a member of Channel.";
@@ -165,6 +176,9 @@ async function getDjRecipients(db: FirebaseFirestore.Firestore): Promise<Recipie
     if (!data.email) continue;
     if (EXCLUDE_EMAILS.has(data.email)) continue;
     if (!data.emailNotifications?.djInsiders) continue;
+    // Respect explicit marketing opt-out — unsubscribing from the channel
+    // newsletter sets marketing=false even for DJs.
+    if (data.emailNotifications?.marketing === false) continue;
     out.push({
       email: data.email,
       name: resolveFirstName(data.email, data.name, data.chatUsername),
@@ -172,8 +186,20 @@ async function getDjRecipients(db: FirebaseFirestore.Firestore): Promise<Recipie
       cohort: "dj",
     });
   }
+
+  // Pending DJs live in pending-dj-profiles; skip any with unsubscribed=true.
+  const pendingUnsubscribed = new Set<string>();
+  const pendingSnap = await db.collection("pending-dj-profiles").get();
+  for (const doc of pendingSnap.docs) {
+    const data = doc.data();
+    if (data.email && data.unsubscribed === true) {
+      pendingUnsubscribed.add((data.email as string).toLowerCase());
+    }
+  }
+
   for (const pending of EXTRA_PENDING_DJS) {
     if (EXCLUDE_EMAILS.has(pending.email)) continue;
+    if (pendingUnsubscribed.has(pending.email.toLowerCase())) continue;
     if (out.some((r) => r.email === pending.email)) continue;
     out.push({ ...pending, cohort: "dj" });
   }
@@ -197,6 +223,8 @@ async function getListenerRecipients(
     // if djInsiders is off (they already opted out of DJ emails explicitly).
     if (data.role === "dj" || data.role === "broadcaster" || data.role === "admin") continue;
     if (seen.has(email)) continue;
+    // Honour explicit marketing opt-out.
+    if (data.emailNotifications?.marketing === false) continue;
     seen.add(email);
     out.push({
       email,
@@ -205,9 +233,22 @@ async function getListenerRecipients(
       cohort: "listener",
     });
   }
+
+  // Waitlist signups feeding EXTRA_LISTENERS; skip any whose waitlist
+  // doc is flagged unsubscribed=true.
+  const waitlistUnsubscribed = new Set<string>();
+  const waitlistSnap = await db.collection("radio-notify-waitlist").get();
+  for (const doc of waitlistSnap.docs) {
+    const data = doc.data();
+    if (data.email && data.unsubscribed === true) {
+      waitlistUnsubscribed.add((data.email as string).toLowerCase());
+    }
+  }
+
   for (const extra of EXTRA_LISTENERS) {
     if (EXCLUDE_EMAILS.has(extra.email)) continue;
     if (djEmails.has(extra.email)) continue;
+    if (waitlistUnsubscribed.has(extra.email.toLowerCase())) continue;
     if (out.some((r) => r.email === extra.email)) continue;
     out.push({ ...extra, cohort: "listener" });
   }
@@ -267,8 +308,8 @@ export async function GET(request: NextRequest) {
         from: FROM_EMAIL,
         to: previewTo,
         subject: SUBJECT,
-        html: buildEmailHtml(previewName, cohortParam),
-        headers: getUnsubscribeHeaders(cohortParam === "dj" ? "dj" : "marketing"),
+        html: buildEmailHtml(previewName, cohortParam, previewTo),
+        headers: buildListUnsubscribeHeaders(previewTo, cohortParam === "dj" ? "dj" : "marketing"),
       });
       return NextResponse.json({
         mode: "preview",
@@ -368,8 +409,8 @@ export async function GET(request: NextRequest) {
           from: FROM_EMAIL,
           to: recipient.email,
           subject: SUBJECT,
-          html: buildEmailHtml(recipient.name, recipient.cohort),
-          headers: getUnsubscribeHeaders(recipient.cohort === "dj" ? "dj" : "marketing"),
+          html: buildEmailHtml(recipient.name, recipient.cohort, recipient.email),
+          headers: buildListUnsubscribeHeaders(recipient.email, recipient.cohort === "dj" ? "dj" : "marketing"),
         });
         sent++;
       } catch (e) {

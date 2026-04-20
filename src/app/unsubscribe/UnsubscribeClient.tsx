@@ -1,18 +1,25 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
 import { Header } from "@/components/Header";
 
 function UnsubscribeContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const status = searchParams.get("status");
+  const category = searchParams.get("category");
+  const [dismissed, setDismissed] = useState(false);
+
+  const successDescription =
+    category === "dj"
+      ? "You won't receive newsletter updates from Channel anymore. Your per-show and watchlist alerts are unchanged."
+      : "You won't receive newsletter updates from Channel anymore.";
 
   const messages: Record<string, { title: string; description: string }> = {
     success: {
-      title: "You've been unsubscribed",
-      description:
-        "You won't receive marketing emails from us anymore. If you change your mind, you can sign up again on channel-app.com.",
+      title: "You have been unsubscribed",
+      description: successDescription,
     },
     not_found: {
       title: "Email not found",
@@ -41,6 +48,28 @@ function UnsubscribeContent() {
         </h1>
         <p className="text-gray-500 text-sm">{message.description}</p>
       </div>
+
+      {status === "success" && !dismissed && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="bg-[#111] border border-white/10 rounded-lg max-w-sm w-full p-6 text-center">
+            <h2 className="text-white text-lg font-semibold mb-2">
+              You have been unsubscribed
+            </h2>
+            <p className="text-gray-400 text-sm mb-6">
+              {successDescription}
+            </p>
+            <button
+              onClick={() => {
+                setDismissed(true);
+                router.push("/");
+              }}
+              className="bg-white text-black px-6 py-2 rounded font-medium hover:bg-gray-100 transition-colors"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
