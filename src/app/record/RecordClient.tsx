@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useBroadcast } from '@/hooks/useBroadcast';
 import { AudioInputSelector } from '@/components/broadcast/AudioInputSelector';
@@ -35,9 +35,13 @@ interface RecordingSession {
 
 export function RecordClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
   const { isLive: isBroadcastLive } = useBroadcastLiveStatus();
+  // ?preview=test bypasses the live-broadcast block so we can validate that
+  // recording no longer interferes with /radio.
+  const bypassLiveBlock = searchParams.get('preview') === 'test';
 
   // Setup flow state
   const [setupStep, setSetupStep] = useState<SetupStep>('quota');
@@ -269,7 +273,7 @@ export function RecordClient() {
   }
 
   // Block recording when a broadcast is live
-  if (isBroadcastLive) {
+  if (isBroadcastLive && !bypassLiveBlock) {
     return (
       <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center p-8">
         <div className="bg-[#252525] rounded-xl p-8 max-w-md w-full text-center">
