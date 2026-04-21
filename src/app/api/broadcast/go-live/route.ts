@@ -127,8 +127,51 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Extract DJ profile data - PRIORITY: DJ slot config > slot's linked DJ profile
-      // Do NOT fall back to logged-in user's profile — they may be a different person than the slot's DJ
+      // If we still haven't resolved a DJ profile from the slot's djUserId /
+      // djEmail, look up by the chat username explicitly attached to this
+      // broadcast — either pre-configured on the slot (currentDjSlot) or
+      // typed into the go-live form (djUsername arg). Checks both the
+      // `users` collection and `pending-dj-profiles` (admin-created DJs
+      // who haven't claimed an account yet). Do NOT fall back to the
+      // logged-in user's own chatUsername: we should not publish a
+      // different person's DJ profile just because they happened to be
+      // authenticated in the browser.
+      if (!slotDjProfile) {
+        const candidateUsername = currentDjSlot?.djUsername || (djUsername && djUsername.trim()) || null;
+        if (candidateUsername) {
+          const normalized = candidateUsername.toString().replace(/\s+/g, '').toLowerCase();
+          const byUsernameSnap = await db.collection('users')
+            .where('chatUsernameNormalized', '==', normalized)
+            .limit(1)
+            .get();
+          if (!byUsernameSnap.empty) {
+            const byUsernameData = byUsernameSnap.docs[0].data();
+            slotDjProfile = (byUsernameData?.djProfile as Record<string, unknown> | null) || null;
+            slotDjChatUsername = byUsernameData?.chatUsername || slotDjChatUsername;
+            resolvedSlotDjUserId = resolvedSlotDjUserId || byUsernameSnap.docs[0].id;
+            console.log('[go-live] Resolved DJ by chatUsername (users):', { candidateUsername, resolvedSlotDjUserId, hasProfile: !!slotDjProfile });
+          } else {
+            const byPendingSnap = await db.collection('pending-dj-profiles')
+              .where('chatUsernameNormalized', '==', normalized)
+              .limit(1)
+              .get();
+            if (!byPendingSnap.empty) {
+              const byPendingData = byPendingSnap.docs[0].data();
+              slotDjProfile = (byPendingData?.djProfile as Record<string, unknown> | null) || null;
+              slotDjChatUsername = slotDjChatUsername || byPendingData?.chatUsername || byPendingData?.username || null;
+              // Don't set resolvedSlotDjUserId — pending profiles aren't real user UIDs.
+              console.log('[go-live] Resolved DJ by chatUsername (pending):', { candidateUsername, hasProfile: !!slotDjProfile });
+            }
+          }
+        }
+      }
+
+      // Extract DJ profile data - PRIORITY: DJ slot config > resolved DJ profile.
+      // `slotDjProfile` now covers three lookup paths: slot's djUserId, slot's
+      // djEmail, or the broadcaster's chatUsername. We intentionally do not
+      // fall back to the logged-in user's profile — if none of those paths
+      // resolve, leave these null rather than publish info for a different
+      // person than the slot's DJ.
       const profileData = slotDjProfile as Record<string, unknown> | null;
       const djBio = currentDjSlot?.djBio || profileData?.bio || null;
       const djPhotoUrl = currentDjSlot?.djPhotoUrl || profileData?.photoUrl || null;
@@ -218,8 +261,9 @@ export async function POST(request: NextRequest) {
         updateData.showImageUrl = djShowImageUrl;
       }
     } else {
-      // Guest/venue DJ - not logged in, but may have a profile via email
-      // Try to look up user by DJ slot email or root slot email
+      // Guest/venue DJ - not logged in, but may have a profile via email or
+      // via pending-dj-profiles (admin-created DJs who haven't claimed an
+      // account yet).
       const djEmail = currentDjSlot?.djEmail || slot.djEmail;
       let userProfileData: Record<string, unknown> | null = null;
       let foundUserId: string | null = null;
@@ -234,6 +278,41 @@ export async function POST(request: NextRequest) {
           foundUserId = userByEmailSnapshot.docs[0].id;
           userProfileData = userByEmailSnapshot.docs[0].data();
           console.log('[go-live] Found user profile by email:', { djEmail, foundUserId, hasProfile: !!userProfileData?.djProfile });
+        } else {
+          const pendingByEmailSnapshot = await db.collection('pending-dj-profiles')
+            .where('email', '==', djEmail)
+            .limit(1)
+            .get();
+          if (!pendingByEmailSnapshot.empty) {
+            userProfileData = pendingByEmailSnapshot.docs[0].data();
+            console.log('[go-live] Found pending DJ profile by email:', { djEmail, hasProfile: !!userProfileData?.djProfile });
+          }
+        }
+      }
+
+      // Still nothing? Try looking up by chatUsername in users then pending-dj-profiles.
+      if (!userProfileData) {
+        const candidateUsername = currentDjSlot?.djUsername || (djUsername && djUsername.trim()) || null;
+        if (candidateUsername) {
+          const normalized = candidateUsername.toString().replace(/\s+/g, '').toLowerCase();
+          const byUsernameSnap = await db.collection('users')
+            .where('chatUsernameNormalized', '==', normalized)
+            .limit(1)
+            .get();
+          if (!byUsernameSnap.empty) {
+            foundUserId = byUsernameSnap.docs[0].id;
+            userProfileData = byUsernameSnap.docs[0].data();
+            console.log('[go-live] Guest: resolved DJ by chatUsername (users):', { candidateUsername, foundUserId });
+          } else {
+            const pendingByUsernameSnap = await db.collection('pending-dj-profiles')
+              .where('chatUsernameNormalized', '==', normalized)
+              .limit(1)
+              .get();
+            if (!pendingByUsernameSnap.empty) {
+              userProfileData = pendingByUsernameSnap.docs[0].data();
+              console.log('[go-live] Guest: resolved DJ by chatUsername (pending):', { candidateUsername });
+            }
+          }
         }
       }
 
@@ -247,7 +326,7 @@ export async function POST(request: NextRequest) {
         updateData.liveDjUsername = djUsername.trim();
       }
 
-      // Set profile data - priority: DJ slot config > user profile by email
+      // Set profile data - priority: DJ slot config > resolved profile
       const djProfile = userProfileData?.djProfile as Record<string, unknown> | undefined;
       const djBio = currentDjSlot?.djBio || djProfile?.bio || null;
       const djPhotoUrl = currentDjSlot?.djPhotoUrl || djProfile?.photoUrl || null;
