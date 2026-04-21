@@ -166,7 +166,17 @@ function useIsStreaming(statusIsLive: boolean, currentShow: BroadcastSlotSeriali
  * when isLive toggles. The useBroadcastStream hook is conditionally active inside.
  */
 export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
-  const { isLive: statusIsLive, showName, djName } = useBroadcastLiveStatus();
+  const { isLive: rawStatusIsLive, showName, djName } = useBroadcastLiveStatus();
+  // Preview gate: suppress live state across the site unless the `channel-preview`
+  // cookie is set. Paired with the gate in /radio/page.tsx. To launch: remove this
+  // block (and the gate in page.tsx) so live state is exposed unconditionally.
+  const [previewAllowed, setPreviewAllowed] = useState(false);
+  useEffect(() => {
+    const hasCookie = document.cookie.split('; ').some((c) => c.startsWith('channel-preview='));
+    const hasQueryToken = new URLSearchParams(window.location.search).has('preview');
+    setPreviewAllowed(hasCookie || hasQueryToken);
+  }, []);
+  const statusIsLive = rawStatusIsLive && previewAllowed;
   const [heroBarVisible, setHeroBarVisible] = useState(false);
   const setHeroBarVisibleCb = useCallback((v: boolean) => setHeroBarVisible(v), []);
   const [heroBarObserverReady, setHeroBarObserverReady] = useState(false);
