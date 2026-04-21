@@ -95,20 +95,35 @@ app.post('/start', authenticate, async (req, res) => {
 
     let buffer = Buffer.alloc(0);
 
-    ffmpeg.stdout.on('data', (chunk) => {
+    // captureFrame is async and applies backpressure via its internal queue.
+    // If we fire-and-forget in a tight loop, the queue overflows and throws
+    // "InvalidState - failed to capture frame", crashing the process. Pause
+    // ffmpeg's stdout while we drain the current buffer so LiveKit has time
+    // to consume frames.
+    ffmpeg.stdout.on('data', async (chunk) => {
       buffer = Buffer.concat([buffer, chunk]);
+      if (buffer.length < BYTES_PER_FRAME) return;
 
-      while (buffer.length >= BYTES_PER_FRAME) {
-        const frameData = buffer.subarray(0, BYTES_PER_FRAME);
-        buffer = buffer.subarray(BYTES_PER_FRAME);
+      ffmpeg.stdout.pause();
+      try {
+        while (buffer.length >= BYTES_PER_FRAME) {
+          const frameData = buffer.subarray(0, BYTES_PER_FRAME);
+          buffer = buffer.subarray(BYTES_PER_FRAME);
 
-        const samples = new Int16Array(
-          frameData.buffer,
-          frameData.byteOffset,
-          SAMPLES_PER_FRAME * NUM_CHANNELS
-        );
-        const frame = new AudioFrame(samples, SAMPLE_RATE, NUM_CHANNELS, SAMPLES_PER_FRAME);
-        audioSource.captureFrame(frame);
+          const samples = new Int16Array(
+            frameData.buffer,
+            frameData.byteOffset,
+            SAMPLES_PER_FRAME * NUM_CHANNELS
+          );
+          const frame = new AudioFrame(samples, SAMPLE_RATE, NUM_CHANNELS, SAMPLES_PER_FRAME);
+          await audioSource.captureFrame(frame);
+        }
+      } catch (err) {
+        console.error(`[restream] captureFrame failed for slot ${slotId}:`, err.message);
+        stopStream(slotId);
+        return;
+      } finally {
+        ffmpeg.stdout.resume();
       }
     });
 
