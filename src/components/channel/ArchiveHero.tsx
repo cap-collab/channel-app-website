@@ -292,15 +292,18 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const displayedArchive = archivePlayer.currentArchive || heroArchives[heroIndex] || featuredArchive;
 
   // Live DJ info (computed from currentShow, similar to LiveBroadcastHero)
+  // Show image always wins over DJ photos.
   const liveDjPhotoUrl = (() => {
     if (!currentShow) return null;
+    if (currentShow.showImageUrl) return currentShow.showImageUrl;
+    if (currentShow.liveDjPhotoUrl) return currentShow.liveDjPhotoUrl;
     if (currentShow.restreamDjs && currentShow.restreamDjs.length > 0) {
       const primary = currentShow.restreamDjs.find(dj => dj.userId)
         || currentShow.restreamDjs.find(dj => dj.username)
         || null;
       if (primary?.photoUrl) return primary.photoUrl;
     }
-    return currentShow.showImageUrl || currentShow.liveDjPhotoUrl || null;
+    return null;
   })();
   const liveDjName = currentDJ || currentShow?.djName || null;
   const liveShowName = currentShow?.showName || 'Live Now';
