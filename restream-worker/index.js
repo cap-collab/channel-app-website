@@ -50,8 +50,16 @@ app.post('/start', authenticate, async (req, res) => {
       participantName: 'Restream',
     });
     ingressId = ingress.ingressId;
-    const rtmpTarget = `${ingress.url}/${ingress.streamKey}`;
-    console.log(`[restream] Ingress created: ${ingressId}, rtmp=${ingress.url}/<key>`);
+    // Our self-hosted ingress server doesn't set `rtmp_base_url` in its
+    // config, so ingress.url comes back empty. Fall back to the standard
+    // LiveKit RTMP path on port 1935. RTMP_BASE_URL env lets the operator
+    // override (e.g. to point at the Docker bridge gateway if running this
+    // container alongside ingress on the same host).
+    const rtmpBase = (ingress.url && ingress.url.length > 0)
+      ? ingress.url
+      : (process.env.RTMP_BASE_URL || 'rtmp://172.17.0.1:1935/x');
+    const rtmpTarget = `${rtmpBase}/${ingress.streamKey}`;
+    console.log(`[restream] Ingress created: ${ingressId}, rtmp=${rtmpBase}/<key>`);
 
     // -re reads the input at its native frame rate so the audio streams in
     // realtime (not as fast as FFmpeg can decode). -c:a aac matches what

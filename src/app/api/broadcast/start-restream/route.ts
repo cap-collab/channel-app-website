@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
+import { EgressClient, SegmentedFileOutput, SegmentedFileProtocol, S3Upload } from 'livekit-server-sdk';
 import { getAdminDb, getAdminAuth } from '@/lib/firebase-admin';
 import { ROOM_NAME } from '@/types/broadcast';
 
 const restreamWorkerUrl = process.env.RESTREAM_WORKER_URL || '';
+const r2AccessKey = process.env.R2_ACCESS_KEY_ID || '';
+const r2SecretKey = process.env.R2_SECRET_ACCESS_KEY || '';
+const r2Bucket = process.env.R2_BUCKET_NAME || 'channel-broadcast';
+const r2Endpoint = process.env.R2_ACCOUNT_ID
+  ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+  : '';
 
 // POST - Start a restream by calling the restream worker on Hetzner.
 // The worker creates a LiveKit RTMP ingress and streams the archive MP4
@@ -118,22 +125,76 @@ export async function POST(request: NextRequest) {
     const workerData = await workerResp.json() as { ingressId?: string };
     console.log(`[start-restream] Worker started for slot ${slotId} (RTMP ingress ${workerData.ingressId})`);
 
-    // Set slot to live. Store the ingress id so cleanupSlotLiveKit can tear
-    // the ingress down when the slot ends. Clear any prior egress id so the
-    // webhook's track_published handler starts a fresh HLS egress (it skips
-    // when the field is already set, which would leave listeners on a dead
-    // manifest from an earlier run).
+    // Start the HLS egress here rather than deferring to the track_published
+    // webhook. The webhook path is unreliable in practice — LiveKit signs
+    // webhook requests with a 5-minute JWT and we've seen them arrive
+    // already-expired after bursty delivery or Vercel cold starts, which
+    // silently drops the "start egress" action. Kicking it off directly
+    // makes the handoff deterministic. It's fine that the ingress hasn't
+    // necessarily published yet: startRoomCompositeEgress waits for an
+    // audio track to appear in the room.
+    let restreamEgressId: string | undefined;
+    if (r2AccessKey && r2SecretKey && r2Endpoint) {
+      try {
+        const egressClient = new EgressClient(livekitHost, apiKey, apiSecret);
+
+        // Stop any stale active egresses in the room — e.g. the previous
+        // live DJ's HLS egress if complete-slot set keepHlsEgress=false for
+        // this transition. We can't reuse a live-broadcast egress anyway
+        // because restream writes to a different R2 prefix.
+        try {
+          const existing = await egressClient.listEgress({ roomName: ROOM_NAME, active: true });
+          for (const e of existing) {
+            try {
+              await egressClient.stopEgress(e.egressId);
+              console.log(`[start-restream] Stopped stale egress: ${e.egressId}`);
+            } catch { /* ignore */ }
+          }
+        } catch { /* ignore */ }
+
+        const s3Upload = new S3Upload({
+          accessKey: r2AccessKey,
+          secret: r2SecretKey,
+          bucket: r2Bucket,
+          region: 'auto',
+          endpoint: r2Endpoint,
+          forcePathStyle: true,
+        });
+        const segmentOutput = new SegmentedFileOutput({
+          protocol: SegmentedFileProtocol.HLS_PROTOCOL,
+          filenamePrefix: `${ROOM_NAME}-restream/stream`,
+          playlistName: 'playlist.m3u8',
+          livePlaylistName: 'live.m3u8',
+          segmentDuration: 6,
+          output: { case: 's3', value: s3Upload },
+        });
+        const hlsEgress = await egressClient.startRoomCompositeEgress(
+          ROOM_NAME,
+          { segments: segmentOutput },
+          { audioOnly: true },
+        );
+        restreamEgressId = hlsEgress.egressId;
+        console.log(`[start-restream] HLS egress started: ${restreamEgressId}`);
+      } catch (err) {
+        console.error(`[start-restream] Failed to start egress for ${slotId}:`, err);
+        // Non-fatal — the webhook path will try again on track_published.
+      }
+    }
+
+    // Set slot to live. Store ingress+egress ids so cleanupSlotLiveKit can
+    // tear them down when the slot ends.
     await slotDoc.ref.update({
       status: 'live',
       restreamWorkerId: slotId,
       restreamIngressId: workerData.ingressId || FieldValue.delete(),
-      restreamEgressId: FieldValue.delete(),
+      restreamEgressId: restreamEgressId || FieldValue.delete(),
     });
 
     return NextResponse.json({
       success: true,
       slotId,
       ingressId: workerData.ingressId,
+      egressId: restreamEgressId,
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
