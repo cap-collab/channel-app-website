@@ -135,13 +135,10 @@ export function DJControlCenter({
                 <h3 className="text-gray-400 text-sm font-medium mb-3">
                   Share Your Stream
                 </h3>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={shareUrl}
-                    className="flex-1 min-w-0 bg-gray-800 text-white border border-gray-700 rounded-lg px-2 py-1.5 font-mono text-xs"
-                  />
+                <div className="flex items-center gap-2">
+                  <span className="flex-1 min-w-0 text-white font-mono text-sm truncate">
+                    {shareUrl}
+                  </span>
                   <button
                     onClick={copyShareUrl}
                     className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg transition-colors text-xs flex-shrink-0"
