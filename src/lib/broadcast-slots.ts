@@ -107,33 +107,35 @@ export async function createSlot(data: {
 }): Promise<{ slot: BroadcastSlotSerialized; broadcastUrl: string }> {
   if (!db) throw new Error('Firestore not initialized');
 
-  // Look up DJ info by email if provided
+  // Look up DJ info by name (checks users + pending-dj-profiles), then fall back to email
   let djUserId: string | null = null;
   let djUsername: string | null = null;
   let finalDjName = data.djName;
+  let finalDjEmail = data.djEmail || null;
   let liveDjBio: string | null = null;
   let liveDjPhotoUrl: string | null = null;
 
-  if (data.djEmail) {
+  if (data.djName) {
     try {
-      const res = await fetch(`/api/users/lookup-by-email?email=${encodeURIComponent(data.djEmail)}`);
+      const res = await fetch(`/api/users/lookup-by-name?name=${encodeURIComponent(data.djName)}`);
       const djInfo = await res.json();
       if (djInfo?.found) {
         djUserId = djInfo.djUserId;
-        djUsername = djInfo.djUsername;  // chatUsername for profile URL
+        djUsername = djInfo.djUsername;
         finalDjName = djInfo.djName || data.djName;
+        finalDjEmail = djInfo.djEmail || finalDjEmail;
         liveDjBio = djInfo.liveDjBio;
         liveDjPhotoUrl = djInfo.liveDjPhotoUrl;
       }
     } catch (error) {
-      console.error('Failed to lookup DJ info:', error);
+      console.error('Failed to lookup DJ info by name:', error);
     }
   }
 
-  // If email lookup didn't find anything, try by DJ name (checks users + pending-dj-profiles)
-  if (!djUserId && !liveDjPhotoUrl && data.djName) {
+  // If name lookup didn't find anything, try by email
+  if (!djUserId && !liveDjPhotoUrl && data.djEmail) {
     try {
-      const res = await fetch(`/api/users/lookup-by-name?name=${encodeURIComponent(data.djName)}`);
+      const res = await fetch(`/api/users/lookup-by-email?email=${encodeURIComponent(data.djEmail)}`);
       const djInfo = await res.json();
       if (djInfo?.found) {
         djUserId = djInfo.djUserId;
@@ -143,7 +145,7 @@ export async function createSlot(data: {
         liveDjPhotoUrl = djInfo.liveDjPhotoUrl;
       }
     } catch (error) {
-      console.error('Failed to lookup DJ info by name:', error);
+      console.error('Failed to lookup DJ info:', error);
     }
   }
 
@@ -175,7 +177,7 @@ export async function createSlot(data: {
     stationId: STATION_ID,
     showName: data.showName,
     djName: finalDjName || null,
-    djEmail: data.djEmail || null,
+    djEmail: finalDjEmail,
     djUserId: djUserId || null,
     djUsername: djUsername || null,
     djSlots: cleanedDjSlots,
@@ -260,6 +262,49 @@ export async function updateSlot(
   if (updates.showName !== undefined) updateData.showName = updates.showName;
   if (updates.djName !== undefined) updateData.djName = updates.djName || null;
   if (updates.djEmail !== undefined) updateData.djEmail = updates.djEmail || null;
+
+  // If djName or djEmail changed, re-run the DJ lookup (name first, then email)
+  // and refresh djUserId, djUsername, djEmail, liveDjBio, liveDjPhotoUrl.
+  if (updates.djName !== undefined || updates.djEmail !== undefined) {
+    let djInfo: {
+      found?: boolean;
+      djUserId?: string | null;
+      djUsername?: string | null;
+      djName?: string | null;
+      djEmail?: string | null;
+      liveDjBio?: string | null;
+      liveDjPhotoUrl?: string | null;
+    } | null = null;
+
+    if (updates.djName) {
+      try {
+        const res = await fetch(`/api/users/lookup-by-name?name=${encodeURIComponent(updates.djName)}`);
+        const data = await res.json();
+        if (data?.found) djInfo = data;
+      } catch (error) {
+        console.error('Failed to lookup DJ info by name:', error);
+      }
+    }
+
+    if (!djInfo && updates.djEmail) {
+      try {
+        const res = await fetch(`/api/users/lookup-by-email?email=${encodeURIComponent(updates.djEmail)}`);
+        const data = await res.json();
+        if (data?.found) djInfo = data;
+      } catch (error) {
+        console.error('Failed to lookup DJ info by email:', error);
+      }
+    }
+
+    if (djInfo) {
+      updateData.djUserId = djInfo.djUserId || null;
+      updateData.djUsername = djInfo.djUsername || null;
+      if (djInfo.djName) updateData.djName = djInfo.djName;
+      if (djInfo.djEmail) updateData.djEmail = djInfo.djEmail;
+      updateData.liveDjBio = djInfo.liveDjBio || null;
+      updateData.liveDjPhotoUrl = djInfo.liveDjPhotoUrl || null;
+    }
+  }
 
   // Clean djSlots to remove undefined values (Firebase doesn't accept undefined)
   if (updates.djSlots !== undefined) {

@@ -7,6 +7,7 @@ import {
   sendBroadcast2HourReminderEmail,
   sendPostBroadcastEmail,
 } from '@/lib/email';
+import { refreshSlotDJProfile } from '@/lib/slot-dj-profile-sync';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com';
 
@@ -351,6 +352,17 @@ async function run2hReminders(db: FirebaseFirestore.Firestore, now: number): Pro
 
     if (slot.broadcastType === 'restream') { result.skipped++; continue; }
     if (slot.reminder2hEmailSentAt) { result.skipped++; continue; }
+
+    // Refresh liveDj* fields from the DJ's current profile before sending the
+    // 2h reminder, so the live hero and emails both see the latest photo/bio.
+    try {
+      const refreshed = await refreshSlotDJProfile(db, doc);
+      if (refreshed.updated) {
+        console.log(`[broadcast-emails] Refreshed slot ${doc.id} profile fields:`, refreshed.fields);
+      }
+    } catch (err) {
+      console.error(`[broadcast-emails] Failed to refresh slot ${doc.id} profile:`, err);
+    }
 
     const showName = slot.showName || 'Your show';
     const broadcastUrl = `${APP_URL}/broadcast/live?token=${slot.broadcastToken}`;
