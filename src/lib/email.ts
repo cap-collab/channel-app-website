@@ -787,7 +787,7 @@ export async function sendBroadcast48HourReminderEmail({
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; ${profileSetupHint}</td>
             </tr>` : ''}
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Do a short recording to test your audio capture</td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; <strong>Test your audio capture</strong> by doing a short recording</td>
             </tr>
             <tr>
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Click "Prepare to go live" ahead of time to avoid any surprises</td>
@@ -867,7 +867,7 @@ export async function sendBroadcastReminderEmail({
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Edit your profile info if you want to update anything</td>
             </tr>
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Do a short recording to test your audio capture</td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; <strong>Test your audio capture</strong> by doing a short recording</td>
             </tr>
             <tr>
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Click "Prepare to go live" ahead of time to avoid any surprises</td>
