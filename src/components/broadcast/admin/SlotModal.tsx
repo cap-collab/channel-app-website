@@ -993,7 +993,7 @@ Add bio, links, upcoming shows. We feature these on the website and newsletter. 
 Go live from here (keep private):
 ${broadcastUrl}
 
-Test ahead of time. "Record a set" in studio to test audio.
+Test ahead of time. "Test audio capture" in studio to test your setup.
 
 Setup guide:
 https://channel-app.com/streaming-guide

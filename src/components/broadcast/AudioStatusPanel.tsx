@@ -292,7 +292,7 @@ export function AudioStatusPanel({
                       ? (isRecordingMode ? 'Starting recording...' : 'Going live...')
                       : (isRecordingMode ? 'START RECORDING' : 'GO LIVE')}
                   </button>
-                  {!isGoingLive && (
+                  {!isGoingLive && !isRecordingMode && (
                     <p className="text-red-400/80 text-sm text-center mt-2">
                       Your live slot has started already
                     </p>

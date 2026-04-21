@@ -2115,7 +2115,7 @@ export function StudioProfileClient() {
                 href="/record"
                 className="flex-1 block bg-gray-800 text-white text-center py-3 rounded font-medium hover:bg-gray-700 transition-colors border border-gray-700"
               >
-                Record a set
+                Test audio capture
               </Link>
               <Link
                 href="/studio/livestream"
