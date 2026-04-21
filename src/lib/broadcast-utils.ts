@@ -3,8 +3,10 @@ import { BroadcastSlotSerialized } from '@/types/broadcast';
 /**
  * Delay (ms) applied to slot transitions in listener-facing UI so the old DJ's
  * info lingers briefly after the new slot starts, covering audio handoff lag.
+ * Matched to the iOS HLS buffer headroom (see useBroadcastStream.ts) so the
+ * image swap stays roughly in sync with what mobile listeners actually hear.
  */
-export const SLOT_TRANSITION_DELAY_MS = 6000;
+export const SLOT_TRANSITION_DELAY_MS = 8000;
 
 /** Find the active DJ slot for listener UI, applying the transition delay. */
 export function findActiveDjSlot<T extends { startTime: number; endTime: number }>(
