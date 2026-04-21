@@ -110,7 +110,13 @@ export async function cleanupSlotLiveKit(slot: SlotCleanupInput): Promise<SlotCl
     }
   }
 
-  if (slot.restreamEgressId) {
+  // Restream slots store the HLS egress on `restreamEgressId` (separate from
+  // live's `egressId`), but it's still an HLS egress and the keepHlsEgress
+  // semantics must apply to it too — otherwise restream→anything transitions
+  // stop the egress, the manifest gets ENDLIST, and mobile listeners loop
+  // the tail forever. Live→restream escaped this bug because live's egress
+  // lives on `egressId`.
+  if (slot.restreamEgressId && !slot.keepHlsEgress) {
     try {
       await egressClient.stopEgress(slot.restreamEgressId);
       result.stoppedRestreamEgress = true;
