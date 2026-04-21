@@ -166,7 +166,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const {
     isPlaying: isLivePlaying, isLoading: isLiveLoading, currentShow, currentDJ,
     toggle: toggleLive, play: playLive,
-    setHeroBarVisible, setHeroBarObserverReady, pause: pauseLive, tipLink: liveTipLink,
+    setHeroBarVisible, setHeroBarObserverReady, tipLink: liveTipLink,
     error: streamError,
   } = useBroadcastStreamContext();
   const archivePlayer = useArchivePlayer();
@@ -485,7 +485,6 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     archive={ha}
                     onPlay={() => {
                       setUserSelectedMode('archive');
-                      pauseLive();
                       archivePlayer.play(ha);
                     }}
                   />
@@ -635,10 +634,8 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 <button
                   onClick={() => {
                     if (archivePlayer.currentArchive) {
-                      if (!archivePlayer.isPlaying) pauseLive();
                       archivePlayer.toggle();
                     } else {
-                      pauseLive();
                       archivePlayer.play(displayedArchive);
                     }
                   }}
@@ -806,7 +803,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     if (archivePlayer.currentArchive?.id === archive.id && archivePlayer.isPlaying) {
                       archivePlayer.pause();
                     } else {
-                      setUserSelectedMode('archive'); pauseLive(); archivePlayer.play(archive);
+                      setUserSelectedMode('archive'); archivePlayer.play(archive);
                     }
                   }}
                 />

@@ -6,6 +6,7 @@ import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getApps, initializeApp } from 'firebase/app';
 import { ArchiveSerialized } from '@/types/broadcast';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { captureEvent } from '@/lib/posthog';
 import { registerAudio, pauseOthers } from '@/lib/audio-exclusive';
 
@@ -70,6 +71,7 @@ const GATE_THRESHOLD_SECONDS = 960;
 
 export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, user } = useAuthContext();
+  const { pause: pauseBroadcast } = useBroadcastStreamContext();
   const [currentArchive, setCurrentArchive] = useState<ArchiveSerialized | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -421,6 +423,11 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     }
     const audio = getAudio();
 
+    // Stop live/restream playback so the sticky header flips to archive and
+    // the live hook's iOS auto-resume doesn't fight us. pauseOthers() below
+    // handles the DOM element; this updates broadcast context state.
+    pauseBroadcast();
+
     // Clear any pending retry from a prior failure and reset the counter
     // so the user's explicit play click always gets a fresh attempt.
     if (retryTimerRef.current) {
@@ -469,7 +476,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       pauseOthers('archive');
       audio.play().catch(() => { setIsLoading(false); });
     }
-  }, [currentArchive, isPlaying, currentTime, getAudio, isGated, isAuthenticated]);
+  }, [currentArchive, isPlaying, currentTime, getAudio, isGated, isAuthenticated, pauseBroadcast]);
 
   const pause = useCallback(() => {
     if (playbackStartedAtRef.current) {
