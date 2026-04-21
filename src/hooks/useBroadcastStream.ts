@@ -215,36 +215,18 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
               previousType, useHLS: shouldUseHLS(),
             });
 
-            // Live → live HLS handoff: the server keeps the HLS egress alive
-            // across DJs (reuseHlsEgress), so the manifest stream is continuous
-            // and the player auto-advances to DJ B's segments. Tearing down
-            // the Hls instance here is what leaves mobile listeners stuck on
-            // DJ A's tail. Only tear down when the stream source actually
-            // changes (live ↔ restream).
-            const wasLive = !previousType || previousType !== 'restream';
-            const nowLive = slot.broadcastType !== 'restream';
-            const sameSource = wasLive && nowLive;
-
-            // HLS (mobile/Safari): clean stop — user presses play again.
-            // Stale R2 segments cause audio loops if we auto-resume.
-            if (!sameSource && (hlsRef.current || (!roomRef.current && audioElementRef.current))) {
-              console.log('🔄 HLS path — clean stop');
-              if (hlsRef.current) {
-                hlsRef.current.destroy();
-                hlsRef.current = null;
-              }
-              if (audioElementRef.current) {
-                audioElementRef.current.pause();
-                audioElementRef.current.removeAttribute('src');
-                audioElementRef.current.load();
-              }
-              setIsPlaying(false);
-              wasPlayingRef.current = false;
-            } else if (sameSource && (hlsRef.current || (!roomRef.current && audioElementRef.current))) {
-              console.log('🔄 HLS live→live — keeping connection, manifest will auto-advance to new DJ');
+            // HLS: manifest is continuous across live ↔ live and live ↔ restream
+            // (server reuses the same HLS egress writing to the same R2 prefix),
+            // so the Hls instance / <audio> element just keeps playing through
+            // the transition. Nothing to tear down here.
+            if (hlsRef.current || (!roomRef.current && audioElementRef.current)) {
+              console.log('🔄 HLS transition — keeping connection, manifest continues');
             }
 
-            // WebRTC different room: disconnect and auto-resume
+            // WebRTC different room: disconnect and auto-resume. This is the
+            // only real source change — same-room transitions (live→live or
+            // live ↔ restream) deliver new audio through TrackSubscribed on
+            // the existing Room connection.
             if (roomRef.current && roomRef.current.name !== ROOM_NAME) {
               console.log('🔄 Different room — disconnecting');
               if (audioElementRef.current) {
@@ -259,24 +241,10 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
               setAutoResumePending(true);
             }
 
-            // WebRTC same room (live→live): keep playing, new DJ's tracks
-            // arrive via TrackSubscribed automatically — no teardown needed.
+            // Same-room WebRTC (live → live, live ↔ restream): keep the Room
+            // connection; new publisher's tracks arrive via TrackSubscribed.
             if (roomRef.current && roomRef.current.name === ROOM_NAME) {
-              console.log('🔄 Same-room WebRTC — keeping connection, waiting for new DJ tracks');
-            }
-
-            // Live→restream: switch from WebRTC to HLS, no auto-resume
-            if (slot.broadcastType === 'restream' && roomRef.current) {
-              console.log('🔄 Switching from WebRTC to HLS for restream');
-              roomRef.current.disconnect();
-              roomRef.current = null;
-              if (audioElementRef.current) {
-                audioElementRef.current.pause();
-                audioElementRef.current.removeAttribute('src');
-                audioElementRef.current.load();
-              }
-              setIsPlaying(false);
-              wasPlayingRef.current = false;
+              console.log('🔄 Same-room WebRTC — keeping connection, waiting for new publisher tracks');
             }
           }
 
@@ -465,8 +433,10 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
     setIsLoading(true);
     setError(null);
 
-    // Restreams use FFmpeg → HLS → R2 (no LiveKit room), so always use HLS for restreams.
-    const useHLS = shouldUseHLS() || currentShow?.broadcastType === 'restream';
+    // Transport decision is purely browser-based. Restreams now publish into
+    // the same LiveKit room as live (via RTMP ingress), so desktop Chrome
+    // listeners can subscribe via WebRTC the same way as for a live DJ.
+    const useHLS = shouldUseHLS();
 
     // If the WebRTC room is already connected (e.g. kept alive during DJ transition
     // grace period), skip the disconnect/reconnect cycle. The next DJ's tracks will
@@ -528,9 +498,53 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
         // Check if Safari with native HLS support
         if (audioElementRef.current.canPlayType('application/vnd.apple.mpegurl')) {
           console.log('🎵 Using native HLS (Safari)');
-          audioElementRef.current.src = hlsUrl;
+          const audio = audioElementRef.current;
+          audio.src = hlsUrl;
           pauseOthers('live');
-          await audioElementRef.current.play();
+
+          // Safari's native HLS loader needs a moment to fetch and parse the
+          // manifest before .play() can succeed — calling it immediately after
+          // assigning .src throws NotSupportedError on the first attempt.
+          // Wait for loadedmetadata (with a timeout safety net), then play.
+          // If play still fails with NotSupportedError, re-assign .src once
+          // and retry after a short delay.
+          await new Promise<void>((resolve) => {
+            let done = false;
+            const finish = () => { if (!done) { done = true; resolve(); } };
+            const onReady = () => finish();
+            audio.addEventListener('loadedmetadata', onReady, { once: true });
+            setTimeout(finish, 5000);
+          });
+
+          const tryPlay = async () => {
+            try {
+              await audio.play();
+              return true;
+            } catch (err) {
+              const name = (err as { name?: string })?.name;
+              if (name === 'NotSupportedError' || name === 'NotAllowedError') {
+                return false;
+              }
+              throw err;
+            }
+          };
+
+          let played = await tryPlay();
+          if (!played) {
+            console.log('🎵 Native HLS first play failed, retrying once');
+            await new Promise((r) => setTimeout(r, 400));
+            audio.src = hlsUrl;
+            played = await tryPlay();
+          }
+
+          if (!played) {
+            console.error('🎵 Native HLS play failed after retry');
+            setError('Tap to play');
+            setIsLoading(false);
+            captureEvent('playback_error', { type: 'live', protocol: 'native', message: 'play-failed-after-retry' });
+            return;
+          }
+
           captureAudioStream();
           setIsPlaying(true);
           setIsLoading(false);
