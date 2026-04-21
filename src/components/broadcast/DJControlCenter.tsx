@@ -140,17 +140,25 @@ export function DJControlCenter({
                     type="text"
                     readOnly
                     value={shareUrl}
-                    className="flex-1 min-w-0 bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 font-mono text-sm"
+                    className="flex-1 min-w-0 bg-gray-800 text-white border border-gray-700 rounded-lg px-2 py-1.5 font-mono text-xs"
                   />
                   <button
                     onClick={copyShareUrl}
-                    className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors text-sm flex-shrink-0"
+                    className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg transition-colors text-xs flex-shrink-0"
                   >
                     {copied ? 'Copied!' : 'Copy'}
                   </button>
                 </div>
                 <p className="text-gray-600 text-xs mt-2">
-                  Share with friends and followers
+                  Share with friends and followers — tag us{' '}
+                  <a
+                    href="https://www.instagram.com/channelrad.io"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-gray-400"
+                  >
+                    @channelrad.io
+                  </a>
                 </p>
               </div>
             </div>
