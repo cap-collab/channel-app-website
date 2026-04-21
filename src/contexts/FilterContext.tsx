@@ -11,13 +11,21 @@ import { db } from '@/lib/firebase';
 // Kept in sync with SceneGlyph's rendered slugs and Firestore scene doc IDs.
 const URL_SCENE_SLUGS = new Set(['spiral', 'diamond', 'grid']);
 
-// Reads `?scene=` and pushes the override into FilterProvider state.
-// Isolated so we can wrap it in <Suspense> — useSearchParams() otherwise
-// opts every page using <FilterProvider> out of static prerendering.
+// Reads `?scene=` (or bare `?spiral` / `?diamond` / `?grid`) and pushes the
+// override into FilterProvider state. Isolated so we can wrap it in <Suspense>
+// — useSearchParams() otherwise opts every page using <FilterProvider> out of
+// static prerendering.
 function URLSceneSync({ onScene }: { onScene: (scene: string | null) => void }) {
   const searchParams = useSearchParams();
-  const urlScene = searchParams?.get('scene') ?? null;
-  const override = urlScene && URL_SCENE_SLUGS.has(urlScene) ? urlScene : null;
+  let override: string | null = null;
+  const scene = searchParams?.get('scene') ?? null;
+  if (scene && URL_SCENE_SLUGS.has(scene)) {
+    override = scene;
+  } else if (searchParams) {
+    URL_SCENE_SLUGS.forEach((slug) => {
+      if (!override && searchParams.has(slug)) override = slug;
+    });
+  }
   useEffect(() => {
     onScene(override);
   }, [override, onScene]);
@@ -69,6 +77,11 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
   // page under <Providers> would be forced out of static prerendering.
   const [urlSceneOverride, setUrlSceneOverride] = useState<string | null>(null);
   const hasUrlSceneOverride = urlSceneOverride !== null;
+  // Ref mirror of hasUrlSceneOverride so the async Firestore callback below
+  // sees the latest value — otherwise an in-flight getDoc() that started
+  // before the override arrived can stomp it with the user's saved prefs.
+  const hasUrlSceneOverrideRef = useRef(false);
+  useEffect(() => { hasUrlSceneOverrideRef.current = hasUrlSceneOverride; }, [hasUrlSceneOverride]);
 
   const [selectedCity, setSelectedCity] = useState<string>(getDefaultCity());
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
@@ -97,7 +110,9 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
         } else {
           setSelectedGenres([]);
         }
-        if (!hasUrlSceneOverride) {
+        // Re-check the ref here: the async fetch may resolve after the URL
+        // override lands, so we mustn't stomp it with saved prefs.
+        if (!hasUrlSceneOverrideRef.current) {
           const sceneIds = data?.preferredSceneIds;
           if (Array.isArray(sceneIds)) {
             setSelectedSceneIds(sceneIds);
