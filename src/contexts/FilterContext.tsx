@@ -1,10 +1,15 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { getDefaultCity } from '@/lib/city-detection';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+
+// Scene slugs accepted via the `?scene=` URL param (shareable filter links).
+// Kept in sync with SceneGlyph's rendered slugs and Firestore scene doc IDs.
+const URL_SCENE_SLUGS = new Set(['spiral', 'diamond', 'grid']);
 
 interface FilterContextValue {
   selectedCity: string;
@@ -45,12 +50,24 @@ export function useFilterContext() {
 
 export function FilterProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuthContext();
+  const searchParams = useSearchParams();
+  // `?scene=spiral` (or diamond/grid) activates a session-only scene filter:
+  // seeds selectedSceneIds on mount and makes handleSceneIdsChange skip
+  // persistence, so sharing a link never overwrites the recipient's saved prefs.
+  const urlScene = searchParams?.get('scene');
+  const urlSceneOverride = urlScene && URL_SCENE_SLUGS.has(urlScene) ? urlScene : null;
+  const hasUrlSceneOverride = urlSceneOverride !== null;
+
   const [selectedCity, setSelectedCity] = useState<string>(getDefaultCity());
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
-  const [selectedSceneIds, setSelectedSceneIds] = useState<string[] | null>(null);
+  const [selectedSceneIds, setSelectedSceneIds] = useState<string[] | null>(
+    urlSceneOverride ? [urlSceneOverride] : null
+  );
   const [tunerHints, setTunerHints] = useState<TunerHints>({});
 
-  // Load city/genre/scene preferences: Firebase for auth users, localStorage for unauth
+  // Load city/genre/scene preferences: Firebase for auth users, localStorage for unauth.
+  // When a URL scene override is active, we skip loading persisted scene prefs
+  // so the shared link wins for this session.
   useEffect(() => {
     if (user?.uid && db) {
       const userRef = doc(db, 'users', user.uid);
@@ -65,11 +82,13 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
         } else {
           setSelectedGenres([]);
         }
-        const sceneIds = data?.preferredSceneIds;
-        if (Array.isArray(sceneIds)) {
-          setSelectedSceneIds(sceneIds);
-        } else {
-          setSelectedSceneIds(null);
+        if (!hasUrlSceneOverride) {
+          const sceneIds = data?.preferredSceneIds;
+          if (Array.isArray(sceneIds)) {
+            setSelectedSceneIds(sceneIds);
+          } else {
+            setSelectedSceneIds(null);
+          }
         }
       });
       return;
@@ -90,14 +109,16 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
         if (localGenre) setSelectedGenres([localGenre]);
       }
     } catch {}
-    try {
-      const storedScenes = localStorage.getItem('channel-selected-scenes');
-      if (storedScenes) {
-        const parsed = JSON.parse(storedScenes);
-        if (Array.isArray(parsed)) setSelectedSceneIds(parsed);
-      }
-    } catch {}
-  }, [user?.uid]);
+    if (!hasUrlSceneOverride) {
+      try {
+        const storedScenes = localStorage.getItem('channel-selected-scenes');
+        if (storedScenes) {
+          const parsed = JSON.parse(storedScenes);
+          if (Array.isArray(parsed)) setSelectedSceneIds(parsed);
+        }
+      } catch {}
+    }
+  }, [user?.uid, hasUrlSceneOverride]);
 
   // Migrate localStorage preferences to Firestore when user signs up/in
   const prevUserRef = useRef<string | null>(null);
@@ -184,6 +205,9 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
 
   const handleSceneIdsChange = useCallback(async (sceneIds: string[]) => {
     setSelectedSceneIds(sceneIds);
+    // Session-only when arrived via a shareable `?scene=` link: don't touch
+    // the recipient's saved preferences.
+    if (hasUrlSceneOverride) return;
     if (user?.uid && db) {
       try {
         const userRef = doc(db, 'users', user.uid);
@@ -194,7 +218,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
     } else {
       try { localStorage.setItem('channel-selected-scenes', JSON.stringify(sceneIds)); } catch {}
     }
-  }, [user?.uid]);
+  }, [user?.uid, hasUrlSceneOverride]);
 
   return (
     <FilterContext.Provider value={{

@@ -253,22 +253,31 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const showLiveInHero = isLive && userSelectedMode === 'live';
 
 
-  // Hero carousel: top N archives, random order when nothing playing (N = maxHeroSlides).
-  // For scene pages we pass maxHeroSlides=1 so the offline hero shows only the latest
-  // high-priority archive.
+  // When a scene filter is actively narrowing the set (shared `?scene=` link or
+  // user-toggled chips), the hero carousel should only feature archives in that
+  // scene — not the full pool.
   const heroArchives = useMemo(() => {
+    const allSceneIds = scenes.map((s) => s.id);
+    const allSelected = allSceneIds.length > 0 && allSceneIds.every((id) => sceneFilter.has(id));
+    const noneSelected = sceneFilter.size === 0;
+    const filteringActive = !allSelected && !noneSelected;
+    const inScene = (a: typeof archives[number]) =>
+      !filteringActive ||
+      resolveArchiveScenes(a, djSceneMap).some((id) => sceneFilter.has(id));
+
     if (archivePlayer.currentArchive) {
       // Playing: playing archive first, then next (maxHeroSlides - 1)
       const result = [archivePlayer.currentArchive];
       for (const a of archives) {
         if (result.length >= maxHeroSlides) break;
         if (result.some(r => r.id === a.id)) continue;
+        if (!inScene(a)) continue;
         result.push(a);
       }
       return result;
     }
     // Not playing: high priority only, random order (or latest when maxHeroSlides === 1).
-    const high = archives.filter(a => a.priority === 'high');
+    const high = archives.filter(a => a.priority === 'high' && inScene(a));
     if (maxHeroSlides === 1) {
       const latest = high.sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0))[0];
       return latest ? [latest] : [];
@@ -278,7 +287,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       [high[i], high[j]] = [high[j], high[i]];
     }
     return high.slice(0, maxHeroSlides);
-  }, [archives, archivePlayer.currentArchive, maxHeroSlides]);
+  }, [archives, archivePlayer.currentArchive, maxHeroSlides, scenes, sceneFilter, djSceneMap]);
 
   const [heroIndex, setHeroIndex] = useState(0);
   const heroTouchRef = useRef<{ startX: number; startY: number } | null>(null);
