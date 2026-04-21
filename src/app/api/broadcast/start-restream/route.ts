@@ -60,6 +60,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'RESTREAM_WORKER_URL not configured' }, { status: 500 });
     }
 
+    // Worker needs LiveKit creds to publish into the room on our behalf.
+    const apiKey = process.env.LIVEKIT_API_KEY;
+    const apiSecret = process.env.LIVEKIT_API_SECRET;
+    const wsUrl = process.env.LIVEKIT_URL;
+    if (!apiKey || !apiSecret || !wsUrl) {
+      return NextResponse.json({ error: 'LiveKit env vars missing (LIVEKIT_API_KEY/LIVEKIT_API_SECRET/LIVEKIT_URL)' }, { status: 500 });
+    }
+
     // Call the restream worker on Hetzner to start FFmpeg → HLS → R2
     console.log(`[start-restream] Starting worker for slot ${slotId}, archiveUrl: ${archiveUrl}`);
     const workerResp = await fetch(`${restreamWorkerUrl}/start`, {
@@ -72,6 +80,9 @@ export async function POST(request: NextRequest) {
         slotId,
         archiveUrl,
         roomName: ROOM_NAME,
+        apiKey,
+        apiSecret,
+        wsUrl,
       }),
     });
 
