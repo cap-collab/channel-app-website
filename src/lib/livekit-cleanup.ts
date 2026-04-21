@@ -1,4 +1,4 @@
-import { EgressClient, RoomServiceClient } from 'livekit-server-sdk';
+import { EgressClient, IngressClient, RoomServiceClient } from 'livekit-server-sdk';
 import { ROOM_NAME } from '@/types/broadcast';
 
 const livekitHost = process.env.LIVEKIT_URL?.replace('wss://', 'https://') || '';
@@ -26,6 +26,7 @@ export interface SlotCleanupResult {
   stoppedRecordingEgress: boolean;
   stoppedRestreamEgress: boolean;
   stoppedRestreamWorker: boolean;
+  deletedRestreamIngress: boolean;
   removedParticipant: boolean;
   participantIdentity: string | null;
   errors: string[];
@@ -42,6 +43,7 @@ export async function cleanupSlotLiveKit(slot: SlotCleanupInput): Promise<SlotCl
     stoppedRecordingEgress: false,
     stoppedRestreamEgress: false,
     stoppedRestreamWorker: false,
+    deletedRestreamIngress: false,
     removedParticipant: false,
     participantIdentity: null,
     errors: [],
@@ -53,9 +55,11 @@ export async function cleanupSlotLiveKit(slot: SlotCleanupInput): Promise<SlotCl
   }
 
   const egressClient = new EgressClient(livekitHost, apiKey, apiSecret);
+  const ingressClient = new IngressClient(livekitHost, apiKey, apiSecret);
   const roomService = new RoomServiceClient(livekitHost, apiKey, apiSecret);
 
-  // Restream worker (Hetzner) — stop before egress so it doesn't keep publishing
+  // Restream worker (Hetzner) — stop FFmpeg before tearing down ingress/egress
+  // so it doesn't keep pushing bytes at a dead RTMP endpoint.
   if (slot.restreamWorkerId || slot.restreamIngressId) {
     const restreamWorkerUrl = process.env.RESTREAM_WORKER_URL;
     if (restreamWorkerUrl) {
@@ -66,12 +70,25 @@ export async function cleanupSlotLiveKit(slot: SlotCleanupInput): Promise<SlotCl
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${process.env.CRON_SECRET}`,
           },
-          body: JSON.stringify({ slotId: slot.slotId }),
+          // Forward creds so the worker can also delete the ingress on its
+          // side (idempotent — server-side delete below covers it regardless).
+          body: JSON.stringify({ slotId: slot.slotId, apiKey, apiSecret, livekitHost }),
         });
         result.stoppedRestreamWorker = true;
       } catch (e) {
         result.errors.push(`restream-worker: ${e}`);
       }
+    }
+  }
+
+  // Restream RTMP ingress — authoritative cleanup on the LiveKit side.
+  // Idempotent with the worker's own deleteIngress call.
+  if (slot.restreamIngressId) {
+    try {
+      await ingressClient.deleteIngress(slot.restreamIngressId);
+      result.deletedRestreamIngress = true;
+    } catch (e) {
+      result.errors.push(`restream-ingress: ${e}`);
     }
   }
 

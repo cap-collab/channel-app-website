@@ -204,9 +204,33 @@ export function AdminDashboard() {
 
   };
 
-  // Delete slot - directly from Firestore
+  // Delete slot — route through the server endpoint that also tears down
+  // LiveKit resources (egresses, ingress, worker, participant) before
+  // dropping the Firestore doc. Deleting just the doc leaves the room with
+  // zombie participants that block the next DJ from going live.
   const handleDeleteSlot = async (slotId: string) => {
-    await deleteSlotFromDb(slotId);
+    if (!user) return;
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch('/api/broadcast/delete-slot', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ slotId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error('[handleDeleteSlot] delete-slot failed, falling back to direct delete:', err);
+        // Fall back so the admin can still clear the calendar if the server
+        // endpoint is unavailable — they can run cleanup separately.
+        await deleteSlotFromDb(slotId);
+      }
+    } catch (e) {
+      console.error('[handleDeleteSlot] delete-slot error, falling back to direct delete:', e);
+      await deleteSlotFromDb(slotId);
+    }
     await fetchSlots();
   };
 

@@ -1,8 +1,7 @@
 import express from 'express';
 import { spawn, execSync } from 'child_process';
 import { writeFileSync, readFileSync, unlinkSync } from 'fs';
-import { Room, RoomEvent, LocalAudioTrack, AudioSource, AudioFrame } from '@livekit/rtc-node';
-import { AccessToken } from 'livekit-server-sdk';
+import { IngressClient, IngressInput } from 'livekit-server-sdk';
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 
 const app = express();
@@ -11,7 +10,7 @@ app.use(express.json());
 const PORT = process.env.PORT || 3100;
 const SHARED_SECRET = process.env.SHARED_SECRET || process.env.CRON_SECRET || '';
 
-// Active restreams keyed by slotId
+// Active restreams keyed by slotId. Each value: { ffmpeg, ingressId }.
 const activeStreams = new Map();
 
 // Auth middleware
@@ -23,137 +22,94 @@ function authenticate(req, res, next) {
   next();
 }
 
+// POST /start — start a restream by publishing the archive MP4 into the
+// LiveKit room via an RTMP ingress. From the room's perspective the restream
+// participant looks just like a DJ going live via RTMP, so the existing
+// webhook→egress→R2 pipeline (track_published handler) picks it up without
+// any per-source branching.
 app.post('/start', authenticate, async (req, res) => {
-  const { slotId, archiveUrl, roomName, apiKey, apiSecret, wsUrl } = req.body;
+  const { slotId, archiveUrl, roomName, apiKey, apiSecret, livekitHost } = req.body;
 
-  if (!slotId || !archiveUrl || !roomName || !apiKey || !apiSecret || !wsUrl) {
+  if (!slotId || !archiveUrl || !roomName || !apiKey || !apiSecret || !livekitHost) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
-  // Stop existing stream for this slot if any
   if (activeStreams.has(slotId)) {
-    await stopStream(slotId);
+    await stopStream(slotId, apiKey, apiSecret, livekitHost);
   }
 
+  let ingressId = null;
   try {
     console.log(`[restream] Starting for slot ${slotId}, url: ${archiveUrl}`);
 
-    // Generate token with publish permissions
-    const token = new AccessToken(apiKey, apiSecret, {
-      identity: `restream-${slotId}`,
-      name: 'Restream',
+    const ingressClient = new IngressClient(livekitHost, apiKey, apiSecret);
+    const ingress = await ingressClient.createIngress(IngressInput.RTMP_INPUT, {
+      name: `restream-${slotId}`,
+      roomName,
+      participantIdentity: `restream-${slotId}`,
+      participantName: 'Restream',
     });
-    token.addGrant({
-      roomJoin: true,
-      room: roomName,
-      canPublish: true,
-      canSubscribe: false,
-    });
-    const jwt = await token.toJwt();
+    ingressId = ingress.ingressId;
+    const rtmpTarget = `${ingress.url}/${ingress.streamKey}`;
+    console.log(`[restream] Ingress created: ${ingressId}, rtmp=${ingress.url}/<key>`);
 
-    // Create audio source (48kHz stereo)
-    const SAMPLE_RATE = 48000;
-    const NUM_CHANNELS = 2;
-    const audioSource = new AudioSource(SAMPLE_RATE, NUM_CHANNELS);
-
-    // Create room and connect
-    const room = new Room();
-
-    room.on(RoomEvent.Disconnected, () => {
-      console.log(`[restream] Disconnected from room for slot ${slotId}`);
-    });
-
-    await room.connect(wsUrl, jwt, { autoSubscribe: false });
-    console.log(`[restream] Connected to room ${roomName} as restream-${slotId}`);
-
-    // Publish audio track
-    const track = LocalAudioTrack.createAudioTrack('restream-audio', audioSource);
-    const publication = await room.localParticipant.publishTrack(track, {
-      source: 1, // TrackSource.MICROPHONE
-    });
-    console.log(`[restream] Published audio track: ${publication.sid}`);
-
-    // Start FFmpeg to decode MP4 to raw PCM (48kHz, stereo, s16le)
+    // -re reads the input at its native frame rate so the audio streams in
+    // realtime (not as fast as FFmpeg can decode). -c:a aac matches what
+    // LiveKit ingress expects, 128k gives us clean quality without bloat.
+    // We re-encode (not copy) because source MP4s may use sample rates or
+    // channel layouts the ingress rejects.
     const ffmpeg = spawn('ffmpeg', [
+      '-re',
       '-i', archiveUrl,
-      '-f', 's16le',
-      '-acodec', 'pcm_s16le',
-      '-ar', String(SAMPLE_RATE),
-      '-ac', String(NUM_CHANNELS),
+      '-vn',
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      '-ar', '48000',
+      '-ac', '2',
+      '-f', 'flv',
       '-loglevel', 'warning',
-      '-',
+      rtmpTarget,
     ]);
 
     ffmpeg.stderr.on('data', (data) => {
-      console.log(`[restream][ffmpeg] ${data.toString().trim()}`);
-    });
-
-    // Feed PCM data to audio source in 10ms frames
-    const FRAME_DURATION_MS = 10;
-    const SAMPLES_PER_FRAME = SAMPLE_RATE * FRAME_DURATION_MS / 1000; // 480 samples
-    const BYTES_PER_FRAME = SAMPLES_PER_FRAME * NUM_CHANNELS * 2; // 16-bit = 2 bytes per sample
-
-    let buffer = Buffer.alloc(0);
-
-    // captureFrame is async and applies backpressure via its internal queue.
-    // If we fire-and-forget in a tight loop, the queue overflows and throws
-    // "InvalidState - failed to capture frame", crashing the process. Pause
-    // ffmpeg's stdout while we drain the current buffer so LiveKit has time
-    // to consume frames.
-    ffmpeg.stdout.on('data', async (chunk) => {
-      buffer = Buffer.concat([buffer, chunk]);
-      if (buffer.length < BYTES_PER_FRAME) return;
-
-      ffmpeg.stdout.pause();
-      try {
-        while (buffer.length >= BYTES_PER_FRAME) {
-          const frameData = buffer.subarray(0, BYTES_PER_FRAME);
-          buffer = buffer.subarray(BYTES_PER_FRAME);
-
-          // Copy samples into a fresh Int16Array rather than a view into
-          // ffmpeg's incoming buffer — otherwise the underlying memory can be
-          // reused/overwritten before LiveKit consumes the frame, yielding
-          // silent audio in the published track.
-          const samples = new Int16Array(SAMPLES_PER_FRAME * NUM_CHANNELS);
-          Buffer.from(samples.buffer).set(frameData);
-          const frame = new AudioFrame(samples, SAMPLE_RATE, NUM_CHANNELS, SAMPLES_PER_FRAME);
-          await audioSource.captureFrame(frame);
-        }
-      } catch (err) {
-        console.error(`[restream] captureFrame failed for slot ${slotId}:`, err.message);
-        stopStream(slotId);
-        return;
-      } finally {
-        ffmpeg.stdout.resume();
-      }
+      console.log(`[restream][ffmpeg ${slotId}] ${data.toString().trim()}`);
     });
 
     ffmpeg.on('close', (code) => {
       console.log(`[restream] FFmpeg exited with code ${code} for slot ${slotId}`);
-      stopStream(slotId);
+      // Cleanup ingress when ffmpeg finishes — we don't need it hanging around.
+      stopStream(slotId, apiKey, apiSecret, livekitHost).catch(() => {});
     });
 
     ffmpeg.on('error', (err) => {
       console.error(`[restream] FFmpeg error for slot ${slotId}:`, err);
-      stopStream(slotId);
+      stopStream(slotId, apiKey, apiSecret, livekitHost).catch(() => {});
     });
 
-    activeStreams.set(slotId, { room, ffmpeg, track, audioSource });
+    activeStreams.set(slotId, { ffmpeg, ingressId });
 
-    res.json({ success: true, slotId, identity: `restream-${slotId}` });
+    res.json({ success: true, slotId, ingressId });
   } catch (err) {
     console.error(`[restream] Failed to start for slot ${slotId}:`, err);
+    // If we got as far as creating the ingress but failed before handing off
+    // to ffmpeg, don't leak the ingress on the LiveKit side.
+    if (ingressId) {
+      try {
+        const ingressClient = new IngressClient(livekitHost, apiKey, apiSecret);
+        await ingressClient.deleteIngress(ingressId);
+      } catch { /* ignore */ }
+    }
     res.status(500).json({ error: err.message });
   }
 });
 
 app.post('/stop', authenticate, async (req, res) => {
-  const { slotId } = req.body;
+  const { slotId, apiKey, apiSecret, livekitHost } = req.body;
   if (!slotId) {
     return res.status(400).json({ error: 'slotId required' });
   }
 
-  const stopped = await stopStream(slotId);
+  const stopped = await stopStream(slotId, apiKey, apiSecret, livekitHost);
   res.json({ success: true, slotId, wasActive: stopped });
 });
 
@@ -161,14 +117,14 @@ app.get('/status', (req, res) => {
   const streams = {};
   for (const [slotId, stream] of activeStreams) {
     streams[slotId] = {
-      connected: stream.room.connectionState === 'connected',
       ffmpegRunning: !stream.ffmpeg.killed,
+      ingressId: stream.ingressId,
     };
   }
   res.json({ activeStreams: streams });
 });
 
-async function stopStream(slotId) {
+async function stopStream(slotId, apiKey, apiSecret, livekitHost) {
   const stream = activeStreams.get(slotId);
   if (!stream) return false;
 
@@ -182,18 +138,23 @@ async function stopStream(slotId) {
     console.log(`[restream] Error killing ffmpeg: ${e.message}`);
   }
 
-  try {
-    if (stream.room) {
-      await stream.room.disconnect();
+  if (stream.ingressId && apiKey && apiSecret && livekitHost) {
+    try {
+      const ingressClient = new IngressClient(livekitHost, apiKey, apiSecret);
+      await ingressClient.deleteIngress(stream.ingressId);
+    } catch (e) {
+      console.log(`[restream] Error deleting ingress: ${e.message}`);
     }
-  } catch (e) {
-    console.log(`[restream] Error disconnecting room: ${e.message}`);
   }
 
   activeStreams.delete(slotId);
   console.log(`[restream] Stopped slot ${slotId}`);
   return true;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Below: archive post-processing endpoints (/faststart, /normalize) — unchanged.
+// ─────────────────────────────────────────────────────────────────────────────
 
 // POST /faststart - Move moov atom to front of MP4 for mobile streaming
 // Called by webhook after recording egress completes
