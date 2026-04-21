@@ -51,6 +51,22 @@ export function GlobalBroadcastBar() {
     return username ? normalize(username) : '';
   }, [currentShow]);
 
+  // Profile link for live/restream bar (mirrors ArchiveHero.liveDjProfileUsername)
+  const liveDjProfileUsername = useMemo(() => {
+    if (!currentShow) return null;
+    if (currentShow.restreamDjs && currentShow.restreamDjs.length > 0) {
+      const primary = currentShow.restreamDjs.find(dj => dj.userId)
+        || currentShow.restreamDjs.find(dj => dj.username)
+        || null;
+      if (primary?.username) return primary.username;
+    }
+    if (currentShow.djSlots && currentShow.djSlots.length > 0) {
+      const slot = findActiveDjSlot(currentShow.djSlots);
+      if (slot) return slot.liveDjUsername || slot.djUsername || null;
+    }
+    return currentShow.liveDjUsername || currentShow.djUsername || null;
+  }, [currentShow]);
+
   const { sendLove, sendLockedIn } = useDJProfileChat({
     chatUsernameNormalized: currentDJChatRoom,
     djUsername: djName || currentShow?.djName || '',
@@ -197,6 +213,13 @@ export function GlobalBroadcastBar() {
               </span>
             )}
           </div>
+
+          {/* DJ profile link */}
+          {liveDjProfileUsername && (
+            <Link href={`/dj/${liveDjProfileUsername.replace(/\s+/g, '').toLowerCase()}`} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+            </Link>
+          )}
 
           {/* Love button */}
           <div className="relative flex-shrink-0">
