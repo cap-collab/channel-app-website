@@ -118,7 +118,10 @@ export function useDJProfileChat({
         let loves = 0;
 
         snapshot.forEach((docSnap) => {
-          const data = docSnap.data();
+          // Estimate pending serverTimestamp() writes to local time so a love
+          // message getting its timestamp bumped (on new love / locked-in) shows
+          // "now" immediately instead of the stale cached value.
+          const data = docSnap.data({ serverTimestamps: 'estimate' });
           const timestamp = data.timestamp as Timestamp | null;
           const msgTimestamp = timestamp ? timestamp.toMillis() : Date.now();
           const msg: ChatMessageSerialized = {
