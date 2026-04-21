@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useRef, useCallback, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { getDefaultCity } from '@/lib/city-detection';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
@@ -15,8 +15,16 @@ const URL_SCENE_SLUGS = new Set(['spiral', 'diamond', 'grid']);
 // override into FilterProvider state. Isolated so we can wrap it in <Suspense>
 // — useSearchParams() otherwise opts every page using <FilterProvider> out of
 // static prerendering.
-function URLSceneSync({ onScene }: { onScene: (scene: string | null) => void }) {
+function URLSceneSync({
+  onScene,
+  onRegisterClear,
+}: {
+  onScene: (scene: string | null) => void;
+  onRegisterClear: (fn: () => void) => void;
+}) {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   let override: string | null = null;
   const scene = searchParams?.get('scene') ?? null;
   if (scene && URL_SCENE_SLUGS.has(scene)) {
@@ -29,6 +37,22 @@ function URLSceneSync({ onScene }: { onScene: (scene: string | null) => void }) 
   useEffect(() => {
     onScene(override);
   }, [override, onScene]);
+  // Expose a "strip scene params from the URL" callback to the provider so
+  // a manual chip toggle on /radio?diamond cleans the URL back to /radio.
+  useEffect(() => {
+    onRegisterClear(() => {
+      if (!searchParams) return;
+      const next = new URLSearchParams(searchParams.toString());
+      let changed = false;
+      if (next.has('scene')) { next.delete('scene'); changed = true; }
+      URL_SCENE_SLUGS.forEach((slug) => {
+        if (next.has(slug)) { next.delete(slug); changed = true; }
+      });
+      if (!changed) return;
+      const qs = next.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname);
+    });
+  }, [searchParams, router, pathname, onRegisterClear]);
   return null;
 }
 
@@ -82,6 +106,11 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
   // before the override arrived can stomp it with the user's saved prefs.
   const hasUrlSceneOverrideRef = useRef(false);
   useEffect(() => { hasUrlSceneOverrideRef.current = hasUrlSceneOverride; }, [hasUrlSceneOverride]);
+  // Registered by URLSceneSync; strips scene params from the current URL.
+  const clearUrlSceneRef = useRef<() => void>(() => {});
+  const registerClearUrlScene = useCallback((fn: () => void) => {
+    clearUrlSceneRef.current = fn;
+  }, []);
 
   const [selectedCity, setSelectedCity] = useState<string>(getDefaultCity());
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
@@ -139,7 +168,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
         if (localGenre) setSelectedGenres([localGenre]);
       }
     } catch {}
-    if (!hasUrlSceneOverride) {
+    if (!hasUrlSceneOverrideRef.current) {
       try {
         const storedScenes = localStorage.getItem('channel-selected-scenes');
         if (storedScenes) {
@@ -148,7 +177,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
         }
       } catch {}
     }
-  }, [user?.uid, hasUrlSceneOverride]);
+  }, [user?.uid]);
 
   // Migrate localStorage preferences to Firestore when user signs up/in
   const prevUserRef = useRef<string | null>(null);
@@ -235,9 +264,12 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
 
   const handleSceneIdsChange = useCallback(async (sceneIds: string[]) => {
     setSelectedSceneIds(sceneIds);
-    // Session-only when arrived via a shareable `?scene=` link: don't touch
-    // the recipient's saved preferences.
-    if (hasUrlSceneOverride) return;
+    // Manual toggle exits the "shared link" session: strip the scene param
+    // from the URL and resume normal persistence going forward.
+    if (hasUrlSceneOverride) {
+      clearUrlSceneRef.current();
+      setUrlSceneOverride(null);
+    }
     if (user?.uid && db) {
       try {
         const userRef = doc(db, 'users', user.uid);
@@ -268,7 +300,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
       setTunerHints,
     }}>
       <Suspense fallback={null}>
-        <URLSceneSync onScene={setUrlSceneOverride} />
+        <URLSceneSync onScene={setUrlSceneOverride} onRegisterClear={registerClearUrlScene} />
       </Suspense>
       {children}
     </FilterContext.Provider>
