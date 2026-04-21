@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { TimeSlot } from '@/types/dj-application';
+import { db } from '@/lib/firebase';
 
 interface TimeSlotPickerProps {
   selectedSlots: TimeSlot[];
@@ -90,6 +92,7 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
     const firstOpen = getSunday(new Date(BLOCKED_UNTIL));
     return firstOpen > today ? firstOpen : today;
   });
+  const [bookedRanges, setBookedRanges] = useState<Array<{ start: number; end: number }>>([]);
   const [hoverSlot, setHoverSlot] = useState<{ dayIndex: number; startHour: number } | null>(null);
   const timeColumnRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -106,6 +109,47 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
       result.push(day);
     }
     return result;
+  }, [currentWeekStart]);
+
+  // Fetch already-booked broadcast slots that overlap the visible week
+  useEffect(() => {
+    if (!db) return;
+    let cancelled = false;
+
+    const weekStart = new Date(currentWeekStart);
+    weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(currentWeekStart);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    weekEnd.setHours(0, 0, 0, 0);
+
+    (async () => {
+      try {
+        const slotsRef = collection(db, 'broadcast-slots');
+        // Any slot whose endTime > weekStart AND startTime < weekEnd overlaps.
+        // Firestore only supports one range field, so we query by endTime and filter start client-side.
+        const q = query(slotsRef, where('endTime', '>', Timestamp.fromDate(weekStart)));
+        const snap = await getDocs(q);
+        if (cancelled) return;
+        const ranges: Array<{ start: number; end: number }> = [];
+        snap.forEach((doc) => {
+          const data = doc.data() as { startTime?: Timestamp; endTime?: Timestamp; status?: string };
+          if (!data.startTime || !data.endTime) return;
+          if (data.status === 'cancelled') return;
+          const startMs = data.startTime.toMillis();
+          const endMs = data.endTime.toMillis();
+          if (startMs < weekEnd.getTime()) {
+            ranges.push({ start: startMs, end: endMs });
+          }
+        });
+        setBookedRanges(ranges);
+      } catch (err) {
+        console.error('[TimeSlotPicker] Failed to fetch booked slots:', err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [currentWeekStart]);
 
   // Scroll to 9am on mount
@@ -158,9 +202,21 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
     }
   }, [currentWeekStart]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const isTimeBooked = (timestamp: number): boolean => {
+    const segmentEnd = timestamp + 30 * 60 * 1000;
+    return bookedRanges.some((r) => timestamp < r.end && segmentEnd > r.start);
+  };
+
   const isTimeUnavailable = (timestamp: number): boolean => {
     const minTime = Date.now() + 36 * 60 * 60 * 1000;
-    return timestamp < minTime || timestamp < BLOCKED_UNTIL || isNighttimePT(timestamp) || isWeekendPT(timestamp) || isBlockedDate(timestamp);
+    return (
+      timestamp < minTime ||
+      timestamp < BLOCKED_UNTIL ||
+      isNighttimePT(timestamp) ||
+      isWeekendPT(timestamp) ||
+      isBlockedDate(timestamp) ||
+      isTimeBooked(timestamp)
+    );
   };
 
   const isSlotValid = (dayIndex: number, startHour: number): boolean => {
@@ -386,9 +442,9 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
                             border-l border-gray-800/50 transition-colors
                             ${selected ? 'bg-green-600/40 border-l-green-700 cursor-pointer' : ''}
                             ${inPreview && !selected ? 'bg-green-700/30 cursor-pointer' : ''}
-                            ${unavailable && !selected ? 'bg-white/[0.02] cursor-not-allowed' : ''}
-                            ${!unavailable && !selected && !inPreview && canSelect ? 'bg-white/[0.08] hover:bg-green-800/30 cursor-pointer' : ''}
-                            ${!unavailable && !canSelect && !selected && !inPreview ? 'bg-white/[0.08] cursor-not-allowed' : ''}
+                            ${unavailable && !selected ? 'bg-red-900/40 cursor-not-allowed' : ''}
+                            ${!unavailable && !selected && !inPreview && canSelect ? 'bg-black/60 hover:bg-green-800/40 cursor-pointer' : ''}
+                            ${!unavailable && !canSelect && !selected && !inPreview ? 'bg-red-900/40 cursor-not-allowed' : ''}
                           `}
                           onClick={() => handleCellClick(dayIndex, hour)}
                           onMouseEnter={() => handleCellMouseEnter(dayIndex, hour)}
@@ -407,11 +463,11 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
       <div className="px-4 py-3 bg-[#1a1a1a] border-t border-gray-800">
         <div className="flex flex-wrap gap-4 text-xs text-gray-400">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-white/[0.08] rounded border border-gray-700"></div>
-            <span>Available</span>
+            <div className="w-4 h-4 bg-black/60 rounded border border-gray-700"></div>
+            <span>Available to pick</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-white/[0.02] rounded border border-gray-800"></div>
+            <div className="w-4 h-4 bg-red-900/40 rounded border border-red-900"></div>
             <span>Unavailable</span>
           </div>
           <div className="flex items-center gap-2">
