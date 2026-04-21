@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { getDefaultCity } from '@/lib/city-detection';
@@ -10,6 +10,19 @@ import { db } from '@/lib/firebase';
 // Scene slugs accepted via the `?scene=` URL param (shareable filter links).
 // Kept in sync with SceneGlyph's rendered slugs and Firestore scene doc IDs.
 const URL_SCENE_SLUGS = new Set(['spiral', 'diamond', 'grid']);
+
+// Reads `?scene=` and pushes the override into FilterProvider state.
+// Isolated so we can wrap it in <Suspense> — useSearchParams() otherwise
+// opts every page using <FilterProvider> out of static prerendering.
+function URLSceneSync({ onScene }: { onScene: (scene: string | null) => void }) {
+  const searchParams = useSearchParams();
+  const urlScene = searchParams?.get('scene') ?? null;
+  const override = urlScene && URL_SCENE_SLUGS.has(urlScene) ? urlScene : null;
+  useEffect(() => {
+    onScene(override);
+  }, [override, onScene]);
+  return null;
+}
 
 interface FilterContextValue {
   selectedCity: string;
@@ -50,20 +63,22 @@ export function useFilterContext() {
 
 export function FilterProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuthContext();
-  const searchParams = useSearchParams();
-  // `?scene=spiral` (or diamond/grid) activates a session-only scene filter:
-  // seeds selectedSceneIds on mount and makes handleSceneIdsChange skip
-  // persistence, so sharing a link never overwrites the recipient's saved prefs.
-  const urlScene = searchParams?.get('scene');
-  const urlSceneOverride = urlScene && URL_SCENE_SLUGS.has(urlScene) ? urlScene : null;
+  // `?scene=spiral` (or diamond/grid) activates a session-only scene filter.
+  // URLSceneSync (below, Suspense-wrapped) writes the validated override here
+  // so FilterProvider itself stays free of useSearchParams() — otherwise every
+  // page under <Providers> would be forced out of static prerendering.
+  const [urlSceneOverride, setUrlSceneOverride] = useState<string | null>(null);
   const hasUrlSceneOverride = urlSceneOverride !== null;
 
   const [selectedCity, setSelectedCity] = useState<string>(getDefaultCity());
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
-  const [selectedSceneIds, setSelectedSceneIds] = useState<string[] | null>(
-    urlSceneOverride ? [urlSceneOverride] : null
-  );
+  const [selectedSceneIds, setSelectedSceneIds] = useState<string[] | null>(null);
   const [tunerHints, setTunerHints] = useState<TunerHints>({});
+
+  // When the URL override arrives (client-side, post-mount), apply it.
+  useEffect(() => {
+    if (urlSceneOverride) setSelectedSceneIds([urlSceneOverride]);
+  }, [urlSceneOverride]);
 
   // Load city/genre/scene preferences: Firebase for auth users, localStorage for unauth.
   // When a URL scene override is active, we skip loading persisted scene prefs
@@ -237,6 +252,9 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
       onGenreDropdownClose: tunerHints.onGenreDropdownClose,
       setTunerHints,
     }}>
+      <Suspense fallback={null}>
+        <URLSceneSync onScene={setUrlSceneOverride} />
+      </Suspense>
       {children}
     </FilterContext.Provider>
   );
