@@ -28,7 +28,7 @@ function authenticate(req, res, next) {
 // webhook→egress→R2 pipeline (track_published handler) picks it up without
 // any per-source branching.
 app.post('/start', authenticate, async (req, res) => {
-  const { slotId, archiveUrl, roomName, apiKey, apiSecret, livekitHost } = req.body;
+  const { slotId, archiveUrl, roomName, apiKey, apiSecret, livekitHost, appUrl, endTime } = req.body;
 
   if (!slotId || !archiveUrl || !roomName || !apiKey || !apiSecret || !livekitHost) {
     return res.status(400).json({ error: 'Missing required fields' });
@@ -40,7 +40,7 @@ app.post('/start', authenticate, async (req, res) => {
 
   let ingressId = null;
   try {
-    console.log(`[restream] Starting for slot ${slotId}, url: ${archiveUrl}`);
+    console.log(`[restream] Starting for slot ${slotId}, url: ${archiveUrl}, endTime: ${endTime || 'none'}`);
 
     const ingressClient = new IngressClient(livekitHost, apiKey, apiSecret);
     const ingress = await ingressClient.createIngress(IngressInput.RTMP_INPUT, {
@@ -50,51 +50,97 @@ app.post('/start', authenticate, async (req, res) => {
       participantName: 'Restream',
     });
     ingressId = ingress.ingressId;
-    // Our self-hosted ingress server doesn't set `rtmp_base_url` in its
-    // config, so ingress.url comes back empty. Fall back to the standard
-    // LiveKit RTMP path on port 1935. RTMP_BASE_URL env lets the operator
-    // override (e.g. to point at the Docker bridge gateway if running this
-    // container alongside ingress on the same host).
     const rtmpBase = (ingress.url && ingress.url.length > 0)
       ? ingress.url
       : (process.env.RTMP_BASE_URL || 'rtmp://172.17.0.1:1935/x');
     const rtmpTarget = `${rtmpBase}/${ingress.streamKey}`;
     console.log(`[restream] Ingress created: ${ingressId}, rtmp=${rtmpBase}/<key>`);
 
-    // -re reads the input at its native frame rate so the audio streams in
-    // realtime (not as fast as FFmpeg can decode). -c:a aac matches what
-    // LiveKit ingress expects, 128k gives us clean quality without bloat.
-    // We re-encode (not copy) because source MP4s may use sample rates or
-    // channel layouts the ingress rejects.
-    const ffmpeg = spawn('ffmpeg', [
-      '-re',
-      '-i', archiveUrl,
-      '-vn',
-      '-c:a', 'aac',
-      '-b:a', '128k',
-      '-ar', '48000',
-      '-ac', '2',
-      '-f', 'flv',
-      '-loglevel', 'warning',
-      rtmpTarget,
-    ]);
-
-    ffmpeg.stderr.on('data', (data) => {
+    // Spawn the archive FFmpeg. Pure HTTP GET on the archive URL — never
+    // writes back to the source MP4.
+    const archiveFfmpeg = makeFfmpeg(archiveUrl, rtmpTarget);
+    archiveFfmpeg.stderr.on('data', (data) => {
       console.log(`[restream][ffmpeg ${slotId}] ${data.toString().trim()}`);
     });
 
-    ffmpeg.on('close', (code) => {
-      console.log(`[restream] FFmpeg exited with code ${code} for slot ${slotId}`);
-      // Cleanup ingress when ffmpeg finishes — we don't need it hanging around.
+    const entry = { archiveFfmpeg, silenceFfmpeg: null, ingressId, slotEndTimer: null };
+    activeStreams.set(slotId, entry);
+
+    archiveFfmpeg.on('close', (code, signal) => {
+      console.log(`[restream] Archive FFmpeg exited code=${code} signal=${signal} for slot ${slotId}`);
+      const naturalEnd = code === 0;
+      const wasKilled = signal === 'SIGTERM' || signal === 'SIGKILL';
+      if (naturalEnd && !wasKilled) {
+        // Archive finished on its own. If the stream is still active here
+        // it means the archive finished but the slot hasn't ended yet —
+        // pad with silence until the slot-end timer fires.
+        const current = activeStreams.get(slotId);
+        if (current && current === entry && !current.silenceFfmpeg && current.slotEndTimer) {
+          console.log(`[restream] Archive done before slot.endTime — padding with silence for slot ${slotId}`);
+          const silenceFfmpeg = makeFfmpeg('anullsrc=r=48000:cl=stereo', rtmpTarget, { silence: true });
+          silenceFfmpeg.stderr.on('data', (data) => {
+            console.log(`[restream][silence ${slotId}] ${data.toString().trim()}`);
+          });
+          silenceFfmpeg.on('close', (silenceCode) => {
+            console.log(`[restream] Silence FFmpeg exited code=${silenceCode} for slot ${slotId}`);
+          });
+          current.silenceFfmpeg = silenceFfmpeg;
+        }
+      } else if (!wasKilled) {
+        // Non-zero exit that wasn't triggered by us = genuine failure. Tear down.
+        console.error(`[restream] Archive FFmpeg failed for slot ${slotId}, tearing down`);
+        stopStream(slotId, apiKey, apiSecret, livekitHost).catch(() => {});
+      }
+      // If we killed it (stopStream / slot-end timer), do nothing — the
+      // caller owns the teardown.
+    });
+
+    archiveFfmpeg.on('error', (err) => {
+      console.error(`[restream] Archive FFmpeg error for slot ${slotId}:`, err);
       stopStream(slotId, apiKey, apiSecret, livekitHost).catch(() => {});
     });
 
-    ffmpeg.on('error', (err) => {
-      console.error(`[restream] FFmpeg error for slot ${slotId}:`, err);
-      stopStream(slotId, apiKey, apiSecret, livekitHost).catch(() => {});
-    });
-
-    activeStreams.set(slotId, { ffmpeg, ingressId });
+    // Schedule slot-end complete-slot call. Mirrors the DJ-browser pattern
+    // in src/app/broadcast/live/BroadcastClient.tsx: setTimeout at endTime
+    // calls /api/broadcast/complete-slot, which atomically marks this slot
+    // completed, activates the next slot (if any), and preserves the HLS
+    // egress across the transition.
+    if (appUrl && typeof endTime === 'number' && endTime > Date.now()) {
+      const remainingMs = endTime - Date.now();
+      console.log(`[restream] Slot-end timer scheduled ${Math.round(remainingMs / 1000)}s out for ${slotId}`);
+      entry.slotEndTimer = setTimeout(async () => {
+        // Worker could have restarted or /stop could have fired — bail if the
+        // slot isn't our active entry anymore.
+        if (activeStreams.get(slotId) !== entry) {
+          console.log(`[restream] Slot-end timer fired but slot ${slotId} no longer active, skipping`);
+          return;
+        }
+        console.log(`[restream] Slot ${slotId} reached endTime, calling complete-slot`);
+        // Kill whatever FFmpeg is running so we stop publishing to LiveKit
+        // promptly. Authoritative teardown (ingress delete, participant
+        // removal) happens via complete-slot → cleanupSlotLiveKit → /stop.
+        try { entry.archiveFfmpeg?.kill('SIGTERM'); } catch {}
+        try { entry.silenceFfmpeg?.kill('SIGTERM'); } catch {}
+        try {
+          const resp = await fetch(`${appUrl}/api/broadcast/complete-slot`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${SHARED_SECRET}`,
+            },
+            body: JSON.stringify({ slotId }),
+          });
+          if (!resp.ok) {
+            const txt = await resp.text().catch(() => '');
+            console.error(`[restream] complete-slot returned ${resp.status} for ${slotId}: ${txt}`);
+          }
+        } catch (err) {
+          console.error(`[restream] complete-slot call failed for ${slotId}:`, err?.message || err);
+        }
+      }, remainingMs);
+    } else {
+      console.log(`[restream] No slot-end timer for ${slotId} (appUrl=${!!appUrl}, endTime=${endTime})`);
+    }
 
     res.json({ success: true, slotId, ingressId });
   } catch (err) {
@@ -111,6 +157,23 @@ app.post('/start', authenticate, async (req, res) => {
   }
 });
 
+function makeFfmpeg(source, rtmpTarget, options = {}) {
+  const inputArgs = options.silence
+    ? ['-re', '-f', 'lavfi', '-i', source]
+    : ['-re', '-i', source];
+  return spawn('ffmpeg', [
+    ...inputArgs,
+    '-vn',
+    '-c:a', 'aac',
+    '-b:a', '128k',
+    '-ar', '48000',
+    '-ac', '2',
+    '-f', 'flv',
+    '-loglevel', 'warning',
+    rtmpTarget,
+  ]);
+}
+
 app.post('/stop', authenticate, async (req, res) => {
   const { slotId, apiKey, apiSecret, livekitHost } = req.body;
   if (!slotId) {
@@ -124,9 +187,14 @@ app.post('/stop', authenticate, async (req, res) => {
 app.get('/status', (req, res) => {
   const streams = {};
   for (const [slotId, stream] of activeStreams) {
+    const archiveRunning = !!stream.archiveFfmpeg && !stream.archiveFfmpeg.killed;
+    const silenceRunning = !!stream.silenceFfmpeg && !stream.silenceFfmpeg.killed;
     streams[slotId] = {
-      ffmpegRunning: !stream.ffmpeg.killed,
+      archiveRunning,
+      silenceRunning,
+      ffmpegRunning: archiveRunning || silenceRunning,
       ingressId: stream.ingressId,
+      slotEndScheduled: !!stream.slotEndTimer,
     };
   }
   res.json({ activeStreams: streams });
@@ -138,12 +206,22 @@ async function stopStream(slotId, apiKey, apiSecret, livekitHost) {
 
   console.log(`[restream] Stopping slot ${slotId}`);
 
-  try {
-    if (stream.ffmpeg && !stream.ffmpeg.killed) {
-      stream.ffmpeg.kill('SIGTERM');
+  // Clear the slot-end timer first so it can't fire against a slot that's
+  // already being torn down (would POST to complete-slot for a stale slot).
+  if (stream.slotEndTimer) {
+    clearTimeout(stream.slotEndTimer);
+    stream.slotEndTimer = null;
+  }
+
+  // Kill both the archive FFmpeg and the silence pad FFmpeg (only one runs
+  // at a time, but either could be active depending on slot progress).
+  for (const key of ['archiveFfmpeg', 'silenceFfmpeg']) {
+    const proc = stream[key];
+    if (proc && !proc.killed) {
+      try { proc.kill('SIGTERM'); } catch (e) {
+        console.log(`[restream] Error killing ${key}: ${e.message}`);
+      }
     }
-  } catch (e) {
-    console.log(`[restream] Error killing ffmpeg: ${e.message}`);
   }
 
   if (stream.ingressId && apiKey && apiSecret && livekitHost) {

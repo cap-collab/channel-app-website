@@ -100,7 +100,13 @@ export async function POST(request: NextRequest) {
     }
     const livekitHost = wsUrl.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:');
 
-    console.log(`[start-restream] Starting worker for slot ${slotId}, archiveUrl: ${archiveUrl}`);
+    // App URL so the worker can call back to complete-slot precisely at
+    // slot.endTime (matching how a live DJ's browser ends its own slot).
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL
+      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
+    const endTimeMs = slot.endTime?.toMillis?.() ?? slot.endTime ?? null;
+
+    console.log(`[start-restream] Starting worker for slot ${slotId}, archiveUrl: ${archiveUrl}, endTime: ${endTimeMs}`);
     const workerResp = await fetch(`${restreamWorkerUrl}/start`, {
       method: 'POST',
       headers: {
@@ -114,6 +120,8 @@ export async function POST(request: NextRequest) {
         apiKey,
         apiSecret,
         livekitHost,
+        appUrl,
+        endTime: endTimeMs,
       }),
     });
 
