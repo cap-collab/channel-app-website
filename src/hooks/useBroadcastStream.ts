@@ -522,24 +522,6 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
             setTimeout(finish, 5000);
           });
 
-          // Seek back a touch from the live edge so we have buffer headroom.
-          // The cache-bust gives us the freshest possible manifest; native
-          // HLS then starts near the newest segment and every segment
-          // boundary becomes a photo finish with the egress still writing
-          // to R2. ~8s back (one full 6s segment + ~2s safety) gives iOS
-          // room to prefetch without clipping. Some iOS versions report
-          // duration=Infinity for live streams; skip the seek in that case
-          // (nothing we can do — native HLS manages its own buffering).
-          try {
-            const dur = audio.duration;
-            if (isFinite(dur) && dur > 8) {
-              audio.currentTime = dur - 8;
-            }
-          } catch {
-            // Seeking on a still-loading manifest can throw on some iOS
-            // versions; non-fatal, continue.
-          }
-
           const tryPlay = async () => {
             try {
               await audio.play();
