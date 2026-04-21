@@ -492,7 +492,12 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
 
     // Use HLS for mobile/Safari - more reliable than WebRTC
     if (useHLS) {
-      const hlsUrl = HLS_URL;
+      // Cache-bust every time we (re)start playback. iOS native HLS caches
+      // the manifest + segments aggressively, so pressing play after a pause
+      // can replay the stale segments that were in the buffer minutes ago
+      // instead of jumping to the live edge. A fresh query param forces the
+      // player to fetch a new manifest and start at current live edge.
+      const hlsUrl = `${HLS_URL}?t=${Date.now()}`;
       console.log('🎵 Using HLS stream:', hlsUrl);
       try {
         // Check if Safari with native HLS support
@@ -533,7 +538,7 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
           if (!played) {
             console.log('🎵 Native HLS first play failed, retrying once');
             await new Promise((r) => setTimeout(r, 400));
-            audio.src = hlsUrl;
+            audio.src = `${HLS_URL}?t=${Date.now()}`;
             played = await tryPlay();
           }
 
