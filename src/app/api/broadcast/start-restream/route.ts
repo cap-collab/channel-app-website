@@ -46,10 +46,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { slotId } = await request.json();
+    const { slotId, reuseHlsEgress } = await request.json() as { slotId?: string; reuseHlsEgress?: boolean };
     if (!slotId) {
       return NextResponse.json({ error: 'slotId required' }, { status: 400 });
     }
+    // Mirrors the `/api/livekit/egress` pattern: caller says whether this is
+    // a seamless handoff from a previous slot (reuse the kept-alive egress)
+    // or a fresh start (stop any stale egresses, start a new one). Default
+    // false so cron/admin cold-start paths don't accidentally reuse a
+    // dying orphaned egress and inherit its ENDLIST.
+    const reuseEgressFromHandoff = reuseHlsEgress === true;
 
     const db = getAdminDb();
     if (!db) {
@@ -147,20 +153,20 @@ export async function POST(request: NextRequest) {
       try {
         const egressClient = new EgressClient(livekitHost, apiKey, apiSecret);
 
-        // If a live broadcast's HLS egress is still running on this room
-        // (complete-slot keeps it alive across transitions for manifest
-        // continuity), reuse it. The egress composes whatever audio is in
-        // the room, so the restream participant's audio flows through the
-        // same playlist the live DJ's did — listener never reloads.
+        // Handle existing active egresses based on caller's reuse intent.
+        // Mirrors /api/livekit/egress logic for live broadcasts.
         try {
           const existing = await egressClient.listEgress({ roomName: ROOM_NAME, active: true });
           for (const e of existing) {
-            if (!restreamEgressId) {
+            if (reuseEgressFromHandoff && !restreamEgressId) {
+              // Caller indicated this is a transition from a slot that was
+              // just cleaned up with keepHlsEgress:true — safely reuse.
               restreamEgressId = e.egressId;
               reusedEgress = true;
-              console.log(`[start-restream] Reusing existing HLS egress: ${e.egressId}`);
+              console.log(`[start-restream] Reusing existing HLS egress for handoff: ${e.egressId}`);
             } else {
-              // Any additional stale egresses — stop them
+              // Either this is a cold start (no handoff) or we've already
+              // chosen one to reuse and the rest are stale — stop them.
               try {
                 await egressClient.stopEgress(e.egressId);
                 console.log(`[start-restream] Stopped stale egress: ${e.egressId}`);

@@ -172,7 +172,10 @@ export async function POST(request: NextRequest) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${cronSecret}`,
         },
-        body: JSON.stringify({ slotId: nextShowDoc.id }),
+        // Handoff: we just called cleanupSlotLiveKit with keepHlsEgress:true
+        // above, so the previous slot's egress is still alive and waiting to
+        // be reused. Mirrors the live DJ's `reuseHlsEgress:true` pattern.
+        body: JSON.stringify({ slotId: nextShowDoc.id, reuseHlsEgress: true }),
       }).then(async (res) => {
         const data = await res.json();
         if (res.ok) {
