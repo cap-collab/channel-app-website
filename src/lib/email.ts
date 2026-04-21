@@ -796,7 +796,7 @@ export async function sendBroadcast48HourReminderEmail({
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Preview what your show will look like</td>
             </tr>
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Share it on IG</td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Share it on IG and tag us <a href="https://www.instagram.com/channelrad.io" style="color: #555; text-decoration: underline;">@channelrad.io</a></td>
             </tr>
           </table>
           <p style="margin: 24px 0 0; font-size: 14px; color: #1a1a1a;">
@@ -876,7 +876,7 @@ export async function sendBroadcastReminderEmail({
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Preview what your show will look like</td>
             </tr>
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Share it on IG</td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Share it on IG and tag us <a href="https://www.instagram.com/channelrad.io" style="color: #555; text-decoration: underline;">@channelrad.io</a></td>
             </tr>
           </table>
           <p style="margin: 24px 0 0; font-size: 14px; color: #1a1a1a;">
@@ -950,7 +950,7 @@ export async function sendBroadcast2HourReminderEmail({
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Preview what your show will look like</td>
             </tr>
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Share it on IG</td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Share it on IG and tag us <a href="https://www.instagram.com/channelrad.io" style="color: #555; text-decoration: underline;">@channelrad.io</a></td>
             </tr>
             <tr>
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Click "Auto go live" 1 minute before your start time</td>
