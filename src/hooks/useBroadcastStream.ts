@@ -10,6 +10,7 @@ import { BroadcastSlotSerialized, ROOM_NAME } from '@/types/broadcast';
 import { findActiveDjSlot } from '@/lib/broadcast-utils';
 import Hls from 'hls.js';
 import { captureEvent } from '@/lib/posthog';
+import { registerAudio, pauseOthers } from '@/lib/audio-exclusive';
 
 // HLS stream URLs - direct from R2 (bypasses Vercel serverless proxy)
 const R2_PUBLIC_URL = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
@@ -394,6 +395,7 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
         // Create one as fallback just in case
         if (!audioElementRef.current) {
           audioElementRef.current = new Audio();
+          registerAudio('live', audioElementRef.current);
         }
 
         // Attach the track to the audio element
@@ -410,6 +412,7 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
         audioElementRef.current.setAttribute('playsinline', 'true');
         audioElementRef.current.setAttribute('webkit-playsinline', 'true');
 
+        pauseOthers('live');
         audioElementRef.current.play()
           .then(() => {
             console.log('🎵 Audio playing');
@@ -486,6 +489,7 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
     // Create audio element if needed
     if (!audioElementRef.current) {
       audioElementRef.current = new Audio();
+      registerAudio('live', audioElementRef.current);
     }
 
     // Set mobile-friendly attributes
@@ -521,6 +525,7 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
         if (audioElementRef.current.canPlayType('application/vnd.apple.mpegurl')) {
           console.log('🎵 Using native HLS (Safari)');
           audioElementRef.current.src = hlsUrl;
+          pauseOthers('live');
           await audioElementRef.current.play();
           captureAudioStream();
           setIsPlaying(true);
@@ -541,6 +546,7 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
           hls.on(Hls.Events.MANIFEST_PARSED, async () => {
             console.log('🎵 HLS manifest loaded');
             try {
+              pauseOthers('live');
               await audioElementRef.current!.play();
               captureAudioStream();
               setIsPlaying(true);

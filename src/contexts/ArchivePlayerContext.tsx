@@ -7,6 +7,7 @@ import { getApps, initializeApp } from 'firebase/app';
 import { ArchiveSerialized } from '@/types/broadcast';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { captureEvent } from '@/lib/posthog';
+import { registerAudio, pauseOthers } from '@/lib/audio-exclusive';
 
 function getFirebaseApp() {
   if (getApps().length === 0) {
@@ -112,6 +113,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
         audioRef.current.pause();
         audioRef.current.src = '';
         audioRef.current = null;
+        registerAudio('archive', null);
       }
     };
   }, []);
@@ -175,6 +177,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       });
 
       audioRef.current = audio;
+      registerAudio('archive', audio);
     }
     return audioRef.current;
   }, []);
@@ -444,6 +447,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       archiveLockedInFiredRef.current = null;
       resumePositionRef.current = 0;
       setIsLoading(true);
+      pauseOthers('archive');
       audio.play().catch(() => {
         setIsLoading(false);
       });
@@ -462,6 +466,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
         audio.addEventListener('loadedmetadata', setTime);
         setIsLoading(true);
       }
+      pauseOthers('archive');
       audio.play().catch(() => { setIsLoading(false); });
     }
   }, [currentArchive, isPlaying, currentTime, getAudio, isGated, isAuthenticated]);
