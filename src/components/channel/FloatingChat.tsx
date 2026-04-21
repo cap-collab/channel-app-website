@@ -6,6 +6,8 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useDJProfileChat } from '@/hooks/useDJProfileChat';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
+import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
+import { computeDJChatRoom } from '@/lib/broadcast-utils';
 import { HeroChatMessage } from './LiveBroadcastHero';
 import { AuthModal } from '@/components/AuthModal';
 
@@ -13,7 +15,8 @@ export function FloatingChat() {
   const pathname = usePathname();
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername, loading: profileLoading, setChatUsername } = useUserProfile(user?.uid);
-  const { isLive, currentShow, currentDJ } = useBroadcastStreamContext();
+  const { isLive, isStreaming, isPlaying, currentShow, currentDJ } = useBroadcastStreamContext();
+  const archivePlayer = useArchivePlayer();
 
   const [isOpen, setIsOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -25,19 +28,70 @@ export function FloatingChat() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const liveDjName = currentDJ || currentShow?.djName || null;
-  const liveDJChatRoom = currentShow
-    ? (currentShow.liveDjUsername || currentShow.djUsername || currentShow.djName || '').replace(/[\s-]+/g, '').toLowerCase()
-    : '';
 
-  const chatRoom = isLive && liveDJChatRoom ? liveDJChatRoom : 'channelbroadcast';
-  const chatDJLabel = isLive && liveDjName ? liveDjName : 'Channel Radio';
+  // Follow venue multi-DJ slot transitions (mirror ChannelClient).
+  const [liveDJChatRoom, setLiveDJChatRoom] = useState(() => computeDJChatRoom(currentShow ?? null));
+  useEffect(() => {
+    setLiveDJChatRoom(computeDJChatRoom(currentShow ?? null));
+    const isVenue = currentShow?.djSlots && currentShow.djSlots.length > 1;
+    if (!isVenue) return;
+    const interval = setInterval(() => {
+      setLiveDJChatRoom(computeDJChatRoom(currentShow ?? null));
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [currentShow]);
 
-  const { messages, sendMessage } = useDJProfileChat({
-    chatUsernameNormalized: chatRoom,
-    djUsername: chatDJLabel,
+  const isLiveReady = isLive && isStreaming;
+  const isLivePlaying = isLiveReady && isPlaying;
+  const isArchivePlaying = archivePlayer.isPlaying || archivePlayer.isLoading;
+  const archiveForWrite = archivePlayer.currentArchive || archivePlayer.featuredArchive;
+  const archivePrimaryDj = archiveForWrite?.djs[0];
+  const archiveDjRoom = archivePrimaryDj?.username?.replace(/\s+/g, '').toLowerCase() || '';
+  const archiveDjName = archiveForWrite?.djs.map(d => d.name).join(', ') || '';
+
+  // Route writes to whatever the listener is actively consuming. Same priority
+  // as GlobalBroadcastBar's barMode so loves/locked-in and messages agree.
+  let writeChatRoom = 'channelbroadcast';
+  let writeDJLabel = 'Channel Radio';
+  let writeIsArchive = false;
+  let writeDjPhotoUrl: string | undefined;
+  if (isLivePlaying && liveDJChatRoom) {
+    writeChatRoom = liveDJChatRoom;
+    writeDJLabel = liveDjName || 'Channel Radio';
+  } else if (isArchivePlaying && archiveDjRoom) {
+    writeChatRoom = archiveDjRoom;
+    writeDJLabel = archiveDjName || 'Channel Radio';
+    writeIsArchive = true;
+    writeDjPhotoUrl = archivePrimaryDj?.photoUrl;
+  } else if (isLiveReady && liveDJChatRoom) {
+    writeChatRoom = liveDJChatRoom;
+    writeDJLabel = liveDjName || 'Channel Radio';
+  } else if (archiveForWrite && archiveDjRoom) {
+    writeChatRoom = archiveDjRoom;
+    writeDJLabel = archiveDjName || 'Channel Radio';
+    writeIsArchive = true;
+    writeDjPhotoUrl = archivePrimaryDj?.photoUrl;
+  }
+
+  // Displayed chat is always the unified channelbroadcast feed. All DJ-room
+  // writes (messages, loves, locked-in) cross-post into channelbroadcast, so
+  // activity from the DJ the listener is on still surfaces here.
+  const { messages } = useDJProfileChat({
+    chatUsernameNormalized: 'channelbroadcast',
+    djUsername: 'Channel Radio',
     username: chatUsername || undefined,
     enabled: true,
-    currentShowStartTime: isLive ? currentShow?.startTime : undefined,
+  });
+
+  const { sendMessage } = useDJProfileChat({
+    chatUsernameNormalized: writeChatRoom,
+    djUsername: writeDJLabel,
+    username: chatUsername || undefined,
+    enabled: false,
+    currentShowStartTime: writeChatRoom === liveDJChatRoom ? currentShow?.startTime : undefined,
+    userId: user?.uid,
+    djPhotoUrl: writeDjPhotoUrl,
+    isArchivePlayback: writeIsArchive,
   });
 
   // Count regular chat messages (exclude love, lockedin, tip)
