@@ -17,6 +17,7 @@ import { useFilterContext } from '@/contexts/FilterContext';
 import { matchesGenre as matchesGenreLib } from '@/lib/genres';
 import { matchesCity } from '@/lib/city-detection';
 import { useBroadcastSchedule } from '@/hooks/useBroadcastSchedule';
+import { findActiveDjSlot } from '@/lib/broadcast-utils';
 import { DJImageOverlay, ScrollingShowName, ScrollingDJName } from './LiveBroadcastHero';
 import { FloatingHearts } from './FloatingHearts';
 import { TipButton } from './TipButton';
@@ -314,8 +315,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       if (primary?.username) return primary.username;
     }
     if (currentShow.djSlots && currentShow.djSlots.length > 0) {
-      const now = Date.now();
-      const slot = currentShow.djSlots.find(s => s.startTime <= now && s.endTime > now);
+      const slot = findActiveDjSlot(currentShow.djSlots);
       if (slot) return slot.liveDjUsername || slot.djUsername || null;
     }
     return currentShow.liveDjUsername || currentShow.djUsername || null;
@@ -386,7 +386,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     const now = Date.now();
     const cutoff = now + 23 * 60 * 60 * 1000;
     const allShows = [...todayShows, ...tomorrowShows].sort((a, b) => a.startTime - b.startTime);
-    return allShows.find(s => s.startTime > now && s.startTime <= cutoff) || null;
+    return allShows.find(s => s.startTime > now && s.startTime <= cutoff && s.broadcastType !== 'restream') || null;
   }, [todayShows, tomorrowShows]);
 
   const nextShowTime = nextUpcomingShow ? new Date(nextUpcomingShow.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null;

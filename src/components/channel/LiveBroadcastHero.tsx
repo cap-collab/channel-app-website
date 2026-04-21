@@ -17,6 +17,7 @@ import { ChatMessageSerialized } from '@/types/broadcast';
 import { useBPM } from '@/contexts/BPMContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useLoveHistory } from '@/hooks/useLoveHistory';
+import { findActiveDjSlot } from '@/lib/broadcast-utils';
 
 /** Horizontally scrolling text when content overflows its container */
 export function ScrollingShowName({ text, className }: { text: string; className?: string }) {
@@ -334,8 +335,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
     if (!currentShow) return '';
     const normalize = (u: string) => u.replace(/[\s-]+/g, '').toLowerCase();
     if (currentShow.djSlots && currentShow.djSlots.length > 0) {
-      const now = Date.now();
-      const slot = currentShow.djSlots.find(s => s.startTime <= now && s.endTime > now);
+      const slot = findActiveDjSlot(currentShow.djSlots);
       const username = slot?.liveDjUsername || slot?.djUsername || slot?.djName;
       if (username) return normalize(username);
     }
@@ -465,8 +465,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
       if (primary?.username) return primary.username;
     }
     if (currentShow.djSlots && currentShow.djSlots.length > 0) {
-      const now = Date.now();
-      const slot = currentShow.djSlots.find(s => s.startTime <= now && s.endTime > now);
+      const slot = findActiveDjSlot(currentShow.djSlots);
       if (slot) return slot.liveDjUsername || slot.djUsername || null;
     }
     return currentShow.liveDjUsername || currentShow.djUsername || null;
@@ -476,8 +475,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
   const currentDJUserId = (() => {
     if (!currentShow) return null;
     if (currentShow.djSlots && currentShow.djSlots.length > 0) {
-      const now = Date.now();
-      const slot = currentShow.djSlots.find(s => s.startTime <= now && s.endTime > now);
+      const slot = findActiveDjSlot(currentShow.djSlots);
       if (slot) return slot.liveDjUserId || slot.djUserId || null;
     }
     return currentShow.liveDjUserId || currentShow.djUserId || null;
@@ -486,8 +484,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
   const currentDJEmail = (() => {
     if (!currentShow) return null;
     if (currentShow.djSlots && currentShow.djSlots.length > 0) {
-      const now = Date.now();
-      const slot = currentShow.djSlots.find(s => s.startTime <= now && s.endTime > now);
+      const slot = findActiveDjSlot(currentShow.djSlots);
       if (slot) return slot.djEmail || null;
     }
     return currentShow.djEmail || null;

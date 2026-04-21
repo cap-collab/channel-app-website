@@ -5,7 +5,7 @@ import { ChannelClient } from './ChannelClient';
 import { getHeroArchives } from '@/lib/hero-archives';
 
 export const metadata = makeOG();
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
 // Preview gate: /radio shows the "offline" state unless the visitor has the
 // `channel-preview` cookie or a matching `?preview=<PREVIEW_TOKEN>` query param.

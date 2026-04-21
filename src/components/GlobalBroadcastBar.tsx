@@ -14,6 +14,7 @@ import { useLoveHistory } from '@/hooks/useLoveHistory';
 import { FloatingHearts } from '@/components/channel/FloatingHearts';
 import { ScrollingShowName, ScrollingDJName } from '@/components/channel/LiveBroadcastHero';
 import { ArchiveSeekBar } from '@/components/channel/ArchiveHero';
+import { findActiveDjSlot } from '@/lib/broadcast-utils';
 
 /**
  * A bar shown below the header on all pages when a broadcast is live.
@@ -43,8 +44,7 @@ export function GlobalBroadcastBar() {
     if (!currentShow) return '';
     const normalize = (u: string) => u.replace(/[\s-]+/g, '').toLowerCase();
     if (currentShow.djSlots && currentShow.djSlots.length > 0) {
-      const now = Date.now();
-      const slot = currentShow.djSlots.find(s => s.startTime <= now && s.endTime > now);
+      const slot = findActiveDjSlot(currentShow.djSlots);
       if (slot) return normalize(slot.liveDjUsername || slot.djUsername || slot.djName || '');
     }
     const username = currentShow.liveDjUsername || currentShow.djUsername || currentShow.djName;

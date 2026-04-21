@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, ReactNode, type MutableRefObject } from 'react';
 import { useBroadcastStream } from '@/hooks/useBroadcastStream';
 import { useBroadcastLiveStatus } from '@/hooks/useBroadcastLiveStatus';
+import { findActiveDjSlot } from '@/lib/broadcast-utils';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
 import { getDatabase, ref, onValue } from 'firebase/database';
 import { getApps, initializeApp } from 'firebase/app';
@@ -47,8 +48,7 @@ function resolveTipLink(show: BroadcastSlotSerialized | null): string | null {
   if (!show) return null;
   // Check active DJ slot first (venue/B3B shows)
   if (show.djSlots && show.djSlots.length > 0) {
-    const now = Date.now();
-    const slot = show.djSlots.find(s => s.startTime <= now && s.endTime > now);
+    const slot = findActiveDjSlot(show.djSlots);
     if (slot) return slot.djTipButtonLink || null;
   }
   return show.liveDjTipButtonLink || null;

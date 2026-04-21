@@ -7,6 +7,7 @@ import { getDatabase, ref, set, remove, onValue, onDisconnect } from 'firebase/d
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getApps, initializeApp } from 'firebase/app';
 import { BroadcastSlotSerialized, ROOM_NAME } from '@/types/broadcast';
+import { findActiveDjSlot } from '@/lib/broadcast-utils';
 import Hls from 'hls.js';
 import { captureEvent } from '@/lib/posthog';
 
@@ -279,10 +280,7 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
           // This ensures we use the DJ's chat username if available, not just the admin-set name
           let djNameToUse: string | null = null;
           if (slot.djSlots && slot.djSlots.length > 0) {
-            const now = Date.now();
-            const currentDjSlot = slot.djSlots.find(
-              (djSlot) => djSlot.startTime <= now && djSlot.endTime > now
-            );
+            const currentDjSlot = findActiveDjSlot(slot.djSlots);
             if (currentDjSlot) {
               // Priority: djUsername (chat username) > liveDjUsername > djName (admin-set)
               djNameToUse = currentDjSlot.djUsername || currentDjSlot.liveDjUsername || currentDjSlot.djName || null;
