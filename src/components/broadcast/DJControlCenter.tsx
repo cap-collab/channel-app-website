@@ -136,6 +136,19 @@ export function DJControlCenter({
                   Share Your Stream
                 </h3>
                 <div className="flex items-center gap-2">
+                  <svg
+                    className="w-4 h-4 text-gray-400 flex-shrink-0"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72" />
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                  </svg>
                   <span className="flex-1 min-w-0 text-white font-mono text-sm truncate">
                     {shareUrl}
                   </span>
@@ -146,17 +159,30 @@ export function DJControlCenter({
                     {copied ? 'Copied!' : 'Copy'}
                   </button>
                 </div>
-                <p className="text-gray-600 text-xs mt-2">
-                  Share with friends and followers — tag us{' '}
+                <div className="flex items-center gap-2 mt-2">
+                  <svg
+                    className="w-4 h-4 text-gray-400 flex-shrink-0"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+                  </svg>
                   <a
                     href="https://www.instagram.com/channelrad.io"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="underline hover:text-gray-400"
+                    className="text-white text-sm underline hover:text-gray-300"
                   >
                     @channelrad.io
                   </a>
-                </p>
+                </div>
               </div>
             </div>
 
