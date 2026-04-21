@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useBroadcast } from '@/hooks/useBroadcast';
 import { AudioInputSelector } from '@/components/broadcast/AudioInputSelector';
 import { SystemAudioCapture } from '@/components/broadcast/SystemAudioCapture';
@@ -15,7 +14,6 @@ import { AuthModal } from '@/components/AuthModal';
 import { AudioInputMethod } from '@/types/broadcast';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { useUserProfile } from '@/hooks/useUserProfile';
-import { useBroadcastLiveStatus } from '@/hooks/useBroadcastLiveStatus';
 
 type SetupStep = 'quota' | 'profile' | 'audio';
 
@@ -35,13 +33,8 @@ interface RecordingSession {
 
 export function RecordClient() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
-  const { isLive: isBroadcastLive } = useBroadcastLiveStatus();
-  // ?preview=test bypasses the live-broadcast block so we can validate that
-  // recording no longer interferes with /radio.
-  const bypassLiveBlock = searchParams.get('preview') === 'test';
 
   // Setup flow state
   const [setupStep, setSetupStep] = useState<SetupStep>('quota');
@@ -267,26 +260,6 @@ export function RecordClient() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
           <p className="text-gray-400">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Block recording when a broadcast is live
-  if (isBroadcastLive && !bypassLiveBlock) {
-    return (
-      <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center p-8">
-        <div className="bg-[#252525] rounded-xl p-8 max-w-md w-full text-center">
-          <h1 className="text-2xl font-bold text-white mb-2">Recording Unavailable</h1>
-          <p className="text-gray-400 mb-6">
-            Recording is unavailable while a live broadcast is on air.
-          </p>
-          <Link
-            href="/studio"
-            className="inline-block bg-white text-black font-medium py-3 px-6 rounded hover:bg-gray-100 transition-colors"
-          >
-            Back to Studio
-          </Link>
         </div>
       </div>
     );

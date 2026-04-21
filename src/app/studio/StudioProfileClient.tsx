@@ -2111,14 +2111,12 @@ export function StudioProfileClient() {
               >
                 Upload a pre-recording
               </button>
-              {!upcomingShows.some(s => !s.isExternal && s.status === 'live') && (
-                <Link
-                  href="/record"
-                  className="flex-1 block bg-gray-800 text-white text-center py-3 rounded font-medium hover:bg-gray-700 transition-colors border border-gray-700"
-                >
-                  Record a set
-                </Link>
-              )}
+              <Link
+                href="/record"
+                className="flex-1 block bg-gray-800 text-white text-center py-3 rounded font-medium hover:bg-gray-700 transition-colors border border-gray-700"
+              >
+                Record a set
+              </Link>
               <Link
                 href="/studio/livestream"
                 className="flex-1 block bg-gray-800 text-white text-center py-3 rounded font-medium hover:bg-gray-700 transition-colors border border-gray-700"
