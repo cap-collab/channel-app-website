@@ -32,10 +32,22 @@ export async function POST(request: NextRequest) {
     normalizedAt: FieldValue.serverTimestamp(),
   });
 
+  // Propagate to any restream slots that cache this archive's URL. Without this,
+  // scheduled restreams keep the stale URL and the worker fails at start time.
+  const slotsSnap = await db
+    .collection('broadcast-slots')
+    .where('archiveId', '==', archiveId)
+    .get();
+  const slotUpdates = slotsSnap.docs.map((slotDoc) =>
+    slotDoc.ref.update({ archiveRecordingUrl: newRecordingUrl }),
+  );
+  await Promise.all(slotUpdates);
+
   return NextResponse.json({
     success: true,
     archiveId,
     previousUrl: currentUrl,
     newUrl: newRecordingUrl,
+    slotsUpdated: slotsSnap.size,
   });
 }

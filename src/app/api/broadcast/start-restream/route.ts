@@ -35,8 +35,25 @@ export async function POST(request: NextRequest) {
     if (slot.broadcastType !== 'restream') {
       return NextResponse.json({ error: 'Not a restream slot' }, { status: 400 });
     }
-    if (!slot.archiveRecordingUrl) {
-      return NextResponse.json({ error: 'No archiveRecordingUrl on slot' }, { status: 400 });
+
+    // Resolve archive URL from the source of truth (archives collection), not
+    // the slot's cached copy — archives can be normalized/re-hosted after a slot
+    // is scheduled, and the stale copy breaks the worker with "Missing required fields".
+    let archiveUrl: string | undefined = slot.archiveRecordingUrl;
+    if (slot.archiveId) {
+      const archiveDoc = await db.collection('archives').doc(slot.archiveId).get();
+      const freshUrl = archiveDoc.exists ? archiveDoc.data()?.recordingUrl : undefined;
+      if (freshUrl) {
+        if (freshUrl !== slot.archiveRecordingUrl) {
+          console.log(`[start-restream] slot ${slotId}: using fresh archive URL (slot had stale copy)`);
+          // Repair the slot's cached copy so other readers (cron, admin UI) stay consistent
+          await slotDoc.ref.update({ archiveRecordingUrl: freshUrl });
+        }
+        archiveUrl = freshUrl;
+      }
+    }
+    if (!archiveUrl) {
+      return NextResponse.json({ error: 'No recordingUrl on archive or slot' }, { status: 400 });
     }
 
     if (!restreamWorkerUrl) {
@@ -44,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Call the restream worker on Hetzner to start FFmpeg → HLS → R2
-    console.log(`[start-restream] Starting worker for slot ${slotId}, archiveUrl: ${slot.archiveRecordingUrl}`);
+    console.log(`[start-restream] Starting worker for slot ${slotId}, archiveUrl: ${archiveUrl}`);
     const workerResp = await fetch(`${restreamWorkerUrl}/start`, {
       method: 'POST',
       headers: {
@@ -53,7 +70,7 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         slotId,
-        archiveUrl: slot.archiveRecordingUrl,
+        archiveUrl,
         roomName: ROOM_NAME,
       }),
     });
