@@ -63,17 +63,22 @@ app.post('/start', authenticate, async (req, res) => {
       console.log(`[restream][ffmpeg ${slotId}] ${data.toString().trim()}`);
     });
 
-    const entry = { archiveFfmpeg, silenceFfmpeg: null, ingressId, slotEndTimer: null };
+    // intentionalStop === true when stopStream or the slot-end timer killed
+    // FFmpeg on purpose. Checking this is more reliable than trying to
+    // interpret Node's exit code/signal — SIGTERM often surfaces as code 255
+    // with signal=null depending on how FFmpeg responds to the signal.
+    const entry = { archiveFfmpeg, silenceFfmpeg: null, ingressId, slotEndTimer: null, intentionalStop: false };
     activeStreams.set(slotId, entry);
 
     archiveFfmpeg.on('close', (code, signal) => {
-      console.log(`[restream] Archive FFmpeg exited code=${code} signal=${signal} for slot ${slotId}`);
-      const naturalEnd = code === 0;
-      const wasKilled = signal === 'SIGTERM' || signal === 'SIGKILL';
-      if (naturalEnd && !wasKilled) {
-        // Archive finished on its own. If the stream is still active here
-        // it means the archive finished but the slot hasn't ended yet —
-        // pad with silence until the slot-end timer fires.
+      console.log(`[restream] Archive FFmpeg exited code=${code} signal=${signal} intentional=${entry.intentionalStop} for slot ${slotId}`);
+      if (entry.intentionalStop) {
+        // We killed it on purpose (stopStream / slot-end timer). Caller
+        // owns the teardown; do nothing here.
+        return;
+      }
+      if (code === 0) {
+        // Archive finished on its own. Pad with silence until slot-end fires.
         const current = activeStreams.get(slotId);
         if (current && current === entry && !current.silenceFfmpeg && current.slotEndTimer) {
           console.log(`[restream] Archive done before slot.endTime — padding with silence for slot ${slotId}`);
@@ -86,13 +91,11 @@ app.post('/start', authenticate, async (req, res) => {
           });
           current.silenceFfmpeg = silenceFfmpeg;
         }
-      } else if (!wasKilled) {
-        // Non-zero exit that wasn't triggered by us = genuine failure. Tear down.
+      } else {
+        // Non-zero exit that wasn't our doing = genuine failure. Tear down.
         console.error(`[restream] Archive FFmpeg failed for slot ${slotId}, tearing down`);
         stopStream(slotId, apiKey, apiSecret, livekitHost).catch(() => {});
       }
-      // If we killed it (stopStream / slot-end timer), do nothing — the
-      // caller owns the teardown.
     });
 
     archiveFfmpeg.on('error', (err) => {
@@ -117,8 +120,11 @@ app.post('/start', authenticate, async (req, res) => {
         }
         console.log(`[restream] Slot ${slotId} reached endTime, calling complete-slot`);
         // Kill whatever FFmpeg is running so we stop publishing to LiveKit
-        // promptly. Authoritative teardown (ingress delete, participant
-        // removal) happens via complete-slot → cleanupSlotLiveKit → /stop.
+        // promptly. Mark intentionalStop BEFORE killing so the close handler
+        // doesn't treat this as a genuine failure and re-trigger teardown
+        // (that would race with complete-slot → /stop below). Authoritative
+        // teardown happens via complete-slot → cleanupSlotLiveKit → /stop.
+        entry.intentionalStop = true;
         try { entry.archiveFfmpeg?.kill('SIGTERM'); } catch {}
         try { entry.silenceFfmpeg?.kill('SIGTERM'); } catch {}
         try {
@@ -212,6 +218,10 @@ async function stopStream(slotId, apiKey, apiSecret, livekitHost) {
     clearTimeout(stream.slotEndTimer);
     stream.slotEndTimer = null;
   }
+
+  // Mark the stop as intentional so the FFmpeg close handler doesn't treat
+  // the kill as a failure and recursively re-call stopStream.
+  stream.intentionalStop = true;
 
   // Kill both the archive FFmpeg and the silence pad FFmpeg (only one runs
   // at a time, but either could be active depending on slot progress).

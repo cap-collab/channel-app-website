@@ -600,9 +600,19 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
         }
 
       } catch (err) {
-        console.error('🎵 HLS error:', err);
-        setError('Failed to play');
-        setIsLoading(false);
+        // iOS audio.play() can reject with a spurious error even when the
+        // underlying element DID start playing. Only surface the error if
+        // the element isn't actually playing — otherwise the retry (or iOS
+        // itself) has it covered and the error message would be a lie.
+        const el = audioElementRef.current;
+        const actuallyPlaying = !!el && !el.paused && !el.ended && el.readyState > 2;
+        if (!actuallyPlaying) {
+          console.error('🎵 HLS error:', err);
+          setError('Failed to play');
+          setIsLoading(false);
+        } else {
+          console.log('🎵 HLS play() rejected but element is playing — suppressing error');
+        }
       }
       return;
     }
