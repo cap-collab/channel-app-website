@@ -137,6 +137,8 @@ export function AdminDashboard() {
   }) => {
     if (!user) return;
 
+    let savedSlotId: string | null = null;
+
     if (selectedSlot) {
       // Check if broadcast type changed - if so, need to recreate to get new token
       const typeChanged = selectedSlot.broadcastType !== data.broadcastType;
@@ -144,10 +146,11 @@ export function AdminDashboard() {
       if (typeChanged) {
         // Delete old slot and create new one (new type needs new token)
         await deleteSlotFromDb(selectedSlot.id);
-        await createSlot({
+        const { slot: newSlot } = await createSlot({
           ...data,
           createdBy: user.uid,
         });
+        savedSlotId = newSlot.id;
       } else {
         // Update existing slot - preserve the token by using updateSlot
         await updateSlot(selectedSlot.id, {
@@ -163,13 +166,38 @@ export function AdminDashboard() {
           archiveDuration: data.archiveDuration,
           restreamDjs: data.restreamDjs,
         });
+        savedSlotId = selectedSlot.id;
       }
     } else {
       // Create new slot
-      await createSlot({
+      const { slot: newSlot } = await createSlot({
         ...data,
         createdBy: user.uid,
       });
+      savedSlotId = newSlot.id;
+    }
+
+    // If this is a restream whose time window is already open, kick off the
+    // worker immediately instead of waiting for the 5-min cron. Same
+    // instant-start feel as live broadcasts.
+    if (savedSlotId && data.broadcastType === 'restream' && Date.now() >= data.startTime && Date.now() < data.endTime) {
+      try {
+        const idToken = await user.getIdToken();
+        const res = await fetch('/api/broadcast/start-restream', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ slotId: savedSlotId }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.error('[handleSaveSlot] start-restream failed:', err);
+        }
+      } catch (e) {
+        console.error('[handleSaveSlot] start-restream error:', e);
+      }
     }
 
     await fetchSlots();

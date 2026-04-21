@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { getAdminDb, getAdminAuth } from '@/lib/firebase-admin';
 import { ROOM_NAME } from '@/types/broadcast';
 
 const restreamWorkerUrl = process.env.RESTREAM_WORKER_URL || '';
@@ -9,10 +9,29 @@ const restreamWorkerUrl = process.env.RESTREAM_WORKER_URL || '';
 // and uploads them directly to R2 — same format as the LiveKit egress.
 export async function POST(request: NextRequest) {
   try {
-    // Verify auth (cron secret or admin)
-    const authHeader = request.headers.get('authorization');
-    const hasValidSecret = authHeader === `Bearer ${process.env.CRON_SECRET}`;
-    if (!hasValidSecret) {
+    // Accept cron secret OR a Firebase ID token from an admin/broadcaster user.
+    // The admin UI hits this on restream slot save so the worker starts
+    // immediately instead of waiting for the 5-min cron tick.
+    const authHeader = request.headers.get('authorization') || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    const hasCronSecret = !!token && token === process.env.CRON_SECRET;
+
+    let authorized = hasCronSecret;
+    if (!authorized && token) {
+      const auth = getAdminAuth();
+      const db = getAdminDb();
+      if (auth && db) {
+        try {
+          const decoded = await auth.verifyIdToken(token);
+          const userDoc = await db.collection('users').doc(decoded.uid).get();
+          const role = userDoc.data()?.role;
+          authorized = role === 'admin' || role === 'broadcaster';
+        } catch {
+          // fall through — not a valid ID token
+        }
+      }
+    }
+    if (!authorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
