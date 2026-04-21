@@ -22,10 +22,12 @@ export async function POST(request: NextRequest) {
     // Get the slot — try broadcast-slots first, then studio-sessions
     let slotRef = db.collection('broadcast-slots').doc(slotId);
     let slotDoc = await slotRef.get();
+    let isRecordingSession = false;
 
     if (!slotDoc.exists) {
       slotRef = db.collection('studio-sessions').doc(slotId);
       slotDoc = await slotRef.get();
+      isRecordingSession = slotDoc.exists;
     }
 
     if (!slotDoc.exists) {
@@ -92,7 +94,7 @@ export async function POST(request: NextRequest) {
     let nextShowDoc: FirebaseFirestore.QueryDocumentSnapshot | null = null;
     let nextShowIsRestream = false;
 
-    if (newStatus === 'completed') {
+    if (newStatus === 'completed' && !isRecordingSession) {
       try {
         const nextShowSnapshot = await db
           .collection('broadcast-slots')
@@ -132,7 +134,11 @@ export async function POST(request: NextRequest) {
     // Clean up LiveKit resources if slot was live. This matches what the
     // complete-expired-slots cron does, so the room is released immediately
     // instead of waiting up to 5 minutes for the next cron tick.
-    if (slot.status === 'live' && newStatus === 'completed') {
+    // Recording sessions live in their own LiveKit room; cleanupSlotLiveKit
+    // hardcodes the shared `channel-radio` room when removing participants,
+    // so running it for a recording could kick the live DJ. Recordings have
+    // their own stop path at /api/recording/stop for their egress.
+    if (slot.status === 'live' && newStatus === 'completed' && !isRecordingSession) {
       // Keep the HLS egress alive whenever a next show is taking over —
       // live *or* restream. Live and restream share the same R2 prefix so
       // the listener's manifest stays continuous across the transition;
@@ -188,7 +194,10 @@ export async function POST(request: NextRequest) {
     //    egress can keep writing without disruption.
     //    Prevents multi-hour sessions from accumulating 1000s of dead segments
     //    which degrade egress performance and cause audio dropouts.
-    if (newStatus === 'completed') {
+    // Recording sessions don't use the channel-radio HLS prefix, so skip the
+    // R2 sweep — it targets ROOM_NAME (channel-radio) and would delete the
+    // live show's segments out from under listeners.
+    if (newStatus === 'completed' && !isRecordingSession) {
       try {
         const r2AccountId = process.env.R2_ACCOUNT_ID?.replace(/\\n/g, '').trim() || '';
         const r2AccessKey = process.env.R2_ACCESS_KEY_ID?.replace(/\\n/g, '').trim() || '';

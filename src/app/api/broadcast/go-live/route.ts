@@ -419,18 +419,28 @@ export async function POST(request: NextRequest) {
     try {
       console.log('[go-live] Attempting Firestore update with data:', JSON.stringify(updateData, null, 2));
 
-      // Use a batch write to atomically: (1) complete any other live slots, (2) mark this slot as live.
-      // This prevents a gap where no slot has status='live' during DJ transitions.
+      // Recording sessions live in studio-sessions and must never touch the /radio
+      // live slot. Only DJ→DJ transitions on broadcast-slots should sweep the
+      // previous live slot. On 2026-04-02 a recording going live flipped the
+      // on-air DJ's broadcast-slots status to 'completed', vanishing /radio.
+      const isRecordingSession = doc.ref.parent.id === 'studio-sessions';
+
       const batch = db.batch();
 
-      const otherLiveSlots = await db.collection('broadcast-slots')
-        .where('status', '==', 'live')
-        .get();
-      for (const otherDoc of otherLiveSlots.docs) {
-        if (otherDoc.id !== doc.id) {
-          batch.update(otherDoc.ref, { status: 'completed' });
-          console.log('[go-live] Completing previous live slot in batch:', otherDoc.id);
+      if (!isRecordingSession) {
+        // DJ→DJ transition: atomically complete any other live slots so
+        // listeners never see an empty "no live slot" window.
+        const otherLiveSlots = await db.collection('broadcast-slots')
+          .where('status', '==', 'live')
+          .get();
+        for (const otherDoc of otherLiveSlots.docs) {
+          if (otherDoc.id !== doc.id) {
+            batch.update(otherDoc.ref, { status: 'completed' });
+            console.log('[go-live] Completing previous live slot in batch:', otherDoc.id);
+          }
         }
+      } else {
+        console.log('[go-live] Recording session — skipping broadcast-slots sweep');
       }
 
       batch.update(doc.ref, updateData);
