@@ -141,21 +141,9 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
   const [autoResumePending, setAutoResumePending] = useState(false);
   const playbackStartedAtRef = useRef<number | null>(null); // For posthog session_duration
 
-  // iOS native-HLS stall recovery — cleanup function set up in play(), cleared in pause()
-  // and on every subsequent play() call so we never have stale listeners attached.
-  const stallCleanupRef = useRef<(() => void) | null>(null);
-  const lastStallRecoveryAtRef = useRef(0);
-
-  // Live state refs so the stall recovery callback (attached inside play())
-  // can read the *current* values without restarting the listener every
-  // time currentShow or isLive change.
-  const isLiveRef = useRef(false);
-  const currentShowIdForRecoveryRef = useRef<string | null>(null);
 
   // Keep playing ref in sync
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
-  useEffect(() => { isLiveRef.current = isLive; }, [isLive]);
-  useEffect(() => { currentShowIdForRecoveryRef.current = currentShow?.id || null; }, [currentShow]);
 
   // Subscribe to current live slot from Firestore
   useEffect(() => {
@@ -471,12 +459,6 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
       hlsRef.current.destroy();
       hlsRef.current = null;
     }
-    // Tear down any prior stall recovery listener — a new play() starts a
-    // fresh session and will attach its own if appropriate.
-    if (stallCleanupRef.current) {
-      stallCleanupRef.current();
-      stallCleanupRef.current = null;
-    }
     console.log('🎵 Starting playback - useHLS:', useHLS, 'broadcastType:', currentShow?.broadcastType || 'live');
 
     // Create audio element if needed
@@ -593,55 +575,6 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
           playbackStartedAtRef.current = Date.now();
           captureEvent('playback_started', { type: 'live', protocol: 'native' });
 
-          // iOS native HLS can stall during show transitions (restream→live
-          // and friends) if the egress produces a gap between participants
-          // that's longer than the audio element's buffer. iOS doesn't
-          // always recover on its own — the element keeps reporting
-          // "playing" but no new audio comes in until the user pauses and
-          // plays again. Listen for `stalled`/`waiting`; if it doesn't
-          // recover within 4s, cache-bust .src and re-play. Guards prevent
-          // resurrecting a user's intentional pause or fighting a
-          // legitimate stream end, and a 10s cooldown prevents a tight
-          // recovery loop if the recovered stream is also broken.
-          let stallTimer: ReturnType<typeof setTimeout> | null = null;
-          const onStallMaybe = () => {
-            if (stallTimer) return;
-            stallTimer = setTimeout(async () => {
-              stallTimer = null;
-              if (userPausedRef.current) return;
-              if (!isPlayingRef.current) return;
-              if (!isLiveRef.current || !currentShowIdForRecoveryRef.current) return;
-              if (Date.now() - lastStallRecoveryAtRef.current < 10_000) return;
-              lastStallRecoveryAtRef.current = Date.now();
-              console.log('🎵 iOS HLS stall detected — cache-busting and replaying');
-              try {
-                audio.src = `${HLS_URL}?t=${Date.now()}`;
-                await audio.play();
-                captureEvent('playback_stall_recovered', { type: 'live', protocol: 'native' });
-              } catch (err) {
-                console.error('🎵 Stall recovery play failed:', err);
-              }
-            }, 4000);
-          };
-          const cancelStallTimer = () => {
-            if (stallTimer) {
-              clearTimeout(stallTimer);
-              stallTimer = null;
-            }
-          };
-          audio.addEventListener('stalled', onStallMaybe);
-          audio.addEventListener('waiting', onStallMaybe);
-          // If audio actually resumes, cancel any pending recovery.
-          audio.addEventListener('playing', cancelStallTimer);
-          audio.addEventListener('canplaythrough', cancelStallTimer);
-
-          stallCleanupRef.current = () => {
-            cancelStallTimer();
-            audio.removeEventListener('stalled', onStallMaybe);
-            audio.removeEventListener('waiting', onStallMaybe);
-            audio.removeEventListener('playing', cancelStallTimer);
-            audio.removeEventListener('canplaythrough', cancelStallTimer);
-          };
         } else if (Hls.isSupported()) {
           console.log('🎵 Using HLS.js');
           const hls = new Hls({
@@ -814,11 +747,6 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
-    }
-    // Tear down iOS stall recovery (pause is user-initiated; no resurrecting)
-    if (stallCleanupRef.current) {
-      stallCleanupRef.current();
-      stallCleanupRef.current = null;
     }
     // Stop audio
     if (audioElementRef.current) {
