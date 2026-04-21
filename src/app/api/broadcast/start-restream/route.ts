@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { FieldValue } from 'firebase-admin/firestore';
 import { getAdminDb, getAdminAuth } from '@/lib/firebase-admin';
 import { ROOM_NAME } from '@/types/broadcast';
 
@@ -113,10 +114,14 @@ export async function POST(request: NextRequest) {
     await workerResp.json();
     console.log(`[start-restream] Worker started for slot ${slotId} (FFmpeg → HLS → R2)`);
 
-    // Set slot to live
+    // Set slot to live and clear any prior egress id so the webhook's
+    // track_published handler starts a fresh HLS egress (it skips when the
+    // field is already set, which would leave listeners on a dead manifest
+    // from an earlier worker run).
     await slotDoc.ref.update({
       status: 'live',
-      restreamWorkerId: slotId, // Track that this slot uses the worker
+      restreamWorkerId: slotId,
+      restreamEgressId: FieldValue.delete(),
     });
 
     return NextResponse.json({

@@ -110,11 +110,12 @@ app.post('/start', authenticate, async (req, res) => {
           const frameData = buffer.subarray(0, BYTES_PER_FRAME);
           buffer = buffer.subarray(BYTES_PER_FRAME);
 
-          const samples = new Int16Array(
-            frameData.buffer,
-            frameData.byteOffset,
-            SAMPLES_PER_FRAME * NUM_CHANNELS
-          );
+          // Copy samples into a fresh Int16Array rather than a view into
+          // ffmpeg's incoming buffer — otherwise the underlying memory can be
+          // reused/overwritten before LiveKit consumes the frame, yielding
+          // silent audio in the published track.
+          const samples = new Int16Array(SAMPLES_PER_FRAME * NUM_CHANNELS);
+          Buffer.from(samples.buffer).set(frameData);
           const frame = new AudioFrame(samples, SAMPLE_RATE, NUM_CHANNELS, SAMPLES_PER_FRAME);
           await audioSource.captureFrame(frame);
         }
