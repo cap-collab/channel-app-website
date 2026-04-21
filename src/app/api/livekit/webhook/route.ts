@@ -153,9 +153,13 @@ export async function POST(request: NextRequest) {
                 endpoint: r2Endpoint,
                 forcePathStyle: true,
               });
+              // Upload to `channel-radio-restream/...` so restream HLS is
+              // served from a separate path from live egress (which writes to
+              // `channel-radio/...`). The player picks the URL based on
+              // broadcastType — see HLS_URL_RESTREAM in useBroadcastStream.
               const segmentOutput = new SegmentedFileOutput({
                 protocol: SegmentedFileProtocol.HLS_PROTOCOL,
-                filenamePrefix: `${ROOM_NAME}/stream`,
+                filenamePrefix: `${ROOM_NAME}-restream/stream`,
                 playlistName: 'playlist.m3u8',
                 livePlaylistName: 'live.m3u8',
                 segmentDuration: 6,

@@ -118,17 +118,30 @@ export async function GET(request: NextRequest) {
       .where('broadcastType', '==', 'restream')
       .get();
 
+    console.log(`[cron] Step 2: found ${restreamSnapshot.size} restream slot(s) to evaluate`);
+
     for (const restreamDoc of restreamSnapshot.docs) {
       try {
         const slot = restreamDoc.data();
         const startTime = slot.startTime?.toMillis?.() || slot.startTime;
         const endTime = slot.endTime?.toMillis?.() || slot.endTime;
         // Only process scheduled or live (without ingress) restreams
-        if (slot.status !== 'scheduled' && slot.status !== 'live') continue;
+        if (slot.status !== 'scheduled' && slot.status !== 'live') {
+          console.log(`[cron] skip ${restreamDoc.id}: status=${slot.status}`);
+          continue;
+        }
         // Skip if not yet started or already ended
-        if (!startTime || now < startTime || now >= endTime) continue;
+        if (!startTime || now < startTime || now >= endTime) {
+          console.log(`[cron] skip ${restreamDoc.id}: not in time window (start=${startTime}, end=${endTime}, now=${now})`);
+          continue;
+        }
         // Skip if already live AND already has worker/ingress set up
-        if (slot.status === 'live' && (slot.restreamWorkerId || slot.restreamIngressId)) continue;
+        if (slot.status === 'live' && (slot.restreamWorkerId || slot.restreamIngressId)) {
+          console.log(`[cron] skip ${restreamDoc.id}: already has workerId=${slot.restreamWorkerId} ingressId=${slot.restreamIngressId}`);
+          continue;
+        }
+
+        console.log(`[cron] activating restream ${restreamDoc.id} (status=${slot.status})`);
 
         // Call the start-restream endpoint to create ingress
         // (the HLS egress is started by the LiveKit webhook when the ingress publishes audio)
@@ -143,9 +156,10 @@ export async function GET(request: NextRequest) {
           });
           const data = await res.json();
           if (res.ok) {
-            console.log(`Restream ${restreamDoc.id} started: ingress=${data.ingressId}`);
+            console.log(`[cron] Restream ${restreamDoc.id} started: ingress=${data.ingressId}`);
           } else {
             restreamErrors.push(`${restreamDoc.id}: ${data.error}`);
+            console.error(`[cron] start-restream failed for ${restreamDoc.id}: ${data.error}`);
             // Still set to live so the player shows up (audio will be missing though)
             if (slot.status === 'scheduled') {
               await restreamDoc.ref.update({ status: 'live' });
@@ -154,6 +168,7 @@ export async function GET(request: NextRequest) {
         } catch (fetchErr) {
           const errMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
           restreamErrors.push(`${restreamDoc.id}: fetch failed: ${errMsg}`);
+          console.error(`[cron] start-restream fetch failed for ${restreamDoc.id}: ${errMsg}`);
           if (slot.status === 'scheduled') {
             await restreamDoc.ref.update({ status: 'live' });
           }
