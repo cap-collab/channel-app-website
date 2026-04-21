@@ -413,9 +413,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               onClick={() => { setUserSelectedMode('live'); playLive(); }}
               className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-tighter font-bold transition-colors ${isRestream ? 'text-zinc-400 hover:text-zinc-300' : 'text-red-500 hover:text-red-400'}`}
             >
-              {isRestream ? 'Switch to restream' : 'Switch to live'}
+              {isRestream ? 'Switch to Radio' : 'Switch to Live Radio'}
               {isRestream ? (
-                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg className="w-3 h-3 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                   <path d="M3 3v5h5" />
                 </svg>
