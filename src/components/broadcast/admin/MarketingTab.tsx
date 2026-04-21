@@ -200,11 +200,20 @@ export function MarketingTab({ slots }: MarketingTabProps) {
                 hour: 'numeric',
                 minute: '2-digit',
               });
+              const isRestream = slot.broadcastType === 'restream';
               return (
                 <div key={slot.id}>
                   <p className="text-xs text-gray-500 mb-1">{timeStr} &middot; {slot.broadcastType}</p>
-                  <ShareableShowCardStory {...cardProps} />
-                  <CopyLinkButton link={broadcastLink} />
+                  {isRestream ? (
+                    <p className="text-xs text-gray-600 italic py-3">
+                      {slot.showName || 'Restream'} — no marketing assets for restreams
+                    </p>
+                  ) : (
+                    <>
+                      <ShareableShowCardStory {...cardProps} />
+                      <CopyLinkButton link={broadcastLink} />
+                    </>
+                  )}
                 </div>
               );
             })}

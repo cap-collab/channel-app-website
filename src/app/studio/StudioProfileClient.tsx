@@ -40,6 +40,7 @@ interface UpcomingShow {
   djPhotoUrl?: string;
   djGenres?: string[];
   djDescription?: string;
+  broadcastType?: string;
 }
 
 interface CustomLink {
@@ -625,6 +626,7 @@ export function StudioProfileClient() {
               djPhotoUrl: data.liveDjPhotoUrl || undefined,
               djGenres: data.liveDjGenres || undefined,
               djDescription: data.liveDjDescription || data.liveDjBio || undefined,
+              broadcastType: data.broadcastType,
             });
           }
         });
@@ -2140,6 +2142,7 @@ export function StudioProfileClient() {
               ) : (
                 <div className="divide-y divide-gray-700/50">
                   {upcomingShows.map((show) => {
+                    const isRestream = show.broadcastType === "restream";
                     const canEdit = !show.isExternal && !!show.slotId && show.status !== "completed" && show.status !== "missed";
                     const isEditingName = editingShowNameSlotId === show.slotId;
                     const isUploadingImage = uploadingShowImageSlotId === show.slotId;
@@ -2217,7 +2220,7 @@ export function StudioProfileClient() {
                           {Date.now() >= show.startTime ? "Go Live" : "Prepare to Go Live"} &rarr;
                         </Link>
                       ) : null}
-                      {canEdit && show.slotId && (
+                      {canEdit && show.slotId && !isRestream && (
                         <div className="mt-3 bg-[#252525] rounded p-3">
                           <p className="text-gray-400 text-xs uppercase tracking-wide mb-2">Show Image</p>
                           <div className="flex items-center gap-4">
@@ -2279,7 +2282,7 @@ export function StudioProfileClient() {
                           </p>
                         </div>
                       )}
-                      {!show.isExternal && show.broadcastToken && (
+                      {!show.isExternal && show.broadcastToken && !isRestream && (
                         <ShareableShowCardStory
                           showName={show.showName}
                           djName={show.djName || chatUsername || "DJ"}

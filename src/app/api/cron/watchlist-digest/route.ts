@@ -180,6 +180,7 @@ export async function GET(request: NextRequest) {
       const data = slot.data;
       const status = data.status as string;
       if (status === "cancelled") continue;
+      if (data.broadcastType === "restream") continue;
 
       const startTime = data.startTime as Date;
       const showName = data.showName as string;
