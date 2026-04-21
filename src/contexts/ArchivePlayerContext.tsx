@@ -416,6 +416,12 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       setGateAttempt(prev => prev + 1);
       return;
     }
+
+    // Signal other players (e.g. live broadcast) to pause so we never have two streams at once.
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('channel:audio-play', { detail: { source: 'archive' } }));
+    }
+
     const audio = getAudio();
 
     // Clear any pending retry from a prior failure and reset the counter
@@ -487,6 +493,19 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       play(currentArchive);
     }
   }, [currentArchive, isPlaying, pause, play, isGated, isAuthenticated]);
+
+  // Pause archive playback when another player (e.g. live broadcast) starts, so we
+  // never play two streams at once. Only acts when we're actually playing.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const source = (e as CustomEvent<{ source?: string }>).detail?.source;
+      if (source && source !== 'archive' && isPlaying) {
+        pause();
+      }
+    };
+    window.addEventListener('channel:audio-play', handler);
+    return () => window.removeEventListener('channel:audio-play', handler);
+  }, [isPlaying, pause]);
 
   const seek = useCallback((time: number) => {
     const audio = audioRef.current;

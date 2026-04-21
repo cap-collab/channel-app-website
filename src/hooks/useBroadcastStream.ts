@@ -454,6 +454,11 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
       return;
     }
 
+    // Signal other players (e.g. archive) to pause so we never have two streams at once.
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('channel:audio-play', { detail: { source: 'live' } }));
+    }
+
     userPausedRef.current = false; // Reset — user is actively playing
     setIsLoading(true);
     setError(null);
@@ -714,6 +719,19 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
       play();
     }
   }, [isPlaying, play, pause]);
+
+  // Pause live playback when another player (e.g. archive) starts, so we never
+  // play two streams at once. Only acts when we're actually playing.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const source = (e as CustomEvent<{ source?: string }>).detail?.source;
+      if (source && source !== 'live' && isPlaying) {
+        pause();
+      }
+    };
+    window.addEventListener('channel:audio-play', handler);
+    return () => window.removeEventListener('channel:audio-play', handler);
+  }, [isPlaying, pause]);
 
   // Auto-resume effect: desktop WebRTC only.
   // When a new show goes live after a grace period gap, auto-reconnect.
