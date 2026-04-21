@@ -133,12 +133,13 @@ export async function POST(request: NextRequest) {
     // complete-expired-slots cron does, so the room is released immediately
     // instead of waiting up to 5 minutes for the next cron tick.
     if (slot.status === 'live' && newStatus === 'completed') {
-      // Keep the HLS egress alive when a next live DJ is taking over so their
-      // startEgress can reuse it (reuseHlsEgress) — stopping + restarting
-      // resets the playlist and strands mobile listeners on the old tail.
-      // For a restream takeover the stream flows through a different URL, so
-      // stop the HLS egress as usual.
-      const keepHlsEgress = !!nextShowDoc && !nextShowIsRestream;
+      // Keep the HLS egress alive whenever a next show is taking over —
+      // live *or* restream. Live and restream share the same R2 prefix so
+      // the listener's manifest stays continuous across the transition;
+      // stopping + restarting resets the playlist and strands mobile
+      // listeners on the old tail. start-restream will stop this egress
+      // before its own if it needs to, so there's no risk of duplicates.
+      const keepHlsEgress = !!nextShowDoc;
       const cleanup = await cleanupSlotLiveKit({
         slotId,
         egressId: slot.egressId,

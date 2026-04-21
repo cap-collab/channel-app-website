@@ -12,10 +12,14 @@ import Hls from 'hls.js';
 import { captureEvent } from '@/lib/posthog';
 import { registerAudio, pauseOthers } from '@/lib/audio-exclusive';
 
-// HLS stream URLs - direct from R2 (bypasses Vercel serverless proxy)
+// HLS stream URL - direct from R2 (bypasses Vercel serverless proxy).
+// Live and restream both write to the same channel-radio/ prefix so the
+// listener's player doesn't have to swap .src at live↔restream transitions
+// (which causes a visible pause/reload). Scheduling guarantees the two
+// don't overlap, and start-restream stops any stale egress before starting
+// its own, so only one egress writes at a time.
 const R2_PUBLIC_URL = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
 const HLS_URL = R2_PUBLIC_URL ? `${R2_PUBLIC_URL}/channel-radio/live.m3u8` : '/api/hls/channel-radio/live.m3u8';
-const HLS_URL_RESTREAM = R2_PUBLIC_URL ? `${R2_PUBLIC_URL}/channel-radio-restream/live.m3u8` : '/api/hls/channel-radio-restream/live.m3u8';
 
 // Detect if browser is Safari (has native HLS support)
 function isSafariBrowser(): boolean {
@@ -518,7 +522,7 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
 
     // Use HLS for mobile/Safari - more reliable than WebRTC
     if (useHLS) {
-      const hlsUrl = currentShow?.broadcastType === 'restream' ? HLS_URL_RESTREAM : HLS_URL;
+      const hlsUrl = HLS_URL;
       console.log('🎵 Using HLS stream:', hlsUrl);
       try {
         // Check if Safari with native HLS support

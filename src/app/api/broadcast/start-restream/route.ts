@@ -134,49 +134,62 @@ export async function POST(request: NextRequest) {
     // necessarily published yet: startRoomCompositeEgress waits for an
     // audio track to appear in the room.
     let restreamEgressId: string | undefined;
+    let reusedEgress = false;
     if (r2AccessKey && r2SecretKey && r2Endpoint) {
       try {
         const egressClient = new EgressClient(livekitHost, apiKey, apiSecret);
 
-        // Stop any stale active egresses in the room — e.g. the previous
-        // live DJ's HLS egress if complete-slot set keepHlsEgress=false for
-        // this transition. We can't reuse a live-broadcast egress anyway
-        // because restream writes to a different R2 prefix.
+        // If a live broadcast's HLS egress is still running on this room
+        // (complete-slot keeps it alive across transitions for manifest
+        // continuity), reuse it. The egress composes whatever audio is in
+        // the room, so the restream participant's audio flows through the
+        // same playlist the live DJ's did — listener never reloads.
         try {
           const existing = await egressClient.listEgress({ roomName: ROOM_NAME, active: true });
           for (const e of existing) {
-            try {
-              await egressClient.stopEgress(e.egressId);
-              console.log(`[start-restream] Stopped stale egress: ${e.egressId}`);
-            } catch { /* ignore */ }
+            if (!restreamEgressId) {
+              restreamEgressId = e.egressId;
+              reusedEgress = true;
+              console.log(`[start-restream] Reusing existing HLS egress: ${e.egressId}`);
+            } else {
+              // Any additional stale egresses — stop them
+              try {
+                await egressClient.stopEgress(e.egressId);
+                console.log(`[start-restream] Stopped stale egress: ${e.egressId}`);
+              } catch { /* ignore */ }
+            }
           }
         } catch { /* ignore */ }
 
-        const s3Upload = new S3Upload({
-          accessKey: r2AccessKey,
-          secret: r2SecretKey,
-          bucket: r2Bucket,
-          region: 'auto',
-          endpoint: r2Endpoint,
-          forcePathStyle: true,
-        });
-        const segmentOutput = new SegmentedFileOutput({
-          protocol: SegmentedFileProtocol.HLS_PROTOCOL,
-          filenamePrefix: `${ROOM_NAME}-restream/stream`,
-          playlistName: 'playlist.m3u8',
-          livePlaylistName: 'live.m3u8',
-          segmentDuration: 6,
-          output: { case: 's3', value: s3Upload },
-        });
-        const hlsEgress = await egressClient.startRoomCompositeEgress(
-          ROOM_NAME,
-          { segments: segmentOutput },
-          { audioOnly: true },
-        );
-        restreamEgressId = hlsEgress.egressId;
-        console.log(`[start-restream] HLS egress started: ${restreamEgressId}`);
+        if (!restreamEgressId) {
+          const s3Upload = new S3Upload({
+            accessKey: r2AccessKey,
+            secret: r2SecretKey,
+            bucket: r2Bucket,
+            region: 'auto',
+            endpoint: r2Endpoint,
+            forcePathStyle: true,
+          });
+          // Live and restream share this R2 prefix so the listener's HLS
+          // url stays the same across transitions.
+          const segmentOutput = new SegmentedFileOutput({
+            protocol: SegmentedFileProtocol.HLS_PROTOCOL,
+            filenamePrefix: `${ROOM_NAME}/stream`,
+            playlistName: 'playlist.m3u8',
+            livePlaylistName: 'live.m3u8',
+            segmentDuration: 6,
+            output: { case: 's3', value: s3Upload },
+          });
+          const hlsEgress = await egressClient.startRoomCompositeEgress(
+            ROOM_NAME,
+            { segments: segmentOutput },
+            { audioOnly: true },
+          );
+          restreamEgressId = hlsEgress.egressId;
+          console.log(`[start-restream] HLS egress started: ${restreamEgressId}`);
+        }
       } catch (err) {
-        console.error(`[start-restream] Failed to start egress for ${slotId}:`, err);
+        console.error(`[start-restream] Failed to start/reuse egress for ${slotId}:`, err);
         // Non-fatal — the webhook path will try again on track_published.
       }
     }
@@ -195,6 +208,7 @@ export async function POST(request: NextRequest) {
       slotId,
       ingressId: workerData.ingressId,
       egressId: restreamEgressId,
+      reusedEgress,
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
