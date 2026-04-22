@@ -11,6 +11,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { useDJProfileChat } from '@/hooks/useDJProfileChat';
 import { useDJProfileInfo } from '@/hooks/useDJProfileInfo';
 import { useLoveHistory } from '@/hooks/useLoveHistory';
+import { useHeartNudge } from '@/contexts/HeartNudgeContext';
 import { FloatingHearts } from '@/components/channel/FloatingHearts';
 import { ScrollingShowName, ScrollingDJName } from '@/components/channel/LiveBroadcastHero';
 import { ArchiveSeekBar } from '@/components/channel/ArchiveHero';
@@ -27,6 +28,7 @@ export function GlobalBroadcastBar() {
     isLive, isStreaming, isPlaying, isLoading, toggle,
     showName, djName, heroBarVisible, heroBarObserverReady, tipLink, currentShow,
     onLockedInRef: broadcastLockedInRef,
+    onListenMilestoneRef: broadcastListenMilestoneRef,
   } = useBroadcastStreamContext();
   const archivePlayer = useArchivePlayer();
   const { stationBPM } = useBPM();
@@ -38,6 +40,7 @@ export function GlobalBroadcastBar() {
   const [heartNudgeDismissed, setHeartNudgeDismissed] = useState(false);
   const { loveHistory, loading: loveLoading } = useLoveHistory();
   const skipNudge = heartNudgeDismissed || (!loveLoading && !!user && loveHistory.length > 0);
+  const { nudgeKey, nudge } = useHeartNudge();
 
   // Compute current DJ chat room (same logic as LiveBroadcastHero)
   const currentDJChatRoom = useMemo(() => {
@@ -126,6 +129,17 @@ export function GlobalBroadcastBar() {
     archivePlayer.onLockedInRef.current = archiveSendLockedIn;
     return () => { archivePlayer.onLockedInRef.current = null; };
   }, [archiveSendLockedIn, archivePlayer.onLockedInRef]);
+
+  // Wire 5-minute listen milestone to heart-nudge re-trigger
+  useEffect(() => {
+    broadcastListenMilestoneRef.current = nudge;
+    return () => { broadcastListenMilestoneRef.current = null; };
+  }, [nudge, broadcastListenMilestoneRef]);
+
+  useEffect(() => {
+    archivePlayer.onListenMilestoneRef.current = nudge;
+    return () => { archivePlayer.onListenMilestoneRef.current = null; };
+  }, [nudge, archivePlayer.onListenMilestoneRef]);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -227,7 +241,7 @@ export function GlobalBroadcastBar() {
               onClick={() => handleSendLove()}
               className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
             >
-              <svg className={`w-5 h-5 ${isPlaying && !skipNudge ? 'animate-heart-nudge' : ''}`} fill="currentColor" viewBox="0 0 24 24">
+              <svg key={nudgeKey} className={`w-5 h-5 ${isPlaying && (nudgeKey > 0 || !skipNudge) ? 'animate-heart-nudge' : ''}`} fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
               </svg>
             </button>
@@ -304,7 +318,7 @@ export function GlobalBroadcastBar() {
             onClick={() => handleArchiveSendLove()}
             className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
           >
-            <svg className={`w-5 h-5 ${archivePlayer.isPlaying && !skipNudge ? 'animate-heart-nudge' : ''}`} fill="currentColor" viewBox="0 0 24 24">
+            <svg key={nudgeKey} className={`w-5 h-5 ${archivePlayer.isPlaying && (nudgeKey > 0 || !skipNudge) ? 'animate-heart-nudge' : ''}`} fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
             </svg>
           </button>

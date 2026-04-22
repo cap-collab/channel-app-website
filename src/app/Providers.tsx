@@ -7,6 +7,7 @@ import { ScheduleProvider } from "@/contexts/ScheduleContext";
 import { BroadcastStreamProvider } from "@/contexts/BroadcastStreamContext";
 import { ArchivePlayerProvider } from "@/contexts/ArchivePlayerContext";
 import { FilterProvider } from "@/contexts/FilterContext";
+import { HeartNudgeProvider } from "@/contexts/HeartNudgeContext";
 import { initPostHog } from "@/lib/posthog";
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -18,9 +19,11 @@ export function Providers({ children }: { children: ReactNode }) {
         <ScheduleProvider>
           <BroadcastStreamProvider>
             <ArchivePlayerProvider>
-              <FilterProvider>
-                {children}
-              </FilterProvider>
+              <HeartNudgeProvider>
+                <FilterProvider>
+                  {children}
+                </FilterProvider>
+              </HeartNudgeProvider>
             </ArchivePlayerProvider>
           </BroadcastStreamProvider>
         </ScheduleProvider>

@@ -111,7 +111,11 @@ interface UseBroadcastStreamReturn {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: MutableRefObject<(() => void) | null>): UseBroadcastStreamReturn {
+export function useBroadcastStream(
+  statusIsLive?: boolean,
+  onLockedInRef?: MutableRefObject<(() => void) | null>,
+  onListenMilestoneRef?: MutableRefObject<(() => void) | null>,
+): UseBroadcastStreamReturn {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLive, setIsLive] = useState(false);
@@ -138,6 +142,7 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
   const broadcastCumulativeTimeRef = useRef(0);
   const broadcastStreamCountedRef = useRef<string | null>(null);
   const broadcastLockedInFiredRef = useRef<string | null>(null);
+  const broadcastMilestoneFiredRef = useRef<string | null>(null);
   const [autoResumePending, setAutoResumePending] = useState(false);
   const playbackStartedAtRef = useRef<number | null>(null); // For posthog session_duration
 
@@ -1009,6 +1014,7 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
     if (broadcastStreamCountedRef.current !== null && broadcastStreamCountedRef.current !== currentShow.id) {
       broadcastCumulativeTimeRef.current = 0;
       broadcastLockedInFiredRef.current = null;
+      broadcastMilestoneFiredRef.current = null;
     }
 
     const interval = setInterval(() => {
@@ -1025,6 +1031,14 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
           body: JSON.stringify({ userId: uid }),
         }).catch(() => {});
       }
+      // Fire heart-nudge milestone at 300s (5 min), once per show
+      if (
+        broadcastCumulativeTimeRef.current >= 300 &&
+        broadcastMilestoneFiredRef.current !== currentShow.id
+      ) {
+        broadcastMilestoneFiredRef.current = currentShow.id;
+        onListenMilestoneRef?.current?.();
+      }
       // Fire "locked in" message at 900s (15 min)
       if (
         broadcastCumulativeTimeRef.current >= 900 &&
@@ -1036,7 +1050,7 @@ export function useBroadcastStream(statusIsLive?: boolean, onLockedInRef?: Mutab
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isPlaying, currentShow, onLockedInRef]);
+  }, [isPlaying, currentShow, onLockedInRef, onListenMilestoneRef]);
 
 
   return {

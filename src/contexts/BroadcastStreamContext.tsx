@@ -36,6 +36,8 @@ export interface BroadcastStreamContextValue {
   setHeroBarObserverReady: (ready: boolean) => void;
   // Ref callback for "locked in" message — set by consuming component (GlobalBroadcastBar)
   onLockedInRef: MutableRefObject<(() => void) | null>;
+  // Ref callback for 5-minute listen milestone (heart-nudge re-trigger)
+  onListenMilestoneRef: MutableRefObject<(() => void) | null>;
 }
 
 export const BroadcastStreamContext = createContext<BroadcastStreamContextValue | null>(null);
@@ -182,10 +184,11 @@ export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
   const [heroBarObserverReady, setHeroBarObserverReady] = useState(false);
   const setHeroBarObserverReadyCb = useCallback((v: boolean) => setHeroBarObserverReady(v), []);
   const onLockedInRef = useRef<(() => void) | null>(null);
+  const onListenMilestoneRef = useRef<(() => void) | null>(null);
 
   // useBroadcastStream is always called (hooks can't be conditional),
   // but it should be a no-op internally when not live
-  const stream = useBroadcastStream(statusIsLive, onLockedInRef);
+  const stream = useBroadcastStream(statusIsLive, onLockedInRef, onListenMilestoneRef);
 
   // Check if DJ is actually publishing audio in the LiveKit room
   const isStreaming = useIsStreaming(statusIsLive, stream.currentShow);
@@ -193,7 +196,7 @@ export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
   const value = useMemo<BroadcastStreamContextValue>(() => {
     if (statusIsLive) {
       const tipLink = resolveTipLink(stream.currentShow);
-      return { ...stream, isStreaming, showName, djName, tipLink, heroBarVisible, setHeroBarVisible: setHeroBarVisibleCb, heroBarObserverReady, setHeroBarObserverReady: setHeroBarObserverReadyCb, onLockedInRef };
+      return { ...stream, isStreaming, showName, djName, tipLink, heroBarVisible, setHeroBarVisible: setHeroBarVisibleCb, heroBarObserverReady, setHeroBarObserverReady: setHeroBarObserverReadyCb, onLockedInRef, onListenMilestoneRef };
     }
     return {
       isPlaying: false, isLoading: false, isLive: false, isStreaming: false,
@@ -204,6 +207,7 @@ export function BroadcastStreamProvider({ children }: { children: ReactNode }) {
       tipLink: null,
       heroBarVisible, setHeroBarVisible: setHeroBarVisibleCb, heroBarObserverReady, setHeroBarObserverReady: setHeroBarObserverReadyCb,
       onLockedInRef: noopRef,
+      onListenMilestoneRef: noopRef,
     };
   }, [statusIsLive, stream, isStreaming, showName, djName, heroBarVisible, setHeroBarVisibleCb, heroBarObserverReady, setHeroBarObserverReadyCb]);
 
