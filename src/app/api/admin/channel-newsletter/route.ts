@@ -390,38 +390,30 @@ function buildAuditHtml(rows: AuditRow[]): string {
   const onSend = rows.filter((r) => r.onNextSend).length;
   const unsubbed = rows.filter((r) => r.unsubscribed).length;
   const headers = [
-    "#",
-    "Email",
-    "Source",
-    "Role",
-    "On next send?",
+    "DJ / User",
     "Unsub?",
-    "Unsub reason",
-    "Current first name",
-    "name",
-    "displayName",
-    "chatUsername",
-    "displayName first word (fallback)",
-    "→ Your override (fill in)",
+    "Email",
+    "First name (as of now)",
+    "displayName first word",
+    "→ Your override",
   ];
   const th = headers
     .map((h) => `<th style="text-align:left;padding:6px 8px;border:1px solid #ddd;font-size:12px;background:#f6f6f6;">${h}</th>`)
     .join("");
   const trs = rows
-    .map((r, i) => {
+    .map((r) => {
       const rowBg = r.onNextSend ? "#ffffff" : "#fafafa";
+      const djOrUser =
+        r.source === "users-dj" || r.source === "pending-dj"
+          ? "DJ"
+          : r.source === "waitlist"
+            ? "Waitlist"
+            : "User";
       const cells = [
-        String(i + 1),
-        r.email,
-        r.source,
-        r.role,
-        r.onNextSend ? `YES (${r.onNextSendCohort})` : "no",
+        djOrUser,
         r.unsubscribed ? "YES" : "",
-        r.unsubReason.join(", "),
+        r.email,
         r.currentFirstName,
-        r.name ?? "",
-        r.displayName ?? "",
-        r.chatUsername ?? "",
         r.displayNameFirstWord ?? "",
         "",
       ];
