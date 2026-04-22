@@ -559,7 +559,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           {showLiveInHero ? (
             <>
               {/* Live player bar */}
-              <div className="flex items-center gap-2 sm:gap-3 py-2 px-1">
+              <div className="flex items-center gap-0.5 sm:gap-3 py-2 px-1">
                 <button
                   onClick={toggleLive}
                   className="w-8 h-8 ml-1 flex items-center justify-center bg-white transition-colors flex-shrink-0"
@@ -586,7 +586,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   )}
                 </div>
                 {/* Live/Restream indicator + BPM */}
-                <div className="flex items-center gap-1.5 flex-shrink-0">
+                <div className="flex items-center gap-0.5 flex-shrink-0">
                   {isRestream ? (
                     <svg className="w-3 h-3 text-zinc-400 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
@@ -605,14 +605,14 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   )}
                 </div>
                 {liveDjProfileUsername && (
-                  <Link href={`/dj/${liveDjProfileUsername.replace(/\s+/g, '').toLowerCase()}`} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
+                  <Link href={`/dj/${liveDjProfileUsername.replace(/\s+/g, '').toLowerCase()}`} className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                   </Link>
                 )}
                 <div className="relative flex-shrink-0">
                   <button
                     onClick={handleLove}
-                    className="w-10 h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
+                    className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
                   >
                     <svg className={`w-5 h-5 ${anyPlaying && !skipNudge ? 'animate-heart-nudge' : ''}`} fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
@@ -624,7 +624,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   <TipButton
                     djUsername={djName || 'DJ'}
                     tipLink={tipLink}
-                    className="w-10 h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
+                    className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
                   />
                 )}
               </div>
@@ -644,7 +644,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           ) : (
             <>
               {/* Archive player bar */}
-              <div className="flex items-center gap-2 sm:gap-3 py-2 px-1">
+              <div className="flex items-center gap-0.5 sm:gap-3 py-2 px-1">
                 <button
                   onClick={() => {
                     if (archivePlayer.currentArchive) {
@@ -679,7 +679,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 {(() => {
                   const archiveDjUsername = displayedArchive.djs[0]?.username?.replace(/\s+/g, '').toLowerCase();
                   return archiveDjUsername ? (
-                    <Link href={`/dj/${archiveDjUsername}`} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
+                    <Link href={`/dj/${archiveDjUsername}`} className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                     </Link>
                   ) : null;
@@ -687,7 +687,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 <div className="relative flex-shrink-0">
                   <button
                     onClick={handleLove}
-                    className="w-10 h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
+                    className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
                   >
                     <svg className={`w-5 h-5 ${anyPlaying && !skipNudge ? 'animate-heart-nudge' : ''}`} fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
@@ -699,7 +699,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   <TipButton
                     djUsername={djName || 'DJ'}
                     tipLink={tipLink}
-                    className="w-10 h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
+                    className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
                   />
                 )}
               </div>
