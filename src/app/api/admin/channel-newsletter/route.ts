@@ -252,7 +252,196 @@ async function getListenerRecipients(
 //   ?mode=preview&cohort=dj|listener[&to=foo@bar.com]
 //   ?mode=dry-run&cohort=dj|listener|all  (default = all)
 //   ?mode=compare&lastSubject=...&cohort=dj|listener|all
+//   ?mode=audit                           — emails Cap a full roster table
 //   ?mode=send&cohort=dj|listener|all     (LOCKED until SEND_ENABLED=true)
+
+type AuditRow = {
+  email: string;
+  source: "users-dj" | "users-non-dj" | "pending-dj" | "waitlist";
+  role: string;
+  name: string | null;
+  displayName: string | null;
+  chatUsername: string | null;
+  unsubscribed: boolean;
+  unsubReason: string[];
+  onNextSend: boolean;
+  onNextSendCohort: "dj" | "listener" | null;
+  currentFirstName: string;
+  displayNameFirstWord: string | null;
+};
+
+function firstWord(s: string | null | undefined): string | null {
+  if (!s) return null;
+  const t = s.trim();
+  if (!t) return null;
+  return t.split(/\s+/)[0];
+}
+
+async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<AuditRow[]> {
+  const sendDjs = await getDjRecipients(db);
+  const sendDjEmails = new Set(sendDjs.map((r) => r.email.toLowerCase()));
+  const sendListeners = await getListenerRecipients(db, new Set(sendDjs.map((r) => r.email)));
+  const sendListenerEmails = new Set(sendListeners.map((r) => r.email.toLowerCase()));
+
+  const rows: AuditRow[] = [];
+  const seen = new Set<string>();
+
+  const usersSnap = await db.collection("users").get();
+  for (const doc of usersSnap.docs) {
+    const d = doc.data();
+    if (!d.email) continue;
+    const email = (d.email as string).toLowerCase();
+    if (seen.has(email)) continue;
+    seen.add(email);
+    const role = (d.role as string) || "";
+    const unsubReasons: string[] = [];
+    if (d.emailNotifications?.marketing === false) unsubReasons.push("marketing=false");
+    if (role === "dj" && d.emailNotifications?.djInsiders === false) unsubReasons.push("djInsiders=false");
+    if (EXCLUDE_EMAILS.has(email)) unsubReasons.push("excluded");
+    const onDj = sendDjEmails.has(email);
+    const onListener = sendListenerEmails.has(email);
+    rows.push({
+      email,
+      source: role === "dj" ? "users-dj" : "users-non-dj",
+      role,
+      name: d.name ?? null,
+      displayName: d.displayName ?? null,
+      chatUsername: d.chatUsername ?? null,
+      unsubscribed: unsubReasons.length > 0,
+      unsubReason: unsubReasons,
+      onNextSend: onDj || onListener,
+      onNextSendCohort: onDj ? "dj" : onListener ? "listener" : null,
+      currentFirstName: resolveFirstName(email, d.name, d.chatUsername),
+      displayNameFirstWord: firstWord(d.displayName),
+    });
+  }
+
+  const pendingSnap = await db.collection("pending-dj-profiles").get();
+  for (const doc of pendingSnap.docs) {
+    const d = doc.data();
+    if (!d.email) continue;
+    const email = (d.email as string).toLowerCase();
+    if (seen.has(email)) continue;
+    seen.add(email);
+    const unsubReasons: string[] = [];
+    if (d.unsubscribed === true) unsubReasons.push("pending.unsubscribed=true");
+    if (EXCLUDE_EMAILS.has(email)) unsubReasons.push("excluded");
+    const onDj = sendDjEmails.has(email);
+    rows.push({
+      email,
+      source: "pending-dj",
+      role: "(pending dj)",
+      name: d.name ?? null,
+      displayName: d.displayName ?? null,
+      chatUsername: d.chatUsername ?? null,
+      unsubscribed: unsubReasons.length > 0,
+      unsubReason: unsubReasons,
+      onNextSend: onDj,
+      onNextSendCohort: onDj ? "dj" : null,
+      currentFirstName: resolveFirstName(email, d.name, d.chatUsername),
+      displayNameFirstWord: firstWord(d.displayName),
+    });
+  }
+
+  const waitlistSnap = await db.collection("radio-notify-waitlist").get();
+  for (const doc of waitlistSnap.docs) {
+    const d = doc.data();
+    if (!d.email) continue;
+    const email = (d.email as string).toLowerCase();
+    if (seen.has(email)) continue;
+    seen.add(email);
+    const unsubReasons: string[] = [];
+    if (d.unsubscribed === true) unsubReasons.push("waitlist.unsubscribed=true");
+    if (EXCLUDE_EMAILS.has(email)) unsubReasons.push("excluded");
+    const onListener = sendListenerEmails.has(email);
+    rows.push({
+      email,
+      source: "waitlist",
+      role: "(waitlist)",
+      name: d.name ?? null,
+      displayName: d.displayName ?? null,
+      chatUsername: null,
+      unsubscribed: unsubReasons.length > 0,
+      unsubReason: unsubReasons,
+      onNextSend: onListener,
+      onNextSendCohort: onListener ? "listener" : null,
+      currentFirstName: resolveFirstName(email, d.name, undefined),
+      displayNameFirstWord: firstWord(d.displayName),
+    });
+  }
+
+  rows.sort((a, b) => {
+    if (a.onNextSend !== b.onNextSend) return a.onNextSend ? -1 : 1;
+    return a.email.localeCompare(b.email);
+  });
+  return rows;
+}
+
+function escapeHtml(s: string | null | undefined): string {
+  if (!s) return "";
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function buildAuditHtml(rows: AuditRow[]): string {
+  const onSend = rows.filter((r) => r.onNextSend).length;
+  const unsubbed = rows.filter((r) => r.unsubscribed).length;
+  const headers = [
+    "#",
+    "Email",
+    "Source",
+    "Role",
+    "On next send?",
+    "Unsub?",
+    "Unsub reason",
+    "Current first name",
+    "name",
+    "displayName",
+    "chatUsername",
+    "displayName first word (fallback)",
+    "→ Your override (fill in)",
+  ];
+  const th = headers
+    .map((h) => `<th style="text-align:left;padding:6px 8px;border:1px solid #ddd;font-size:12px;background:#f6f6f6;">${h}</th>`)
+    .join("");
+  const trs = rows
+    .map((r, i) => {
+      const rowBg = r.onNextSend ? "#ffffff" : "#fafafa";
+      const cells = [
+        String(i + 1),
+        r.email,
+        r.source,
+        r.role,
+        r.onNextSend ? `YES (${r.onNextSendCohort})` : "no",
+        r.unsubscribed ? "YES" : "",
+        r.unsubReason.join(", "),
+        r.currentFirstName,
+        r.name ?? "",
+        r.displayName ?? "",
+        r.chatUsername ?? "",
+        r.displayNameFirstWord ?? "",
+        "",
+      ];
+      return `<tr style="background:${rowBg};">${cells.map((c) => `<td style="padding:6px 8px;border:1px solid #ddd;font-size:12px;vertical-align:top;">${escapeHtml(String(c))}</td>`).join("")}</tr>`;
+    })
+    .join("");
+  return `<!DOCTYPE html><html><body style="font-family:-apple-system,Arial,sans-serif;color:#111;">
+    <h2 style="margin:0 0 8px;">Channel newsletter recipient audit</h2>
+    <p style="margin:0 0 16px;font-size:13px;color:#555;">
+      Total rows: <strong>${rows.length}</strong> · on next send: <strong>${onSend}</strong> · unsubscribed: <strong>${unsubbed}</strong>
+    </p>
+    <p style="margin:0 0 16px;font-size:13px;color:#555;">
+      Reply with overrides in the form <code>email => FirstName</code> (one per line). Use <code>there</code> for neutral greeting, or <code>REMOVE</code> to exclude someone from the next send.
+    </p>
+    <table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;">
+      <thead><tr>${th}</tr></thead>
+      <tbody>${trs}</tbody>
+    </table>
+  </body></html>`;
+}
 
 export async function GET(request: NextRequest) {
   const secret = request.nextUrl.searchParams.get("secret");
@@ -343,6 +532,33 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // ── Audit: emails Cap a full roster (every doc with an email across all 3 collections) ──
+  if (mode === "audit") {
+    if (!resend) {
+      return NextResponse.json({ error: "Resend not configured" }, { status: 500 });
+    }
+    const rows = await buildAuditRows(db);
+    const html = buildAuditHtml(rows);
+    const auditTo = request.nextUrl.searchParams.get("to") || "cap@channel-app.com";
+    try {
+      await resend.emails.send({
+        from: FROM_EMAIL,
+        to: auditTo,
+        subject: `[audit] Channel newsletter roster — ${rows.length} rows`,
+        html,
+      });
+      return NextResponse.json({
+        mode: "audit",
+        sentTo: auditTo,
+        totalRows: rows.length,
+        onNextSend: rows.filter((r) => r.onNextSend).length,
+        unsubscribed: rows.filter((r) => r.unsubscribed).length,
+      });
+    } catch (e) {
+      return NextResponse.json({ error: String(e) }, { status: 500 });
+    }
+  }
+
   // ── Compare (diff against a prior send by subject) ──
   if (mode === "compare") {
     if (!process.env.RESEND_API_KEY) {
@@ -427,7 +643,7 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json(
-    { error: "Invalid mode. Use: preview, dry-run, compare, send" },
+    { error: "Invalid mode. Use: preview, dry-run, audit, compare, send" },
     { status: 400 },
   );
 }
