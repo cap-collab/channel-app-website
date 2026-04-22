@@ -31,8 +31,9 @@ export function SceneGlyph({ slug, className }: { slug: string; className?: stri
     return (
       <svg {...common} aria-hidden>
         <g transform="translate(12 12) scale(1.2) translate(-12 -12)">
-          <path d="M12 2 L22 12 L12 22 L2 12 Z" />
-          <path d="M12 2 L12 22 M2 12 L22 12" strokeOpacity="0.5" />
+          <path d="M6 2 L18 2 L22 8 L2 8 Z" />
+          <path d="M2 8 L12 22 L22 8" />
+          <line x1="12" y1="8" x2="12" y2="22" strokeOpacity="0.5" />
         </g>
       </svg>
     );
