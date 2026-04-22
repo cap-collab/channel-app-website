@@ -20,8 +20,8 @@ const SUBJECT = "Two scenes are emerging";
 
 type Cohort = "dj" | "listener";
 
-// First-name overrides: applied only when Firebase `name` is missing.
-// Priority: Firebase name → override → chatUsername → "there".
+// First-name overrides: highest priority, applied before Firebase fields.
+// Priority: override → name → displayName → chatUsername → "there".
 const FIRST_NAME_OVERRIDES: Record<string, string> = {
   "anthonypomije@gmail.com": "Anthony",
   "paulsboston@gmail.com": "Paul",
@@ -87,10 +87,16 @@ function minifyHtml(html: string): string {
   return html.replace(/\n\s+/g, "\n").replace(/\n+/g, "\n").trim();
 }
 
-function resolveFirstName(email: string, name?: string, chatUsername?: string): string {
+function resolveFirstName(
+  email: string,
+  name?: string,
+  chatUsername?: string,
+  displayName?: string,
+): string {
   const override = FIRST_NAME_OVERRIDES[email];
   if (override) return override;
   if (name && name.trim()) return name.trim().split(/\s+/)[0];
+  if (displayName && displayName.trim()) return displayName.trim().split(/\s+/)[0];
   if (chatUsername && chatUsername.trim()) return chatUsername.trim();
   return "there";
 }
@@ -188,7 +194,7 @@ async function getDjRecipients(db: FirebaseFirestore.Firestore): Promise<Recipie
     if (data.emailNotifications?.marketing === false) continue;
     out.push({
       email: data.email,
-      name: resolveFirstName(data.email, data.name, data.chatUsername),
+      name: resolveFirstName(data.email, data.name, data.chatUsername, data.displayName),
       id: doc.id,
       cohort: "dj",
     });
@@ -209,7 +215,7 @@ async function getDjRecipients(db: FirebaseFirestore.Firestore): Promise<Recipie
     seenEmails.add(email);
     out.push({
       email,
-      name: resolveFirstName(email, data.name, data.chatUsername),
+      name: resolveFirstName(email, data.name, data.chatUsername, data.displayName),
       id: doc.id,
       cohort: "dj",
     });
@@ -239,7 +245,7 @@ async function getListenerRecipients(
     seen.add(email);
     out.push({
       email,
-      name: resolveFirstName(email, data.name, data.chatUsername),
+      name: resolveFirstName(email, data.name, data.chatUsername, data.displayName),
       id: doc.id,
       cohort: "listener",
     });
@@ -329,7 +335,7 @@ async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<AuditRow
       unsubReason: unsubReasons,
       onNextSend: onDj || onListener,
       onNextSendCohort: onDj ? "dj" : onListener ? "listener" : null,
-      currentFirstName: resolveFirstName(email, d.name, d.chatUsername),
+      currentFirstName: resolveFirstName(email, d.name, d.chatUsername, d.displayName),
       displayNameFirstWord: firstWord(d.displayName),
     });
   }
@@ -356,7 +362,7 @@ async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<AuditRow
       unsubReason: unsubReasons,
       onNextSend: onDj,
       onNextSendCohort: onDj ? "dj" : null,
-      currentFirstName: resolveFirstName(email, d.name, d.chatUsername),
+      currentFirstName: resolveFirstName(email, d.name, d.chatUsername, d.displayName),
       displayNameFirstWord: firstWord(d.displayName),
     });
   }
@@ -383,7 +389,7 @@ async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<AuditRow
       unsubReason: unsubReasons,
       onNextSend: onListener,
       onNextSendCohort: onListener ? "listener" : null,
-      currentFirstName: resolveFirstName(email, d.name, undefined),
+      currentFirstName: resolveFirstName(email, d.name, undefined, d.displayName),
       displayNameFirstWord: firstWord(d.displayName),
     });
   }
