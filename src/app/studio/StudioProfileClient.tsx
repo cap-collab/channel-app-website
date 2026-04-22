@@ -2013,7 +2013,7 @@ export function StudioProfileClient() {
         {/* Curator Name Setup Banner - shown when chatUsername is not set */}
         {!chatUsername && (
           <div className="mb-6 bg-gradient-to-r from-purple-900/50 to-blue-900/50 border border-purple-500/30 rounded p-4">
-            <h2 className="text-white font-medium mb-1">Set Your Curator Name</h2>
+            <h2 className="text-white font-medium mb-1">Set Your Artist Name</h2>
             <p className="text-gray-400 text-sm mb-4">
               Choose a name for your profile and personal URL. This will also be your chat username.
             </p>
@@ -2085,7 +2085,7 @@ export function StudioProfileClient() {
             </h2>
             <div className="bg-[#1e1e1e] rounded divide-y divide-gray-700/50">
               <div className="p-4 flex items-center justify-between">
-                <span className="text-gray-400">Curator Name</span>
+                <span className="text-gray-400">Artist Name</span>
                 <span className="text-white">
                   {chatUsername || <span className="text-gray-600">Not set</span>}
                 </span>
