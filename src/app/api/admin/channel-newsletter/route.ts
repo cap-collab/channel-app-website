@@ -16,7 +16,7 @@ const resend = process.env.RESEND_API_KEY
 const FROM_EMAIL = "Cap from Channel <cap@channel-app.com>";
 const LOGO_URL = "https://channel-app.com/logo-black.png";
 const APP_URL = "https://channel-app.com";
-const SUBJECT = "Something is starting to take shape";
+const SUBJECT = "Two scenes are emerging";
 
 type Cohort = "dj" | "listener";
 
@@ -55,17 +55,6 @@ const EXCLUDE_EMAILS = new Set([
   "maiii@posteo.la",
   "64j87qk747@privaterelay.appleid.com",
 ]);
-
-// Pending DJs (no account yet) — same list as dj-newsletter route.
-const EXTRA_PENDING_DJS: Array<{ email: string; name: string; id: string }> = [
-  { email: "paulsboston@gmail.com", name: "Paul", id: "pending-spillman" },
-  { email: "juniorsbl@gmail.com", name: "Junior", id: "pending-junior" },
-  { email: "hello@justinmiller.nyc", name: "Justin", id: "pending-justin" },
-  { email: "cesartoribio1@gmail.com", name: "Cesar", id: "pending-toribio" },
-  { email: "celebritybitcrush@gmail.com", name: "Keigo", id: "pending-celebritybitcrush" },
-  { email: "dorwand@gmail.com", name: "Dor", id: "pending-dorwand" },
-  { email: "omer.almileik@gmail.com", name: "Omer", id: "pending-omer" },
-];
 
 // Extra listeners — radio-notify waitlist signups without a `users` doc
 // that we still want included in the broadcast.
@@ -138,12 +127,11 @@ function buildEmailHtml(name: string, cohort: Cohort, email: string): string {
               <tr>
                 <td bgcolor="#ffffff" style="font-size: 15px; line-height: 1.6; color: #1a1a1a;">
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Hi ${displayName},</p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;">Channel is starting to take shape.</p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;">Over the past couple weeks, a number of DJs and producers have been playing, and something is emerging through that.</p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;">I've started posting moments from the shows here, and will share upcoming sessions as they happen:<br/><a href="https://instagram.com/channelrad.io" style="color: #1a1a1a;">https://instagram.com/channelrad.io</a></p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;">All past shows are available on the website:<br/><a href="https://channel-app.com" style="color: #1a1a1a;">https://channel-app.com</a></p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;"><strong>A series of live shows are coming up this week across LA and NY</strong>, spanning a range of sounds — from ambient to house, techno, and more experimental edges.</p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;">Stay tuned.</p>
+                  <p style="margin: 0 0 16px; color: #1a1a1a;">Channel has been growing steadily over the past weeks, and I'm seeing two scenes form through the shows.</p>
+                  <p style="margin: 0 0 16px; color: #1a1a1a;">One is more trippy and experimental, the other more groovy and social.</p>
+                  <p style="margin: 0 0 16px; color: #1a1a1a;">Check them out:<br/>🌀 <a href="https://channel-app.com/radio?spiral" style="color: #1a1a1a;">https://channel-app.com/radio?spiral</a><br/>💎 <a href="https://channel-app.com/radio?diamond" style="color: #1a1a1a;">https://channel-app.com/radio?diamond</a></p>
+                  <p style="margin: 0 0 16px; color: #1a1a1a;">More shows are coming in this week across LA and NY.</p>
+                  <p style="margin: 0 0 16px; color: #1a1a1a;">Daily clips on IG <a href="https://instagram.com/channelrad.io" style="color: #1a1a1a; text-decoration: underline;">@channelrad.io</a></p>
                   <p style="margin: 0; color: #1a1a1a;">Cap</p>
                 </td>
               </tr>
@@ -188,21 +176,25 @@ async function getDjRecipients(db: FirebaseFirestore.Firestore): Promise<Recipie
     });
   }
 
-  // Pending DJs live in pending-dj-profiles; skip any with unsubscribed=true.
-  const pendingUnsubscribed = new Set<string>();
+  // Pending DJs live in pending-dj-profiles — auto-pull every doc with an
+  // email, skip any flagged unsubscribed=true, and dedupe against the
+  // users-sourced DJ set above.
   const pendingSnap = await db.collection("pending-dj-profiles").get();
+  const seenEmails = new Set(out.map((r) => r.email.toLowerCase()));
   for (const doc of pendingSnap.docs) {
     const data = doc.data();
-    if (data.email && data.unsubscribed === true) {
-      pendingUnsubscribed.add((data.email as string).toLowerCase());
-    }
-  }
-
-  for (const pending of EXTRA_PENDING_DJS) {
-    if (EXCLUDE_EMAILS.has(pending.email)) continue;
-    if (pendingUnsubscribed.has(pending.email.toLowerCase())) continue;
-    if (out.some((r) => r.email === pending.email)) continue;
-    out.push({ ...pending, cohort: "dj" });
+    const email = typeof data.email === "string" ? data.email.trim().toLowerCase() : "";
+    if (!email) continue;
+    if (data.unsubscribed === true) continue;
+    if (EXCLUDE_EMAILS.has(email)) continue;
+    if (seenEmails.has(email)) continue;
+    seenEmails.add(email);
+    out.push({
+      email,
+      name: resolveFirstName(email, data.name, data.chatUsername),
+      id: doc.id,
+      cohort: "dj",
+    });
   }
   return out;
 }
@@ -395,7 +387,7 @@ export async function GET(request: NextRequest) {
 
   // ── Send (LOCKED) ──
   if (mode === "send") {
-    const SEND_ENABLED = false; // ← sent 72/72 on 2026-04-20
+    const SEND_ENABLED = false; // ← last send 72/72 on 2026-04-20; planned 2026-04-27
     if (!SEND_ENABLED) {
       return NextResponse.json({
         error: "Send mode is locked. Set SEND_ENABLED = true in code when ready.",
