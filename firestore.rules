@@ -74,10 +74,27 @@ service cloud.firestore {
 
     // Broadcast slots
     // - Anyone can read (DJs validate their token without login)
-    // - Only broadcasters can write (create/update/delete slots)
+    // - Broadcasters/admins can create/delete and update any field
+    // - The assigned DJ can update only showName / showImageUrl on their own slot
+    //   (matched by uid via djUserId/liveDjUserId, or by lowercased email via djEmail)
     match /broadcast-slots/{slotId} {
       allow read: if true;
-      allow write: if isBroadcaster();
+      allow create, delete: if isBroadcaster();
+      allow update: if isBroadcaster()
+        || (
+          request.auth != null
+          && (
+            resource.data.djUserId == request.auth.uid
+            || resource.data.liveDjUserId == request.auth.uid
+            || (
+              resource.data.djEmail is string
+              && request.auth.token.email is string
+              && resource.data.djEmail.lower() == request.auth.token.email.lower()
+            )
+          )
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['showName', 'showImageUrl'])
+        );
     }
 
     // DJ applications (web app)
