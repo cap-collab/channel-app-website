@@ -164,7 +164,7 @@ export function GlobalBroadcastBar() {
   if (showLiveBar) {
     return (
       <div className={`z-[99] bg-black border-b border-white/10 overflow-hidden transition-all duration-200 ${hiddenOnRadio ? 'opacity-0 -translate-y-full h-0 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
-        <div className="flex items-center gap-1 sm:gap-3 py-2 px-1">
+        <div className="flex items-center gap-0.5 sm:gap-3 py-2 px-1">
           {/* Play/Pause — synced with broadcast stream */}
           <button
             onClick={toggle}
@@ -195,7 +195,7 @@ export function GlobalBroadcastBar() {
           </Link>
 
           {/* Live/Restream indicator + BPM */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="flex items-center gap-0.5 flex-shrink-0">
             {isRestream ? (
               <svg className="w-3 h-3 text-zinc-400 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
