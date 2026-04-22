@@ -30,6 +30,9 @@ const FIRST_NAME_OVERRIDES: Record<string, string> = {
   "celebritybitcrush@gmail.com": "Keigo",
   "cap@beyondalgorithms.cloud": "Cap",
   "2ty7cmd5tf@privaterelay.appleid.com": "Cap",
+  "hello@justinmiller.nyc": "Justin",
+  "m6kdesign@gmail.com": "Maxim",
+  "omer.almileik@gmail.com": "Omer",
   // Listener corrections
   "aubespin@gmail.com": "David",
   "jchatard@outlook.fr": "JP",
@@ -38,17 +41,32 @@ const FIRST_NAME_OVERRIDES: Record<string, string> = {
   "walidvb@gmail.com": "Walid",
   "benjaminruthven@aol.com": "Benji",
   "billyboyali@gmail.com": "Bilal",
-  "cf6nq9k22f@privaterelay.appleid.com": "there",
+  "cf6nq9k22f@privaterelay.appleid.com": "Sam",
   "emwhitenoise@gmail.com": "Emily",
   "jbektemba0711@gmail.com": "Jelani",
-  "mashinerie@gmail.com": "hello",
-  "t8bm2sdryx@privaterelay.appleid.com": "user1",
-  "v8yykfdgbd@privaterelay.appleid.com": "cpl",
+  "mashinerie@gmail.com": "Antonia",
+  "t8bm2sdryx@privaterelay.appleid.com": "Shane",
+  "v8yykfdgbd@privaterelay.appleid.com": "Christian",
   "yaldahesh@gmail.com": "Yalda",
   "pierre.elie.fauche@gmail.com": "Pierre-Elie",
   "margot2themax@gmail.com": "Margot",
   "akumenmusic@gmail.com": "Tony",
   "5kyriv3r5@gmail.com": "Michael",
+  "7bv6k4cjvc@privaterelay.appleid.com": "Robert",
+  "7mpnw5xkkh@privaterelay.appleid.com": "Marianne",
+  "alexandra.sentisfranco@gmail.com": "Alexandra",
+  "bqbwvhdq7v@privaterelay.appleid.com": "Ana",
+  "dcosenza31@gmail.com": "Dan",
+  "djfp9n86bf@privaterelay.appleid.com": "Eduardo",
+  "jagewuel@gmail.com": "Will",
+  "jahichambers@gmail.com": "Jahi",
+  "jonathanamar28@gmail.com": "J",
+  "markdcramer@gmail.com": "Mark",
+  "pwbrs7rxyt@privaterelay.appleid.com": "Natalie",
+  "rmt7jxvkc5@privaterelay.appleid.com": "Jon",
+  "tabicat22@gmail.com": "Tabitha",
+  "thomas@sidewalk-consulting.com": "Thomas",
+  "valerianspaceparty@gmail.com": "there",
 };
 
 const EXCLUDE_EMAILS = new Set([
@@ -129,7 +147,7 @@ function buildEmailHtml(name: string, cohort: Cohort, email: string): string {
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Hi ${displayName},</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Channel has been growing steadily over the past weeks, and I'm seeing two scenes form through the shows.</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">One is more trippy and experimental, the other more groovy and social.</p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;">Check them out:<br/>🌀 <a href="https://channel-app.com/radio?spiral" style="color: #1a1a1a;">https://channel-app.com/radio?spiral</a><br/>💎 <a href="https://channel-app.com/radio?diamond" style="color: #1a1a1a;">https://channel-app.com/radio?diamond</a></p>
+                  <p style="margin: 0 0 16px; color: #1a1a1a;"><strong>Check them out:</strong><br/>🌀 <a href="https://channel-app.com/radio?spiral" style="color: #1a1a1a;">https://channel-app.com/radio?spiral</a><br/>💎 <a href="https://channel-app.com/radio?diamond" style="color: #1a1a1a;">https://channel-app.com/radio?diamond</a></p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">More shows are coming in this week across LA and NY.</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Daily clips on IG <a href="https://instagram.com/channelrad.io" style="color: #1a1a1a; text-decoration: underline;">@channelrad.io</a></p>
                   <p style="margin: 0; color: #1a1a1a;">Cap</p>
