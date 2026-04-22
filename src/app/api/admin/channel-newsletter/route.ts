@@ -67,6 +67,8 @@ const FIRST_NAME_OVERRIDES: Record<string, string> = {
   "tabicat22@gmail.com": "Tabitha",
   "thomas@sidewalk-consulting.com": "Thomas",
   "valerianspaceparty@gmail.com": "there",
+  "atomic.records.boutique@gmail.com": "Corey",
+  "charles.fages@gmail.com": "Charles",
 };
 
 const EXCLUDE_EMAILS = new Set([
