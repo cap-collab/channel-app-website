@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
 import { ShareableShowCardStory } from '@/components/studio/ShareableShowCardStory';
 import { ShareableMultiShowStory, MultiShowEntry } from '@/components/studio/ShareableMultiShowStory';
+import { extractInstagramHandle } from '@/lib/genres';
 
 interface MarketingTabProps {
   slots: BroadcastSlotSerialized[];
@@ -16,9 +17,49 @@ interface DJInfo {
   photoUrl?: string;
   genres?: string[];
   description?: string;
+  instagram?: string; // raw value from profile (URL or handle)
 }
 
 type DJInfoCache = Record<string, DJInfo>;
+// Per-slot IG lookups, keyed by slot id then by normalized DJ name — handles venue b2b
+type SlotInstagramCache = Record<string, Record<string, string>>;
+
+function normalizeName(name: string): string {
+  return name.replace(/[\s-]+/g, '').toLowerCase();
+}
+
+// Returns [{ djName, handle }] for each DJ in the slot, preferring slot-level djSocialLinks.
+function getInstagramHandles(
+  slot: BroadcastSlotSerialized,
+  slotIgCache: SlotInstagramCache,
+  djInfoCache: DJInfoCache,
+): Array<{ djName: string; handle: string }> {
+  const perSlot = slotIgCache[slot.id] || {};
+  const result: Array<{ djName: string; handle: string }> = [];
+  const push = (djName: string, raw: string | undefined) => {
+    if (!djName) return;
+    const handle = raw ? extractInstagramHandle(raw) : '';
+    if (handle) result.push({ djName, handle });
+  };
+
+  if (slot.broadcastType === 'venue' && slot.djSlots?.length) {
+    for (const ds of slot.djSlots) {
+      const djName = ds.djName || '';
+      const slotLevel = ds.djSocialLinks?.instagram;
+      if (slotLevel) {
+        push(djName, slotLevel);
+      } else {
+        const looked = djName ? perSlot[normalizeName(djName)] : undefined;
+        push(djName, looked);
+      }
+    }
+  } else {
+    const djName = slot.djName || '';
+    const looked = djName ? perSlot[normalizeName(djName)] : undefined;
+    push(djName, looked || djInfoCache[slot.id]?.instagram);
+  }
+  return result;
+}
 
 function getCardProps(slot: BroadcastSlotSerialized, djInfoCache: DJInfoCache) {
   let djName = '';
@@ -54,6 +95,40 @@ function getCardProps(slot: BroadcastSlotSerialized, djInfoCache: DJInfoCache) {
   };
 }
 
+function InstagramHandles({ handles }: { handles: Array<{ djName: string; handle: string }> }) {
+  const [copied, setCopied] = useState(false);
+  if (handles.length === 0) return null;
+
+  const tagString = handles.map(h => `@${h.handle}`).join(' ');
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(tagString);
+    } catch {
+      const input = document.createElement('input');
+      input.value = tagString;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="w-full flex items-center justify-center gap-2 bg-gray-800 text-gray-300 hover:bg-gray-700 font-medium py-2 rounded text-xs transition-colors mt-2"
+      title={handles.map(h => `${h.djName}: @${h.handle}`).join('\n')}
+    >
+      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+      </svg>
+      {copied ? 'Copied!' : `Copy IG tags (${handles.length})`}
+    </button>
+  );
+}
+
 function CopyLinkButton({ link }: { link: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -87,6 +162,7 @@ function CopyLinkButton({ link }: { link: string }) {
 
 export function MarketingTab({ slots }: MarketingTabProps) {
   const [djInfoCache, setDjInfoCache] = useState<DJInfoCache>({});
+  const [slotIgCache, setSlotIgCache] = useState<SlotInstagramCache>({});
 
   // Show today + next 2 days only
   const upcomingSlots = useMemo(() => {
@@ -159,6 +235,7 @@ export function MarketingTab({ slots }: MarketingTabProps) {
               photoUrl: djProfile.photoUrl || undefined,
               genres: djProfile.genres || undefined,
               description: djProfile.bio || undefined,
+              instagram: djProfile.socialLinks?.instagram || undefined,
             };
             return slotIds.map(id => [id, info] as const);
           }
@@ -177,6 +254,61 @@ export function MarketingTab({ slots }: MarketingTabProps) {
       }
     });
   }, [upcomingSlots, djInfoCache]);
+
+  // Per-DJ IG lookup for venue shows where djSlots[].djSocialLinks.instagram may be missing.
+  useEffect(() => {
+    if (!db) return;
+    const firestore = db;
+
+    // Map: slotId -> { normalizedName -> djName } for DJs missing slot-level IG.
+    const needed: Record<string, Record<string, string>> = {};
+    const normalizedNames = new Set<string>();
+    for (const s of upcomingSlots) {
+      if (s.broadcastType !== 'venue' || !s.djSlots?.length) continue;
+      for (const ds of s.djSlots) {
+        if (!ds.djName) continue;
+        if (ds.djSocialLinks?.instagram) continue; // have it from the slot
+        const normalized = normalizeName(ds.djName);
+        if (slotIgCache[s.id]?.[normalized] !== undefined) continue; // already resolved
+        if (!needed[s.id]) needed[s.id] = {};
+        needed[s.id][normalized] = ds.djName;
+        normalizedNames.add(normalized);
+      }
+    }
+    if (normalizedNames.size === 0) return;
+
+    (async () => {
+      const resolved: Record<string, string> = {};
+      await Promise.all(
+        Array.from(normalizedNames).map(async (normalized) => {
+          try {
+            const q = query(
+              collection(firestore, 'users'),
+              where('chatUsernameNormalized', '==', normalized),
+              where('role', 'in', ['dj', 'broadcaster', 'admin']),
+            );
+            const snap = await getDocs(q);
+            if (!snap.empty) {
+              const ig = snap.docs[0].data()?.djProfile?.socialLinks?.instagram;
+              if (ig) resolved[normalized] = ig;
+            }
+          } catch { /* ignore */ }
+        }),
+      );
+      setSlotIgCache(prev => {
+        const next: SlotInstagramCache = { ...prev };
+        for (const [slotId, names] of Object.entries(needed)) {
+          const existing = next[slotId] ? { ...next[slotId] } : {};
+          for (const normalized of Object.keys(names)) {
+            // Store even empty string to avoid refetching
+            existing[normalized] = resolved[normalized] || '';
+          }
+          next[slotId] = existing;
+        }
+        return next;
+      });
+    })();
+  }, [upcomingSlots, slotIgCache]);
 
   if (upcomingSlots.length === 0) {
     return (
@@ -236,6 +368,7 @@ export function MarketingTab({ slots }: MarketingTabProps) {
                 minute: '2-digit',
               });
               const isRestream = slot.broadcastType === 'restream';
+              const igHandles = isRestream ? [] : getInstagramHandles(slot, slotIgCache, djInfoCache);
               return (
                 <div key={slot.id}>
                   <p className="text-xs text-gray-500 mb-1">{timeStr} &middot; {slot.broadcastType}</p>
@@ -247,6 +380,24 @@ export function MarketingTab({ slots }: MarketingTabProps) {
                     <>
                       <ShareableShowCardStory {...cardProps} />
                       <CopyLinkButton link={broadcastLink} />
+                      {igHandles.length > 0 && (
+                        <div className="mt-2 text-xs text-gray-400 space-y-0.5">
+                          {igHandles.map(h => (
+                            <div key={h.djName} className="flex justify-between gap-2">
+                              <span className="text-gray-500 truncate">{h.djName}</span>
+                              <a
+                                href={`https://instagram.com/${h.handle}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-gray-300 hover:text-white font-mono"
+                              >
+                                @{h.handle}
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <InstagramHandles handles={igHandles} />
                     </>
                   )}
                 </div>

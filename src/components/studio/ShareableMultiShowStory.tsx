@@ -16,12 +16,12 @@ interface ShareableMultiShowStoryProps {
   dayLabel: string; // e.g., "Thursday"
 }
 
-// IG Story: 1080 wide, 1920 tall
+// IG Story-safe: 1080×1620 (2:3) — fits story aspect without feeling overly long
 const CANVAS_W = 1080;
-const CANVAS_H = 1920;
-const LOGO_STRIP_H = 128;
-const INFO_STRIP_H = 136;
-const PANEL_GAP = 12;
+const CANVAS_H = 1620;
+const LOGO_STRIP_H = 96;
+const INFO_STRIP_H = 104;
+const PANEL_GAP = 8;
 
 const S = CANVAS_W / 310;
 const FONT = '"Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
@@ -76,7 +76,7 @@ function drawCanvas(
   const fontSize = Math.round(11 * S);
 
   if (logoImg) {
-    const logoH = 44;
+    const logoH = 36; // match single-show card; independent of text scale
     const logoW = logoImg.naturalWidth * (logoH / logoImg.naturalHeight);
     ctx.drawImage(logoImg, pad, line1CenterY - logoH / 2, logoW, logoH);
   }
