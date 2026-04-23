@@ -336,14 +336,72 @@ app.post('/faststart', authenticate, async (req, res) => {
   }
 });
 
-// POST /normalize - Measure MP4 loudness and apply safe uniform gain if broken capture.
-// Uploads a NEW file with "-normalized-v1.mp4" suffix — original R2 key is NEVER overwritten.
+// POST /normalize - Measure loudness and apply safe uniform gain if broken capture.
+// Supports MP4 (live recordings, in-place AAC+faststart) and MP3 (DJ uploads, libmp3lame).
+// Uploads a NEW file with "-normalized-v1.<ext>" suffix — original R2 key is NEVER overwritten.
 // Returns { skipped, reason } if file doesn't need normalizing, or { newR2Key, newUrl, gainDb, measurements }.
 app.post('/normalize', authenticate, async (req, res) => {
-  const { r2Key } = req.body;
+  const { r2Key, callbackUrl, callbackContext } = req.body;
   if (!r2Key) return res.status(400).json({ error: 'r2Key required' });
 
-  console.log(`[normalize] Processing: ${r2Key}`);
+  // Async-by-callback mode: when the caller passes callbackUrl, respond 202
+  // immediately and do the job in the background, then POST the result to
+  // callbackUrl. This lets Vercel-hosted callers trigger the job without
+  // keeping a fetch handle alive for the 60-180s duration (their serverless
+  // instance can be recycled the moment they return a response to the user).
+  //
+  // Synchronous mode: no callbackUrl → await the full job and return the
+  // result in the HTTP response. The live-recording webhook uses this mode.
+  const isAsyncMode = !!callbackUrl;
+  if (isAsyncMode) {
+    res.status(202).json({ accepted: true, r2Key });
+  }
+
+  // respond() collapses "send HTTP response" + "fire callback" into one call.
+  // In async mode we've already sent the HTTP response above; headersSent
+  // guards against double-writes.
+  const fireCallback = (payload) => {
+    if (!callbackUrl) return;
+    const secret = process.env.CRON_SECRET;
+    if (!secret) {
+      console.warn(`[normalize] callbackUrl set but CRON_SECRET missing; skipping callback`);
+      return;
+    }
+    fetch(callbackUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${secret}`,
+      },
+      body: JSON.stringify({ ...payload, callbackContext }),
+    })
+      .then((r) => {
+        if (!r.ok) {
+          console.error(`[normalize] callback to ${callbackUrl} returned ${r.status}`);
+        } else {
+          console.log(`[normalize] callback delivered to ${callbackUrl}`);
+        }
+      })
+      .catch((e) => console.error(`[normalize] callback to ${callbackUrl} failed:`, e?.message || e));
+  };
+  const respond = (status, payload) => {
+    if (!res.headersSent) res.status(status).json(payload);
+    fireCallback(payload);
+  };
+
+  // Format detection. Each branch controls the re-encode args + content-type
+  // + output-key suffix below. Reject anything else rather than guessing —
+  // the MP4 branch would corrupt a WAV/FLAC/M4A by forcing ContentType video/mp4.
+  let format;
+  if (/\.mp4$/i.test(r2Key)) format = 'mp4';
+  else if (/\.mp3$/i.test(r2Key)) format = 'mp3';
+  else {
+    return respond(400, {
+      error: `Unsupported format for normalize: ${r2Key}. Only .mp4 and .mp3 are handled.`,
+    });
+  }
+
+  console.log(`[normalize] Processing: ${r2Key} (format=${format})`);
 
   const s3 = new S3Client({
     region: 'auto',
@@ -356,8 +414,8 @@ app.post('/normalize', authenticate, async (req, res) => {
   const bucket = process.env.R2_BUCKET_NAME;
   const publicBase = process.env.R2_PUBLIC_URL || '';
 
-  const tmpIn = `/tmp/normalize-in-${Date.now()}.mp4`;
-  const tmpOut = `/tmp/normalize-out-${Date.now()}.mp4`;
+  const tmpIn = `/tmp/normalize-in-${Date.now()}.${format}`;
+  const tmpOut = `/tmp/normalize-out-${Date.now()}.${format}`;
   const tmpMeta = `/tmp/normalize-meta-${Date.now()}.txt`;
 
   try {
@@ -407,14 +465,14 @@ app.post('/normalize', authenticate, async (req, res) => {
       [tmpIn, tmpMeta].forEach(p => { try { unlinkSync(p); } catch {} });
       const reason = `Only ${percentBelow20.toFixed(1)}% below -20 LUFS (threshold ${MIN_PERCENT_BELOW_20}%). Likely intentional dynamics.`;
       console.log(`[normalize] SKIP: ${reason}`);
-      return res.json({ skipped: true, reason, measurements: { integratedLufs, truePeak, lra, percentBelow20 } });
+      return respond(200, { skipped: true, reason, measurements: { integratedLufs, truePeak, lra, percentBelow20 } });
     }
 
     if (truePeak > MIN_PEAK_HEADROOM) {
       [tmpIn, tmpMeta].forEach(p => { try { unlinkSync(p); } catch {} });
       const reason = `True peak ${truePeak} dBFS > ${MIN_PEAK_HEADROOM} (already well-mastered or clipping).`;
       console.log(`[normalize] SKIP: ${reason}`);
-      return res.json({ skipped: true, reason, measurements: { integratedLufs, truePeak, lra, percentBelow20 } });
+      return respond(200, { skipped: true, reason, measurements: { integratedLufs, truePeak, lra, percentBelow20 } });
     }
 
     // --- 5. Compute safe gain (linear, no limiter) ---
@@ -426,30 +484,39 @@ app.post('/normalize', authenticate, async (req, res) => {
       [tmpIn, tmpMeta].forEach(p => { try { unlinkSync(p); } catch {} });
       const reason = `Computed gain ${gainDb.toFixed(2)} dB is negligible.`;
       console.log(`[normalize] SKIP: ${reason}`);
-      return res.json({ skipped: true, reason, measurements: { integratedLufs, truePeak, lra, percentBelow20 } });
+      return respond(200, { skipped: true, reason, measurements: { integratedLufs, truePeak, lra, percentBelow20 } });
     }
 
     console.log(`[normalize] Applying +${gainDb.toFixed(2)} dB gain (no limiter)`);
 
     // --- 6. Apply gain, re-encode, write to NEW R2 key ---
+    // Format-aware encode. MP4: AAC + faststart so mobile players start
+    // progressively. MP3: libmp3lame, byte-range streamable by default.
+    const encodeArgs = format === 'mp3'
+      ? '-c:a libmp3lame -b:a 192k'
+      : '-c:a aac -b:a 192k -movflags +faststart';
     execSync(
-      `ffmpeg -y -i ${tmpIn} -af "volume=${gainDb.toFixed(2)}dB" -c:a aac -b:a 192k -movflags +faststart ${tmpOut} 2>&1`
+      `ffmpeg -y -i ${tmpIn} -af "volume=${gainDb.toFixed(2)}dB" ${encodeArgs} ${tmpOut} 2>&1`
     );
     const outBuf = readFileSync(tmpOut);
 
-    const newR2Key = r2Key.replace(/\.mp4$/, '-normalized-v1.mp4');
+    const suffix = `-normalized-v1.${format}`;
+    const newR2Key = format === 'mp3'
+      ? r2Key.replace(/\.mp3$/i, suffix)
+      : r2Key.replace(/\.mp4$/i, suffix);
+    const contentType = format === 'mp3' ? 'audio/mpeg' : 'video/mp4';
     await s3.send(new PutObjectCommand({
       Bucket: bucket,
       Key: newR2Key,
       Body: outBuf,
-      ContentType: 'video/mp4',
+      ContentType: contentType,
     }));
 
     [tmpIn, tmpOut, tmpMeta].forEach(p => { try { unlinkSync(p); } catch {} });
 
     const newUrl = publicBase ? `${publicBase}/${newR2Key}` : null;
     console.log(`[normalize] Done: ${newR2Key} (+${gainDb.toFixed(2)} dB)`);
-    res.json({
+    respond(200, {
       success: true,
       skipped: false,
       originalR2Key: r2Key,
@@ -461,7 +528,7 @@ app.post('/normalize', authenticate, async (req, res) => {
   } catch (err) {
     [tmpIn, tmpOut, tmpMeta].forEach(p => { try { unlinkSync(p); } catch {} });
     console.error(`[normalize] Failed:`, err);
-    res.status(500).json({ error: err.message });
+    respond(500, { error: err.message });
   }
 });
 

@@ -102,6 +102,95 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Fire-and-forget faststart for MP4 uploads so mobile listeners get progressive
+    // playback and working seek. Worker parses moov/mdat atoms and rewrites the
+    // object in place with ContentType: video/mp4 — gated to true MP4 containers.
+    // Not awaited: the worker can take 30-60s on large files and the DJ shouldn't
+    // be blocked on it. Original file stays streamable even if this step fails.
+    const restreamWorkerUrl = process.env.RESTREAM_WORKER_URL;
+    const cronSecret = process.env.CRON_SECRET;
+    const isMp4 = /\.mp4$/i.test(uploadFilePath);
+    const isMp3 = /\.mp3$/i.test(uploadFilePath);
+
+    if (isMp4) {
+      if (restreamWorkerUrl && cronSecret) {
+        fetch(`${restreamWorkerUrl}/faststart`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${cronSecret}`,
+          },
+          body: JSON.stringify({ r2Key: uploadFilePath }),
+        })
+          .then(async (res) => {
+            const result = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              console.error(`[upload/complete] Faststart failed (${res.status}) for ${uploadFilePath}:`, result);
+            } else {
+              console.log(`[upload/complete] Faststart done for ${uploadFilePath}:`, result);
+            }
+          })
+          .catch((err) => {
+            console.error('[upload/complete] Faststart error:', err);
+          });
+      } else {
+        console.warn(`[upload/complete] Faststart skipped: RESTREAM_WORKER_URL=${restreamWorkerUrl ? 'set' : 'missing'}, CRON_SECRET=${cronSecret ? 'set' : 'missing'}`);
+      }
+    }
+
+    // Kick off loudness normalization for MP3 and MP4 uploads.
+    // Worker measures LUFS; if the track is uniformly quiet (broken-capture
+    // pattern) it writes a NEW R2 key "...-normalized-v1.<ext>" with gain
+    // applied. The original R2 object is NEVER overwritten or deleted.
+    //
+    // We pass a callbackUrl so the worker reports back to
+    // /api/recording/normalize-callback when it finishes (can take 60-180s).
+    // That callback does the Firestore swap. A fire-and-forget .then() here
+    // isn't reliable on Vercel — the serverless instance can be recycled
+    // after the response returns, dropping the handler before the worker
+    // responds. The callback pattern mirrors how the live pipeline uses
+    // LiveKit webhooks to drive state transitions asynchronously.
+    if (isMp3 || isMp4) {
+      if (restreamWorkerUrl && cronSecret) {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL
+          || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
+        const callbackUrl = appUrl ? `${appUrl}/api/recording/normalize-callback` : null;
+        if (!callbackUrl) {
+          console.warn(`[upload/complete] Normalize skipped: no appUrl for callback`);
+        } else {
+          // When callbackUrl is set, the worker's /normalize endpoint returns
+          // 202 immediately and runs the job in the background, then POSTs
+          // the result to callbackUrl when done. So this fetch resolves in
+          // <1s and doesn't depend on the serverless instance staying alive
+          // for the full normalization duration.
+          fetch(`${restreamWorkerUrl}/normalize`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${cronSecret}`,
+            },
+            body: JSON.stringify({
+              r2Key: uploadFilePath,
+              callbackUrl,
+              callbackContext: { archiveId },
+            }),
+          })
+            .then((res) => {
+              if (!res.ok) {
+                console.error(`[upload/complete] Normalize kickoff returned ${res.status} for ${uploadFilePath}`);
+              } else {
+                console.log(`[upload/complete] Normalize kicked off for ${uploadFilePath}; awaiting callback`);
+              }
+            })
+            .catch((err) => {
+              console.error('[upload/complete] Normalize kickoff error:', err);
+            });
+        }
+      } else {
+        console.warn(`[upload/complete] Normalize skipped: RESTREAM_WORKER_URL=${restreamWorkerUrl ? 'set' : 'missing'}, CRON_SECRET=${cronSecret ? 'set' : 'missing'}`);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       archiveId,
