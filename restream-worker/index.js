@@ -362,9 +362,13 @@ app.post('/normalize', authenticate, async (req, res) => {
   // guards against double-writes.
   const fireCallback = (payload) => {
     if (!callbackUrl) return;
-    const secret = process.env.CRON_SECRET;
+    // Reuse the same bearer token the worker accepts on inbound requests.
+    // In prod this is SHARED_SECRET; CRON_SECRET is the Vercel-side name for
+    // the same value (both env names fall through to the same SHARED_SECRET
+    // constant declared at the top of this file).
+    const secret = SHARED_SECRET;
     if (!secret) {
-      console.warn(`[normalize] callbackUrl set but CRON_SECRET missing; skipping callback`);
+      console.warn(`[normalize] callbackUrl set but SHARED_SECRET missing; skipping callback`);
       return;
     }
     fetch(callbackUrl, {
