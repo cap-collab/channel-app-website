@@ -12,7 +12,7 @@ import { useUserRole, isDJ } from "@/hooks/useUserRole";
 import { AuthModal } from "@/components/AuthModal";
 import { Header } from "@/components/Header";
 import { normalizeUrl } from "@/lib/url";
-import { uploadDJPhoto, deleteDJPhoto, validatePhoto, uploadRecImage, uploadEventPhoto, uploadShowImage, deleteShowImage } from "@/lib/photo-upload";
+import { uploadDJPhoto, deleteDJPhoto, validatePhoto, uploadRecImage, uploadEventPhoto, uploadShowImage, deleteShowImage, uploadArchiveImage } from "@/lib/photo-upload";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { getStationById } from "@/lib/stations";
 import { parseGenresInput, extractInstagramHandle } from "@/lib/genres";
@@ -284,6 +284,10 @@ export function StudioProfileClient() {
   const [loadingRecordings, setLoadingRecordings] = useState(true);
   const [publishingRecording, setPublishingRecording] = useState<string | null>(null);
   const [deletingRecording, setDeletingRecording] = useState<string | null>(null);
+  const [editingRecordingId, setEditingRecordingId] = useState<string | null>(null);
+  const [editingRecordingName, setEditingRecordingName] = useState("");
+  const [savingRecordingName, setSavingRecordingName] = useState(false);
+  const [recordingNameError, setRecordingNameError] = useState<string | null>(null);
   const [playingRecordingId, setPlayingRecordingId] = useState<string | null>(null);
   const [recordingCurrentTime, setRecordingCurrentTime] = useState<Record<string, number>>({});
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
@@ -299,6 +303,9 @@ export function StudioProfileClient() {
   const [detectingDuration, setDetectingDuration] = useState(false);
   const [uploadQuotaRemaining, setUploadQuotaRemaining] = useState<number | null>(null);
   const [uploadTermsConfirmed, setUploadTermsConfirmed] = useState(false);
+  const [uploadImageFile, setUploadImageFile] = useState<File | null>(null);
+  const [uploadImagePreview, setUploadImagePreview] = useState<string | null>(null);
+  const [uploadImageError, setUploadImageError] = useState<string | null>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
 
   // Detect audio file duration
@@ -367,6 +374,27 @@ export function StudioProfileClient() {
       setDetectingDuration(false);
     }
   }, [detectAudioDuration]);
+
+  // Handle optional image attached to the pre-recording
+  const handleUploadImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadImageError(null);
+    const validation = validatePhoto(file);
+    if (!validation.valid) {
+      setUploadImageError(validation.error || 'Invalid image');
+      return;
+    }
+    setUploadImageFile(file);
+    setUploadImagePreview(URL.createObjectURL(file));
+  }, []);
+
+  const clearUploadImage = useCallback(() => {
+    if (uploadImagePreview) URL.revokeObjectURL(uploadImagePreview);
+    setUploadImageFile(null);
+    setUploadImagePreview(null);
+    setUploadImageError(null);
+  }, [uploadImagePreview]);
 
   // Handle upload submission
   const handleUpload = useCallback(async () => {
@@ -451,6 +479,24 @@ export function StudioProfileClient() {
         return;
       }
 
+      // Step 4: If the user attached an image, upload it to Firebase Storage
+      // and write the URL onto the archive doc. Archive cards/pages already
+      // read `showImageUrl` for display, so no other wiring is needed.
+      if (uploadImageFile && db) {
+        const imageResult = await uploadArchiveImage(archiveId, uploadImageFile);
+        if (imageResult.success && imageResult.url) {
+          try {
+            await updateDoc(doc(db, 'archives', archiveId), {
+              showImageUrl: imageResult.url,
+            });
+          } catch (imgErr) {
+            console.error('Failed to save recording image URL:', imgErr);
+          }
+        } else {
+          console.error('Recording image upload failed:', imageResult.error);
+        }
+      }
+
       // Success — close modal and reset state
       setShowUploadModal(false);
       setUploadShowName('');
@@ -459,6 +505,7 @@ export function StudioProfileClient() {
       setUploadProgress(0);
       setUploadError('');
       setUploadTermsConfirmed(false);
+      clearUploadImage();
       // Recording will appear automatically via onSnapshot listener
 
     } catch (err) {
@@ -466,7 +513,7 @@ export function StudioProfileClient() {
     } finally {
       setUploading(false);
     }
-  }, [user, uploadFile, uploadDuration, uploadShowName]);
+  }, [user, uploadFile, uploadDuration, uploadShowName, uploadImageFile, clearUploadImage]);
 
   // Close upload modal and reset state
   const closeUploadModal = useCallback(() => {
@@ -482,7 +529,8 @@ export function StudioProfileClient() {
     setUploadError('');
     setUploading(false);
     setUploadTermsConfirmed(false);
-  }, [uploading]);
+    clearUploadImage();
+  }, [uploading, clearUploadImage]);
 
   // Fetch quota when upload modal opens
   useEffect(() => {
@@ -848,6 +896,46 @@ export function StudioProfileClient() {
       setDeletingRecording(null);
     }
   }, [user, db, recordings]);
+
+  const handleStartEditRecordingName = useCallback((recordingId: string, currentName: string) => {
+    setEditingRecordingId(recordingId);
+    setEditingRecordingName(currentName);
+    setRecordingNameError(null);
+  }, []);
+
+  const handleCancelEditRecordingName = useCallback(() => {
+    setEditingRecordingId(null);
+    setEditingRecordingName("");
+    setRecordingNameError(null);
+  }, []);
+
+  const handleSaveRecordingName = useCallback(async (recordingId: string) => {
+    if (!db) return;
+    const trimmed = editingRecordingName.trim();
+    if (!trimmed) {
+      setRecordingNameError("Name cannot be empty");
+      return;
+    }
+
+    setSavingRecordingName(true);
+    setRecordingNameError(null);
+
+    try {
+      await updateDoc(doc(db, 'archives', recordingId), {
+        showName: trimmed,
+      });
+      setRecordings(prev => prev.map(r =>
+        r.id === recordingId ? { ...r, showName: trimmed } : r
+      ));
+      setEditingRecordingId(null);
+      setEditingRecordingName("");
+    } catch (error) {
+      console.error('Error saving recording name:', error);
+      setRecordingNameError('Failed to save name');
+    } finally {
+      setSavingRecordingName(false);
+    }
+  }, [db, editingRecordingName]);
 
   // Handle recording playback
   const handlePlayPauseRecording = useCallback((recordingId: string) => {
@@ -2344,8 +2432,58 @@ export function StudioProfileClient() {
                         {/* Content and progress */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <h3 className="text-white font-semibold text-sm truncate">{recording.showName}</h3>
+                            <div className="min-w-0 flex-1">
+                              {editingRecordingId === recording.id ? (
+                                <div className="space-y-1.5">
+                                  <input
+                                    type="text"
+                                    value={editingRecordingName}
+                                    onChange={(e) => setEditingRecordingName(e.target.value.slice(0, 100))}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleSaveRecordingName(recording.id);
+                                      if (e.key === 'Escape') handleCancelEditRecordingName();
+                                    }}
+                                    disabled={savingRecordingName}
+                                    autoFocus
+                                    className="w-full bg-[#2a2a2a] text-white text-sm px-2 py-1 rounded border border-gray-700 focus:border-white focus:outline-none"
+                                  />
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={() => handleSaveRecordingName(recording.id)}
+                                      disabled={savingRecordingName}
+                                      className="text-white bg-green-600 hover:bg-green-500 text-xs px-2.5 py-0.5 rounded disabled:opacity-50"
+                                    >
+                                      {savingRecordingName ? 'Saving...' : 'Save'}
+                                    </button>
+                                    <button
+                                      onClick={handleCancelEditRecordingName}
+                                      disabled={savingRecordingName}
+                                      className="text-gray-400 hover:text-white text-xs px-2.5 py-0.5 rounded disabled:opacity-50"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                  {recordingNameError && (
+                                    <p className="text-red-400 text-xs">{recordingNameError}</p>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1.5">
+                                  <h3 className="text-white font-semibold text-sm truncate">{recording.showName}</h3>
+                                  {recording.source === 'archive' && recording.sourceType !== 'live' && (
+                                    <button
+                                      onClick={() => handleStartEditRecordingName(recording.id, recording.showName)}
+                                      className="text-gray-500 hover:text-white text-xs transition-colors flex-shrink-0"
+                                      aria-label="Edit recording name"
+                                      title="Edit name"
+                                    >
+                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                      </svg>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                               <p className="text-gray-500 text-xs">
                                 {formatRecordingDate(recording.createdAt)} · {formatDuration(recording.duration)}
                                 {recording.isPublic ? (
@@ -3309,6 +3447,56 @@ export function StudioProfileClient() {
                 )}
               </div>
             )}
+
+            {/* Optional cover image */}
+            <div className="mb-4">
+              <label className="text-gray-400 text-sm mb-1 block">
+                Cover image <span className="text-gray-600">(optional)</span>
+              </label>
+              <div className="flex items-start gap-3">
+                <div className="relative w-16 h-16 flex-shrink-0">
+                  {uploadImagePreview ? (
+                    <Image
+                      src={uploadImagePreview}
+                      alt="Cover preview"
+                      fill
+                      className="rounded object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded bg-[#252525] flex items-center justify-center">
+                      <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 space-y-2">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    onChange={handleUploadImageChange}
+                    disabled={uploading}
+                    className="block w-full text-sm text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-gray-800 file:text-white hover:file:bg-gray-700 file:cursor-pointer disabled:opacity-50"
+                  />
+                  {uploadImageFile && !uploading && (
+                    <button
+                      type="button"
+                      onClick={clearUploadImage}
+                      className="text-red-400 hover:text-red-300 text-xs transition-colors"
+                    >
+                      Remove image
+                    </button>
+                  )}
+                </div>
+              </div>
+              {uploadImageError && (
+                <p className="text-red-400 text-xs mt-2">{uploadImageError}</p>
+              )}
+              <p className="text-gray-500 text-xs mt-2">
+                JPG, PNG, GIF, or WebP. Max 5MB. Falls back to your DJ photo if left empty.
+              </p>
+            </div>
 
             {/* Quota info */}
             {uploadQuotaRemaining !== null && (
