@@ -164,9 +164,22 @@ app.post('/start', authenticate, async (req, res) => {
 });
 
 function makeFfmpeg(source, rtmpTarget, options = {}) {
+  // For HTTP sources (archive restreams), add reconnect flags. Without them,
+  // FFmpeg will silently give up on any network hiccup mid-stream and exit
+  // with code 0 as if the archive finished — we've seen this cut a 59-min
+  // restream off at 36 min when Cloudflare dropped the connection.
+  // Lavfi sources (silence padding) don't need these.
+  const reconnectArgs = options.silence
+    ? []
+    : [
+        '-reconnect', '1',
+        '-reconnect_streamed', '1',
+        '-reconnect_at_eof', '1',
+        '-reconnect_delay_max', '5',
+      ];
   const inputArgs = options.silence
     ? ['-re', '-f', 'lavfi', '-i', source]
-    : ['-re', '-i', source];
+    : ['-re', ...reconnectArgs, '-i', source];
   return spawn('ffmpeg', [
     ...inputArgs,
     '-vn',
