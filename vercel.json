@@ -23,6 +23,14 @@
     {
       "path": "/api/cron/broadcast-emails",
       "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/cron/channel-newsletter-audit",
+      "schedule": "0 20 27 4 *"
+    },
+    {
+      "path": "/api/cron/channel-newsletter-send",
+      "schedule": "0 21 27 4 *"
     }
   ]
 }
