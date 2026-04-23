@@ -369,8 +369,11 @@ export async function GET(request: NextRequest) {
 
         if (!matched) continue;
 
+        // Only notify when the DJ is a Channel user (has a linked account)
+        if (!show.djUserId) continue;
+
         // Don't email the DJ about their own live show
-        if (show.djUserId && show.djUserId === userId) continue;
+        if (show.djUserId === userId) continue;
 
         // Dedup: skip if we already emailed about this exact show occurrence
         if (lastShowStartingEmailAt[show.showId]) {
