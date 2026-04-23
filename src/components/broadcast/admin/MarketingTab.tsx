@@ -5,6 +5,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
 import { ShareableShowCardStory } from '@/components/studio/ShareableShowCardStory';
+import { ShareableMultiShowStory, MultiShowEntry } from '@/components/studio/ShareableMultiShowStory';
 
 interface MarketingTabProps {
   slots: BroadcastSlotSerialized[];
@@ -185,13 +186,47 @@ export function MarketingTab({ slots }: MarketingTabProps) {
     );
   }
 
+  // Start of "tomorrow" — daily story only renders for tomorrow and day-after-tomorrow
+  const startOfTomorrow = (() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.getTime() + 86400_000;
+  })();
+
   return (
     <div>
-      {groupedByDay.map(([dayLabel, daySlots]) => (
+      {groupedByDay.map(([dayLabel, daySlots]) => {
+        const dayStart = daySlots[0] ? new Date(daySlots[0].startTime) : null;
+        dayStart?.setHours(0, 0, 0, 0);
+        const isTomorrowOrLater = dayStart ? dayStart.getTime() >= startOfTomorrow : false;
+
+        const multiShowEntries: MultiShowEntry[] = daySlots
+          .filter(s => s.broadcastType !== 'restream')
+          .map(s => {
+            const cp = getCardProps(s, djInfoCache);
+            return {
+              showName: cp.showName,
+              djName: cp.djName,
+              startTime: s.startTime,
+              endTime: s.endTime,
+              imageUrl: cp.imageUrl,
+              genres: cp.genres,
+            };
+          });
+
+        const weekdayOnly = dayLabel.split(',')[0];
+
+        return (
         <div key={dayLabel} className="mb-10">
           <h2 className="text-lg font-bold text-white mb-4 border-b border-gray-800 pb-2">
             {dayLabel}
           </h2>
+          {isTomorrowOrLater && multiShowEntries.length > 0 && (
+            <div className="mb-6 max-w-sm">
+              <p className="text-xs text-gray-500 mb-1">Daily story — all {multiShowEntries.length} show{multiShowEntries.length === 1 ? '' : 's'}</p>
+              <ShareableMultiShowStory shows={multiShowEntries} dayLabel={weekdayOnly} />
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {daySlots.map(slot => {
               const cardProps = getCardProps(slot, djInfoCache);
@@ -219,7 +254,8 @@ export function MarketingTab({ slots }: MarketingTabProps) {
             })}
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
