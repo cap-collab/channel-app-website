@@ -36,20 +36,9 @@ type RecommendedItem =
   | MatchedItem
   | { type: 'curator'; data: CuratorRec };
 
-export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives, forceOffline, previewTokenFromQuery }: { skipHero?: boolean; exploreSearchBar?: React.ReactNode; initialHeroArchives?: import('@/types/broadcast').ArchiveSerialized[]; forceOffline?: boolean; previewTokenFromQuery?: string } = {}) {
+export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives }: { skipHero?: boolean; exploreSearchBar?: React.ReactNode; initialHeroArchives?: import('@/types/broadcast').ArchiveSerialized[] } = {}) {
   const { user, isAuthenticated } = useAuthContext();
-  const { isLive: rawIsBroadcastLive, isStreaming: rawIsBroadcastStreaming, currentShow: rawCurrentShow } = useBroadcastStreamContext();
-  const isBroadcastLive = forceOffline ? false : rawIsBroadcastLive;
-  const isBroadcastStreaming = forceOffline ? false : rawIsBroadcastStreaming;
-  const currentShow = forceOffline ? null : rawCurrentShow;
-
-  // If ?preview=<token> was passed (and server accepted it — we're not forceOffline),
-  // persist it as a cookie so subsequent visits don't need the query param.
-  useEffect(() => {
-    if (!forceOffline && previewTokenFromQuery) {
-      document.cookie = `channel-preview=${previewTokenFromQuery}; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`;
-    }
-  }, [forceOffline, previewTokenFromQuery]);
+  const { isLive: isBroadcastLive, isStreaming: isBroadcastStreaming, currentShow } = useBroadcastStreamContext();
   const { stationBPM } = useBPM();
   const archivePlayer = useArchivePlayer();
   const { isGated, gateAttempt, clearGate } = archivePlayer;
