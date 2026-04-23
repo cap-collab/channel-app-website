@@ -279,6 +279,7 @@ export function StudioProfileClient() {
     audioUrl?: string;
     sourceType?: string;
     source?: 'archive' | 'session'; // which collection this came from
+    showImageUrl?: string;
   }
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [loadingRecordings, setLoadingRecordings] = useState(true);
@@ -288,6 +289,8 @@ export function StudioProfileClient() {
   const [editingRecordingName, setEditingRecordingName] = useState("");
   const [savingRecordingName, setSavingRecordingName] = useState(false);
   const [recordingNameError, setRecordingNameError] = useState<string | null>(null);
+  const [uploadingRecordingImageId, setUploadingRecordingImageId] = useState<string | null>(null);
+  const [recordingImageErrors, setRecordingImageErrors] = useState<Record<string, string | null>>({});
   const [playingRecordingId, setPlayingRecordingId] = useState<string | null>(null);
   const [recordingCurrentTime, setRecordingCurrentTime] = useState<Record<string, number>>({});
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
@@ -786,6 +789,7 @@ export function StudioProfileClient() {
             audioUrl: data.recordingUrl,
             sourceType: data.sourceType,
             source: 'archive',
+            showImageUrl: data.showImageUrl,
           });
         });
         archivesLoaded = true;
@@ -908,6 +912,59 @@ export function StudioProfileClient() {
     setEditingRecordingName("");
     setRecordingNameError(null);
   }, []);
+
+  const handleRecordingImageChange = useCallback(async (recordingId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !db) return;
+
+    setRecordingImageErrors(prev => ({ ...prev, [recordingId]: null }));
+
+    const validation = validatePhoto(file);
+    if (!validation.valid) {
+      setRecordingImageErrors(prev => ({ ...prev, [recordingId]: validation.error || 'Invalid image' }));
+      return;
+    }
+
+    setUploadingRecordingImageId(recordingId);
+    try {
+      const result = await uploadArchiveImage(recordingId, file);
+      if (!result.success || !result.url) {
+        setRecordingImageErrors(prev => ({ ...prev, [recordingId]: result.error || 'Upload failed' }));
+        return;
+      }
+      await updateDoc(doc(db, 'archives', recordingId), {
+        showImageUrl: result.url,
+      });
+      setRecordings(prev => prev.map(r =>
+        r.id === recordingId ? { ...r, showImageUrl: result.url } : r
+      ));
+    } catch (err) {
+      console.error('Error uploading recording image:', err);
+      setRecordingImageErrors(prev => ({ ...prev, [recordingId]: 'Failed to upload image' }));
+    } finally {
+      setUploadingRecordingImageId(null);
+    }
+  }, [db]);
+
+  const handleRemoveRecordingImage = useCallback(async (recordingId: string) => {
+    if (!db) return;
+    setUploadingRecordingImageId(recordingId);
+    setRecordingImageErrors(prev => ({ ...prev, [recordingId]: null }));
+    try {
+      await updateDoc(doc(db, 'archives', recordingId), {
+        showImageUrl: null,
+      });
+      setRecordings(prev => prev.map(r =>
+        r.id === recordingId ? { ...r, showImageUrl: undefined } : r
+      ));
+    } catch (err) {
+      console.error('Error removing recording image:', err);
+      setRecordingImageErrors(prev => ({ ...prev, [recordingId]: 'Failed to remove image' }));
+    } finally {
+      setUploadingRecordingImageId(null);
+    }
+  }, [db]);
 
   const handleSaveRecordingName = useCallback(async (recordingId: string) => {
     if (!db) return;
@@ -2409,25 +2466,65 @@ export function StudioProfileClient() {
                 </div>
               ) : (
                 <div className="space-y-2 p-2">
-                  {recordings.map((recording) => (
+                  {recordings.map((recording) => {
+                    const canEditImage = recording.source === 'archive' && recording.sourceType !== 'live';
+                    const isUploadingImage = uploadingRecordingImageId === recording.id;
+                    const imageError = recordingImageErrors[recording.id];
+                    return (
                     <div key={recording.id} className="bg-[#252525] rounded p-3">
                       <div className="flex items-center gap-3">
-                        {/* Play button */}
-                        <button
-                          onClick={() => handlePlayPauseRecording(recording.id)}
-                          disabled={!recording.audioUrl}
-                          className="w-10 h-10 rounded-full bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {playingRecordingId === recording.id ? (
-                            <svg className="w-4 h-4 text-black" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-                            </svg>
+                        {/* Cover image + play overlay */}
+                        <div className="relative w-12 h-12 flex-shrink-0">
+                          {recording.showImageUrl ? (
+                            <Image
+                              src={recording.showImageUrl}
+                              alt=""
+                              fill
+                              className="rounded object-cover"
+                              sizes="48px"
+                            />
                           ) : (
-                            <svg className="w-4 h-4 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M8 5v14l11-7z" />
-                            </svg>
+                            <div className="w-12 h-12 rounded bg-gray-800" />
                           )}
-                        </button>
+                          <button
+                            onClick={() => handlePlayPauseRecording(recording.id)}
+                            disabled={!recording.audioUrl}
+                            aria-label={playingRecordingId === recording.id ? 'Pause' : 'Play'}
+                            className="absolute inset-0 flex items-center justify-center rounded bg-black/40 hover:bg-black/55 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {playingRecordingId === recording.id ? (
+                              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-4 h-4 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                            )}
+                          </button>
+                          {canEditImage && (
+                            <label
+                              className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white text-black flex items-center justify-center cursor-pointer shadow hover:bg-gray-100 ${isUploadingImage ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              title={recording.showImageUrl ? 'Change cover image' : 'Add cover image'}
+                            >
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/gif,image/webp"
+                                onChange={(e) => handleRecordingImageChange(recording.id, e)}
+                                disabled={isUploadingImage}
+                                className="sr-only"
+                              />
+                              {isUploadingImage ? (
+                                <span className="w-2.5 h-2.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                              )}
+                            </label>
+                          )}
+                        </div>
 
                         {/* Content and progress */}
                         <div className="flex-1 min-w-0">
@@ -2561,8 +2658,20 @@ export function StudioProfileClient() {
                           onEnded={() => handleRecordingEnded(recording.id)}
                         />
                       )}
+                      {imageError && (
+                        <p className="text-red-400 text-xs mt-2">{imageError}</p>
+                      )}
+                      {canEditImage && recording.showImageUrl && !isUploadingImage && (
+                        <button
+                          onClick={() => handleRemoveRecordingImage(recording.id)}
+                          className="text-red-400 hover:text-red-300 text-xs mt-2 transition-colors"
+                        >
+                          Remove image
+                        </button>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
