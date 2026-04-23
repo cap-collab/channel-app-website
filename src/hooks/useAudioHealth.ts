@@ -18,7 +18,10 @@ export interface AudioHealth {
 }
 
 const SILENT_DB = -50;   // below this = silent
-const WEAK_DB = -20;     // below this = weak; above = proper broadcast level
+const WEAK_DB = -30;     // below this = weak; above = proper broadcast level.
+                         // Broadcast-correct peaks sit around -18 to -12 dBFS,
+                         // so -30 flags genuinely quiet audio without nagging
+                         // DJs whose levels dip briefly during quiet passages.
 const DROPOUT_MIN_MS = 300;  // silence shorter than this ignored — avoids catching
                              // natural beat/break silences and AudioContext hiccups
 const DROPOUT_MAX_MS = 5000; // silence longer than this not a dropout (track ended)
