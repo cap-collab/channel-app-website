@@ -10,7 +10,6 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { useDJProfileChat } from '@/hooks/useDJProfileChat';
 import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { useFavorites } from '@/hooks/useFavorites';
-import { useLoveHistory } from '@/hooks/useLoveHistory';
 import { useHeartNudge } from '@/contexts/HeartNudgeContext';
 import { useDJProfileInfo } from '@/hooks/useDJProfileInfo';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
@@ -266,32 +265,31 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       !filteringActive ||
       resolveArchiveScenes(a, djSceneMap).some((id) => sceneFilter.has(id));
 
+    const high = archives.filter(a => a.priority === 'high' && inScene(a));
+    const randomBySceneSlug = (slug: string, excludeId?: string) => {
+      const pool = high.filter((a) =>
+        a.id !== excludeId && resolveArchiveScenes(a, djSceneMap).includes(slug)
+      );
+      if (pool.length === 0) return undefined;
+      return pool[Math.floor(Math.random() * pool.length)];
+    };
+
     if (archivePlayer.currentArchive) {
-      // Playing: playing archive first, then next (maxHeroSlides - 1)
-      const result = [archivePlayer.currentArchive];
-      for (const a of archives) {
-        if (result.length >= maxHeroSlides) break;
-        if (result.some(r => r.id === a.id)) continue;
-        if (!inScene(a)) continue;
-        result.push(a);
-      }
-      return result;
+      const current = archivePlayer.currentArchive;
+      if (maxHeroSlides === 1) return [current];
+      const otherSlug = resolveArchiveScenes(current, djSceneMap).includes('spiral') ? 'diamond' : 'spiral';
+      const other = randomBySceneSlug(otherSlug, current.id);
+      return other ? [current, other] : [current];
     }
-    // Not playing: high priority only, newest first.
-    const high = archives
-      .filter(a => a.priority === 'high' && inScene(a))
-      .sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0));
     if (maxHeroSlides === 1) {
-      return high[0] ? [high[0]] : [];
+      const latest = [...high].sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0))[0];
+      return latest ? [latest] : [];
     }
-    // Offline default: one spiral + one diamond (high-priority, newest in each).
-    const pickBySceneSlug = (slug: string) =>
-      high.find((a) => resolveArchiveScenes(a, djSceneMap).includes(slug));
-    const spiral = pickBySceneSlug('spiral');
-    const diamond = pickBySceneSlug('diamond');
+    const spiral = randomBySceneSlug('spiral');
+    const diamond = randomBySceneSlug('diamond', spiral?.id);
     const picks: typeof archives = [];
     if (spiral) picks.push(spiral);
-    if (diamond && diamond.id !== spiral?.id) picks.push(diamond);
+    if (diamond) picks.push(diamond);
     return picks;
   }, [archives, archivePlayer.currentArchive, maxHeroSlides, scenes, sceneFilter, djSceneMap]);
 
@@ -358,8 +356,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   // Heart / Love
   const [heartTrigger, setHeartTrigger] = useState(0);
   const [heartNudgeDismissed, setHeartNudgeDismissed] = useState(false);
-  const { loveHistory, loading: loveLoading } = useLoveHistory();
-  const skipNudge = heartNudgeDismissed || (!loveLoading && !!user && loveHistory.length > 0);
+  const skipNudge = heartNudgeDismissed;
   const { nudgeKey } = useHeartNudge();
   const anyPlaying = isLivePlaying || archivePlayer.isPlaying;
   const handleLove = () => {

@@ -10,7 +10,6 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useDJProfileChat } from '@/hooks/useDJProfileChat';
 import { useDJProfileInfo } from '@/hooks/useDJProfileInfo';
-import { useLoveHistory } from '@/hooks/useLoveHistory';
 import { useHeartNudge } from '@/contexts/HeartNudgeContext';
 import { FloatingHearts } from '@/components/channel/FloatingHearts';
 import { ScrollingShowName, ScrollingDJName } from '@/components/channel/LiveBroadcastHero';
@@ -38,8 +37,7 @@ export function GlobalBroadcastBar() {
   const { chatUsername, showLockedInMessages } = useUserProfile(user?.uid);
   const [heartTrigger, setHeartTrigger] = useState(0);
   const [heartNudgeDismissed, setHeartNudgeDismissed] = useState(false);
-  const { loveHistory, loading: loveLoading } = useLoveHistory();
-  const skipNudge = heartNudgeDismissed || (!loveLoading && !!user && loveHistory.length > 0);
+  const skipNudge = heartNudgeDismissed;
   const { nudgeKey, nudge } = useHeartNudge();
 
   // Compute current DJ chat room (same logic as LiveBroadcastHero)

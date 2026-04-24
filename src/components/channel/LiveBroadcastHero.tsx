@@ -16,7 +16,6 @@ import { AuthModal } from '@/components/AuthModal';
 import { ChatMessageSerialized } from '@/types/broadcast';
 import { useBPM } from '@/contexts/BPMContext';
 import { useFavorites } from '@/hooks/useFavorites';
-import { useLoveHistory } from '@/hooks/useLoveHistory';
 import { useHeartNudge } from '@/contexts/HeartNudgeContext';
 import { findActiveDjSlot } from '@/lib/broadcast-utils';
 
@@ -382,8 +381,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
   const [activeTab, setActiveTab] = useState<'chat' | 'schedule'>('schedule');
   const [heartTrigger, setHeartTrigger] = useState(0);
   const [heartNudgeDismissed, setHeartNudgeDismissed] = useState(false);
-  const { loveHistory, loading: loveLoading } = useLoveHistory();
-  const skipNudge = heartNudgeDismissed || (!loveLoading && !!user && loveHistory.length > 0);
+  const skipNudge = heartNudgeDismissed;
   const { nudgeKey } = useHeartNudge();
   const [chatInput, setChatInput] = useState('');
   const [isSending, setIsSending] = useState(false);
