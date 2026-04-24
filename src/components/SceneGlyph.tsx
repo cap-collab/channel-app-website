@@ -39,11 +39,12 @@ export function SceneGlyph({ slug, className }: { slug: string; className?: stri
     );
   }
   if (slug === 'spiral') {
-    // Spiral path's visual bounding box is x∈[4,24], y∈[4,22] (center 14,13),
-    // so shift by (-2,-1) in local coords to recenter on (12,12) before scaling.
+    // Spiral bbox is x∈[4,24], y∈[4,22] — geometric center is (14,13), but the
+    // spiral's outermost arc sweeps down harder than up, so visual balance needs
+    // a slight additional upward shift.
     return (
       <svg {...common} aria-hidden>
-        <g transform="translate(12 12) scale(1.3) translate(-14 -13)">
+        <g transform="translate(12 12) scale(1.3) translate(-14 -12)">
           <path d="M12 12 m0 0 a2 2 0 1 1 4 0 a4 4 0 1 1 -8 0 a6 6 0 1 1 12 0 a8 8 0 1 1 -16 0 a10 10 0 1 1 20 0" />
         </g>
       </svg>
