@@ -650,24 +650,25 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             <>
               {/* Archive player bar */}
               <div className="flex items-center gap-0.5 sm:gap-3 py-2 px-1">
-                {(() => {
-                  const slug = resolveArchiveScenes(displayedArchive, djSceneMap).find((s) => s !== 'grid');
-                  return slug ? (
-                    <div className="w-8 h-8 ml-1 flex items-center justify-center bg-white text-black text-4xl flex-shrink-0">
-                      <SceneGlyph slug={slug} />
-                    </div>
-                  ) : null;
-                })()}
-                <button
-                  onClick={() => {
-                    if (archivePlayer.currentArchive) {
-                      archivePlayer.toggle();
-                    } else {
-                      archivePlayer.play(displayedArchive);
-                    }
-                  }}
-                  className="w-8 h-8 flex items-center justify-center transition-colors flex-shrink-0"
-                >
+                <div className="flex items-center ml-1 flex-shrink-0">
+                  {(() => {
+                    const slug = resolveArchiveScenes(displayedArchive, djSceneMap).find((s) => s !== 'grid');
+                    return slug ? (
+                      <div className="w-8 h-8 flex items-center justify-center bg-white text-black text-4xl">
+                        <SceneGlyph slug={slug} />
+                      </div>
+                    ) : null;
+                  })()}
+                  <button
+                    onClick={() => {
+                      if (archivePlayer.currentArchive) {
+                        archivePlayer.toggle();
+                      } else {
+                        archivePlayer.play(displayedArchive);
+                      }
+                    }}
+                    className="h-8 px-2 flex items-center justify-center transition-colors"
+                  >
                   {archivePlayer.isLoading ? (
                     <svg className="w-5 h-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -682,7 +683,8 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                       <path d="M8 5v14l11-7z" />
                     </svg>
                   )}
-                </button>
+                  </button>
+                </div>
                 <div className="flex-1 min-w-0">
                   <ScrollingShowName text={displayedArchive.showName} className="text-sm font-bold leading-tight text-white" />
                   {displayedArchive.djs && (

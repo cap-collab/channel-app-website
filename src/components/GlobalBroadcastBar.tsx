@@ -278,23 +278,24 @@ export function GlobalBroadcastBar() {
   return (
     <div className={`z-[99] bg-black border-b border-white/10 overflow-hidden transition-all duration-200 ${hiddenOnRadio ? 'opacity-0 -translate-y-full h-0 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
       <div className="flex items-center gap-0.5 sm:gap-3 py-2 px-1">
-        {/* Scene glyph — white square, black glyph */}
-        {archiveSceneSlug && (
-          <div className="w-8 h-8 ml-1 flex items-center justify-center bg-white text-black text-4xl flex-shrink-0">
-            <SceneGlyph slug={archiveSceneSlug} />
-          </div>
-        )}
-        {/* Play/Pause — archive player */}
-        <button
-          onClick={() => {
-            if (archivePlayer.currentArchive) {
-              archivePlayer.toggle();
-            } else if (displayArchive) {
-              archivePlayer.play(displayArchive);
-            }
-          }}
-          className="w-8 h-8 flex items-center justify-center transition-colors flex-shrink-0"
-        >
+        <div className="flex items-center ml-1 flex-shrink-0">
+          {/* Scene glyph — white square, black glyph */}
+          {archiveSceneSlug && (
+            <div className="w-8 h-8 flex items-center justify-center bg-white text-black text-4xl">
+              <SceneGlyph slug={archiveSceneSlug} />
+            </div>
+          )}
+          {/* Play/Pause — archive player (px-2 widens hit area) */}
+          <button
+            onClick={() => {
+              if (archivePlayer.currentArchive) {
+                archivePlayer.toggle();
+              } else if (displayArchive) {
+                archivePlayer.play(displayArchive);
+              }
+            }}
+            className="h-8 px-2 flex items-center justify-center transition-colors"
+          >
           {archivePlayer.isLoading ? (
             <svg className="w-5 h-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -309,7 +310,8 @@ export function GlobalBroadcastBar() {
               <path d="M8 5v14l11-7z" />
             </svg>
           )}
-        </button>
+          </button>
+        </div>
 
         {/* Archive show info */}
         <Link href="/radio" className="flex-1 min-w-0">
