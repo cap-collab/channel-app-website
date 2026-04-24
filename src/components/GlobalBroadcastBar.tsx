@@ -15,6 +15,12 @@ import { FloatingHearts } from '@/components/channel/FloatingHearts';
 import { ScrollingShowName, ScrollingDJName } from '@/components/channel/LiveBroadcastHero';
 import { ArchiveSeekBar } from '@/components/channel/ArchiveHero';
 import { findActiveDjSlot } from '@/lib/broadcast-utils';
+import { useScenesData, resolveArchiveScenes } from '@/hooks/useScenesData';
+import { SceneGlyph } from '@/components/SceneGlyph';
+
+function pickSceneSlug(slugs: string[]): string | null {
+  return slugs.find((s) => s !== 'grid') || null;
+}
 
 /**
  * A bar shown below the header on all pages when a broadcast is live.
@@ -30,6 +36,7 @@ export function GlobalBroadcastBar() {
     onListenMilestoneRef: broadcastListenMilestoneRef,
   } = useBroadcastStreamContext();
   const archivePlayer = useArchivePlayer();
+  const { djSceneMap } = useScenesData();
   const { stationBPM } = useBPM();
   const broadcastBPM = stationBPM['broadcast']?.bpm ?? null;
   const pathname = usePathname();
@@ -172,6 +179,9 @@ export function GlobalBroadcastBar() {
   // Archive info — fall back to featured archive
   const archiveShowName = (archivePlayer.currentArchive || displayArchive)?.showName;
   const archiveDjName = (archivePlayer.currentArchive || displayArchive)?.djs.map(d => d.name).join(', ');
+  const archiveSceneSlug = displayArchive
+    ? pickSceneSlug(resolveArchiveScenes(displayArchive, djSceneMap))
+    : null;
 
   if (showLiveBar) {
     return (
@@ -180,19 +190,19 @@ export function GlobalBroadcastBar() {
           {/* Play/Pause — synced with broadcast stream */}
           <button
             onClick={toggle}
-            className="w-8 h-8 ml-1 flex items-center justify-center bg-white transition-colors flex-shrink-0"
+            className="w-8 h-8 ml-1 flex items-center justify-center transition-colors flex-shrink-0"
           >
             {isLoading ? (
-              <svg className="w-5 h-5 animate-spin text-black" fill="none" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
             ) : isPlaying ? (
-              <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
               </svg>
             ) : (
-              <svg className="w-5 h-5 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>
             )}
@@ -268,6 +278,12 @@ export function GlobalBroadcastBar() {
   return (
     <div className={`z-[99] bg-black border-b border-white/10 overflow-hidden transition-all duration-200 ${hiddenOnRadio ? 'opacity-0 -translate-y-full h-0 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
       <div className="flex items-center gap-0.5 sm:gap-3 py-2 px-1">
+        {/* Scene glyph — white square, black glyph */}
+        {archiveSceneSlug && (
+          <div className="w-8 h-8 ml-1 flex items-center justify-center bg-white text-black text-xl flex-shrink-0">
+            <SceneGlyph slug={archiveSceneSlug} />
+          </div>
+        )}
         {/* Play/Pause — archive player */}
         <button
           onClick={() => {
@@ -277,19 +293,19 @@ export function GlobalBroadcastBar() {
               archivePlayer.play(displayArchive);
             }
           }}
-          className="w-8 h-8 ml-1 flex items-center justify-center bg-white transition-colors flex-shrink-0"
+          className="w-8 h-8 flex items-center justify-center transition-colors flex-shrink-0"
         >
           {archivePlayer.isLoading ? (
-            <svg className="w-5 h-5 animate-spin text-black" fill="none" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
             </svg>
           ) : archivePlayer.isPlaying ? (
-            <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
             </svg>
           ) : (
-            <svg className="w-5 h-5 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z" />
             </svg>
           )}
