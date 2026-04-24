@@ -279,9 +279,9 @@ export function GlobalBroadcastBar() {
     <div className={`z-[99] bg-black border-b border-white/10 overflow-hidden transition-all duration-200 ${hiddenOnRadio ? 'opacity-0 -translate-y-full h-0 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
       <div className="flex items-center gap-0.5 sm:gap-3 py-2 px-1">
         <div className="flex items-center ml-1 flex-shrink-0">
-          {/* Scene glyph — white square, black glyph */}
+          {/* Scene glyph — white on transparent */}
           {archiveSceneSlug && (
-            <div className="w-[27px] h-[27px] flex items-center justify-center bg-white text-black flex-shrink-0">
+            <div className="w-[27px] h-[27px] flex items-center justify-center text-white flex-shrink-0">
               <SceneGlyph slug={archiveSceneSlug} className="!w-5 !h-5" />
             </div>
           )}

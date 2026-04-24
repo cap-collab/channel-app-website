@@ -657,7 +657,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   {(() => {
                     const slug = resolveArchiveScenes(displayedArchive, djSceneMap).find((s) => s !== 'grid');
                     return slug ? (
-                      <div className="w-[27px] h-[27px] flex items-center justify-center bg-white text-black flex-shrink-0">
+                      <div className="w-[27px] h-[27px] flex items-center justify-center text-white flex-shrink-0">
                         <SceneGlyph slug={slug} className="!w-5 !h-5" />
                       </div>
                     ) : null;
@@ -816,8 +816,8 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                         aria-label={`Filter by ${s.name}`}
                         className={`w-[27px] h-[27px] flex items-center justify-center transition-colors ${
                           active
-                            ? 'bg-white text-black'
-                            : 'bg-transparent text-white/40 hover:text-white/70'
+                            ? 'text-white'
+                            : 'text-white/30 hover:text-white/60'
                         }`}
                       >
                         <SceneGlyph slug={s.id} className="!w-5 !h-5" />
