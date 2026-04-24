@@ -817,7 +817,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                         className={`w-[27px] h-[27px] flex items-center justify-center transition-colors ${
                           active
                             ? 'bg-white text-black'
-                            : 'bg-transparent text-white hover:bg-white/10'
+                            : 'bg-transparent text-white/40 hover:text-white/70'
                         }`}
                       >
                         <SceneGlyph slug={s.id} className="!w-5 !h-5" />
