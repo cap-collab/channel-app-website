@@ -148,9 +148,11 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
         }
         // Re-check the ref here: the async fetch may resolve after the URL
         // override lands, so we mustn't stomp it with saved prefs.
+        // Empty arrays count as "no preference" — we always default to
+        // all-selected on load.
         if (!hasUrlSceneOverrideRef.current) {
           const sceneIds = data?.preferredSceneIds;
-          if (Array.isArray(sceneIds)) {
+          if (Array.isArray(sceneIds) && sceneIds.length > 0) {
             setSelectedSceneIds(migrateSceneSlugs(sceneIds));
           } else {
             setSelectedSceneIds(null);
@@ -180,7 +182,10 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
         const storedScenes = localStorage.getItem('channel-selected-scenes');
         if (storedScenes) {
           const parsed = JSON.parse(storedScenes);
-          if (Array.isArray(parsed)) setSelectedSceneIds(migrateSceneSlugs(parsed));
+          // Empty arrays count as "no preference" — fall back to all-selected.
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setSelectedSceneIds(migrateSceneSlugs(parsed));
+          }
         }
       } catch {}
     }
