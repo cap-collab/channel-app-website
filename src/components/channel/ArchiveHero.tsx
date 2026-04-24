@@ -275,11 +275,8 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     };
 
     if (archivePlayer.currentArchive) {
-      const current = archivePlayer.currentArchive;
-      if (maxHeroSlides === 1) return [current];
-      const otherSlug = resolveArchiveScenes(current, djSceneMap).includes('spiral') ? 'diamond' : 'spiral';
-      const other = randomBySceneSlug(otherSlug, current.id);
-      return other ? [current, other] : [current];
+      // While an archive is playing, pin the hero to it — no siblings, no swipe.
+      return [archivePlayer.currentArchive];
     }
     if (maxHeroSlides === 1) {
       const latest = [...high].sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0))[0];
