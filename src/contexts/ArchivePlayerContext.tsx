@@ -173,12 +173,27 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
         if (isRetryingRef.current) return;
         // Stop playback and mark for hard reload on next play() click.
         // User's explicit play press is a better signal than auto-retry loops.
-        console.error('🔄 Archive playback error; stopping. Click play to retry.');
+        const mediaError = audio.error;
+        const errorCodeMap: Record<number, string> = {
+          1: 'MEDIA_ERR_ABORTED',
+          2: 'MEDIA_ERR_NETWORK',
+          3: 'MEDIA_ERR_DECODE',
+          4: 'MEDIA_ERR_SRC_NOT_SUPPORTED',
+        };
+        const errorName = mediaError ? errorCodeMap[mediaError.code] || `code ${mediaError.code}` : 'unknown';
+        const errorMessage = mediaError?.message || '(no message)';
+        console.error('🔄 Archive playback error; stopping. Click play to retry.', {
+          error: errorName,
+          message: errorMessage,
+          src: audio.src,
+          networkState: audio.networkState,
+          readyState: audio.readyState,
+        });
         resumePositionRef.current = audio.currentTime || resumePositionRef.current;
         needsHardReloadRef.current = true;
         setIsPlaying(false);
         setIsLoading(false);
-        captureEvent('playback_error', { type: 'archive', message: 'Playback error' });
+        captureEvent('playback_error', { type: 'archive', message: errorName, detail: errorMessage });
         if (playbackStartedAtRef.current) {
           const sessionDuration = Math.round((Date.now() - playbackStartedAtRef.current) / 1000);
           captureEvent('playback_ended', { type: 'archive', session_duration: sessionDuration });
