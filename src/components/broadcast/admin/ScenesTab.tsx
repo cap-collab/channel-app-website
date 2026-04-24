@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Image from 'next/image';
 import { useAuthContext } from '@/contexts/AuthContext';
 import type { SceneSerialized } from '@/types/scenes';
@@ -125,7 +125,7 @@ export function ScenesTab() {
           <SceneSwitcherPill
             key={scene.id}
             active={sceneFilter === scene.id}
-            label={`${scene.emoji} ${scene.name}`}
+            label={<><span className="text-base leading-none">{scene.emoji}</span> {scene.name}</>}
             count={counts[scene.id] ?? 0}
             color={scene.color}
             onClick={() => setSceneFilter(scene.id)}
@@ -161,7 +161,7 @@ function SceneSwitcherPill({
   onClick,
 }: {
   active: boolean;
-  label: string;
+  label: ReactNode;
   count: number;
   color?: string;
   onClick: () => void;
@@ -225,7 +225,7 @@ function DjRow({
                   : 'bg-gray-800/50 text-gray-500 border-gray-700 hover:text-gray-300'
               }`}
             >
-              <span className="mr-1">{scene.emoji}</span>
+              <span className="mr-1 text-base leading-none">{scene.emoji}</span>
               {scene.name}
             </button>
           );

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 // Known scene slugs that can appear as bare query keys (e.g. /?spiral).
 // Matches the scene IDs rendered by SceneGlyph and seeded in Firestore.
-const SCENE_SLUGS = new Set(["spiral", "diamond", "grid"]);
+const SCENE_SLUGS = new Set(["spiral", "star", "grid"]);
 
 export default async function Home({
   searchParams,

@@ -24,16 +24,20 @@ export function SceneGlyph({ slug, className }: { slug: string; className?: stri
       </svg>
     );
   }
-  // Diamond + spiral live inside 24×24, whereas the grid's strokes bleed out to
+  // Star + spiral live inside 24×24, whereas the grid's strokes bleed out to
   // -2…26. Scale them up around the center so they read the same visual size as
   // the grid glyph.
-  if (slug === 'diamond') {
+  if (slug === 'star') {
+    // 8-point star: 4 lines crossing at (12,12) at 0°, 45°, 90°, 135°.
+    // Diagonals use offsets computed from 10·cos(45°) ≈ 7.07 so all four tips
+    // sit on a circle of radius ~10.
     return (
       <svg {...common} aria-hidden>
-        <g transform="translate(12 12) scale(1.2) translate(-12 -12)">
-          <path d="M6 2 L18 2 L22 8 L2 8 Z" />
-          <path d="M2 8 L12 22 L22 8" />
-          <line x1="12" y1="8" x2="12" y2="22" strokeOpacity="0.5" />
+        <g transform="translate(12 12) scale(1.3) translate(-12 -12)">
+          <line x1="12" y1="2" x2="12" y2="22" />
+          <line x1="2" y1="12" x2="22" y2="12" />
+          <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+          <line x1="19.07" y1="4.93" x2="4.93" y2="19.07" />
         </g>
       </svg>
     );

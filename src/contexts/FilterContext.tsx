@@ -9,9 +9,16 @@ import { db } from '@/lib/firebase';
 
 // Scene slugs accepted via the `?scene=` URL param (shareable filter links).
 // Kept in sync with SceneGlyph's rendered slugs and Firestore scene doc IDs.
-const URL_SCENE_SLUGS = new Set(['spiral', 'diamond', 'grid']);
+const URL_SCENE_SLUGS = new Set(['spiral', 'star', 'grid']);
 
-// Reads `?scene=` (or bare `?spiral` / `?diamond` / `?grid`) and pushes the
+// Coerce legacy scene slugs in persisted prefs.
+// The diamond→star rename landed 2026-04-24; localStorage for unauth users may still hold 'diamond'.
+const LEGACY_SCENE_SLUG_MAP: Record<string, string> = { diamond: 'star' };
+function migrateSceneSlugs(ids: string[]): string[] {
+  return ids.map((id) => LEGACY_SCENE_SLUG_MAP[id] ?? id);
+}
+
+// Reads `?scene=` (or bare `?spiral` / `?star` / `?grid`) and pushes the
 // override into FilterProvider state. Isolated so we can wrap it in <Suspense>
 // — useSearchParams() otherwise opts every page using <FilterProvider> out of
 // static prerendering.
@@ -38,7 +45,7 @@ function URLSceneSync({
     onScene(override);
   }, [override, onScene]);
   // Expose a "strip scene params from the URL" callback to the provider so
-  // a manual chip toggle on /radio?diamond cleans the URL back to /radio.
+  // a manual chip toggle on /radio?star cleans the URL back to /radio.
   useEffect(() => {
     onRegisterClear(() => {
       if (!searchParams) return;
@@ -95,7 +102,7 @@ export function useFilterContext() {
 
 export function FilterProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuthContext();
-  // `?scene=spiral` (or diamond/grid) activates a session-only scene filter.
+  // `?scene=spiral` (or star/grid) activates a session-only scene filter.
   // URLSceneSync (below, Suspense-wrapped) writes the validated override here
   // so FilterProvider itself stays free of useSearchParams() — otherwise every
   // page under <Providers> would be forced out of static prerendering.
@@ -144,7 +151,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
         if (!hasUrlSceneOverrideRef.current) {
           const sceneIds = data?.preferredSceneIds;
           if (Array.isArray(sceneIds)) {
-            setSelectedSceneIds(sceneIds);
+            setSelectedSceneIds(migrateSceneSlugs(sceneIds));
           } else {
             setSelectedSceneIds(null);
           }
@@ -173,7 +180,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
         const storedScenes = localStorage.getItem('channel-selected-scenes');
         if (storedScenes) {
           const parsed = JSON.parse(storedScenes);
-          if (Array.isArray(parsed)) setSelectedSceneIds(parsed);
+          if (Array.isArray(parsed)) setSelectedSceneIds(migrateSceneSlugs(parsed));
         }
       } catch {}
     }
@@ -213,7 +220,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
             if (!Array.isArray(data?.preferredSceneIds) && storedScenes) {
               try {
                 const parsed = JSON.parse(storedScenes);
-                if (Array.isArray(parsed)) update.preferredSceneIds = parsed;
+                if (Array.isArray(parsed)) update.preferredSceneIds = migrateSceneSlugs(parsed);
               } catch {}
             }
 

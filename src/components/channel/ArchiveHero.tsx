@@ -283,10 +283,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       return latest ? [latest] : [];
     }
     const spiral = randomBySceneSlug('spiral');
-    const diamond = randomBySceneSlug('diamond', spiral?.id);
+    const star = randomBySceneSlug('star', spiral?.id);
     const picks: typeof archives = [];
     if (spiral) picks.push(spiral);
-    if (diamond) picks.push(diamond);
+    if (star) picks.push(star);
     return picks;
   }, [archives, archivePlayer.currentArchive, maxHeroSlides, scenes, sceneFilter, djSceneMap]);
 

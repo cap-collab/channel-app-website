@@ -1,7 +1,7 @@
 import type { Timestamp } from 'firebase/firestore';
 
 // Scene document in Firestore (collection: 'scenes')
-// Doc id is used as the slug (e.g. 'spiral', 'diamond', 'grid').
+// Doc id is used as the slug (e.g. 'spiral', 'star', 'grid').
 export interface Scene {
   id: string;
   name: string;

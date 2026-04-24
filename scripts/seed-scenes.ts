@@ -1,5 +1,5 @@
 /**
- * Seed the three initial scenes: Spiral, Diamond, Grid.
+ * Seed the three initial scenes: Spiral, Star, Grid.
  *
  * Run with:
  *   set -a && source .env.production && set +a && \
@@ -52,9 +52,9 @@ const SCENES: SeedScene[] = [
     description: '',
   },
   {
-    id: 'diamond',
-    name: 'Diamond',
-    emoji: '💎',
+    id: 'star',
+    name: 'Star',
+    emoji: '✳',
     color: 'bg-fuchsia-900/40 text-fuchsia-300 border-fuchsia-800',
     order: 1,
     description: '',
