@@ -188,9 +188,13 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   }, [scenes]);
   const toggleSceneFilter = useCallback(
     (sceneId: string) => {
-      const current = selectedSceneIds === null
-        ? scenes.map((s) => s.id)
-        : selectedSceneIds;
+      // null (never touched) and [] (all toggled off) both mean "show everything" —
+      // treat them identically so the first click deselects one chip from the full set
+      // rather than selecting only that chip.
+      const current =
+        selectedSceneIds === null || selectedSceneIds.length === 0
+          ? scenes.map((s) => s.id)
+          : selectedSceneIds;
       const next = current.includes(sceneId)
         ? current.filter((id) => id !== sceneId)
         : [...current, sceneId];
@@ -807,7 +811,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               {availableScenes.length > 0 && (
                 <div className="flex items-center gap-2">
                   {availableScenes.map((s) => {
-                    const active = sceneFilter.has(s.id);
+                    // Empty selection means "show everything" (same behavior as all
+                    // selected), so render all chips active in both cases.
+                    const active = noneSelected || sceneFilter.has(s.id);
                     return (
                       <button
                         key={s.id}
