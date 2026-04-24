@@ -833,8 +833,8 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                         aria-label={`Filter by ${s.name}`}
                         className={`w-[27px] h-[27px] flex items-center justify-center transition-colors ${
                           active
-                            ? 'text-white'
-                            : 'text-white/30 hover:text-white/60'
+                            ? 'bg-white text-black'
+                            : 'bg-transparent text-white/30 hover:text-white/60'
                         }`}
                       >
                         <SceneGlyph slug={s.id} className="!w-5 !h-5" />
