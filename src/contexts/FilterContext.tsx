@@ -148,8 +148,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
         }
         // Re-check the ref here: the async fetch may resolve after the URL
         // override lands, so we mustn't stomp it with saved prefs.
-        // Empty arrays count as "no preference" — we always default to
-        // all-selected on load.
+        // Empty arrays count as "no preference" — fall back to all-selected.
         if (!hasUrlSceneOverrideRef.current) {
           const sceneIds = data?.preferredSceneIds;
           if (Array.isArray(sceneIds) && sceneIds.length > 0) {
