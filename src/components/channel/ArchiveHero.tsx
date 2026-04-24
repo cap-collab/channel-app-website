@@ -738,10 +738,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           )}
         </div>
 
-        {/* Carousel dots — below player bar */}
-        {!showLiveInHero && heroArchives.length > 1 && (
-          <div className="flex justify-center gap-1.5 pt-2">
-            {heroArchives.map((_, i) => (
+        {/* Carousel dots — always reserve space below player bar to prevent layout shift */}
+        {!showLiveInHero && (
+          <div className="flex justify-center gap-1.5 pt-2 h-3.5">
+            {heroArchives.length > 1 && heroArchives.map((_, i) => (
               <button
                 key={i}
                 onClick={() => setHeroIndex(i)}
