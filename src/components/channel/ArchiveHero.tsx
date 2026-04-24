@@ -261,9 +261,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   // user-toggled chips), the hero carousel should only feature archives in that
   // scene — not the full pool.
   const heroArchives = useMemo(() => {
-    const allSceneIds = scenes.map((s) => s.id);
-    const allSelected = allSceneIds.length > 0 && allSceneIds.every((id) => sceneFilter.has(id));
-    const noneSelected = sceneFilter.size === 0;
+    // Visible scene chips (grid is hidden), used to decide whether filtering is active.
+    const visibleSceneIds = scenes.filter((s) => s.id !== 'grid').map((s) => s.id);
+    const allSelected = visibleSceneIds.length > 0 && visibleSceneIds.every((id) => sceneFilter.has(id));
+    const noneSelected = visibleSceneIds.length > 0 && visibleSceneIds.every((id) => !sceneFilter.has(id));
     const filteringActive = !allSelected && !noneSelected;
     const inScene = (a: typeof archives[number]) =>
       !filteringActive ||
@@ -785,7 +786,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         // curated hero-first placement intact.
         const allSelected =
           availableScenes.length > 0 && availableScenes.every((s) => sceneFilter.has(s.id));
-        const noneSelected = sceneFilter.size === 0;
+        // "None selected" = no *visible* chip is on. `sceneFilter` may still contain
+        // hidden slugs like 'grid', so checking its size alone isn't enough.
+        const noneSelected =
+          availableScenes.length > 0 && availableScenes.every((s) => !sceneFilter.has(s.id));
         const filteringActive = !allSelected && !noneSelected;
 
         const filteredArchives = filteringActive
