@@ -653,7 +653,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 {(() => {
                   const slug = resolveArchiveScenes(displayedArchive, djSceneMap).find((s) => s !== 'grid');
                   return slug ? (
-                    <div className="w-8 h-8 ml-1 flex items-center justify-center bg-white text-black text-xl flex-shrink-0">
+                    <div className="w-8 h-8 ml-1 flex items-center justify-center bg-white text-black text-4xl flex-shrink-0">
                       <SceneGlyph slug={slug} />
                     </div>
                   ) : null;

@@ -280,7 +280,7 @@ export function GlobalBroadcastBar() {
       <div className="flex items-center gap-0.5 sm:gap-3 py-2 px-1">
         {/* Scene glyph — white square, black glyph */}
         {archiveSceneSlug && (
-          <div className="w-8 h-8 ml-1 flex items-center justify-center bg-white text-black text-xl flex-shrink-0">
+          <div className="w-8 h-8 ml-1 flex items-center justify-center bg-white text-black text-4xl flex-shrink-0">
             <SceneGlyph slug={archiveSceneSlug} />
           </div>
         )}
