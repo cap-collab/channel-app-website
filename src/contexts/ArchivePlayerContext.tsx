@@ -51,6 +51,9 @@ interface ArchivePlayerContextValue {
   /** The top/featured archive — always available for the GlobalBroadcastBar fallback */
   featuredArchive: ArchiveSerialized | null;
   setFeaturedArchive: (archive: ArchiveSerialized | null) => void;
+  /** Whatever the /radio hero is currently displaying — sticky mirrors this when set */
+  heroDisplayedArchive: ArchiveSerialized | null;
+  setHeroDisplayedArchive: (archive: ArchiveSerialized | null) => void;
   // Ref callback for "locked in" message — set by consuming component (GlobalBroadcastBar)
   onLockedInRef: MutableRefObject<(() => void) | null>;
   // Ref callback for 5-minute listen milestone (heart-nudge re-trigger)
@@ -83,6 +86,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   const [isGated, setIsGated] = useState(false);
   const [gateAttempt, setGateAttempt] = useState(0);
   const [featuredArchive, setFeaturedArchive] = useState<ArchiveSerialized | null>(null);
+  const [heroDisplayedArchive, setHeroDisplayedArchive] = useState<ArchiveSerialized | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const cumulativeTimeRef = useRef(0);
   const gateSecondsRef = useRef(0);
@@ -547,9 +551,11 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     seek,
     featuredArchive,
     setFeaturedArchive,
+    heroDisplayedArchive,
+    setHeroDisplayedArchive,
     onLockedInRef,
     onListenMilestoneRef,
-  }), [currentArchive, isPlaying, isLoading, currentTime, duration, listenerCount, isGated, gateAttempt, clearGate, play, pause, toggle, seek, featuredArchive]);
+  }), [currentArchive, isPlaying, isLoading, currentTime, duration, listenerCount, isGated, gateAttempt, clearGate, play, pause, toggle, seek, featuredArchive, heroDisplayedArchive]);
 
   return (
     <ArchivePlayerContext.Provider value={value}>

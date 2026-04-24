@@ -301,6 +301,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   // The currently displayed archive (playing → hero slide → featured)
   const displayedArchive = archivePlayer.currentArchive || heroArchives[heroIndex] || featuredArchive;
 
+  // Publish what the hero is showing so GlobalBroadcastBar can mirror it.
+  useEffect(() => {
+    archivePlayer.setHeroDisplayedArchive(displayedArchive ?? null);
+    return () => archivePlayer.setHeroDisplayedArchive(null);
+  }, [displayedArchive, archivePlayer.setHeroDisplayedArchive]);
+
   // Live DJ info (computed from currentShow, similar to LiveBroadcastHero)
   // Show image always wins over DJ photos.
   const liveDjPhotoUrl = (() => {
@@ -667,16 +673,16 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     className="h-[27px] pl-2 pr-1 flex items-center justify-center transition-colors"
                   >
                   {archivePlayer.isLoading ? (
-                    <svg className="w-8 h-8 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                    <svg className="w-9 h-9 animate-spin text-white" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
                   ) : archivePlayer.isPlaying && archivePlayer.currentArchive?.id === displayedArchive.id ? (
-                    <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="4 3 16 18">
+                    <svg className="w-9 h-9 text-white" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M6 3h4v18H6V3zm8 0h4v18h-4V3z" />
                     </svg>
                   ) : (
-                    <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="4 3 16 18">
+                    <svg className="w-9 h-9 text-white" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M5 3v18l15-9z" />
                     </svg>
                   )}
