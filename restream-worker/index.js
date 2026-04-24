@@ -10,8 +10,14 @@ app.use(express.json());
 const PORT = process.env.PORT || 3100;
 const SHARED_SECRET = process.env.SHARED_SECRET || process.env.CRON_SECRET || '';
 
-// Active restreams keyed by slotId. Each value: { ffmpeg, ingressId }.
+// Active restreams keyed by slotId. Each value: { archiveFfmpeg, silenceFfmpeg, ingressId, slotEndTimer, intentionalStop }.
 const activeStreams = new Map();
+
+// Pending restreams — scheduled to start at a future time but not yet started.
+// Keyed by slotId. Each value: { startTimer, params }.
+// When /stop is called for a pending slot (e.g., admin deletes before start),
+// we clear the timer without touching LiveKit (nothing's been created yet).
+const pendingStarts = new Map();
 
 // Auth middleware
 function authenticate(req, res, next) {
@@ -28,10 +34,40 @@ function authenticate(req, res, next) {
 // webhook→egress→R2 pipeline (track_published handler) picks it up without
 // any per-source branching.
 app.post('/start', authenticate, async (req, res) => {
-  const { slotId, archiveUrl, roomName, apiKey, apiSecret, livekitHost, appUrl, endTime } = req.body;
+  const params = req.body;
+  try {
+    const result = await startSlot(params);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    if (err.statusCode) {
+      res.status(err.statusCode).json({ error: err.message });
+    } else {
+      res.status(500).json({ error: err.message });
+    }
+  }
+});
+
+/**
+ * Core "start this restream now" logic. Extracted from the /start handler so
+ * /schedule can reuse it when its timer fires. Returns { slotId, ingressId }
+ * on success. Throws (with optional .statusCode) on failure.
+ */
+async function startSlot(params) {
+  const { slotId, archiveUrl, roomName, apiKey, apiSecret, livekitHost, appUrl, endTime } = params || {};
 
   if (!slotId || !archiveUrl || !roomName || !apiKey || !apiSecret || !livekitHost) {
-    return res.status(400).json({ error: 'Missing required fields' });
+    const err = new Error('Missing required fields');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // If there's a pending scheduled start for this slot, cancel it first —
+  // we're starting now, timer is obsolete.
+  const pending = pendingStarts.get(slotId);
+  if (pending) {
+    clearTimeout(pending.startTimer);
+    pendingStarts.delete(slotId);
+    console.log(`[restream] Cancelled pending scheduled start for ${slotId} (starting now)`);
   }
 
   if (activeStreams.has(slotId)) {
@@ -148,7 +184,7 @@ app.post('/start', authenticate, async (req, res) => {
       console.log(`[restream] No slot-end timer for ${slotId} (appUrl=${!!appUrl}, endTime=${endTime})`);
     }
 
-    res.json({ success: true, slotId, ingressId });
+    return { slotId, ingressId };
   } catch (err) {
     console.error(`[restream] Failed to start for slot ${slotId}:`, err);
     // If we got as far as creating the ingress but failed before handing off
@@ -159,9 +195,9 @@ app.post('/start', authenticate, async (req, res) => {
         await ingressClient.deleteIngress(ingressId);
       } catch { /* ignore */ }
     }
-    res.status(500).json({ error: err.message });
+    throw err;
   }
-});
+}
 
 function makeFfmpeg(source, rtmpTarget, options = {}) {
   // For HTTP sources (archive restreams), add reconnect flags. Without them,
@@ -193,14 +229,113 @@ function makeFfmpeg(source, rtmpTarget, options = {}) {
   ]);
 }
 
+// POST /schedule — queue a restream to start at a future time. Used when the
+// previous live slot ends EARLY (before the restream's startTime), so
+// complete-slot can't activate the restream yet (it's not in-window). Worker
+// holds a setTimeout and calls startSlot() when startTime arrives.
+// Only used for restreams. Live broadcasts have their own DJ-browser queue.
+app.post('/schedule', authenticate, async (req, res) => {
+  const params = req.body;
+  const { slotId, startTime } = params || {};
+
+  if (!slotId || typeof startTime !== 'number') {
+    return res.status(400).json({ error: 'Missing slotId or startTime' });
+  }
+
+  const now = Date.now();
+  const delay = startTime - now;
+
+  // If startTime already passed or is essentially now, just start immediately.
+  if (delay <= 0) {
+    console.log(`[restream] /schedule: startTime already passed for ${slotId}, starting immediately`);
+    try {
+      const result = await startSlot(params);
+      return res.json({ success: true, ...result, wasScheduled: false });
+    } catch (err) {
+      const status = err.statusCode || 500;
+      return res.status(status).json({ error: err.message });
+    }
+  }
+
+  // Refuse far-future schedules — cron will pick them up normally. This
+  // endpoint is specifically for the "live ended early, restream is minutes
+  // away" gap. Keep the window small so worker restart doesn't lose much.
+  const MAX_SCHEDULE_MS = 15 * 60 * 1000; // 15 min
+  if (delay > MAX_SCHEDULE_MS) {
+    console.log(`[restream] /schedule: ${slotId} startTime is >15min out (${Math.round(delay / 1000)}s), refusing`);
+    return res.status(400).json({ error: 'startTime too far in the future' });
+  }
+
+  // If already actively streaming, caller is confused — ignore.
+  if (activeStreams.has(slotId)) {
+    return res.status(409).json({ error: 'slot is already active' });
+  }
+
+  // If already pending, refresh with latest params rather than double-scheduling.
+  const existing = pendingStarts.get(slotId);
+  if (existing) {
+    clearTimeout(existing.startTimer);
+    console.log(`[restream] /schedule: replacing existing pending timer for ${slotId}`);
+  }
+
+  const startTimer = setTimeout(async () => {
+    if (!pendingStarts.has(slotId)) {
+      console.log(`[restream] Scheduled start fired but ${slotId} no longer pending, skipping`);
+      return;
+    }
+    pendingStarts.delete(slotId);
+    console.log(`[restream] Scheduled start firing for ${slotId}`);
+    // Call BACK to Vercel's start-restream instead of calling startSlot()
+    // directly here. start-restream does the full setup the worker's
+    // /start alone doesn't: marks the slot live in Firestore, clears
+    // restreamEgressId, starts the HLS egress. Without that, a
+    // locally-fired startSlot would publish audio into the room but no
+    // egress would be writing to R2 (the webhook's track_published
+    // fallback is not reliable enough to depend on).
+    try {
+      const { appUrl } = params || {};
+      if (!appUrl) {
+        console.error(`[restream] Scheduled start: no appUrl in params for ${slotId}`);
+        return;
+      }
+      const resp = await fetch(`${appUrl}/api/broadcast/start-restream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SHARED_SECRET}`,
+        },
+        body: JSON.stringify({ slotId }),
+      });
+      if (!resp.ok) {
+        const txt = await resp.text().catch(() => '');
+        console.error(`[restream] Scheduled start-restream returned ${resp.status} for ${slotId}: ${txt}`);
+      }
+    } catch (err) {
+      console.error(`[restream] Scheduled start-restream call failed for ${slotId}:`, err?.message || err);
+    }
+  }, delay);
+
+  pendingStarts.set(slotId, { startTimer, params });
+  console.log(`[restream] Scheduled start for ${slotId} in ${Math.round(delay / 1000)}s`);
+  res.json({ success: true, slotId, wasScheduled: true, delayMs: delay });
+});
+
 app.post('/stop', authenticate, async (req, res) => {
   const { slotId, apiKey, apiSecret, livekitHost } = req.body;
   if (!slotId) {
     return res.status(400).json({ error: 'slotId required' });
   }
 
+  // Clear any pending scheduled start — nothing was created on LiveKit yet.
+  const pending = pendingStarts.get(slotId);
+  if (pending) {
+    clearTimeout(pending.startTimer);
+    pendingStarts.delete(slotId);
+    console.log(`[restream] /stop: cancelled pending scheduled start for ${slotId}`);
+  }
+
   const stopped = await stopStream(slotId, apiKey, apiSecret, livekitHost);
-  res.json({ success: true, slotId, wasActive: stopped });
+  res.json({ success: true, slotId, wasActive: stopped, wasPending: !!pending });
 });
 
 app.get('/status', (req, res) => {
@@ -216,7 +351,11 @@ app.get('/status', (req, res) => {
       slotEndScheduled: !!stream.slotEndTimer,
     };
   }
-  res.json({ activeStreams: streams });
+  const pending = {};
+  for (const [slotId] of pendingStarts) {
+    pending[slotId] = { scheduled: true };
+  }
+  res.json({ activeStreams: streams, pendingStarts: pending });
 });
 
 async function stopStream(slotId, apiKey, apiSecret, livekitHost) {

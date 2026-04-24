@@ -93,6 +93,11 @@ export async function POST(request: NextRequest) {
     // transitions (same pattern as go-live/route.ts).
     let nextShowDoc: FirebaseFirestore.QueryDocumentSnapshot | null = null;
     let nextShowIsRestream = false;
+    // Near-future restream (startTime in the future, within a small window):
+    // set when the outgoing slot ended early and there's no in-window next.
+    // We hand this off to the worker's /schedule endpoint so it fires at
+    // startTime without waiting for the 5-min cron.
+    let nearFutureRestreamDoc: FirebaseFirestore.QueryDocumentSnapshot | null = null;
 
     if (newStatus === 'completed' && !isRecordingSession) {
       try {
@@ -101,15 +106,39 @@ export async function POST(request: NextRequest) {
           .where('status', '==', 'scheduled')
           .get();
 
+        let soonestFutureRestream: { doc: FirebaseFirestore.QueryDocumentSnapshot; startTime: number } | null = null;
+        const NEAR_FUTURE_WINDOW_MS = 10 * 60 * 1000; // 10 min
+
         for (const nextDoc of nextShowSnapshot.docs) {
           const nextSlot = nextDoc.data();
           const startTime = nextSlot.startTime?.toMillis?.() || nextSlot.startTime;
           const nextEndTime = nextSlot.endTime?.toMillis?.() || nextSlot.endTime;
-          if (!startTime || now < startTime || now >= nextEndTime) continue;
+          if (!startTime) continue;
 
-          nextShowDoc = nextDoc;
-          nextShowIsRestream = nextSlot.broadcastType === 'restream';
-          break;
+          // In-window: preferred, handle as before.
+          if (now >= startTime && now < nextEndTime) {
+            nextShowDoc = nextDoc;
+            nextShowIsRestream = nextSlot.broadcastType === 'restream';
+            break;
+          }
+
+          // Near-future restream: track the soonest one starting within 10 min.
+          // Live shows with a future startTime are intentionally NOT handled
+          // here — live broadcasts require a DJ's browser queue, which is a
+          // separate mechanism.
+          if (
+            nextSlot.broadcastType === 'restream'
+            && startTime > now
+            && startTime - now <= NEAR_FUTURE_WINDOW_MS
+          ) {
+            if (!soonestFutureRestream || startTime < soonestFutureRestream.startTime) {
+              soonestFutureRestream = { doc: nextDoc, startTime };
+            }
+          }
+        }
+
+        if (!nextShowDoc && soonestFutureRestream) {
+          nearFutureRestreamDoc = soonestFutureRestream.doc;
         }
       } catch (err) {
         console.error('[complete-slot] Error finding next show:', err);
@@ -185,6 +214,37 @@ export async function POST(request: NextRequest) {
         }
       }).catch((err) => {
         console.error(`[complete-slot] Restream fetch failed:`, err);
+      });
+    }
+
+    // Near-future restream handoff: the outgoing slot ended early and the
+    // next slot is a restream whose startTime hasn't arrived yet. Ask the
+    // worker to hold a setTimeout until startTime, at which point it
+    // re-POSTs start-restream. Without this, the restream waits up to ~5
+    // minutes for the complete-expired-slots cron to pick it up. Only
+    // fires for restreams — live early-ends are handled by the DJ queue.
+    if (!nextShowDoc && nearFutureRestreamDoc) {
+      const nearSlot = nearFutureRestreamDoc.data();
+      const nearStart = nearSlot.startTime?.toMillis?.() || nearSlot.startTime;
+      console.log(`[complete-slot] Scheduling near-future restream ${nearFutureRestreamDoc.id} for ${new Date(nearStart).toISOString()}`);
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+      const cronSecret = process.env.CRON_SECRET || '';
+      fetch(`${appUrl}/api/broadcast/start-restream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${cronSecret}`,
+        },
+        body: JSON.stringify({ slotId: nearFutureRestreamDoc.id, scheduleMode: true }),
+      }).then(async (res) => {
+        const data = await res.json();
+        if (res.ok) {
+          console.log(`[complete-slot] Restream ${nearFutureRestreamDoc!.id} scheduled for ${new Date(data.startTime).toISOString()}`);
+        } else {
+          console.error(`[complete-slot] Restream ${nearFutureRestreamDoc!.id} schedule failed:`, data.error);
+        }
+      }).catch((err) => {
+        console.error(`[complete-slot] Restream schedule fetch failed:`, err);
       });
     }
 

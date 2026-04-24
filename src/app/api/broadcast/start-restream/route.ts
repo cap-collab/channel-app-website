@@ -46,7 +46,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { slotId, reuseHlsEgress } = await request.json() as { slotId?: string; reuseHlsEgress?: boolean };
+    const { slotId, reuseHlsEgress, scheduleMode } = await request.json() as {
+      slotId?: string;
+      reuseHlsEgress?: boolean;
+      scheduleMode?: boolean;
+    };
     if (!slotId) {
       return NextResponse.json({ error: 'slotId required' }, { status: 400 });
     }
@@ -56,6 +60,13 @@ export async function POST(request: NextRequest) {
     // false so cron/admin cold-start paths don't accidentally reuse a
     // dying orphaned egress and inherit its ENDLIST.
     const reuseEgressFromHandoff = reuseHlsEgress === true;
+    // scheduleMode: caller knows the slot's startTime is in the future but
+    // wants the worker to hold a timer and start at exactly that time. Used
+    // when a live broadcast ends early and the next restream is minutes
+    // away. We skip the egress-start step here (no point starting an egress
+    // with no publisher in the room) and hit the worker's /schedule endpoint
+    // instead of /start.
+    const deferStart = scheduleMode === true;
 
     const db = getAdminDb();
     if (!db) {
@@ -111,6 +122,59 @@ export async function POST(request: NextRequest) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL
       || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
     const endTimeMs = slot.endTime?.toMillis?.() ?? slot.endTime ?? null;
+    const startTimeMs = slot.startTime?.toMillis?.() ?? slot.startTime ?? null;
+
+    const workerPayload = {
+      slotId,
+      archiveUrl,
+      roomName: ROOM_NAME,
+      apiKey,
+      apiSecret,
+      livekitHost,
+      appUrl,
+      endTime: endTimeMs,
+    };
+
+    // deferStart: caller says the slot's startTime is in the future and
+    // wants the worker to hold a timer and start at exactly that time.
+    // Short-circuit here — no ingress, no egress yet. The worker's
+    // /schedule endpoint will call back to its own startSlot() logic when
+    // the timer fires, which will hit the rest of this flow indirectly
+    // via the worker's internal state (egress still needs to be started
+    // by a subsequent /start-restream call — we re-POST ourselves on
+    // fire). For now, keep it simple: worker just runs startSlot itself,
+    // and egress is started by the webhook's track_published handler as
+    // the fallback path (we accept the ~1s egress-start latency for the
+    // early-end edge case, which is rare).
+    if (deferStart) {
+      if (typeof startTimeMs !== 'number' || startTimeMs <= Date.now()) {
+        return NextResponse.json({ error: 'scheduleMode requires a future startTime' }, { status: 400 });
+      }
+      console.log(`[start-restream] Scheduling worker start for slot ${slotId} at ${new Date(startTimeMs).toISOString()}`);
+      const schedResp = await fetch(`${restreamWorkerUrl}/schedule`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.CRON_SECRET}`,
+        },
+        body: JSON.stringify({ ...workerPayload, startTime: startTimeMs }),
+      });
+      if (!schedResp.ok) {
+        const err = await schedResp.text();
+        throw new Error(`Worker /schedule returned ${schedResp.status}: ${err}`);
+      }
+      const schedData = await schedResp.json() as { wasScheduled?: boolean; delayMs?: number };
+      console.log(`[start-restream] Worker scheduled for ${slotId} (wasScheduled=${schedData.wasScheduled}, delayMs=${schedData.delayMs})`);
+      // Intentionally do NOT update the slot's status or fields here. The slot
+      // stays `scheduled` in Firestore until startTime, when the worker
+      // re-triggers the real start path. Listeners/hero treat it as upcoming.
+      return NextResponse.json({
+        success: true,
+        slotId,
+        scheduled: true,
+        startTime: startTimeMs,
+      });
+    }
 
     console.log(`[start-restream] Starting worker for slot ${slotId}, archiveUrl: ${archiveUrl}, endTime: ${endTimeMs}`);
     const workerResp = await fetch(`${restreamWorkerUrl}/start`, {
@@ -119,16 +183,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${process.env.CRON_SECRET}`,
       },
-      body: JSON.stringify({
-        slotId,
-        archiveUrl,
-        roomName: ROOM_NAME,
-        apiKey,
-        apiSecret,
-        livekitHost,
-        appUrl,
-        endTime: endTimeMs,
-      }),
+      body: JSON.stringify(workerPayload),
     });
 
     if (!workerResp.ok) {
