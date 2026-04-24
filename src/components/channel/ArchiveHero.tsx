@@ -303,6 +303,13 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     setHeroIndex(0);
   }, [archivePlayer.currentArchive?.id]);
 
+  // When the filter pool shifts (user toggles a chip), clamp heroIndex so we
+  // never land past the new array length — otherwise the hero shows `undefined`
+  // and falls through to a stale featured archive.
+  useEffect(() => {
+    if (heroIndex >= heroArchives.length) setHeroIndex(0);
+  }, [heroArchives.length, heroIndex]);
+
   // The currently displayed archive (playing → hero slide → featured)
   const displayedArchive = archivePlayer.currentArchive || heroArchives[heroIndex] || featuredArchive;
 
