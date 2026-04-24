@@ -150,7 +150,7 @@ export function buildEmailHtml(name: string, cohort: Cohort, email: string): str
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Hi ${displayName},</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Channel has been growing steadily over the past weeks, and I'm seeing two scenes form through the shows.</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">One is more trippy and experimental, the other more groovy and social.</p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;"><strong>Check them out:</strong><br/>🌀 <a href="https://channel-app.com/radio?spiral" style="color: #1a1a1a;">https://channel-app.com/radio?spiral</a><br/><span style="font-size: 1.4em; line-height: 1; vertical-align: -0.1em;">✳</span> <a href="https://channel-app.com/radio?star" style="color: #1a1a1a;">https://channel-app.com/radio?star</a></p>
+                  <p style="margin: 0 0 16px; color: #1a1a1a;"><strong>Check them out:</strong><br/><span style="font-size: 1.1em; line-height: 1; vertical-align: -0.05em;">🌀</span> <a href="https://channel-app.com/radio?spiral" style="color: #1a1a1a;">https://channel-app.com/radio?spiral</a><br/><span style="font-size: 1.4em; line-height: 1; vertical-align: -0.1em;">✳</span> <a href="https://channel-app.com/radio?star" style="color: #1a1a1a;">https://channel-app.com/radio?star</a></p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">More shows are coming in this week across LA and NY.</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Daily clips on IG <a href="https://instagram.com/channelrad.io" style="color: #1a1a1a; text-decoration: underline;">@channelrad.io</a></p>
                   <p style="margin: 0; color: #1a1a1a;">Cap</p>
