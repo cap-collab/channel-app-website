@@ -281,8 +281,8 @@ export function GlobalBroadcastBar() {
         <div className="flex items-center ml-1 flex-shrink-0">
           {/* Scene glyph — white square, black glyph */}
           {archiveSceneSlug && (
-            <div className="w-8 h-8 flex items-center justify-center bg-white text-black text-4xl">
-              <SceneGlyph slug={archiveSceneSlug} />
+            <div className="w-[27px] h-[27px] flex items-center justify-center bg-white text-black flex-shrink-0">
+              <SceneGlyph slug={archiveSceneSlug} className="!w-5 !h-5" />
             </div>
           )}
           {/* Play/Pause — archive player (px-2 widens hit area) */}
@@ -294,7 +294,7 @@ export function GlobalBroadcastBar() {
                 archivePlayer.play(displayArchive);
               }
             }}
-            className="h-8 px-2 flex items-center justify-center transition-colors"
+            className="h-[27px] px-2 flex items-center justify-center transition-colors"
           >
           {archivePlayer.isLoading ? (
             <svg className="w-5 h-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
