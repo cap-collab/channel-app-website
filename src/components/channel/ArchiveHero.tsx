@@ -736,9 +736,15 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       {/* Past shows — full-width cards */}
       {(() => {
         const heroFirstId = heroArchives[0]?.id;
+        const priorityRank = (p: ArchiveSerialized['priority']) =>
+          p === 'high' ? 0 : p === 'low' ? 2 : 1;
         const prefiltered = archives
-          .filter(a => a.priority !== 'low')
-          .sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0));
+          .slice()
+          .sort((a, b) => {
+            const pr = priorityRank(a.priority) - priorityRank(b.priority);
+            if (pr !== 0) return pr;
+            return (b.recordedAt || 0) - (a.recordedAt || 0);
+          });
 
         // Compute effective scenes per archive once and attach as a tuple list.
         const archivesWithScenes = prefiltered.map((a) => ({
