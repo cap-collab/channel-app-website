@@ -277,17 +277,22 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       }
       return result;
     }
-    // Not playing: high priority only, random order (or latest when maxHeroSlides === 1).
-    const high = archives.filter(a => a.priority === 'high' && inScene(a));
+    // Not playing: high priority only, newest first.
+    const high = archives
+      .filter(a => a.priority === 'high' && inScene(a))
+      .sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0));
     if (maxHeroSlides === 1) {
-      const latest = high.sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0))[0];
-      return latest ? [latest] : [];
+      return high[0] ? [high[0]] : [];
     }
-    for (let i = high.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [high[i], high[j]] = [high[j], high[i]];
-    }
-    return high.slice(0, maxHeroSlides);
+    // Offline default: one spiral + one diamond (high-priority, newest in each).
+    const pickBySceneSlug = (slug: string) =>
+      high.find((a) => resolveArchiveScenes(a, djSceneMap).includes(slug));
+    const spiral = pickBySceneSlug('spiral');
+    const diamond = pickBySceneSlug('diamond');
+    const picks: typeof archives = [];
+    if (spiral) picks.push(spiral);
+    if (diamond && diamond.id !== spiral?.id) picks.push(diamond);
+    return picks;
   }, [archives, archivePlayer.currentArchive, maxHeroSlides, scenes, sceneFilter, djSceneMap]);
 
   const [heroIndex, setHeroIndex] = useState(0);
@@ -494,6 +499,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   <HeroSlide
                     key={ha.id}
                     archive={ha}
+                    sceneSlugs={resolveArchiveScenes(ha, djSceneMap)}
                     onPlay={() => {
                       setUserSelectedMode('archive');
                       archivePlayer.play(ha);
@@ -849,9 +855,11 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
 function HeroSlide({
   archive,
+  sceneSlugs,
   onPlay,
 }: {
   archive: ArchiveSerialized;
+  sceneSlugs?: string[];
   onPlay: () => void;
 }) {
   const primaryDj = archive.djs[0];
@@ -885,6 +893,16 @@ function HeroSlide({
           <div className="absolute top-2 left-2 drop-shadow-lg">
             <span className="text-sm font-bold text-white uppercase tracking-wide">{archive.showName}</span>
           </div>
+          {/* Scene glyph — top right */}
+          {sceneSlugs && sceneSlugs.some((s) => s !== 'grid') && (
+            <div className="absolute top-2 right-2 flex items-center gap-1.5 drop-shadow-lg text-white">
+              {sceneSlugs.filter((s) => s !== 'grid').map((slug) => (
+                <span key={slug} className="text-lg leading-none inline-flex items-center">
+                  <SceneGlyph slug={slug} />
+                </span>
+              ))}
+            </div>
+          )}
           {/* Mood tags — hidden for now (testing) */}
           <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
         </>
