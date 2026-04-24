@@ -1234,6 +1234,10 @@ export function DJPublicProfileClient({ username }: Props) {
 
   const hasScheduleContent = upcomingShows.length > 0 || pastActivities.length > 0;
 
+  useEffect(() => {
+    if (!hasScheduleContent) setActiveTab('chat');
+  }, [hasScheduleContent]);
+
   // Create Artist Selects (recommendations)
   const artistSelects = useMemo(() => {
     const selects: { label: string; url: string; imageUrl?: string }[] = [];
