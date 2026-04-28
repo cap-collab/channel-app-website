@@ -368,15 +368,15 @@ function muxFinalMp4(jobId, entry, recordingUrl, durationSec) {
       if (entry.captureMode === 'static') {
         // Loop the still PNG, draw a progress bar that grows linearly with
         // time. Bar = bottom 8px of the 1080 frame, white, fills L→R.
-        // The page already has the bar's gray track visible in the PNG;
-        // drawbox just adds the white fill on top.
         //
-        // Order matters: -framerate must come before -loop, and -t (the
-        // explicit duration) must be on the input so ffmpeg knows when the
-        // video stream ends. Without -t, "-loop 1" is infinite and the
-        // png_pipe demuxer trips on rate estimation before it can hand off
-        // to the encoder.
+        // Force the image2 demuxer (-f image2). With a single .png path,
+        // ffmpeg auto-picks png_pipe — which is a streaming demuxer that
+        // tries to estimate rate from frame samples and fails ("Stream
+        // #0: not enough frames to estimate rate") before the encoder
+        // ever sees the input. image2 is the still-image demuxer and
+        // honors -framerate / -loop / -t directly.
         videoInputArgs = [
+          '-f', 'image2',
           '-framerate', '30',
           '-loop', '1',
           '-t', String(durationSec),
