@@ -213,9 +213,9 @@ export function DJImageOverlay({
   const descriptionRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [needsScroll, setNeedsScroll] = useState(false);
-  const [scrollDistance, setScrollDistance] = useState(0);
+  const [contentHeight, setContentHeight] = useState(0);
 
-  // Measure whether description overflows 2 lines and calculate scroll distance
+  // Measure whether description overflows 2 lines and capture full content height for marquee loop
   useEffect(() => {
     const desc = descriptionRef.current;
     const container = containerRef.current;
@@ -223,7 +223,7 @@ export function DJImageOverlay({
     const overflow = desc.scrollHeight > container.clientHeight;
     setNeedsScroll(overflow);
     if (overflow) {
-      setScrollDistance(desc.scrollHeight - container.clientHeight);
+      setContentHeight(desc.scrollHeight);
     }
   }, [djDescription]);
 
@@ -245,7 +245,7 @@ export function DJImageOverlay({
         </div>
       )}
 
-      {/* Description — max 2 visible lines, auto-scrolls if longer */}
+      {/* Description — max 2 visible lines, continuously scrolls upward if longer */}
       {djDescription && (
         <div
           ref={containerRef}
@@ -253,32 +253,42 @@ export function DJImageOverlay({
           style={{ maxHeight: '2.6em' }}
         >
           <div
-            ref={descriptionRef}
-            className={`text-[11px] leading-[1.3em] text-zinc-300 font-light ${needsScroll ? 'animate-desc-scroll' : ''}`}
+            className={needsScroll ? 'animate-desc-scroll' : ''}
             style={needsScroll ? {
-              '--scroll-distance': `-${scrollDistance}px`,
-              '--scroll-duration': `${Math.max(20, 6 + scrollDistance * 0.3)}s`,
+              '--scroll-distance': `-${contentHeight}px`,
+              '--scroll-duration': `${contentHeight * 0.25}s`,
             } as React.CSSProperties : undefined}
           >
-            {djDescription}
+            <div
+              ref={descriptionRef}
+              className="text-[11px] leading-[1.3em] text-zinc-300 font-light"
+            >
+              {djDescription}
+            </div>
+            {needsScroll && (
+              <div
+                className="text-[11px] leading-[1.3em] text-zinc-300 font-light"
+                aria-hidden="true"
+                style={{ paddingTop: '1.3em' }}
+              >
+                {djDescription}
+              </div>
+            )}
           </div>
         </div>
       )}
 
       <style jsx>{`
         @keyframes desc-scroll {
-          0%, 15% {
+          0% {
             transform: translateY(0);
           }
-          45%, 55% {
+          100% {
             transform: translateY(var(--scroll-distance));
-          }
-          85%, 100% {
-            transform: translateY(0);
           }
         }
         .animate-desc-scroll {
-          animation: desc-scroll var(--scroll-duration, 10s) ease-in-out infinite;
+          animation: desc-scroll var(--scroll-duration, 30s) linear infinite;
         }
       `}</style>
     </div>
