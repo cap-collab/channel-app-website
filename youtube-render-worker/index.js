@@ -406,28 +406,24 @@ function muxFinalMp4(jobId, entry, recordingUrl, durationSec) {
         '-map', '0:v',
         '-map', '1:a',
         // Video: H.264 @ yuv420p, faststart for progressive YouTube upload.
-        // -tune stillimage skips x264 motion estimation when input is one
-        // PNG — turns a 2hr render from O(real-time) into O(seconds).
+        // For static (still image) renders, drop preset to ultrafast — the
+        // output is one repeated frame so there's nothing to gain from a
+        // slower preset, and ultrafast turns 2hr × 30fps into ~1 min of
+        // encoding instead of ~1 hour. -tune stillimage tells x264 to
+        // skip motion estimation entirely.
         '-c:v', 'libx264',
         '-pix_fmt', 'yuv420p',
-        '-preset', 'medium',
+        ...(entry.captureMode === 'static'
+          ? ['-preset', 'ultrafast', '-tune', 'stillimage']
+          : ['-preset', 'medium']),
         '-crf', '20',
         '-r', '30',
-        ...(entry.captureMode === 'static' ? ['-tune', 'stillimage'] : []),
         ...(videoFilter ? ['-vf', videoFilter] : []),
-        // Audio: re-encode to AAC 192k. We don't run loudnorm here even
-        // though YouTube's loudness target is -14 LUFS, because loudnorm
-        // is a scanning filter that has to read the full audio stream
-        // before emitting frames — that's 2hr of HTTP reads from R2 for
-        // a 2hr mix while the encoder waits, which looks like "stuck at
-        // 90%" even though it's just buffering. YouTube normalizes on
-        // upload anyway. The DJ upload path runs loudnorm at upload time
-        // (see restream-worker /normalize), so live recordings are
-        // already normalized when they reach this worker.
-        '-c:a', 'aac',
-        '-b:a', '192k',
-        '-ar', '48000',
-        '-ac', '2',
+        // Audio: copy directly from the source mp4. The recordings are
+        // already AAC stereo at the right rate; re-encoding adds ~10x
+        // slowdown for no quality gain. -c:a copy at ~6000× real-time
+        // means a 2hr mix's audio side takes ~1 second.
+        '-c:a', 'copy',
         // Static path: -loop 1 means video stream is infinite, so we need
         // to either cap it via -t or rely on -shortest (which uses the
         // shorter of video/audio — and since audio is finite, that
