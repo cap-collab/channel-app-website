@@ -415,12 +415,19 @@ function muxFinalMp4(jobId, entry, recordingUrl, durationSec) {
         '-r', '30',
         ...(entry.captureMode === 'static' ? ['-tune', 'stillimage'] : []),
         ...(videoFilter ? ['-vf', videoFilter] : []),
-        // Audio: AAC 192k, YouTube-target loudness (-14 LUFS)
+        // Audio: re-encode to AAC 192k. We don't run loudnorm here even
+        // though YouTube's loudness target is -14 LUFS, because loudnorm
+        // is a scanning filter that has to read the full audio stream
+        // before emitting frames — that's 2hr of HTTP reads from R2 for
+        // a 2hr mix while the encoder waits, which looks like "stuck at
+        // 90%" even though it's just buffering. YouTube normalizes on
+        // upload anyway. The DJ upload path runs loudnorm at upload time
+        // (see restream-worker /normalize), so live recordings are
+        // already normalized when they reach this worker.
         '-c:a', 'aac',
         '-b:a', '192k',
         '-ar', '48000',
         '-ac', '2',
-        '-af', 'loudnorm=I=-14:TP=-1.0:LRA=11',
         // Static path: -loop 1 means video stream is infinite, so we need
         // to either cap it via -t or rely on -shortest (which uses the
         // shorter of video/audio — and since audio is finite, that
