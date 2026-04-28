@@ -144,9 +144,10 @@ function RenderMixInner() {
                   <SceneGlyph slug={data.sceneSlug} className="!w-6 !h-6" />
                 </div>
               )}
-              <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z" />
+              <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
+                {/* Pause glyph — the rendered video is "actively playing" */}
+                <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M6 3h4v18H6V3zm8 0h4v18h-4V3z" />
                 </svg>
               </div>
             </div>
