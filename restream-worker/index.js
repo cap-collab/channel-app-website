@@ -92,52 +92,102 @@ async function startSlot(params) {
     const rtmpTarget = `${rtmpBase}/${ingress.streamKey}`;
     console.log(`[restream] Ingress created: ${ingressId}, rtmp=${rtmpBase}/<key>`);
 
-    // Spawn the archive FFmpeg. Pure HTTP GET on the archive URL — never
-    // writes back to the source MP4.
-    const archiveFfmpeg = makeFfmpeg(archiveUrl, rtmpTarget);
-    archiveFfmpeg.stderr.on('data', (data) => {
-      console.log(`[restream][ffmpeg ${slotId}] ${data.toString().trim()}`);
-    });
+    // Archive FFmpeg can fail on the initial HTTP read of the MP4 (R2/CDN
+    // hiccup, transient network blip). The reconnect flags only help
+    // mid-stream — an initial-connect failure exits with code 1. We retry
+    // the spawn a couple times with small backoff before giving up. Don't
+    // tear down the ingress between attempts; same RTMP target, same slot.
+    const ARCHIVE_MAX_ATTEMPTS = 3;
+    const ARCHIVE_RETRY_DELAYS_MS = [1000, 3000]; // attempt 2 after 1s, attempt 3 after 3s
+    const ARCHIVE_RETRY_MIN_RUNTIME_MS = 30_000; // re-attempt only if previous run < 30s
 
     // intentionalStop === true when stopStream or the slot-end timer killed
     // FFmpeg on purpose. Checking this is more reliable than trying to
     // interpret Node's exit code/signal — SIGTERM often surfaces as code 255
     // with signal=null depending on how FFmpeg responds to the signal.
-    const entry = { archiveFfmpeg, silenceFfmpeg: null, ingressId, slotEndTimer: null, intentionalStop: false };
+    const entry = {
+      archiveFfmpeg: null,
+      silenceFfmpeg: null,
+      ingressId,
+      slotEndTimer: null,
+      intentionalStop: false,
+      archiveAttempts: 0,
+      archiveRetryTimer: null,
+    };
     activeStreams.set(slotId, entry);
 
-    archiveFfmpeg.on('close', (code, signal) => {
-      console.log(`[restream] Archive FFmpeg exited code=${code} signal=${signal} intentional=${entry.intentionalStop} for slot ${slotId}`);
-      if (entry.intentionalStop) {
-        // We killed it on purpose (stopStream / slot-end timer). Caller
-        // owns the teardown; do nothing here.
-        return;
-      }
-      if (code === 0) {
-        // Archive finished on its own. Pad with silence until slot-end fires.
-        const current = activeStreams.get(slotId);
-        if (current && current === entry && !current.silenceFfmpeg && current.slotEndTimer) {
-          console.log(`[restream] Archive done before slot.endTime — padding with silence for slot ${slotId}`);
-          const silenceFfmpeg = makeFfmpeg('anullsrc=r=48000:cl=stereo', rtmpTarget, { silence: true });
-          silenceFfmpeg.stderr.on('data', (data) => {
-            console.log(`[restream][silence ${slotId}] ${data.toString().trim()}`);
-          });
-          silenceFfmpeg.on('close', (silenceCode) => {
-            console.log(`[restream] Silence FFmpeg exited code=${silenceCode} for slot ${slotId}`);
-          });
-          current.silenceFfmpeg = silenceFfmpeg;
-        }
-      } else {
-        // Non-zero exit that wasn't our doing = genuine failure. Tear down.
-        console.error(`[restream] Archive FFmpeg failed for slot ${slotId}, tearing down`);
-        stopStream(slotId, apiKey, apiSecret, livekitHost).catch(() => {});
-      }
-    });
+    function spawnArchive() {
+      entry.archiveAttempts += 1;
+      const attemptNum = entry.archiveAttempts;
+      const startedAt = Date.now();
+      console.log(`[restream] Archive FFmpeg attempt ${attemptNum}/${ARCHIVE_MAX_ATTEMPTS} for slot ${slotId}`);
+      const proc = makeFfmpeg(archiveUrl, rtmpTarget);
+      proc.stderr.on('data', (data) => {
+        console.log(`[restream][ffmpeg ${slotId}] ${data.toString().trim()}`);
+      });
 
-    archiveFfmpeg.on('error', (err) => {
-      console.error(`[restream] Archive FFmpeg error for slot ${slotId}:`, err);
-      stopStream(slotId, apiKey, apiSecret, livekitHost).catch(() => {});
-    });
+      proc.on('close', (code, signal) => {
+        const ranMs = Date.now() - startedAt;
+        console.log(`[restream] Archive FFmpeg exited code=${code} signal=${signal} ranMs=${ranMs} attempt=${attemptNum} intentional=${entry.intentionalStop} for slot ${slotId}`);
+        if (entry.intentionalStop) {
+          // Killed on purpose (stopStream / slot-end timer). Caller owns
+          // teardown; do nothing.
+          return;
+        }
+        if (code === 0) {
+          // Archive finished on its own. Pad with silence until slot-end.
+          const current = activeStreams.get(slotId);
+          if (current && current === entry && !current.silenceFfmpeg && current.slotEndTimer) {
+            console.log(`[restream] Archive done before slot.endTime — padding with silence for slot ${slotId}`);
+            const silenceFfmpeg = makeFfmpeg('anullsrc=r=48000:cl=stereo', rtmpTarget, { silence: true });
+            silenceFfmpeg.stderr.on('data', (data) => {
+              console.log(`[restream][silence ${slotId}] ${data.toString().trim()}`);
+            });
+            silenceFfmpeg.on('close', (silenceCode) => {
+              console.log(`[restream] Silence FFmpeg exited code=${silenceCode} for slot ${slotId}`);
+            });
+            current.silenceFfmpeg = silenceFfmpeg;
+          }
+          return;
+        }
+        // Non-zero exit. Decide between retry and teardown.
+        // Retry only if (a) we haven't exhausted attempts AND (b) the run
+        // was short — long runs that died near completion are likely
+        // legitimate end-of-archive issues, not transient connect failures,
+        // so we don't restart the whole archive.
+        const canRetry =
+          attemptNum < ARCHIVE_MAX_ATTEMPTS
+          && ranMs < ARCHIVE_RETRY_MIN_RUNTIME_MS
+          && activeStreams.get(slotId) === entry;
+        if (canRetry) {
+          const delay = ARCHIVE_RETRY_DELAYS_MS[attemptNum - 1] || 3000;
+          console.warn(`[restream] Archive FFmpeg failed early for slot ${slotId} (ranMs=${ranMs}); retrying in ${delay}ms (attempt ${attemptNum + 1}/${ARCHIVE_MAX_ATTEMPTS})`);
+          entry.archiveRetryTimer = setTimeout(() => {
+            entry.archiveRetryTimer = null;
+            // Slot may have been torn down or replaced while we waited.
+            if (activeStreams.get(slotId) !== entry) {
+              console.log(`[restream] Retry: slot ${slotId} no longer active, skipping`);
+              return;
+            }
+            entry.archiveFfmpeg = spawnArchive();
+          }, delay);
+          return;
+        }
+        // No more retries — give up on this slot.
+        console.error(`[restream] Archive FFmpeg failed for slot ${slotId}, tearing down (attempt ${attemptNum}/${ARCHIVE_MAX_ATTEMPTS})`);
+        stopStream(slotId, apiKey, apiSecret, livekitHost).catch(() => {});
+      });
+
+      proc.on('error', (err) => {
+        console.error(`[restream] Archive FFmpeg error for slot ${slotId}:`, err);
+        // proc.on('close') will still fire after this, with a non-zero exit.
+        // Let the close handler decide retry vs teardown — don't double-up.
+      });
+
+      return proc;
+    }
+
+    entry.archiveFfmpeg = spawnArchive();
 
     // Schedule slot-end complete-slot call. Mirrors the DJ-browser pattern
     // in src/app/broadcast/live/BroadcastClient.tsx: setTimeout at endTime
@@ -369,6 +419,12 @@ async function stopStream(slotId, apiKey, apiSecret, livekitHost) {
   if (stream.slotEndTimer) {
     clearTimeout(stream.slotEndTimer);
     stream.slotEndTimer = null;
+  }
+  // Also clear any pending archive-retry timer; we're tearing down and
+  // don't want a delayed respawn after teardown.
+  if (stream.archiveRetryTimer) {
+    clearTimeout(stream.archiveRetryTimer);
+    stream.archiveRetryTimer = null;
   }
 
   // Mark the stop as intentional so the FFmpeg close handler doesn't treat
