@@ -196,10 +196,14 @@ function RenderMixInner() {
                   <SceneGlyph slug={data.sceneSlug} className="!w-6 !h-6" />
                 </div>
               )}
-              <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
-                {/* Pause glyph — the rendered video is "actively playing" */}
-                <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M6 3h4v18H6V3zm8 0h4v18h-4V3z" />
+              {/* Pause button — mirrors /radio archive player exactly:
+                  h-[27px] container with pl-2 pr-1 (asymmetric so the icon
+                  sits visually centered between the scene block and the
+                  show-name column), and a w-8 h-8 SVG that overflows the
+                  container vertically (intentional — same on /radio). */}
+              <div className="h-[27px] pl-2 pr-1 flex items-center justify-center flex-shrink-0">
+                <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
                 </svg>
               </div>
             </div>
