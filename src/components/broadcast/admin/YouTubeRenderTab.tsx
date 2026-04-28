@@ -169,6 +169,7 @@ export function YouTubeRenderTab() {
           archiveSlug: selected.slug,
           recordingUrl: selected.recordingUrl,
           durationSec: selected.duration,
+          recordedAt: selected.recordedAt ?? null,
           renderData: {
             showName: edit.showName,
             djName: edit.djName,
@@ -248,16 +249,7 @@ export function YouTubeRenderTab() {
                     </div>
                     <StatusBadge status={j.status} progressPct={j.progressPct} />
                   </div>
-                  {j.status === 'done' && j.outputUrl && (
-                    <a
-                      href={j.outputUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-2 inline-block text-blue-400 hover:text-blue-300 text-xs underline"
-                    >
-                      Download mp4
-                    </a>
-                  )}
+                  {j.status === 'done' && j.outputUrl && <DoneJobActions job={j} />}
                   {j.status === 'failed' && j.error && (
                     <div className="mt-2 text-red-400 text-xs">{j.error}</div>
                   )}
@@ -352,6 +344,67 @@ function StatusBadge({ status, progressPct }: { status: RenderJob['status']; pro
     );
   if (status === 'done') return <span className={`${base} bg-green-900/40 text-green-300`}>Done</span>;
   return <span className={`${base} bg-red-900/40 text-red-300`}>Failed</span>;
+}
+
+/**
+ * Action row shown under a completed render: Download (uses Cloudflare R2's
+ * Content-Disposition: attachment so the browser saves with the YouTube-
+ * friendly filename the worker set), plus Copy-title and Copy-description
+ * buttons that put YouTube-ready text on the clipboard.
+ */
+function DoneJobActions({ job }: { job: RenderJob }) {
+  const [copied, setCopied] = useState<'title' | 'description' | null>(null);
+
+  const title = `${job.renderData.showName} — ${job.renderData.djName} | Channel Radio`;
+  const dateStr = new Date(job.createdAt).toISOString().slice(0, 10);
+  const genres = (job.renderData.djGenres || []).join(', ');
+  const description = [
+    `${job.renderData.showName} with ${job.renderData.djName}`,
+    genres ? `Genres: ${genres}` : '',
+    job.renderData.djDescription || '',
+    '',
+    `Recorded ${dateStr} on Channel Radio.`,
+    `Listen live: https://channel-app.com/radio`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const copy = async (kind: 'title' | 'description', text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(kind);
+      setTimeout(() => setCopied((c) => (c === kind ? null : c)), 1500);
+    } catch {
+      // ignore — older browsers
+    }
+  };
+
+  return (
+    <div className="mt-2 flex items-center gap-3 flex-wrap">
+      <a
+        href={job.outputUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        download
+        className="text-blue-400 hover:text-blue-300 text-xs underline"
+      >
+        Download mp4
+      </a>
+      <button
+        onClick={() => copy('title', title)}
+        className="text-gray-400 hover:text-white text-xs underline"
+        title={title}
+      >
+        {copied === 'title' ? 'Copied!' : 'Copy YouTube title'}
+      </button>
+      <button
+        onClick={() => copy('description', description)}
+        className="text-gray-400 hover:text-white text-xs underline"
+      >
+        {copied === 'description' ? 'Copied!' : 'Copy description'}
+      </button>
+    </div>
+  );
 }
 
 /**

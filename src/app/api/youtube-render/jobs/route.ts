@@ -36,6 +36,7 @@ type CreateJobBody = {
   archiveSlug: string;
   recordingUrl: string;
   durationSec: number;
+  recordedAt: number | null;
   renderData: RenderData;
 };
 
@@ -65,6 +66,7 @@ function validateBody(raw: unknown): CreateJobBody | { error: string } {
     archiveSlug: b.archiveSlug,
     recordingUrl: b.recordingUrl,
     durationSec: b.durationSec,
+    recordedAt: typeof b.recordedAt === 'number' ? b.recordedAt : null,
     renderData: {
       showName: rd.showName,
       djName: rd.djName,
@@ -99,12 +101,48 @@ export async function POST(request: NextRequest) {
     archiveSlug: validated.archiveSlug,
     recordingUrl: validated.recordingUrl,
     durationSec: validated.durationSec,
+    recordedAt: validated.recordedAt,
     renderData: validated.renderData,
     status: 'queued',
     progressPct: 0,
     createdAt: now,
     createdBy: userId,
   });
+
+  // Tell the YouTube-render worker to pick it up. Fire-and-forget — the
+  // worker responds 202 and processes async, updating Firestore as it goes.
+  // If the worker call fails (e.g. worker down), the job stays 'queued' and
+  // the admin sees that in the UI.
+  const workerUrl = process.env.YOUTUBE_RENDER_WORKER_URL;
+  const sharedSecret = process.env.SHARED_SECRET || process.env.CRON_SECRET;
+  if (workerUrl && sharedSecret) {
+    fetch(`${workerUrl.replace(/\/$/, '')}/start`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sharedSecret}`,
+      },
+      body: JSON.stringify({ jobId: docRef.id }),
+    })
+      .then(async (r) => {
+        if (!r.ok) {
+          const txt = await r.text().catch(() => '');
+          console.error(
+            `[youtube-render/jobs] Worker /start returned ${r.status} for job ${docRef.id}: ${txt}`
+          );
+        }
+      })
+      .catch((err) => {
+        console.error(
+          `[youtube-render/jobs] Worker /start fetch failed for job ${docRef.id}:`,
+          err?.message || err
+        );
+      });
+  } else {
+    console.warn(
+      `[youtube-render/jobs] Worker not called: YOUTUBE_RENDER_WORKER_URL=${workerUrl ? 'set' : 'missing'}, SHARED_SECRET=${sharedSecret ? 'set' : 'missing'}`
+    );
+  }
 
   return NextResponse.json({ jobId: docRef.id });
 }

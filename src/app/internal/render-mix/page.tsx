@@ -77,6 +77,40 @@ function RenderMixInner() {
   const searchParams = useSearchParams();
   const data = useMemo(() => parseRenderData(searchParams.get('data')), [searchParams]);
 
+  // After the page settles, set body.dataset.needsMotion so the YouTube
+  // render worker can decide between the heavy real-time Chromium capture
+  // (text scrolls, must record every frame) and the cheap static-frame
+  // path (one screenshot + ffmpeg loop + drawbox progress bar).
+  //
+  // Detection is behavioral: the shared ScrollingShowName / ScrollingDJName
+  // / DJImageOverlay components only attach their `animate-*-scroll`
+  // classes when their internal measurement effect detects overflow. So
+  // the presence of any of those classes IS the answer — no need for
+  // markers on the DOM. Re-checks after a delay because the measurement
+  // effects in those components run after layout. Default to "true" so we
+  // err on the side of correctness if measurement hasn't settled.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    document.body.dataset.needsMotion = 'true';
+    if (!data) return;
+    let cancelled = false;
+    const check = () => {
+      if (cancelled) return;
+      const hasMotion =
+        !!document.querySelector(
+          '.animate-desc-scroll, .animate-show-scroll, .animate-dj-scroll'
+        );
+      document.body.dataset.needsMotion = hasMotion ? 'true' : 'false';
+    };
+    const t1 = setTimeout(check, 300);
+    const t2 = setTimeout(check, 900);
+    return () => {
+      cancelled = true;
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [data]);
+
   if (!data) {
     // No params = not a real render request. Stay blank — this URL is not
     // user-facing and shouldn't render anything discoverable.
