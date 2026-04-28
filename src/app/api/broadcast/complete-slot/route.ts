@@ -44,15 +44,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Slot has not ended yet' }, { status: 400 });
     }
 
-    // Determine final status based on current status and timing
+    // Determine final status based on current status and timing.
+    // NEAR_END_GRACE_MS: ending within this window of slot.endTime is treated
+    // as "wrapping up" — newStatus = completed so the handoff to the next
+    // show fires. Beyond it, force-ends are treated as "taking a break, may
+    // resume" — newStatus = paused so the slot can be resumed without a
+    // next-show takeover.
+    const NEAR_END_GRACE_MS = 2 * 60_000;
     let newStatus: 'completed' | 'missed' | 'paused';
 
     if (slot.status === 'live' || slot.status === 'paused') {
-      if (force && now <= endTime) {
-        // DJ ended early but time slot is still active - mark as paused so they can resume
+      if (force && now < endTime - NEAR_END_GRACE_MS) {
+        // Ended well before slot.endTime — preserve resume affordance.
         newStatus = 'paused';
       } else {
-        // Time slot has passed - mark as completed
+        // Either slot.endTime has passed, or we're within the near-end
+        // grace window. Either way, hand off to the next show.
         newStatus = 'completed';
       }
     } else if (slot.status === 'scheduled') {

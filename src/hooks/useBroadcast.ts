@@ -648,11 +648,13 @@ export function useBroadcast(
             JSON.stringify({ slotId, egressId: state.recordingEgressId })
           );
         } else {
-          // If the slot is ending (within 30s of scheduled end, or already past),
-          // fire complete-slot so the LiveKit room is released immediately instead
-          // of leaving a ghost participant + stale egress until the 5-min cron.
+          // If the slot is ending (within 2 min of scheduled end, or already
+          // past), fire complete-slot so the LiveKit room is released
+          // immediately and the next show's handoff fires. Threshold matches
+          // the server-side NEAR_END_GRACE_MS in complete-slot/route.ts —
+          // closing the tab and clicking End should produce the same outcome.
           const endTime = slotEndTimeRef.current;
-          const nearEnd = typeof endTime === 'number' && Date.now() >= endTime - 30_000;
+          const nearEnd = typeof endTime === 'number' && Date.now() >= endTime - 120_000;
           if (nearEnd) {
             navigator.sendBeacon(
               '/api/broadcast/complete-slot',
