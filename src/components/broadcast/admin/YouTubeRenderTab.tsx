@@ -78,6 +78,12 @@ export function YouTubeRenderTab() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<RenderJob[]>([]);
+  const [backfillState, setBackfillState] = useState<
+    | { kind: 'idle' }
+    | { kind: 'running'; mode: 'dry-run' | 'execute' }
+    | { kind: 'result'; mode: 'DRY_RUN' | 'EXECUTED'; payload: Record<string, unknown> }
+    | { kind: 'error'; message: string }
+  >({ kind: 'idle' });
   const { djSceneMap } = useScenesData();
 
   // First non-grid scene slug for the selected archive — same logic as the
@@ -140,6 +146,36 @@ export function YouTubeRenderTab() {
     setSubmitError(null);
   };
 
+  const handleBackfillBios = async (mode: 'dry-run' | 'execute') => {
+    setBackfillState({ kind: 'running', mode });
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Not signed in');
+      const dryRun = mode === 'dry-run';
+      const res = await fetch(`/api/admin/youtube-render/backfill-bios?dryRun=${dryRun}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        throw new Error(payload?.error || `Failed (${res.status})`);
+      }
+      setBackfillState({
+        kind: 'result',
+        mode: payload.mode === 'EXECUTED' ? 'EXECUTED' : 'DRY_RUN',
+        payload,
+      });
+      // After a successful execute, refresh the archive list so the textarea
+      // pre-fill picks up the freshly-written bios.
+      if (payload.mode === 'EXECUTED') fetchArchives();
+    } catch (err) {
+      setBackfillState({
+        kind: 'error',
+        message: err instanceof Error ? err.message : 'Backfill failed',
+      });
+    }
+  };
+
   const previewUrl = useMemo(() => {
     if (!selected || !edit) return null;
     const data = {
@@ -194,7 +230,9 @@ export function YouTubeRenderTab() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="space-y-6">
+      <BackfillBiosPanel state={backfillState} onRun={handleBackfillBios} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Left pane: archive picker + queue */}
       <div className="space-y-6">
         <div>
@@ -337,6 +375,77 @@ export function YouTubeRenderTab() {
           </>
         )}
       </div>
+      </div>
+    </div>
+  );
+}
+
+type BackfillState =
+  | { kind: 'idle' }
+  | { kind: 'running'; mode: 'dry-run' | 'execute' }
+  | { kind: 'result'; mode: 'DRY_RUN' | 'EXECUTED'; payload: Record<string, unknown> }
+  | { kind: 'error'; message: string };
+
+function BackfillBiosPanel({
+  state,
+  onRun,
+}: {
+  state: BackfillState;
+  onRun: (mode: 'dry-run' | 'execute') => void;
+}) {
+  const isRunning = state.kind === 'running';
+  const dryRunResult =
+    state.kind === 'result' && state.mode === 'DRY_RUN' ? state.payload : null;
+  const executedResult =
+    state.kind === 'result' && state.mode === 'EXECUTED' ? state.payload : null;
+  const error = state.kind === 'error' ? state.message : null;
+
+  return (
+    <div className="border border-gray-800 rounded p-4 bg-gray-950">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <div className="text-white text-sm font-medium">Backfill DJ bios on existing archives</div>
+          <div className="text-gray-500 text-xs mt-0.5">
+            One-time. Pulls each DJ&apos;s bio from their profile onto the archive doc. Won&apos;t overwrite bios that
+            already exist.
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onRun('dry-run')}
+            disabled={isRunning}
+            className="px-3 py-1.5 bg-gray-800 text-white text-xs rounded hover:bg-gray-700 disabled:opacity-50"
+          >
+            {isRunning && state.mode === 'dry-run' ? 'Running…' : 'Dry-run'}
+          </button>
+          <button
+            onClick={() => {
+              if (confirm('Write DJ bios to all matching archives? This is a one-time operation.')) {
+                onRun('execute');
+              }
+            }}
+            disabled={isRunning || !dryRunResult}
+            className="px-3 py-1.5 bg-white text-black text-xs font-bold rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            title={!dryRunResult ? 'Run dry-run first' : 'Apply backfill'}
+          >
+            {isRunning && state.mode === 'execute' ? 'Writing…' : 'Execute'}
+          </button>
+        </div>
+      </div>
+
+      {error && <div className="mt-3 text-red-400 text-xs">{error}</div>}
+
+      {dryRunResult && (
+        <pre className="mt-3 text-xs text-gray-300 bg-black/40 rounded p-3 overflow-auto max-h-72">
+{JSON.stringify(dryRunResult, null, 2)}
+        </pre>
+      )}
+      {executedResult && (
+        <div className="mt-3 text-green-400 text-xs">
+          Done. {String((executedResult as { archivesUpdated?: number }).archivesUpdated ?? 0)} archive
+          {(executedResult as { archivesUpdated?: number }).archivesUpdated === 1 ? '' : 's'} updated.
+        </div>
+      )}
     </div>
   );
 }
