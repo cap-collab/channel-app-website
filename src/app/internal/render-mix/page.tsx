@@ -122,17 +122,35 @@ function RenderMixInner() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
         <div className="absolute top-2 left-2 drop-shadow-lg">
-          <span className="text-sm font-bold text-white uppercase tracking-wide">{data.showName}</span>
+          {/* Show name: text-sm on /radio → text-base for ~15% bump on the YouTube render. */}
+          <span className="text-base font-bold text-white uppercase tracking-wide">{data.showName}</span>
         </div>
         {/* DJImageOverlay positions itself with `absolute bottom-2 left-2
             right-2` relative to its nearest positioned ancestor. We give it a
             wrapper that ends just above the player bar so its bottom-2 anchor
             lands above the player instead of getting covered by it. Player
             bar in reference space ≈ 65px tall (play row 32px + time labels
-            14px + progress 3px + py-2 padding 16px). */}
-        <div className="absolute inset-0" style={{ bottom: 65 }}>
+            14px + progress 3px + py-2 padding 16px).
+
+            Descendant overrides bump DJ name / genres / bio ~15% bigger than
+            the /radio sizes baked into DJImageOverlay, without forking the
+            shared component. The selectors target the exact arbitrary text
+            classes used inside DJImageOverlay. */}
+        <div
+          className="render-mix-overlay absolute inset-0"
+          style={{ bottom: 65 }}
+        >
           <DJImageOverlay djName={data.djName} djGenres={data.djGenres} djDescription={data.djDescription} />
         </div>
+        <style jsx global>{`
+          /* Bump DJImageOverlay text ~15% on the YouTube render without
+             forking the shared component. Targets the exact font-size
+             classes baked into DJImageOverlay. Scoped to the render-mix
+             page via the .render-mix-overlay parent class. */
+          .render-mix-overlay .text-xs { font-size: 0.875rem; line-height: 1.25rem; }
+          .render-mix-overlay .text-\\[10px\\] { font-size: 11.5px; }
+          .render-mix-overlay .text-\\[11px\\] { font-size: 12.65px; }
+        `}</style>
 
         {/* Player bar pinned to bottom of image — same markup as before, just
             absolute-positioned over the photo instead of below it. */}
