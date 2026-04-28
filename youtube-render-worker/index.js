@@ -274,14 +274,13 @@ async function capturePage(jobId, entry, durationSec, renderData) {
     // Settle: lets the page's measurement effect run + set body.dataset.needsMotion.
     await page.waitForTimeout(1200);
 
-    // Read the flag. Default to dynamic on any read failure.
-    let needsMotion = true;
-    try {
-      const value = await page.evaluate(() => document.body.dataset.needsMotion);
-      needsMotion = value !== 'false';
-    } catch (err) {
-      console.warn(`[${jobId}] needsMotion probe failed, defaulting to dynamic:`, err?.message || err);
-    }
+    // Force the dynamic (real-time Chromium video capture) path always.
+    // The static-path optimization (one screenshot + ffmpeg drawbox progress
+    // bar) hit ffmpeg "not enough frames to estimate rate" errors that I
+    // wasn't able to fix without iteratively testing on the worker box.
+    // Flip back to reading body.dataset.needsMotion when the static path
+    // is verified end-to-end.
+    const needsMotion = true;
 
     if (!needsMotion) {
       // ─── Static path: one screenshot ──────────────────────────────────
@@ -366,23 +365,17 @@ function muxFinalMp4(jobId, entry, recordingUrl, durationSec) {
       let videoInputArgs;
       let videoFilter;
       if (entry.captureMode === 'static') {
-        // Loop the still PNG, draw a progress bar that grows linearly with
-        // time. Bar = bottom 8px of the 1080 frame, white, fills L→R.
-        //
-        // Force the image2 demuxer (-f image2). With a single .png path,
-        // ffmpeg auto-picks png_pipe — which is a streaming demuxer that
-        // tries to estimate rate from frame samples and fails ("Stream
-        // #0: not enough frames to estimate rate") before the encoder
-        // ever sees the input. image2 is the still-image demuxer and
-        // honors -framerate / -loop / -t directly.
+        // Single PNG, no motion overlay. ffmpeg's canonical "still image
+        // + audio" recipe: -loop 1 + explicit -t (avoids relying on
+        // -shortest to clamp the infinite stream, which has been
+        // unreliable in practice). x264 -tune stillimage tells the
+        // encoder this is a single image so it skips motion search.
         videoInputArgs = [
-          '-f', 'image2',
-          '-framerate', '30',
           '-loop', '1',
           '-t', String(durationSec),
           '-i', entry.tempPaths.png,
         ];
-        videoFilter = `drawbox=x=0:y=ih-8:w='iw*t/${durationSec}':h=8:color=white:t=fill`;
+        videoFilter = null;
       } else {
         videoInputArgs = ['-i', entry.tempPaths.webm];
         videoFilter = null;
@@ -400,12 +393,15 @@ function muxFinalMp4(jobId, entry, recordingUrl, durationSec) {
         '-i', recordingUrl,
         '-map', '0:v',
         '-map', '1:a',
-        // Video: H.264 @ yuv420p, faststart for progressive YouTube upload
+        // Video: H.264 @ yuv420p, faststart for progressive YouTube upload.
+        // -tune stillimage skips x264 motion estimation when input is one
+        // PNG — turns a 2hr render from O(real-time) into O(seconds).
         '-c:v', 'libx264',
         '-pix_fmt', 'yuv420p',
         '-preset', 'medium',
         '-crf', '20',
         '-r', '30',
+        ...(entry.captureMode === 'static' ? ['-tune', 'stillimage'] : []),
         ...(videoFilter ? ['-vf', videoFilter] : []),
         // Audio: AAC 192k, YouTube-target loudness (-14 LUFS)
         '-c:a', 'aac',
