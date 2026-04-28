@@ -271,16 +271,28 @@ async function capturePage(jobId, entry, durationSec, renderData) {
       },
       { timeout: 30000 }
     );
-    // Settle: lets the page's measurement effect run + set body.dataset.needsMotion.
-    await page.waitForTimeout(1200);
-
-    // Force the dynamic (real-time Chromium video capture) path always.
-    // The static-path optimization (one screenshot + ffmpeg drawbox progress
-    // bar) hit ffmpeg "not enough frames to estimate rate" errors that I
-    // wasn't able to fix without iteratively testing on the worker box.
-    // Flip back to reading body.dataset.needsMotion when the static path
-    // is verified end-to-end.
-    const needsMotion = true;
+    // Wait until the page's measurement effect has had a chance to flip
+    // body.dataset.needsMotion to "false" (it defaults to "true" on first
+    // render so the worker errs on the side of dynamic). The page runs
+    // the check at 300ms and 900ms after data is set, so 1500ms is enough
+    // in practice — but Chromium in Docker can be slower than a regular
+    // browser, so poll up to 3500ms before giving up. If we never see a
+    // "false", we keep "true" and use the dynamic path (always-correct
+    // fallback).
+    let needsMotion = true;
+    const pollDeadline = Date.now() + 3500;
+    while (Date.now() < pollDeadline) {
+      try {
+        const value = await page.evaluate(() => document.body.dataset.needsMotion);
+        if (value === 'false') {
+          needsMotion = false;
+          break;
+        }
+      } catch {
+        // ignore — page might be mid-render
+      }
+      await page.waitForTimeout(200);
+    }
 
     if (!needsMotion) {
       // ─── Static path: one screenshot ──────────────────────────────────
