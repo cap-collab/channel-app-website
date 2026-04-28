@@ -377,12 +377,14 @@ function muxFinalMp4(jobId, entry, recordingUrl, durationSec) {
       let videoInputArgs;
       let videoFilter;
       if (entry.captureMode === 'static') {
-        // Single PNG, no motion overlay. ffmpeg's canonical "still image
-        // + audio" recipe: -loop 1 + explicit -t (avoids relying on
-        // -shortest to clamp the infinite stream, which has been
-        // unreliable in practice). x264 -tune stillimage tells the
-        // encoder this is a single image so it skips motion search.
+        // The image never changes for the entire video — bar's frozen,
+        // no scrolling. Encode at 1 fps so ffmpeg only processes
+        // durationSec frames instead of durationSec*30. With x264
+        // -tune stillimage and identical inputs, predicted frames are
+        // ~zero bits each. A 2hr render produces a small file in
+        // seconds. YouTube floor is 1 fps and accepts it fine.
         videoInputArgs = [
+          '-framerate', '1',
           '-loop', '1',
           '-t', String(durationSec),
           '-i', entry.tempPaths.png,
@@ -417,7 +419,11 @@ function muxFinalMp4(jobId, entry, recordingUrl, durationSec) {
           ? ['-preset', 'ultrafast', '-tune', 'stillimage']
           : ['-preset', 'medium']),
         '-crf', '20',
-        '-r', '30',
+        // Output framerate matches input: static = 1fps (one frame per
+        // second of identical pixels, ffmpeg + x264 handle the
+        // duplication efficiently); dynamic = 30fps to match the
+        // Chromium page capture.
+        ...(entry.captureMode === 'static' ? ['-r', '1'] : ['-r', '30']),
         ...(videoFilter ? ['-vf', videoFilter] : []),
         // Audio: copy directly from the source mp4. The recordings are
         // already AAC stereo at the right rate; re-encoding adds ~10x
@@ -430,7 +436,11 @@ function muxFinalMp4(jobId, entry, recordingUrl, durationSec) {
         // truncates correctly). Either way -shortest is safe.
         '-shortest',
         '-movflags', '+faststart',
-        '-loglevel', 'warning',
+        // info level so the periodic 'frame=… fps=…' progress lines
+        // make it into our logs — without them, a long-running encode
+        // looks identical to a hung process.
+        '-loglevel', 'info',
+        '-stats',
         entry.tempPaths.mp4,
       ];
 
