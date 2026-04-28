@@ -257,7 +257,7 @@ export function DJImageOverlay({
             className={`text-[11px] leading-[1.3em] text-zinc-300 font-light ${needsScroll ? 'animate-desc-scroll' : ''}`}
             style={needsScroll ? {
               '--scroll-distance': `-${scrollDistance}px`,
-              '--scroll-duration': `${Math.max(10, 3 + scrollDistance * 0.15)}s`,
+              '--scroll-duration': `${Math.max(20, 6 + scrollDistance * 0.3)}s`,
             } as React.CSSProperties : undefined}
           >
             {djDescription}
