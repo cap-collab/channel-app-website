@@ -80,52 +80,61 @@ function RenderMixInner() {
     return <div className="w-screen h-screen bg-black" />;
   }
 
-  // The hero components (DJImageOverlay, ScrollingShowName, etc.) bake in
-  // text sizes that target /radio's ~768px-wide hero. We render at that
-  // reference width then scale the whole block up so every internal
-  // proportion (text, padding, logo, scroll speed) matches /radio exactly.
+  // The hero components (DJImageOverlay, ScrollingShowName, etc.) were sized
+  // against /radio's ~768px-wide hero. We render the image+overlays+player
+  // block at that reference width and scale it up to fill the full 1920px
+  // frame so every internal proportion (text, padding, bio scroll speed)
+  // matches /radio exactly while filling the YouTube canvas with no black
+  // borders. The image goes object-cover at the frame's actual aspect ratio.
+  const FRAME_WIDTH = 1920;
+  const FRAME_HEIGHT = 1080;
   const REFERENCE_WIDTH = 768;
-  const TARGET_WIDTH = 1280;
-  const SCALE = TARGET_WIDTH / REFERENCE_WIDTH;
+  const SCALE = FRAME_WIDTH / REFERENCE_WIDTH; // 2.5×
+  const REFERENCE_HEIGHT = Math.round(FRAME_HEIGHT / SCALE); // 432
 
   return (
-    <div className="w-[1920px] h-[1080px] bg-black flex items-center justify-center overflow-hidden">
+    <div
+      className="bg-black relative overflow-hidden"
+      style={{ width: FRAME_WIDTH, height: FRAME_HEIGHT }}
+    >
       <div
         style={{
           width: REFERENCE_WIDTH,
+          height: REFERENCE_HEIGHT,
           transform: `scale(${SCALE})`,
-          transformOrigin: 'center center',
+          transformOrigin: 'top left',
         }}
-        className="flex flex-col"
+        className="relative"
       >
-        {/* Hero image block */}
-        <div className="relative w-full aspect-[5/2] overflow-hidden border border-white/10">
-          <Image
-            src={data.djPhotoUrl}
-            alt={data.djName}
-            fill
-            className="object-cover"
-            sizes={`${REFERENCE_WIDTH}px`}
-            priority
-            unoptimized
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
-          <div className="absolute top-2 left-2 drop-shadow-lg">
-            <span className="text-sm font-bold text-white uppercase tracking-wide">{data.showName}</span>
-          </div>
+        {/* DJ photo fills the full frame */}
+        <Image
+          src={data.djPhotoUrl}
+          alt={data.djName}
+          fill
+          className="object-cover"
+          sizes={`${REFERENCE_WIDTH}px`}
+          priority
+          unoptimized
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
+        <div className="absolute top-2 left-2 drop-shadow-lg">
+          <span className="text-sm font-bold text-white uppercase tracking-wide">{data.showName}</span>
+        </div>
+        {/* DJ overlay normally pins to bottom-2 of the image. With the image
+            now filling the frame we lift it above the player-bar strip so it
+            doesn't get hidden behind the player. Player bar takes ~36px in
+            reference space (≈90px on the 1080 frame), so we offset by that. */}
+        <div
+          className="absolute left-0 right-0 drop-shadow-lg"
+          style={{ bottom: 36 }}
+        >
           <DJImageOverlay djName={data.djName} djGenres={data.djGenres} djDescription={data.djDescription} />
-          {/* CHANNEL logo overlay — top-right of hero. Transparent logo so DJ image shows through. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo-white.svg"
-            alt="CHANNEL"
-            className="absolute top-2 right-2 h-9 drop-shadow-lg"
-          />
         </div>
 
-        {/* Player bar */}
-        <div className="bg-black relative">
+        {/* Player bar pinned to bottom of image — same markup as before, just
+            absolute-positioned over the photo instead of below it. */}
+        <div className="absolute left-0 right-0 bottom-0 bg-black/80 backdrop-blur-sm">
           <div className="flex items-center gap-3 py-2 px-1">
             <div className="w-8 h-8 ml-1 flex items-center justify-center flex-shrink-0">
               <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
@@ -149,6 +158,16 @@ function RenderMixInner() {
           <SelfDrivingProgressBar durationSec={data.durationSec} />
         </div>
       </div>
+
+      {/* CHANNEL logo overlay — kept outside the scaled container so it
+          stays visually fixed at its previous size regardless of SCALE. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/logo-white.svg"
+        alt="CHANNEL"
+        className="absolute top-5 right-5 drop-shadow-lg"
+        style={{ height: 60 }}
+      />
     </div>
   );
 }
