@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, Suspense } from 'react';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { DJImageOverlay, ScrollingShowName, ScrollingDJName } from '@/components/channel/LiveBroadcastHero';
+import { SceneGlyph } from '@/components/SceneGlyph';
 
 type RenderData = {
   showName: string;
@@ -12,6 +13,7 @@ type RenderData = {
   djGenres: string[];
   djDescription: string | null;
   durationSec: number;
+  sceneSlug: string | null;
 };
 
 function formatTime(seconds: number): string {
@@ -39,6 +41,7 @@ function parseRenderData(raw: string | null): RenderData | null {
         djGenres: obj.djGenres.filter((g: unknown): g is string => typeof g === 'string'),
         djDescription: typeof obj.djDescription === 'string' && obj.djDescription.length > 0 ? obj.djDescription : null,
         durationSec: obj.durationSec,
+        sceneSlug: typeof obj.sceneSlug === 'string' && obj.sceneSlug.length > 0 ? obj.sceneSlug : null,
       };
     }
   } catch {
@@ -121,14 +124,13 @@ function RenderMixInner() {
         <div className="absolute top-2 left-2 drop-shadow-lg">
           <span className="text-sm font-bold text-white uppercase tracking-wide">{data.showName}</span>
         </div>
-        {/* DJ overlay normally pins to bottom-2 of the image. With the image
-            now filling the frame we lift it above the player-bar strip so it
-            doesn't get hidden behind the player. Player bar takes ~36px in
-            reference space (≈90px on the 1080 frame), so we offset by that. */}
-        <div
-          className="absolute left-0 right-0 drop-shadow-lg"
-          style={{ bottom: 36 }}
-        >
+        {/* DJImageOverlay positions itself with `absolute bottom-2 left-2
+            right-2` relative to its nearest positioned ancestor. We give it a
+            wrapper that ends just above the player bar so its bottom-2 anchor
+            lands above the player instead of getting covered by it. Player
+            bar in reference space ≈ 65px tall (play row 32px + time labels
+            14px + progress 3px + py-2 padding 16px). */}
+        <div className="absolute inset-0" style={{ bottom: 65 }}>
           <DJImageOverlay djName={data.djName} djGenres={data.djGenres} djDescription={data.djDescription} />
         </div>
 
@@ -136,10 +138,17 @@ function RenderMixInner() {
             absolute-positioned over the photo instead of below it. */}
         <div className="absolute left-0 right-0 bottom-0 bg-black/80 backdrop-blur-sm">
           <div className="flex items-center gap-3 py-2 px-1">
-            <div className="w-8 h-8 ml-1 flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
+            <div className="flex items-center ml-1 flex-shrink-0">
+              {data.sceneSlug && (
+                <div className="w-8 h-8 flex items-center justify-center bg-white text-black flex-shrink-0">
+                  <SceneGlyph slug={data.sceneSlug} className="!w-6 !h-6" />
+                </div>
+              )}
+              <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
             </div>
             <div className="flex-1 min-w-0">
               <ScrollingShowName text={data.showName} className="text-sm font-bold leading-tight text-white" />

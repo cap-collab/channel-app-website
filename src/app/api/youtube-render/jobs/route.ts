@@ -28,6 +28,7 @@ type RenderData = {
   djPhotoUrl: string;
   djGenres: string[];
   djDescription: string | null;
+  sceneSlug: string | null;
 };
 
 type CreateJobBody = {
@@ -57,6 +58,8 @@ function validateBody(raw: unknown): CreateJobBody | { error: string } {
     return { error: 'renderData.djGenres must be string[]' };
   if (rd.djDescription !== null && typeof rd.djDescription !== 'string')
     return { error: 'renderData.djDescription must be string|null' };
+  if (rd.sceneSlug !== null && rd.sceneSlug !== undefined && typeof rd.sceneSlug !== 'string')
+    return { error: 'renderData.sceneSlug must be string|null' };
   return {
     archiveId: b.archiveId,
     archiveSlug: b.archiveSlug,
@@ -68,6 +71,7 @@ function validateBody(raw: unknown): CreateJobBody | { error: string } {
       djPhotoUrl: rd.djPhotoUrl,
       djGenres: rd.djGenres as string[],
       djDescription: (rd.djDescription as string | null) ?? null,
+      sceneSlug: (rd.sceneSlug as string | null | undefined) ?? null,
     },
   };
 }

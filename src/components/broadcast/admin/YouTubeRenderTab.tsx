@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getAuth } from 'firebase/auth';
 import { ArchiveSerialized } from '@/types/broadcast';
+import { useScenesData, resolveArchiveScenes } from '@/hooks/useScenesData';
 
 type RenderJob = {
   id: string;
@@ -16,6 +17,7 @@ type RenderJob = {
     djPhotoUrl: string;
     djGenres: string[];
     djDescription: string | null;
+    sceneSlug: string | null;
   };
   status: 'queued' | 'rendering' | 'done' | 'failed';
   progressPct?: number;
@@ -74,6 +76,16 @@ export function YouTubeRenderTab() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<RenderJob[]>([]);
+  const { djSceneMap } = useScenesData();
+
+  // First non-grid scene slug for the selected archive — same logic as the
+  // /radio archive player. Passed through to the render page so the preview
+  // and final mp4 show the scene icon next to the play button.
+  const sceneSlug = useMemo(() => {
+    if (!selected) return null;
+    const scenes = resolveArchiveScenes(selected, djSceneMap);
+    return scenes.find((s) => s !== 'grid') ?? null;
+  }, [selected, djSceneMap]);
 
   const fetchArchives = useCallback(async () => {
     try {
@@ -135,9 +147,10 @@ export function YouTubeRenderTab() {
       djGenres: edit.djGenres,
       djDescription: edit.djDescription || null,
       durationSec: selected.duration,
+      sceneSlug,
     };
     return `/internal/render-mix?data=${encodeURIComponent(JSON.stringify(data))}`;
-  }, [selected, edit]);
+  }, [selected, edit, sceneSlug]);
 
   const handleStartRender = async () => {
     if (!selected || !edit) return;
@@ -160,6 +173,7 @@ export function YouTubeRenderTab() {
             djPhotoUrl: edit.djPhotoUrl,
             djGenres: edit.djGenres,
             djDescription: edit.djDescription || null,
+            sceneSlug,
           },
         }),
       });
