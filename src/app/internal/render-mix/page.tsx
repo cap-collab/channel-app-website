@@ -80,9 +80,24 @@ function RenderMixInner() {
     return <div className="w-screen h-screen bg-black" />;
   }
 
+  // The hero components (DJImageOverlay, ScrollingShowName, etc.) bake in
+  // text sizes that target /radio's ~768px-wide hero. We render at that
+  // reference width then scale the whole block up so every internal
+  // proportion (text, padding, logo, scroll speed) matches /radio exactly.
+  const REFERENCE_WIDTH = 768;
+  const TARGET_WIDTH = 1280;
+  const SCALE = TARGET_WIDTH / REFERENCE_WIDTH;
+
   return (
     <div className="w-[1920px] h-[1080px] bg-black flex items-center justify-center overflow-hidden">
-      <div className="w-[1280px] flex flex-col">
+      <div
+        style={{
+          width: REFERENCE_WIDTH,
+          transform: `scale(${SCALE})`,
+          transformOrigin: 'center center',
+        }}
+        className="flex flex-col"
+      >
         {/* Hero image block */}
         <div className="relative w-full aspect-[5/2] overflow-hidden border border-white/10">
           <Image
@@ -90,7 +105,7 @@ function RenderMixInner() {
             alt={data.djName}
             fill
             className="object-cover"
-            sizes="1280px"
+            sizes={`${REFERENCE_WIDTH}px`}
             priority
             unoptimized
           />
@@ -100,12 +115,12 @@ function RenderMixInner() {
             <span className="text-sm font-bold text-white uppercase tracking-wide">{data.showName}</span>
           </div>
           <DJImageOverlay djName={data.djName} djGenres={data.djGenres} djDescription={data.djDescription} />
-          {/* CHANNEL logo overlay — top-right of hero */}
+          {/* CHANNEL logo overlay — top-right of hero. Transparent logo so DJ image shows through. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/logo-white-on-black.svg"
+            src="/logo-white.svg"
             alt="CHANNEL"
-            className="absolute top-3 right-3 h-16 drop-shadow-lg"
+            className="absolute top-2 right-2 h-9 drop-shadow-lg"
           />
         </div>
 
