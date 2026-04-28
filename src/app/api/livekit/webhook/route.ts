@@ -414,17 +414,17 @@ export async function POST(request: NextRequest) {
               // Extract DJ info from the slot
               const djs = extractDJs(slotData || {});
 
-              // Enrich DJs with genres and location from their profiles
+              // Enrich DJs with genres, location, and bio from their profiles
               for (let i = 0; i < djs.length; i++) {
                 const dj = djs[i];
                 if (!dj.userId && !dj.username) continue;
                 try {
-                  let profileData: { genres?: string[]; location?: string } | null = null;
+                  let profileData: { genres?: string[]; location?: string; bio?: string } | null = null;
                   if (dj.userId) {
                     const userDoc = await db.collection('users').doc(dj.userId).get();
                     if (userDoc.exists) {
                       const profile = userDoc.data()?.djProfile;
-                      profileData = { genres: profile?.genres, location: profile?.location };
+                      profileData = { genres: profile?.genres, location: profile?.location, bio: profile?.bio };
                     }
                   }
                   if (!profileData && dj.username) {
@@ -435,12 +435,13 @@ export async function POST(request: NextRequest) {
                       .get();
                     if (!snap.empty) {
                       const profile = snap.docs[0].data()?.djProfile;
-                      profileData = { genres: profile?.genres, location: profile?.location };
+                      profileData = { genres: profile?.genres, location: profile?.location, bio: profile?.bio };
                     }
                   }
                   if (profileData) {
                     if (profileData.genres?.length) djs[i] = { ...djs[i], genres: profileData.genres };
                     if (profileData.location) djs[i] = { ...djs[i], location: profileData.location };
+                    if (profileData.bio) djs[i] = { ...djs[i], bio: profileData.bio };
                   }
                 } catch (err) {
                   console.error(`Failed to enrich DJ ${dj.name} profile:`, err);

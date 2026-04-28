@@ -275,6 +275,7 @@ export interface ArchiveDJ {
   photoUrl?: string;           // Profile photo
   genres?: string[];           // DJ genres (for genre matching)
   location?: string;           // DJ city/location (for city matching)
+  bio?: string;                // DJ bio snapshot from djProfile.bio at archive-creation time
 }
 
 // Archive priority (admin-only field, not exposed in public API)

@@ -12,6 +12,7 @@ interface DJInfo {
   email?: string;
   genres?: string[];
   location?: string;
+  bio?: string;
 }
 
 export async function GET(request: Request) {

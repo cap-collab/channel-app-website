@@ -57,12 +57,14 @@ function archiveToEditState(archive: ArchiveSerialized): EditState {
   const djGenres = Array.from(
     new Set(archive.djs.flatMap((d) => d.genres || []).filter((g): g is string => typeof g === 'string' && g.length > 0))
   );
+  // Default the bio to the first DJ's snapshot (admin can edit per render).
+  const djDescription = archive.djs[0]?.bio ?? '';
   return {
     showName: archive.showName,
     djName,
     djPhotoUrl,
     djGenres,
-    djDescription: '',
+    djDescription,
   };
 }
 
