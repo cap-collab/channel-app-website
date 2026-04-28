@@ -1,7 +1,7 @@
 # Use Playwright's official image so Chromium + all its X11/font deps are
 # already preinstalled and version-matched to the playwright npm package.
 # Mirrors restream-worker's "single tagged base + apt-install ffmpeg" shape.
-FROM mcr.microsoft.com/playwright:v1.48.0-jammy
+FROM mcr.microsoft.com/playwright:v1.59.1-jammy
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ffmpeg && \
