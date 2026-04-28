@@ -370,7 +370,18 @@ function muxFinalMp4(jobId, entry, recordingUrl, durationSec) {
         // time. Bar = bottom 8px of the 1080 frame, white, fills L→R.
         // The page already has the bar's gray track visible in the PNG;
         // drawbox just adds the white fill on top.
-        videoInputArgs = ['-loop', '1', '-r', '30', '-i', entry.tempPaths.png];
+        //
+        // Order matters: -framerate must come before -loop, and -t (the
+        // explicit duration) must be on the input so ffmpeg knows when the
+        // video stream ends. Without -t, "-loop 1" is infinite and the
+        // png_pipe demuxer trips on rate estimation before it can hand off
+        // to the encoder.
+        videoInputArgs = [
+          '-framerate', '30',
+          '-loop', '1',
+          '-t', String(durationSec),
+          '-i', entry.tempPaths.png,
+        ];
         videoFilter = `drawbox=x=0:y=ih-8:w='iw*t/${durationSec}':h=8:color=white:t=fill`;
       } else {
         videoInputArgs = ['-i', entry.tempPaths.webm];
