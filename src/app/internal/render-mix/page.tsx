@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState, Suspense } from 'react';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
-import { DJImageOverlay, ScrollingShowName, ScrollingDJName } from '@/components/channel/LiveBroadcastHero';
 import { SceneGlyph } from '@/components/SceneGlyph';
 
 type RenderData = {
@@ -73,43 +72,61 @@ function SelfDrivingProgressBar({ durationSec }: { durationSec: number }) {
   );
 }
 
+/**
+ * Static (no-scroll) overlay used only on the YouTube render page.
+ * Truncation rules per Cap:
+ *   - DJ name: single-line, truncated with ellipsis
+ *   - Genres: always on their own line below DJ name, truncated
+ *   - Bio: max 5 lines, ellipsis after
+ */
+function RenderMixHeroOverlay({
+  djName,
+  djGenres,
+  djDescription,
+}: {
+  djName: string;
+  djGenres: string[];
+  djDescription: string | null;
+}) {
+  const genreText = djGenres.length > 0 ? djGenres.join(' · ') : null;
+  // Sizes are ~15% bigger than /radio's DJImageOverlay (Cap's request for
+  // the YouTube render). /radio uses text-xs (12px) / text-[10px] /
+  // text-[11px]; render-mix uses 14px / 11.5px / 12.65px.
+  return (
+    <div>
+      <div className="text-sm font-black uppercase tracking-wider text-white truncate">
+        {djName}
+      </div>
+      {genreText && (
+        <div
+          className="font-medium uppercase tracking-[0.15em] text-zinc-300 truncate mt-0.5"
+          style={{ fontSize: '11.5px' }}
+        >
+          {genreText}
+        </div>
+      )}
+      {djDescription && (
+        <div
+          className="mt-1 leading-[1.3em] text-zinc-300 font-light line-clamp-5"
+          style={{ fontSize: '12.65px' }}
+        >
+          {djDescription}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RenderMixInner() {
   const searchParams = useSearchParams();
   const data = useMemo(() => parseRenderData(searchParams.get('data')), [searchParams]);
 
-  // After the page settles, set body.dataset.needsMotion so the YouTube
-  // render worker can decide between the heavy real-time Chromium capture
-  // (text scrolls, must record every frame) and the cheap static-frame
-  // path (one screenshot + ffmpeg loop + drawbox progress bar).
-  //
-  // Detection is behavioral: the shared ScrollingShowName / ScrollingDJName
-  // / DJImageOverlay components only attach their `animate-*-scroll`
-  // classes when their internal measurement effect detects overflow. So
-  // the presence of any of those classes IS the answer — no need for
-  // markers on the DOM. Re-checks after a delay because the measurement
-  // effects in those components run after layout. Default to "true" so we
-  // err on the side of correctness if measurement hasn't settled.
+  // The render-mix page is fully static — no scrolling text, no animated
+  // bars. We always tell the worker to take the static-screenshot path.
   useEffect(() => {
     if (typeof document === 'undefined') return;
-    document.body.dataset.needsMotion = 'true';
-    if (!data) return;
-    let cancelled = false;
-    const check = () => {
-      if (cancelled) return;
-      const hasMotion =
-        !!document.querySelector(
-          '.animate-desc-scroll, .animate-show-scroll, .animate-dj-scroll'
-        );
-      document.body.dataset.needsMotion = hasMotion ? 'true' : 'false';
-    };
-    const t1 = setTimeout(check, 300);
-    const t2 = setTimeout(check, 900);
-    return () => {
-      cancelled = true;
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [data]);
+    document.body.dataset.needsMotion = 'false';
+  }, []);
 
   if (!data) {
     // No params = not a real render request. Stay blank — this URL is not
@@ -159,35 +176,24 @@ function RenderMixInner() {
           {/* Show name: text-sm on /radio → text-base for ~15% bump on the YouTube render. */}
           <span className="text-base font-bold text-white uppercase tracking-wide">{data.showName}</span>
         </div>
-        {/* DJImageOverlay positions itself with `absolute bottom-2 left-2
-            right-2` relative to its nearest positioned ancestor. We give it a
-            wrapper that ends just above the player bar so its bottom-2 anchor
-            lands above the player instead of getting covered by it. Player
-            bar in reference space ≈ 65px tall (play row 32px + time labels
-            14px + progress 3px + py-2 padding 16px).
-
-            Descendant overrides bump DJ name / genres / bio ~15% bigger than
-            the /radio sizes baked into DJImageOverlay, without forking the
-            shared component. The selectors target the exact arbitrary text
-            classes used inside DJImageOverlay. */}
+        {/* Static hero overlay — replicates /radio's DJImageOverlay layout
+            but with truncation rules instead of scrolling animations.
+            Genres line moves below the DJ name when too long; bio is
+            clamped to 5 lines with ellipsis; everything else is single-
+            line truncate. */}
         <div
-          className="render-mix-overlay absolute inset-0"
-          style={{ bottom: 65 }}
+          className="absolute left-2 right-2 drop-shadow-lg"
+          style={{ bottom: 65 + 8 }}
         >
-          <DJImageOverlay djName={data.djName} djGenres={data.djGenres} djDescription={data.djDescription} />
+          <RenderMixHeroOverlay
+            djName={data.djName}
+            djGenres={data.djGenres}
+            djDescription={data.djDescription}
+          />
         </div>
-        <style jsx global>{`
-          /* Bump DJImageOverlay text ~15% on the YouTube render without
-             forking the shared component. Targets the exact font-size
-             classes baked into DJImageOverlay. Scoped to the render-mix
-             page via the .render-mix-overlay parent class. */
-          .render-mix-overlay .text-xs { font-size: 0.875rem; line-height: 1.25rem; }
-          .render-mix-overlay .text-\\[10px\\] { font-size: 11.5px; }
-          .render-mix-overlay .text-\\[11px\\] { font-size: 12.65px; }
-        `}</style>
 
-        {/* Player bar pinned to bottom of image — same markup as before, just
-            absolute-positioned over the photo instead of below it. */}
+        {/* Player bar pinned to bottom of image. Static rules: show name +
+            DJ name are single-line truncate (no scroll). */}
         <div className="absolute left-0 right-0 bottom-0 bg-black/80 backdrop-blur-sm">
           <div className="flex items-center gap-3 py-2 px-1">
             <div className="flex items-center ml-1 flex-shrink-0">
@@ -208,12 +214,11 @@ function RenderMixInner() {
               </div>
             </div>
             <div className="flex-1 min-w-0">
-              <ScrollingShowName text={data.showName} className="text-sm font-bold leading-tight text-white" />
+              <div className="text-sm font-bold leading-tight text-white truncate">{data.showName}</div>
               {data.djName && (
-                <ScrollingDJName
-                  text={data.djName}
-                  className="text-[10px] text-zinc-500 uppercase mt-0.5 leading-[1.3em]"
-                />
+                <div className="text-[10px] text-zinc-500 uppercase mt-0.5 leading-[1.3em] truncate">
+                  {data.djName}
+                </div>
               )}
             </div>
           </div>
