@@ -90,9 +90,11 @@ interface DJProfile {
   };
   radioShows?: RadioShow[];
   myRecs?: RecItem[];
-  // YouTube consent — default true (opted in). Hides archives from the
-  // /broadcast/admin → YouTube Render tab when set to false.
+  // Sharing consent — both default true (opted in). YouTube hides archives
+  // from /broadcast/admin → YouTube Render when off; Meta is stored only
+  // (no enforcement yet — placeholder for future Instagram/Meta sharing).
   youtubeOptIn?: boolean;
+  metaOptIn?: boolean;
 }
 
 interface RecItem {
@@ -189,6 +191,7 @@ export function StudioProfileClient() {
     radioShows: [],
     myRecs: [],
     youtubeOptIn: true,
+    metaOptIn: true,
   });
 
   // Photo upload state
@@ -586,6 +589,7 @@ export function StudioProfileClient() {
             // so legacy DJ profiles created before this feature are
             // implicitly consenting until they explicitly opt out.
             youtubeOptIn: data.djProfile.youtubeOptIn !== false,
+            metaOptIn: data.djProfile.metaOptIn !== false,
           });
           // Only set input values on initial load to avoid overwriting user edits
           if (initialLoadRef.current) {
@@ -1530,19 +1534,23 @@ export function StudioProfileClient() {
     return () => { if (tipButtonLinkDebounceRef.current) clearTimeout(tipButtonLinkDebounceRef.current); };
   }, [tipButtonLinkInput, saveTipButtonLink]);
 
-  // YouTube consent toggle. Writes immediately (no debounce — single click,
-  // single field). Updates the local state optimistically; onSnapshot
-  // will reconcile.
-  const saveYoutubeOptIn = useCallback(async (optedIn: boolean) => {
-    if (!user || !db) return;
-    setDjProfile((prev) => ({ ...prev, youtubeOptIn: optedIn }));
-    try {
-      const userRef = doc(db, "users", user.uid);
-      await updateDoc(userRef, { "djProfile.youtubeOptIn": optedIn });
-    } catch (error) {
-      console.error("Error saving YouTube consent:", error);
-    }
-  }, [user]);
+  // Sharing consent toggles (YouTube/Google + Instagram/Meta). Writes
+  // immediately (no debounce — single click). Optimistically updates local
+  // state; onSnapshot reconciles. Field names map directly to djProfile
+  // keys: 'youtubeOptIn' or 'metaOptIn'.
+  const saveSharingConsent = useCallback(
+    async (field: 'youtubeOptIn' | 'metaOptIn', optedIn: boolean) => {
+      if (!user || !db) return;
+      setDjProfile((prev) => ({ ...prev, [field]: optedIn }));
+      try {
+        const userRef = doc(db, "users", user.uid);
+        await updateDoc(userRef, { [`djProfile.${field}`]: optedIn });
+      } catch (error) {
+        console.error(`Error saving ${field}:`, error);
+      }
+    },
+    [user]
+  );
 
   // Save name (internal)
   const saveName = useCallback(async (name: string) => {
@@ -2699,27 +2707,36 @@ export function StudioProfileClient() {
             </div>
           </section>
 
-          {/* YouTube consent section. Default = opted in (checked). Hides
-              archives from /broadcast/admin → YouTube Render when unchecked. */}
+          {/* Sharing consent section. Both default = opted in. YouTube
+              opt-out hides archives from /broadcast/admin → YouTube Render;
+              Meta is stored only (placeholder for future enforcement). */}
           <section>
             <h2 className="text-gray-400 text-xs uppercase tracking-wide mb-3">
-              YouTube
+              Sharing
             </h2>
-            <label className="bg-[#1e1e1e] rounded p-4 flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={djProfile.youtubeOptIn !== false}
-                onChange={(e) => saveYoutubeOptIn(e.target.checked)}
-                className="mt-0.5 w-4 h-4 flex-shrink-0 accent-white"
-              />
-              <div className="text-sm text-white leading-snug">
-                I&apos;m OK with my shows&apos; audio and visuals being used on YouTube
-                <p className="text-gray-500 text-xs mt-1">
-                  Channel may use your archived broadcasts to create video uploads on the Channel
-                  YouTube channel. Uncheck to opt out — already-uploaded videos are not affected.
-                </p>
-              </div>
-            </label>
+            <div className="bg-[#1e1e1e] rounded p-4 space-y-3">
+              <p className="text-sm text-white">
+                I&apos;m OK with my shows&apos; audio and visuals being used
+              </p>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={djProfile.youtubeOptIn !== false}
+                  onChange={(e) => saveSharingConsent('youtubeOptIn', e.target.checked)}
+                  className="w-4 h-4 flex-shrink-0 accent-white"
+                />
+                <span className="text-sm text-white">on YouTube and Google platforms</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={djProfile.metaOptIn !== false}
+                  onChange={(e) => saveSharingConsent('metaOptIn', e.target.checked)}
+                  className="w-4 h-4 flex-shrink-0 accent-white"
+                />
+                <span className="text-sm text-white">on Instagram and Meta platforms</span>
+              </label>
+            </div>
           </section>
 
           {/* Profile Photo section */}
