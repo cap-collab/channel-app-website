@@ -276,6 +276,7 @@ export interface ArchiveDJ {
   genres?: string[];           // DJ genres (for genre matching)
   location?: string;           // DJ city/location (for city matching)
   bio?: string;                // DJ bio snapshot from djProfile.bio at archive-creation time
+  tipButtonLink?: string;      // Tip/support URL — live-enriched by /api/archives from djProfile.tipButtonLink
 }
 
 // Archive priority (admin-only field, not exposed in public API)

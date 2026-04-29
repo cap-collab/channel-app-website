@@ -37,6 +37,8 @@ type CreateJobBody = {
   recordingUrl: string;
   durationSec: number;
   recordedAt: number | null;
+  djUsername: string | null;
+  tipButtonLink: string | null;
   renderData: RenderData;
 };
 
@@ -67,6 +69,9 @@ function validateBody(raw: unknown): CreateJobBody | { error: string } {
     recordingUrl: b.recordingUrl,
     durationSec: b.durationSec,
     recordedAt: typeof b.recordedAt === 'number' ? b.recordedAt : null,
+    djUsername: typeof b.djUsername === 'string' && b.djUsername.length > 0 ? b.djUsername : null,
+    tipButtonLink:
+      typeof b.tipButtonLink === 'string' && b.tipButtonLink.length > 0 ? b.tipButtonLink : null,
     renderData: {
       showName: rd.showName,
       djName: rd.djName,
@@ -102,6 +107,8 @@ export async function POST(request: NextRequest) {
     recordingUrl: validated.recordingUrl,
     durationSec: validated.durationSec,
     recordedAt: validated.recordedAt,
+    djUsername: validated.djUsername,
+    tipButtonLink: validated.tipButtonLink,
     renderData: validated.renderData,
     status: 'queued',
     progressPct: 0,

@@ -19,6 +19,11 @@ type RenderJob = {
     djDescription: string | null;
     sceneSlug: string | null;
   };
+  // Description-only metadata. Worker doesn't read these — they exist
+  // solely so the admin tab can build the YouTube title + description
+  // text on the Done jobs panel.
+  djUsername?: string | null;
+  tipButtonLink?: string | null;
   status: 'queued' | 'rendering' | 'done' | 'failed';
   progressPct?: number;
   outputUrl?: string;
@@ -170,6 +175,11 @@ export function YouTubeRenderTab() {
           recordingUrl: selected.recordingUrl,
           durationSec: selected.duration,
           recordedAt: selected.recordedAt ?? null,
+          // Description-metadata (not used by the worker; only by the admin
+          // tab's Copy-description button). Pulled from /api/archives which
+          // live-enriches both fields from djProfile at request time.
+          djUsername: selected.djs[0]?.username ?? null,
+          tipButtonLink: selected.djs[0]?.tipButtonLink ?? null,
           renderData: {
             showName: edit.showName,
             djName: edit.djName,
@@ -371,9 +381,15 @@ function DoneJobActions({ job }: { job: RenderJob }) {
   const monthYear = recordedAt.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const title = `${djNameDisplay} – ${showNameDisplay} (Live DJ Set) | ${monthYear}`;
 
-  // Description format: title line + 1-line genre summary, links section,
-  // section break, bio paragraph, hashtags. Falls back to an auto-generated
-  // bio when the archive doesn't carry one.
+  // username + tipButtonLink come from the job doc (snapshotted at submission
+  // time from /api/archives, which live-enriches both from djProfile). Older
+  // jobs from before this was wired won't have them — we just omit those
+  // lines for those.
+  const djUsername = job.djUsername
+    ? job.djUsername.replace(/\s+/g, '').toLowerCase()
+    : null;
+  const tipButtonLink = job.tipButtonLink || null;
+
   const genres = (job.renderData.djGenres || []).filter((g) => typeof g === 'string' && g.length > 0);
   const primaryGenre = genres[0] || '';
   const genreSentence = primaryGenre
@@ -391,6 +407,11 @@ function DoneJobActions({ job }: { job: RenderJob }) {
     '#djset',
     '#liveradio',
   ].join(' ');
+  // Tip line if DJ has set one; learn-more line if we have a username.
+  const extraLinks = [
+    tipButtonLink ? `→ To support ${djNameDisplay}: ${tipButtonLink}` : null,
+    djUsername ? `→ Learn more about ${djNameDisplay}: https://channel-app.com/dj/${djUsername}` : null,
+  ].filter(Boolean);
   const description = [
     title,
     genreSentence,
@@ -401,6 +422,7 @@ function DoneJobActions({ job }: { job: RenderJob }) {
     '—',
     '',
     bioParagraph,
+    ...(extraLinks.length > 0 ? ['', ...extraLinks] : []),
     '',
     hashtags,
   ].join('\n');
