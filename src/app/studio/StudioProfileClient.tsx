@@ -90,6 +90,9 @@ interface DJProfile {
   };
   radioShows?: RadioShow[];
   myRecs?: RecItem[];
+  // YouTube consent — default true (opted in). Hides archives from the
+  // /broadcast/admin → YouTube Render tab when set to false.
+  youtubeOptIn?: boolean;
 }
 
 interface RecItem {
@@ -185,6 +188,7 @@ export function StudioProfileClient() {
     socialLinks: {},
     radioShows: [],
     myRecs: [],
+    youtubeOptIn: true,
   });
 
   // Photo upload state
@@ -578,6 +582,10 @@ export function StudioProfileClient() {
             socialLinks: data.djProfile.socialLinks || {},
             radioShows: data.djProfile.radioShows || [],
             myRecs: Array.isArray(data.djProfile.myRecs) ? data.djProfile.myRecs : [],
+            // Default to true (opted in) when the field doesn't exist yet,
+            // so legacy DJ profiles created before this feature are
+            // implicitly consenting until they explicitly opt out.
+            youtubeOptIn: data.djProfile.youtubeOptIn !== false,
           });
           // Only set input values on initial load to avoid overwriting user edits
           if (initialLoadRef.current) {
@@ -1521,6 +1529,20 @@ export function StudioProfileClient() {
     tipButtonLinkDebounceRef.current = setTimeout(() => saveTipButtonLink(tipButtonLinkInput), 1000);
     return () => { if (tipButtonLinkDebounceRef.current) clearTimeout(tipButtonLinkDebounceRef.current); };
   }, [tipButtonLinkInput, saveTipButtonLink]);
+
+  // YouTube consent toggle. Writes immediately (no debounce — single click,
+  // single field). Updates the local state optimistically; onSnapshot
+  // will reconcile.
+  const saveYoutubeOptIn = useCallback(async (optedIn: boolean) => {
+    if (!user || !db) return;
+    setDjProfile((prev) => ({ ...prev, youtubeOptIn: optedIn }));
+    try {
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, { "djProfile.youtubeOptIn": optedIn });
+    } catch (error) {
+      console.error("Error saving YouTube consent:", error);
+    }
+  }, [user]);
 
   // Save name (internal)
   const saveName = useCallback(async (name: string) => {
@@ -2675,6 +2697,29 @@ export function StudioProfileClient() {
                 </div>
               )}
             </div>
+          </section>
+
+          {/* YouTube consent section. Default = opted in (checked). Hides
+              archives from /broadcast/admin → YouTube Render when unchecked. */}
+          <section>
+            <h2 className="text-gray-400 text-xs uppercase tracking-wide mb-3">
+              YouTube
+            </h2>
+            <label className="bg-[#1e1e1e] rounded p-4 flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={djProfile.youtubeOptIn !== false}
+                onChange={(e) => saveYoutubeOptIn(e.target.checked)}
+                className="mt-0.5 w-4 h-4 flex-shrink-0 accent-white"
+              />
+              <div className="text-sm text-white leading-snug">
+                I&apos;m OK with my shows&apos; audio and visuals being used on YouTube
+                <p className="text-gray-500 text-xs mt-1">
+                  Channel may use your archived broadcasts to create video uploads on the Channel
+                  YouTube channel. Uncheck to opt out — already-uploaded videos are not affected.
+                </p>
+              </div>
+            </label>
           </section>
 
           {/* Profile Photo section */}

@@ -99,6 +99,46 @@ export async function POST(request: NextRequest) {
   const db = getAdminDb();
   if (!db) return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
 
+  // Consent check: refuse to render if the primary DJ has explicitly
+  // opted out (djProfile.youtubeOptIn === false). Absence of the field
+  // means opted-in by default. Look up the archive doc to find the DJ,
+  // then the user doc to read the live djProfile (matches the picker's
+  // filter, which uses /api/archives's live enrichment).
+  try {
+    const archiveSnap = await db.collection('archives').doc(validated.archiveId).get();
+    if (!archiveSnap.exists) {
+      return NextResponse.json({ error: 'Archive not found' }, { status: 404 });
+    }
+    const archiveData = archiveSnap.data() || {};
+    const primaryDj = (archiveData.djs as Array<{ userId?: string; username?: string }> | undefined)?.[0];
+    let optedIn = true;
+    if (primaryDj?.userId) {
+      const userSnap = await db.collection('users').doc(primaryDj.userId).get();
+      if (userSnap.exists && userSnap.data()?.djProfile?.youtubeOptIn === false) {
+        optedIn = false;
+      }
+    } else if (primaryDj?.username) {
+      const normalized = primaryDj.username.replace(/[\s-]+/g, '').toLowerCase();
+      const userQ = await db
+        .collection('users')
+        .where('chatUsernameNormalized', '==', normalized)
+        .limit(1)
+        .get();
+      if (!userQ.empty && userQ.docs[0].data()?.djProfile?.youtubeOptIn === false) {
+        optedIn = false;
+      }
+    }
+    if (!optedIn) {
+      return NextResponse.json(
+        { error: 'This DJ has opted out of YouTube renders.' },
+        { status: 403 }
+      );
+    }
+  } catch (err) {
+    console.error('[youtube-render/jobs] Consent check failed:', err);
+    return NextResponse.json({ error: 'Failed to verify DJ consent' }, { status: 500 });
+  }
+
   const now = Date.now();
   const docRef = db.collection('youtube-render-jobs').doc();
   await docRef.set({

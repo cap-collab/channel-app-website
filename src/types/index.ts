@@ -90,6 +90,11 @@ export interface UserDocument {
     tipButtonLink: string | null;
     photoUrl: string | null;
     sceneIds?: string[];
+    // YouTube consent. Default true (opted-in) — DJs can uncheck the
+    // "I'm OK with my shows being used on YouTube" box on /studio to set
+    // this to false, which hides their archives from the YouTube Render
+    // tab and blocks future renders. Existing renders are not affected.
+    youtubeOptIn?: boolean;
   };
   // Recording quota tracking (for self-service recording feature)
   recordingQuota?: {

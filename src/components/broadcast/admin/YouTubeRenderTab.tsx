@@ -127,15 +127,33 @@ export function YouTubeRenderTab() {
     return () => clearInterval(interval);
   }, [fetchArchives, fetchJobs]);
 
+  // archiveIds that already have a non-failed render job (queued, rendering,
+  // or done). Failed jobs are NOT counted — if a render failed, the archive
+  // should still appear in the picker so the admin can retry.
+  const blockedArchiveIds = useMemo(() => {
+    const blocked = new Set<string>();
+    for (const j of jobs) {
+      if (j.status === 'failed') continue;
+      if (j.archiveId) blocked.add(j.archiveId);
+    }
+    return blocked;
+  }, [jobs]);
+
   const filteredArchives = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return archives;
     return archives.filter((a) => {
+      // Hide archives where the primary DJ explicitly opted out.
+      // Absence of the field = opted in (default).
+      if (a.djs[0]?.youtubeOptIn === false) return false;
+      // Hide archives that already have a render in flight or finished.
+      if (blockedArchiveIds.has(a.id)) return false;
+      // Search filter (no query = show all remaining).
+      if (!q) return true;
       if (a.showName.toLowerCase().includes(q)) return true;
       if (a.djs.some((d) => d.name?.toLowerCase().includes(q))) return true;
       return false;
     });
-  }, [archives, search]);
+  }, [archives, search, blockedArchiveIds]);
 
   const handleSelect = (archive: ArchiveSerialized) => {
     setSelected(archive);

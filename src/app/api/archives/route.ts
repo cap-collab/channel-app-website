@@ -14,6 +14,7 @@ interface DJInfo {
   location?: string;
   bio?: string;
   tipButtonLink?: string;
+  youtubeOptIn?: boolean;
 }
 
 export async function GET(request: Request) {
@@ -169,6 +170,7 @@ export async function GET(request: Request) {
       location?: string;
       bio?: string;
       tipButtonLink?: string;
+      youtubeOptIn?: boolean;
     };
     const djProfileByUserId = new Map<string, DJProfileSlice>();
     const djProfileByUsername = new Map<string, DJProfileSlice>();
@@ -179,11 +181,16 @@ export async function GET(request: Request) {
       const location = profile.location;
       const bio = profile.bio;
       const tipButtonLink = profile.tipButtonLink;
+      const youtubeOptIn = profile.youtubeOptIn;
       const slice: DJProfileSlice = {};
       if (Array.isArray(genres) && genres.length > 0) slice.genres = genres as string[];
       if (typeof location === 'string' && location) slice.location = location;
       if (typeof bio === 'string' && bio.trim().length > 0) slice.bio = bio;
       if (typeof tipButtonLink === 'string' && tipButtonLink.trim().length > 0) slice.tipButtonLink = tipButtonLink;
+      // Only carry the flag when explicitly false (DJ opted out). When the
+      // field is true/undefined, we leave it off the slice — the consumer
+      // treats absence as "opted in" by default.
+      if (youtubeOptIn === false) slice.youtubeOptIn = false;
       return Object.keys(slice).length > 0 ? slice : null;
     };
 
@@ -237,6 +244,21 @@ export async function GET(request: Request) {
           }
           if (!enriched.location && profileData.location) {
             enriched = { ...enriched, location: profileData.location };
+          }
+          // Live enrichment: profile values win for bio + tipButtonLink
+          // since the DJ may have updated them after the archive was
+          // recorded (the archive's snapshot is a fallback, not truth).
+          if (profileData.bio) {
+            enriched = { ...enriched, bio: profileData.bio };
+          }
+          if (profileData.tipButtonLink) {
+            enriched = { ...enriched, tipButtonLink: profileData.tipButtonLink };
+          }
+          // youtubeOptIn is only carried through when explicitly false
+          // (DJ opted out). Absence = opted in by default. Always honor
+          // the live value — the DJ may have changed their mind.
+          if (profileData.youtubeOptIn === false) {
+            enriched = { ...enriched, youtubeOptIn: false };
           }
         }
         return enriched;

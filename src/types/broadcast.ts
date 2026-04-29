@@ -277,6 +277,7 @@ export interface ArchiveDJ {
   location?: string;           // DJ city/location (for city matching)
   bio?: string;                // DJ bio snapshot from djProfile.bio at archive-creation time
   tipButtonLink?: string;      // Tip/support URL — live-enriched by /api/archives from djProfile.tipButtonLink
+  youtubeOptIn?: boolean;      // YouTube consent (default true) — live-enriched from djProfile.youtubeOptIn; false = hide archive from YouTube Render
 }
 
 // Archive priority (admin-only field, not exposed in public API)
