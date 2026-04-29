@@ -50,17 +50,17 @@ function DJGearGuide() {
     <div className="space-y-6">
       {/* Step 0 */}
       <div className="pb-6 border-b border-gray-800">
-        <h3 className="text-white font-medium mb-2">0. Using an audio interface?</h3>
+        <h3 className="text-white font-medium mb-2">0. Set up your audio interface</h3>
         <p className="text-gray-400 text-sm">
-          Usually we need the input from the controller/mixer to plug in to the front of the audio interface.
+          Usually we need the output from the controller/mixer to plug in to the front of the audio interface (input).
         </p>
       </div>
 
       {/* Step 1 */}
       <div className="pb-6 border-b border-gray-800">
-        <h3 className="text-white font-medium mb-2">1. Connect your computer to your gear via USB</h3>
+        <h3 className="text-white font-medium mb-2">1. Connect your computer to your audio interface via USB</h3>
         <p className="text-gray-400 text-sm">
-          Use a USB cable to connect your mixer/controller or audio interface to your computer.
+          Use a USB cable to connect your audio interface to your computer.
         </p>
       </div>
 

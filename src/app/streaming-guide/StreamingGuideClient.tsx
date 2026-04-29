@@ -117,7 +117,7 @@ export function StreamingGuideClient() {
                   onClick={() => handlePickOption('dj-gear')}
                   className="w-full text-left p-4 bg-[#1a1a1a] border border-gray-800 rounded-xl hover:border-gray-600 transition-colors"
                 >
-                  <p className="text-white font-medium">DJ Gear with USB</p>
+                  <p className="text-white font-medium">Simple audio interface</p>
                   <p className="text-gray-400 text-sm mt-1">
                     Your mixer, controller, or audio interface connects via USB
                   </p>
@@ -128,9 +128,9 @@ export function StreamingGuideClient() {
                   onClick={() => handlePickOption('need-interface')}
                   className="w-full text-left p-4 bg-[#1a1a1a] border border-gray-800 rounded-xl hover:border-gray-600 transition-colors"
                 >
-                  <p className="text-white font-medium">Audio Gear (no USB)</p>
+                  <p className="text-white font-medium">No Audio Interface</p>
                   <p className="text-gray-400 text-sm mt-1">
-                    You need an audio interface to connect your gear
+                    You need an audio interface. There is no workaround. Especially if you have a multi channel mixer
                   </p>
                 </button>
 
@@ -141,7 +141,7 @@ export function StreamingGuideClient() {
                 >
                   <p className="text-white font-medium">Computer Audio</p>
                   <p className="text-gray-400 text-sm mt-1">
-                    Stream from Spotify, browser, or other apps
+                    Stream from Ableton, computer, or other apps
                   </p>
                 </button>
               </div>
@@ -149,7 +149,7 @@ export function StreamingGuideClient() {
               {/* Support contact */}
               <div className="pt-6 border-t border-gray-800">
                 <p className="text-gray-500 text-sm">
-                  Not sure? Contact{' '}
+                  Not sure? Contact Cap at{' '}
                   <a
                     href="mailto:support@channel-app.com"
                     className="text-white underline hover:text-gray-300"
@@ -170,7 +170,7 @@ export function StreamingGuideClient() {
               <InfoCard
                 type="warning"
                 title="You need an audio interface"
-                message="There is no workaround."
+                message="There is no workaround. Especially if you have a multi channel mixer."
                 isVisible={true}
                 actionLabel="Continue to setup"
                 onAction={handleContinueToGuide}
