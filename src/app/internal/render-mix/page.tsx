@@ -216,7 +216,7 @@ function RenderMixInner() {
             <div className="flex-1 min-w-0">
               <div className="text-sm font-bold leading-tight text-white truncate">{data.showName}</div>
               {data.djName && (
-                <div className="text-[10px] text-zinc-500 uppercase mt-0.5 leading-[1.3em] truncate">
+                <div className="text-[10px] text-zinc-500 mt-0.5 leading-[1.3em] truncate">
                   {data.djName}
                 </div>
               )}
