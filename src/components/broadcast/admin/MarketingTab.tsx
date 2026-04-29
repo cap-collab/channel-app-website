@@ -5,7 +5,6 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
 import { ShareableShowCardStory } from '@/components/studio/ShareableShowCardStory';
-import { ShareableMultiShowStory, MultiShowEntry } from '@/components/studio/ShareableMultiShowStory';
 import { extractInstagramHandle } from '@/lib/genres';
 
 interface MarketingTabProps {
@@ -18,6 +17,10 @@ interface DJInfo {
   genres?: string[];
   description?: string;
   instagram?: string; // raw value from profile (URL or handle)
+  // metaOptIn=false means the DJ opted out of having their show image used
+  // for Instagram/Meta marketing. Marketing tab hides the image and shows
+  // a notice instead. Absence of the field = opted in (default).
+  metaOptIn?: boolean;
 }
 
 type DJInfoCache = Record<string, DJInfo>;
@@ -236,6 +239,7 @@ export function MarketingTab({ slots }: MarketingTabProps) {
               genres: djProfile.genres || undefined,
               description: djProfile.bio || undefined,
               instagram: djProfile.socialLinks?.instagram || undefined,
+              metaOptIn: djProfile.metaOptIn === false ? false : true,
             };
             return slotIds.map(id => [id, info] as const);
           }
@@ -318,46 +322,27 @@ export function MarketingTab({ slots }: MarketingTabProps) {
     );
   }
 
-  // Start of "tomorrow" — daily story only renders for tomorrow and day-after-tomorrow
-  const startOfTomorrow = (() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d.getTime() + 86400_000;
-  })();
-
   return (
     <div>
       {groupedByDay.map(([dayLabel, daySlots]) => {
-        const dayStart = daySlots[0] ? new Date(daySlots[0].startTime) : null;
-        dayStart?.setHours(0, 0, 0, 0);
-        const isTomorrowOrLater = dayStart ? dayStart.getTime() >= startOfTomorrow : false;
-
-        const multiShowEntries: MultiShowEntry[] = daySlots
-          .filter(s => s.broadcastType !== 'restream')
-          .map(s => {
-            const cp = getCardProps(s, djInfoCache);
-            return {
-              showName: cp.showName,
-              djName: cp.djName,
-              startTime: s.startTime,
-              endTime: s.endTime,
-              imageUrl: cp.imageUrl,
-              genres: cp.genres,
-            };
-          });
-
-        const weekdayOnly = dayLabel.split(',')[0];
+        // List DJs in this day's slots who opted out of Instagram/Meta
+        // sharing. Surface a heads-up at the top of the day so admin
+        // doesn't accidentally use one of those shows in a daily roundup
+        // composed elsewhere.
+        const optedOutDjs = daySlots
+          .filter((s) => djInfoCache[s.id]?.metaOptIn === false)
+          .map((s) => s.djName)
+          .filter((n): n is string => !!n);
 
         return (
         <div key={dayLabel} className="mb-10">
           <h2 className="text-lg font-bold text-white mb-4 border-b border-gray-800 pb-2">
             {dayLabel}
           </h2>
-          {isTomorrowOrLater && multiShowEntries.length > 0 && (
-            <div className="mb-6 max-w-sm">
-              <p className="text-xs text-gray-500 mb-1">Daily story — all {multiShowEntries.length} show{multiShowEntries.length === 1 ? '' : 's'}</p>
-              <ShareableMultiShowStory shows={multiShowEntries} dayLabel={weekdayOnly} />
-            </div>
+          {optedOutDjs.length > 0 && (
+            <p className="text-xs text-yellow-400/80 mb-4">
+              Opted out of Meta sharing: {optedOutDjs.join(', ')}
+            </p>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {daySlots.map(slot => {
@@ -369,12 +354,18 @@ export function MarketingTab({ slots }: MarketingTabProps) {
               });
               const isRestream = slot.broadcastType === 'restream';
               const igHandles = isRestream ? [] : getInstagramHandles(slot, slotIgCache, djInfoCache);
+              const djOptedOut = djInfoCache[slot.id]?.metaOptIn === false;
               return (
                 <div key={slot.id}>
                   <p className="text-xs text-gray-500 mb-1">{timeStr} &middot; {slot.broadcastType}</p>
                   {isRestream ? (
                     <p className="text-xs text-gray-600 italic py-3">
                       {slot.showName || 'Restream'} — no marketing assets for restreams
+                    </p>
+                  ) : djOptedOut ? (
+                    <p className="text-xs text-yellow-400/80 italic py-3">
+                      {slot.showName || cardProps.djName} — DJ opted out of Meta sharing,
+                      no show image rendered
                     </p>
                   ) : (
                     <>
