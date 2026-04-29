@@ -13,6 +13,7 @@ interface DJInfo {
   genres?: string[];
   location?: string;
   bio?: string;
+  tipButtonLink?: string;
 }
 
 export async function GET(request: Request) {
@@ -163,8 +164,28 @@ export async function GET(request: Request) {
       }
     }
 
-    const djProfileByUserId = new Map<string, { genres?: string[]; location?: string }>();
-    const djProfileByUsername = new Map<string, { genres?: string[]; location?: string }>();
+    type DJProfileSlice = {
+      genres?: string[];
+      location?: string;
+      bio?: string;
+      tipButtonLink?: string;
+    };
+    const djProfileByUserId = new Map<string, DJProfileSlice>();
+    const djProfileByUsername = new Map<string, DJProfileSlice>();
+
+    const sliceProfile = (profile: Record<string, unknown> | undefined): DJProfileSlice | null => {
+      if (!profile) return null;
+      const genres = profile.genres;
+      const location = profile.location;
+      const bio = profile.bio;
+      const tipButtonLink = profile.tipButtonLink;
+      const slice: DJProfileSlice = {};
+      if (Array.isArray(genres) && genres.length > 0) slice.genres = genres as string[];
+      if (typeof location === 'string' && location) slice.location = location;
+      if (typeof bio === 'string' && bio.trim().length > 0) slice.bio = bio;
+      if (typeof tipButtonLink === 'string' && tipButtonLink.trim().length > 0) slice.tipButtonLink = tipButtonLink;
+      return Object.keys(slice).length > 0 ? slice : null;
+    };
 
     // Batch fetch by userId
     if (userIdsForGenres.size > 0) {
@@ -174,15 +195,8 @@ export async function GET(request: Request) {
         const batch = userIds.slice(i, i + batchSize);
         const snap = await db.collection('users').where('__name__', 'in', batch).get();
         for (const doc of snap.docs) {
-          const profile = doc.data()?.djProfile;
-          const genres = profile?.genres;
-          const location = profile?.location;
-          if ((Array.isArray(genres) && genres.length > 0) || location) {
-            djProfileByUserId.set(doc.id, {
-              genres: Array.isArray(genres) && genres.length > 0 ? genres : undefined,
-              location: location || undefined,
-            });
-          }
+          const slice = sliceProfile(doc.data()?.djProfile);
+          if (slice) djProfileByUserId.set(doc.id, slice);
         }
       }
     }
@@ -195,16 +209,9 @@ export async function GET(request: Request) {
         const batch = usernames.slice(i, i + batchSize);
         const snap = await db.collection('users').where('chatUsernameNormalized', 'in', batch).get();
         for (const doc of snap.docs) {
-          const profile = doc.data()?.djProfile;
-          const genres = profile?.genres;
-          const location = profile?.location;
+          const slice = sliceProfile(doc.data()?.djProfile);
           const normalized = doc.data()?.chatUsernameNormalized;
-          if (normalized && ((Array.isArray(genres) && genres.length > 0) || location)) {
-            djProfileByUsername.set(normalized, {
-              genres: Array.isArray(genres) && genres.length > 0 ? genres : undefined,
-              location: location || undefined,
-            });
-          }
+          if (normalized && slice) djProfileByUsername.set(normalized, slice);
         }
       }
     }
