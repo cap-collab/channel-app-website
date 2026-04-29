@@ -386,10 +386,14 @@ function DoneJobActions({ job }: { job: RenderJob }) {
     : null;
   const tipButtonLink = job.tipButtonLink || null;
 
+  // Genre is sentence-cased ("Ambient set recorded live for Channel.")
+  // since it leads a sentence — DJ name and show name keep their original
+  // casing (per Cap), but the genre word here is grammatical, not a name.
+  const capitalizeFirst = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
   const genres = (job.renderData.djGenres || []).filter((g) => typeof g === 'string' && g.length > 0);
   const primaryGenre = genres[0] || '';
   const genreSentence = primaryGenre
-    ? `${primaryGenre} set recorded live for Channel.`
+    ? `${capitalizeFirst(primaryGenre)} set recorded live for Channel.`
     : `Live set recorded for Channel.`;
   const bioParagraph =
     job.renderData.djDescription?.trim() ||
