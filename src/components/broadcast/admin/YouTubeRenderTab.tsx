@@ -142,6 +142,9 @@ export function YouTubeRenderTab() {
   const filteredArchives = useMemo(() => {
     const q = search.trim().toLowerCase();
     return archives.filter((a) => {
+      // Hide archives shorter than 25 minutes — too short to be worth a
+      // YouTube upload and likely test/aborted recordings.
+      if ((a.duration || 0) < 25 * 60) return false;
       // Hide archives where the primary DJ explicitly opted out.
       // Absence of the field = opted in (default).
       if (a.djs[0]?.youtubeOptIn === false) return false;
