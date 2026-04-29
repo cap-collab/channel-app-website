@@ -17,7 +17,7 @@ export default function DJTermsPage() {
       <p className="last-updated">
         Channel Media, Inc.
         <br />
-        Last updated: March 2026
+        Last updated: April 2026
       </p>
 
       <h2>1. Purpose &amp; Scope</h2>
@@ -96,6 +96,10 @@ export default function DJTermsPage() {
         <li>you comply with applicable laws in your jurisdiction</li>
       </ul>
       <p>Channel does not obtain licenses on your behalf and does not verify your rights.</p>
+      <p>
+        You grant Channel the rights described in Section 12 solely to the extent necessary to
+        operate, distribute, and promote the platform and its content.
+      </p>
 
       <h2>5. Venue Authorization (Critical)</h2>
       <p>If you broadcast from a venue, you represent and warrant that:</p>
@@ -200,7 +204,7 @@ export default function DJTermsPage() {
       </ul>
       <p>You are responsible for readiness.</p>
 
-      <h2>12. Recording of Broadcasts</h2>
+      <h2>12. Recording, Distribution &amp; Promotion of Broadcasts</h2>
       <p>All broadcasts are recorded by default.</p>
       <p>You grant Channel a:</p>
       <ul>
@@ -208,13 +212,35 @@ export default function DJTermsPage() {
         <li>worldwide</li>
         <li>royalty-free license</li>
       </ul>
-      <p>to record, store, and distribute your broadcasts for:</p>
+      <p>
+        to record, store, reproduce, distribute, publicly perform, and display your broadcasts
+        and related content for:
+      </p>
       <ul>
-        <li>playback</li>
-        <li>promotion</li>
-        <li>moderation</li>
-        <li>product improvement</li>
+        <li>playback and on-demand access</li>
+        <li>promotion of Channel and its artists</li>
+        <li>moderation and safety</li>
+        <li>product development and improvement</li>
       </ul>
+      <p>
+        This includes distribution and promotion on third-party platforms, including but not
+        limited to YouTube, Instagram, and similar services.
+      </p>
+      <p>This may include:</p>
+      <ul>
+        <li>full-length recordings or excerpts (e.g., clips, highlights)</li>
+        <li>use of artist name, profile information, and associated metadata</li>
+        <li>
+          use of visuals provided by the artist or associated with a broadcast (e.g., profile
+          images, show artwork)
+        </li>
+        <li>use in organic posts and paid promotional campaigns</li>
+      </ul>
+      <p>Channel will make reasonable efforts to credit artists where appropriate.</p>
+      <p>
+        Artists may request removal of specific content or opt out of certain uses by contacting
+        Channel.
+      </p>
       <p>Recordings may be removed if your account is removed.</p>
 
       <h2>13. No Payments or Financial Services</h2>
