@@ -703,7 +703,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 <div className="flex-1 min-w-0">
                   <ScrollingShowName text={displayedArchive.showName} className="text-sm font-bold leading-tight text-white" />
                   {displayedArchive.djs && (
-                    <ScrollingDJName text={displayedArchive.djs.map((d) => d.name).join(', ')} className="text-[10px] text-zinc-500 uppercase mt-0.5 leading-[1.3em]" />
+                    <ScrollingDJName text={displayedArchive.djs.map((d) => d.name).join(', ')} className="text-[10px] text-zinc-500 mt-0.5 leading-[1.3em]" />
                   )}
                 </div>
                 {(() => {

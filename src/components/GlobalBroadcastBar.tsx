@@ -212,7 +212,7 @@ export function GlobalBroadcastBar() {
           <Link href="/radio#live" className="flex-1 min-w-0">
             <ScrollingShowName text={showName || 'Live Now'} className="text-sm font-bold leading-tight text-white" />
             {djName && (
-              <ScrollingDJName text={djName} className="text-[10px] text-zinc-500 uppercase mt-0.5 leading-[1.3em]" />
+              <ScrollingDJName text={djName} className="text-[10px] text-zinc-500 mt-0.5 leading-[1.3em]" />
             )}
           </Link>
 
