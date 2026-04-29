@@ -367,15 +367,11 @@ function DoneJobActions({ job }: { job: RenderJob }) {
 
   // Title format: "<DJ> – <Show> (Live DJ Set) | <Month YYYY>"
   // Note the en-dash (–) not a hyphen — matches Cap's house style.
-  // Names are Title-Cased for YouTube even though the underlying data is
-  // lowercase (matches /radio's stylistic look but reads better on YT).
-  const titleCase = (s: string) =>
-    s
-      .split(' ')
-      .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
-      .join(' ');
-  const djNameDisplay = titleCase(job.renderData.djName);
-  const showNameDisplay = titleCase(job.renderData.showName);
+  // Names are kept exactly as the DJ/admin entered them — no case
+  // normalization, since lowercase is part of /radio's stylistic look
+  // and Cap wants the same treatment carried over to YouTube.
+  const djNameDisplay = job.renderData.djName;
+  const showNameDisplay = job.renderData.showName;
 
   const recordedAt = new Date(job.createdAt);
   const monthYear = recordedAt.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -393,7 +389,7 @@ function DoneJobActions({ job }: { job: RenderJob }) {
   const genres = (job.renderData.djGenres || []).filter((g) => typeof g === 'string' && g.length > 0);
   const primaryGenre = genres[0] || '';
   const genreSentence = primaryGenre
-    ? `${titleCase(primaryGenre)} set recorded live for Channel.`
+    ? `${primaryGenre} set recorded live for Channel.`
     : `Live set recorded for Channel.`;
   const bioParagraph =
     job.renderData.djDescription?.trim() ||
