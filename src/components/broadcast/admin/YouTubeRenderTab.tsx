@@ -355,19 +355,55 @@ function StatusBadge({ status, progressPct }: { status: RenderJob['status']; pro
 function DoneJobActions({ job }: { job: RenderJob }) {
   const [copied, setCopied] = useState<'title' | 'description' | null>(null);
 
-  const title = `${job.renderData.showName} — ${job.renderData.djName} | Channel Radio`;
-  const dateStr = new Date(job.createdAt).toISOString().slice(0, 10);
-  const genres = (job.renderData.djGenres || []).join(', ');
+  // Title format: "<DJ> – <Show> (Live DJ Set) | <Month YYYY>"
+  // Note the en-dash (–) not a hyphen — matches Cap's house style.
+  // Names are Title-Cased for YouTube even though the underlying data is
+  // lowercase (matches /radio's stylistic look but reads better on YT).
+  const titleCase = (s: string) =>
+    s
+      .split(' ')
+      .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+      .join(' ');
+  const djNameDisplay = titleCase(job.renderData.djName);
+  const showNameDisplay = titleCase(job.renderData.showName);
+
+  const recordedAt = new Date(job.createdAt);
+  const monthYear = recordedAt.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const title = `${djNameDisplay} – ${showNameDisplay} (Live DJ Set) | ${monthYear}`;
+
+  // Description format: title line + 1-line genre summary, links section,
+  // section break, bio paragraph, hashtags. Falls back to an auto-generated
+  // bio when the archive doesn't carry one.
+  const genres = (job.renderData.djGenres || []).filter((g) => typeof g === 'string' && g.length > 0);
+  const primaryGenre = genres[0] || '';
+  const genreSentence = primaryGenre
+    ? `${titleCase(primaryGenre)} set recorded live for Channel.`
+    : `Live set recorded for Channel.`;
+  const bioParagraph =
+    job.renderData.djDescription?.trim() ||
+    `${showNameDisplay} is a recurring show by ${djNameDisplay}${
+      genres.length > 0 ? `, focused on ${genres.join(' and ')} music` : ''
+    }.\nBroadcast via Channel.`;
+  // Hashtags: lowercased + spaces stripped per genre, plus baseline tags.
+  const hashtagify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const hashtags = [
+    ...genres.map(hashtagify).filter(Boolean).map((t) => `#${t}`),
+    '#djset',
+    '#liveradio',
+  ].join(' ');
   const description = [
-    `${job.renderData.showName} with ${job.renderData.djName}`,
-    genres ? `Genres: ${genres}` : '',
-    job.renderData.djDescription || '',
+    title,
+    genreSentence,
     '',
-    `Recorded ${dateStr} on Channel Radio.`,
-    `Listen live: https://channel-app.com/radio`,
-  ]
-    .filter(Boolean)
-    .join('\n');
+    `→ Listen to more sets & live radio: https://channel-app.com`,
+    `→ Follow Channel: https://www.instagram.com/channelrad.io/`,
+    '',
+    '—',
+    '',
+    bioParagraph,
+    '',
+    hashtags,
+  ].join('\n');
 
   const copy = async (kind: 'title' | 'description', text: string) => {
     try {
