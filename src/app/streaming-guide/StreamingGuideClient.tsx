@@ -119,7 +119,7 @@ export function StreamingGuideClient() {
                 >
                   <p className="text-white font-medium">Simple audio interface</p>
                   <p className="text-gray-400 text-sm mt-1">
-                    Your mixer, controller, or audio interface connects via USB
+                    You have a simple 1 or 2 channel audio interface
                   </p>
                 </button>
 
@@ -141,7 +141,7 @@ export function StreamingGuideClient() {
                 >
                   <p className="text-white font-medium">Computer Audio</p>
                   <p className="text-gray-400 text-sm mt-1">
-                    Stream from Ableton, computer, or other apps
+                    Stream from Ableton, your browser, or other apps
                   </p>
                 </button>
               </div>
