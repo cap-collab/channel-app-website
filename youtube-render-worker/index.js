@@ -124,6 +124,162 @@ app.post('/start', authenticate, async (req, res) => {
   });
 });
 
+// ─── POST /backfill-soundcloud ───────────────────────────────────────────
+// Generates SoundCloud outputs (1500×1500 cover + lossless .m4a) for a
+// pre-existing 'done' job that was rendered before SoundCloud support
+// existed. Body: { jobId }. Behavior:
+//   - Always regenerates the cover (cheap, ~5s; lets us refresh covers
+//     after layout changes).
+//   - Only generates the m4a if the job doesn't already have one
+//     (avoids re-uploading a multi-hundred-MB file we already have).
+//   - Refuses if the DJ has explicitly opted out of SoundCloud since
+//     the original render — live-reads djProfile.soundcloudOptIn.
+//   - YouTube outputs (outputUrl) are NEVER touched.
+//
+// Synchronous — work is fast enough (~5-15s per job) that the caller can
+// just await the response. If a job is already actively rendering on this
+// worker we 409 to avoid concurrent file writes.
+app.post('/backfill-soundcloud', authenticate, async (req, res) => {
+  const { jobId } = req.body || {};
+  if (!jobId) return res.status(400).json({ error: 'jobId required' });
+  if (activeJobs.has(jobId)) {
+    return res.status(409).json({ error: 'job actively rendering on this worker' });
+  }
+
+  let job;
+  try {
+    const snap = await db.collection('youtube-render-jobs').doc(jobId).get();
+    if (!snap.exists) return res.status(404).json({ error: 'job not found' });
+    job = { id: jobId, ...snap.data() };
+  } catch (err) {
+    return res.status(500).json({ error: `Failed to load job: ${err.message}` });
+  }
+
+  if (job.status !== 'done') {
+    return res.status(400).json({ error: `job status is '${job.status}', expected 'done'` });
+  }
+  if (!job.recordingUrl || !job.renderData) {
+    return res.status(400).json({ error: 'job missing recordingUrl or renderData' });
+  }
+
+  // Live-check SoundCloud consent. Same lookup pattern the API route uses
+  // for /start. If we can't find the user we err on the side of allowing
+  // the backfill (admin manually triggered it; absence ≠ opt-out).
+  try {
+    const archiveSnap = await db.collection('archives').doc(job.archiveId).get();
+    const primaryDj = archiveSnap.exists
+      ? (archiveSnap.data()?.djs || [])[0]
+      : null;
+    let profile = null;
+    if (primaryDj?.userId) {
+      const u = await db.collection('users').doc(primaryDj.userId).get();
+      profile = u.exists ? (u.data()?.djProfile || null) : null;
+    } else if (primaryDj?.username) {
+      const normalized = primaryDj.username.replace(/[\s-]+/g, '').toLowerCase();
+      const q = await db
+        .collection('users')
+        .where('chatUsernameNormalized', '==', normalized)
+        .limit(1)
+        .get();
+      if (!q.empty) profile = q.docs[0].data()?.djProfile || null;
+    }
+    if (profile && profile.soundcloudOptIn === false) {
+      return res
+        .status(403)
+        .json({ error: 'DJ has opted out of SoundCloud — refusing to backfill' });
+    }
+  } catch (err) {
+    console.error(`[${jobId}][backfill] consent lookup failed:`, err);
+    return res.status(500).json({ error: 'consent check failed' });
+  }
+
+  // Setup tempfiles. Reuses the same dir scheme as runJob so the teardown
+  // helper can clean up either way.
+  const dir = join(tmpdir(), `yt-render-${jobId}-backfill`);
+  mkdirSync(dir, { recursive: true });
+  const tempPaths = {
+    dir,
+    webm: join(dir, 'capture.webm'),
+    png: join(dir, 'frame.png'),
+    mp4: join(dir, 'output.mp4'),
+    m4a: join(dir, 'audio.m4a'),
+    coverJpg: join(dir, 'cover.jpg'),
+  };
+  const entry = {
+    browser: null,
+    ffmpegProcess: null,
+    watchdogTimer: null,
+    ffmpegRetryTimer: null,
+    intentionalStop: false,
+    tempPaths,
+    ffmpegAttempts: 0,
+    captureMode: null,
+  };
+  activeJobs.set(jobId, entry);
+
+  // Watchdog: backfill should be quick. 10 minutes is generous.
+  entry.watchdogTimer = setTimeout(() => {
+    console.error(`[${jobId}][backfill] watchdog fired — killing`);
+    teardownJob(jobId, /* intentional */ true);
+  }, 10 * 60 * 1000);
+
+  try {
+    // Always regenerate the cover so layout fixes propagate to old jobs.
+    console.log(`[${jobId}][backfill] capturing 1500×1500 cover`);
+    await captureSquareCover(jobId, entry, job.renderData);
+
+    const updates = {};
+    const filename = buildOutputFilename({
+      archiveSlug: job.archiveSlug,
+      renderData: job.renderData,
+      recordedAt: job.recordedAt,
+    });
+    const baseNoExt = filename.replace(/\.mp4$/i, '');
+
+    const coverFilename = `${baseNoExt}-cover.jpg`;
+    const coverKey = `${R2_OUTPUT_PREFIX}/${coverFilename}`;
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: R2_BUCKET,
+        Key: coverKey,
+        Body: readFileSync(tempPaths.coverJpg),
+        ContentType: 'image/jpeg',
+        ContentDisposition: `attachment; filename="${coverFilename}"`,
+      })
+    );
+    updates.soundcloudImageUrl = `${R2_PUBLIC}/${coverKey}`;
+
+    // Skip m4a if the job already has one. This is the common case for
+    // jobs that ran the new code path once but need a cover refresh.
+    if (!job.soundcloudAudioUrl) {
+      console.log(`[${jobId}][backfill] extracting m4a from ${job.recordingUrl}`);
+      await extractM4a(jobId, entry, job.recordingUrl);
+      const m4aFilename = `${baseNoExt}.m4a`;
+      const m4aKey = `${R2_OUTPUT_PREFIX}/${m4aFilename}`;
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: R2_BUCKET,
+          Key: m4aKey,
+          Body: readFileSync(tempPaths.m4a),
+          ContentType: 'audio/mp4',
+          ContentDisposition: `attachment; filename="${m4aFilename}"`,
+        })
+      );
+      updates.soundcloudAudioUrl = `${R2_PUBLIC}/${m4aKey}`;
+    } else {
+      console.log(`[${jobId}][backfill] m4a already exists — skipping audio`);
+    }
+
+    await db.collection('youtube-render-jobs').doc(jobId).update(updates);
+    res.json({ ok: true, jobId, updates });
+  } catch (err) {
+    console.error(`[${jobId}][backfill] failed:`, err);
+    res.status(500).json({ error: err?.message || 'backfill failed' });
+  } finally {
+    teardownJob(jobId, /* intentional */ false);
+  }
+});
+
 // ─── GET /status ─────────────────────────────────────────────────────────
 // Returns a snapshot of in-flight jobs on THIS worker instance.
 app.get('/status', (req, res) => {

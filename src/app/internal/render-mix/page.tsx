@@ -256,10 +256,18 @@ function RenderMixInner() {
  * min 800×800, recommended 1500–2000px, JPG/PNG. We render at 1500×1500 —
  * worker screenshots → JPG q90 → uploaded to R2 alongside the YouTube mp4.
  *
- * Layout: photo fills the full square as a background; a bottom gradient
- * carries show name (large) + DJ name underneath, plus the CHANNEL logo
- * top-right. No player chrome, no progress bar — the cover is a still
- * frame, not a video thumbnail.
+ * Layout mirrors the YouTube render to feel like the same brand:
+ *   - Show name top-left in the same uppercase-bold style we overlay on
+ *     YouTube (text-base on a scaled reference → effectively ~40px on the
+ *     square frame, matching the YouTube proportions).
+ *   - CHANNEL logo top-right, same offsets as the YouTube render.
+ *   - DJ photo fills the frame; bottom gradient carries DJ name + genres.
+ *   - No player chrome, no progress bar — the cover is a still frame.
+ *
+ * Reuses the same scaled-reference trick the YouTube layout does so the
+ * top-left show-name pill renders at identical proportions to YouTube
+ * (text-base + top-2/left-2 + drop-shadow-lg on a 768-wide reference
+ * scaled up to fill the square).
  */
 function SquareCover({
   data,
@@ -267,49 +275,72 @@ function SquareCover({
   data: RenderData;
 }) {
   const FRAME = 1500;
+  // Same reference width as the YouTube layout (768) so all the in-canvas
+  // text sits at identical Tailwind-scale proportions. SCALE then differs
+  // (square is taller than YouTube's 16:9), but the show-name overlay only
+  // depends on the top-left offset which is invariant under uniform scale.
+  const REFERENCE_WIDTH = 768;
+  const SCALE = FRAME / REFERENCE_WIDTH; // ~1.953×
+  const REFERENCE_HEIGHT = Math.round(FRAME / SCALE); // 768 (square)
   return (
     <div className="bg-black relative overflow-hidden" style={{ width: FRAME, height: FRAME }}>
-      <Image
-        src={data.djPhotoUrl}
-        alt={data.djName}
-        fill
-        className="object-cover"
-        sizes={`${FRAME}px`}
-        priority
-        unoptimized
-      />
-      {/* Strong bottom gradient so the show + DJ name read against any photo. */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/85" />
-      {/* CHANNEL logo top-right, sized proportionally to the larger frame. */}
+      <div
+        style={{
+          width: REFERENCE_WIDTH,
+          height: REFERENCE_HEIGHT,
+          transform: `scale(${SCALE})`,
+          transformOrigin: 'top left',
+        }}
+        className="relative"
+      >
+        {/* DJ photo fills the full frame */}
+        <Image
+          src={data.djPhotoUrl}
+          alt={data.djName}
+          fill
+          className="object-cover"
+          sizes={`${REFERENCE_WIDTH}px`}
+          priority
+          unoptimized
+        />
+        {/* Same gradient stack as the YouTube render — top fade so the
+            show name reads, bottom fade so the DJ name + genres read. */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/85" />
+        {/* Show name top-left — identical to the YouTube overlay
+            (top-2 left-2, text-base, font-bold, uppercase, tracking-wide,
+            drop-shadow-lg). Scales with the rest of the reference content. */}
+        <div className="absolute top-2 left-2 drop-shadow-lg">
+          <span className="text-base font-bold text-white uppercase tracking-wide">{data.showName}</span>
+        </div>
+        {/* Bottom block: DJ name + genres, same hero overlay as YouTube
+            but skipping the bio (covers stay clean — bio belongs in the
+            SoundCloud description). */}
+        <div className="absolute left-2 right-2 bottom-2 drop-shadow-lg">
+          <div className="text-sm font-black uppercase tracking-wider text-white truncate">
+            {data.djName}
+          </div>
+          {data.djGenres.length > 0 && (
+            <div
+              className="font-medium uppercase tracking-[0.15em] text-zinc-300 truncate mt-0.5"
+              style={{ fontSize: '11.5px' }}
+            >
+              {data.djGenres.join(' · ')}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* CHANNEL logo overlay — outside the scaled container so it stays
+          at a fixed pixel size regardless of SCALE. Same offsets and
+          height as the YouTube render. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/logo-white.svg"
         alt="CHANNEL"
-        className="absolute top-10 right-10 drop-shadow-lg"
-        style={{ height: 90 }}
+        className="absolute top-5 right-5 drop-shadow-lg"
+        style={{ height: 60 }}
       />
-      <div className="absolute left-10 right-10 bottom-10 drop-shadow-lg">
-        <div
-          className="font-bold text-white uppercase tracking-wide leading-tight"
-          style={{ fontSize: '64px' }}
-        >
-          {data.showName}
-        </div>
-        <div
-          className="font-black uppercase tracking-wider text-white mt-3"
-          style={{ fontSize: '40px' }}
-        >
-          {data.djName}
-        </div>
-        {data.djGenres.length > 0 && (
-          <div
-            className="font-medium uppercase tracking-[0.15em] text-zinc-300 mt-2 truncate"
-            style={{ fontSize: '22px' }}
-          >
-            {data.djGenres.join(' · ')}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
