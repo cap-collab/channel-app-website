@@ -20,13 +20,21 @@ type RenderJob = {
     sceneSlug: string | null;
   };
   // Description-only metadata. Worker doesn't read these — they exist
-  // solely so the admin tab can build the YouTube title + description
+  // solely so the admin tab can build YouTube + SoundCloud title/description
   // text on the Done jobs panel.
   djUsername?: string | null;
+  djLocation?: string | null;
   tipButtonLink?: string | null;
+  // Per-platform consent snapshots taken at job-creation time. The worker
+  // produces YouTube outputs only when youtubeOptIn !== false, and
+  // SoundCloud outputs only when soundcloudOptIn !== false. Default = true.
+  youtubeOptIn?: boolean;
+  soundcloudOptIn?: boolean;
   status: 'queued' | 'rendering' | 'done' | 'failed';
   progressPct?: number;
-  outputUrl?: string;
+  outputUrl?: string;             // YouTube MP4
+  soundcloudAudioUrl?: string;    // M4A (lossless audio extract)
+  soundcloudImageUrl?: string;    // 1500x1500 cover JPG
   error?: string;
   createdAt: number;
 };
@@ -73,7 +81,7 @@ function archiveToEditState(archive: ArchiveSerialized): EditState {
   };
 }
 
-export function YouTubeRenderTab() {
+export function SocialRenderTab() {
   const [archives, setArchives] = useState<ArchiveSerialized[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -143,11 +151,16 @@ export function YouTubeRenderTab() {
     const q = search.trim().toLowerCase();
     return archives.filter((a) => {
       // Hide archives shorter than 25 minutes — too short to be worth a
-      // YouTube upload and likely test/aborted recordings.
+      // social upload and likely test/aborted recordings.
       if ((a.duration || 0) < 25 * 60) return false;
-      // Hide archives where the primary DJ explicitly opted out.
-      // Absence of the field = opted in (default).
-      if (a.djs[0]?.youtubeOptIn === false) return false;
+      // Hide archives where the primary DJ has opted out of BOTH platforms.
+      // If at least one of YouTube/SoundCloud is opted in, the archive
+      // belongs in the picker (the render produces the relevant outputs
+      // and skips the others). Absence of the field = opted in (default).
+      const dj = a.djs[0];
+      const ytOff = dj?.youtubeOptIn === false;
+      const scOff = dj?.soundcloudOptIn === false;
+      if (ytOff && scOff) return false;
       // Hide archives that already have a render in flight or finished.
       if (blockedArchiveIds.has(a.id)) return false;
       // Search filter (no query = show all remaining).
@@ -197,9 +210,10 @@ export function YouTubeRenderTab() {
           durationSec: selected.duration,
           recordedAt: selected.recordedAt ?? null,
           // Description-metadata (not used by the worker; only by the admin
-          // tab's Copy-description button). Pulled from /api/archives which
-          // live-enriches both fields from djProfile at request time.
+          // tab's Copy-description buttons). Pulled from /api/archives which
+          // live-enriches these from djProfile at request time.
           djUsername: selected.djs[0]?.username ?? null,
+          djLocation: selected.djs[0]?.location ?? null,
           tipButtonLink: selected.djs[0]?.tipButtonLink ?? null,
           renderData: {
             showName: edit.showName,
@@ -280,7 +294,7 @@ export function YouTubeRenderTab() {
                     </div>
                     <StatusBadge status={j.status} progressPct={j.progressPct} />
                   </div>
-                  {j.status === 'done' && j.outputUrl && <DoneJobActions job={j} />}
+                  {j.status === 'done' && <DoneJobActions job={j} />}
                   {j.status === 'failed' && j.error && (
                     <div className="mt-2 text-red-400 text-xs">{j.error}</div>
                   )}
@@ -378,34 +392,37 @@ function StatusBadge({ status, progressPct }: { status: RenderJob['status']; pro
 }
 
 /**
- * Action row shown under a completed render: Download (uses Cloudflare R2's
- * Content-Disposition: attachment so the browser saves with the YouTube-
- * friendly filename the worker set), plus Copy-title and Copy-description
- * buttons that put YouTube-ready text on the clipboard.
+ * Action rows shown under a completed render. One row per platform the DJ
+ * opted into. Each row has Download (R2 sets Content-Disposition: attachment
+ * so the browser saves the file) plus Copy-title and Copy-description
+ * buttons that put platform-ready text on the clipboard.
  */
 function DoneJobActions({ job }: { job: RenderJob }) {
-  const [copied, setCopied] = useState<'title' | 'description' | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
-  // Title format: "<DJ> – <Show> (Live DJ Set) | <Month YYYY>"
-  // Note the en-dash (–) not a hyphen — matches Cap's house style.
-  // Names are kept exactly as the DJ/admin entered them — no case
-  // normalization, since lowercase is part of /radio's stylistic look
-  // and Cap wants the same treatment carried over to YouTube.
   const djNameDisplay = job.renderData.djName;
   const showNameDisplay = job.renderData.showName;
 
   const recordedAt = new Date(job.createdAt);
   const monthYear = recordedAt.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  const title = `${djNameDisplay} – ${showNameDisplay} (Live DJ Set) | ${monthYear}`;
 
-  // username + tipButtonLink come from the job doc (snapshotted at submission
-  // time from /api/archives, which live-enriches both from djProfile). Older
-  // jobs from before this was wired won't have them — we just omit those
-  // lines for those.
+  // username + tipButtonLink + location come from the job doc (snapshotted
+  // at submission time from /api/archives, which live-enriches from
+  // djProfile). Older jobs from before this was wired won't have them — we
+  // omit those lines for those.
   const djUsername = job.djUsername
     ? job.djUsername.replace(/\s+/g, '').toLowerCase()
     : null;
   const tipButtonLink = job.tipButtonLink || null;
+  const djLocation = job.djLocation?.trim() || null;
+
+  // ─── YouTube text ──────────────────────────────────────────────────────
+  // Title format: "<DJ> – <Show> (Live DJ Set) | <Month YYYY>"
+  // Note the en-dash (–) not a hyphen — matches Cap's house style.
+  // Names are kept exactly as the DJ/admin entered them — no case
+  // normalization, since lowercase is part of /radio's stylistic look
+  // and Cap wants the same treatment carried over to YouTube.
+  const youtubeTitle = `${djNameDisplay} – ${showNameDisplay} (Live DJ Set) | ${monthYear}`;
 
   // Genre is sentence-cased ("Ambient set recorded live for Channel.")
   // since it leads a sentence — DJ name and show name keep their original
@@ -416,7 +433,7 @@ function DoneJobActions({ job }: { job: RenderJob }) {
   const genreSentence = primaryGenre
     ? `${capitalizeFirst(primaryGenre)} set recorded live for Channel.`
     : `Live set recorded for Channel.`;
-  const bioParagraph =
+  const ytBioParagraph =
     job.renderData.djDescription?.trim() ||
     `${showNameDisplay} is a recurring show by ${djNameDisplay}${
       genres.length > 0 ? `, focused on ${genres.join(' and ')} music` : ''
@@ -429,12 +446,12 @@ function DoneJobActions({ job }: { job: RenderJob }) {
     '#liveradio',
   ].join(' ');
   // Tip line if DJ has set one; learn-more line if we have a username.
-  const extraLinks = [
+  const ytExtraLinks = [
     tipButtonLink ? `→ To support ${djNameDisplay}: ${tipButtonLink}` : null,
     djUsername ? `→ Learn more about ${djNameDisplay}: https://channel-app.com/dj/${djUsername}` : null,
   ].filter(Boolean);
-  const description = [
-    title,
+  const youtubeDescription = [
+    youtubeTitle,
     genreSentence,
     '',
     `→ Listen to more sets & live radio: https://channel-app.com`,
@@ -442,13 +459,37 @@ function DoneJobActions({ job }: { job: RenderJob }) {
     '',
     '—',
     '',
-    bioParagraph,
-    ...(extraLinks.length > 0 ? ['', ...extraLinks] : []),
+    ytBioParagraph,
+    ...(ytExtraLinks.length > 0 ? ['', ...ytExtraLinks] : []),
     '',
     hashtags,
   ].join('\n');
 
-  const copy = async (kind: 'title' | 'description', text: string) => {
+  // ─── SoundCloud text ───────────────────────────────────────────────────
+  // Format per Cap: "<DJ> — <Show> | channel | <Month YYYY>"
+  // Em-dash (—) between DJ and show, pipes around "channel".
+  const soundcloudTitle = `${djNameDisplay} — ${showNameDisplay} | channel | ${monthYear}`;
+
+  // Bio block per Cap: hardcoded "DJ and producer based in <location>" —
+  // not the DJ's own bio. Drop the "based in ..." clause if the DJ has
+  // no location set (rare; reads naturally either way).
+  const scBioLine = djLocation
+    ? `${djNameDisplay} is a DJ and producer based in ${djLocation}.`
+    : `${djNameDisplay} is a DJ and producer.`;
+  const scProfileLink = djUsername ? `https://channel-app.com/dj/${djUsername}` : null;
+  const soundcloudDescription = [
+    `${showNameDisplay} — recorded live for Channel.`,
+    '',
+    `→ More sets & live radio: https://channel-app.com`,
+    `→ Follow: https://www.instagram.com/channelrad.io/`,
+    '',
+    '—',
+    '',
+    scBioLine,
+    ...(scProfileLink ? ['', `→ ${scProfileLink}`] : []),
+  ].join('\n');
+
+  const copy = async (kind: string, text: string) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(kind);
@@ -458,30 +499,84 @@ function DoneJobActions({ job }: { job: RenderJob }) {
     }
   };
 
+  // Per-platform consent (default = true when undefined).
+  const ytEnabled = job.youtubeOptIn !== false;
+  const scEnabled = job.soundcloudOptIn !== false;
+
   return (
-    <div className="mt-2 flex items-center gap-3 flex-wrap">
-      <a
-        href={job.outputUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        download
-        className="text-blue-400 hover:text-blue-300 text-xs underline"
-      >
-        Download mp4
-      </a>
-      <button
-        onClick={() => copy('title', title)}
-        className="text-gray-400 hover:text-white text-xs underline"
-        title={title}
-      >
-        {copied === 'title' ? 'Copied!' : 'Copy YouTube title'}
-      </button>
-      <button
-        onClick={() => copy('description', description)}
-        className="text-gray-400 hover:text-white text-xs underline"
-      >
-        {copied === 'description' ? 'Copied!' : 'Copy description'}
-      </button>
+    <div className="mt-3 space-y-3">
+      {ytEnabled && job.outputUrl && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">YouTube</div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <a
+              href={job.outputUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              download
+              className="text-blue-400 hover:text-blue-300 text-xs underline"
+            >
+              Download mp4
+            </a>
+            <button
+              onClick={() => copy('yt-title', youtubeTitle)}
+              className="text-gray-400 hover:text-white text-xs underline"
+              title={youtubeTitle}
+            >
+              {copied === 'yt-title' ? 'Copied!' : 'Copy title'}
+            </button>
+            <button
+              onClick={() => copy('yt-desc', youtubeDescription)}
+              className="text-gray-400 hover:text-white text-xs underline"
+            >
+              {copied === 'yt-desc' ? 'Copied!' : 'Copy description'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {scEnabled && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">SoundCloud</div>
+          <div className="flex items-center gap-3 flex-wrap">
+            {job.soundcloudAudioUrl && (
+              <a
+                href={job.soundcloudAudioUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                download
+                className="text-blue-400 hover:text-blue-300 text-xs underline"
+              >
+                Download m4a
+              </a>
+            )}
+            {job.soundcloudImageUrl && (
+              <a
+                href={job.soundcloudImageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                download
+                className="text-blue-400 hover:text-blue-300 text-xs underline"
+              >
+                Download cover
+              </a>
+            )}
+            <button
+              onClick={() => copy('sc-title', soundcloudTitle)}
+              className="text-gray-400 hover:text-white text-xs underline"
+              title={soundcloudTitle}
+            >
+              {copied === 'sc-title' ? 'Copied!' : 'Copy title'}
+            </button>
+            <button
+              onClick={() => copy('sc-desc', soundcloudDescription)}
+              className="text-gray-400 hover:text-white text-xs underline"
+            >
+              {copied === 'sc-desc' ? 'Copied!' : 'Copy description'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

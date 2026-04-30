@@ -90,10 +90,13 @@ interface DJProfile {
   };
   radioShows?: RadioShow[];
   myRecs?: RecItem[];
-  // Sharing consent — both default true (opted in). YouTube hides archives
-  // from /broadcast/admin → YouTube Render when off; Meta is stored only
-  // (no enforcement yet — placeholder for future Instagram/Meta sharing).
+  // Sharing consent — all default true (opted in). YouTube and SoundCloud
+  // hide archives from /broadcast/admin → Social Render when off; Meta is
+  // stored only (no enforcement yet — placeholder for future Instagram/Meta
+  // sharing). An archive shows up in the picker if at least one of YouTube
+  // or SoundCloud is on.
   youtubeOptIn?: boolean;
+  soundcloudOptIn?: boolean;
   metaOptIn?: boolean;
 }
 
@@ -191,6 +194,7 @@ export function StudioProfileClient() {
     radioShows: [],
     myRecs: [],
     youtubeOptIn: true,
+    soundcloudOptIn: true,
     metaOptIn: true,
   });
 
@@ -589,6 +593,7 @@ export function StudioProfileClient() {
             // so legacy DJ profiles created before this feature are
             // implicitly consenting until they explicitly opt out.
             youtubeOptIn: data.djProfile.youtubeOptIn !== false,
+            soundcloudOptIn: data.djProfile.soundcloudOptIn !== false,
             metaOptIn: data.djProfile.metaOptIn !== false,
           });
           // Only set input values on initial load to avoid overwriting user edits
@@ -1534,12 +1539,12 @@ export function StudioProfileClient() {
     return () => { if (tipButtonLinkDebounceRef.current) clearTimeout(tipButtonLinkDebounceRef.current); };
   }, [tipButtonLinkInput, saveTipButtonLink]);
 
-  // Sharing consent toggles (YouTube/Google + Instagram/Meta). Writes
-  // immediately (no debounce — single click). Optimistically updates local
-  // state; onSnapshot reconciles. Field names map directly to djProfile
-  // keys: 'youtubeOptIn' or 'metaOptIn'.
+  // Sharing consent toggles (YouTube/Google, SoundCloud, Instagram/Meta).
+  // Writes immediately (no debounce — single click). Optimistically updates
+  // local state; onSnapshot reconciles. Field names map directly to djProfile
+  // keys: 'youtubeOptIn', 'soundcloudOptIn', or 'metaOptIn'.
   const saveSharingConsent = useCallback(
-    async (field: 'youtubeOptIn' | 'metaOptIn', optedIn: boolean) => {
+    async (field: 'youtubeOptIn' | 'soundcloudOptIn' | 'metaOptIn', optedIn: boolean) => {
       if (!user || !db) return;
       setDjProfile((prev) => ({ ...prev, [field]: optedIn }));
       try {
@@ -2707,9 +2712,10 @@ export function StudioProfileClient() {
             </div>
           </section>
 
-          {/* Sharing consent section. Both default = opted in. YouTube
-              opt-out hides archives from /broadcast/admin → YouTube Render;
-              Meta is stored only (placeholder for future enforcement). */}
+          {/* Sharing consent section. All default = opted in. YouTube and
+              SoundCloud opt-outs hide archives from /broadcast/admin → Social
+              Render; Meta is stored only (placeholder for future
+              enforcement). */}
           <section>
             <h2 className="text-gray-400 text-xs uppercase tracking-wide mb-3">
               Sharing
@@ -2726,6 +2732,15 @@ export function StudioProfileClient() {
                   className="w-4 h-4 flex-shrink-0 accent-white"
                 />
                 <span className="text-sm text-white">on YouTube and Google platforms</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={djProfile.soundcloudOptIn !== false}
+                  onChange={(e) => saveSharingConsent('soundcloudOptIn', e.target.checked)}
+                  className="w-4 h-4 flex-shrink-0 accent-white"
+                />
+                <span className="text-sm text-white">on SoundCloud</span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer">
                 <input

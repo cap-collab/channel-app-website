@@ -14,9 +14,9 @@ import { DJApplicationsTab } from '@/components/broadcast/admin/DJApplicationsTa
 import { ArchivesTab } from '@/components/broadcast/admin/ArchivesTab';
 import { MarketingTab } from '@/components/broadcast/admin/MarketingTab';
 import { ScenesTab } from '@/components/broadcast/admin/ScenesTab';
-import { YouTubeRenderTab } from '@/components/broadcast/admin/YouTubeRenderTab';
+import { SocialRenderTab } from '@/components/broadcast/admin/SocialRenderTab';
 
-type AdminTab = 'schedule' | 'applications' | 'archives' | 'marketing' | 'scenes' | 'youtube-render';
+type AdminTab = 'schedule' | 'applications' | 'archives' | 'marketing' | 'scenes' | 'social-render';
 
 // Get start of current week (Sunday)
 function getWeekStart(date: Date = new Date()): Date {
@@ -385,14 +385,14 @@ export function AdminDashboard() {
               Scenes
             </button>
             <button
-              onClick={() => setActiveTab('youtube-render')}
+              onClick={() => setActiveTab('social-render')}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === 'youtube-render'
+                activeTab === 'social-render'
                   ? 'bg-white text-black'
                   : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
               }`}
             >
-              YouTube Render
+              Social Render
             </button>
             <Link
               href="/broadcast/admin/pending-djs"
@@ -459,7 +459,7 @@ export function AdminDashboard() {
           ) : activeTab === 'scenes' ? (
             <ScenesTab />
           ) : (
-            <YouTubeRenderTab />
+            <SocialRenderTab />
           )}
         </div>
       </div>

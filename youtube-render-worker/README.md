@@ -1,9 +1,17 @@
-# youtube-render-worker
+# youtube-render-worker (Social Render worker)
 
-Renders archived mixes into YouTube-ready 1920×1080 mp4s.
+Renders archived mixes into platform-ready outputs:
+- **YouTube** — 1920×1080 H.264/AAC mp4 (page screenshot or video capture +
+  source-mix audio muxed in).
+- **SoundCloud** — 1500×1500 JPG cover (`?variant=square` page screenshot)
+  + lossless `.m4a` audio (stream-copied AAC out of the source mp4 — no
+  re-encode, ~6000× real-time).
 
-Captures the channel-app `/internal/render-mix` page in headless Chromium for
-the duration of a mix, then mux's the source mix audio in via ffmpeg.
+Each output is gated on the DJ's per-platform opt-in (`djProfile.youtubeOptIn`,
+`djProfile.soundcloudOptIn`); the worker reads the snapshots from the job
+doc and skips entire phases when a platform is off. The folder name is
+historical — internally this is the **Social Render** tab in the admin UI.
+
 Mirrors the resilience patterns of `restream-worker/` (Express + Bearer auth,
 async-by-callback, ffmpeg reconnect + initial-connect retry, watchdog
 timeout, /tmp cleanup, on-boot zombie cleanup).

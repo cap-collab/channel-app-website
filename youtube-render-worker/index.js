@@ -144,7 +144,9 @@ async function runJob(job) {
   const { id: jobId, durationSec, recordingUrl, archiveSlug, renderData } = job;
   const startedAt = Date.now();
 
-  // Setup tempfiles. webm = Playwright capture; mp4 = final muxed output.
+  // Setup tempfiles. webm = Playwright capture; mp4 = final muxed output;
+  // m4a = SoundCloud-ready audio (lossless extract from source mp4);
+  // coverJpg = 1500×1500 SoundCloud cover (separate square screenshot).
   const dir = join(tmpdir(), `yt-render-${jobId}`);
   mkdirSync(dir, { recursive: true });
   const tempPaths = {
@@ -152,6 +154,8 @@ async function runJob(job) {
     webm: join(dir, 'capture.webm'),
     png: join(dir, 'frame.png'),
     mp4: join(dir, 'output.mp4'),
+    m4a: join(dir, 'audio.m4a'),
+    coverJpg: join(dir, 'cover.jpg'),
   };
 
   const entry = {
@@ -165,6 +169,11 @@ async function runJob(job) {
     captureMode: null, // 'static' | 'dynamic' — set by capturePage
   };
   activeJobs.set(jobId, entry);
+
+  // Per-platform opt-in snapshots. Default to true when undefined so legacy
+  // jobs created before SoundCloud existed still produce YouTube outputs.
+  const youtubeEnabled = job.youtubeOptIn !== false;
+  const soundcloudEnabled = job.soundcloudOptIn !== false;
 
   try {
     await db.collection('youtube-render-jobs').doc(jobId).update({
@@ -184,40 +193,96 @@ async function runJob(job) {
       markFailed(jobId, `watchdog timeout after ${Math.round(watchdogMs / 1000)}s`).catch(() => {});
     }, watchdogMs);
 
-    // ─── Phase 1: Capture the page in headless Chromium ──────────────────
-    console.log(`[${jobId}] Phase 1: capture (${durationSec}s)`);
-    await capturePage(jobId, entry, durationSec, renderData);
-    if (entry.intentionalStop) return; // watchdog or external stop fired
+    // ─── YouTube path: capture 1920×1080 → mux mp4 ───────────────────────
+    // Skipped entirely when the DJ has opted out of YouTube — saves the
+    // entire Playwright capture pass (which can be the full duration of
+    // the mix in the dynamic case).
+    if (youtubeEnabled) {
+      console.log(`[${jobId}] Phase 1: capture (${durationSec}s)`);
+      await capturePage(jobId, entry, durationSec, renderData);
+      if (entry.intentionalStop) return;
 
-    // ─── Phase 2: ffmpeg mux capture + recordingUrl audio → mp4 ──────────
-    console.log(`[${jobId}] Phase 2: ffmpeg mux (${entry.captureMode})`);
-    await db.collection('youtube-render-jobs').doc(jobId).update({ progressPct: 90 });
-    await muxFinalMp4(jobId, entry, recordingUrl, durationSec);
-    if (entry.intentionalStop) return;
+      console.log(`[${jobId}] Phase 2: ffmpeg mux (${entry.captureMode})`);
+      await db.collection('youtube-render-jobs').doc(jobId).update({ progressPct: 90 });
+      await muxFinalMp4(jobId, entry, recordingUrl, durationSec);
+      if (entry.intentionalStop) return;
+    } else {
+      console.log(`[${jobId}] Skipping YouTube outputs — DJ opted out`);
+    }
 
-    // ─── Phase 3: upload to R2 ──────────────────────────────────────────
-    console.log(`[${jobId}] Phase 3: upload to R2`);
+    // ─── SoundCloud path: 1500×1500 cover + lossless m4a audio ───────────
+    // Independent of the YouTube capture — the cover uses ?variant=square
+    // and the m4a is a stream-copy from recordingUrl (no transcode).
+    if (soundcloudEnabled) {
+      console.log(`[${jobId}] Phase SC1: capture 1500×1500 cover`);
+      await captureSquareCover(jobId, entry, renderData);
+      if (entry.intentionalStop) return;
+
+      console.log(`[${jobId}] Phase SC2: extract m4a (lossless -c:a copy)`);
+      await extractM4a(jobId, entry, recordingUrl);
+      if (entry.intentionalStop) return;
+    } else {
+      console.log(`[${jobId}] Skipping SoundCloud outputs — DJ opted out`);
+    }
+
+    // ─── Upload to R2 ────────────────────────────────────────────────────
+    console.log(`[${jobId}] Upload phase: writing outputs to R2`);
     const filename = buildOutputFilename({ archiveSlug, renderData, recordedAt: job.recordedAt });
-    const key = `${R2_OUTPUT_PREFIX}/${filename}`;
-    const body = readFileSync(tempPaths.mp4);
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: R2_BUCKET,
-        Key: key,
-        Body: body,
-        ContentType: 'video/mp4',
-        ContentDisposition: `attachment; filename="${filename}"`,
-      })
-    );
-    const outputUrl = `${R2_PUBLIC}/${key}`;
+    const updates = { status: 'done', progressPct: 100, completedAt: Date.now() };
 
-    await db.collection('youtube-render-jobs').doc(jobId).update({
-      status: 'done',
-      progressPct: 100,
-      outputUrl,
-      completedAt: Date.now(),
-    });
-    console.log(`[${jobId}] Done in ${Math.round((Date.now() - startedAt) / 1000)}s → ${outputUrl}`);
+    if (youtubeEnabled) {
+      const mp4Key = `${R2_OUTPUT_PREFIX}/${filename}`;
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: R2_BUCKET,
+          Key: mp4Key,
+          Body: readFileSync(tempPaths.mp4),
+          ContentType: 'video/mp4',
+          ContentDisposition: `attachment; filename="${filename}"`,
+        })
+      );
+      updates.outputUrl = `${R2_PUBLIC}/${mp4Key}`;
+    }
+
+    if (soundcloudEnabled) {
+      // Replace the .mp4 suffix with .m4a / -cover.jpg for the audio + image
+      // siblings. Same slug so it's obvious in R2 they belong to one render.
+      const baseNoExt = filename.replace(/\.mp4$/i, '');
+      const m4aFilename = `${baseNoExt}.m4a`;
+      const m4aKey = `${R2_OUTPUT_PREFIX}/${m4aFilename}`;
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: R2_BUCKET,
+          Key: m4aKey,
+          Body: readFileSync(tempPaths.m4a),
+          // SoundCloud accepts AAC-in-M4A natively. Content-type kept
+          // accurate so any HTTP client (including the admin tab's
+          // download link) treats it as audio, not video.
+          ContentType: 'audio/mp4',
+          ContentDisposition: `attachment; filename="${m4aFilename}"`,
+        })
+      );
+      updates.soundcloudAudioUrl = `${R2_PUBLIC}/${m4aKey}`;
+
+      const coverFilename = `${baseNoExt}-cover.jpg`;
+      const coverKey = `${R2_OUTPUT_PREFIX}/${coverFilename}`;
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: R2_BUCKET,
+          Key: coverKey,
+          Body: readFileSync(tempPaths.coverJpg),
+          ContentType: 'image/jpeg',
+          ContentDisposition: `attachment; filename="${coverFilename}"`,
+        })
+      );
+      updates.soundcloudImageUrl = `${R2_PUBLIC}/${coverKey}`;
+    }
+
+    await db.collection('youtube-render-jobs').doc(jobId).update(updates);
+    console.log(
+      `[${jobId}] Done in ${Math.round((Date.now() - startedAt) / 1000)}s → ` +
+        `yt=${updates.outputUrl || '(skipped)'} sc=${updates.soundcloudAudioUrl || '(skipped)'}`
+    );
   } catch (err) {
     console.error(`[${jobId}] Failed:`, err);
     if (!entry.intentionalStop) {
@@ -363,6 +428,107 @@ async function capturePage(jobId, entry, durationSec, renderData) {
     }
     entry.browser = null;
   }
+}
+
+// ─── Phase SC1: square cover screenshot ─────────────────────────────────
+// Loads /internal/render-mix?variant=square — same data, different layout
+// (1500×1500 SoundCloud cover, no player chrome, no progress bar). One
+// JPG screenshot, no video capture. Always cheap (a few seconds) regardless
+// of mix length.
+async function captureSquareCover(jobId, entry, renderData) {
+  const renderDataJson = JSON.stringify({ ...renderData, durationSec: 1 });
+  const url = `${APP_URL}/internal/render-mix?variant=square&data=${encodeURIComponent(renderDataJson)}`;
+
+  const browser = await chromium.launch({
+    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+  });
+  entry.browser = browser;
+  try {
+    const context = await browser.newContext({
+      viewport: { width: 1500, height: 1500 },
+      deviceScaleFactor: 1,
+    });
+    const page = await context.newPage();
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') console.warn(`[${jobId}][cover-console] ${msg.text()}`);
+    });
+    page.on('pageerror', (err) => console.error(`[${jobId}][cover-page-error] ${err.message}`));
+    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForFunction(
+      () => {
+        const img = document.querySelector('img');
+        if (!img) return true;
+        return img.complete && img.naturalHeight > 0;
+      },
+      { timeout: 30000 }
+    );
+    // Brief settle pause so any reflow lands before the screenshot.
+    await page.waitForTimeout(400);
+    // JPG q=90: SoundCloud's 2MB ceiling is comfortable at this quality
+    // for a 1500×1500 photo-backed image (~300-600KB typical).
+    await page.screenshot({
+      path: entry.tempPaths.coverJpg,
+      type: 'jpeg',
+      quality: 90,
+      fullPage: false,
+    });
+    await page.close();
+    await context.close();
+  } finally {
+    try {
+      await browser.close();
+    } catch {
+      // ignore
+    }
+    entry.browser = null;
+  }
+}
+
+// ─── Phase SC2: extract m4a audio from source mp4 ───────────────────────
+// SoundCloud rejects .mp4 by extension even when the file is audio-only,
+// so we remux the AAC stream out of the source mp4 into an .m4a container.
+// -c:a copy = lossless (same bytes, different container) and ~6000× real-
+// time, so a 2hr mix takes ~1 second. Reuses the same reconnect flags as
+// muxFinalMp4 for the HTTP source. No initial-connect retry loop here —
+// extract is cheap enough that one failure → fail the job is fine.
+function extractM4a(jobId, entry, recordingUrl) {
+  return new Promise((resolve, reject) => {
+    const args = [
+      '-y',
+      '-reconnect', '1',
+      '-reconnect_streamed', '1',
+      '-reconnect_at_eof', '1',
+      '-reconnect_delay_max', '5',
+      '-i', recordingUrl,
+      '-vn',           // drop any video stream
+      '-c:a', 'copy',  // lossless audio extract
+      '-movflags', '+faststart',
+      '-loglevel', 'info',
+      '-stats',
+      entry.tempPaths.m4a,
+    ];
+    const ff = spawn('ffmpeg', args);
+    entry.ffmpegProcess = ff;
+    let stderrTail = '';
+    ff.stderr.on('data', (chunk) => {
+      const str = chunk.toString();
+      stderrTail = (stderrTail + str).slice(-4096);
+      for (const line of str.split('\n')) {
+        if (line.trim()) console.log(`[${jobId}][m4a] ${line.trim()}`);
+      }
+    });
+    ff.on('error', (err) => {
+      console.error(`[${jobId}][m4a] spawn error:`, err);
+      reject(err);
+    });
+    ff.on('close', (code, signal) => {
+      entry.ffmpegProcess = null;
+      if (entry.intentionalStop) return reject(new Error('intentionally stopped'));
+      if (code === 0) return resolve();
+      reject(new Error(`m4a extract failed (code ${code}, signal ${signal}): ${stderrTail.slice(-512)}`));
+    });
+  });
 }
 
 // ─── Phase 2: ffmpeg mux with initial-connect retry ─────────────────────
@@ -525,8 +691,8 @@ function teardownJob(jobId, intentional) {
   }
 
   // Clean up /tmp files
-  const { dir, webm, png, mp4 } = entry.tempPaths;
-  for (const p of [webm, png, mp4]) {
+  const { dir, webm, png, mp4, m4a, coverJpg } = entry.tempPaths;
+  for (const p of [webm, png, mp4, m4a, coverJpg]) {
     try {
       statSync(p);
       unlinkSync(p);

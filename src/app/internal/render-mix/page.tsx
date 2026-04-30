@@ -120,6 +120,10 @@ function RenderMixHeroOverlay({
 function RenderMixInner() {
   const searchParams = useSearchParams();
   const data = useMemo(() => parseRenderData(searchParams.get('data')), [searchParams]);
+  // Variant: 'square' renders a 1500×1500 SoundCloud cover instead of the
+  // default 1920×1080 YouTube frame. Same content (photo, show, DJ name,
+  // genres, bio) but no player chrome / progress bar — covers are static.
+  const variant = searchParams.get('variant') === 'square' ? 'square' : 'youtube';
 
   // The render-mix page is fully static — no scrolling text, no animated
   // bars. We always tell the worker to take the static-screenshot path.
@@ -132,6 +136,10 @@ function RenderMixInner() {
     // No params = not a real render request. Stay blank — this URL is not
     // user-facing and shouldn't render anything discoverable.
     return <div className="w-screen h-screen bg-black" />;
+  }
+
+  if (variant === 'square') {
+    return <SquareCover data={data} />;
   }
 
   // The hero components (DJImageOverlay, ScrollingShowName, etc.) were sized
@@ -239,6 +247,69 @@ function RenderMixInner() {
         className="absolute top-5 right-5 drop-shadow-lg"
         style={{ height: 60 }}
       />
+    </div>
+  );
+}
+
+/**
+ * 1500×1500 square SoundCloud cover. SoundCloud requires square (1:1) art,
+ * min 800×800, recommended 1500–2000px, JPG/PNG. We render at 1500×1500 —
+ * worker screenshots → JPG q90 → uploaded to R2 alongside the YouTube mp4.
+ *
+ * Layout: photo fills the full square as a background; a bottom gradient
+ * carries show name (large) + DJ name underneath, plus the CHANNEL logo
+ * top-right. No player chrome, no progress bar — the cover is a still
+ * frame, not a video thumbnail.
+ */
+function SquareCover({
+  data,
+}: {
+  data: RenderData;
+}) {
+  const FRAME = 1500;
+  return (
+    <div className="bg-black relative overflow-hidden" style={{ width: FRAME, height: FRAME }}>
+      <Image
+        src={data.djPhotoUrl}
+        alt={data.djName}
+        fill
+        className="object-cover"
+        sizes={`${FRAME}px`}
+        priority
+        unoptimized
+      />
+      {/* Strong bottom gradient so the show + DJ name read against any photo. */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/85" />
+      {/* CHANNEL logo top-right, sized proportionally to the larger frame. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/logo-white.svg"
+        alt="CHANNEL"
+        className="absolute top-10 right-10 drop-shadow-lg"
+        style={{ height: 90 }}
+      />
+      <div className="absolute left-10 right-10 bottom-10 drop-shadow-lg">
+        <div
+          className="font-bold text-white uppercase tracking-wide leading-tight"
+          style={{ fontSize: '64px' }}
+        >
+          {data.showName}
+        </div>
+        <div
+          className="font-black uppercase tracking-wider text-white mt-3"
+          style={{ fontSize: '40px' }}
+        >
+          {data.djName}
+        </div>
+        {data.djGenres.length > 0 && (
+          <div
+            className="font-medium uppercase tracking-[0.15em] text-zinc-300 mt-2 truncate"
+            style={{ fontSize: '22px' }}
+          >
+            {data.djGenres.join(' · ')}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

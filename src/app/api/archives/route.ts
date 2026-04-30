@@ -15,6 +15,7 @@ interface DJInfo {
   bio?: string;
   tipButtonLink?: string;
   youtubeOptIn?: boolean;
+  soundcloudOptIn?: boolean;
 }
 
 export async function GET(request: Request) {
@@ -171,6 +172,7 @@ export async function GET(request: Request) {
       bio?: string;
       tipButtonLink?: string;
       youtubeOptIn?: boolean;
+      soundcloudOptIn?: boolean;
     };
     const djProfileByUserId = new Map<string, DJProfileSlice>();
     const djProfileByUsername = new Map<string, DJProfileSlice>();
@@ -182,6 +184,7 @@ export async function GET(request: Request) {
       const bio = profile.bio;
       const tipButtonLink = profile.tipButtonLink;
       const youtubeOptIn = profile.youtubeOptIn;
+      const soundcloudOptIn = profile.soundcloudOptIn;
       const slice: DJProfileSlice = {};
       if (Array.isArray(genres) && genres.length > 0) slice.genres = genres as string[];
       if (typeof location === 'string' && location) slice.location = location;
@@ -191,6 +194,7 @@ export async function GET(request: Request) {
       // field is true/undefined, we leave it off the slice — the consumer
       // treats absence as "opted in" by default.
       if (youtubeOptIn === false) slice.youtubeOptIn = false;
+      if (soundcloudOptIn === false) slice.soundcloudOptIn = false;
       return Object.keys(slice).length > 0 ? slice : null;
     };
 
@@ -254,11 +258,14 @@ export async function GET(request: Request) {
           if (profileData.tipButtonLink) {
             enriched = { ...enriched, tipButtonLink: profileData.tipButtonLink };
           }
-          // youtubeOptIn is only carried through when explicitly false
-          // (DJ opted out). Absence = opted in by default. Always honor
-          // the live value — the DJ may have changed their mind.
+          // youtubeOptIn / soundcloudOptIn are only carried through when
+          // explicitly false (DJ opted out). Absence = opted in by default.
+          // Always honor the live value — the DJ may have changed their mind.
           if (profileData.youtubeOptIn === false) {
             enriched = { ...enriched, youtubeOptIn: false };
+          }
+          if (profileData.soundcloudOptIn === false) {
+            enriched = { ...enriched, soundcloudOptIn: false };
           }
         }
         return enriched;

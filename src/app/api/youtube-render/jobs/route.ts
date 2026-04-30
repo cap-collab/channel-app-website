@@ -38,6 +38,7 @@ type CreateJobBody = {
   durationSec: number;
   recordedAt: number | null;
   djUsername: string | null;
+  djLocation: string | null;
   tipButtonLink: string | null;
   renderData: RenderData;
 };
@@ -70,6 +71,7 @@ function validateBody(raw: unknown): CreateJobBody | { error: string } {
     durationSec: b.durationSec,
     recordedAt: typeof b.recordedAt === 'number' ? b.recordedAt : null,
     djUsername: typeof b.djUsername === 'string' && b.djUsername.length > 0 ? b.djUsername : null,
+    djLocation: typeof b.djLocation === 'string' && b.djLocation.length > 0 ? b.djLocation : null,
     tipButtonLink:
       typeof b.tipButtonLink === 'string' && b.tipButtonLink.length > 0 ? b.tipButtonLink : null,
     renderData: {
@@ -99,11 +101,14 @@ export async function POST(request: NextRequest) {
   const db = getAdminDb();
   if (!db) return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
 
-  // Consent check: refuse to render if the primary DJ has explicitly
-  // opted out (djProfile.youtubeOptIn === false). Absence of the field
-  // means opted-in by default. Look up the archive doc to find the DJ,
-  // then the user doc to read the live djProfile (matches the picker's
-  // filter, which uses /api/archives's live enrichment).
+  // Consent check: snapshot YouTube + SoundCloud opt-ins from the live
+  // djProfile, and refuse only if the DJ has opted out of BOTH (nothing
+  // for the worker to produce). Absence of either field = opted-in by
+  // default. Look up the archive doc to find the DJ, then the user doc
+  // to read the live djProfile (matches the picker's filter, which uses
+  // /api/archives's live enrichment).
+  let youtubeOptIn = true;
+  let soundcloudOptIn = true;
   try {
     const archiveSnap = await db.collection('archives').doc(validated.archiveId).get();
     if (!archiveSnap.exists) {
@@ -111,26 +116,27 @@ export async function POST(request: NextRequest) {
     }
     const archiveData = archiveSnap.data() || {};
     const primaryDj = (archiveData.djs as Array<{ userId?: string; username?: string }> | undefined)?.[0];
-    let optedIn = true;
-    if (primaryDj?.userId) {
-      const userSnap = await db.collection('users').doc(primaryDj.userId).get();
-      if (userSnap.exists && userSnap.data()?.djProfile?.youtubeOptIn === false) {
-        optedIn = false;
+    const readProfile = async (): Promise<Record<string, unknown> | null> => {
+      if (primaryDj?.userId) {
+        const userSnap = await db.collection('users').doc(primaryDj.userId).get();
+        if (userSnap.exists) return (userSnap.data()?.djProfile as Record<string, unknown>) || null;
+      } else if (primaryDj?.username) {
+        const normalized = primaryDj.username.replace(/[\s-]+/g, '').toLowerCase();
+        const userQ = await db
+          .collection('users')
+          .where('chatUsernameNormalized', '==', normalized)
+          .limit(1)
+          .get();
+        if (!userQ.empty) return (userQ.docs[0].data()?.djProfile as Record<string, unknown>) || null;
       }
-    } else if (primaryDj?.username) {
-      const normalized = primaryDj.username.replace(/[\s-]+/g, '').toLowerCase();
-      const userQ = await db
-        .collection('users')
-        .where('chatUsernameNormalized', '==', normalized)
-        .limit(1)
-        .get();
-      if (!userQ.empty && userQ.docs[0].data()?.djProfile?.youtubeOptIn === false) {
-        optedIn = false;
-      }
-    }
-    if (!optedIn) {
+      return null;
+    };
+    const profile = await readProfile();
+    if (profile?.youtubeOptIn === false) youtubeOptIn = false;
+    if (profile?.soundcloudOptIn === false) soundcloudOptIn = false;
+    if (!youtubeOptIn && !soundcloudOptIn) {
       return NextResponse.json(
-        { error: 'This DJ has opted out of YouTube renders.' },
+        { error: 'This DJ has opted out of both YouTube and SoundCloud renders.' },
         { status: 403 }
       );
     }
@@ -148,8 +154,14 @@ export async function POST(request: NextRequest) {
     durationSec: validated.durationSec,
     recordedAt: validated.recordedAt,
     djUsername: validated.djUsername,
+    djLocation: validated.djLocation,
     tipButtonLink: validated.tipButtonLink,
     renderData: validated.renderData,
+    // Per-platform opt-in snapshots — worker reads these to decide which
+    // outputs to produce. Defaults to true (opted in) when DJ profile
+    // hasn't toggled them.
+    youtubeOptIn,
+    soundcloudOptIn,
     status: 'queued',
     progressPct: 0,
     createdAt: now,
