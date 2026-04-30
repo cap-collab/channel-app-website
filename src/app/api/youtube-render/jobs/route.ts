@@ -222,3 +222,35 @@ export async function GET(request: NextRequest) {
   const jobs = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
   return NextResponse.json({ jobs });
 }
+
+// PATCH /api/youtube-render/jobs — toggle a render job's "uploaded"
+// marker (admin's personal tracker for whether they've published the
+// outputs to YouTube/SoundCloud yet). Body: { jobId, uploaded: boolean }.
+// Stored as `uploadedAt` (server timestamp when uploaded=true, null when
+// uploaded=false) so we can show "uploaded 2d ago" later if useful.
+export async function PATCH(request: NextRequest) {
+  const { isAdmin } = await verifyAdminAccess(request);
+  if (!isAdmin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+  const b = body as { jobId?: unknown; uploaded?: unknown } | null;
+  if (!b || typeof b.jobId !== 'string' || typeof b.uploaded !== 'boolean') {
+    return NextResponse.json(
+      { error: 'jobId (string) and uploaded (boolean) required' },
+      { status: 400 }
+    );
+  }
+
+  const db = getAdminDb();
+  if (!db) return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
+
+  await db.collection('youtube-render-jobs').doc(b.jobId).update({
+    uploadedAt: b.uploaded ? Date.now() : null,
+  });
+  return NextResponse.json({ ok: true });
+}

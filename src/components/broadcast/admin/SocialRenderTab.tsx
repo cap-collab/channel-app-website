@@ -36,6 +36,10 @@ type RenderJob = {
   soundcloudAudioUrl?: string;    // M4A (lossless audio extract)
   soundcloudImageUrl?: string;    // 1500x1500 cover JPG
   error?: string;
+  // Admin's personal "I've published this to YouTube/SC" tracker. null
+  // when not yet uploaded; timestamp when checked. Sort key: unchecked
+  // Done jobs float above checked ones so unfinished work is at the top.
+  uploadedAt?: number | null;
   createdAt: number;
 };
 
@@ -134,6 +138,28 @@ export function SocialRenderTab() {
     const interval = setInterval(fetchJobs, 5000);
     return () => clearInterval(interval);
   }, [fetchArchives, fetchJobs]);
+
+  // Sort jobs so admin can scan top→bottom for what still needs uploading:
+  //   1. Active (queued/rendering) — newest first
+  //   2. Done but not yet uploaded — newest first
+  //   3. Failed — newest first
+  //   4. Done + uploaded — newest first (sinks to the bottom; already
+  //      handled, just kept around for reference)
+  // Within each bucket, newer createdAt wins so fresh work surfaces.
+  const sortedJobs = useMemo(() => {
+    const bucket = (j: RenderJob): number => {
+      if (j.status === 'queued' || j.status === 'rendering') return 0;
+      if (j.status === 'done' && !j.uploadedAt) return 1;
+      if (j.status === 'failed') return 2;
+      return 3; // done + uploaded
+    };
+    return [...jobs].sort((a, b) => {
+      const ba = bucket(a);
+      const bb = bucket(b);
+      if (ba !== bb) return ba - bb;
+      return (b.createdAt || 0) - (a.createdAt || 0);
+    });
+  }, [jobs]);
 
   // archiveId → primary DJ. Used by DoneJobActions to live-read current
   // opt-in flags + Instagram handle (from /api/archives's djProfile
@@ -299,23 +325,38 @@ export function SocialRenderTab() {
             {jobs.length === 0 ? (
               <div className="text-gray-500 text-sm">No render jobs yet.</div>
             ) : (
-              jobs.map((j) => (
-                <div key={j.id} className="border border-gray-800 rounded p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-white text-sm font-medium truncate">{j.renderData.showName}</div>
-                      <div className="text-gray-500 text-xs truncate">{j.renderData.djName}</div>
+              sortedJobs.map((j) => {
+                // Done + marked-uploaded cards dim to ~50% so unfinished
+                // work pops visually. Hover restores full opacity so the
+                // text stays readable when admin needs to copy something.
+                const dimmed = j.status === 'done' && !!j.uploadedAt;
+                return (
+                  <div
+                    key={j.id}
+                    className={`border border-gray-800 rounded p-3 transition-opacity ${
+                      dimmed ? 'opacity-50 hover:opacity-100' : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-white text-sm font-medium truncate">{j.renderData.showName}</div>
+                        <div className="text-gray-500 text-xs truncate">{j.renderData.djName}</div>
+                      </div>
+                      <StatusBadge status={j.status} progressPct={j.progressPct} />
                     </div>
-                    <StatusBadge status={j.status} progressPct={j.progressPct} />
+                    {j.status === 'done' && (
+                      <DoneJobActions
+                        job={j}
+                        liveDj={archiveDjByArchiveId.get(j.archiveId)}
+                        onUploadedChange={fetchJobs}
+                      />
+                    )}
+                    {j.status === 'failed' && j.error && (
+                      <div className="mt-2 text-red-400 text-xs">{j.error}</div>
+                    )}
                   </div>
-                  {j.status === 'done' && (
-                    <DoneJobActions job={j} liveDj={archiveDjByArchiveId.get(j.archiveId)} />
-                  )}
-                  {j.status === 'failed' && j.error && (
-                    <div className="mt-2 text-red-400 text-xs">{j.error}</div>
-                  )}
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -421,11 +462,38 @@ function StatusBadge({ status, progressPct }: { status: RenderJob['status']; pro
 function DoneJobActions({
   job,
   liveDj,
+  onUploadedChange,
 }: {
   job: RenderJob;
   liveDj: ArchiveSerialized['djs'][number] | undefined;
+  onUploadedChange: () => void;
 }) {
   const [copied, setCopied] = useState<string | null>(null);
+  // Optimistic local mirror of uploadedAt — flipping the checkbox
+  // updates this immediately so the card dims/un-dims on click while
+  // the PATCH + refresh round-trip happens in the background.
+  const [uploadedLocal, setUploadedLocal] = useState<boolean>(!!job.uploadedAt);
+  useEffect(() => {
+    setUploadedLocal(!!job.uploadedAt);
+  }, [job.uploadedAt]);
+
+  const setUploaded = async (next: boolean) => {
+    setUploadedLocal(next);
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Not signed in');
+      const res = await fetch('/api/youtube-render/jobs', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ jobId: job.id, uploaded: next }),
+      });
+      if (!res.ok) throw new Error(`PATCH failed ${res.status}`);
+      onUploadedChange();
+    } catch {
+      // Revert optimistic flip on failure. The next poll will reconcile too.
+      setUploadedLocal(!next);
+    }
+  };
 
   const djNameDisplay = job.renderData.djName;
   const showNameDisplay = job.renderData.showName;
@@ -545,6 +613,19 @@ function DoneJobActions({
 
   return (
     <div className="mt-3 space-y-3">
+      {/* Mark-as-uploaded checkbox. Toggling sinks the card to the bottom
+          of the queue (sortedJobs sort key) and dims it. Pure UI state —
+          doesn't affect the actual outputs in any way. */}
+      <label className="flex items-center gap-2 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={uploadedLocal}
+          onChange={(e) => setUploaded(e.target.checked)}
+          className="w-3.5 h-3.5 flex-shrink-0 accent-white"
+        />
+        <span className="text-xs text-gray-400">Marked as uploaded</span>
+      </label>
+
       {ytEnabled && job.outputUrl && (
         <div>
           <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">YouTube</div>
