@@ -3,8 +3,8 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { STATION_ID, TaggedDJ } from '@/types/broadcast';
 
-// Default recording quota: 2 hours per month
-const DEFAULT_MAX_SECONDS = 2 * 60 * 60; // 7200 seconds
+// Default recording quota: 122 minutes per month
+const DEFAULT_MAX_SECONDS = 122 * 60; // 7320 seconds
 
 // Generate a unique broadcast token
 function generateToken(): string {

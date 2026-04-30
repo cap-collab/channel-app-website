@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { checkFileExists } from '@/lib/r2-upload';
 
-// Default recording quota: 2 hours per month
-const DEFAULT_MAX_SECONDS = 2 * 60 * 60; // 7200 seconds
+// Default recording quota: 122 minutes per month
+const DEFAULT_MAX_SECONDS = 122 * 60; // 7320 seconds
 
 function getCurrentMonthKey(): string {
   const now = new Date();

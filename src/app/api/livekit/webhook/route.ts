@@ -507,7 +507,7 @@ export async function POST(request: NextRequest) {
                     let recordingQuota = userData?.recordingQuota || {
                       monthKey: currentMonthKey,
                       usedSeconds: 0,
-                      maxSeconds: 7200, // 2 hours default
+                      maxSeconds: 7320, // 122 minutes default
                     };
 
                     // Reset if new month
@@ -515,7 +515,7 @@ export async function POST(request: NextRequest) {
                       recordingQuota = {
                         monthKey: currentMonthKey,
                         usedSeconds: 0,
-                        maxSeconds: recordingQuota.maxSeconds || 7200,
+                        maxSeconds: recordingQuota.maxSeconds || 7320,
                       };
                     }
 

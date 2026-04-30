@@ -101,7 +101,7 @@ export interface UserDocument {
   recordingQuota?: {
     monthKey: string;           // "2026-02" format for current billing period
     usedSeconds: number;        // Total seconds used this month
-    maxSeconds: number;         // 7200 (2 hours) default, can be overridden per user
+    maxSeconds: number;         // 7320 (122 minutes) default, can be overridden per user
   };
 }
 

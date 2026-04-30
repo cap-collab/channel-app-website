@@ -349,7 +349,7 @@ export function RecordClient() {
           <div className="bg-[#252525] rounded-xl p-8 max-w-md w-full">
             <h1 className="text-2xl font-bold text-white mb-2">Record Your Set</h1>
             <p className="text-gray-400 mb-6">
-              Record up to 2 hours per month. Your recording will appear on your profile after you publish it.
+              Record up to 122 minutes per month. Your recording will appear on your profile after you publish it.
             </p>
 
             {quotaLoading ? (

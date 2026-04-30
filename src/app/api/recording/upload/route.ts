@@ -3,8 +3,8 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { STATION_ID } from '@/types/broadcast';
 import { generatePresignedUploadUrl, getR2PublicUrl } from '@/lib/r2-upload';
 
-// Default recording quota: 2 hours per month
-const DEFAULT_MAX_SECONDS = 2 * 60 * 60; // 7200 seconds
+// Default recording quota: 122 minutes per month
+const DEFAULT_MAX_SECONDS = 122 * 60; // 7320 seconds
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
 
