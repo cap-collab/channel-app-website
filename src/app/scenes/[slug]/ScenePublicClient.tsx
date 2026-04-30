@@ -25,6 +25,20 @@ export interface SceneDj {
   photoUrl?: string;
 }
 
+export type ResidencyCadence = 'monthly' | 'quarterly';
+
+export type ResidencyStatus = 'scheduled' | 'pending';
+
+export interface SceneResident {
+  userId: string;
+  name: string;
+  username?: string;
+  photoUrl?: string;
+  cadence: ResidencyCadence;
+  status: ResidencyStatus;
+  nextSlotStart?: number; // when status === 'scheduled'
+}
+
 export interface SceneCollective {
   id: string;
   slug: string;
@@ -66,6 +80,7 @@ interface Props {
   data: {
     scene: SceneSerialized;
     djs: SceneDj[];
+    residents: SceneResident[];
     collectives: SceneCollective[];
     archives: ArchiveSerialized[];
     upcomingEvents: SceneEvent[];
@@ -108,6 +123,7 @@ export function ScenePublicClient({ data }: Props) {
   const {
     scene,
     djs,
+    residents,
     collectives,
     archives,
     upcomingEvents,
@@ -296,6 +312,18 @@ export function ScenePublicClient({ data }: Props) {
           </section>
         )}
 
+        {/* RESIDENTS — DJs flagged with a recurring residency, plus their next-slot status. */}
+        {residents.length > 0 && (
+          <section className="mb-6 mt-6">
+            <p className="text-zinc-500 text-[10px] uppercase tracking-[0.5em] mb-3">Residents</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {residents.map((r) => (
+                <ResidentCard key={r.userId} resident={r} />
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* UPCOMING — merged chronological feed (IRL events + Channel slots + external shows) */}
         {upcomingFeed.length > 0 && (
           <section className="mt-16 mb-6 max-w-7xl mx-auto px-4">
@@ -434,6 +462,63 @@ function DjBadge({
     </Link>
   ) : (
     <span className="flex items-center gap-2">{content}</span>
+  );
+}
+
+function ResidentCard({ resident }: { resident: SceneResident }) {
+  const cadenceLabel = resident.cadence === 'monthly' ? 'Monthly resident' : 'Quarterly resident';
+  const inner = (
+    <div className="flex items-center gap-3 px-3 py-2 bg-zinc-900/50 border border-[#333] hover:border-white/20 transition-colors">
+      <span className="w-10 h-10 rounded-full overflow-hidden bg-zinc-800 flex-shrink-0">
+        {resident.photoUrl ? (
+          <Image
+            src={resident.photoUrl}
+            alt={resident.name}
+            width={40}
+            height={40}
+            className="w-full h-full object-cover"
+            unoptimized
+          />
+        ) : (
+          <span className="flex items-center justify-center w-full h-full text-xs text-zinc-600">
+            {resident.name.charAt(0).toUpperCase()}
+          </span>
+        )}
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="text-white text-sm truncate">{resident.name}</p>
+        <p className="text-[11px] text-zinc-500 truncate">{cadenceLabel}</p>
+      </div>
+      <ResidentStatusBadge resident={resident} />
+    </div>
+  );
+  return resident.username ? (
+    <Link href={`/dj/${resident.username}`} className="block">
+      {inner}
+    </Link>
+  ) : (
+    inner
+  );
+}
+
+function ResidentStatusBadge({ resident }: { resident: SceneResident }) {
+  if (resident.status === 'scheduled' && resident.nextSlotStart) {
+    const dateStr = new Date(resident.nextSlotStart).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
+    return (
+      <span className="flex items-center gap-1.5 px-2 py-1 text-[10px] uppercase tracking-wider text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 flex-shrink-0">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+        Scheduled · {dateStr}
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center gap-1.5 px-2 py-1 text-[10px] uppercase tracking-wider text-amber-300 bg-amber-500/10 border border-amber-500/30 flex-shrink-0">
+      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+      Booking pending
+    </span>
   );
 }
 

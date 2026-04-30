@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import Image from 'next/image';
 import { useAuthContext } from '@/contexts/AuthContext';
 import type { SceneSerialized } from '@/types/scenes';
-import type { DjForScenesAdmin } from '@/app/api/admin/scenes/djs/route';
+import type { DjForScenesAdmin, ResidencyCadence } from '@/app/api/admin/scenes/djs/route';
 
 const UNASSIGNED_FILTER = '__unassigned__';
 const ALL_FILTER = '__all__';
@@ -98,6 +98,27 @@ export function ScenesTab() {
     [authedFetch, fetchDjs]
   );
 
+  const handleSetResidency = useCallback(
+    async (dj: DjForScenesAdmin, cadence: ResidencyCadence | null) => {
+      setDjs((prev) =>
+        prev.map((d) =>
+          d.userId === dj.userId ? { ...d, residencyCadence: cadence ?? undefined } : d
+        )
+      );
+
+      try {
+        const res = await authedFetch('/api/admin/scenes/dj-residency', {
+          method: 'PATCH',
+          body: JSON.stringify({ userId: dj.userId, cadence }),
+        });
+        if (!res.ok) throw new Error('Failed to update');
+      } catch {
+        await fetchDjs();
+      }
+    },
+    [authedFetch, fetchDjs]
+  );
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -145,7 +166,13 @@ export function ScenesTab() {
       ) : (
         <div className="space-y-2">
           {filteredDjs.map((dj) => (
-            <DjRow key={dj.userId} dj={dj} scenes={scenes} onToggle={handleToggleDjScene} />
+            <DjRow
+              key={dj.userId}
+              dj={dj}
+              scenes={scenes}
+              onToggle={handleToggleDjScene}
+              onSetResidency={handleSetResidency}
+            />
           ))}
         </div>
       )}
@@ -184,11 +211,14 @@ function DjRow({
   dj,
   scenes,
   onToggle,
+  onSetResidency,
 }: {
   dj: DjForScenesAdmin;
   scenes: SceneSerialized[];
   onToggle: (dj: DjForScenesAdmin, sceneId: string) => void;
+  onSetResidency: (dj: DjForScenesAdmin, cadence: ResidencyCadence | null) => void;
 }) {
+  const cadence = dj.residencyCadence;
   return (
     <div className="flex items-center gap-4 px-4 py-3 bg-[#1f1f1f] rounded-lg border border-gray-800">
       <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-800 flex-shrink-0">
@@ -212,6 +242,20 @@ function DjRow({
           <div className="text-xs text-gray-500 truncate">@{dj.chatUsername}</div>
         )}
       </div>
+      <div className="flex items-center gap-1 mr-2 flex-shrink-0">
+        <span className="text-[10px] uppercase tracking-wider text-gray-600 mr-1">Resident</span>
+        <ResidencyPill active={!cadence} label="No" onClick={() => onSetResidency(dj, null)} />
+        <ResidencyPill
+          active={cadence === 'monthly'}
+          label="Monthly"
+          onClick={() => onSetResidency(dj, 'monthly')}
+        />
+        <ResidencyPill
+          active={cadence === 'quarterly'}
+          label="Quarterly"
+          onClick={() => onSetResidency(dj, 'quarterly')}
+        />
+      </div>
       <div className="flex flex-wrap gap-1.5 justify-end">
         {scenes.map((scene) => {
           const active = dj.sceneIds?.includes(scene.id);
@@ -232,5 +276,28 @@ function DjRow({
         })}
       </div>
     </div>
+  );
+}
+
+function ResidencyPill({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-2 py-0.5 text-[11px] rounded-full border transition-colors ${
+        active
+          ? 'bg-white text-black border-white'
+          : 'bg-gray-800/50 text-gray-500 border-gray-700 hover:text-gray-300'
+      }`}
+    >
+      {label}
+    </button>
   );
 }

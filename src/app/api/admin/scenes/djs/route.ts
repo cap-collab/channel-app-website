@@ -20,6 +20,8 @@ async function verifyAdminAccess(request: NextRequest): Promise<{ isAdmin: boole
   }
 }
 
+export type ResidencyCadence = 'monthly' | 'quarterly';
+
 export interface DjForScenesAdmin {
   userId: string;
   displayName: string;
@@ -28,6 +30,7 @@ export interface DjForScenesAdmin {
   photoUrl?: string;
   role: string;
   sceneIds: string[];
+  residencyCadence?: ResidencyCadence;
 }
 
 // GET - list all real DJ/broadcaster/admin users with their scene assignments
@@ -47,6 +50,9 @@ export async function GET(request: NextRequest) {
     const djs: DjForScenesAdmin[] = [];
     snap.forEach((doc) => {
       const data = doc.data();
+      const cadenceRaw = data.djProfile?.residency?.cadence;
+      const residencyCadence: ResidencyCadence | undefined =
+        cadenceRaw === 'monthly' || cadenceRaw === 'quarterly' ? cadenceRaw : undefined;
       djs.push({
         userId: doc.id,
         displayName: data.displayName || data.chatUsername || data.email || '(no name)',
@@ -55,6 +61,7 @@ export async function GET(request: NextRequest) {
         photoUrl: data.djProfile?.photoUrl,
         role: data.role,
         sceneIds: Array.isArray(data.djProfile?.sceneIds) ? data.djProfile.sceneIds : [],
+        residencyCadence,
       });
     });
 

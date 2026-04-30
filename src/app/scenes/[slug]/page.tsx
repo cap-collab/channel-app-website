@@ -8,7 +8,9 @@ import {
   type SceneCollective,
   type SceneDj,
   type SceneEvent,
+  type SceneResident,
   type SceneSlot,
+  type ResidencyCadence,
 } from './ScenePublicClient';
 import type { SceneSerialized } from '@/types/scenes';
 import type { ArchiveSerialized } from '@/types/broadcast';
@@ -34,6 +36,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 interface ScenePageData {
   scene: SceneSerialized;
   djs: SceneDj[];
+  residents: SceneResident[];
   collectives: SceneCollective[];
   archives: ArchiveSerialized[];
   upcomingEvents: SceneEvent[];
@@ -73,6 +76,7 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
     return {
       scene,
       djs: [],
+      residents: [],
       collectives: [],
       archives: [],
       upcomingEvents: [],
@@ -89,18 +93,34 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
     .get();
 
   const djs: SceneDj[] = [];
+  // Scene-DJ residency state, indexed both by userId and lowercase username so we
+  // can match slots regardless of which identifier they carry.
+  const residencyByUserId = new Map<string, ResidencyCadence>();
+  const residencyByUsername = new Map<string, ResidencyCadence>();
+  // Keep the SceneDj record for residents so the section below can render
+  // photo + name without re-querying the user doc.
+  const residentDjBase = new Map<string, SceneDj>();
   djUsersSnap.forEach((doc) => {
     const data = doc.data();
     const role = data.role;
     if (role !== 'dj' && role !== 'broadcaster' && role !== 'admin') return;
     // Prefer the DJ name (chatUsername / stage name). Fall back to displayName only
     // if there is no chatUsername.
-    djs.push({
+    const sceneDj: SceneDj = {
       userId: doc.id,
       name: data.chatUsername || data.displayName || '(no name)',
       username: data.chatUsername,
       photoUrl: data.djProfile?.photoUrl,
-    });
+    };
+    djs.push(sceneDj);
+
+    const cadenceRaw = data.djProfile?.residency?.cadence;
+    if (cadenceRaw === 'monthly' || cadenceRaw === 'quarterly') {
+      residencyByUserId.set(doc.id, cadenceRaw);
+      const username = (data.chatUsernameNormalized || data.chatUsername || '').toLowerCase();
+      if (username) residencyByUsername.set(username, cadenceRaw);
+      residentDjBase.set(doc.id, sceneDj);
+    }
   });
   djs.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -434,9 +454,81 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
   upcomingSlots.sort((a, b) => a.startTime - b.startTime);
   pastSlots.sort((a, b) => b.startTime - a.startTime);
 
+  // Compute residents — DJs in this scene with a residency cadence set, plus
+  // their next-slot status. We sweep slotsSnap once and pick the soonest
+  // upcoming slot per resident (any scene/show counts; the marker only signals
+  // whether the resident is on Channel's calendar at all).
+  const nextSlotByUserId = new Map<string, number>();
+  const nextSlotByUsername = new Map<string, number>();
+  const recordHit = (key: string, ts: number, map: Map<string, number>) => {
+    const existing = map.get(key);
+    if (existing === undefined || ts < existing) map.set(key, ts);
+  };
+  slotsSnap.forEach((doc) => {
+    const data = doc.data();
+    const startTime = toMs(data.startTime);
+    if (startTime <= now) return;
+    if (data.status === 'cancelled' || data.broadcastType === 'recording') return;
+
+    if (data.djUserId && residencyByUserId.has(data.djUserId)) {
+      recordHit(data.djUserId, startTime, nextSlotByUserId);
+    }
+    if (data.djUsername) {
+      const u = (data.djUsername as string).toLowerCase();
+      if (residencyByUsername.has(u)) recordHit(u, startTime, nextSlotByUsername);
+    }
+    const djSlots: Array<{ djUserId?: string; djUsername?: string }> = data.djSlots ?? [];
+    djSlots.forEach((d) => {
+      if (d.djUserId && residencyByUserId.has(d.djUserId)) {
+        recordHit(d.djUserId, startTime, nextSlotByUserId);
+      }
+      if (d.djUsername) {
+        const u = d.djUsername.toLowerCase();
+        if (residencyByUsername.has(u)) recordHit(u, startTime, nextSlotByUsername);
+      }
+    });
+  });
+
+  const CADENCE_WINDOW_MS: Record<ResidencyCadence, number> = {
+    monthly: 35 * 24 * 60 * 60 * 1000,
+    quarterly: 95 * 24 * 60 * 60 * 1000,
+  };
+
+  const residents: SceneResident[] = [];
+  for (const [userId, base] of Array.from(residentDjBase.entries())) {
+    const cadence = residencyByUserId.get(userId);
+    if (!cadence) continue;
+    const usernameLower = base.username?.toLowerCase();
+    const candidates: number[] = [];
+    const a = nextSlotByUserId.get(userId);
+    if (a !== undefined) candidates.push(a);
+    if (usernameLower) {
+      const b = nextSlotByUsername.get(usernameLower);
+      if (b !== undefined) candidates.push(b);
+    }
+    const next = candidates.length ? Math.min(...candidates) : undefined;
+    const inWindow = next !== undefined && next - now <= CADENCE_WINDOW_MS[cadence];
+    residents.push({
+      userId,
+      name: base.name,
+      username: base.username,
+      photoUrl: base.photoUrl,
+      cadence,
+      status: inWindow ? 'scheduled' : 'pending',
+      nextSlotStart: inWindow ? next : undefined,
+    });
+  }
+  residents.sort((a, b) => {
+    // Scheduled first (sorted by soonest slot), pending after (alpha).
+    if (a.status !== b.status) return a.status === 'scheduled' ? -1 : 1;
+    if (a.status === 'scheduled') return (a.nextSlotStart ?? 0) - (b.nextSlotStart ?? 0);
+    return a.name.localeCompare(b.name);
+  });
+
   return {
     scene,
     djs,
+    residents,
     collectives,
     archives,
     upcomingEvents,

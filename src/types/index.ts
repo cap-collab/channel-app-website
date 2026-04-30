@@ -96,6 +96,11 @@ export interface UserDocument {
     // when Channel ships Instagram/Meta sharing.
     youtubeOptIn?: boolean;
     metaOptIn?: boolean;
+    // Residency commitment — admin-set marker shown on scene pages.
+    // Absent = not a recurring resident.
+    residency?: {
+      cadence: 'monthly' | 'quarterly';
+    };
   };
   // Recording quota tracking (for self-service recording feature)
   recordingQuota?: {
