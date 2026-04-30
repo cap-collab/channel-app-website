@@ -76,6 +76,24 @@ export function ScenesTab() {
     return djs.filter((d) => d.sceneIds?.includes(sceneFilter));
   }, [djs, sceneFilter]);
 
+  // Split into residents (any cadence set) vs non-residents. Within each group:
+  // residents sort by soonest next-slot then name; non-residents sort by name.
+  const { residents, nonResidents } = useMemo(() => {
+    const r: DjForScenesAdmin[] = [];
+    const nr: DjForScenesAdmin[] = [];
+    for (const dj of filteredDjs) {
+      if (dj.residencyCadence) r.push(dj);
+      else nr.push(dj);
+    }
+    r.sort((a, b) => {
+      const an = a.nextSlotStart ?? Number.POSITIVE_INFINITY;
+      const bn = b.nextSlotStart ?? Number.POSITIVE_INFINITY;
+      if (an !== bn) return an - bn;
+      return a.displayName.localeCompare(b.displayName);
+    });
+    return { residents: r, nonResidents: nr };
+  }, [filteredDjs]);
+
   const handleToggleDjScene = useCallback(
     async (dj: DjForScenesAdmin, sceneId: string) => {
       const current = dj.sceneIds ?? [];
@@ -164,16 +182,23 @@ export function ScenesTab() {
       {filteredDjs.length === 0 ? (
         <div className="text-gray-500 text-sm py-12 text-center">No DJs in this view.</div>
       ) : (
-        <div className="space-y-2">
-          {filteredDjs.map((dj) => (
-            <DjRow
-              key={dj.userId}
-              dj={dj}
-              scenes={scenes}
-              onToggle={handleToggleDjScene}
-              onSetResidency={handleSetResidency}
-            />
-          ))}
+        <div className="space-y-6">
+          <DjGroup
+            title="Residents"
+            djs={residents}
+            emptyLabel="No residents in this view."
+            scenes={scenes}
+            onToggle={handleToggleDjScene}
+            onSetResidency={handleSetResidency}
+          />
+          <DjGroup
+            title="Not residents"
+            djs={nonResidents}
+            emptyLabel="No non-resident DJs in this view."
+            scenes={scenes}
+            onToggle={handleToggleDjScene}
+            onSetResidency={handleSetResidency}
+          />
         </div>
       )}
     </div>
@@ -237,24 +262,30 @@ function DjRow({
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm text-white truncate">{dj.displayName}</div>
-        {dj.chatUsername && (
-          <div className="text-xs text-gray-500 truncate">@{dj.chatUsername}</div>
+        <div className="text-sm text-white truncate">
+          {dj.chatUsername || dj.name || dj.displayName}
+        </div>
+        {dj.name && dj.name !== dj.chatUsername && (
+          <div className="text-xs text-gray-500 truncate">{dj.name}</div>
         )}
       </div>
-      <div className="flex items-center gap-1 mr-2 flex-shrink-0">
-        <span className="text-[10px] uppercase tracking-wider text-gray-600 mr-1">Resident</span>
-        <ResidencyPill active={!cadence} label="No" onClick={() => onSetResidency(dj, null)} />
-        <ResidencyPill
-          active={cadence === 'monthly'}
-          label="Monthly"
-          onClick={() => onSetResidency(dj, 'monthly')}
-        />
-        <ResidencyPill
-          active={cadence === 'quarterly'}
-          label="Quarterly"
-          onClick={() => onSetResidency(dj, 'quarterly')}
-        />
+      <div className="flex flex-col items-end gap-1 mr-2 flex-shrink-0">
+        <div className="flex items-center gap-1">
+          <ResidencyPill active={!cadence} label="No" onClick={() => onSetResidency(dj, null)} />
+          <ResidencyPill
+            active={cadence === 'monthly'}
+            label="Monthly"
+            onClick={() => onSetResidency(dj, 'monthly')}
+          />
+          <ResidencyPill
+            active={cadence === 'quarterly'}
+            label="Quarterly"
+            onClick={() => onSetResidency(dj, 'quarterly')}
+          />
+        </div>
+        <div className="text-[10px] text-gray-500 whitespace-nowrap">
+          Next show: {formatNextSlot(dj.nextSlotStart)}
+        </div>
       </div>
       <div className="flex flex-wrap gap-1.5 justify-end">
         {scenes.map((scene) => {
@@ -277,6 +308,55 @@ function DjRow({
       </div>
     </div>
   );
+}
+
+function DjGroup({
+  title,
+  djs,
+  emptyLabel,
+  scenes,
+  onToggle,
+  onSetResidency,
+}: {
+  title: string;
+  djs: DjForScenesAdmin[];
+  emptyLabel: string;
+  scenes: SceneSerialized[];
+  onToggle: (dj: DjForScenesAdmin, sceneId: string) => void;
+  onSetResidency: (dj: DjForScenesAdmin, cadence: ResidencyCadence | null) => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <h3 className="text-xs uppercase tracking-[0.2em] text-gray-400">{title}</h3>
+        <span className="text-xs text-gray-600">{djs.length}</span>
+      </div>
+      {djs.length === 0 ? (
+        <div className="text-gray-600 text-xs py-4">{emptyLabel}</div>
+      ) : (
+        <div className="space-y-2">
+          {djs.map((dj) => (
+            <DjRow
+              key={dj.userId}
+              dj={dj}
+              scenes={scenes}
+              onToggle={onToggle}
+              onSetResidency={onSetResidency}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatNextSlot(ts?: number): string {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 function ResidencyPill({
