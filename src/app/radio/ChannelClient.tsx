@@ -512,7 +512,15 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives 
       }
     }
     // External station picks (max 5)
-    const stationCandidates: { item: MatchedItem; id: string; djName: string | undefined; live: boolean; isChannelUser: boolean }[] = [];
+    // Lower number = higher priority. Stations not listed default to 100.
+    // Sutro is boosted above the Rinse channels to give it visibility while
+    // its schedule window is small.
+    const stationOrder: Record<string, number> = {
+      sutro: 10,
+      'rinse-fm': 20,
+      'rinse-fr': 21,
+    };
+    const stationCandidates: { item: MatchedItem; id: string; djName: string | undefined; live: boolean; isChannelUser: boolean; stationOrder: number }[] = [];
     for (const show of allShows) {
       if (!isValidShow(show)) continue;
       if (new Date(show.endTime) <= now) continue;
@@ -523,11 +531,13 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives 
       stationCandidates.push({
         item: { type: 'radio', data: show, station, matchLabel: `SELECTED BY ${station.name.toUpperCase()}`, live: live || undefined },
         id: show.id, djName: show.dj, live, isChannelUser: show.isChannelUser ?? false,
+        stationOrder: stationOrder[show.stationId] ?? 100,
       });
     }
     stationCandidates.sort((a, b) => {
       if (a.live !== b.live) return a.live ? -1 : 1;
       if (a.isChannelUser !== b.isChannelUser) return a.isChannelUser ? -1 : 1;
+      if (a.stationOrder !== b.stationOrder) return a.stationOrder - b.stationOrder;
       return 0;
     });
     let stationCount = 0;
