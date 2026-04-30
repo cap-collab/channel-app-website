@@ -275,15 +275,16 @@ function SquareCover({
   data: RenderData;
 }) {
   const FRAME = 1500;
-  // Reference width = 640 (YouTube uses 768; the square cover uses 640 so
-  // every Tailwind size class inside the scaled container renders 20%
-  // bigger than YouTube — Cap's request 2026-04-30 to make the SoundCloud
-  // cover read better at thumbnail sizes). SCALE compensates so the
-  // reference still fills the 1500px frame; the visual result is identical
-  // text/padding ratios to YouTube but uniformly enlarged 1.2×.
-  const REFERENCE_WIDTH = 640;
-  const SCALE = FRAME / REFERENCE_WIDTH; // ~2.344×
-  const REFERENCE_HEIGHT = Math.round(FRAME / SCALE); // 640 (square)
+  // Reference width = 533 (YouTube uses 768; the square cover uses 533 so
+  // every Tailwind size class inside the scaled container renders ~44%
+  // bigger than YouTube — Cap requested two consecutive 20% bumps on
+  // 2026-04-30: 768→640 then 640→533, both for thumbnail readability on
+  // SoundCloud). SCALE compensates so the reference still fills the
+  // 1500px frame; the visual result is identical text/padding ratios to
+  // YouTube but uniformly enlarged ~2.81× linearly (1.2 × 1.2).
+  const REFERENCE_WIDTH = 533;
+  const SCALE = FRAME / REFERENCE_WIDTH; // ~2.814×
+  const REFERENCE_HEIGHT = Math.round(FRAME / SCALE); // 533 (square)
   return (
     <div className="bg-black relative overflow-hidden" style={{ width: FRAME, height: FRAME }}>
       <div
@@ -334,16 +335,18 @@ function SquareCover({
       </div>
 
       {/* CHANNEL logo overlay — outside the scaled container so it stays
-          at a fixed pixel size regardless of SCALE. Sized 20% larger than
-          the YouTube logo (height 72 vs 60) and shifted 20% farther in
-          from the corner (24px vs 20px) to match the in-canvas text bump
-          requested by Cap on 2026-04-30. */}
+          at a fixed pixel size regardless of SCALE. Sized ~44% larger
+          than the YouTube logo (height 86 vs 60) and shifted ~44% farther
+          in from the corner (29px vs 20px) to match the two 20% in-canvas
+          text bumps requested by Cap on 2026-04-30. The logo source is a
+          true SVG (vector), so the upsize is lossless — no rasterization
+          artifacts at 86px. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/logo-white.svg"
         alt="CHANNEL"
         className="absolute drop-shadow-lg"
-        style={{ height: 72, top: 24, right: 24 }}
+        style={{ height: 86, top: 29, right: 29 }}
       />
     </div>
   );
