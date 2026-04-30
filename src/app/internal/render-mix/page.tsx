@@ -275,13 +275,15 @@ function SquareCover({
   data: RenderData;
 }) {
   const FRAME = 1500;
-  // Same reference width as the YouTube layout (768) so all the in-canvas
-  // text sits at identical Tailwind-scale proportions. SCALE then differs
-  // (square is taller than YouTube's 16:9), but the show-name overlay only
-  // depends on the top-left offset which is invariant under uniform scale.
-  const REFERENCE_WIDTH = 768;
-  const SCALE = FRAME / REFERENCE_WIDTH; // ~1.953×
-  const REFERENCE_HEIGHT = Math.round(FRAME / SCALE); // 768 (square)
+  // Reference width = 640 (YouTube uses 768; the square cover uses 640 so
+  // every Tailwind size class inside the scaled container renders 20%
+  // bigger than YouTube — Cap's request 2026-04-30 to make the SoundCloud
+  // cover read better at thumbnail sizes). SCALE compensates so the
+  // reference still fills the 1500px frame; the visual result is identical
+  // text/padding ratios to YouTube but uniformly enlarged 1.2×.
+  const REFERENCE_WIDTH = 640;
+  const SCALE = FRAME / REFERENCE_WIDTH; // ~2.344×
+  const REFERENCE_HEIGHT = Math.round(FRAME / SCALE); // 640 (square)
   return (
     <div className="bg-black relative overflow-hidden" style={{ width: FRAME, height: FRAME }}>
       <div
@@ -332,14 +334,16 @@ function SquareCover({
       </div>
 
       {/* CHANNEL logo overlay — outside the scaled container so it stays
-          at a fixed pixel size regardless of SCALE. Same offsets and
-          height as the YouTube render. */}
+          at a fixed pixel size regardless of SCALE. Sized 20% larger than
+          the YouTube logo (height 72 vs 60) and shifted 20% farther in
+          from the corner (24px vs 20px) to match the in-canvas text bump
+          requested by Cap on 2026-04-30. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/logo-white.svg"
         alt="CHANNEL"
-        className="absolute top-5 right-5 drop-shadow-lg"
-        style={{ height: 60 }}
+        className="absolute drop-shadow-lg"
+        style={{ height: 72, top: 24, right: 24 }}
       />
     </div>
   );
