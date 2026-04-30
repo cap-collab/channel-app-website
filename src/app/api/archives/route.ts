@@ -16,6 +16,8 @@ interface DJInfo {
   tipButtonLink?: string;
   youtubeOptIn?: boolean;
   soundcloudOptIn?: boolean;
+  metaOptIn?: boolean;
+  instagram?: string;
 }
 
 export async function GET(request: Request) {
@@ -173,6 +175,8 @@ export async function GET(request: Request) {
       tipButtonLink?: string;
       youtubeOptIn?: boolean;
       soundcloudOptIn?: boolean;
+      metaOptIn?: boolean;
+      instagram?: string;
     };
     const djProfileByUserId = new Map<string, DJProfileSlice>();
     const djProfileByUsername = new Map<string, DJProfileSlice>();
@@ -185,16 +189,24 @@ export async function GET(request: Request) {
       const tipButtonLink = profile.tipButtonLink;
       const youtubeOptIn = profile.youtubeOptIn;
       const soundcloudOptIn = profile.soundcloudOptIn;
+      const metaOptIn = profile.metaOptIn;
+      const socialLinks = profile.socialLinks as Record<string, unknown> | undefined;
+      const instagram = socialLinks?.instagram;
       const slice: DJProfileSlice = {};
       if (Array.isArray(genres) && genres.length > 0) slice.genres = genres as string[];
       if (typeof location === 'string' && location) slice.location = location;
       if (typeof bio === 'string' && bio.trim().length > 0) slice.bio = bio;
       if (typeof tipButtonLink === 'string' && tipButtonLink.trim().length > 0) slice.tipButtonLink = tipButtonLink;
-      // Only carry the flag when explicitly false (DJ opted out). When the
-      // field is true/undefined, we leave it off the slice — the consumer
-      // treats absence as "opted in" by default.
+      // Opt-in flags: only carry when explicitly false (DJ opted out).
+      // Absence = opted-in by default. Consumer treats accordingly.
       if (youtubeOptIn === false) slice.youtubeOptIn = false;
       if (soundcloudOptIn === false) slice.soundcloudOptIn = false;
+      if (metaOptIn === false) slice.metaOptIn = false;
+      // Instagram handle: stored as the bare handle (no @, no URL — see
+      // saveSocialLinks in studio). Only carried when set.
+      if (typeof instagram === 'string' && instagram.trim().length > 0) {
+        slice.instagram = instagram.trim();
+      }
       return Object.keys(slice).length > 0 ? slice : null;
     };
 
@@ -258,14 +270,22 @@ export async function GET(request: Request) {
           if (profileData.tipButtonLink) {
             enriched = { ...enriched, tipButtonLink: profileData.tipButtonLink };
           }
-          // youtubeOptIn / soundcloudOptIn are only carried through when
-          // explicitly false (DJ opted out). Absence = opted in by default.
-          // Always honor the live value — the DJ may have changed their mind.
+          // youtubeOptIn / soundcloudOptIn / metaOptIn are only carried
+          // through when explicitly false (DJ opted out). Absence = opted in
+          // by default. Always honor the live value — the DJ may have
+          // changed their mind. Instagram handle is also live-enriched so
+          // /broadcast/admin → Social Render shows the current handle.
           if (profileData.youtubeOptIn === false) {
             enriched = { ...enriched, youtubeOptIn: false };
           }
           if (profileData.soundcloudOptIn === false) {
             enriched = { ...enriched, soundcloudOptIn: false };
+          }
+          if (profileData.metaOptIn === false) {
+            enriched = { ...enriched, metaOptIn: false };
+          }
+          if (profileData.instagram) {
+            enriched = { ...enriched, instagram: profileData.instagram };
           }
         }
         return enriched;

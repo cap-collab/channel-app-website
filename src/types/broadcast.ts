@@ -279,6 +279,8 @@ export interface ArchiveDJ {
   tipButtonLink?: string;      // Tip/support URL — live-enriched by /api/archives from djProfile.tipButtonLink
   youtubeOptIn?: boolean;      // YouTube consent (default true) — live-enriched from djProfile.youtubeOptIn; false = hide archive from Social Render's YouTube outputs
   soundcloudOptIn?: boolean;   // SoundCloud consent (default true) — live-enriched from djProfile.soundcloudOptIn; false = hide archive from Social Render's SoundCloud outputs
+  metaOptIn?: boolean;         // Instagram/Meta consent (default true) — live-enriched from djProfile.metaOptIn; informational only (Social Render shows status, doesn't gate generation)
+  instagram?: string;          // Instagram handle (no @, no URL) — live-enriched from djProfile.socialLinks.instagram for Social Render's Done panel
 }
 
 // Archive priority (admin-only field, not exposed in public API)

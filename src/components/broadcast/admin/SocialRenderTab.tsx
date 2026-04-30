@@ -135,6 +135,20 @@ export function SocialRenderTab() {
     return () => clearInterval(interval);
   }, [fetchArchives, fetchJobs]);
 
+  // archiveId → primary DJ. Used by DoneJobActions to live-read current
+  // opt-in flags + Instagram handle (from /api/archives's djProfile
+  // enrichment), so the Done panel reflects each DJ's current consent
+  // state rather than whatever was snapshotted when the job was created.
+  // Falls back to undefined for jobs whose archive has been deleted —
+  // DoneJobActions then uses the job's own snapshot as a backup.
+  const archiveDjByArchiveId = useMemo(() => {
+    const map = new Map<string, ArchiveSerialized['djs'][number]>();
+    for (const a of archives) {
+      if (a.djs[0]) map.set(a.id, a.djs[0]);
+    }
+    return map;
+  }, [archives]);
+
   // archiveIds that already have a non-failed render job (queued, rendering,
   // or done). Failed jobs are NOT counted — if a render failed, the archive
   // should still appear in the picker so the admin can retry.
@@ -294,7 +308,9 @@ export function SocialRenderTab() {
                     </div>
                     <StatusBadge status={j.status} progressPct={j.progressPct} />
                   </div>
-                  {j.status === 'done' && <DoneJobActions job={j} />}
+                  {j.status === 'done' && (
+                    <DoneJobActions job={j} liveDj={archiveDjByArchiveId.get(j.archiveId)} />
+                  )}
                   {j.status === 'failed' && j.error && (
                     <div className="mt-2 text-red-400 text-xs">{j.error}</div>
                   )}
@@ -396,8 +412,19 @@ function StatusBadge({ status, progressPct }: { status: RenderJob['status']; pro
  * opted into. Each row has Download (R2 sets Content-Disposition: attachment
  * so the browser saves the file) plus Copy-title and Copy-description
  * buttons that put platform-ready text on the clipboard.
+ *
+ * `liveDj` is the current state of the archive's primary DJ pulled from
+ * /api/archives — preferred over the job's own snapshot so legacy renders
+ * honor today's consent + show today's Instagram handle. Falls back to the
+ * snapshot only if the archive was deleted (no liveDj available).
  */
-function DoneJobActions({ job }: { job: RenderJob }) {
+function DoneJobActions({
+  job,
+  liveDj,
+}: {
+  job: RenderJob;
+  liveDj: ArchiveSerialized['djs'][number] | undefined;
+}) {
   const [copied, setCopied] = useState<string | null>(null);
 
   const djNameDisplay = job.renderData.djName;
@@ -499,9 +526,22 @@ function DoneJobActions({ job }: { job: RenderJob }) {
     }
   };
 
-  // Per-platform consent (default = true when undefined).
-  const ytEnabled = job.youtubeOptIn !== false;
-  const scEnabled = job.soundcloudOptIn !== false;
+  // Per-platform consent. Prefer the live DJ profile (from /api/archives)
+  // over the job's snapshot so legacy jobs that were rendered before opt-in
+  // snapshots existed still honor a DJ's current opt-out — and so toggling
+  // a flag on /studio retroactively hides the relevant download row.
+  // Default = true (opted in) when both sources are undefined.
+  const liveYtOff = liveDj?.youtubeOptIn === false;
+  const liveScOff = liveDj?.soundcloudOptIn === false;
+  const liveMetaOff = liveDj?.metaOptIn === false;
+  const ytEnabled = liveDj
+    ? !liveYtOff
+    : job.youtubeOptIn !== false;
+  const scEnabled = liveDj
+    ? !liveScOff
+    : job.soundcloudOptIn !== false;
+  const metaEnabled = liveDj ? !liveMetaOff : true;
+  const instagramHandle = liveDj?.instagram?.trim() || null;
 
   return (
     <div className="mt-3 space-y-3">
@@ -577,6 +617,24 @@ function DoneJobActions({ job }: { job: RenderJob }) {
           </div>
         </div>
       )}
+
+      {/* Instagram info line. Status only — no buttons. We have no IG
+          rendering pipeline yet, so this just tells the admin whether
+          IG sharing is OK and what handle to tag. Three states:
+            - "IG: @handle"   — opted in, handle on file
+            - "IG: not set"   — opted in, no handle yet (DJ hasn't filled
+              their profile out — admin can DM them)
+            - "IG: opted out" — DJ has metaOptIn === false; don't share */}
+      <div>
+        <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">Instagram</div>
+        <div className="text-xs text-gray-300">
+          {!metaEnabled
+            ? 'IG: opted out'
+            : instagramHandle
+              ? `IG: @${instagramHandle}`
+              : 'IG: not set'}
+        </div>
+      </div>
     </div>
   );
 }
