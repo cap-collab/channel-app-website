@@ -17,6 +17,7 @@ function getDeepLinkStationId(metadataStationId: string): string {
     rinsefr: "rinse-fr",
     dublab: "dublab",
     subtle: "subtle",
+    sutro: "sutro",
   };
   return mapping[metadataStationId] || metadataStationId;
 }
@@ -36,6 +37,7 @@ function getStationWebsiteUrl(metadataStationId: string): string {
     rinsefr: "https://www.rinse.fm/channels/france",
     dublab: "https://www.dublab.com/",
     subtle: "https://www.subtleradio.com/",
+    sutro: "https://sutrofm.net/",
     newtown: "https://newtownradio.com",
     broadcast: "https://channel-app.com/radio",
   };
@@ -258,6 +260,7 @@ export async function sendShowStartingEmail({
     rinsefr: "#8A8A8A",
     dublab: "#0287FE",
     subtle: "#C3E943",
+    sutro: "#FFFFFF",
     newtown: "#ec92af",
   };
   const fallbackColor = stationAccentColors[stationId] || "#D94099";
@@ -323,6 +326,7 @@ const STATION_ACCENT_COLORS: Record<string, string> = {
   rinsefr: "#8A8A8A",
   dublab: "#0287FE",
   subtle: "#C3E943",
+  sutro: "#FFFFFF",
   newtown: "#ec92af",
   irl: "#22c55e",
 };

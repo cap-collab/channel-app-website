@@ -30,6 +30,8 @@ function getLogoUrl(stationId: string): string {
   switch (stationId) {
     case "subtle":
       return "/stations/subtle-logo.png";
+    case "sutro":
+      return "/stations/sutro-logo.png";
     case "dublab":
       return "/stations/dublab-logo.png";
     case "rinse-fm":

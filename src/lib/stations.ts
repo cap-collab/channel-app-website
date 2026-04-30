@@ -42,6 +42,16 @@ export const STATIONS: Station[] = [
     accentColor: "#C3E943",
   },
   {
+    id: "sutro",
+    name: "Sutro FM",
+    metadataKey: "sutro",
+    streamUrl: "",
+    websiteUrl: "https://sutrofm.net/",
+    backgroundColor: "#000000",
+    textColor: "#FFFFFF",
+    accentColor: "#FFFFFF",
+  },
+  {
     id: "nts-2",
     name: "NTS 2",
     metadataKey: "nts2",
@@ -113,6 +123,7 @@ const STATION_LOGOS: Record<string, string> = {
   "rinse-fm": "/stations/rinsefm-logo.png",
   "rinse-fr": "/stations/rinsefr-logo.png",
   "subtle": "/stations/subtle-logo.png",
+  "sutro": "/stations/sutro-logo.png",
   "dublab": "/stations/dublab-logo.png",
 };
 

@@ -224,7 +224,7 @@ export async function GET(request: NextRequest) {
       if (show.stationId === "newtown") continue;
 
       // Skip stations with dedicated sync endpoints
-      if (show.stationId === "subtle" || show.stationId === "dublab") continue;
+      if (show.stationId === "subtle" || show.stationId === "dublab" || show.stationId === "sutro") continue;
 
       const djName = show.dj;
       const showName = show.name;
