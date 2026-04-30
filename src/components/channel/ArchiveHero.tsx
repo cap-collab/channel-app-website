@@ -160,7 +160,7 @@ function ShowProgressBar({ startTime, endTime }: { startTime: number; endTime: n
   );
 }
 
-export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liveBPM, liveDJChatRoom, maxHeroSlides = 3, titleOverride, hideSubtitle }: ArchiveHeroProps) {
+export function ArchiveHero({ archives, featuredArchive, isLive, liveBPM, liveDJChatRoom, maxHeroSlides = 3, titleOverride, hideSubtitle }: ArchiveHeroProps) {
   const { user } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
   const {
@@ -442,20 +442,13 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           ) : isLive ? (
             <button
               onClick={() => { setUserSelectedMode('live'); playLive(); }}
-              className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-tighter font-bold transition-colors ${isRestream ? 'text-zinc-400 hover:text-zinc-300' : 'text-red-500 hover:text-red-400'}`}
+              className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-tighter font-bold transition-colors text-red-500 hover:text-red-400"
             >
-              {isRestream ? 'Switch to Radio' : 'Switch to Live Radio'}
-              {isRestream ? (
-                <svg className="w-3 h-3 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                  <path d="M3 3v5h5" />
-                </svg>
-              ) : (
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
-                </span>
-              )}
+              Switch to Live Radio
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
+              </span>
               {liveBPM ? `${liveBPM} BPM` : ''}
             </button>
           ) : nextShowTime ? (
@@ -468,19 +461,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           <div className="flex items-center gap-1.5">
             {showLiveInHero && (
               <>
-                {isRestream ? (
-                  <svg className="w-3 h-3 text-zinc-400 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                    <path d="M3 3v5h5" />
-                  </svg>
-                ) : (
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
-                  </span>
-                )}
-                <span className={`text-xs font-mono uppercase tracking-tighter font-bold ${isRestream ? 'text-zinc-400' : 'text-red-500'}`}>
-                  {liveBPM ? `${liveBPM} BPM ` : ''}{isRestream ? 'Restream' : 'Live'}
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                </span>
+                <span className="text-xs font-mono uppercase tracking-tighter font-bold text-red-500">
+                  {liveBPM ? `${liveBPM} BPM ` : ''}Live
                 </span>
               </>
             )}
@@ -605,21 +591,14 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     <ScrollingDJName text={djName} className="text-[10px] text-zinc-500 mt-0.5 leading-[1.3em]" />
                   )}
                 </div>
-                {/* Live/Restream indicator + BPM */}
+                {/* Live indicator + BPM */}
                 <div className="flex items-center gap-0.5 flex-shrink-0">
-                  {isRestream ? (
-                    <svg className="w-3 h-3 text-zinc-400 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                      <path d="M3 3v5h5" />
-                    </svg>
-                  ) : (
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
-                    </span>
-                  )}
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                  </span>
                   {liveBPM && (
-                    <span className={`text-xs font-mono uppercase tracking-tighter font-bold ${isRestream ? 'text-zinc-400' : 'text-red-500'}`}>
+                    <span className="text-xs font-mono uppercase tracking-tighter font-bold text-red-500">
                       {liveBPM} BPM
                     </span>
                   )}
@@ -951,7 +930,6 @@ export function ArchiveGridCard({
   isActive,
   isPlaying,
   isLive: isLiveCard,
-  isRestream: isRestreamCard,
   liveBPM: cardLiveBPM,
   onPlay,
   sceneChips,
@@ -1039,23 +1017,15 @@ export function ArchiveGridCard({
           <span className="text-sm font-bold text-white uppercase tracking-wide whitespace-nowrap overflow-hidden block">{archive.showName}</span>
         </div>
 
-        {/* Top right: Live / Restream badge + BPM (only on live cards) */}
+        {/* Top right: Live badge + BPM (only on live cards) */}
         {isLiveCard && (
           <div className="absolute top-1 right-1 md:top-1.5 md:right-1.5 flex items-center gap-1 drop-shadow-lg">
-            {isRestreamCard ? (
-              <svg className="w-2.5 h-2.5 text-zinc-300 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                <path d="M3 3v5h5" />
-              </svg>
-            ) : (
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-600" />
-              </span>
-            )}
-            <span className={`text-[10px] font-mono uppercase tracking-tighter font-bold ${isRestreamCard ? 'text-zinc-300' : 'text-red-500'}`}>
-              {isRestreamCard ? 'Restream' : 'Live'}
-              {cardLiveBPM ? ` ${cardLiveBPM} BPM` : ''}
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-600" />
+            </span>
+            <span className="text-[10px] font-mono uppercase tracking-tighter font-bold text-red-500">
+              Live{cardLiveBPM ? ` ${cardLiveBPM} BPM` : ''}
             </span>
           </div>
         )}
