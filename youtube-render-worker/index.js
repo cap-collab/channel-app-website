@@ -203,6 +203,7 @@ app.post('/backfill-soundcloud', authenticate, async (req, res) => {
     png: join(dir, 'frame.png'),
     mp4: join(dir, 'output.mp4'),
     m4a: join(dir, 'audio.m4a'),
+    mp3: join(dir, 'audio.mp3'),
     coverJpg: join(dir, 'cover.jpg'),
   };
   const entry = {
@@ -249,25 +250,30 @@ app.post('/backfill-soundcloud', authenticate, async (req, res) => {
     );
     updates.soundcloudImageUrl = `${R2_PUBLIC}/${coverKey}`;
 
-    // Skip m4a if the job already has one. This is the common case for
-    // jobs that ran the new code path once but need a cover refresh.
+    // Skip audio extract if the job already has one. This is the common
+    // case for jobs that ran the new code path once but need a cover
+    // refresh. extractAudio picks the right output format (m4a for mp4
+    // sources, mp3 for mp3 sources) so backfilling old MP3-source archives
+    // works without errors.
     if (!job.soundcloudAudioUrl) {
-      console.log(`[${jobId}][backfill] extracting m4a from ${job.recordingUrl}`);
-      await extractM4a(jobId, entry, job.recordingUrl);
-      const m4aFilename = `${baseNoExt}.m4a`;
-      const m4aKey = `${R2_OUTPUT_PREFIX}/${m4aFilename}`;
+      console.log(`[${jobId}][backfill] extracting audio from ${job.recordingUrl}`);
+      const audioResult = await extractAudio(jobId, entry, job.recordingUrl);
+      const audioFilename = `${baseNoExt}.${audioResult.format}`;
+      const audioKey = `${R2_OUTPUT_PREFIX}/${audioFilename}`;
+      const audioContentType =
+        audioResult.format === 'mp3' ? 'audio/mpeg' : 'audio/mp4';
       await s3.send(
         new PutObjectCommand({
           Bucket: R2_BUCKET,
-          Key: m4aKey,
-          Body: readFileSync(tempPaths.m4a),
-          ContentType: 'audio/mp4',
-          ContentDisposition: `attachment; filename="${m4aFilename}"`,
+          Key: audioKey,
+          Body: readFileSync(audioResult.path),
+          ContentType: audioContentType,
+          ContentDisposition: `attachment; filename="${audioFilename}"`,
         })
       );
-      updates.soundcloudAudioUrl = `${R2_PUBLIC}/${m4aKey}`;
+      updates.soundcloudAudioUrl = `${R2_PUBLIC}/${audioKey}`;
     } else {
-      console.log(`[${jobId}][backfill] m4a already exists — skipping audio`);
+      console.log(`[${jobId}][backfill] audio already exists — skipping`);
     }
 
     await db.collection('youtube-render-jobs').doc(jobId).update(updates);
@@ -311,6 +317,7 @@ async function runJob(job) {
     png: join(dir, 'frame.png'),
     mp4: join(dir, 'output.mp4'),
     m4a: join(dir, 'audio.m4a'),
+    mp3: join(dir, 'audio.mp3'),
     coverJpg: join(dir, 'cover.jpg'),
   };
 
@@ -366,16 +373,20 @@ async function runJob(job) {
       console.log(`[${jobId}] Skipping YouTube outputs — DJ opted out`);
     }
 
-    // ─── SoundCloud path: 1500×1500 cover + lossless m4a audio ───────────
+    // ─── SoundCloud path: 1500×1500 cover + lossless audio ───────────────
     // Independent of the YouTube capture — the cover uses ?variant=square
-    // and the m4a is a stream-copy from recordingUrl (no transcode).
+    // and the audio is a stream-copy from recordingUrl (no transcode).
+    // extractAudio returns the chosen format (m4a for mp4 sources, mp3
+    // for mp3 sources) so the upload step knows which tempfile / mime
+    // type to use.
+    let audioResult = null;
     if (soundcloudEnabled) {
       console.log(`[${jobId}] Phase SC1: capture 1500×1500 cover`);
       await captureSquareCover(jobId, entry, renderData);
       if (entry.intentionalStop) return;
 
-      console.log(`[${jobId}] Phase SC2: extract m4a (lossless -c:a copy)`);
-      await extractM4a(jobId, entry, recordingUrl);
+      console.log(`[${jobId}] Phase SC2: extract audio (lossless -c:a copy)`);
+      audioResult = await extractAudio(jobId, entry, recordingUrl);
       if (entry.intentionalStop) return;
     } else {
       console.log(`[${jobId}] Skipping SoundCloud outputs — DJ opted out`);
@@ -400,25 +411,26 @@ async function runJob(job) {
       updates.outputUrl = `${R2_PUBLIC}/${mp4Key}`;
     }
 
-    if (soundcloudEnabled) {
-      // Replace the .mp4 suffix with .m4a / -cover.jpg for the audio + image
-      // siblings. Same slug so it's obvious in R2 they belong to one render.
+    if (soundcloudEnabled && audioResult) {
+      // Replace the .mp4 suffix with the chosen audio extension for the
+      // audio sibling, and -cover.jpg for the image. Same slug so it's
+      // obvious in R2 they belong to one render. SoundCloud accepts both
+      // AAC-in-M4A and MP3 natively — content-type matches the bytes.
       const baseNoExt = filename.replace(/\.mp4$/i, '');
-      const m4aFilename = `${baseNoExt}.m4a`;
-      const m4aKey = `${R2_OUTPUT_PREFIX}/${m4aFilename}`;
+      const audioExt = audioResult.format; // 'm4a' or 'mp3'
+      const audioFilename = `${baseNoExt}.${audioExt}`;
+      const audioKey = `${R2_OUTPUT_PREFIX}/${audioFilename}`;
+      const audioContentType = audioExt === 'mp3' ? 'audio/mpeg' : 'audio/mp4';
       await s3.send(
         new PutObjectCommand({
           Bucket: R2_BUCKET,
-          Key: m4aKey,
-          Body: readFileSync(tempPaths.m4a),
-          // SoundCloud accepts AAC-in-M4A natively. Content-type kept
-          // accurate so any HTTP client (including the admin tab's
-          // download link) treats it as audio, not video.
-          ContentType: 'audio/mp4',
-          ContentDisposition: `attachment; filename="${m4aFilename}"`,
+          Key: audioKey,
+          Body: readFileSync(audioResult.path),
+          ContentType: audioContentType,
+          ContentDisposition: `attachment; filename="${audioFilename}"`,
         })
       );
-      updates.soundcloudAudioUrl = `${R2_PUBLIC}/${m4aKey}`;
+      updates.soundcloudAudioUrl = `${R2_PUBLIC}/${audioKey}`;
 
       const coverFilename = `${baseNoExt}-cover.jpg`;
       const coverKey = `${R2_OUTPUT_PREFIX}/${coverFilename}`;
@@ -641,15 +653,30 @@ async function captureSquareCover(jobId, entry, renderData) {
   }
 }
 
-// ─── Phase SC2: extract m4a audio from source mp4 ───────────────────────
+// ─── Phase SC2: extract SoundCloud-ready audio from source ──────────────
 // SoundCloud rejects .mp4 by extension even when the file is audio-only,
-// so we remux the AAC stream out of the source mp4 into an .m4a container.
-// -c:a copy = lossless (same bytes, different container) and ~6000× real-
-// time, so a 2hr mix takes ~1 second. Reuses the same reconnect flags as
-// muxFinalMp4 for the HTTP source. No initial-connect retry loop here —
-// extract is cheap enough that one failure → fail the job is fine.
-function extractM4a(jobId, entry, recordingUrl) {
+// so for an MP4 source we remux the AAC stream out into an .m4a container.
+// For an MP3 source we stream-copy into a fresh .mp3 (m4a is AAC-only, so
+// you can't put MP3 in there). Either way `-c:a copy` = lossless (same
+// audio bytes, just a different container) and ~6000× real-time, so a 2hr
+// mix takes ~1 second.
+//
+// Returns { format: 'm4a' | 'mp3', path: string } so the caller knows
+// which tempfile to read and what content-type / filename to use on the
+// R2 upload.
+//
+// No initial-connect retry loop — extract is cheap enough that one failure
+// → bubble up is fine.
+function extractAudio(jobId, entry, recordingUrl) {
   return new Promise((resolve, reject) => {
+    // Detect source format from URL extension. recordingUrl always points
+    // at an R2 object whose key carries the upload-time extension (mp3,
+    // m4a, mp4, aac, etc.). Anything that's not obviously MP3 → treat as
+    // MP4-with-AAC and produce M4A.
+    const isMp3 = /\.mp3(\?|$)/i.test(recordingUrl);
+    const outFormat = isMp3 ? 'mp3' : 'm4a';
+    const outPath = isMp3 ? entry.tempPaths.mp3 : entry.tempPaths.m4a;
+
     const args = [
       '-y',
       '-reconnect', '1',
@@ -659,10 +686,13 @@ function extractM4a(jobId, entry, recordingUrl) {
       '-i', recordingUrl,
       '-vn',           // drop any video stream
       '-c:a', 'copy',  // lossless audio extract
-      '-movflags', '+faststart',
+      // faststart for m4a (so the moov atom moves to the front for
+      // progressive playback). Harmless to pass for mp3 — ffmpeg ignores
+      // mp4-only flags when the output container isn't mp4.
+      ...(isMp3 ? [] : ['-movflags', '+faststart']),
       '-loglevel', 'info',
       '-stats',
-      entry.tempPaths.m4a,
+      outPath,
     ];
     const ff = spawn('ffmpeg', args);
     entry.ffmpegProcess = ff;
@@ -671,18 +701,18 @@ function extractM4a(jobId, entry, recordingUrl) {
       const str = chunk.toString();
       stderrTail = (stderrTail + str).slice(-4096);
       for (const line of str.split('\n')) {
-        if (line.trim()) console.log(`[${jobId}][m4a] ${line.trim()}`);
+        if (line.trim()) console.log(`[${jobId}][${outFormat}] ${line.trim()}`);
       }
     });
     ff.on('error', (err) => {
-      console.error(`[${jobId}][m4a] spawn error:`, err);
+      console.error(`[${jobId}][${outFormat}] spawn error:`, err);
       reject(err);
     });
     ff.on('close', (code, signal) => {
       entry.ffmpegProcess = null;
       if (entry.intentionalStop) return reject(new Error('intentionally stopped'));
-      if (code === 0) return resolve();
-      reject(new Error(`m4a extract failed (code ${code}, signal ${signal}): ${stderrTail.slice(-512)}`));
+      if (code === 0) return resolve({ format: outFormat, path: outPath });
+      reject(new Error(`${outFormat} extract failed (code ${code}, signal ${signal}): ${stderrTail.slice(-512)}`));
     });
   });
 }
@@ -847,8 +877,8 @@ function teardownJob(jobId, intentional) {
   }
 
   // Clean up /tmp files
-  const { dir, webm, png, mp4, m4a, coverJpg } = entry.tempPaths;
-  for (const p of [webm, png, mp4, m4a, coverJpg]) {
+  const { dir, webm, png, mp4, m4a, mp3, coverJpg } = entry.tempPaths;
+  for (const p of [webm, png, mp4, m4a, mp3, coverJpg]) {
     try {
       statSync(p);
       unlinkSync(p);
