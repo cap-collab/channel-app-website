@@ -1423,10 +1423,13 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
   }, [upcomingBroadcasts, pastExternalShows, pastBroadcastShows, djProfile, djUpcomingEvents, djPastEvents]);
 
   const hasScheduleContent = upcomingShows.length > 0 || pastActivities.length > 0;
+  const hasUpcomingShows = upcomingShows.length > 0;
 
+  // Default to the schedule tab only when there are upcoming shows; DJs with
+  // only past activity (or nothing) land on chat where conversation lives.
   useEffect(() => {
-    if (!hasScheduleContent) setActiveTab('chat');
-  }, [hasScheduleContent]);
+    if (!hasUpcomingShows) setActiveTab('chat');
+  }, [hasUpcomingShows]);
 
   // Create Artist Selects (recommendations)
   const artistSelects = useMemo(() => {
