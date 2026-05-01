@@ -50,28 +50,33 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, photo, location, description, genres, socialLinks, residentDJs, linkedVenues, linkedCollectives, linkedEvents, sceneIds } = body;
+    const { name, photo, location, description, genres, socialLinks, residentDJs, linkedVenues, linkedCollectives, linkedEvents, sceneIds, owners, tipButtonLink } = body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json({ error: 'Collective name is required' }, { status: 400 });
     }
 
-    // Generate unique slug
+    // Generate unique slug \u2014 check both `collectives` (other collectives) and
+    // `usernames` (DJ users + pending DJs) so the slug is globally unique
+    // across the shared /dj/<slug> namespace.
     const baseSlug = generateSlug(name.trim());
     let slug = baseSlug;
     let suffix = 2;
 
-    // Check for slug collisions
     const existingSnapshot = await db.collection('collectives')
       .where('slug', '>=', baseSlug)
       .where('slug', '<=', baseSlug + '\uf8ff')
       .get();
-
     const existingSlugs = new Set(existingSnapshot.docs.map(doc => doc.data().slug));
-    while (existingSlugs.has(slug)) {
+
+    while (existingSlugs.has(slug) || (await db.collection('usernames').doc(slug).get()).exists) {
       slug = `${baseSlug}-${suffix}`;
       suffix++;
     }
+
+    const cleanedOwners = Array.isArray(owners)
+      ? owners.filter((v: unknown): v is string => typeof v === 'string' && v.length > 0)
+      : [];
 
     const collectiveData: Record<string, unknown> = {
       name: name.trim(),
@@ -86,11 +91,22 @@ export async function POST(request: NextRequest) {
       linkedCollectives: linkedCollectives || [],
       linkedEvents: linkedEvents || [],
       sceneIds: Array.isArray(sceneIds) ? sceneIds.filter((v: unknown) => typeof v === 'string') : [],
+      owners: cleanedOwners,
+      tipButtonLink: tipButtonLink || null,
       createdAt: FieldValue.serverTimestamp(),
       createdBy: adminUserId,
     };
 
     const docRef = await db.collection('collectives').add(collectiveData);
+
+    // Reserve the slug in the global usernames collection so future user
+    // signups / pending-DJ creations can't take it.
+    await db.collection('usernames').doc(slug).set({
+      usernameHandle: slug,
+      uid: `collective:${docRef.id}`,
+      isPending: false,
+      claimedAt: FieldValue.serverTimestamp(),
+    });
 
     // Bidirectional sync: add self to all linked collectives, venues, and events
     const batch = db.batch();
@@ -124,7 +140,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { collectiveId, name, photo, location, description, genres, socialLinks, residentDJs, linkedVenues, linkedCollectives, linkedEvents, sceneIds } = body;
+    const { collectiveId, name, photo, location, description, genres, socialLinks, residentDJs, linkedVenues, linkedCollectives, linkedEvents, sceneIds, owners, tipButtonLink } = body;
 
     if (!collectiveId) {
       return NextResponse.json({ error: 'collectiveId is required' }, { status: 400 });
@@ -154,6 +170,12 @@ export async function PATCH(request: NextRequest) {
         ? sceneIds.filter((v: unknown) => typeof v === 'string')
         : [];
     }
+    if (owners !== undefined) {
+      updateData.owners = Array.isArray(owners)
+        ? owners.filter((v: unknown): v is string => typeof v === 'string' && v.length > 0)
+        : [];
+    }
+    if (tipButtonLink !== undefined) updateData.tipButtonLink = tipButtonLink || null;
 
     const batch = db.batch();
     batch.update(collectiveRef, updateData);
@@ -227,7 +249,7 @@ export async function DELETE(request: NextRequest) {
     const batch = db.batch();
     batch.delete(collectiveRef);
 
-    // Clean up reverse links before deleting
+    // Clean up reverse links and the global usernames reservation before deleting
     if (collectiveDoc.exists) {
       const data = collectiveDoc.data()!;
       await cleanupDeletedCollective(
@@ -240,6 +262,10 @@ export async function DELETE(request: NextRequest) {
           batch, db, collectiveId,
           data.linkedEvents
         );
+      }
+      // Release the slug from the global usernames namespace.
+      if (data.slug) {
+        batch.delete(db.collection('usernames').doc(data.slug as string));
       }
     }
 

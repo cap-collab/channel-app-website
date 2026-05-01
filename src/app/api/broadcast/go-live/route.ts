@@ -161,6 +161,25 @@ export async function POST(request: NextRequest) {
               slotDjChatUsername = slotDjChatUsername || byPendingData?.chatUsername || byPendingData?.username || null;
               // Don't set resolvedSlotDjUserId — pending profiles aren't real user UIDs.
               console.log('[go-live] Resolved DJ by chatUsername (pending):', { candidateUsername, hasProfile: !!slotDjProfile });
+            } else {
+              // Final fallback: collective by slug. Build a synthetic profile
+              // blob so the live broadcast carries the collective's bio/photo.
+              const byCollectiveSnap = await db.collection('collectives')
+                .where('slug', '==', normalized)
+                .limit(1)
+                .get();
+              if (!byCollectiveSnap.empty) {
+                const cData = byCollectiveSnap.docs[0].data();
+                slotDjProfile = {
+                  bio: cData.description || null,
+                  photoUrl: cData.photo || null,
+                  tipButtonLink: cData.tipButtonLink || null,
+                  socialLinks: cData.socialLinks || {},
+                  genres: cData.genres || [],
+                };
+                slotDjChatUsername = slotDjChatUsername || cData.slug || null;
+                console.log('[go-live] Resolved DJ by chatUsername (collective):', { candidateUsername, slug: cData.slug });
+              }
             }
           }
         }
@@ -290,7 +309,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Still nothing? Try looking up by chatUsername in users then pending-dj-profiles.
+      // Still nothing? Try looking up by chatUsername in users then pending-dj-profiles, then collectives.
       if (!userProfileData) {
         const candidateUsername = currentDjSlot?.djUsername || (djUsername && djUsername.trim()) || null;
         if (candidateUsername) {
@@ -311,6 +330,26 @@ export async function POST(request: NextRequest) {
             if (!pendingByUsernameSnap.empty) {
               userProfileData = pendingByUsernameSnap.docs[0].data();
               console.log('[go-live] Guest: resolved DJ by chatUsername (pending):', { candidateUsername });
+            } else {
+              // Final fallback: collective by slug.
+              const collectiveSnap = await db.collection('collectives')
+                .where('slug', '==', normalized)
+                .limit(1)
+                .get();
+              if (!collectiveSnap.empty) {
+                const cData = collectiveSnap.docs[0].data();
+                userProfileData = {
+                  chatUsername: cData.slug,
+                  djProfile: {
+                    bio: cData.description || null,
+                    photoUrl: cData.photo || null,
+                    tipButtonLink: cData.tipButtonLink || null,
+                    socialLinks: cData.socialLinks || {},
+                    genres: cData.genres || [],
+                  },
+                };
+                console.log('[go-live] Guest: resolved DJ by chatUsername (collective):', { candidateUsername, slug: cData.slug });
+              }
             }
           }
         }

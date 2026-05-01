@@ -289,6 +289,10 @@ interface DJProfile {
     };
   };
   uid: string;
+  // Collective-only: discriminator + the two extra display rows.
+  profileType?: 'user' | 'pending' | 'collective';
+  owners?: string[];                  // channel-user UIDs
+  residentDJs?: { djName: string; djUserId?: string; djUsername?: string; djPhotoUrl?: string }[];
 }
 
 interface UpcomingShow {
@@ -360,6 +364,8 @@ export function DJPublicProfileClient({ username }: Props) {
   const [notFound, setNotFound] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
+  // Resolved owner display info (only used when profileType === 'collective')
+  const [ownersResolved, setOwnersResolved] = useState<{ uid: string; chatUsername: string }[]>([]);
 
   // Live status
   const [liveOnChannel, setLiveOnChannel] = useState(false);
@@ -471,6 +477,7 @@ export function DJPublicProfileClient({ username }: Props) {
               myRecs: data.djProfile?.myRecs || {},
             },
             uid: doc.id,
+            profileType: 'user',
           });
           setLoading(false);
         } else if (pendingDoc) {
@@ -492,6 +499,7 @@ export function DJPublicProfileClient({ username }: Props) {
               myRecs: pendingData.djProfile?.myRecs || {},
             },
             uid: `pending-${pendingDoc.id}`,
+            profileType: 'pending',
           });
           // Check if this is an auto-generated profile
           if (pendingData.source === "auto") {
@@ -500,8 +508,40 @@ export function DJPublicProfileClient({ username }: Props) {
           }
           setLoading(false);
         } else {
-          setNotFound(true);
-          setLoading(false);
+          // Final fallback: a collective with this slug. Collectives share the
+          // /dj/<slug> namespace and render with the same component, plus
+          // conditional Owners + DJs rows near the top.
+          const collectivesRef = collection(db, "collectives");
+          const collectivesQ = query(collectivesRef, where("slug", "==", normalized));
+          const collectivesSnapshot = await getDocs(collectivesQ);
+          if (!collectivesSnapshot.empty) {
+            const cDoc = collectivesSnapshot.docs[0];
+            const cData = cDoc.data();
+            setDjProfile({
+              chatUsername: cData.name || cData.slug,
+              email: cData.socialLinks?.email || "",
+              djProfile: {
+                bio: cData.description || null,
+                photoUrl: cData.photo || null,
+                location: cData.location || null,
+                genres: cData.genres || [],
+                tipButtonLink: cData.tipButtonLink || null,
+                socialLinks: cData.socialLinks || {},
+                stripeAccountId: null,
+                irlShows: [],
+                radioShows: [],
+                myRecs: {},
+              },
+              uid: `collective-${cDoc.id}`,
+              profileType: 'collective',
+              owners: Array.isArray(cData.owners) ? cData.owners : [],
+              residentDJs: Array.isArray(cData.residentDJs) ? cData.residentDJs : [],
+            });
+            setLoading(false);
+          } else {
+            setNotFound(true);
+            setLoading(false);
+          }
         }
       } catch (error) {
         console.error("Error fetching DJ profile:", error);
@@ -512,6 +552,39 @@ export function DJPublicProfileClient({ username }: Props) {
 
     fetchDJProfile();
   }, [username]);
+
+  // Resolve owner UIDs → chatUsernames for the collective profile's "Owners" row.
+  useEffect(() => {
+    if (!djProfile || djProfile.profileType !== 'collective' || !djProfile.owners || djProfile.owners.length === 0) {
+      setOwnersResolved([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      if (!db) return;
+      const ownerUids = djProfile.owners || [];
+      const resolved: { uid: string; chatUsername: string }[] = [];
+      // Firestore "in" supports up to 10 — chunk if needed.
+      for (let i = 0; i < ownerUids.length; i += 10) {
+        const chunk = ownerUids.slice(i, i + 10);
+        if (chunk.length === 0) continue;
+        try {
+          const usersRef = collection(db, "users");
+          const q = query(usersRef, where("__name__", "in", chunk));
+          const snapshot = await getDocs(q);
+          snapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            const cu = data.chatUsername || data.displayName;
+            if (cu) resolved.push({ uid: docSnap.id, chatUsername: cu });
+          });
+        } catch (err) {
+          console.error("Error resolving owners:", err);
+        }
+      }
+      if (!cancelled) setOwnersResolved(resolved);
+    })();
+    return () => { cancelled = true; };
+  }, [djProfile]);
 
 
   // Live show state (for the dedicated live card)
@@ -800,6 +873,32 @@ export function DJPublicProfileClient({ username }: Props) {
           const normalizedUsername = djProfile.chatUsername?.toLowerCase().replace(/\s+/g, '');
           const djUserId = djProfile.uid;
 
+          // Collective fan-out: when viewing a user profile, also include
+          // archives of collectives this user owns. Archives credited to a
+          // collective live under archive.djs[].username === <slug>.
+          // The query filters for owners array-contains the user's UID — only
+          // valid for real user UIDs (skip pending- and collective- prefixes).
+          let myCollectiveSlugs = new Set<string>();
+          const isRealUserUid = djProfile.profileType === 'user' && djUserId && !djUserId.startsWith('pending-') && !djUserId.startsWith('collective-');
+          if (isRealUserUid) {
+            try {
+              const collectivesRef = collection(db, "collectives");
+              const ownedQ = query(collectivesRef, where("owners", "array-contains", djUserId));
+              const ownedSnap = await getDocs(ownedQ);
+              ownedSnap.forEach(d => {
+                const slug = d.data().slug;
+                if (typeof slug === "string") myCollectiveSlugs.add(slug);
+              });
+            } catch (err) {
+              console.error("Error fetching user's collectives:", err);
+            }
+          }
+
+          // When viewing a collective profile, match its own slug.
+          if (djProfile.profileType === 'collective' && normalizedUsername) {
+            myCollectiveSlugs = new Set([normalizedUsername]);
+          }
+
           const djArchives = archives.filter((archive) => {
             // Must have recording URL and be public
             if (!archive.recordingUrl || archive.isPublic === false) return false;
@@ -812,7 +911,9 @@ export function DJPublicProfileClient({ username }: Props) {
               if (djUserId && dj.userId === djUserId) return true;
               if (dj.username && normalizedUsername) {
                 const archiveDjUsername = dj.username.toLowerCase().replace(/\s+/g, '');
-                return archiveDjUsername === normalizedUsername;
+                if (archiveDjUsername === normalizedUsername) return true;
+                // Collective match: archive credited to a collective this profile owns or IS.
+                if (myCollectiveSlugs.has(archiveDjUsername)) return true;
               }
               if (dj.email && djEmail) {
                 return dj.email.toLowerCase() === djEmail;
@@ -1349,6 +1450,48 @@ export function DJPublicProfileClient({ username }: Props) {
                 </p>
               )}
             </div>
+
+            {/* Collective-only: Owners + DJs rows */}
+            {profile.profileType === 'collective' && (
+              <div className="mb-6 space-y-2">
+                {ownersResolved.length > 0 && (
+                  <p className="text-zinc-400 text-sm">
+                    <span className="text-zinc-500 uppercase tracking-[0.2em] text-xs mr-2">Owners</span>
+                    {ownersResolved.map((o, i) => (
+                      <span key={o.uid}>
+                        {i > 0 && ' · '}
+                        <Link
+                          href={`/dj/${normalizeUsername(o.chatUsername)}`}
+                          className="hover:text-white transition-colors"
+                        >
+                          {o.chatUsername}
+                        </Link>
+                      </span>
+                    ))}
+                  </p>
+                )}
+                {profile.residentDJs && profile.residentDJs.length > 0 && (
+                  <p className="text-zinc-400 text-sm">
+                    <span className="text-zinc-500 uppercase tracking-[0.2em] text-xs mr-2">DJs</span>
+                    {profile.residentDJs.map((dj, i) => (
+                      <span key={`${dj.djUsername || dj.djName}-${i}`}>
+                        {i > 0 && ' · '}
+                        {dj.djUsername ? (
+                          <Link
+                            href={`/dj/${normalizeUsername(dj.djUsername)}`}
+                            className="hover:text-white transition-colors"
+                          >
+                            {dj.djName}
+                          </Link>
+                        ) : (
+                          dj.djName
+                        )}
+                      </span>
+                    ))}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Medium: Bio */}
             <div className="max-w-xl space-y-4">

@@ -271,6 +271,7 @@ export function SlotModal({
   const [emailOpened, setEmailOpened] = useState(false);
   // Remote DJ profile lookup state
   const [remoteProfileFound, setRemoteProfileFound] = useState(false);
+  const [remoteIsCollective, setRemoteIsCollective] = useState(false);
   const [isLookingUpRemote, setIsLookingUpRemote] = useState(false);
   // Show image state
   const [showImageUrl, setShowImageUrl] = useState<string | undefined>(undefined);
@@ -315,10 +316,11 @@ export function SlotModal({
     }
   };
 
-  // Lookup DJ profile by name (for remote broadcasts) — checks users + pending-dj-profiles
+  // Lookup DJ profile by name (for remote broadcasts) — checks users + pending-dj-profiles + collectives
   const lookupRemoteDjByName = async (name: string) => {
     if (!name || name.trim().length < 2) {
       setRemoteProfileFound(false);
+      setRemoteIsCollective(false);
       return;
     }
 
@@ -328,16 +330,19 @@ export function SlotModal({
       const data = await res.json();
       if (data.found) {
         setRemoteProfileFound(true);
+        setRemoteIsCollective(!!data.isCollective);
         // Auto-fill email if found and currently empty
         if (data.djEmail && !djEmail) {
           setDjEmail(data.djEmail);
         }
       } else {
         setRemoteProfileFound(false);
+        setRemoteIsCollective(false);
       }
     } catch (error) {
       console.error('Failed to lookup DJ profile by name:', error);
       setRemoteProfileFound(false);
+      setRemoteIsCollective(false);
     } finally {
       setIsLookingUpRemote(false);
     }
@@ -1665,11 +1670,11 @@ Cap`;
                     <span className="text-xs text-gray-400">Looking up...</span>
                   )}
                   {!isLookingUpRemote && remoteProfileFound && (
-                    <span className="text-xs text-green-400 flex items-center gap-1">
+                    <span className={`text-xs flex items-center gap-1 ${remoteIsCollective ? 'text-purple-400' : 'text-green-400'}`}>
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
-                      Profile found
+                      {remoteIsCollective ? 'Collective' : 'Profile found'}
                     </span>
                   )}
                 </div>

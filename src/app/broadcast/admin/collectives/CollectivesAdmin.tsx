@@ -52,6 +52,9 @@ export function CollectivesAdmin() {
   const [linkedCollectives, setLinkedCollectives] = useState<CollectiveRef[]>([]);
   const [collectiveLinkedEvents, setCollectiveLinkedEvents] = useState<EventRef[]>([]);
   const [collectiveSceneIds, setCollectiveSceneIds] = useState<string[]>([]);
+  // Owners: channel users (with auth) who can claim live ingress + edit. Subset of djOptions where source==='user'.
+  const [owners, setOwners] = useState<string[]>([]);
+  const [tipButtonLink, setTipButtonLink] = useState('');
 
   // Photo state
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -205,6 +208,8 @@ export function CollectivesAdmin() {
           linkedCollectives: data.linkedCollectives || [],
           linkedEvents: data.linkedEvents || [],
           sceneIds: Array.isArray(data.sceneIds) ? data.sceneIds : [],
+          owners: Array.isArray(data.owners) ? data.owners : [],
+          tipButtonLink: data.tipButtonLink || null,
           createdAt: data.createdAt?.toMillis?.() || Date.now(),
           createdBy: data.createdBy,
         });
@@ -254,6 +259,8 @@ export function CollectivesAdmin() {
     setLinkedCollectives([]);
     setCollectiveLinkedEvents([]);
     setCollectiveSceneIds([]);
+    setOwners([]);
+    setTipButtonLink('');
     setPhotoUrl(null);
     setPhotoError(null);
     setEditingCollective(null);
@@ -285,6 +292,8 @@ export function CollectivesAdmin() {
     setLinkedCollectives(collective.linkedCollectives || []);
     setCollectiveLinkedEvents(collective.linkedEvents || []);
     setCollectiveSceneIds(collective.sceneIds || []);
+    setOwners(collective.owners || []);
+    setTipButtonLink(collective.tipButtonLink || '');
     setPhotoUrl(collective.photo || null);
     setPhotoError(null);
     setError(null);
@@ -426,6 +435,8 @@ export function CollectivesAdmin() {
         linkedCollectives,
         linkedEvents: collectiveLinkedEvents,
         sceneIds: collectiveSceneIds,
+        owners,
+        tipButtonLink: tipButtonLink.trim() || null,
       };
 
       const res = await fetch('/api/admin/collectives', {
@@ -825,6 +836,63 @@ export function CollectivesAdmin() {
               >
                 + Add DJ
               </button>
+            </div>
+
+            {/* Owners — channel users with auth who can claim live ingress */}
+            <div className="mb-6">
+              <label className="block text-sm text-gray-400 mb-3">Owners</label>
+              <p className="text-xs text-gray-500 mb-2">
+                Channel users who can go live as this collective. Distinct from DJs (above) — only users with accounts can be owners.
+              </p>
+              {owners.map((ownerUid, i) => {
+                const ownerOption = djOptions.find(o => o.djUserId === ownerUid);
+                return (
+                  <div key={ownerUid} className="flex gap-2 mb-2">
+                    <span className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white">
+                      {ownerOption?.label || ownerUid}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setOwners(owners.filter((_, j) => j !== i))}
+                      className="text-red-400 hover:text-red-300 px-2"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                );
+              })}
+              <select
+                value=""
+                onChange={(e) => {
+                  const uid = e.target.value;
+                  if (uid && !owners.includes(uid)) setOwners([...owners, uid]);
+                }}
+                className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white"
+              >
+                <option value="">+ Add owner...</option>
+                {djOptions
+                  .filter(o => o.source === 'user' && o.djUserId && !owners.includes(o.djUserId))
+                  .map(option => (
+                    <option key={option.djUserId} value={option.djUserId!}>
+                      {option.label}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            {/* Tip / support link */}
+            <div className="mb-6">
+              <label className="block text-sm text-gray-400 mb-3">Support link (optional)</label>
+              <input
+                type="text"
+                value={tipButtonLink}
+                onChange={(e) => setTipButtonLink(e.target.value)}
+                placeholder="https://ko-fi.com/... or any tip URL"
+                className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                If set, a Support button appears on the public profile.
+              </p>
             </div>
 
             {/* Linked Venues */}

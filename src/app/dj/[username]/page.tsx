@@ -54,6 +54,22 @@ async function getDJData(username: string): Promise<{ name: string; photoUrl: st
       }
     }
 
+    // Final fallback: collective by slug (collectives share the /dj/<slug> namespace)
+    const collectivesSnapshot = await adminDb
+      .collection("collectives")
+      .where("slug", "==", normalized)
+      .limit(1)
+      .get();
+
+    if (!collectivesSnapshot.empty) {
+      const data = collectivesSnapshot.docs[0].data();
+      console.log("[DJ Metadata] Found collective:", data.name);
+      return {
+        name: data.name || username,
+        photoUrl: data.photo || null,
+      };
+    }
+
     console.log("[DJ Metadata] No profile found for:", normalized);
     return null;
   } catch (error) {

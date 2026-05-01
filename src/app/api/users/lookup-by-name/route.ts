@@ -84,6 +84,39 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // 3. Final fallback: collective by slug. Collectives share the namespace
+    //    so an admin typing "pollensource" in the slot's DJ Name field
+    //    resolves to the collective's identity (acts as a DJ everywhere).
+    const collectivesSnapshot = await db.collection('collectives')
+      .where('slug', '==', normalized)
+      .limit(1)
+      .get();
+
+    if (!collectivesSnapshot.empty) {
+      const doc = collectivesSnapshot.docs[0];
+      const data = doc.data();
+      return NextResponse.json({
+        found: true,
+        isPending: false,
+        isCollective: true,
+        djUserId: null,
+        djUsername: data.slug,
+        djUsernameNormalized: data.slug,
+        djName: data.name || data.slug,
+        name: data.name || null,
+        djEmail: data.socialLinks?.email || null,
+        djBio: data.description || null,
+        djPhotoUrl: data.photo || null,
+        djThankYouMessage: null,
+        djSocialLinks: data.socialLinks || null,
+        djGenres: data.genres || null,
+        djDescription: data.description || null,
+        djTipButtonLink: data.tipButtonLink || null,
+        liveDjBio: data.description || null,
+        liveDjPhotoUrl: data.photo || null,
+      });
+    }
+
     return NextResponse.json({ found: false });
   } catch (error) {
     console.error('[lookup-by-name] Error:', error);

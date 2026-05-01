@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { ArchiveDJ, STATION_ID } from '@/types/broadcast';
+import { STATION_ID } from '@/types/broadcast';
+import { extractDJs } from '@/lib/extract-djs';
 
 // Generate URL-friendly slug from show name
 function generateSlug(showName: string): string {
@@ -8,63 +9,6 @@ function generateSlug(showName: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
-}
-
-// Helper to remove undefined values from an object
-function removeUndefined<T extends Record<string, unknown>>(obj: T): T {
-  return Object.fromEntries(
-    Object.entries(obj).filter(([, v]) => v !== undefined)
-  ) as T;
-}
-
-// Extract DJ info from broadcast slot data
-function extractDJs(slotData: Record<string, unknown>): ArchiveDJ[] {
-  const djs: ArchiveDJ[] = [];
-
-  // Check for venue broadcasts with djSlots
-  if (slotData.djSlots && Array.isArray(slotData.djSlots)) {
-    for (const slot of slotData.djSlots) {
-      // Check for B3B (multiple DJs in one slot)
-      if (slot.djProfiles && Array.isArray(slot.djProfiles)) {
-        for (const profile of slot.djProfiles) {
-          if (profile.username || profile.email || profile.userId) {
-            djs.push(removeUndefined({
-              name: profile.username || slot.djName || 'Unknown DJ',
-              username: profile.username || undefined,
-              userId: profile.userId || undefined,
-              photoUrl: profile.photoUrl || undefined,
-              email: profile.email || undefined,
-            }));
-          }
-        }
-      } else if (slot.djName) {
-        // Single DJ in this slot
-        djs.push(removeUndefined({
-          name: slot.djName,
-          username: slot.djUsername || undefined,
-          userId: slot.djUserId || slot.liveDjUserId || undefined,
-          photoUrl: slot.djPhotoUrl || undefined,
-          email: slot.djEmail || undefined,
-        }));
-      }
-    }
-  }
-
-  // If no DJs found from djSlots, try top-level DJ info (remote broadcasts)
-  if (djs.length === 0) {
-    const djName = slotData.liveDjUsername || slotData.djName || slotData.djUsername;
-    if (djName) {
-      djs.push(removeUndefined({
-        name: djName as string,
-        username: (slotData.djUsername || slotData.liveDjUsername) as string | undefined,
-        userId: (slotData.liveDjUserId || slotData.djUserId) as string | undefined,
-        photoUrl: slotData.liveDjPhotoUrl as string | undefined,
-        email: slotData.djEmail as string | undefined,
-      }));
-    }
-  }
-
-  return djs;
 }
 
 export async function POST(request: NextRequest) {

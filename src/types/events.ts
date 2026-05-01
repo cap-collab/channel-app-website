@@ -93,6 +93,11 @@ export interface Collective {
   linkedCollectives?: CollectiveRef[];
   linkedEvents?: EventRef[];
   sceneIds?: string[];
+  // Channel users (with auth) who can claim live ingress for this collective and edit it.
+  // Distinct from residentDJs (which can include pending DJs without accounts).
+  owners?: string[];
+  // External support/tip URL. Button only renders on the public page when this is set.
+  tipButtonLink?: string;
   createdAt: number;
   createdBy: string;
 }

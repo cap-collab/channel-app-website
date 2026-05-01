@@ -641,6 +641,11 @@ export function StudioProfileClient() {
   }, [user]);
 
 
+  // Set of collective slugs where this user is an owner. Refreshed alongside
+  // the snapshot listener so a slot assigned to a collective the user owns
+  // shows up in their upcoming list.
+  const myCollectiveSlugsRef = useRef<Set<string>>(new Set());
+
   // Load upcoming shows for this DJ (broadcast slots + external radio shows)
   useEffect(() => {
     if (!user || !db || !user.email) {
@@ -656,6 +661,24 @@ export function StudioProfileClient() {
       where("endTime", ">", Timestamp.fromDate(now)),
       orderBy("endTime", "asc")
     );
+
+    // Prefetch the collectives where this user is an owner.
+    (async () => {
+      if (!db) return;
+      try {
+        const collectivesRef = collection(db, "collectives");
+        const ownedQ = query(collectivesRef, where("owners", "array-contains", user.uid));
+        const snap = await getDocs(ownedQ);
+        const slugs = new Set<string>();
+        snap.forEach(d => {
+          const slug = d.data().slug;
+          if (typeof slug === "string") slugs.add(slug);
+        });
+        myCollectiveSlugsRef.current = slugs;
+      } catch (err) {
+        console.error("Error prefetching owned collectives:", err);
+      }
+    })();
 
     const unsubscribe = onSnapshot(
       q,
@@ -673,7 +696,9 @@ export function StudioProfileClient() {
           const isMySlot =
             data.liveDjUserId === user.uid ||
             data.djUserId === user.uid ||
-            data.djEmail?.toLowerCase() === user.email?.toLowerCase();
+            data.djEmail?.toLowerCase() === user.email?.toLowerCase() ||
+            // Collective ownership: slot assigned to a collective this user owns
+            (typeof data.djUsername === "string" && myCollectiveSlugsRef.current.has(data.djUsername));
 
           if (isMySlot) {
             const id = `broadcast-${docSnap.id}`;
