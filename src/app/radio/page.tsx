@@ -7,10 +7,13 @@ export const metadata = makeOG();
 export const dynamic = 'force-dynamic';
 
 export default async function ChannelPage() {
-  const initialHeroArchives = await getHeroArchives();
+  const heroSeed = await getHeroArchives();
   return (
     <Suspense fallback={<div className="min-h-screen bg-black" />}>
-      <ChannelClient initialHeroArchives={initialHeroArchives} />
+      <ChannelClient
+        initialHeroArchives={heroSeed.archives}
+        initialPreferredHero={heroSeed.preferredHero}
+      />
     </Suspense>
   );
 }

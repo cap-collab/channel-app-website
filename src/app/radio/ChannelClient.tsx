@@ -36,7 +36,7 @@ type RecommendedItem =
   | MatchedItem
   | { type: 'curator'; data: CuratorRec };
 
-export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives }: { skipHero?: boolean; exploreSearchBar?: React.ReactNode; initialHeroArchives?: import('@/types/broadcast').ArchiveSerialized[] } = {}) {
+export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives, initialPreferredHero }: { skipHero?: boolean; exploreSearchBar?: React.ReactNode; initialHeroArchives?: import('@/types/broadcast').ArchiveSerialized[]; initialPreferredHero?: { spiral: import('@/types/broadcast').ArchiveSerialized | null; star: import('@/types/broadcast').ArchiveSerialized | null } } = {}) {
   const { user, isAuthenticated } = useAuthContext();
   const { isLive: isBroadcastLive, isStreaming: isBroadcastStreaming, currentShow } = useBroadcastStreamContext();
   const { stationBPM } = useBPM();
@@ -805,6 +805,7 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives 
               isRestream={isRestream}
               liveBPM={stationBPM['broadcast']?.bpm ?? null}
               liveDJChatRoom={currentDJChatRoom}
+              preferredHeroSeed={initialPreferredHero}
             />
           ) : null}
         </div>

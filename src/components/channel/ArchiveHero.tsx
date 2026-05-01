@@ -137,6 +137,14 @@ interface ArchiveHeroProps {
   titleOverride?: ReactNode;
   // Hide the subtitle under the title (scene pages want a cleaner header).
   hideSubtitle?: boolean;
+  // SSR-resolved spiral / star picks. Used to paint the hero immediately on
+  // first render, before client-side scene mappings finish loading. Once the
+  // client resolves djSceneMap, the memo recomputes from `archives` and may
+  // pick different slides.
+  preferredHeroSeed?: {
+    spiral: ArchiveSerialized | null;
+    star: ArchiveSerialized | null;
+  };
 }
 
 function formatClockTime(timestampMs: number): string {
@@ -160,7 +168,7 @@ function ShowProgressBar({ startTime, endTime }: { startTime: number; endTime: n
   );
 }
 
-export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liveBPM, liveDJChatRoom, maxHeroSlides = 3, titleOverride, hideSubtitle }: ArchiveHeroProps) {
+export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liveBPM, liveDJChatRoom, maxHeroSlides = 3, titleOverride, hideSubtitle, preferredHeroSeed }: ArchiveHeroProps) {
   const { user } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
   const {
@@ -271,10 +279,14 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       resolveArchiveScenes(a, djSceneMap).some((id) => sceneFilter.has(id));
 
     const high = archives.filter(a => a.priority === 'high' && inScene(a));
+    // Cap eligible archives per scene to the most recent 5 by recordedAt, so
+    // the hero rotates through current shows rather than the full back catalog.
+    const PER_SCENE_LIMIT = 5;
     const randomBySceneSlug = (slug: string, excludeId?: string) => {
-      const pool = high.filter((a) =>
-        a.id !== excludeId && resolveArchiveScenes(a, djSceneMap).includes(slug)
-      );
+      const pool = high
+        .filter((a) => a.id !== excludeId && resolveArchiveScenes(a, djSceneMap).includes(slug))
+        .sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0))
+        .slice(0, PER_SCENE_LIMIT);
       if (pool.length === 0) return undefined;
       return pool[Math.floor(Math.random() * pool.length)];
     };
@@ -287,13 +299,24 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       const latest = [...high].sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0))[0];
       return latest ? [latest] : [];
     }
-    const spiral = randomBySceneSlug('spiral');
-    const star = randomBySceneSlug('star', spiral?.id);
+    let spiral = randomBySceneSlug('spiral');
+    let star = randomBySceneSlug('star', spiral?.id);
+    // Fall back to SSR-resolved picks while client-side scene mappings are
+    // still loading. Without this the hero shows whatever happens to be first
+    // by date until djSceneMap resolves (often several seconds).
+    const sceneMapEmpty =
+      djSceneMap.byUserId.size === 0 && djSceneMap.byUsername.size === 0;
+    if (sceneMapEmpty && !filteringActive) {
+      if (!spiral && preferredHeroSeed?.spiral) spiral = preferredHeroSeed.spiral;
+      if (!star && preferredHeroSeed?.star && preferredHeroSeed.star.id !== spiral?.id) {
+        star = preferredHeroSeed.star;
+      }
+    }
     const picks: typeof archives = [];
     if (spiral) picks.push(spiral);
     if (star) picks.push(star);
     return picks;
-  }, [archives, archivePlayer.currentArchive, maxHeroSlides, scenes, sceneFilter, djSceneMap]);
+  }, [archives, archivePlayer.currentArchive, maxHeroSlides, scenes, sceneFilter, djSceneMap, preferredHeroSeed]);
 
   const [heroIndex, setHeroIndex] = useState(0);
   const heroTouchRef = useRef<{ startX: number; startY: number } | null>(null);
