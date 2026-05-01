@@ -193,6 +193,10 @@ export function SocialRenderTab() {
       // Hide archives shorter than 25 minutes — too short to be worth a
       // social upload and likely test/aborted recordings.
       if ((a.duration || 0) < 25 * 60) return false;
+      // Hide low-priority archives — admin already flagged these as not
+      // worth surfacing (Cap, 2026-04-30). Default priority is 'medium'
+      // so absence of the field doesn't filter anything out.
+      if (a.priority === 'low') return false;
       // Hide archives where the primary DJ has opted out of BOTH platforms.
       // If at least one of YouTube/SoundCloud is opted in, the archive
       // belongs in the picker (the render produces the relevant outputs
