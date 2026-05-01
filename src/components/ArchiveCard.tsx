@@ -32,8 +32,8 @@ export function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSe
 
   // Share the primary DJ's profile URL. For collectives the primary DJ entry
   // IS the collective (username = slug), so this works the same way.
-  // Try the native share sheet first; fall back to clipboard. No preset text
-  // so the OS share UI doesn't add a title/message.
+  // Always copy to clipboard AND open the native share sheet — users get the
+  // "Copied" feedback even if they dismiss the share UI.
   const handleShare = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -45,23 +45,24 @@ export function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSe
       ? `${window.location.origin}/dj/${slug}`
       : `${window.location.origin}/archives/${archive.slug}`;
 
-    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-      try {
-        await navigator.share({ url });
-        return;
-      } catch (err) {
-        // AbortError = user dismissed the share sheet; not an error.
-        if ((err as DOMException)?.name === 'AbortError') return;
-        // Fall through to clipboard if the share sheet errored for another reason.
-      }
-    }
-
+    // 1. Copy first so "Copied" feedback shows regardless of share-sheet outcome.
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
+    }
+
+    // 2. Then open the native share sheet if supported.
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ url });
+      } catch (err) {
+        if ((err as DOMException)?.name !== 'AbortError') {
+          console.error('Share failed:', err);
+        }
+      }
     }
   };
 

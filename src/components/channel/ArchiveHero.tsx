@@ -996,8 +996,9 @@ export function ArchiveGridCard({
   const parts = [genreLabel, cityLabel].filter(Boolean);
   const matchLabel = parts.length > 0 ? parts.join(' · ') : undefined;
 
-  // Share button — opens native share sheet with the primary DJ's profile URL
-  // (or the collective's slug for collective archives). Falls back to clipboard.
+  // Share button — copies the primary DJ/collective profile URL to the clipboard
+  // AND opens the native share sheet (when available). Both happen unconditionally
+  // so users always get the "Copied" feedback even if they dismiss the share sheet.
   const [shareCopied, setShareCopied] = useState(false);
   const handleShare = useCallback(async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -1008,22 +1009,26 @@ export function ArchiveGridCard({
     if (!slug) return;
     const url = `${window.location.origin}/dj/${slug}`;
 
-    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-      try {
-        await navigator.share({ url });
-        return;
-      } catch (err) {
-        if ((err as DOMException)?.name === 'AbortError') return;
-        // fall through to clipboard
-      }
-    }
-
+    // 1. Copy first so the visual "Copied" feedback shows immediately, regardless
+    //    of whether the share sheet opens or the user cancels it.
     try {
       await navigator.clipboard.writeText(url);
       setShareCopied(true);
       setTimeout(() => setShareCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
+    }
+
+    // 2. Then open the native share sheet if the browser supports it.
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ url });
+      } catch (err) {
+        // AbortError = user dismissed the share sheet; not an error.
+        if ((err as DOMException)?.name !== 'AbortError') {
+          console.error('Share failed:', err);
+        }
+      }
     }
   }, [primaryUsername]);
 
