@@ -293,6 +293,9 @@ interface DJProfile {
   profileType?: 'user' | 'pending' | 'collective';
   owners?: string[];                  // channel-user UIDs
   residentDJs?: { djName: string; djUserId?: string; djUsername?: string; djPhotoUrl?: string }[];
+  // Collective-only: the slug used for archive matching (distinct from
+  // chatUsername, which displays the collective's pretty name).
+  collectiveSlug?: string;
 }
 
 interface UpcomingShow {
@@ -356,7 +359,7 @@ function formatShowTime(date: Date): string {
 export function DJPublicProfileClient({ username }: Props) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername, setChatUsername, loading: profileLoading } = useUserProfile(user?.uid);
-  const { isInWatchlist, followDJ, removeFromWatchlist, addToWatchlist, loading: favoritesLoading } = useFavorites();
+  const { isInWatchlist, isExactlyInWatchlist, followDJ, removeFromWatchlist, addToWatchlist, loading: favoritesLoading } = useFavorites();
   const { stationBPM } = useBPM();
 
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
@@ -366,6 +369,15 @@ export function DJPublicProfileClient({ username }: Props) {
   const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
   // Resolved owner display info (only used when profileType === 'collective')
   const [ownersResolved, setOwnersResolved] = useState<{ uid: string; chatUsername: string }[]>([]);
+  // Resolved resident display info — bios fetched from users / pending-dj-profiles
+  // so the cards can show a truncated bio under each resident's name.
+  const [residentsResolved, setResidentsResolved] = useState<{
+    djName: string;
+    djUserId?: string;
+    djUsername?: string;
+    djPhotoUrl?: string;
+    bio?: string;
+  }[]>([]);
 
   // Live status
   const [liveOnChannel, setLiveOnChannel] = useState(false);
@@ -536,6 +548,7 @@ export function DJPublicProfileClient({ username }: Props) {
               profileType: 'collective',
               owners: Array.isArray(cData.owners) ? cData.owners : [],
               residentDJs: Array.isArray(cData.residentDJs) ? cData.residentDJs : [],
+              collectiveSlug: cData.slug,
             });
             setLoading(false);
           } else {
@@ -582,6 +595,47 @@ export function DJPublicProfileClient({ username }: Props) {
         }
       }
       if (!cancelled) setOwnersResolved(resolved);
+    })();
+    return () => { cancelled = true; };
+  }, [djProfile]);
+
+  // Resolve resident bios for the collective profile's "Residents" card grid.
+  // Pulls bio from users (via djUserId) or pending-dj-profiles (via chatUsernameNormalized).
+  useEffect(() => {
+    if (!djProfile || djProfile.profileType !== 'collective' || !djProfile.residentDJs || djProfile.residentDJs.length === 0) {
+      setResidentsResolved([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      if (!db) return;
+      const resolved: typeof residentsResolved = [];
+      for (const r of djProfile.residentDJs || []) {
+        let bio: string | undefined;
+        try {
+          if (r.djUserId) {
+            const userSnap = await getDocs(query(collection(db, "users"), where("__name__", "in", [r.djUserId])));
+            userSnap.forEach(d => {
+              const data = d.data();
+              if (data.djProfile?.bio) bio = data.djProfile.bio;
+            });
+          }
+          if (!bio && r.djUsername) {
+            const normalized = r.djUsername.replace(/[\s-]+/g, '').toLowerCase();
+            const pendingSnap = await getDocs(
+              query(collection(db, "pending-dj-profiles"), where("chatUsernameNormalized", "==", normalized))
+            );
+            pendingSnap.forEach(d => {
+              const data = d.data();
+              if (data.djProfile?.bio) bio = data.djProfile.bio;
+            });
+          }
+        } catch (err) {
+          console.error("Error resolving resident bio:", err);
+        }
+        resolved.push({ ...r, bio });
+      }
+      if (!cancelled) setResidentsResolved(resolved);
     })();
     return () => { cancelled = true; };
   }, [djProfile]);
@@ -894,9 +948,11 @@ export function DJPublicProfileClient({ username }: Props) {
             }
           }
 
-          // When viewing a collective profile, match its own slug.
-          if (djProfile.profileType === 'collective' && normalizedUsername) {
-            myCollectiveSlugs = new Set([normalizedUsername]);
+          // When viewing a collective profile, match by its slug directly
+          // (not by chatUsername, which is the pretty name and may not equal
+          // the slug after normalization).
+          if (djProfile.profileType === 'collective' && djProfile.collectiveSlug) {
+            myCollectiveSlugs = new Set([djProfile.collectiveSlug]);
           }
 
           const djArchives = archives.filter((archive) => {
@@ -912,8 +968,12 @@ export function DJPublicProfileClient({ username }: Props) {
               if (dj.username && normalizedUsername) {
                 const archiveDjUsername = dj.username.toLowerCase().replace(/\s+/g, '');
                 if (archiveDjUsername === normalizedUsername) return true;
-                // Collective match: archive credited to a collective this profile owns or IS.
-                if (myCollectiveSlugs.has(archiveDjUsername)) return true;
+              }
+              // Collective slug match (uses the slug directly, hyphens preserved):
+              // archive credited to a collective this profile owns or IS.
+              if (dj.username && myCollectiveSlugs.size > 0) {
+                const rawUsername = dj.username.toLowerCase();
+                if (myCollectiveSlugs.has(rawUsername)) return true;
               }
               if (dj.email && djEmail) {
                 return dj.email.toLowerCase() === djEmail;
@@ -1151,10 +1211,14 @@ export function DJPublicProfileClient({ username }: Props) {
   }, [djProfile]);
 
   // Subscribe/Unsubscribe handlers
+  // Use exact match (not word-boundary) so the UI state matches what
+  // removeFromWatchlist actually deletes — otherwise a watchlist entry for
+  // "pollensource" makes the "Pollensource b2b Cron" page look subscribed
+  // but the remove call can't find a doc to delete.
   const isSubscribed = useMemo(() => {
     if (!djProfile) return false;
-    return isInWatchlist(djProfile.chatUsername);
-  }, [djProfile, isInWatchlist]);
+    return isExactlyInWatchlist(djProfile.chatUsername);
+  }, [djProfile, isExactlyInWatchlist]);
 
   const handleSubscribe = async () => {
     if (!isAuthenticated) {
@@ -1451,47 +1515,37 @@ export function DJPublicProfileClient({ username }: Props) {
               )}
             </div>
 
-            {/* Collective-only: Owners + DJs rows */}
-            {profile.profileType === 'collective' && (
-              <div className="mb-6 space-y-2">
-                {ownersResolved.length > 0 && (
-                  <p className="text-zinc-400 text-sm">
-                    <span className="text-zinc-500 uppercase tracking-[0.2em] text-xs mr-2">Owners</span>
-                    {ownersResolved.map((o, i) => (
-                      <span key={o.uid}>
-                        {i > 0 && ' · '}
-                        <Link
-                          href={`/dj/${normalizeUsername(o.chatUsername)}`}
-                          className="hover:text-white transition-colors"
-                        >
-                          {o.chatUsername}
-                        </Link>
-                      </span>
-                    ))}
-                  </p>
-                )}
-                {profile.residentDJs && profile.residentDJs.length > 0 && (
-                  <p className="text-zinc-400 text-sm">
-                    <span className="text-zinc-500 uppercase tracking-[0.2em] text-xs mr-2">DJs</span>
-                    {profile.residentDJs.map((dj, i) => (
-                      <span key={`${dj.djUsername || dj.djName}-${i}`}>
-                        {i > 0 && ' · '}
-                        {dj.djUsername ? (
+            {/* Collective-only: Owners line (hidden when owners == residents) */}
+            {profile.profileType === 'collective' && (() => {
+              const ownerUids = (profile.owners || []);
+              const residentUids = (profile.residentDJs || []).map(r => r.djUserId).filter((u): u is string => !!u);
+              const residentUidSet = new Set(residentUids);
+              const ownersEqualResidents =
+                ownerUids.length > 0 &&
+                ownerUids.length === residentUids.length &&
+                ownerUids.every(u => residentUidSet.has(u));
+
+              return (
+                <>
+                  {!ownersEqualResidents && ownersResolved.length > 0 && (
+                    <p className="text-zinc-400 text-sm mb-6">
+                      <span className="text-zinc-500 uppercase tracking-[0.2em] text-xs mr-2">Owners</span>
+                      {ownersResolved.map((o, i) => (
+                        <span key={o.uid}>
+                          {i > 0 && ' · '}
                           <Link
-                            href={`/dj/${normalizeUsername(dj.djUsername)}`}
+                            href={`/dj/${normalizeUsername(o.chatUsername)}`}
                             className="hover:text-white transition-colors"
                           >
-                            {dj.djName}
+                            {o.chatUsername}
                           </Link>
-                        ) : (
-                          dj.djName
-                        )}
-                      </span>
-                    ))}
-                  </p>
-                )}
-              </div>
-            )}
+                        </span>
+                      ))}
+                    </p>
+                  )}
+                </>
+              );
+            })()}
 
             {/* Medium: Bio */}
             <div className="max-w-xl space-y-4">
@@ -1531,6 +1585,50 @@ export function DJPublicProfileClient({ username }: Props) {
             )}
           </div>
         </section>
+
+        {/* COLLECTIVE RESIDENTS — cards with photo, name, truncated bio (2 per row on desktop) */}
+        {profile.profileType === 'collective' && residentsResolved.length > 0 && (
+          <section className="mb-6">
+            <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">Residents</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {residentsResolved.map((r, i) => {
+                const inner = (
+                  <div className="flex items-start gap-3 bg-zinc-900/50 border border-white/10 rounded-lg p-3 hover:bg-zinc-800/50 transition-colors h-full">
+                    <div className="w-14 h-14 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {r.djPhotoUrl ? (
+                        <Image
+                          src={r.djPhotoUrl}
+                          alt={r.djName}
+                          width={56}
+                          height={56}
+                          className="w-full h-full object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        <svg className="w-6 h-6 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-white font-medium text-sm truncate">{r.djName}</p>
+                      {r.bio && (
+                        <p className="text-zinc-400 text-xs mt-1 line-clamp-2">{r.bio}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+                return r.djUsername ? (
+                  <Link key={`${r.djUsername}-${i}`} href={`/dj/${normalizeUsername(r.djUsername)}`} className="block">
+                    {inner}
+                  </Link>
+                ) : (
+                  <div key={`${r.djName}-${i}`}>{inner}</div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {/* LIVE SHOW CARD - Above tabs when DJ is live */}
         {currentLiveShow && (

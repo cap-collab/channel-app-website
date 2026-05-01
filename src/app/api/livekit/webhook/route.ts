@@ -4,6 +4,7 @@ import { SegmentedFileOutput, SegmentedFileProtocol, S3Upload } from '@livekit/p
 import { getAdminDb, getAdminRtdb } from '@/lib/firebase-admin';
 import { Recording, STATION_ID, ROOM_NAME } from '@/types/broadcast';
 import { extractDJs } from '@/lib/extract-djs';
+import { copyCollectiveChatToOwners } from '@/lib/copy-collective-chat';
 
 // Generate URL-friendly slug from show name
 function generateSlug(showName: string): string {
@@ -487,6 +488,31 @@ export async function POST(request: NextRequest) {
               await db.collection('recording-egress-map').doc(egress.egressId).delete();
             } catch (cleanupError) {
               console.error('Failed to clean up egress mapping:', cleanupError);
+            }
+
+            // LAST: collective broadcasts → fan out chat to each owner's per-DJ
+            // room. Purely cosmetic. Runs after every other webhook step so it
+            // can't compete for compute or block anything; wrapped + caught so
+            // a failure here is a no-op for the rest of the system. No-op when
+            // the slot's djUsername doesn't resolve to a collective.
+            if (slotData?.broadcastType !== 'recording') {
+              const candidateSlug = (slotData?.djUsername || slotData?.liveDjUsername) as string | undefined;
+              const startTimeForChat = slotData?.startTime;
+              const recordedAtMs: number = startTimeForChat?.toMillis ? startTimeForChat.toMillis() : Date.now();
+              if (candidateSlug) {
+                try {
+                  const result = await copyCollectiveChatToOwners(db, {
+                    collectiveSlug: candidateSlug,
+                    windowStartMs: recordedAtMs,
+                    windowEndMs: recordedAtMs + durationSec * 1000,
+                  });
+                  if (result.writes > 0) {
+                    console.log(`[webhook] Collective chat fan-out: ${result.writes} writes into ${result.ownerRooms.length} owner rooms (${result.ownerRooms.join(', ')})`);
+                  }
+                } catch (copyErr) {
+                  console.error('[webhook] Collective chat fan-out failed (non-fatal):', copyErr);
+                }
+              }
             }
           }
         } else {
