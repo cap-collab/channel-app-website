@@ -1881,8 +1881,8 @@ export function DJPublicProfileClient({ username }: Props) {
           </div>
         )}
 
-        {/* Tab Bar - only if DJ has email (claimed profile) */}
-        {profile.email && (
+        {/* Tab Bar - only if DJ has email (claimed profile) OR is a collective */}
+        {(profile.email || profile.profileType === 'collective') && (
           <div className="flex border-b border-white/10 mb-4">
             {hasScheduleContent && (
               <button
@@ -1922,7 +1922,7 @@ export function DJPublicProfileClient({ username }: Props) {
         )}
 
         {/* TAB CONTENT */}
-        {profile.email && activeTab === 'chat' ? (
+        {(profile.email || profile.profileType === 'collective') && activeTab === 'chat' ? (
           /* CHAT TAB */
           <div className="min-h-[60vh] -mx-6">
             <DJProfileChatPanel
