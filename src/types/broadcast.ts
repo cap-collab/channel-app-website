@@ -283,8 +283,14 @@ export interface ArchiveDJ {
   instagram?: string;          // Instagram handle (no @, no URL) — live-enriched from djProfile.socialLinks.instagram for Social Render's Done panel
 }
 
-// Archive priority (admin-only field, not exposed in public API)
-export type ArchivePriority = 'high' | 'medium' | 'low';
+// Archive priority (admin-only field, not exposed in public API).
+// Order, highest → lowest: 'high' > 'medium' > 'low' > 'hidden'.
+// 'hidden' is the strongest exclusion: archives at this tier are dropped
+// entirely from /api/archives's default response (gated behind
+// includeHidden=true for admin views like /broadcast/admin → Archives so
+// they can still be managed/unhidden). Public surfaces (/radio, DJ
+// profiles, scenes, social render picker) never see them.
+export type ArchivePriority = 'high' | 'medium' | 'low' | 'hidden';
 
 // Archive stored in Firestore
 export interface Archive {

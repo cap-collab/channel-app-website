@@ -30,7 +30,7 @@ type RenderJob = {
   // SoundCloud outputs only when soundcloudOptIn !== false. Default = true.
   youtubeOptIn?: boolean;
   soundcloudOptIn?: boolean;
-  status: 'queued' | 'rendering' | 'done' | 'failed';
+  status: 'queued' | 'rendering' | 'done' | 'failed' | 'skipped';
   progressPct?: number;
   outputUrl?: string;             // YouTube MP4
   soundcloudAudioUrl?: string;    // M4A (lossless audio extract)
@@ -143,15 +143,18 @@ export function SocialRenderTab() {
   //   1. Active (queued/rendering) — newest first
   //   2. Done but not yet uploaded — newest first
   //   3. Failed — newest first
-  //   4. Done + uploaded — newest first (sinks to the bottom; already
+  //   4. Done + uploaded — newest first (sinks toward the bottom; already
   //      handled, just kept around for reference)
+  //   5. Skipped — newest first (deliberately not-rendered; admin can
+  //      Unskip later to send the archive back to the picker)
   // Within each bucket, newer createdAt wins so fresh work surfaces.
   const sortedJobs = useMemo(() => {
     const bucket = (j: RenderJob): number => {
       if (j.status === 'queued' || j.status === 'rendering') return 0;
       if (j.status === 'done' && !j.uploadedAt) return 1;
       if (j.status === 'failed') return 2;
-      return 3; // done + uploaded
+      if (j.status === 'done') return 3; // done + uploaded
+      return 4; // skipped
     };
     return [...jobs].sort((a, b) => {
       const ba = bucket(a);
@@ -176,8 +179,12 @@ export function SocialRenderTab() {
   }, [archives]);
 
   // archiveIds that already have a non-failed render job (queued, rendering,
-  // or done). Failed jobs are NOT counted — if a render failed, the archive
-  // should still appear in the picker so the admin can retry.
+  // done, or skipped). Failed jobs are NOT counted — if a render failed, the
+  // archive should still appear in the picker so the admin can retry.
+  // Skipped jobs DO block — admin pressed Skip deliberately and unskip is
+  // explicit (button on the skipped card sends DELETE /api/youtube-render/
+  // jobs/skip?jobId=…, which removes the marker and frees the archive to
+  // re-appear).
   const blockedArchiveIds = useMemo(() => {
     const blocked = new Set<string>();
     for (const j of jobs) {
@@ -193,10 +200,11 @@ export function SocialRenderTab() {
       // Hide archives shorter than 25 minutes — too short to be worth a
       // social upload and likely test/aborted recordings.
       if ((a.duration || 0) < 25 * 60) return false;
-      // Hide low-priority archives — admin already flagged these as not
-      // worth surfacing (Cap, 2026-04-30). Default priority is 'medium'
-      // so absence of the field doesn't filter anything out.
-      if (a.priority === 'low') return false;
+      // Note: 'low' priority archives DO appear here. Admin can either
+      // render them or click Skip (creates a status='skipped' marker job
+      // that drops to the bottom of the queue). 'hidden' archives are
+      // already filtered out upstream by /api/archives — they never
+      // reach this picker because we don't pass includeHidden=true.
       // Hide archives where the primary DJ has opted out of BOTH platforms.
       // If at least one of YouTube/SoundCloud is opted in, the archive
       // belongs in the picker (the render produces the relevant outputs
@@ -283,6 +291,41 @@ export function SocialRenderTab() {
     }
   };
 
+  // Skip = mark this archive as deliberately not-rendered. Creates a
+  // status='skipped' marker doc that blocks the archive from re-appearing
+  // in the picker and renders as a dimmed card at the bottom of the queue
+  // with an Unskip button. No worker work; no R2 writes; pure UI state.
+  const handleSkip = async () => {
+    if (!selected || !edit) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Not signed in');
+      const res = await fetch('/api/youtube-render/jobs/skip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          archiveId: selected.id,
+          archiveSlug: selected.slug,
+          showName: edit.showName,
+          djName: edit.djName,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Failed (${res.status})`);
+      }
+      setSelected(null);
+      setEdit(null);
+      fetchJobs();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Left pane: archive picker + queue */}
@@ -330,10 +373,12 @@ export function SocialRenderTab() {
               <div className="text-gray-500 text-sm">No render jobs yet.</div>
             ) : (
               sortedJobs.map((j) => {
-                // Done + marked-uploaded cards dim to ~50% so unfinished
-                // work pops visually. Hover restores full opacity so the
-                // text stays readable when admin needs to copy something.
-                const dimmed = j.status === 'done' && !!j.uploadedAt;
+                // Done+uploaded and Skipped cards both dim to ~50% so
+                // unfinished work pops visually. Hover restores full
+                // opacity so the text stays readable when admin needs
+                // to scan or interact with the card.
+                const dimmed =
+                  (j.status === 'done' && !!j.uploadedAt) || j.status === 'skipped';
                 return (
                   <div
                     key={j.id}
@@ -357,6 +402,9 @@ export function SocialRenderTab() {
                     )}
                     {j.status === 'failed' && j.error && (
                       <div className="mt-2 text-red-400 text-xs">{j.error}</div>
+                    )}
+                    {j.status === 'skipped' && (
+                      <SkippedJobActions job={j} onUnskip={fetchJobs} />
                     )}
                   </div>
                 );
@@ -424,13 +472,23 @@ export function SocialRenderTab() {
               <PreviewFrame previewUrl={previewUrl} />
             </div>
 
-            <button
-              onClick={handleStartRender}
-              disabled={submitting}
-              className="w-full px-4 py-2 bg-white text-black text-sm font-bold rounded hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {submitting ? 'Submitting…' : 'Start render'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleStartRender}
+                disabled={submitting}
+                className="flex-1 px-4 py-2 bg-white text-black text-sm font-bold rounded hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? 'Submitting…' : 'Start render'}
+              </button>
+              <button
+                onClick={handleSkip}
+                disabled={submitting}
+                title="Mark as not-rendering. The archive moves to a 'Skipped' card at the bottom of the queue and stops appearing in the picker. Unskip from the card to send it back."
+                className="px-4 py-2 bg-gray-800 text-gray-300 text-sm font-medium rounded hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Skip
+              </button>
+            </div>
             {submitError && <div className="text-red-400 text-xs">{submitError}</div>}
           </>
         )}
@@ -449,6 +507,7 @@ function StatusBadge({ status, progressPct }: { status: RenderJob['status']; pro
       </span>
     );
   if (status === 'done') return <span className={`${base} bg-green-900/40 text-green-300`}>Done</span>;
+  if (status === 'skipped') return <span className={`${base} bg-gray-900 text-gray-500 border border-gray-800`}>Skipped</span>;
   return <span className={`${base} bg-red-900/40 text-red-300`}>Failed</span>;
 }
 
@@ -720,6 +779,42 @@ function DoneJobActions({
               : 'IG: not set'}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Action row for skipped cards. Just an Unskip button — sends DELETE to
+ * the skip endpoint, which removes the marker doc and frees the archive
+ * to re-appear in the picker. Optimistic disable so double-clicking
+ * doesn't fire two deletes.
+ */
+function SkippedJobActions({ job, onUnskip }: { job: RenderJob; onUnskip: () => void }) {
+  const [pending, setPending] = useState(false);
+  const handle = async () => {
+    setPending(true);
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Not signed in');
+      const res = await fetch(`/api/youtube-render/jobs/skip?jobId=${encodeURIComponent(job.id)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`Unskip failed ${res.status}`);
+      onUnskip();
+    } catch {
+      setPending(false);
+    }
+  };
+  return (
+    <div className="mt-2">
+      <button
+        onClick={handle}
+        disabled={pending}
+        className="text-gray-400 hover:text-white text-xs underline disabled:opacity-50"
+      >
+        {pending ? 'Unskipping…' : 'Unskip'}
+      </button>
     </div>
   );
 }

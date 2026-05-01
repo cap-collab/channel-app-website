@@ -24,6 +24,11 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const includePrivate = searchParams.get('includePrivate') === 'true';
+    // includeHidden gates the priority='hidden' tier (the strongest
+    // exclusion below 'low'). Public surfaces (/radio, DJ pages, scenes,
+    // social render picker) call without it; the admin Archives tab
+    // passes includeHidden=true so admin can still see + un-hide them.
+    const includeHidden = searchParams.get('includeHidden') === 'true';
 
     const db = getAdminDb();
     if (!db) {
@@ -43,6 +48,10 @@ export async function GET(request: Request) {
         const data = doc.data();
         // Skip archives still being uploaded
         if (data.uploadStatus === 'uploading') return false;
+        // Drop hidden-priority archives unless caller explicitly opted in
+        // (admin Archives tab). Hidden is below 'low' — even admin views
+        // that surface 'low' archives don't want them by default.
+        if (!includeHidden && data.priority === 'hidden') return false;
         // If includePrivate is true, include all archives
         // Otherwise, include only if isPublic is true or undefined (legacy archives)
         return includePrivate || data.isPublic !== false;

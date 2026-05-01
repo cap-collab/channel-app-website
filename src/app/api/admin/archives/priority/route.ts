@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 
-const VALID_PRIORITIES = ['high', 'medium', 'low'] as const;
+const VALID_PRIORITIES = ['high', 'medium', 'low', 'hidden'] as const;
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -12,7 +12,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (!priority || !VALID_PRIORITIES.includes(priority)) {
-      return NextResponse.json({ error: 'Invalid priority. Must be high, medium, or low' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid priority. Must be high, medium, low, or hidden' }, { status: 400 });
     }
 
     const db = getAdminDb();

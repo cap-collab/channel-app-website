@@ -223,6 +223,11 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
     );
     if (!effective.includes(slug)) return;
 
+    // Hidden archives are the strongest exclusion tier — drop them from
+    // public scene pages entirely (admin keeps visibility via the Archives
+    // tab, which calls /api/archives?includeHidden=true).
+    if (data.priority === 'hidden') return;
+
     const enrichedDjs = djList.map((d) => ({
       name: d.name,
       username: d.username,
@@ -256,7 +261,7 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
       priority: data.priority,
     });
   });
-  const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
+  const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2, hidden: 3 };
   archives.sort((a, b) => {
     const pa = PRIORITY_ORDER[a.priority || 'medium'] ?? 1;
     const pb = PRIORITY_ORDER[b.priority || 'medium'] ?? 1;

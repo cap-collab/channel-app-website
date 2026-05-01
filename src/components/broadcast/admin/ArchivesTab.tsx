@@ -17,11 +17,15 @@ type FilterSource = 'all' | 'live' | 'recording';
 type FilterPriority = 'all' | ArchivePriority;
 type SortBy = 'date' | 'duration' | 'streams' | 'priority';
 
-const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
+const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2, hidden: 3 };
 const PRIORITY_COLORS: Record<string, string> = {
   high: 'bg-red-900/40 text-red-400 border-red-800',
   medium: 'bg-yellow-900/30 text-yellow-400 border-yellow-800',
   low: 'bg-gray-800/50 text-gray-500 border-gray-700',
+  // Stronger visual de-emphasis than 'low' — fully muted with a strike of
+  // outline so admin can scan the list and instantly see what's been
+  // suppressed from public surfaces.
+  hidden: 'bg-black text-gray-600 border-gray-800',
 };
 
 function formatDuration(seconds: number): string {
@@ -72,7 +76,9 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
 
   const fetchArchives = useCallback(async () => {
     try {
-      const response = await fetch('/api/archives?includePrivate=true');
+      // includeHidden=true so admin can see + edit/un-hide priority='hidden'
+      // archives. Public surfaces don't pass this flag and never see them.
+      const response = await fetch('/api/archives?includePrivate=true&includeHidden=true');
       if (!response.ok) throw new Error('Failed to fetch archives');
       const data = await response.json();
       setArchives(data.archives || []);
@@ -681,6 +687,7 @@ function ArchiveCard({
                   <option value="high">High</option>
                   <option value="medium">Medium</option>
                   <option value="low">Low</option>
+                  <option value="hidden">Hidden (do not display)</option>
                 </select>
               </div>
               <p className="text-sm text-gray-400 truncate mb-1">{djNames}</p>
