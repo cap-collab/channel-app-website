@@ -256,18 +256,9 @@ function RenderMixInner() {
  * min 800×800, recommended 1500–2000px, JPG/PNG. We render at 1500×1500 —
  * worker screenshots → JPG q90 → uploaded to R2 alongside the YouTube mp4.
  *
- * Layout mirrors the YouTube render to feel like the same brand:
- *   - Show name top-left in the same uppercase-bold style we overlay on
- *     YouTube (text-base on a scaled reference → effectively ~40px on the
- *     square frame, matching the YouTube proportions).
- *   - CHANNEL logo top-right, same offsets as the YouTube render.
- *   - DJ photo fills the frame; bottom gradient carries DJ name + genres.
- *   - No player chrome, no progress bar — the cover is a still frame.
- *
- * Reuses the same scaled-reference trick the YouTube layout does so the
- * top-left show-name pill renders at identical proportions to YouTube
- * (text-base + top-2/left-2 + drop-shadow-lg on a 768-wide reference
- * scaled up to fill the square).
+ * Layout: DJ photo full-frame + CHANNEL logo top-right. No text overlays
+ * (show name and DJ name belong in the SoundCloud track metadata, not the
+ * cover art).
  */
 function SquareCover({
   data,
@@ -275,72 +266,17 @@ function SquareCover({
   data: RenderData;
 }) {
   const FRAME = 1500;
-  // Reference width = 533 (YouTube uses 768; the square cover uses 533 so
-  // every Tailwind size class inside the scaled container renders ~44%
-  // bigger than YouTube — Cap requested two consecutive 20% bumps on
-  // 2026-04-30: 768→640 then 640→533, both for thumbnail readability on
-  // SoundCloud). SCALE compensates so the reference still fills the
-  // 1500px frame; the visual result is identical text/padding ratios to
-  // YouTube but uniformly enlarged ~2.81× linearly (1.2 × 1.2).
-  const REFERENCE_WIDTH = 533;
-  const SCALE = FRAME / REFERENCE_WIDTH; // ~2.814×
-  const REFERENCE_HEIGHT = Math.round(FRAME / SCALE); // 533 (square)
   return (
     <div className="bg-black relative overflow-hidden" style={{ width: FRAME, height: FRAME }}>
-      <div
-        style={{
-          width: REFERENCE_WIDTH,
-          height: REFERENCE_HEIGHT,
-          transform: `scale(${SCALE})`,
-          transformOrigin: 'top left',
-        }}
-        className="relative"
-      >
-        {/* DJ photo fills the full frame */}
-        <Image
-          src={data.djPhotoUrl}
-          alt={data.djName}
-          fill
-          className="object-cover"
-          sizes={`${REFERENCE_WIDTH}px`}
-          priority
-          unoptimized
-        />
-        {/* Same gradient stack as the YouTube render — top fade so the
-            show name reads, bottom fade so the DJ name + genres read. */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/85" />
-        {/* Show name top-left — identical to the YouTube overlay
-            (top-2 left-2, text-base, font-bold, uppercase, tracking-wide,
-            drop-shadow-lg). Scales with the rest of the reference content. */}
-        <div className="absolute top-2 left-2 drop-shadow-lg">
-          <span className="text-base font-bold text-white uppercase tracking-wide">{data.showName}</span>
-        </div>
-        {/* Bottom block: DJ name + genres, same hero overlay as YouTube
-            but skipping the bio (covers stay clean — bio belongs in the
-            SoundCloud description). */}
-        <div className="absolute left-2 right-2 bottom-2 drop-shadow-lg">
-          <div className="text-sm font-black uppercase tracking-wider text-white truncate">
-            {data.djName}
-          </div>
-          {data.djGenres.length > 0 && (
-            <div
-              className="font-medium uppercase tracking-[0.15em] text-zinc-300 truncate mt-0.5"
-              style={{ fontSize: '11.5px' }}
-            >
-              {data.djGenres.join(' · ')}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* CHANNEL logo overlay — outside the scaled container so it stays
-          at a fixed pixel size regardless of SCALE. Sized ~44% larger
-          than the YouTube logo (height 86 vs 60) and shifted ~44% farther
-          in from the corner (29px vs 20px) to match the two 20% in-canvas
-          text bumps requested by Cap on 2026-04-30. The logo source is a
-          true SVG (vector), so the upsize is lossless — no rasterization
-          artifacts at 86px. */}
+      <Image
+        src={data.djPhotoUrl}
+        alt={data.djName}
+        fill
+        className="object-cover"
+        sizes={`${FRAME}px`}
+        priority
+        unoptimized
+      />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/logo-white.svg"
