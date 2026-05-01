@@ -90,5 +90,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function DJPublicProfilePage({ params }: Props) {
   const { username } = await params;
-  return <DJPublicProfileClient username={username} />;
+  const seed = await getDJData(username);
+  return (
+    <DJPublicProfileClient
+      username={username}
+      initialName={seed?.name ?? null}
+      initialPhotoUrl={seed?.photoUrl ?? null}
+    />
+  );
 }

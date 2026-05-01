@@ -320,6 +320,8 @@ interface UpcomingShow {
 
 interface Props {
   username: string;
+  initialName?: string | null;
+  initialPhotoUrl?: string | null;
 }
 
 // Activity feed item type
@@ -356,14 +358,37 @@ function formatShowTime(date: Date): string {
   return formatted.replace(/:00(?= )/, "");
 }
 
-export function DJPublicProfileClient({ username }: Props) {
+export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }: Props) {
   const { user, isAuthenticated } = useAuthContext();
   const { chatUsername, setChatUsername, loading: profileLoading } = useUserProfile(user?.uid);
   const { isInWatchlist, isExactlyInWatchlist, followDJ, removeFromWatchlist, addToWatchlist, loading: favoritesLoading } = useFavorites();
   const { stationBPM } = useBPM();
 
-  const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  // SSR seed: render the photo and name on first paint while the full profile
+  // (bio, social links, genres, etc.) loads in the background. Kept as a
+  // partial DJProfile with empty defaults; the fetch effect overwrites it.
+  const seedProfile: DJProfile | null = initialName
+    ? {
+        chatUsername: initialName,
+        email: "",
+        djProfile: {
+          bio: null,
+          photoUrl: initialPhotoUrl ?? null,
+          location: null,
+          genres: [],
+          tipButtonLink: null,
+          socialLinks: {},
+          stripeAccountId: null,
+          irlShows: [],
+          radioShows: [],
+          myRecs: {},
+        },
+        uid: "",
+      }
+    : null;
+
+  const [djProfile, setDjProfile] = useState<DJProfile | null>(seedProfile);
+  const [loading, setLoading] = useState(!seedProfile);
   const [notFound, setNotFound] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
@@ -1484,6 +1509,7 @@ export function DJPublicProfileClient({ username }: Props) {
                   height={400}
                   className="w-full h-full object-cover"
                   unoptimized
+                  priority
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
@@ -1795,7 +1821,7 @@ export function DJPublicProfileClient({ username }: Props) {
               const isThisArchive = archivePlayer.currentArchive?.id === archive.id;
               const isPlayingArchive = isThisArchive && archivePlayer.isPlaying;
               const currentTime = isThisArchive ? archivePlayer.currentTime : 0;
-              const showImage = archive.showImageUrl;
+              const showImage = archive.showImageUrl || profile.djProfile.photoUrl;
               const recordingDate = new Date(archive.recordedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
               const archiveGenres = archive.djs?.[0]?.genres;
               const genreText = archiveGenres?.length ? archiveGenres.map(g => g.toUpperCase()).join(' · ') : null;
