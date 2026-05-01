@@ -302,22 +302,19 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       const latest = [...high].sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0))[0];
       return latest ? [latest] : [];
     }
-    let spiral = randomBySceneSlug('spiral');
-    let star = randomBySceneSlug('star', spiral?.id);
-    // Fall back to SSR-resolved picks while client-side scene mappings are
-    // still loading. Without this the hero shows whatever happens to be first
-    // by date until djSceneMap resolves (often several seconds).
-    const sceneMapEmpty =
-      djSceneMap.byUserId.size === 0 && djSceneMap.byUsername.size === 0;
-    if (sceneMapEmpty && !filteringActive) {
-      if (!spiral && preferredHeroSeed?.spiral) spiral = preferredHeroSeed.spiral;
-      if (!star && preferredHeroSeed?.star && preferredHeroSeed.star.id !== spiral?.id) {
-        star = preferredHeroSeed.star;
-      }
-    }
+    // Prefer the SSR-resolved picks for the whole session: the server
+    // already chose a random high-priority archive in each scene, so reusing
+    // those picks keeps the hero stable across re-renders. Re-rolling client-
+    // side once djSceneMap loads would swap the slide out from under the user.
+    // Only fall back to client-side selection if SSR didn't return picks
+    // (e.g. admin DB unavailable) or a scene filter is active.
+    let spiral = !filteringActive ? preferredHeroSeed?.spiral ?? undefined : undefined;
+    let star = !filteringActive ? preferredHeroSeed?.star ?? undefined : undefined;
+    if (!spiral) spiral = randomBySceneSlug('spiral');
+    if (!star) star = randomBySceneSlug('star', spiral?.id);
     const picks: typeof archives = [];
     if (spiral) picks.push(spiral);
-    if (star) picks.push(star);
+    if (star && star.id !== spiral?.id) picks.push(star);
     return picks;
   }, [archives, archivePlayer.currentArchive, maxHeroSlides, scenes, sceneFilter, djSceneMap, preferredHeroSeed]);
 
