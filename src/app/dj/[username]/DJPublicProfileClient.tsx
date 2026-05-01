@@ -411,6 +411,10 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
 
   // Upcoming broadcasts
   const [upcomingBroadcasts, setUpcomingBroadcasts] = useState<UpcomingShow[]>([]);
+  // True once the upcoming-shows fetch has resolved at least once. We gate
+  // the default-tab effect on this so it doesn't flip to chat in the window
+  // before broadcast slots have loaded.
+  const [upcomingFetched, setUpcomingFetched] = useState(false);
 
   // Past recordings (archives with recordings)
   const [pastRecordings, setPastRecordings] = useState<Archive[]>([]);
@@ -879,6 +883,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
       upcomingShows.sort((a, b) => a.startTime - b.startTime);
 
       setUpcomingBroadcasts(upcomingShows);
+      setUpcomingFetched(true);
     }
 
     fetchUpcomingShows();
@@ -1427,9 +1432,12 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
 
   // Default to the schedule tab only when there are upcoming shows; DJs with
   // only past activity (or nothing) land on chat where conversation lives.
+  // Wait for the fetch to resolve so we don't flip to chat during the loading
+  // window and then leave it there even after upcoming shows arrive.
   useEffect(() => {
+    if (!upcomingFetched) return;
     if (!hasUpcomingShows) setActiveTab('chat');
-  }, [hasUpcomingShows]);
+  }, [upcomingFetched, hasUpcomingShows]);
 
   // Create Artist Selects (recommendations)
   const artistSelects = useMemo(() => {
