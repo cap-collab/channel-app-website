@@ -37,6 +37,9 @@ export function ScrollingShowName({ text, className }: { text: string; className
     }
   }, [text]);
 
+  // ~12 px/sec on the moving portion (30% of cycle), clamped 10–20s.
+  const scrollDuration = Math.min(20, Math.max(10, scrollDistance * 0.28));
+
   return (
     <div ref={containerRef} className={`overflow-hidden ${className || ''}`}>
       <span
@@ -44,6 +47,7 @@ export function ScrollingShowName({ text, className }: { text: string; className
         className={`inline-block whitespace-nowrap ${needsScroll ? 'animate-show-scroll' : ''}`}
         style={needsScroll ? {
           '--scroll-distance': `-${scrollDistance}px`,
+          '--scroll-duration': `${scrollDuration}s`,
         } as React.CSSProperties : undefined}
       >
         {text}
@@ -61,7 +65,7 @@ export function ScrollingShowName({ text, className }: { text: string; className
           }
         }
         .animate-show-scroll {
-          animation: show-scroll 8s ease-in-out infinite;
+          animation: show-scroll var(--scroll-duration, 16s) ease-in-out infinite;
         }
       `}</style>
     </div>
@@ -86,6 +90,9 @@ export function ScrollingDJName({ text, className }: { text: string; className?:
     }
   }, [text]);
 
+  // ~12 px/sec on the moving portion (30% of cycle), clamped 10–20s.
+  const scrollDuration = Math.min(20, Math.max(10, scrollDistance * 0.28));
+
   return (
     <div
       ref={containerRef}
@@ -97,6 +104,7 @@ export function ScrollingDJName({ text, className }: { text: string; className?:
         className={needsScroll ? 'animate-dj-scroll' : ''}
         style={needsScroll ? {
           '--scroll-distance': `-${scrollDistance}px`,
+          '--scroll-duration': `${scrollDuration}s`,
         } as React.CSSProperties : undefined}
       >
         {text}
@@ -114,7 +122,7 @@ export function ScrollingDJName({ text, className }: { text: string; className?:
           }
         }
         .animate-dj-scroll {
-          animation: dj-scroll 8s ease-in-out infinite;
+          animation: dj-scroll var(--scroll-duration, 16s) ease-in-out infinite;
         }
       `}</style>
     </div>
