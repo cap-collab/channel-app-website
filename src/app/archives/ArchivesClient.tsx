@@ -6,7 +6,6 @@ import { Header } from '@/components/Header';
 import { AuthModal } from '@/components/AuthModal';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { ArchiveSerialized } from '@/types/broadcast';
-import { WatchlistModal } from '@/components/WatchlistModal';
 import { ArchiveCard } from '@/components/ArchiveCard';
 
 const STREAM_COUNT_THRESHOLD = 300; // 5 minutes in seconds
@@ -18,8 +17,6 @@ export function ArchivesClient() {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [currentTimes, setCurrentTimes] = useState<Record<string, number>>({});
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
-  const [showWatchlistModal, setShowWatchlistModal] = useState(false);
-  const [selectedArchive, setSelectedArchive] = useState<ArchiveSerialized | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Track cumulative playback time and whether stream has been counted
@@ -109,11 +106,6 @@ export function ArchivesClient() {
     setCurrentTimes(prev => ({ ...prev, [archiveId]: 0 }));
   };
 
-  const handleAddToWatchlist = (archive: ArchiveSerialized) => {
-    setSelectedArchive(archive);
-    setShowWatchlistModal(true);
-  };
-
   return (
     <div className="min-h-[100dvh] text-white relative flex flex-col">
       <AnimatedBackground />
@@ -159,30 +151,11 @@ export function ArchivesClient() {
                 onAudioRef={(el) => { audioRefs.current[archive.id] = el; }}
                 onTimeUpdate={() => handleTimeUpdate(archive.id, archive.slug)}
                 onEnded={() => handleEnded(archive.id)}
-                onAddToWatchlist={() => handleAddToWatchlist(archive)}
               />
             ))}
           </div>
         )}
       </main>
-
-      {/* Watchlist Modal */}
-      {selectedArchive && (
-        <WatchlistModal
-          isOpen={showWatchlistModal}
-          onClose={() => {
-            setShowWatchlistModal(false);
-            setSelectedArchive(null);
-          }}
-          showName={selectedArchive.showName}
-          djs={selectedArchive.djs.map((dj) => ({
-            name: dj.name,
-            username: dj.username,
-            userId: dj.userId,
-            email: dj.email,
-          }))}
-        />
-      )}
 
       {/* Auth Modal */}
       <AuthModal

@@ -25,16 +25,36 @@ export interface ArchiveCardProps {
   onAudioRef: (el: HTMLAudioElement | null) => void;
   onTimeUpdate: () => void;
   onEnded: () => void;
-  onAddToWatchlist: () => void;
 }
 
-export function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSeek, onAudioRef, onTimeUpdate, onEnded, onAddToWatchlist }: ArchiveCardProps) {
+export function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSeek, onAudioRef, onTimeUpdate, onEnded }: ArchiveCardProps) {
   const [copied, setCopied] = useState(false);
 
+  // Share the primary DJ's profile URL. For collectives the primary DJ entry
+  // IS the collective (username = slug), so this works the same way.
+  // Try the native share sheet first; fall back to clipboard. No preset text
+  // so the OS share UI doesn't add a title/message.
   const handleShare = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const url = `${window.location.origin}/archives/${archive.slug}`;
+    const primary = archive.djs.find(dj => dj.username);
+    const slug = primary?.username
+      ? primary.username.replace(/\s+/g, '').toLowerCase()
+      : null;
+    const url = slug
+      ? `${window.location.origin}/dj/${slug}`
+      : `${window.location.origin}/archives/${archive.slug}`;
+
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ url });
+        return;
+      } catch (err) {
+        // AbortError = user dismissed the share sheet; not an error.
+        if ((err as DOMException)?.name === 'AbortError') return;
+        // Fall through to clipboard if the share sheet errored for another reason.
+      }
+    }
 
     try {
       await navigator.clipboard.writeText(url);
@@ -129,22 +149,7 @@ export function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSe
                 </Link>
               ))}
 
-              {/* Add to watchlist button */}
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onAddToWatchlist();
-                }}
-                className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
-                title="Add to watchlist"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </button>
-
-              {/* Copy link button */}
+              {/* Share button — opens native share sheet (or copies link as fallback) */}
               <button
                 onClick={handleShare}
                 className={`w-7 h-7 rounded-full flex items-center justify-center transition-all text-xs ${
@@ -152,7 +157,7 @@ export function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSe
                     ? 'bg-green-500/20 text-green-400'
                     : 'bg-white/10 hover:bg-white/20 text-white'
                 }`}
-                title="Copy link"
+                title="Share"
               >
                 {copied ? (
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

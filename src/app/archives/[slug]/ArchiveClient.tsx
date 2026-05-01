@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { ArchiveSerialized } from '@/types/broadcast';
-import { WatchlistModal } from '@/components/WatchlistModal';
 import { ArchiveCard } from '@/components/ArchiveCard';
 
 interface Props {
@@ -19,7 +18,6 @@ export function ArchiveClient({ slug }: Props) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [showWatchlistModal, setShowWatchlistModal] = useState(false);
 
   useEffect(() => {
     async function fetchArchive() {
@@ -125,20 +123,6 @@ export function ArchiveClient({ slug }: Props) {
           onAudioRef={(el) => { audioRef.current = el; }}
           onTimeUpdate={handleTimeUpdate}
           onEnded={handleEnded}
-          onAddToWatchlist={() => setShowWatchlistModal(true)}
-        />
-
-        {/* Watchlist Modal */}
-        <WatchlistModal
-          isOpen={showWatchlistModal}
-          onClose={() => setShowWatchlistModal(false)}
-          showName={archive.showName}
-          djs={archive.djs.map((dj) => ({
-            name: dj.name,
-            username: dj.username,
-            userId: dj.userId,
-            email: dj.email,
-          }))}
         />
       </main>
     </div>
