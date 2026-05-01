@@ -35,13 +35,13 @@ const R2_PUBLIC = (process.env.R2_PUBLIC_URL || 'https://media.channel-app.com')
 const R2_OUTPUT_PREFIX = 'youtube-renders';
 
 // Hard limits
-const MAX_RENDER_SECONDS = 3 * 60 * 60; // 3 hours absolute cap
+const MAX_RENDER_SECONDS = 6 * 60 * 60; // 6 hours absolute cap
 const RENDER_OVERRUN_FACTOR = 1.5; // watchdog kills if elapsed > durationSec * factor + 5min slack
 const RENDER_OVERRUN_SLACK_MS = 5 * 60 * 1000;
 const FFMPEG_INITIAL_CONNECT_TIMEOUT_S = 30; // mirrors restream-worker's "short-run = retry" rule
 const FFMPEG_MAX_ATTEMPTS = 3;
 const FFMPEG_RETRY_DELAYS_MS = [1000, 3000];
-const ZOMBIE_CHECK_OLDER_THAN_MS = 4 * 60 * 60 * 1000; // anything still 'rendering' for >4h is dead
+const ZOMBIE_CHECK_OLDER_THAN_MS = 8 * 60 * 60 * 1000; // anything still 'rendering' for >8h is dead
 
 // In-memory bookkeeping. Source of truth is always Firestore — this map only
 // exists to manage child-process lifecycle for jobs running RIGHT NOW. On
