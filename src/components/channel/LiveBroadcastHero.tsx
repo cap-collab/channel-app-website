@@ -305,7 +305,11 @@ export function DJImageOverlay({
 
 function formatClockTime(timestampMs: number): string {
   const d = new Date(timestampMs);
-  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+  const h = d.getHours();
+  const m = d.getMinutes();
+  const ampm = h < 12 ? 'AM' : 'PM';
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return m === 0 ? `${h12} ${ampm}` : `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
 }
 
 /** Thin progress bar showing how far into a show we are, based on start/end times. Auto-updates. */
