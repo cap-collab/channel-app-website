@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useAuthContext } from '@/contexts/AuthContext';
 import type { SceneSerialized } from '@/types/scenes';
 import type { DjForScenesAdmin, ResidencyCadence } from '@/app/api/admin/scenes/djs/route';
+import type { CollectiveForScenesAdmin } from '@/app/api/admin/scenes/collectives/route';
 
 const UNASSIGNED_FILTER = '__unassigned__';
 const ALL_FILTER = '__all__';
@@ -13,6 +14,7 @@ export function ScenesTab() {
   const { user } = useAuthContext();
   const [scenes, setScenes] = useState<SceneSerialized[]>([]);
   const [djs, setDjs] = useState<DjForScenesAdmin[]>([]);
+  const [collectives, setCollectives] = useState<CollectiveForScenesAdmin[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sceneFilter, setSceneFilter] = useState<string>(ALL_FILTER);
@@ -47,13 +49,20 @@ export function ScenesTab() {
     setDjs(data.djs || []);
   }, [authedFetch]);
 
+  const fetchCollectives = useCallback(async () => {
+    const res = await authedFetch('/api/admin/scenes/collectives');
+    if (!res.ok) throw new Error('Failed to load collectives');
+    const data = await res.json();
+    setCollectives(data.collectives || []);
+  }, [authedFetch]);
+
   useEffect(() => {
     if (!user) return;
     setIsLoading(true);
-    Promise.all([fetchScenes(), fetchDjs()])
+    Promise.all([fetchScenes(), fetchDjs(), fetchCollectives()])
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load'))
       .finally(() => setIsLoading(false));
-  }, [user, fetchScenes, fetchDjs]);
+  }, [user, fetchScenes, fetchDjs, fetchCollectives]);
 
   const counts = useMemo(() => {
     const map: Record<string, number> = { [UNASSIGNED_FILTER]: 0 };
@@ -67,14 +76,29 @@ export function ScenesTab() {
         if (map[id] !== undefined) map[id] = map[id] + 1;
       }
     }
+    for (const c of collectives) {
+      if (!c.sceneIds || c.sceneIds.length === 0) {
+        map[UNASSIGNED_FILTER] = (map[UNASSIGNED_FILTER] ?? 0) + 1;
+        continue;
+      }
+      for (const id of c.sceneIds) {
+        if (map[id] !== undefined) map[id] = map[id] + 1;
+      }
+    }
     return map;
-  }, [djs, scenes]);
+  }, [djs, collectives, scenes]);
 
   const filteredDjs = useMemo(() => {
     if (sceneFilter === ALL_FILTER) return djs;
     if (sceneFilter === UNASSIGNED_FILTER) return djs.filter((d) => !d.sceneIds || d.sceneIds.length === 0);
     return djs.filter((d) => d.sceneIds?.includes(sceneFilter));
   }, [djs, sceneFilter]);
+
+  const filteredCollectives = useMemo(() => {
+    if (sceneFilter === ALL_FILTER) return collectives;
+    if (sceneFilter === UNASSIGNED_FILTER) return collectives.filter((c) => !c.sceneIds || c.sceneIds.length === 0);
+    return collectives.filter((c) => c.sceneIds?.includes(sceneFilter));
+  }, [collectives, sceneFilter]);
 
   // Split into residents (any cadence set) vs non-residents. Within each group:
   // residents sort by soonest next-slot then name; non-residents sort by name.
@@ -137,6 +161,30 @@ export function ScenesTab() {
     [authedFetch, fetchDjs]
   );
 
+  const handleToggleCollectiveScene = useCallback(
+    async (collective: CollectiveForScenesAdmin, sceneId: string) => {
+      const current = collective.sceneIds ?? [];
+      const next = current.includes(sceneId)
+        ? current.filter((s) => s !== sceneId)
+        : [...current, sceneId];
+
+      setCollectives((prev) =>
+        prev.map((c) => (c.collectiveId === collective.collectiveId ? { ...c, sceneIds: next } : c))
+      );
+
+      try {
+        const res = await authedFetch('/api/admin/scenes/collective-assignment', {
+          method: 'PATCH',
+          body: JSON.stringify({ collectiveId: collective.collectiveId, sceneIds: next }),
+        });
+        if (!res.ok) throw new Error('Failed to update');
+      } catch {
+        await fetchCollectives();
+      }
+    },
+    [authedFetch, fetchCollectives]
+  );
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -149,7 +197,7 @@ export function ScenesTab() {
     return <div className="text-red-400 py-8">{error}</div>;
   }
 
-  const totalAssigned = filteredDjs.length;
+  const totalAssigned = filteredDjs.length + filteredCollectives.length;
 
   return (
     <div className="space-y-4">
@@ -179,8 +227,8 @@ export function ScenesTab() {
         />
       </div>
 
-      {filteredDjs.length === 0 ? (
-        <div className="text-gray-500 text-sm py-12 text-center">No DJs in this view.</div>
+      {filteredDjs.length === 0 && filteredCollectives.length === 0 ? (
+        <div className="text-gray-500 text-sm py-12 text-center">Nothing in this view.</div>
       ) : (
         <div className="space-y-6">
           <DjGroup
@@ -198,6 +246,13 @@ export function ScenesTab() {
             scenes={scenes}
             onToggle={handleToggleDjScene}
             onSetResidency={handleSetResidency}
+          />
+          <CollectiveGroup
+            title="Collectives"
+            collectives={filteredCollectives}
+            emptyLabel="No collectives in this view."
+            scenes={scenes}
+            onToggle={handleToggleCollectiveScene}
           />
         </div>
       )}
@@ -357,6 +412,98 @@ function formatNextSlot(ts?: number): string {
     day: 'numeric',
     year: 'numeric',
   });
+}
+
+function CollectiveRow({
+  collective,
+  scenes,
+  onToggle,
+}: {
+  collective: CollectiveForScenesAdmin;
+  scenes: SceneSerialized[];
+  onToggle: (collective: CollectiveForScenesAdmin, sceneId: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-4 px-4 py-3 bg-[#1f1f1f] rounded-lg border border-gray-800">
+      <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-800 flex-shrink-0">
+        {collective.photoUrl ? (
+          <Image
+            src={collective.photoUrl}
+            alt={collective.name}
+            width={40}
+            height={40}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm">
+            {collective.name.charAt(0).toUpperCase()}
+          </div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm text-white truncate">{collective.name}</div>
+        {collective.slug && (
+          <div className="text-xs text-gray-500 truncate">/{collective.slug}</div>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1.5 justify-end">
+        {scenes.map((scene) => {
+          const active = collective.sceneIds?.includes(scene.id);
+          return (
+            <button
+              key={scene.id}
+              onClick={() => onToggle(collective, scene.id)}
+              className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                active
+                  ? scene.color
+                  : 'bg-gray-800/50 text-gray-500 border-gray-700 hover:text-gray-300'
+              }`}
+            >
+              <span className="mr-1 text-base leading-none">{scene.emoji}</span>
+              {scene.name}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CollectiveGroup({
+  title,
+  collectives,
+  emptyLabel,
+  scenes,
+  onToggle,
+}: {
+  title: string;
+  collectives: CollectiveForScenesAdmin[];
+  emptyLabel: string;
+  scenes: SceneSerialized[];
+  onToggle: (collective: CollectiveForScenesAdmin, sceneId: string) => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <h3 className="text-xs uppercase tracking-[0.2em] text-gray-400">{title}</h3>
+        <span className="text-xs text-gray-600">{collectives.length}</span>
+      </div>
+      {collectives.length === 0 ? (
+        <div className="text-gray-600 text-xs py-4">{emptyLabel}</div>
+      ) : (
+        <div className="space-y-2">
+          {collectives.map((c) => (
+            <CollectiveRow
+              key={c.collectiveId}
+              collective={c}
+              scenes={scenes}
+              onToggle={onToggle}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ResidencyPill({
