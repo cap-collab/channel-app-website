@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import { FieldValue } from 'firebase-admin/firestore';
 import { getApplications, createApplication } from '@/lib/dj-applications';
+import { getAdminDb } from '@/lib/firebase-admin';
 import { DJApplicationFormData } from '@/types/dj-application';
 
 const resend = process.env.RESEND_API_KEY
@@ -21,6 +23,33 @@ export async function POST(request: NextRequest) {
     }
 
     const application = await createApplication(data);
+
+    // Also add the applicant to the radio-notify-waitlist so they receive
+    // the weekly newsletter. Idempotent: skip if email already exists.
+    try {
+      const db = getAdminDb();
+      if (db) {
+        const normalizedEmail = data.email.trim().toLowerCase();
+        const existing = await db
+          .collection('radio-notify-waitlist')
+          .where('email', '==', normalizedEmail)
+          .limit(1)
+          .get();
+        if (existing.empty) {
+          await db.collection('radio-notify-waitlist').add({
+            email: normalizedEmail,
+            name: data.djName.trim(),
+            ...(data.city && { city: data.city }),
+            ...(data.timezone && { timezone: data.timezone }),
+            source: 'dj-application',
+            marketingOptIn: true,
+            submittedAt: FieldValue.serverTimestamp(),
+          });
+        }
+      }
+    } catch (waitlistError) {
+      console.error('Failed to add applicant to radio-notify-waitlist:', waitlistError);
+    }
 
     // Send notification email (fire-and-forget)
     try {
