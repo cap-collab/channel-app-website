@@ -1866,7 +1866,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                         />
                       </div>
                     )}
-                    <div className="flex-1 min-w-0 flex flex-col justify-between" style={showImage ? { minHeight: '96px' } : undefined}>
+                    <div className="flex-1 min-w-0 flex flex-col" style={showImage ? { minHeight: '96px' } : undefined}>
                       <div>
                         <p className="text-sm font-bold text-white uppercase tracking-wide">{archive.showName}</p>
                         {genreText && (
@@ -1875,34 +1875,34 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                       </div>
 
                       {/* Player */}
-                      <div className="flex items-center gap-2 mt-1">
-                        <button
-                          onClick={() => handlePlayPause(archive)}
-                          className="w-7 h-7 flex items-center justify-center transition-colors flex-shrink-0 text-white"
-                        >
-                          {isPlayingArchive ? (
-                            <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M6 3h4v18H6V3zm8 0h4v18h-4V3z" />
-                            </svg>
-                          ) : (
-                            <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M5 3v18l15-9z" />
-                            </svg>
-                          )}
-                        </button>
-                        <div className="flex-1 min-w-0 relative">
+                      <div className="mt-auto mb-2">
+                        <div className="flex items-center">
+                          <button
+                            onClick={() => handlePlayPause(archive)}
+                            className="w-7 h-7 flex items-center justify-center transition-colors flex-shrink-0 text-white"
+                          >
+                            {isPlayingArchive ? (
+                              <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M6 3h4v18H6V3zm8 0h4v18h-4V3z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M5 3v18l15-9z" />
+                              </svg>
+                            )}
+                          </button>
                           <input
                             type="range"
                             min={0}
                             max={archive.duration || 100}
                             value={currentTime}
                             onChange={(e) => handleSeek(archive.id, parseFloat(e.target.value))}
-                            className="w-full h-1 bg-zinc-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+                            className="flex-1 min-w-0 h-1 bg-zinc-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
                           />
-                          <div className="absolute left-0 right-0 top-full mt-0.5 flex justify-between text-[10px] text-zinc-500">
-                            <span>{formatDuration(currentTime)}</span>
-                            <span>{formatDuration(archive.duration)}</span>
-                          </div>
+                        </div>
+                        <div className="mt-1 pl-7 flex justify-between text-[10px] text-zinc-500 leading-none">
+                          <span>{formatDuration(currentTime)}</span>
+                          <span>{formatDuration(archive.duration)}</span>
                         </div>
                       </div>
                     </div>
