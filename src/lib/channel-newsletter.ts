@@ -169,8 +169,8 @@ export function buildEmailHtml(
     <p style="margin: 0 0 16px; color: #1a1a1a;">Hi ${displayName},</p>
     <p style="margin: 0 0 16px; color: #1a1a1a;">Shows on Channel are starting to travel beyond the platform.</p>
     <p style="margin: 0 0 16px; color: #1a1a1a;">I'm now publishing your shows on YouTube and SoundCloud, with moments shared on IG — all linked back to your profile.</p>
-    <p style="margin: 0 0 16px; color: #1a1a1a;">One thing that makes a real difference there is how the show presents itself visually.</p>
-    <p style="margin: 0 0 16px; color: #1a1a1a;">A strong image (show cover or profile pic) goes a long way — it's what people see first, and it shapes how your show stands out.</p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">One thing that makes a real difference there is how the show presents itself.</p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">A strong image and a clear show name go a long way — it's what people see first, and it shapes how your show stands out.</p>
     <p style="margin: 0 0 16px; color: #1a1a1a;">You can see how it looks here:<br/>
       Channel: <a href="${djProfileUrl}" style="color: #1a1a1a;">${djProfileUrl}</a><br/>
       YouTube: <a href="https://youtube.com/@channelrad-io" style="color: #1a1a1a;">https://youtube.com/@channelrad-io</a><br/>
@@ -182,12 +182,13 @@ export function buildEmailHtml(
 
   const listenerBody = `
     <p style="margin: 0 0 16px; color: #1a1a1a;">Hi ${displayName},</p>
-    <p style="margin: 0 0 16px; color: #1a1a1a;">A number of new shows have been added over the past week — a few already standing out.</p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">A number of new shows have been added over the past week, a few already standing out.</p>
     <p style="margin: 0 0 16px; color: #1a1a1a;"><strong>Lock in:</strong><br/>
       <span style="font-size: 1.25em; line-height: 1; vertical-align: -0.08em;">🌀</span> <a href="https://channel-app.com/radio?spiral" style="color: #1a1a1a;">https://channel-app.com/radio?spiral</a><br/>
       <span style="font-size: 1.4em; line-height: 1; vertical-align: -0.1em;">✳</span> <a href="https://channel-app.com/radio?star" style="color: #1a1a1a;">https://channel-app.com/radio?star</a>
     </p>
-    <p style="margin: 0 0 16px; color: #1a1a1a;">More live shows coming up this week. Follow on IG for live moments and clips:<br/>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">More live shows coming up this week.</p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">Moments on IG — a good way to get a feel for the sets and find what to dive into:<br/>
       <a href="https://www.instagram.com/channelrad.io/" style="color: #1a1a1a;">https://www.instagram.com/channelrad.io/</a>
     </p>
     <p style="margin: 0; color: #1a1a1a;">Cap</p>
