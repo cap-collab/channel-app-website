@@ -1885,13 +1885,15 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                       <div className="flex items-center gap-2 mt-1">
                         <button
                           onClick={() => handlePlayPause(archive)}
-                          className="w-7 h-7 bg-white flex items-center justify-center hover:bg-gray-100 transition-colors flex-shrink-0 text-black"
+                          className="w-7 h-7 flex items-center justify-center transition-colors flex-shrink-0 text-white"
                         >
                           {isPlayingArchive ? (
-                            <PauseIcon size={12} />
+                            <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M6 3h4v18H6V3zm8 0h4v18h-4V3z" />
+                            </svg>
                           ) : (
-                            <svg className="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M8 5v14l11-7z" />
+                            <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M5 3v18l15-9z" />
                             </svg>
                           )}
                         </button>
