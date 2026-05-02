@@ -9,7 +9,8 @@ import {
   getDjRecipients,
   getListenerRecipients,
   NEWSLETTER_FROM_EMAIL,
-  NEWSLETTER_SUBJECT,
+  NEWSLETTER_APP_URL,
+  subjectFor,
   type Recipient,
 } from "@/lib/channel-newsletter";
 
@@ -67,12 +68,16 @@ export async function GET(request: NextRequest) {
     const tokenEmail = asParam || previewTo;
     const matched = selected.find((r) => r.email === tokenEmail);
     const previewName = matched?.name || "Cap";
+    const previewSubject = subjectFor(cohortParam);
+    const previewDjUsername =
+      matched?.djUsername ||
+      (cohortParam === "dj" ? request.nextUrl.searchParams.get("djUsername") || undefined : undefined);
     try {
       await resend.emails.send({
         from: NEWSLETTER_FROM_EMAIL,
         to: previewTo,
-        subject: `[test as ${tokenEmail}] ${NEWSLETTER_SUBJECT}`,
-        html: buildEmailHtml(previewName, cohortParam, tokenEmail),
+        subject: `[test as ${tokenEmail}] ${previewSubject}`,
+        html: buildEmailHtml(previewName, cohortParam, tokenEmail, previewDjUsername),
         headers: buildListUnsubscribeHeaders(tokenEmail, cohortParam === "dj" ? "dj" : "marketing"),
       });
       return NextResponse.json({
@@ -81,7 +86,13 @@ export async function GET(request: NextRequest) {
         sentTo: previewTo,
         unsubscribeTokenFor: tokenEmail,
         greetedAs: previewName,
-        subject: NEWSLETTER_SUBJECT,
+        subject: previewSubject,
+        djProfileUrl:
+          cohortParam === "dj"
+            ? previewDjUsername
+              ? `${NEWSLETTER_APP_URL}/dj/${encodeURIComponent(previewDjUsername)}`
+              : `${NEWSLETTER_APP_URL}/radio`
+            : undefined,
       });
     } catch (e) {
       return NextResponse.json({ error: String(e) }, { status: 500 });
@@ -94,7 +105,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       mode: "dry-run",
       cohort: cohortParam,
-      subject: NEWSLETTER_SUBJECT,
+      subjects: {
+        dj: subjectFor("dj"),
+        listener: subjectFor("listener"),
+      },
       totals: {
         dj: djRecipients.length,
         listener: listenerRecipients.length,
@@ -106,6 +120,12 @@ export async function GET(request: NextRequest) {
         email: r.email,
         firstName: r.name,
         cohort: r.cohort,
+        djProfileUrl:
+          r.cohort === "dj"
+            ? r.djUsername
+              ? `${NEWSLETTER_APP_URL}/dj/${encodeURIComponent(r.djUsername)}`
+              : `${NEWSLETTER_APP_URL}/radio`
+            : undefined,
       })),
     });
   }
@@ -170,7 +190,10 @@ export async function GET(request: NextRequest) {
       mode: "compare",
       cohort: cohortParam,
       lastSubject,
-      currentSubject: NEWSLETTER_SUBJECT,
+      currentSubjects: {
+        dj: subjectFor("dj"),
+        listener: subjectFor("listener"),
+      },
       priorSendCount: priorEmails.size,
       currentRecipientCount: currentEmails.size,
       added,
@@ -181,7 +204,7 @@ export async function GET(request: NextRequest) {
 
   // ── Send (LOCKED) ──
   if (mode === "send") {
-    const SEND_ENABLED = false; // ← last send 72/72 on 2026-04-20; Monday cron handles 2026-04-27
+    const SEND_ENABLED = false; // ← Monday cron handles 2026-05-04
     if (!SEND_ENABLED) {
       return NextResponse.json({
         error: "Send mode is locked. Set SEND_ENABLED = true in code when ready.",
@@ -200,8 +223,8 @@ export async function GET(request: NextRequest) {
         await resend.emails.send({
           from: NEWSLETTER_FROM_EMAIL,
           to: recipient.email,
-          subject: NEWSLETTER_SUBJECT,
-          html: buildEmailHtml(recipient.name, recipient.cohort, recipient.email),
+          subject: subjectFor(recipient.cohort),
+          html: buildEmailHtml(recipient.name, recipient.cohort, recipient.email, recipient.djUsername),
           headers: buildListUnsubscribeHeaders(recipient.email, recipient.cohort === "dj" ? "dj" : "marketing"),
         });
         sent++;

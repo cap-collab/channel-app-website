@@ -26,11 +26,11 @@
     },
     {
       "path": "/api/cron/channel-newsletter-audit",
-      "schedule": "0 20 27 4 *"
+      "schedule": "0 20 4 5 *"
     },
     {
       "path": "/api/cron/channel-newsletter-send",
-      "schedule": "0 21 27 4 *"
+      "schedule": "0 21 4 5 *"
     }
   ]
 }

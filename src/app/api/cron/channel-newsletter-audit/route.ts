@@ -7,7 +7,7 @@ import {
   NEWSLETTER_FROM_EMAIL,
 } from "@/lib/channel-newsletter";
 
-// Monday 2026-04-27, 20:00 UTC (1 PM PT). Pre-flight audit email to Cap.
+// Monday 2026-05-04, 20:00 UTC (1 PM PT). Pre-flight audit email to Cap.
 // Scheduled via vercel.json; the cron secret is validated via either the
 // Vercel-cron header or a Bearer token (matching the pattern used by other
 // channel-app crons).

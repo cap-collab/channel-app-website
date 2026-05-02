@@ -2,13 +2,26 @@
 // Anything that needs to build recipient lists, email HTML, or send the
 // campaign should import from here — not duplicate logic in the route.
 
+export type Cohort = "dj" | "listener";
+export type Recipient = {
+  email: string;
+  name: string;
+  id: string;
+  cohort: Cohort;
+  djUsername?: string;
+};
+
 export const NEWSLETTER_FROM_EMAIL = "Cap from Channel <cap@channel-app.com>";
 export const NEWSLETTER_LOGO_URL = "https://channel-app.com/logo-black.png";
 export const NEWSLETTER_APP_URL = "https://channel-app.com";
-export const NEWSLETTER_SUBJECT = "Two scenes are emerging";
+export const NEWSLETTER_SUBJECTS: Record<Cohort, string> = {
+  dj: "Your shows are starting to travel",
+  listener: "New shows on Channel",
+};
 
-export type Cohort = "dj" | "listener";
-export type Recipient = { email: string; name: string; id: string; cohort: Cohort };
+export function subjectFor(cohort: Cohort): string {
+  return NEWSLETTER_SUBJECTS[cohort];
+}
 
 // First-name overrides: highest priority, applied before Firebase fields.
 // Priority: override → name → displayName → chatUsername → "there".
@@ -113,13 +126,52 @@ export function buildListUnsubscribeHeaders(email: string, category: "dj" | "mar
   };
 }
 
-export function buildEmailHtml(name: string, cohort: Cohort, email: string): string {
+export function buildEmailHtml(
+  name: string,
+  cohort: Cohort,
+  email: string,
+  djUsername?: string,
+): string {
   const displayName = capitalize(name);
   const category: "dj" | "marketing" = cohort === "dj" ? "dj" : "marketing";
   const settingsUrl = buildUnsubscribeUrl(email, category);
   const footerText = cohort === "dj"
     ? "You're receiving this as an artist on Channel."
     : "You're receiving this as a member of Channel.";
+
+  const djProfileUrl = djUsername
+    ? `${NEWSLETTER_APP_URL}/dj/${encodeURIComponent(djUsername)}`
+    : `${NEWSLETTER_APP_URL}/radio`;
+
+  const djBody = `
+    <p style="margin: 0 0 16px; color: #1a1a1a;">Hi ${displayName},</p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">Shows on Channel are starting to travel beyond the platform.</p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">I'm now publishing your shows on YouTube and SoundCloud, with moments shared on IG — all linked back to your profile.</p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">One thing that makes a real difference there is how the show presents itself visually.</p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">A strong image (show cover or profile pic) goes a long way — it's what people see first, and it shapes how your show stands out.</p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">You can see how it looks here:<br/>
+      Channel: <a href="${djProfileUrl}" style="color: #1a1a1a;">${djProfileUrl}</a><br/>
+      YouTube: <a href="https://youtube.com/@channelrad-io" style="color: #1a1a1a;">https://youtube.com/@channelrad-io</a><br/>
+      SoundCloud: <a href="https://on.soundcloud.com/7jllveVeEPFH5wOeTy" style="color: #1a1a1a;">https://on.soundcloud.com/7jllveVeEPFH5wOeTy</a><br/>
+      IG: <a href="https://www.instagram.com/channelrad.io/" style="color: #1a1a1a;">https://www.instagram.com/channelrad.io/</a>
+    </p>
+    <p style="margin: 0; color: #1a1a1a;">Cap</p>
+  `;
+
+  const listenerBody = `
+    <p style="margin: 0 0 16px; color: #1a1a1a;">Hi ${displayName},</p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">A number of new shows have been added over the past week — a few already standing out.</p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;"><strong>Lock in:</strong><br/>
+      <span style="font-size: 1.25em; line-height: 1; vertical-align: -0.08em;">🌀</span> <a href="https://channel-app.com/radio?spiral" style="color: #1a1a1a;">https://channel-app.com/radio?spiral</a><br/>
+      <span style="font-size: 1.4em; line-height: 1; vertical-align: -0.1em;">✳</span> <a href="https://channel-app.com/radio?star" style="color: #1a1a1a;">https://channel-app.com/radio?star</a>
+    </p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">More live shows coming up this week. Follow on IG for live moments and clips:<br/>
+      <a href="https://www.instagram.com/channelrad.io/" style="color: #1a1a1a;">https://www.instagram.com/channelrad.io/</a>
+    </p>
+    <p style="margin: 0; color: #1a1a1a;">Cap</p>
+  `;
+
+  const body = cohort === "dj" ? djBody : listenerBody;
 
   return minifyHtml(`
     <!DOCTYPE html>
@@ -147,13 +199,7 @@ export function buildEmailHtml(name: string, cohort: Cohort, email: string): str
               </tr>
               <tr>
                 <td bgcolor="#ffffff" style="font-size: 15px; line-height: 1.6; color: #1a1a1a;">
-                  <p style="margin: 0 0 16px; color: #1a1a1a;">Hi ${displayName},</p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;">Channel has been growing steadily over the past weeks, and I'm seeing two scenes form through the shows.</p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;">One is more trippy and experimental, the other more groovy and social.</p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;"><strong>Check them out:</strong><br/><span style="font-size: 1.25em; line-height: 1; vertical-align: -0.08em;">🌀</span> <a href="https://channel-app.com/radio?spiral" style="color: #1a1a1a;">https://channel-app.com/radio?spiral</a><br/><span style="font-size: 1.4em; line-height: 1; vertical-align: -0.1em;">✳</span> <a href="https://channel-app.com/radio?star" style="color: #1a1a1a;">https://channel-app.com/radio?star</a></p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;">More shows are coming in this week across LA and NY.</p>
-                  <p style="margin: 0 0 16px; color: #1a1a1a;">Daily clips on IG <a href="https://instagram.com/channelrad.io" style="color: #1a1a1a; text-decoration: underline;">@channelrad.io</a></p>
-                  <p style="margin: 0; color: #1a1a1a;">Cap</p>
+                  ${body}
                 </td>
               </tr>
               <tr>
@@ -176,6 +222,14 @@ export function buildEmailHtml(name: string, cohort: Cohort, email: string): str
   `);
 }
 
+function resolveDjUsername(data: FirebaseFirestore.DocumentData): string | undefined {
+  const normalized = typeof data.chatUsernameNormalized === "string" ? data.chatUsernameNormalized.trim() : "";
+  if (normalized) return normalized;
+  const raw = typeof data.chatUsername === "string" ? data.chatUsername.trim() : "";
+  if (!raw) return undefined;
+  return raw.replace(/[\s-]+/g, "").toLowerCase();
+}
+
 export async function getDjRecipients(db: FirebaseFirestore.Firestore): Promise<Recipient[]> {
   const snap = await db.collection("users").where("role", "==", "dj").get();
   const out: Recipient[] = [];
@@ -190,6 +244,7 @@ export async function getDjRecipients(db: FirebaseFirestore.Firestore): Promise<
       name: resolveFirstName(data.email, data.name, data.chatUsername, data.displayName),
       id: doc.id,
       cohort: "dj",
+      djUsername: resolveDjUsername(data),
     });
   }
 
@@ -208,6 +263,7 @@ export async function getDjRecipients(db: FirebaseFirestore.Firestore): Promise<
       name: resolveFirstName(email, data.name, data.chatUsername, data.displayName),
       id: doc.id,
       cohort: "dj",
+      djUsername: resolveDjUsername(data),
     });
   }
   return out;

@@ -7,10 +7,10 @@ import {
   getDjRecipients,
   getListenerRecipients,
   NEWSLETTER_FROM_EMAIL,
-  NEWSLETTER_SUBJECT,
+  subjectFor,
 } from "@/lib/channel-newsletter";
 
-// Monday 2026-04-27, 21:00 UTC (2 PM PT). Sends the channel-wide newsletter.
+// Monday 2026-05-04, 21:00 UTC (2 PM PT). Sends the channel-wide newsletter.
 //
 // Abort: set NEWSLETTER_KILL=true in Vercel env. Takes effect on next
 // request, no redeploy needed.
@@ -69,8 +69,8 @@ export async function GET(request: NextRequest) {
       await resend.emails.send({
         from: NEWSLETTER_FROM_EMAIL,
         to: recipient.email,
-        subject: NEWSLETTER_SUBJECT,
-        html: buildEmailHtml(recipient.name, recipient.cohort, recipient.email),
+        subject: subjectFor(recipient.cohort),
+        html: buildEmailHtml(recipient.name, recipient.cohort, recipient.email, recipient.djUsername),
         headers: buildListUnsubscribeHeaders(recipient.email, recipient.cohort === "dj" ? "dj" : "marketing"),
       });
       sent++;
