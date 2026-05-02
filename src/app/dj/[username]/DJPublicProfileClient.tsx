@@ -1890,7 +1890,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                             </svg>
                           )}
                         </button>
-                        <div className="flex-1 min-w-0 space-y-0.5">
+                        <div className="flex-1 min-w-0 relative">
                           <input
                             type="range"
                             min={0}
@@ -1899,7 +1899,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                             onChange={(e) => handleSeek(archive.id, parseFloat(e.target.value))}
                             className="w-full h-1 bg-zinc-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
                           />
-                          <div className="flex justify-between text-[10px] text-zinc-500">
+                          <div className="absolute left-0 right-0 top-full mt-0.5 flex justify-between text-[10px] text-zinc-500">
                             <span>{formatDuration(currentTime)}</span>
                             <span>{formatDuration(archive.duration)}</span>
                           </div>
