@@ -71,6 +71,12 @@ export const FIRST_NAME_OVERRIDES: Record<string, string> = {
   "valerianspaceparty@gmail.com": "there",
   "atomic.records.boutique@gmail.com": "Corey",
   "charles.fages@gmail.com": "Charles",
+  "jeremieemk@gmail.com": "Jeremie",
+  "nopressure.gng@gmail.com": "Nopressure",
+  "notjoshua@gmail.com": "heckadecimal",
+  "omar41309@yahoo.com": "Omar",
+  "thinkabtrecords@proton.me": "there",
+  "grok.tunes@gmail.com": "Myles",
 };
 
 export const EXCLUDE_EMAILS = new Set<string>([
@@ -95,13 +101,27 @@ export function resolveFirstName(
   name?: string,
   chatUsername?: string,
   displayName?: string,
+  cohort?: Cohort,
 ): string {
   const override = FIRST_NAME_OVERRIDES[email];
   if (override) return override;
-  if (name && name.trim()) return name.trim().split(/\s+/)[0];
-  if (displayName && displayName.trim()) return displayName.trim().split(/\s+/)[0];
-  if (chatUsername && chatUsername.trim()) return chatUsername.trim();
-  return "there";
+
+  const cleanName = name?.trim() ? name.trim().split(/\s+/)[0] : "";
+  const cleanDisplay = displayName?.trim() ? displayName.trim().split(/\s+/)[0] : "";
+  const cleanChat = chatUsername?.trim() ? chatUsername.trim() : "";
+
+  // DJs: prefer chatUsername (their public DJ name) over name/displayName fields,
+  // which are often empty, set to email handles, or otherwise unsuitable.
+  // Listeners: stick with the name → displayName → chatUsername chain.
+  let resolved: string;
+  if (cohort === "dj") {
+    resolved = cleanChat || cleanName || cleanDisplay || "there";
+  } else {
+    resolved = cleanName || cleanDisplay || cleanChat || "there";
+  }
+
+  if (resolved === "there") return resolved;
+  return capitalize(resolved);
 }
 
 // Capitalize the first letter (Unicode-safe) without touching the rest.
@@ -132,7 +152,9 @@ export function buildEmailHtml(
   email: string,
   djUsername?: string,
 ): string {
-  const displayName = capitalize(name);
+  // resolveFirstName already handles capitalization (overrides preserved as-is,
+  // fallbacks capitalized) — don't double-capitalize here.
+  const displayName = name;
   const category: "dj" | "marketing" = cohort === "dj" ? "dj" : "marketing";
   const settingsUrl = buildUnsubscribeUrl(email, category);
   const footerText = cohort === "dj"
@@ -241,7 +263,7 @@ export async function getDjRecipients(db: FirebaseFirestore.Firestore): Promise<
     if (data.emailNotifications?.marketing === false) continue;
     out.push({
       email: data.email,
-      name: resolveFirstName(data.email, data.name, data.chatUsername, data.displayName),
+      name: resolveFirstName(data.email, data.name, data.chatUsername, data.displayName, "dj"),
       id: doc.id,
       cohort: "dj",
       djUsername: resolveDjUsername(data),
@@ -260,7 +282,7 @@ export async function getDjRecipients(db: FirebaseFirestore.Firestore): Promise<
     seenEmails.add(email);
     out.push({
       email,
-      name: resolveFirstName(email, data.name, data.chatUsername, data.displayName),
+      name: resolveFirstName(email, data.name, data.chatUsername, data.displayName, "dj"),
       id: doc.id,
       cohort: "dj",
       djUsername: resolveDjUsername(data),
@@ -288,7 +310,7 @@ export async function getListenerRecipients(
     seen.add(email);
     out.push({
       email,
-      name: resolveFirstName(email, data.name, data.chatUsername, data.displayName),
+      name: resolveFirstName(email, data.name, data.chatUsername, data.displayName, "listener"),
       id: doc.id,
       cohort: "listener",
     });
@@ -369,7 +391,7 @@ export async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<A
       unsubReason: unsubReasons,
       onNextSend: onDj || onListener,
       onNextSendCohort: onDj ? "dj" : onListener ? "listener" : null,
-      currentFirstName: resolveFirstName(email, d.name, d.chatUsername, d.displayName),
+      currentFirstName: resolveFirstName(email, d.name, d.chatUsername, d.displayName, role === "dj" ? "dj" : "listener"),
       displayNameFirstWord: firstWord(d.displayName),
     });
   }
@@ -396,7 +418,7 @@ export async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<A
       unsubReason: unsubReasons,
       onNextSend: onDj,
       onNextSendCohort: onDj ? "dj" : null,
-      currentFirstName: resolveFirstName(email, d.name, d.chatUsername, d.displayName),
+      currentFirstName: resolveFirstName(email, d.name, d.chatUsername, d.displayName, "dj"),
       displayNameFirstWord: firstWord(d.displayName),
     });
   }
@@ -423,7 +445,7 @@ export async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<A
       unsubReason: unsubReasons,
       onNextSend: onListener,
       onNextSendCohort: onListener ? "listener" : null,
-      currentFirstName: resolveFirstName(email, d.name, undefined, d.displayName),
+      currentFirstName: resolveFirstName(email, d.name, undefined, d.displayName, "listener"),
       displayNameFirstWord: firstWord(d.displayName),
     });
   }
