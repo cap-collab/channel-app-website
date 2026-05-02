@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import {
+  sendBroadcast1WeekReminderEmail,
   sendBroadcast48HourReminderEmail,
   sendBroadcastReminderEmail,
   sendBroadcast2HourReminderEmail,
@@ -190,6 +191,9 @@ export async function GET(request: NextRequest) {
 
     const now = Date.now();
 
+    // ── Phase -1: 1-week reminders ────────────────────────────────
+    const phaseWeek = await run1WeekReminders(db, now);
+
     // ── Phase 0: 48h reminders ────────────────────────────────────
     const phase0 = await run48hReminders(db, now);
 
@@ -202,8 +206,9 @@ export async function GET(request: NextRequest) {
     // ── Phase 3: Post-broadcast thank you (paused — Cap doesn't want it) ──
     const phase3: PhaseResult = { sent: 0, skipped: 0, errors: [] };
 
-    const allErrors = [...phase0.errors, ...phase1.errors, ...phase2.errors, ...phase3.errors];
+    const allErrors = [...phaseWeek.errors, ...phase0.errors, ...phase1.errors, ...phase2.errors, ...phase3.errors];
 
+    console.log(`[broadcast-emails] Phase -1 (1wk): sent=${phaseWeek.sent}, skipped=${phaseWeek.skipped}`);
     console.log(`[broadcast-emails] Phase 0 (48h): sent=${phase0.sent}, skipped=${phase0.skipped}`);
     console.log(`[broadcast-emails] Phase 1 (24h): sent=${phase1.sent}, skipped=${phase1.skipped}`);
     console.log(`[broadcast-emails] Phase 2 (2h): sent=${phase2.sent}, skipped=${phase2.skipped}`);
@@ -211,6 +216,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      phaseWeek: { sent: phaseWeek.sent, skipped: phaseWeek.skipped },
       phase0: { sent: phase0.sent, skipped: phase0.skipped },
       phase1: { sent: phase1.sent, skipped: phase1.skipped },
       phase2: { sent: phase2.sent, skipped: phase2.skipped },
@@ -221,6 +227,58 @@ export async function GET(request: NextRequest) {
     console.error('Error in broadcast-emails cron:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+// ── Phase -1: 1-week reminders ──────────────────────────────────────
+
+async function run1WeekReminders(db: FirebaseFirestore.Firestore, now: number): Promise<PhaseResult> {
+  const result: PhaseResult = { sent: 0, skipped: 0, errors: [] };
+
+  // Window: 164–172h from now (~6.83–7.16 days; wide enough for 2h cron cycle)
+  const windowStart = Timestamp.fromMillis(now + 164 * 60 * 60 * 1000);
+  const windowEnd = Timestamp.fromMillis(now + 172 * 60 * 60 * 1000);
+
+  const snapshot = await db
+    .collection('broadcast-slots')
+    .where('status', '==', 'scheduled')
+    .where('startTime', '>=', windowStart)
+    .where('startTime', '<=', windowEnd)
+    .get();
+
+  for (const doc of snapshot.docs) {
+    const slot = doc.data();
+
+    if (slot.broadcastType === 'restream') { result.skipped++; continue; }
+    if (slot.reminder1WeekEmailSentAt) { result.skipped++; continue; }
+
+    const showName = slot.showName || 'Your show';
+    const targets = getDjEmailTargets(slot);
+
+    for (const target of targets) {
+      try {
+        const djInfo = await lookupDjInfo(db, target.email);
+        const djTimezone = djInfo.timezone;
+
+        const success = await sendBroadcast1WeekReminderEmail({
+          to: target.email,
+          djName: djInfo.name || target.djName,
+          showName,
+          broadcastUrl: '',
+          profileUrl: null,
+          startTime: formatDate(target.startTime, djTimezone),
+          timeRange: formatTimeRange(target.startTime, target.endTime, djTimezone),
+        });
+
+        if (success) { result.sent++; } else { result.errors.push(`Failed to send 1-week reminder to ${target.email}`); }
+      } catch (error) {
+        result.errors.push(`Error sending 1-week reminder to ${target.email}: ${error}`);
+      }
+    }
+
+    await doc.ref.update({ reminder1WeekEmailSentAt: now });
+  }
+
+  return result;
 }
 
 // ── Phase 0: 48h reminders ──────────────────────────────────────────

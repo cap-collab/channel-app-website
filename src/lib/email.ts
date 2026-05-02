@@ -832,6 +832,68 @@ export async function sendBroadcast48HourReminderEmail({
   }
 }
 
+// ── 1-Week Reminder Email ───────────────────────────────────────────
+
+export async function sendBroadcast1WeekReminderEmail({
+  to,
+  djName,
+  showName,
+  startTime,
+  timeRange,
+}: BroadcastReminderEmailParams) {
+  if (!resend) {
+    console.warn("Email service not configured - skipping email");
+    return false;
+  }
+
+  const content = `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f5f5; border-radius: 0; border: 1px solid #e5e5e5;">
+      <tr>
+        <td style="padding: 32px;">
+          <p style="margin: 0 0 16px; font-size: 16px; color: #1a1a1a;">
+            Hi ${djName},
+          </p>
+          <p style="margin: 0 0 20px; font-size: 16px; color: #1a1a1a;">
+            Quick reminder — you're live on Channel in 1 week.
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #ffffff; border: 1px solid #e5e5e5;">
+            <tr>
+              <td style="padding: 16px;">
+                <p style="margin: 0 0 4px; font-size: 16px; font-weight: 700; color: #1a1a1a;">${showName}</p>
+                <p style="margin: 0 0 2px; font-size: 14px; color: #666;">${startTime}</p>
+                <p style="margin: 0; font-size: 14px; color: #666;">${timeRange}</p>
+              </td>
+            </tr>
+          </table>
+          <p style="margin: 24px 0 0; font-size: 14px; color: #1a1a1a;">
+            Cap
+          </p>
+        </td>
+      </tr>
+    </table>
+  `;
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_EMAIL_DJ,
+      to,
+      subject: `Your show is in 1 week`,
+      html: wrapEmailContent(content, "You're receiving this because you have a scheduled show on Channel Radio."),
+      headers: getUnsubscribeHeaders("dj"),
+    });
+
+    if (error) {
+      console.error("Error sending broadcast 1-week reminder email:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error sending broadcast 1-week reminder email:", error);
+    return false;
+  }
+}
+
 export async function sendBroadcastReminderEmail({
   to,
   djName,
