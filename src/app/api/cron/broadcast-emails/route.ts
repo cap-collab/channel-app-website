@@ -199,8 +199,8 @@ export async function GET(request: NextRequest) {
     // ── Phase 2: 2h reminders ─────────────────────────────────────
     const phase2 = await run2hReminders(db, now);
 
-    // ── Phase 3: Post-broadcast thank you ─────────────────────────
-    const phase3 = await runPostBroadcast(db, now);
+    // ── Phase 3: Post-broadcast thank you (paused — Cap doesn't want it) ──
+    const phase3: PhaseResult = { sent: 0, skipped: 0, errors: [] };
 
     const allErrors = [...phase0.errors, ...phase1.errors, ...phase2.errors, ...phase3.errors];
 
@@ -395,8 +395,9 @@ async function run2hReminders(db: FirebaseFirestore.Firestore, now: number): Pro
   return result;
 }
 
-// ── Phase 3: Post-broadcast thank you ───────────────────────────────
+// ── Phase 3: Post-broadcast thank you (paused — kept for easy re-enable) ─
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function runPostBroadcast(db: FirebaseFirestore.Firestore, now: number): Promise<PhaseResult> {
   const result: PhaseResult = { sent: 0, skipped: 0, errors: [] };
 
