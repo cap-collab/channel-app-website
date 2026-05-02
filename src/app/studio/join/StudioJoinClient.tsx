@@ -135,6 +135,10 @@ export function StudioJoinClient() {
       setErrorMessage('Please enter a valid email address');
       return false;
     }
+    if (!formData.showName?.trim()) {
+      setErrorMessage('Show name is required');
+      return false;
+    }
     if (!formData.setDuration || formData.setDuration < 0.5 || formData.setDuration > 24) {
       setErrorMessage('Set duration must be between 0.5 and 24 hours');
       return false;
@@ -395,13 +399,13 @@ export function StudioJoinClient() {
                 />
               </div>
 
-              {/* Show Name (optional) */}
+              {/* Show Name */}
               <div className="pt-6 border-t border-gray-800">
                 <label
                   htmlFor="showName"
                   className="block text-sm font-medium text-gray-300 mb-2"
                 >
-                  Show Name
+                  Show Name *
                 </label>
                 <input
                   type="text"

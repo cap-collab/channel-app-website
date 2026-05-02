@@ -12,7 +12,8 @@ const resend = process.env.RESEND_API_KEY
 // POST: Create new application
 export async function POST(request: NextRequest) {
   try {
-    const data: DJApplicationFormData = await request.json();
+    const data: DJApplicationFormData & { source?: string } = await request.json();
+    const isShowRequest = data.source === 'show-request';
 
     // Validate required fields
     if (!data.djName?.trim()) {
@@ -57,6 +58,7 @@ export async function POST(request: NextRequest) {
         const fields = [
           `<strong>Curator Name:</strong> ${data.djName}`,
           `<strong>Email:</strong> ${data.email}`,
+          data.showName ? `<strong>Show Name:</strong> ${data.showName}` : null,
           data.city ? `<strong>City:</strong> ${data.city}` : null,
           data.genre ? `<strong>Genre:</strong> ${data.genre}` : null,
           data.onlineRadioShow ? `<strong>Online Radio Show:</strong> ${data.onlineRadioShow}` : null,
@@ -66,10 +68,14 @@ export async function POST(request: NextRequest) {
           data.comments ? `<strong>Comments:</strong> ${data.comments}` : null,
         ].filter(Boolean);
 
+        const subject = isShowRequest
+          ? `New show request: ${data.djName}`
+          : `New Curator Profile Claim: ${data.djName}`;
+
         await resend.emails.send({
           from: 'Channel <djshows@channel-app.com>',
           to: 'cap@channel-app.com',
-          subject: `New Curator Profile Claim: ${data.djName}`,
+          subject,
           html: `<div style="font-family: sans-serif; line-height: 1.6;">${fields.join('<br/>')}</div>`,
         });
       }

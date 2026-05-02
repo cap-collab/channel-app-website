@@ -20,22 +20,14 @@ export function StudioLivestreamClient() {
   const [formData, setFormData] = useState<DJApplicationFormData>({
     djName: '',
     email: '',
-    soundcloud: '',
-    instagram: '',
-    youtube: '',
-    comments: '',
+    showName: '',
   });
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [status, setStatus] = useState<FormStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [showAuthModal, setShowAuthModal] = useState(false);
-  // Track which fields came from DJ profile (to disable them)
-  const [profileFields, setProfileFields] = useState<{
-    djName: boolean;
-    soundcloud: boolean;
-    instagram: boolean;
-    youtube: boolean;
-  }>({ djName: false, soundcloud: false, instagram: false, youtube: false });
+  // Track whether djName came from the DJ profile (to disable it)
+  const [djNameFromProfile, setDjNameFromProfile] = useState(false);
 
   // Pre-fill form with user data when logged in
   useEffect(() => {
@@ -43,12 +35,11 @@ export function StudioLivestreamClient() {
       setFormData((prev) => ({
         ...prev,
         email: user.email || prev.email,
-        djName: prev.djName,
       }));
     }
   }, [user]);
 
-  // Fetch DJ profile to pre-fill form (for DJ users)
+  // Fetch DJ profile to pre-fill curator name
   useEffect(() => {
     async function fetchDJProfile() {
       if (!user || !db || !userIsDJ) return;
@@ -60,22 +51,12 @@ export function StudioLivestreamClient() {
         if (userSnap.exists()) {
           const data = userSnap.data();
           const chatUsername = data.chatUsername;
-          const socialLinks = data.djProfile?.socialLinks || {};
 
           setFormData((prev) => ({
             ...prev,
             djName: chatUsername || prev.djName,
-            soundcloud: socialLinks.soundcloud || prev.soundcloud,
-            instagram: socialLinks.instagram || prev.instagram,
-            youtube: socialLinks.youtube || prev.youtube,
           }));
-
-          setProfileFields({
-            djName: !!chatUsername,
-            soundcloud: !!socialLinks.soundcloud,
-            instagram: !!socialLinks.instagram,
-            youtube: !!socialLinks.youtube,
-          });
+          setDjNameFromProfile(!!chatUsername);
         }
       } catch (error) {
         console.error('Failed to fetch DJ profile:', error);
@@ -106,6 +87,10 @@ export function StudioLivestreamClient() {
       setErrorMessage('Please enter a valid email address');
       return false;
     }
+    if (!formData.showName?.trim()) {
+      setErrorMessage('Show name is required');
+      return false;
+    }
     if (!agreedToTerms) {
       setErrorMessage('You must agree to the Broadcast Terms to apply');
       return false;
@@ -125,7 +110,11 @@ export function StudioLivestreamClient() {
       const response = await fetch('/api/dj-applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, djTermsAccepted: agreedToTerms }),
+        body: JSON.stringify({
+          ...formData,
+          djTermsAccepted: agreedToTerms,
+          source: 'show-request',
+        }),
       });
 
       if (!response.ok) {
@@ -133,45 +122,17 @@ export function StudioLivestreamClient() {
         throw new Error(data.error || 'Failed to submit application');
       }
 
-      // Save new fields to DJ profile (only if user didn't have them before)
-      if (user && db) {
-        const updates: Record<string, unknown> = {};
-
-        if (!profileFields.djName && formData.djName.trim()) {
-          updates.chatUsername = formData.djName.trim();
-        }
-
-        const socialLinksUpdates: Record<string, string> = {};
-        if (!profileFields.soundcloud && formData.soundcloud?.trim()) {
-          socialLinksUpdates.soundcloud = formData.soundcloud.trim();
-        }
-        if (!profileFields.instagram && formData.instagram?.trim()) {
-          socialLinksUpdates.instagram = formData.instagram.trim();
-        }
-        if (!profileFields.youtube && formData.youtube?.trim()) {
-          socialLinksUpdates.youtube = formData.youtube.trim();
-        }
-
-        if (Object.keys(updates).length > 0 || Object.keys(socialLinksUpdates).length > 0) {
-          try {
-            const userRef = doc(db, 'users', user.uid);
-            const userSnap = await getDoc(userRef);
-            const currentData = userSnap.data();
-            const currentSocialLinks = currentData?.djProfile?.socialLinks || {};
-
-            await setDoc(userRef, {
-              ...updates,
-              djProfile: {
-                ...currentData?.djProfile,
-                socialLinks: {
-                  ...currentSocialLinks,
-                  ...socialLinksUpdates,
-                },
-              },
-            }, { merge: true });
-          } catch (profileError) {
-            console.error('Failed to update DJ profile:', profileError);
-          }
+      // Save curator name to profile if it wasn't already set
+      if (user && db && !djNameFromProfile && formData.djName.trim()) {
+        try {
+          const userRef = doc(db, 'users', user.uid);
+          await setDoc(
+            userRef,
+            { chatUsername: formData.djName.trim() },
+            { merge: true }
+          );
+        } catch (profileError) {
+          console.error('Failed to update DJ profile:', profileError);
         }
       }
 
@@ -277,7 +238,7 @@ export function StudioLivestreamClient() {
 
       <main className="p-4 md:p-8">
         <div className="max-w-2xl mx-auto">
-          <h2 className="text-2xl font-semibold mb-4">Request a live stream slot</h2>
+          <h2 className="text-2xl font-semibold mb-4">Book your next show</h2>
           <p className="text-gray-400 mb-4">
             Apply to schedule a live set on our radio. If you&apos;re unsure about your setup, check the{' '}
             <Link href="/streaming-guide" className="text-white underline hover:text-gray-300 transition-colors">
@@ -306,7 +267,7 @@ export function StudioLivestreamClient() {
                 value={formData.djName}
                 onChange={handleInputChange}
                 placeholder="Your curator name"
-                disabled={profileFields.djName}
+                disabled={djNameFromProfile}
                 className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
@@ -331,84 +292,22 @@ export function StudioLivestreamClient() {
               />
             </div>
 
-            {/* Social Links */}
-            <div className="space-y-4 pt-4">
-              <p className="text-sm text-gray-500">Social links (optional)</p>
-
-              <div>
-                <label
-                  htmlFor="soundcloud"
-                  className="block text-sm font-medium text-gray-300 mb-2"
-                >
-                  SoundCloud
-                </label>
-                <input
-                  type="text"
-                  id="soundcloud"
-                  name="soundcloud"
-                  value={formData.soundcloud}
-                  onChange={handleInputChange}
-                  placeholder="https://soundcloud.com/yourname"
-                  disabled={profileFields.soundcloud}
-                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="instagram"
-                  className="block text-sm font-medium text-gray-300 mb-2"
-                >
-                  Instagram
-                </label>
-                <input
-                  type="text"
-                  id="instagram"
-                  name="instagram"
-                  value={formData.instagram}
-                  onChange={handleInputChange}
-                  placeholder="@yourhandle"
-                  disabled={profileFields.instagram}
-                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="youtube"
-                  className="block text-sm font-medium text-gray-300 mb-2"
-                >
-                  YouTube
-                </label>
-                <input
-                  type="text"
-                  id="youtube"
-                  name="youtube"
-                  value={formData.youtube}
-                  onChange={handleInputChange}
-                  placeholder="https://youtube.com/@yourname"
-                  disabled={profileFields.youtube}
-                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                />
-              </div>
-            </div>
-
-            {/* Comments */}
-            <div className="pt-6">
+            {/* Show Name */}
+            <div>
               <label
-                htmlFor="comments"
+                htmlFor="showName"
                 className="block text-sm font-medium text-gray-300 mb-2"
               >
-                Comments (optional)
+                Show Name *
               </label>
-              <textarea
-                id="comments"
-                name="comments"
-                value={formData.comments}
+              <input
+                type="text"
+                id="showName"
+                name="showName"
+                value={formData.showName}
                 onChange={handleInputChange}
-                placeholder="Anything else you'd like us to know about your set, style, or availability?"
-                rows={4}
-                className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors resize-none"
+                placeholder="Name of your show or set"
+                className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
               />
             </div>
 
@@ -463,7 +362,7 @@ export function StudioLivestreamClient() {
                   Submitting...
                 </>
               ) : (
-                'Apply'
+                'Submit'
               )}
             </button>
           </form>

@@ -76,4 +76,5 @@ export interface DJApplicationFormData {
   genre?: string;
   onlineRadioShow?: string;
   djTermsAccepted?: boolean;
+  source?: string;
 }
