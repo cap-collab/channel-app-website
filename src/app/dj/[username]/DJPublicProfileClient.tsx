@@ -1855,18 +1855,18 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                   {/* Body: image left + info right */}
                   <div className="p-3 flex items-start gap-3">
                     {showImage && (
-                      <div className="w-20 h-20 bg-zinc-800 flex-shrink-0 overflow-hidden">
+                      <div className="w-24 h-24 bg-zinc-800 flex-shrink-0 overflow-hidden">
                         <Image
                           src={showImage}
                           alt={archive.showName}
-                          width={80}
-                          height={80}
+                          width={96}
+                          height={96}
                           className="w-full h-full object-cover"
                           unoptimized
                         />
                       </div>
                     )}
-                    <div className="flex-1 min-w-0 flex flex-col justify-between" style={showImage ? { minHeight: '80px' } : undefined}>
+                    <div className="flex-1 min-w-0 flex flex-col justify-between" style={showImage ? { minHeight: '96px' } : undefined}>
                       <div>
                         <p className="text-sm font-bold text-white uppercase tracking-wide">{archive.showName}</p>
                         {genreText && (
