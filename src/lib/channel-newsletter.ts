@@ -101,7 +101,7 @@ export function resolveFirstName(
   name?: string,
   chatUsername?: string,
   displayName?: string,
-  cohort?: Cohort,
+  _cohort?: Cohort,
 ): string {
   const override = FIRST_NAME_OVERRIDES[email];
   if (override) return override;
@@ -110,15 +110,9 @@ export function resolveFirstName(
   const cleanDisplay = displayName?.trim() ? displayName.trim().split(/\s+/)[0] : "";
   const cleanChat = chatUsername?.trim() ? chatUsername.trim() : "";
 
-  // DJs: prefer chatUsername (their public DJ name) over name/displayName fields,
-  // which are often empty, set to email handles, or otherwise unsuitable.
-  // Listeners: stick with the name → displayName → chatUsername chain.
-  let resolved: string;
-  if (cohort === "dj") {
-    resolved = cleanChat || cleanName || cleanDisplay || "there";
-  } else {
-    resolved = cleanName || cleanDisplay || cleanChat || "there";
-  }
+  // Priority: name → displayName → chatUsername (used as last-resort fallback
+  // for DJs who never set a real name). Same chain for both cohorts.
+  const resolved = cleanName || cleanDisplay || cleanChat || "there";
 
   if (resolved === "there") return resolved;
   return capitalize(resolved);
