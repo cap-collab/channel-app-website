@@ -101,7 +101,6 @@ export function resolveFirstName(
   name?: string,
   chatUsername?: string,
   displayName?: string,
-  _cohort?: Cohort,
 ): string {
   const override = FIRST_NAME_OVERRIDES[email];
   if (override) return override;
@@ -258,7 +257,7 @@ export async function getDjRecipients(db: FirebaseFirestore.Firestore): Promise<
     if (data.emailNotifications?.marketing === false) continue;
     out.push({
       email: data.email,
-      name: resolveFirstName(data.email, data.name, data.chatUsername, data.displayName, "dj"),
+      name: resolveFirstName(data.email, data.name, data.chatUsername, data.displayName),
       id: doc.id,
       cohort: "dj",
       djUsername: resolveDjUsername(data),
@@ -277,7 +276,7 @@ export async function getDjRecipients(db: FirebaseFirestore.Firestore): Promise<
     seenEmails.add(email);
     out.push({
       email,
-      name: resolveFirstName(email, data.name, data.chatUsername, data.displayName, "dj"),
+      name: resolveFirstName(email, data.name, data.chatUsername, data.displayName),
       id: doc.id,
       cohort: "dj",
       djUsername: resolveDjUsername(data),
@@ -305,7 +304,7 @@ export async function getListenerRecipients(
     seen.add(email);
     out.push({
       email,
-      name: resolveFirstName(email, data.name, data.chatUsername, data.displayName, "listener"),
+      name: resolveFirstName(email, data.name, data.chatUsername, data.displayName),
       id: doc.id,
       cohort: "listener",
     });
@@ -397,7 +396,7 @@ export async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<A
       unsubReason: unsubReasons,
       onNextSend: onDj || onListener,
       onNextSendCohort: onDj ? "dj" : onListener ? "listener" : null,
-      currentFirstName: resolveFirstName(email, d.name, d.chatUsername, d.displayName, role === "dj" ? "dj" : "listener"),
+      currentFirstName: resolveFirstName(email, d.name, d.chatUsername, d.displayName),
       displayNameFirstWord: firstWord(d.displayName),
       djProfileUrl: role === "dj" ? djProfileUrlFor(d) : null,
     });
@@ -425,7 +424,7 @@ export async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<A
       unsubReason: unsubReasons,
       onNextSend: onDj,
       onNextSendCohort: onDj ? "dj" : null,
-      currentFirstName: resolveFirstName(email, d.name, d.chatUsername, d.displayName, "dj"),
+      currentFirstName: resolveFirstName(email, d.name, d.chatUsername, d.displayName),
       displayNameFirstWord: firstWord(d.displayName),
       djProfileUrl: djProfileUrlFor(d),
     });
@@ -453,7 +452,7 @@ export async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<A
       unsubReason: unsubReasons,
       onNextSend: onListener,
       onNextSendCohort: onListener ? "listener" : null,
-      currentFirstName: resolveFirstName(email, d.name, undefined, d.displayName, "listener"),
+      currentFirstName: resolveFirstName(email, d.name, undefined, d.displayName),
       displayNameFirstWord: firstWord(d.displayName),
       djProfileUrl: null,
     });
