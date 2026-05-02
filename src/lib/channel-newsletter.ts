@@ -92,6 +92,13 @@ const EXTRA_LISTENERS: Array<{ email: string; name: string; id: string }> = [
   { email: "jahichambers@gmail.com", name: "Jahi", id: "waitlist-jahi" },
 ];
 
+// Extra DJs — approved applicants who have a show booked but haven't
+// created a `users` account yet. Receives the DJ email; djUsername left
+// undefined so the Channel link falls back to /radio.
+const EXTRA_DJS: Array<{ email: string; name: string; id: string; djUsername?: string }> = [
+  { email: "jaketurpin@minimal.audio", name: "Jake", id: "applicant-jaketurpin", djUsername: "jaketurpin" },
+];
+
 function minifyHtml(html: string): string {
   return html.replace(/\n\s+/g, "\n").replace(/\n+/g, "\n").trim();
 }
@@ -282,6 +289,13 @@ export async function getDjRecipients(db: FirebaseFirestore.Firestore): Promise<
       cohort: "dj",
       djUsername: resolveDjUsername(data),
     });
+  }
+
+  for (const extra of EXTRA_DJS) {
+    if (EXCLUDE_EMAILS.has(extra.email)) continue;
+    if (seenEmails.has(extra.email.toLowerCase())) continue;
+    seenEmails.add(extra.email.toLowerCase());
+    out.push({ ...extra, cohort: "dj" });
   }
   return out;
 }
