@@ -16,7 +16,7 @@ export const NEWSLETTER_LOGO_URL = "https://channel-app.com/logo-black.png";
 export const NEWSLETTER_APP_URL = "https://channel-app.com";
 export const NEWSLETTER_SUBJECTS: Record<Cohort, string> = {
   dj: "Your shows are starting to travel",
-  listener: "New shows on Channel",
+  listener: "New shows on channel",
 };
 
 export function subjectFor(cohort: Cohort): string {
@@ -75,7 +75,7 @@ export const FIRST_NAME_OVERRIDES: Record<string, string> = {
   "nopressure.gng@gmail.com": "Nopressure",
   "notjoshua@gmail.com": "heckadecimal",
   "omar41309@yahoo.com": "Omar",
-  "thinkabtrecords@proton.me": "there",
+  "thinkabtrecords@proton.me": "Ava",
   "grok.tunes@gmail.com": "Myles",
 };
 
@@ -163,13 +163,14 @@ export function buildEmailHtml(
     <p style="margin: 0 0 16px; color: #1a1a1a;">Shows on Channel are starting to travel beyond the platform.</p>
     <p style="margin: 0 0 16px; color: #1a1a1a;">I'm now publishing your shows on YouTube and SoundCloud, with moments shared on IG — all linked back to your profile.</p>
     <p style="margin: 0 0 16px; color: #1a1a1a;">One thing that makes a real difference there is how the show presents itself.</p>
-    <p style="margin: 0 0 16px; color: #1a1a1a;">A strong image and a clear show name go a long way — it's what people see first, and it shapes how your show stands out.</p>
-    <p style="margin: 0 0 16px; color: #1a1a1a;">You can see how it looks here:<br/>
-      Channel: <a href="${djProfileUrl}" style="color: #1a1a1a;">${djProfileUrl}</a><br/>
-      YouTube: <a href="https://youtube.com/@channelrad-io" style="color: #1a1a1a;">https://youtube.com/@channelrad-io</a><br/>
-      SoundCloud: <a href="https://on.soundcloud.com/7jllveVeEPFH5wOeTy" style="color: #1a1a1a;">https://on.soundcloud.com/7jllveVeEPFH5wOeTy</a><br/>
-      IG: <a href="https://www.instagram.com/channelrad.io/" style="color: #1a1a1a;">https://www.instagram.com/channelrad.io/</a>
-    </p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;"><strong>A strong image and a clear show name go a long way.</strong> It's what people see first, and it shapes how your show stands out.</p>
+    <p style="margin: 0 0 8px; color: #1a1a1a;">You can see how it looks here:</p>
+    <ul style="margin: 0 0 16px; padding-left: 20px; color: #1a1a1a;">
+      <li style="margin: 0 0 4px;">channel: <a href="${djProfileUrl}" style="color: #1a1a1a;">${djProfileUrl}</a></li>
+      <li style="margin: 0 0 4px;">YouTube: <a href="https://youtube.com/@channelrad-io" style="color: #1a1a1a;">https://youtube.com/@channelrad-io</a></li>
+      <li style="margin: 0 0 4px;">SoundCloud: <a href="https://on.soundcloud.com/7jllveVeEPFH5wOeTy" style="color: #1a1a1a;">https://on.soundcloud.com/7jllveVeEPFH5wOeTy</a></li>
+      <li style="margin: 0;">IG: <a href="https://www.instagram.com/channelrad.io/" style="color: #1a1a1a;">https://www.instagram.com/channelrad.io/</a></li>
+    </ul>
     <p style="margin: 0; color: #1a1a1a;">Cap</p>
   `;
 
@@ -181,7 +182,7 @@ export function buildEmailHtml(
       <span style="font-size: 1.4em; line-height: 1; vertical-align: -0.1em;">✳</span> <a href="https://channel-app.com/radio?star" style="color: #1a1a1a;">https://channel-app.com/radio?star</a>
     </p>
     <p style="margin: 0 0 16px; color: #1a1a1a;">More live shows coming up this week.</p>
-    <p style="margin: 0 0 16px; color: #1a1a1a;">Moments on IG — a good way to get a feel for the sets and find what to dive into:<br/>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">Moments on IG: a good way to get a feel for each show and find what to dive into.<br/>
       <a href="https://www.instagram.com/channelrad.io/" style="color: #1a1a1a;">https://www.instagram.com/channelrad.io/</a>
     </p>
     <p style="margin: 0; color: #1a1a1a;">Cap</p>
