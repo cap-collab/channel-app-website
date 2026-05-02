@@ -348,7 +348,18 @@ export type AuditRow = {
   onNextSendCohort: "dj" | "listener" | null;
   currentFirstName: string;
   displayNameFirstWord: string | null;
+  // For DJ rows, the link Cap will include in the email — either the
+  // personalized /dj/<slug> URL or the /radio fallback if no slug exists.
+  // null for non-DJ rows.
+  djProfileUrl: string | null;
 };
+
+function djProfileUrlFor(data: FirebaseFirestore.DocumentData): string {
+  const slug = resolveDjUsername(data);
+  return slug
+    ? `${NEWSLETTER_APP_URL}/dj/${encodeURIComponent(slug)}`
+    : `${NEWSLETTER_APP_URL}/radio`;
+}
 
 function firstWord(s: string | null | undefined): string | null {
   if (!s) return null;
@@ -393,6 +404,7 @@ export async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<A
       onNextSendCohort: onDj ? "dj" : onListener ? "listener" : null,
       currentFirstName: resolveFirstName(email, d.name, d.chatUsername, d.displayName, role === "dj" ? "dj" : "listener"),
       displayNameFirstWord: firstWord(d.displayName),
+      djProfileUrl: role === "dj" ? djProfileUrlFor(d) : null,
     });
   }
 
@@ -420,6 +432,7 @@ export async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<A
       onNextSendCohort: onDj ? "dj" : null,
       currentFirstName: resolveFirstName(email, d.name, d.chatUsername, d.displayName, "dj"),
       displayNameFirstWord: firstWord(d.displayName),
+      djProfileUrl: djProfileUrlFor(d),
     });
   }
 
@@ -447,10 +460,30 @@ export async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<A
       onNextSendCohort: onListener ? "listener" : null,
       currentFirstName: resolveFirstName(email, d.name, undefined, d.displayName, "listener"),
       displayNameFirstWord: firstWord(d.displayName),
+      djProfileUrl: null,
     });
   }
 
+  // Group order: 1) DJs with profile URL, 2) DJs with /radio fallback,
+  // 3) Users (listeners). Within each group: on-next-send first, then
+  // alphabetical by email. Anyone not on next send (unsubbed/excluded)
+  // sinks to the bottom of their group.
+  const groupOrder = (r: AuditRow): number => {
+    if (r.onNextSendCohort === "dj") {
+      const isFallback = r.djProfileUrl === `${NEWSLETTER_APP_URL}/radio`;
+      return isFallback ? 1 : 0;
+    }
+    if (r.source === "users-dj" || r.source === "pending-dj") {
+      // DJ row but not on next send (unsubbed/excluded) — keep with DJ groups
+      const isFallback = r.djProfileUrl === `${NEWSLETTER_APP_URL}/radio`;
+      return isFallback ? 1 : 0;
+    }
+    return 2;
+  };
   rows.sort((a, b) => {
+    const ga = groupOrder(a);
+    const gb = groupOrder(b);
+    if (ga !== gb) return ga - gb;
     if (a.onNextSend !== b.onNextSend) return a.onNextSend ? -1 : 1;
     return a.email.localeCompare(b.email);
   });
@@ -475,31 +508,56 @@ export function buildAuditHtml(rows: AuditRow[]): string {
     "Email",
     "First name (as of now)",
     "displayName first word",
-    "→ Your override",
+    "DJ link in email",
   ];
+  const colCount = headers.length;
   const th = headers
     .map((h) => `<th style="text-align:left;padding:6px 8px;border:1px solid #ddd;font-size:12px;background:#f6f6f6;">${h}</th>`)
     .join("");
-  const trs = rows
-    .map((r) => {
-      const rowBg = r.onNextSend ? "#ffffff" : "#fafafa";
-      const djOrUser =
-        r.source === "users-dj" || r.source === "pending-dj"
-          ? "DJ"
-          : r.source === "waitlist"
-            ? "Waitlist"
-            : "User";
-      const cells = [
-        djOrUser,
-        r.unsubscribed ? "YES" : "",
-        r.email,
-        r.currentFirstName,
-        r.displayNameFirstWord ?? "",
-        "",
-      ];
-      return `<tr style="background:${rowBg};">${cells.map((c) => `<td style="padding:6px 8px;border:1px solid #ddd;font-size:12px;vertical-align:top;">${escapeHtml(String(c))}</td>`).join("")}</tr>`;
-    })
-    .join("");
+
+  const djsWithProfile = rows.filter((r) => (r.source === "users-dj" || r.source === "pending-dj") && r.djProfileUrl && !r.djProfileUrl.endsWith("/radio"));
+  const djsWithRadio = rows.filter((r) => (r.source === "users-dj" || r.source === "pending-dj") && r.djProfileUrl && r.djProfileUrl.endsWith("/radio"));
+  const users = rows.filter((r) => r.source === "users-non-dj" || r.source === "waitlist");
+
+  const renderRow = (r: AuditRow): string => {
+    const rowBg = r.onNextSend ? "#ffffff" : "#fafafa";
+    const djOrUser =
+      r.source === "users-dj" || r.source === "pending-dj"
+        ? "DJ"
+        : r.source === "waitlist"
+          ? "Waitlist"
+          : "User";
+    const linkCell = r.djProfileUrl
+      ? `<a href="${escapeHtml(r.djProfileUrl)}" style="color:#0070f3;text-decoration:none;">${escapeHtml(r.djProfileUrl.replace(/^https?:\/\//, ""))}</a>`
+      : "";
+    const cells = [
+      djOrUser,
+      r.unsubscribed ? "YES" : "",
+      r.email,
+      r.currentFirstName,
+      r.displayNameFirstWord ?? "",
+      linkCell,
+    ];
+    return `<tr style="background:${rowBg};">${cells
+      .map((c, i) =>
+        i === 5
+          ? `<td style="padding:6px 8px;border:1px solid #ddd;font-size:12px;vertical-align:top;">${c}</td>`
+          : `<td style="padding:6px 8px;border:1px solid #ddd;font-size:12px;vertical-align:top;">${escapeHtml(String(c))}</td>`,
+      )
+      .join("")}</tr>`;
+  };
+
+  const sectionHeader = (label: string, count: number): string =>
+    `<tr><td colspan="${colCount}" style="padding:10px 8px;border:1px solid #ddd;background:#222;color:#fff;font-size:12px;font-weight:bold;letter-spacing:0.04em;">${escapeHtml(label)} (${count})</td></tr>`;
+
+  const trs =
+    sectionHeader("1 · DJs with profile URL", djsWithProfile.length) +
+    djsWithProfile.map(renderRow).join("") +
+    sectionHeader("2 · DJs without profile (will use /radio)", djsWithRadio.length) +
+    djsWithRadio.map(renderRow).join("") +
+    sectionHeader("3 · Users (listeners)", users.length) +
+    users.map(renderRow).join("");
+
   return `<!DOCTYPE html><html><body style="font-family:-apple-system,Arial,sans-serif;color:#111;">
     <h2 style="margin:0 0 8px;">Channel newsletter recipient audit</h2>
     <p style="margin:0 0 16px;font-size:13px;color:#555;">
