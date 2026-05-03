@@ -4,11 +4,13 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components/Header';
-import { DJApplicationFormData } from '@/types/dj-application';
+import { DJApplicationFormData, TimeSlot } from '@/types/dj-application';
+import { TimeSlotPicker } from '@/components/dj-portal/TimeSlotPicker';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isDJ } from '@/hooks/useUserRole';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+
 
 type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
 
@@ -22,6 +24,9 @@ export function StudioLivestreamClient() {
     djName: '',
     email: '',
     showName: '',
+    setDuration: 2,
+    preferredSlots: [],
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   });
   const [status, setStatus] = useState<FormStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
@@ -84,6 +89,18 @@ export function StudioLivestreamClient() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleDurationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = parseFloat(e.target.value);
+    if (isNaN(rawValue)) return;
+    const roundedValue = Math.round(rawValue * 2) / 2;
+    const clampedValue = Math.max(0.5, Math.min(24, roundedValue));
+    setFormData((prev) => ({ ...prev, setDuration: clampedValue }));
+  };
+
+  const handleSlotsChange = (slots: TimeSlot[]) => {
+    setFormData((prev) => ({ ...prev, preferredSlots: slots }));
+  };
+
   const validateForm = (): boolean => {
     if (!formData.djName.trim()) {
       setErrorMessage('Curator name is required');
@@ -100,6 +117,14 @@ export function StudioLivestreamClient() {
     }
     if (!formData.showName?.trim()) {
       setErrorMessage('Show name is required');
+      return false;
+    }
+    if (!formData.setDuration || formData.setDuration < 0.5 || formData.setDuration > 24) {
+      setErrorMessage('Set duration must be between 0.5 and 24 hours');
+      return false;
+    }
+    if (!formData.preferredSlots || formData.preferredSlots.length === 0) {
+      setErrorMessage('Please select at least one preferred time slot');
       return false;
     }
     return true;
@@ -282,6 +307,48 @@ export function StudioLivestreamClient() {
                 onChange={handleInputChange}
                 placeholder="Name of your show or set"
                 className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
+              />
+            </div>
+
+            {/* Set Duration */}
+            <div>
+              <label
+                htmlFor="setDuration"
+                className="block text-sm font-medium text-gray-300 mb-2"
+              >
+                Set Duration (hours) *
+              </label>
+              <p className="text-sm text-gray-500 mb-3">
+                How long will your set be? All your preferred time slots will use this duration.
+              </p>
+              <div className="flex items-center gap-4">
+                <input
+                  type="number"
+                  id="setDuration"
+                  name="setDuration"
+                  value={formData.setDuration}
+                  onChange={handleDurationChange}
+                  min={0.5}
+                  max={24}
+                  step={0.5}
+                  className="w-32 px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors text-center"
+                />
+                <span className="text-gray-400">hours</span>
+              </div>
+            </div>
+
+            {/* Time Slot Picker */}
+            <div className="pt-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Preferred Set Times *
+              </label>
+              <p className="text-sm text-gray-500 mb-4">
+                Click a start time to add a {formData.setDuration}-hour slot. Click again to remove it.
+              </p>
+              <TimeSlotPicker
+                selectedSlots={formData.preferredSlots || []}
+                onChange={handleSlotsChange}
+                setDuration={formData.setDuration || 2}
               />
             </div>
 
