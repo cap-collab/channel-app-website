@@ -77,6 +77,22 @@ export function useDJProfileInfo(username: string | undefined): DJProfileInfo {
           setPhotoUrl(data.djProfile?.photoUrl || null);
           setBio(data.djProfile?.bio || null);
           setLocation(data.djProfile?.location || null);
+          return;
+        }
+
+        // Final fallback: collectives (share the /dj/<slug> namespace).
+        // Match by slug — collectives don't have a chatUsernameNormalized field.
+        const collectivesRef = collection(db!, 'collectives');
+        const collectivesQ = query(collectivesRef, where('slug', '==', normalized));
+        const collectivesSnapshot = await getDocs(collectivesQ);
+
+        if (!collectivesSnapshot.empty && !cancelled) {
+          const data = collectivesSnapshot.docs[0].data();
+          setGenres(data.genres || []);
+          setTipButtonLink(data.tipButtonLink || null);
+          setPhotoUrl(data.photo || null);
+          setBio(data.description || null);
+          setLocation(data.location || null);
         }
       } catch {
         // Silently fail — genres/tip are non-critical
