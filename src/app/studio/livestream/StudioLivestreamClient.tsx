@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Header } from '@/components/Header';
 import { DJApplicationFormData } from '@/types/dj-application';
-import { AuthModal } from '@/components/AuthModal';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isDJ } from '@/hooks/useUserRole';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
@@ -13,7 +13,8 @@ import { db } from '@/lib/firebase';
 type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
 
 export function StudioLivestreamClient() {
-  const { user, isAuthenticated } = useAuthContext();
+  const router = useRouter();
+  const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const { role, loading: roleLoading } = useUserRole(user);
   const userIsDJ = isDJ(role);
 
@@ -22,12 +23,22 @@ export function StudioLivestreamClient() {
     email: '',
     showName: '',
   });
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [status, setStatus] = useState<FormStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
-  const [showAuthModal, setShowAuthModal] = useState(false);
   // Track whether djName came from the DJ profile (to disable it)
   const [djNameFromProfile, setDjNameFromProfile] = useState(false);
+
+  // Redirect non-DJs (logged out or logged in without DJ role) to /studio/join
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      router.replace('/studio/join');
+      return;
+    }
+    if (!roleLoading && !userIsDJ) {
+      router.replace('/studio/join');
+    }
+  }, [authLoading, isAuthenticated, roleLoading, userIsDJ, router]);
 
   // Pre-fill form with user data when logged in
   useEffect(() => {
@@ -91,10 +102,6 @@ export function StudioLivestreamClient() {
       setErrorMessage('Show name is required');
       return false;
     }
-    if (!agreedToTerms) {
-      setErrorMessage('You must agree to the Broadcast Terms to apply');
-      return false;
-    }
     return true;
   };
 
@@ -112,7 +119,6 @@ export function StudioLivestreamClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          djTermsAccepted: agreedToTerms,
           source: 'show-request',
         }),
       });
@@ -186,8 +192,8 @@ export function StudioLivestreamClient() {
     );
   }
 
-  // Show loading state while checking user role
-  if (isAuthenticated && roleLoading) {
+  // Show spinner while resolving auth/role, or while redirecting non-DJs to /studio/join
+  if (authLoading || !isAuthenticated || roleLoading || !userIsDJ) {
     return (
       <div className="min-h-screen bg-black">
         <Header currentPage="studio" position="sticky" />
@@ -196,38 +202,6 @@ export function StudioLivestreamClient() {
             <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           </div>
         </div>
-      </div>
-    );
-  }
-
-  // Not a DJ - redirect them to join
-  if (!userIsDJ) {
-    return (
-      <div className="min-h-screen bg-black">
-        <Header currentPage="studio" position="sticky" />
-        <main className="p-4 md:p-8">
-          <div className="max-w-2xl mx-auto text-center py-20">
-            <p className="text-gray-500 mb-4">
-              Livestream slots are only available to approved artists.
-            </p>
-            <p className="text-gray-600 text-sm mb-6">
-              Want to broadcast on Channel?
-            </p>
-            <Link
-              href="/studio/join"
-              className="bg-white text-black px-6 py-3 rounded font-medium hover:bg-gray-100 transition-colors inline-block"
-            >
-              Claim your curator profile
-            </Link>
-          </div>
-        </main>
-
-        <AuthModal
-          isOpen={showAuthModal}
-          onClose={() => setShowAuthModal(false)}
-          message="Sign in to create your artist profile"
-          includeDjTerms
-        />
       </div>
     );
   }
@@ -311,37 +285,15 @@ export function StudioLivestreamClient() {
               />
             </div>
 
-            {/* Terms Agreement */}
-            <div className="pt-6 border-t border-gray-800">
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={agreedToTerms}
-                  onChange={(e) => setAgreedToTerms(e.target.checked)}
-                  className="mt-1 w-5 h-5 rounded border-gray-700 bg-[#1a1a1a] text-white focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                />
-                <span className="text-sm text-gray-300">
-                  I have read and agree to the{' '}
-                  <Link
-                    href="/dj-terms"
-                    target="_blank"
-                    className="text-white underline hover:text-gray-300"
-                  >
-                    Channel Radio Terms for Artists &amp; Broadcasters
-                  </Link>
-                  , including responsibilities for content rights, licensing, and venue authorization. *
-                </span>
-              </label>
-              <p className="text-sm text-gray-500 leading-relaxed mt-4">
-                If you have questions or aren&apos;t sure whether your setup works, reach out at{' '}
-                <a
-                  href="mailto:info@channel-app.com"
-                  className="text-white hover:underline"
-                >
-                  info@channel-app.com
-                </a>
-              </p>
-            </div>
+            <p className="text-sm text-gray-500 leading-relaxed pt-4">
+              Questions? Reach out at{' '}
+              <a
+                href="mailto:info@channel-app.com"
+                className="text-white hover:underline"
+              >
+                info@channel-app.com
+              </a>
+            </p>
 
             {/* Error message */}
             {errorMessage && (
