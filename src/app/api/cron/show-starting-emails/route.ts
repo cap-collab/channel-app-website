@@ -51,6 +51,12 @@ interface LiveShow {
   djHasEmail?: boolean;
   djUserId?: string; // Firebase UID of the DJ — used to skip sending them their own "go live" email
   streamingUrl?: string;
+  // For collective broadcasts: the chatUsernameNormalized of each owner. We
+  // expand watchlist matching to cover any of these so a follower of one
+  // owner gets notified when the collective is live, and we skip emailing
+  // any of them about their own collective's broadcast.
+  collectiveOwnerUsernames?: string[];
+  collectiveOwnerUserIds?: string[];
 }
 
 const STATION_NAMES: Record<string, string> = {
@@ -139,6 +145,36 @@ export async function GET(request: NextRequest) {
       if (data.broadcastType === "restream") continue;
       // Skip channelbroadcast shows (test broadcasts) — no notifications
       if (data.djUsername === "channelbroadcast") continue;
+
+      // Collective fan-out: when the slot's djUsername matches a collective
+      // slug, pull the owners so we can (a) widen watchlist matching to any
+      // owner and (b) skip sending owners their own collective's email.
+      let collectiveOwnerUsernames: string[] | undefined;
+      let collectiveOwnerUserIds: string[] | undefined;
+      const slug = (data.djUsername as string | undefined) || undefined;
+      if (slug) {
+        const collectives = await queryCollection(
+          "collectives",
+          [{ field: "slug", op: "EQUAL", value: slug }],
+          1,
+        );
+        if (collectives.length > 0) {
+          const ownerUids = (collectives[0].data.owners as string[] | undefined) || [];
+          if (ownerUids.length > 0) {
+            collectiveOwnerUserIds = ownerUids;
+            const usernames: string[] = [];
+            // queryCollection doesn't support __name__ in; fetch each owner.
+            for (const uid of ownerUids) {
+              const u = await getUser(uid);
+              const cu = (u?.chatUsernameNormalized as string | undefined)
+                || (u?.chatUsername as string | undefined);
+              if (cu) usernames.push(cu);
+            }
+            if (usernames.length > 0) collectiveOwnerUsernames = usernames;
+          }
+        }
+      }
+
       liveShows.push({
         name: data.showName as string,
         dj: data.djName as string | undefined,
@@ -148,6 +184,8 @@ export async function GET(request: NextRequest) {
         showId: `broadcast-${slot.id}`,
         djUsername: data.djUsername as string | undefined,
         djUserId: (data.liveDjUserId as string) || (data.djUserId as string) || undefined,
+        collectiveOwnerUsernames,
+        collectiveOwnerUserIds,
       });
     }
 
@@ -354,12 +392,16 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Check "search" type favorites (watchlist - word boundary match)
+        // Check "search" type favorites (watchlist - word boundary match).
+        // For collective broadcasts we also try each owner's username so a
+        // follower of one owner gets the notification when the collective
+        // is live.
         if (!matched) {
           for (const term of searchTerms) {
             if (
               wordBoundaryMatch(show.name, term) ||
-              (show.dj && wordBoundaryMatch(show.dj, term))
+              (show.dj && wordBoundaryMatch(show.dj, term)) ||
+              (show.collectiveOwnerUsernames && show.collectiveOwnerUsernames.some(u => wordBoundaryMatch(u, term)))
             ) {
               matched = true;
               break;
@@ -369,11 +411,16 @@ export async function GET(request: NextRequest) {
 
         if (!matched) continue;
 
-        // Only notify when the DJ is a Channel user (has a linked account)
-        if (!show.djUserId) continue;
+        // Only notify when the DJ is a Channel user (has a linked account).
+        // For collectives, "Channel user" means the collective has at least
+        // one owner with a UID — the broadcast itself may not have a single
+        // djUserId since any owner can claim the slot.
+        if (!show.djUserId && !(show.collectiveOwnerUserIds && show.collectiveOwnerUserIds.length > 0)) continue;
 
-        // Don't email the DJ about their own live show
+        // Don't email the DJ about their own live show. For collectives,
+        // skip every owner of the collective.
         if (show.djUserId === userId) continue;
+        if (show.collectiveOwnerUserIds && show.collectiveOwnerUserIds.includes(userId)) continue;
 
         // Dedup: skip if we already emailed about this exact show occurrence
         if (lastShowStartingEmailAt[show.showId]) {

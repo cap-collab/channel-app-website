@@ -45,8 +45,12 @@ function toMillis(t: unknown): number {
   return t as number;
 }
 
-// Extract email targets from a broadcast slot (handles single-DJ and multi-DJ venue slots)
-function getDjEmailTargets(slot: FirebaseFirestore.DocumentData): EmailTarget[] {
+// Extract email targets from a broadcast slot (handles single-DJ, multi-DJ
+// venue slots, and collective slots — fanning out to each owner's email).
+async function getDjEmailTargets(
+  db: FirebaseFirestore.Firestore,
+  slot: FirebaseFirestore.DocumentData,
+): Promise<EmailTarget[]> {
   const targets: EmailTarget[] = [];
 
   if (slot.djSlots && Array.isArray(slot.djSlots) && slot.djSlots.length > 0) {
@@ -70,7 +74,52 @@ function getDjEmailTargets(slot: FirebaseFirestore.DocumentData): EmailTarget[] 
     });
   }
 
-  return targets;
+  // Collective fan-out: when the slot's djUsername resolves to a collective
+  // slug, ALSO email each owner individually. The owner UIDs are looked up in
+  // the users collection to get their email + display name. This runs even
+  // when the flat-DJ branch above already produced a target — collectives
+  // sharing a slug with the primary DJ doesn't double-email because we
+  // dedupe on email at the end.
+  const candidateSlug = (slot.djUsername || slot.liveDjUsername) as string | undefined;
+  if (candidateSlug) {
+    const collectivesSnap = await db.collection('collectives')
+      .where('slug', '==', candidateSlug)
+      .limit(1)
+      .get();
+    if (!collectivesSnap.empty) {
+      const cData = collectivesSnap.docs[0].data();
+      const ownerUids: string[] = Array.isArray(cData.owners) ? cData.owners : [];
+      const startTime = toMillis(slot.startTime);
+      const endTime = toMillis(slot.endTime);
+      for (let i = 0; i < ownerUids.length; i += 10) {
+        const chunk = ownerUids.slice(i, i + 10);
+        if (chunk.length === 0) continue;
+        const ownersSnap = await db.collection('users')
+          .where('__name__', 'in', chunk)
+          .get();
+        ownersSnap.forEach(uDoc => {
+          const data = uDoc.data();
+          if (typeof data.email === 'string' && data.email.length > 0) {
+            targets.push({
+              email: data.email,
+              djName: data.chatUsername || data.name || data.displayName || 'there',
+              startTime,
+              endTime,
+              djUsername: data.chatUsernameNormalized || undefined,
+            });
+          }
+        });
+      }
+    }
+  }
+
+  // Dedupe by email (case-insensitive). Last write wins, which is fine
+  // because all entries for the same email carry the same start/end time.
+  const seen = new Map<string, EmailTarget>();
+  for (const t of targets) {
+    seen.set(t.email.toLowerCase(), t);
+  }
+  return Array.from(seen.values());
 }
 
 interface DjInfo {
@@ -252,7 +301,7 @@ async function run1WeekReminders(db: FirebaseFirestore.Firestore, now: number): 
     if (slot.reminder1WeekEmailSentAt) { result.skipped++; continue; }
 
     const showName = slot.showName || 'Your show';
-    const targets = getDjEmailTargets(slot);
+    const targets = await getDjEmailTargets(db, slot);
 
     for (const target of targets) {
       try {
@@ -304,7 +353,7 @@ async function run48hReminders(db: FirebaseFirestore.Firestore, now: number): Pr
     if (slot.reminder48hEmailSentAt) { result.skipped++; continue; }
 
     const showName = slot.showName || 'Your show';
-    const targets = getDjEmailTargets(slot);
+    const targets = await getDjEmailTargets(db, slot);
 
     for (const target of targets) {
       try {
@@ -359,7 +408,7 @@ async function run24hReminders(db: FirebaseFirestore.Firestore, now: number): Pr
 
     const showName = slot.showName || 'Your show';
     const broadcastUrl = `${APP_URL}/broadcast/live?token=${slot.broadcastToken}`;
-    const targets = getDjEmailTargets(slot);
+    const targets = await getDjEmailTargets(db, slot);
 
     for (const target of targets) {
       try {
@@ -424,7 +473,7 @@ async function run2hReminders(db: FirebaseFirestore.Firestore, now: number): Pro
 
     const showName = slot.showName || 'Your show';
     const broadcastUrl = `${APP_URL}/broadcast/live?token=${slot.broadcastToken}`;
-    const targets = getDjEmailTargets(slot);
+    const targets = await getDjEmailTargets(db, slot);
 
     for (const target of targets) {
       try {
@@ -476,7 +525,7 @@ async function runPostBroadcast(db: FirebaseFirestore.Firestore, now: number): P
     if (slot.broadcastType === 'restream') { result.skipped++; continue; }
     if (slot.postBroadcastEmailSentAt) { result.skipped++; continue; }
 
-    const targets = getDjEmailTargets(slot);
+    const targets = await getDjEmailTargets(db, slot);
 
     for (const target of targets) {
       try {
