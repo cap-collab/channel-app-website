@@ -82,7 +82,7 @@ export default {
       // R2 returns the range info in the object
       if (range && 'offset' in range) {
         const offset = range.offset ?? 0;
-        const length = range.length ?? object.size;
+        const length = range.length ?? (object.size - offset);
         headers.set('Content-Range', `bytes ${offset}-${offset + length - 1}/${object.size}`);
         headers.set('Content-Length', String(length));
       } else if (range && 'suffix' in range) {
